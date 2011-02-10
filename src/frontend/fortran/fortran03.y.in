@@ -139,6 +139,23 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
    return result;
 }
 
+static void append_statement_to_block(AST block, AST stmt)
+{
+    if (ASTType(block) == AST_EMPTY_STATEMENT)
+    {
+        ast_set_type(block, AST_COMPOUND_STATEMENT);
+        ast_set_child(block, 0, ASTListLeaf(stmt));
+    }
+    else if (ASTType(block) == AST_COMPOUND_STATEMENT)
+    {
+        ast_set_child(block, 0, ast_list_concat(ASTSon0(block), ASTListLeaf(stmt)));
+    }
+    else
+    {
+        internal_error("Invalid tree %s\n", ast_print_node_type(ASTType(block)));
+    }
+}
+
 %}
 
 // Rules
@@ -2872,8 +2889,8 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
         do_statement = ASTSon1(do_statement);
     }
 
-    AST block = ast_list_concat($2, ASTListLeaf($3));
-    ast_set_child(do_statement, 1, block);
+    append_statement_to_block($2, $3);
+    ast_set_child(do_statement, 1, $2);
 
     $$ = $1;
 }
@@ -2893,8 +2910,8 @@ outer_shared_do_construct : label_do_stmt block shared_term_do_construct
         do_statement = ASTSon1(do_statement);
     }
 
-    AST block = ast_list_concat($2, ASTListLeaf($3));
-    ast_set_child(do_statement, 1, block);
+    append_statement_to_block($2, $3);
+    ast_set_child(do_statement, 1, $2);
 
     $$ = $1;
 }
@@ -2907,8 +2924,8 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
         do_statement = ASTSon1(do_statement);
     }
 
-    AST block = ast_list_concat($2, ASTListLeaf($3));
-    ast_set_child(do_statement, 1, block);
+    append_statement_to_block($2, $3);
+    ast_set_child(do_statement, 1, $2);
 
     $$ = $1;
 }
@@ -2924,8 +2941,8 @@ inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
         do_statement = ASTSon1(do_statement);
     }
 
-    AST block = ast_list_concat($2, ASTListLeaf($3));
-    ast_set_child(do_statement, 1, block);
+    append_statement_to_block($2, $3);
+    ast_set_child(do_statement, 1, $2);
 
     $$ = $1;
 }

@@ -262,3 +262,15 @@ char basic_type_is_void(type_t* t)
     else
         return 0;
 }
+
+char is_fortran_array_type(type_t* t)
+{
+    return is_array_type(t)
+        && !is_fortran_character_type(t);
+}
+
+char is_pointer_to_fortran_array_type(type_t* t)
+{
+    return is_pointer_type(t)
+        && is_fortran_array_type(pointer_type_get_pointee_type(t));
+}

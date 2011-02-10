@@ -106,6 +106,7 @@ static void clear_unknown_symbols(void)
     }
 
     free(unknown_symbols);
+    unknown_symbols = NULL;
     num_unknown_symbols = 0;
 }
 
@@ -227,7 +228,8 @@ static void build_scope_main_program_unit(AST program_unit,
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
 
-    insert_entry(program_unit_context.current_scope->contained_in, program_sym);
+    insert_alias(program_unit_context.current_scope->contained_in, program_sym,
+            strappend("._", program_sym->symbol_name));
 
     program_sym->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = program_sym;
@@ -263,7 +265,8 @@ static void build_scope_function_program_unit(AST program_unit,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
 
-    insert_entry(program_unit_context.current_scope->contained_in, new_entry);
+    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
+            strappend("._", new_entry->symbol_name));
 
     if (program_unit_symbol != NULL)
         *program_unit_symbol = new_entry;
@@ -310,7 +313,8 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     if (program_unit_symbol != NULL)
         *program_unit_symbol = new_entry;
 
-    insert_entry(program_unit_context.current_scope->contained_in, new_entry);
+    insert_alias(program_unit_context.current_scope->contained_in, new_entry,
+            strappend("._", new_entry->symbol_name));
 
     new_entry->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = new_entry;
@@ -397,6 +401,12 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
                 AST declaration_type_spec = ASTSon0(prefix_spec);
                 return_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+
+                if (return_type != NULL)
+                {
+                    entry->entity_specs.is_implicit_basic_type = 0;
+                    entry->type_information = return_type;
+                }
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
             {
@@ -681,6 +691,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WAIT_STATEMENT,               build_scope_wait_stmt,             kind_executable_0    ) \
  STATEMENT_HANDLER(AST_WHERE_CONSTRUCT,              build_scope_where_construct,       kind_executable_0    ) \
  STATEMENT_HANDLER(AST_WHERE_STATEMENT,              build_scope_where_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHILE_STATEMENT,              build_scope_while_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
 
@@ -742,7 +753,8 @@ static char statement_get_kind(AST statement)
             sizeof(build_scope_statement_function[0]),
             build_scope_statement_function_compare);
 
-    ERROR_CONDITION(handler == NULL, "Invalid tree kind %s", ast_print_node_type(ASTType(statement)));
+    ERROR_CONDITION(handler == NULL 
+            || handler->statement_kind == NULL, "Invalid tree kind %s", ast_print_node_type(ASTType(statement)));
 
     return (handler->statement_kind)(statement);
 }
@@ -783,7 +795,7 @@ static void fortran_build_scope_statement(AST statement, decl_context_t decl_con
     if (handler == NULL 
             || handler->handler == NULL)
     {
-        fprintf(stderr, "%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTType(statement)));
+        running_error("%s: sorry: unhandled statement %s\n", ast_location(statement), ast_print_node_type(ASTType(statement)));
     }
     else
     {
@@ -1140,7 +1152,8 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                         sizeof(attr_spec_handler_table[0]),
                         attr_handler_cmp);
 
-                if (handler == NULL)
+                if (handler == NULL 
+                        || handler->handler)
                 {
                     internal_error("Unhandled handler of '%s'\n", ASTText(attr_spec_item));
                 }
@@ -1510,8 +1523,8 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
                 ASTText(name));
     }
     
-    if (is_array_type(entry->type_information)
-            || is_pointer_to_void_type(entry->type_information))
+    if (is_fortran_array_type(entry->type_information)
+            || is_pointer_to_fortran_array_type(entry->type_information))
     {
         running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
                 ast_location(a),
@@ -1554,8 +1567,8 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
                     ASTText(name));
         }
 
-        if (!is_array_type(entry->type_information)
-                && !is_pointer_to_array_type(entry->type_information))
+        if (!is_fortran_array_type(entry->type_information)
+                && !is_pointer_to_fortran_array_type(entry->type_information))
         {
             running_error("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
                     ast_location(name),
@@ -1658,7 +1671,7 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
                 ast_location(ASTSon0(a)));
     }
 
-    if (expression_get_type(expr) != NULL)
+    if (!is_error_type(expression_get_type(expr)))
     {
         expression_set_type(a, expression_get_type(expr));
         expression_set_is_lvalue(a, expression_is_lvalue(a));
@@ -1865,13 +1878,19 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
             AST common_block_object = ASTSon1(it2);
 
             AST name = NULL;
+            AST array_spec = NULL;
             if (ASTType(common_block_object) == AST_SYMBOL)
             {
                 name = common_block_object;
             }
-            else if (ASTType(common_block_item) == AST_DIMENSION_DECL)
+            else if (ASTType(common_block_object) == AST_DIMENSION_DECL)
             {
                 name = ASTSon0(common_block_object);
+                array_spec = ASTSon1(common_block_object);
+            }
+            else
+            {
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(common_block_object)));
             }
 
             scope_entry_t* sym = query_name_spec_stmt(decl_context, name, ASTText(name));
@@ -1885,6 +1904,23 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
 
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
+
+            if (array_spec != NULL)
+            {
+                if (is_fortran_array_type(sym->type_information)
+                        || is_pointer_to_fortran_array_type(sym->type_information))
+                {
+                    running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
+                            ast_location(a),
+                            sym->symbol_name);
+                }
+
+                type_t* array_type = compute_type_from_array_spec(sym->type_information, 
+                        array_spec,
+                        decl_context,
+                        /* array_spec_kind */ NULL);
+                sym->type_information = array_type;
+            }
 
             P_LIST_ADD(common_sym->entity_specs.related_symbols, 
                     common_sym->entity_specs.num_related_symbols,
@@ -2117,8 +2153,8 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
 
         scope_entry_t* entry = query_name_spec_stmt(decl_context, name, ASTText(name));
 
-        if (is_array_type(entry->type_information)
-                || is_pointer_to_array_type(entry->type_information))
+        if (is_fortran_array_type(entry->type_information)
+                || is_pointer_to_fortran_array_type(entry->type_information))
         {
             running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
                     ast_location(name),
@@ -2619,7 +2655,8 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
 
         if (array_spec != NULL)
         {
-            if (is_array_type(entry->type_information))
+            if (is_fortran_array_type(entry->type_information)
+                    || is_pointer_to_fortran_array_type(entry->type_information))
             {
                 running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
                         ast_location(a),
@@ -2854,7 +2891,8 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context)
 
             if (array_spec != NULL)
             {
-                if (is_array_type(entry->type_information))
+                if (is_fortran_array_type(entry->type_information)
+                        || is_pointer_to_fortran_array_type(entry->type_information))
                 {
                     running_error("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
                             ast_location(a),
@@ -2916,7 +2954,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         if (!entry->entity_specs.is_implicit_basic_type)
         {
             running_error("%s: error: entity '%s' already has a basic type\n",
-                    ast_location(declaration),
+                    ast_location(name),
                     entry->symbol_name);
         }
         else
@@ -3164,6 +3202,22 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context UNUSE
 static void build_scope_where_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     unsupported_statement(a, "WHERE");
+}
+
+static void build_scope_while_stmt(AST a, decl_context_t decl_context)
+{
+    AST expr = ASTSon0(a);
+    AST block = ASTSon1(a);
+
+    fortran_check_expression(expr, decl_context);
+
+    if (!is_bool_type(expression_get_type(expr)))
+    {
+        fprintf(stderr, "%s: warning: condition of DO WHILE loop is not a logical expression\n",
+                ast_location(expr));
+    }
+
+    fortran_build_scope_statement(block, decl_context);
 }
 
 static void build_scope_write_stmt(AST a, decl_context_t decl_context)
@@ -3908,8 +3962,8 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
                 {
                     enter_test_expression();
                     index_expr = i;
-                    fortran_check_expression(stmt, decl_context);
-                    ok = !is_error_type(expression_get_type(stmt));
+                    fortran_check_expression(ASTSon0(stmt), decl_context);
+                    ok = !is_error_type(expression_get_type(ASTSon0(stmt)));
                     leave_test_expression();
                     break;
                 }

@@ -625,11 +625,12 @@ static void manage_included_file(
 static void handle_include_directives(prescanner_t* prescanner)
 {
 	static int maximum_nesting_level = 0;
-	// We save actual information
-	line_t* actual_file_lines = file_lines;
-	line_t* actual_last_line = last_line;
-	FILE* actual_input_file = prescanner->input_file;
-	FILE* actual_output_file = prescanner->output_file;
+	// We save current information
+	line_t* current_file_lines = file_lines;
+	line_t* current_last_line = last_line;
+	FILE* current_input_file = prescanner->input_file;
+	FILE* current_output_file = prescanner->output_file;
+    const char* current_filename = prescanner->input_filename;
 	int code;
 
 	regex_t match_include_directive;
@@ -643,8 +644,7 @@ static void handle_include_directives(prescanner_t* prescanner)
 		internal_error("Error when compiling regular expression (%s)\n", error_message);
 	}
 
-
-	line_t* iter = actual_file_lines;
+	line_t* iter = current_file_lines;
 	while (iter != NULL)
 	{
 		if (regexec(&match_include_directive, iter->line, 2, sub_matching, 0) == 0)
@@ -698,10 +698,11 @@ static void handle_include_directives(prescanner_t* prescanner)
 	}
 
 	// We restore saved information
-	file_lines = actual_file_lines;
-	last_line = actual_last_line;
-	prescanner->input_file = actual_input_file;
-	prescanner->output_file = actual_output_file;
+	file_lines = current_file_lines;
+	last_line = current_last_line;
+    prescanner->input_filename = current_filename;
+	prescanner->input_file = current_input_file;
+	prescanner->output_file = current_output_file;
 }
 
 static char* get_filename_include(char* c, regmatch_t sub_matching[])
@@ -860,6 +861,7 @@ static void manage_included_file(
 
 		if (handle != NULL)
 		{
+            prescanner->input_filename = full_name;
 			// We got to open the include then create the output filename
 			// 
 			// If the user specified a directory for include regeneration use it
