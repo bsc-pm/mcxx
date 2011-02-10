@@ -26,7 +26,7 @@
 
 
 #include "tl-devices.hpp"
-#include "nanox-gpu.hpp"
+#include "nanox-cuda.hpp"
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 
