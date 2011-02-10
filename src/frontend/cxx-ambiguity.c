@@ -50,24 +50,6 @@
  *
  */
 
-// This function removes types so we force a recomputation, used only in
-// ambiguities not resolved, to avoid hidden messages because of some
-// implicit types
-static void remove_computed_types(AST t)
-{
-    if (t == NULL)
-        return;
-
-    // Remove the computed type
-    expression_set_type(t, NULL);
-
-    int i;
-    for (i = 0; i < ASTNumChildren(t); i++)
-    {
-        remove_computed_types(ASTChild(t, i));
-    }
-}
-
 static char _ambiguity_testing = 0;
 void enter_test_expression(void) 
 { 
@@ -1042,7 +1024,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                             AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                             // This will output some informational messages that might
                             // help solving this ambiguity
-                            remove_computed_types(ambiguous_tree_as_expr);
+                            expression_clear_computed_info(ambiguous_tree_as_expr);
                             check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
                         }
                         else
@@ -2438,7 +2420,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                         AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                         // This will output some informational messages that might
                         // help solving this ambiguity
-                        remove_computed_types(ambiguous_tree_as_expr);
+                        expression_clear_computed_info(ambiguous_tree_as_expr);
                         check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
                         break;
                     }

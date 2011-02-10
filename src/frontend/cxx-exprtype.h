@@ -98,6 +98,8 @@ LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
 
 LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
 
+LIBMCXX_EXTERN void expression_clear_computed_info(AST expr);
+
 LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 
 LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);

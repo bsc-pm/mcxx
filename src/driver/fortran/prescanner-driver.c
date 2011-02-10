@@ -37,7 +37,7 @@
 #include "cxx-utils.h"
 #include "filename.h"
 
-#define GETOPT_STRING "o:w:hdmapI:r:q"
+#define GETOPT_STRING "o:w:hdmapI:r:ql"
 
 #define HELP_STRING \
 "Usage: " PACKAGE " [options] -o file file\n" \
@@ -55,6 +55,7 @@
 "  -r <dir> \tRegenerates headers in directory <dir>.\n" \
 "           \tIt will be also searched for includes\n" \
 "  -q       \tQuiet mode\n" \
+"  -l       \tAdd #line marks\n" \
 "\n"
 
 static prescanner_t prescanner;
@@ -283,6 +284,11 @@ static void parse_parameters(int argc, char* argv[])
             case 'q':
                 {
                     prescanner.quiet = 1;
+                    break;
+                }
+            case 'l':
+                {
+                    prescanner.line_marks = 1;
                     break;
                 }
 			case '?' :

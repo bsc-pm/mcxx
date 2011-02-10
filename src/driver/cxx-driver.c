@@ -2929,7 +2929,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 
     int num_arguments = prescanner_args;
     // -q input -o output
-    num_arguments += 4;
+    num_arguments += 5;
     // NULL
     num_arguments += 1;
 
@@ -2952,6 +2952,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
     }
 
+    prescanner_options[i] = uniquestr("-l");
+    i++;
     prescanner_options[i] = uniquestr("-q");
     i++;
     prescanner_options[i] = uniquestr("-o");

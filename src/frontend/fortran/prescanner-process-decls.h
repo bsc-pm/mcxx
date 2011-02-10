@@ -45,6 +45,7 @@ struct prescanner_tag {
 	char pad_strings;
 	char openmp_processing;
     char quiet;
+    char line_marks;
 
 	int num_include_directories;
 	char** include_directories;

@@ -475,15 +475,24 @@ static void print_lines(prescanner_t* prescanner)
 	while (iter != NULL)
 	{
 		int i = 0;
+        if (prescanner->line_marks)
+        {
+            fprintf(prescanner->output_file, "#line %d \"%s\"\n",
+                    iter->line_number,
+                    prescanner->input_filename);
+        }
 		fprintf(prescanner->output_file, "%s", iter->line);
 		if (iter->next != NULL) 
 		{
 			fprintf(prescanner->output_file, "\n");
 		}
-		for (i = 0; i < iter->joined_lines; i++)
-		{
-			fprintf(prescanner->output_file, "\n");
-		}
+        if (!prescanner->line_marks)
+        {
+            for (i = 0; i < iter->joined_lines; i++)
+            {
+                fprintf(prescanner->output_file, "\n");
+            }
+        }
 		iter = iter->next;
 	}
 }
@@ -565,7 +574,7 @@ static void read_lines(prescanner_t* prescanner)
 		}
 
 		new_line->line = line_buffer;
-		new_line->line_number = line_number++;
+		new_line->line_number = line_number;
 		new_line->next = NULL;
 		new_line->joined_lines = 0;
 		
@@ -579,6 +588,8 @@ static void read_lines(prescanner_t* prescanner)
 			last_line->next = new_line;
 			last_line = new_line;
 		}
+
+        line_number++;
 	}
 }
 

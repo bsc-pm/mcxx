@@ -587,88 +587,102 @@ enum statement_kind_tag
     STMT_KIND_NONEXECUTABLE = 2,
 } statement_kind_t;
 
+static statement_kind_t kind_nonexecutable_0(AST a UNUSED_PARAMETER)
+{
+    return STMT_KIND_NONEXECUTABLE;
+}
+
+static statement_kind_t kind_executable_0(AST a UNUSED_PARAMETER)
+{
+    return STMT_KIND_EXECUTABLE;
+}
+
+static statement_kind_t kind_of_son_1(AST a);
+
 typedef struct build_scope_statement_handler_tag
 {
     node_t ast_kind;
     build_scope_statement_function_t handler;
-    statement_kind_t statement_kind;
+    statement_kind_t (*statement_kind)(AST);
 } build_scope_statement_handler_t;
 
 #define STATEMENT_HANDLER_TABLE \
- STATEMENT_HANDLER(AST_ACCESS_STATEMENT,             build_scope_access_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_ALLOCATABLE_STATEMENT,        build_scope_allocatable_stmt,      STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_ALLOCATE_STATEMENT,           build_scope_allocate_stmt,         STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ALL_STOP_STATEMENT,           build_scope_allstop_stmt,          STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ARITHMETIC_IF_STATEMENT,      build_scope_arithmetic_if_stmt,    STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_EXPRESSION_STATEMENT,         build_scope_expression_stmt,       STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ASSOCIATE_CONSTRUCT,          build_scope_associate_construct,   STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ASYNCHRONOUS_STATEMENT,       build_scope_asynchronous_stmt,     STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_IO_STATEMENT,                 build_io_stmt,                     STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_BIND_STATEMENT,               build_scope_bind_stmt,             STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_BLOCK_CONSTRUCT,              build_scope_block_construct,       STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_SWITCH_STATEMENT,             build_scope_case_construct,        STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_CASE_STATEMENT,               build_scope_case_statement,        STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_DEFAULT_STATEMENT,            build_scope_default_statement,     STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_CLOSE_STATEMENT,              build_scope_close_stmt,            STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_CODIMENSION_STATEMENT,        build_scope_codimension_stmt,      STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_COMMON_STATEMENT,             build_scope_common_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_COMPOUND_STATEMENT,           build_scope_compound_statement,    STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_COMPUTED_GOTO_STATEMENT,      build_scope_computed_goto_stmt,    STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ASSIGNED_GOTO_STATEMENT,      build_scope_assigned_goto_stmt,    STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_LABEL_ASSIGN_STATEMENT,       build_scope_label_assign_stmt,     STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_EMPTY_STATEMENT,              build_scope_continue_stmt,         STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_CRITICAL_CONSTRUCT,           build_scope_critical_construct,    STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_CONTINUE_STATEMENT,           build_scope_cycle_stmt,            STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_DATA_STATEMENT,               build_scope_data_stmt,             STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_DEALLOCATE_STATEMENT,         build_scope_deallocate_stmt,       STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,             build_scope_derived_type_def,      STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,          build_scope_dimension_stmt,        STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_FOR_STATEMENT,                build_scope_do_construct,          STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_ENUM_DEF,                     build_scope_enum_def,              STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,        build_scope_equivalence_stmt,      STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_BREAK_STATEMENT,              build_scope_exit_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_EXTERNAL_STATEMENT,           build_scope_external_stmt,         STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_FORALL_CONSTRUCT,             build_scope_forall_construct,      STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_FORALL_STATEMENT,             build_scope_forall_stmt,           STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_FORMAT_STATEMENT,             build_scope_format_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_GOTO_STATEMENT,               build_scope_goto_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_IF_ELSE_STATEMENT,            build_scope_if_construct,          STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_IMPLICIT_STATEMENT,           build_scope_implicit_stmt,         STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_IMPORT_STATEMENT,             build_scope_import_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_INTENT_STATEMENT,             build_scope_intent_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_INTERFACE_BLOCK,              build_scope_interface_block,       STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_INTRINSIC_STATEMENT,          build_scope_intrinsic_stmt,        STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_LOCK_STATEMENT,               build_scope_lock_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_NAMELIST_STATEMENT,           build_scope_namelist_stmt,         STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_NULLIFY_STATEMENT,            build_scope_nullify_stmt,          STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_OPEN_STATEMENT,               build_scope_open_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_OPTIONAL_STATEMENT,           build_scope_optional_stmt,         STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_PARAMETER_STATEMENT,          build_scope_parameter_stmt,        STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_POINTER_STATEMENT,            build_scope_pointer_stmt,          STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_PRINT_STATEMENT,              build_scope_print_stmt,            STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_PROCEDURE_DECL_STATEMENT,     build_scope_procedure_decl_stmt,   STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_PROTECTED_STATEMENT,          build_scope_protected_stmt,        STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_READ_STATEMENT,               build_scope_read_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_RETURN_STATEMENT,             build_scope_return_stmt,           STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_SAVE_STATEMENT,               build_scope_save_stmt,             STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_SELECT_TYPE_CONSTRUCT,        build_scope_select_type_construct, STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_STATEMENT_FUNCTION_STATEMENT, build_scope_stmt_function_stmt,    STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_STOP_STATEMENT,               build_scope_stop_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_PAUSE_STATEMENT,              build_scope_pause_stmt,            STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_SYNC_ALL_STATEMENT,           build_scope_sync_all_stmt,         STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_SYNC_IMAGES_STATEMENT,        build_scope_sync_images_stmt,      STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_SYNC_MEMORY_STATEMENT,        build_scope_sync_memory_stmt,      STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_TARGET_STATEMENT,             build_scope_target_stmt,           STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         STMT_KIND_NONEXECUTABLE ) \
- STATEMENT_HANDLER(AST_WAIT_STATEMENT,               build_scope_wait_stmt,             STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_WHERE_CONSTRUCT,              build_scope_where_construct,       STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_WHERE_STATEMENT,              build_scope_where_stmt,            STMT_KIND_EXECUTABLE    ) \
- STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            STMT_KIND_EXECUTABLE)
+ STATEMENT_HANDLER(AST_ACCESS_STATEMENT,             build_scope_access_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_ALLOCATABLE_STATEMENT,        build_scope_allocatable_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_ALLOCATE_STATEMENT,           build_scope_allocate_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ALL_STOP_STATEMENT,           build_scope_allstop_stmt,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ARITHMETIC_IF_STATEMENT,      build_scope_arithmetic_if_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_EXPRESSION_STATEMENT,         build_scope_expression_stmt,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASSOCIATE_CONSTRUCT,          build_scope_associate_construct,   kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASYNCHRONOUS_STATEMENT,       build_scope_asynchronous_stmt,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IO_STATEMENT,                 build_io_stmt,                     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_BIND_STATEMENT,               build_scope_bind_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_BLOCK_CONSTRUCT,              build_scope_block_construct,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SWITCH_STATEMENT,             build_scope_case_construct,        kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CASE_STATEMENT,               build_scope_case_statement,        kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DEFAULT_STATEMENT,            build_scope_default_statement,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CLOSE_STATEMENT,              build_scope_close_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CODIMENSION_STATEMENT,        build_scope_codimension_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_COMMON_STATEMENT,             build_scope_common_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_COMPOUND_STATEMENT,           build_scope_compound_statement,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_COMPUTED_GOTO_STATEMENT,      build_scope_computed_goto_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ASSIGNED_GOTO_STATEMENT,      build_scope_assigned_goto_stmt,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_LABEL_ASSIGN_STATEMENT,       build_scope_label_assign_stmt,     kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_LABELED_STATEMENT,            build_scope_labeled_stmt,          kind_of_son_1        ) \
+ STATEMENT_HANDLER(AST_EMPTY_STATEMENT,              build_scope_continue_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CRITICAL_CONSTRUCT,           build_scope_critical_construct,    kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_CONTINUE_STATEMENT,           build_scope_cycle_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DATA_STATEMENT,               build_scope_data_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DEALLOCATE_STATEMENT,         build_scope_deallocate_stmt,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_DERIVED_TYPE_DEF,             build_scope_derived_type_def,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DIMENSION_STATEMENT,          build_scope_dimension_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_FOR_STATEMENT,                build_scope_do_construct,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_ENTRY_STATEMENT,              build_scope_entry_stmt,            kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_ENUM_DEF,                     build_scope_enum_def,              kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_EQUIVALENCE_STATEMENT,        build_scope_equivalence_stmt,      kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_BREAK_STATEMENT,              build_scope_exit_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_EXTERNAL_STATEMENT,           build_scope_external_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_FORALL_CONSTRUCT,             build_scope_forall_construct,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_FORALL_STATEMENT,             build_scope_forall_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_FORMAT_STATEMENT,             build_scope_format_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_GOTO_STATEMENT,               build_scope_goto_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IF_ELSE_STATEMENT,            build_scope_if_construct,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_IMPLICIT_STATEMENT,           build_scope_implicit_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_IMPORT_STATEMENT,             build_scope_import_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTENT_STATEMENT,             build_scope_intent_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTERFACE_BLOCK,              build_scope_interface_block,       kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_INTRINSIC_STATEMENT,          build_scope_intrinsic_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_LOCK_STATEMENT,               build_scope_lock_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_NAMELIST_STATEMENT,           build_scope_namelist_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_NULLIFY_STATEMENT,            build_scope_nullify_stmt,          kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_OPEN_STATEMENT,               build_scope_open_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_OPTIONAL_STATEMENT,           build_scope_optional_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PARAMETER_STATEMENT,          build_scope_parameter_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_POINTER_STATEMENT,            build_scope_pointer_stmt,          kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PRINT_STATEMENT,              build_scope_print_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PROCEDURE_DECL_STATEMENT,     build_scope_procedure_decl_stmt,   kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_PROTECTED_STATEMENT,          build_scope_protected_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_READ_STATEMENT,               build_scope_read_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_RETURN_STATEMENT,             build_scope_return_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SAVE_STATEMENT,               build_scope_save_stmt,             kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_SELECT_TYPE_CONSTRUCT,        build_scope_select_type_construct, kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_STATEMENT_FUNCTION_STATEMENT, build_scope_stmt_function_stmt,    kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_STOP_STATEMENT,               build_scope_stop_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PAUSE_STATEMENT,              build_scope_pause_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_ALL_STATEMENT,           build_scope_sync_all_stmt,         kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_IMAGES_STATEMENT,        build_scope_sync_images_stmt,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_SYNC_MEMORY_STATEMENT,        build_scope_sync_memory_stmt,      kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_TARGET_STATEMENT,             build_scope_target_stmt,           kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_WAIT_STATEMENT,               build_scope_wait_stmt,             kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHERE_CONSTRUCT,              build_scope_where_construct,       kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WHERE_STATEMENT,              build_scope_where_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -728,9 +742,14 @@ static char statement_get_kind(AST statement)
             sizeof(build_scope_statement_function[0]),
             build_scope_statement_function_compare);
 
-    ERROR_CONDITION(handler == NULL, "Invalid tree kind", ASTType(statement));
+    ERROR_CONDITION(handler == NULL, "Invalid tree kind %s", ast_print_node_type(ASTType(statement)));
 
-    return handler->statement_kind;
+    return (handler->statement_kind)(statement);
+}
+
+static statement_kind_t kind_of_son_1(AST a)
+{
+    return statement_get_kind(ASTSon1(a));
 }
 
 static char statement_is_executable(AST statement)
@@ -1893,6 +1912,56 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
             ast_location(a));
 }
 
+static scope_entry_t* query_label(AST label, 
+        decl_context_t decl_context, 
+        char is_definition)
+{
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = global_context.function_scope;
+
+    const char* label_text = strappend(".label_", ASTText(label));
+    scope_entry_list_t* entry_list = query_unqualified_name_str(global_context, label_text);
+
+    scope_entry_t* new_label = NULL;
+    if (entry_list == NULL)
+    {
+        new_label = new_symbol(decl_context, decl_context.function_scope, label_text);
+        // Fix the symbol name (which for labels does not match the query name)
+        new_label->symbol_name = ASTText(label);
+        new_label->kind = SK_LABEL;
+        new_label->line = ASTLine(label);
+        new_label->file = ASTFileName(label);
+        new_label->do_not_print = 1;
+        new_label->defined = is_definition;
+    }
+    else
+    {
+        new_label = entry_list_head(entry_list);
+        if (new_label->defined
+                && is_definition)
+        {
+            fprintf(stderr, "%s: warning: label %s has already been defined in %s:%d\n",
+                    ast_location(label),
+                    new_label->symbol_name,
+                    new_label->file, new_label->line);
+        }
+        else
+        {
+            new_label->defined = 1;
+        }
+    }
+
+    entry_list_free(entry_list);
+    return new_label;
+}
+
+static void build_scope_labeled_stmt(AST a, decl_context_t decl_context)
+{
+    query_label(ASTSon0(a), decl_context, /* is_definition */ 1);
+    // Sign in the label
+    fortran_build_scope_statement(ASTSon1(a), decl_context);
+}
+
 static void build_scope_continue_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for continue
@@ -1934,7 +2003,13 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     do_variable->file = ASTFileName(io_do_variable);
     do_variable->line = ASTLine(io_do_variable);
 
-    rec_handler(implied_do_object_list, new_context);
+    AST it;
+
+    for_each_element(implied_do_object_list, it)
+    {
+        AST implied_do_object = ASTSon1(it);
+        rec_handler(implied_do_object, new_context);
+    }
 }
 
 static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_context_t decl_context)
@@ -2156,17 +2231,20 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
         AST name = ASTSon1(it);
 
         scope_entry_t* entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        entry->kind = SK_FUNCTION;
 
-        if (is_void_type(entry->type_information))
+        if (!entry->entity_specs.is_extern)
         {
-            // Convert it into a function
-            entry->kind = SK_FUNCTION;
-            entry->type_information = get_nonproto_function_type(
-                    get_implicit_type_for_symbol(decl_context, entry->symbol_name), 0);
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            // States it is extern
+            entry->entity_specs.is_extern = 1;
         }
-
-        // States it is extern
-        entry->entity_specs.is_extern = 1;
+        else
+        {
+            running_error("%s: error: entity '%s' already has EXTERNAL attribute\n",
+                    ast_location(name),
+                    entry->symbol_name);
+        }
     }
 }
 
@@ -2567,7 +2645,7 @@ static void build_scope_input_output_item(AST input_output_item, decl_context_t 
         generic_implied_do_handler(input_output_item, decl_context,
                 build_scope_input_output_item);
     }
-    else
+    else 
     {
         fortran_check_expression(input_output_item, decl_context);
     }
@@ -2592,6 +2670,7 @@ static void build_scope_print_stmt(AST a, decl_context_t decl_context)
 
 static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "PROCEDURE");
 }
 
 static void build_scope_protected_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2716,7 +2795,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context)
 static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
 {
     AST stop_code = ASTSon0(a);
-    if (stop_code == NULL)
+    if (stop_code != NULL)
     {
         fortran_check_expression(stop_code, decl_context);
     }
@@ -2842,7 +2921,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
         else
         {
-            entry->kind = SK_VARIABLE;
+            if (entry->kind == SK_UNDEFINED)
+                entry->kind = SK_VARIABLE;
+
             entry->file = ASTFileName(declaration);
             entry->line = ASTLine(declaration);
         }
@@ -3096,6 +3177,12 @@ static void build_scope_write_stmt(AST a, decl_context_t decl_context)
     }
 }
 
+static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context)
+{
+    AST statement = ASTSon1(a);
+    fortran_build_scope_statement(statement, decl_context);
+}
+
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t);
 
 typedef struct opt_value_map_tag
@@ -3150,7 +3237,8 @@ typedef struct opt_value_map_tag
   OPT_VALUE(stream) \
   OPT_VALUE(unformatted) \
   OPT_VALUE(unit) \
-  OPT_VALUE(write) 
+  OPT_VALUE(write) \
+  OPT_VALUE(ambiguous_io_spec) 
 
 #define OPT_VALUE(_name) \
      static opt_value_fun_handler_t opt_##_name##_handler;
@@ -3175,6 +3263,25 @@ static int opt_value_map_compare(const void* v1, const void* v2)
     return strcasecmp(p1->name, p2->name);
 }
 
+static void handle_opt_value(AST io_stmt, AST opt_value, decl_context_t decl_context)
+{
+    opt_value_map_t key;
+    key.name = ASTText(opt_value);
+
+    ERROR_CONDITION(key.name == NULL, "Invalid opt_value without name of opt", 0);
+
+    opt_value_map_t *elem =
+        (opt_value_map_t*)bsearch(&key, opt_value_map, 
+                sizeof(opt_value_map) / sizeof(opt_value_map[1]),
+                sizeof(opt_value_map[0]),
+                opt_value_map_compare);
+
+    ERROR_CONDITION(elem == NULL, "Invalid opt-value '%s' at %s\n", key.name, ast_location(opt_value));
+    ERROR_CONDITION(elem->handler == NULL, "Invalid handler for opt-value '%s'\n", key.name);
+
+    (elem->handler)(io_stmt, opt_value, decl_context);
+}
+
 static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_t decl_context)
 {
     if (!opt_value_list_init)
@@ -3189,28 +3296,12 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_
     for_each_element(opt_value_list, it)
     {
         AST opt_value = ASTSon1(it);
-
-        opt_value_map_t key;
-        key.name = ASTText(opt_value);
-
-        ERROR_CONDITION(key.name == NULL, "Invalid opt_value without name of opt", 0);
-
-        opt_value_map_t *elem =
-            (opt_value_map_t*)bsearch(&key, opt_value_map, 
-                    sizeof(opt_value_map) / sizeof(opt_value_map[1]),
-                    sizeof(opt_value_map[0]),
-                    opt_value_map_compare);
-
-        ERROR_CONDITION(elem == NULL, "Invalid opt-value '%s' at %s\n", key.name, ast_location(opt_value));
-        ERROR_CONDITION(elem->handler == NULL, "Invalid handler for opt-value '%s'\n", key.name);
-
-        (elem->handler)(io_stmt, opt_value, decl_context);
+        handle_opt_value(io_stmt, opt_value, decl_context);
     }
 }
 
-static char opt_common_int_expr(AST opt_value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name)
 {
-    AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
     if (!is_integer_type(expression_get_type(value))
             && !(is_pointer_type(expression_get_type(value))
@@ -3224,9 +3315,8 @@ static char opt_common_int_expr(AST opt_value, decl_context_t decl_context, cons
     return 1;
 }
 
-static char opt_common_character_expr(AST opt_value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
 {
-    AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
     if (!is_fortran_character_type(expression_get_type(value))
             && !is_pointer_to_fortran_character_type(expression_get_type(value)))
@@ -3244,9 +3334,8 @@ static char opt_common_const_character_expr(AST value, decl_context_t decl_conte
     return opt_common_character_expr(value, decl_context, opt_name);
 }
 
-static char opt_common_int_variable(AST opt_value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name)
 {
-    AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
     if (expression_get_symbol(value) == NULL)
     { 
@@ -3265,9 +3354,8 @@ static char opt_common_int_variable(AST opt_value, decl_context_t decl_context, 
     return 1;
 }
 
-static char opt_common_logical_variable(AST opt_value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name)
 {
-    AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
     if (expression_get_symbol(value) == NULL)
     { 
@@ -3303,101 +3391,126 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
     }
 }
 
-static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ACTION");
 }
 
-static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_const_character_expr(value, decl_context, "ADVANCE");
 }
 
-static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ASYNCHRONOUS");
 }
 
-static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "BLANK");
 }
 
-static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "DECIMAL");
 }
 
-static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "DELIM");
 }
 
-static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ENCODING");
 }
 
 static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER, 
-        AST value UNUSED_PARAMETER, 
+        AST opt_value UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing
 }
 
 static void opt_err_handler(AST io_stmt UNUSED_PARAMETER, 
-        AST value UNUSED_PARAMETER, 
+        AST opt_value UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing
 }
 
-static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ERRMSG");
 }
 
-static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "EXIST");
 }
 
-static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FILE");
 }
 
-static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     if (!(ASTType(value) == AST_SYMBOL
             && strcmp(ASTText(value), "*") == 0))
     {
-        opt_common_character_expr(value, decl_context, "FMT");
+        fortran_check_expression(value, decl_context);
+
+        type_t* t = expression_get_type(value);
+
+        if (!((is_integer_type(t) && ASTType(value) == AST_DECIMAL_LITERAL)
+                    || is_fortran_character_type(t)))
+        {
+            fprintf(stderr, "%s: warning: specifier FMT requires a character expression or a label of a FORMAT statement\n",
+                    ast_location(value));
+        }
     }
 }
 
-static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FORM");
 }
 
-static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FORMATTED");
 }
 
-static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "ID");
 }
 
-static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "IOMSG");
 }
 
-static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "IOSTAT");
 }
 
@@ -3407,18 +3520,21 @@ static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     fortran_check_expression(value, decl_context);
 }
 
-static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "NAMED");
 }
 
-static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NEWUNIT");
 }
 
-static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NEXTREC");
 }
 
@@ -3435,73 +3551,87 @@ static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
     }
 }
 
-static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NUMBER");
 }
 
-static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "OPENED");
 }
 
-static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "PAD");
 }
 
-static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "PENDING");
 }
 
-static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "POS");
 }
 
-static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "POSITION");
 }
 
-static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "READ");
 }
 
-static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "READWRITE");
 }
 
-static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "REC");
 }
 
-static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "RECL");
 }
 
-static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ROUND");
 }
 
-static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "SEQUENTIAL");
 }
 
-static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "SIGN");
 }
 
-static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "SIGN");
 }
 
@@ -3511,34 +3641,214 @@ static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl
     fortran_check_expression(value, decl_context);
 }
 
-static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "STAT");
 }
 
-static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "STATUS");
 }
 
-static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "STREAM");
 }
 
-static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "UNFORMATTED");
 }
 
-static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
-    opt_common_int_expr(value, decl_context, "UNIT");
+    AST value = ASTSon0(opt_value);
+    if (!(ASTType(value) == AST_SYMBOL
+            && strcmp(ASTText(value), "*") == 0))
+    {
+        fortran_check_expression(value, decl_context);
+
+        type_t* t = expression_get_type(value);
+        if (!(is_integer_type(t)
+                    || ((expression_get_symbol(value) != NULL)
+                        && is_fortran_character_type(expression_get_symbol(value)->type_information))))
+        {
+            fprintf(stderr, "%s: warning: specifier UNIT requires a character variable or a scalar integer expression\n",
+                    ast_location(value));
+        }
+    }
 }
 
-static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "WRITE");
+}
+
+static int get_position_in_io_spec_list(AST value)
+{
+    AST list = ASTParent(value);
+
+    int n = 0;
+    AST it;
+
+    for_each_element(list, it)
+    {
+        n++;
+    }
+
+    return n;
+}
+
+static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value_ambig, decl_context_t decl_context)
+{
+    // This ambiguous io spec handler exists because of the definition of io-control-spec
+    //
+    // io-control-spec -> [ UNIT = ] io-unit
+    //                    [ FMT = ] format
+    //                    [ NML = ] namelist-group-name
+    //
+    // Based on the following constraints we should be able to disambiguate
+    //
+    //   a) io-unit without UNIT = should be in the first position of the
+    //      io-control-spec-list
+    //   b) format without FMT = should be in the second position of the
+    //      io-control-spec-list and the first shall be a io-unit
+    //   c) namelist-group-name withouth NML = should be in the second position
+    //      of the io-control-spec-list and the first shall be a io-unit
+    //   d) it is not valid to specify both a format and a namelist-group-name
+    //
+    // A io-unit must be an scalar-int-expression, a character-variable or a '*'
+    // A format must be a default-character-expression, a label or a '*'
+
+    int io_unit_option = -1;
+    int namelist_option = -1;
+    int format_option = -1;
+
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(opt_value_ambig); i++)
+    {
+        AST option = ast_get_ambiguity(opt_value_ambig, i);
+        const char* t = ASTText(option);
+        ERROR_CONDITION((t == NULL), "io-spec is missing text", 0);
+
+        int *p = NULL;
+        if (strcasecmp(t, "unit") == 0)
+        {
+            p = &io_unit_option;
+        }
+        else if (strcasecmp(t, "fmt") == 0)
+        {
+            p = &format_option;
+        }
+        else if (strcasecmp(t, "nml") == 0)
+        {
+            p = &namelist_option;
+        }
+        else
+        {
+            internal_error("%s: Unexpected opt_value_ambig io-spec '%s'\n", ast_location(option), t);
+        }
+
+        ERROR_CONDITION(*p >= 0, "%s Repeated ambiguity tree!", ast_location(option));
+
+        *p = i;
+    }
+
+    int position = get_position_in_io_spec_list(opt_value_ambig);
+
+
+    char bad = 0;
+    // First item
+    if (position == 1)
+    {
+        if (io_unit_option < 0)
+        {
+            bad = 1;
+        }
+        else
+        {
+            // Force a io-unit
+            ast_replace_with_ambiguity(opt_value_ambig, io_unit_option);
+        }
+    }
+    // Second item
+    else if (position == 2)
+    {
+        // We should check that the first one was a io-unit
+        AST parent = ASTParent(opt_value_ambig);
+        AST previous = ASTSon0(parent);
+        AST io_spec = ASTSon1(previous);
+
+        if ((ASTText(io_spec) == NULL)
+                || (strcasecmp(ASTText(io_spec), "unit") != 0))
+        {
+            bad = 1;
+        }
+        else
+        {
+            if (namelist_option < 0)
+            {
+                // This can be only a FMT
+                if (format_option < 0)
+                {
+                    bad = 1;
+                }
+                else
+                {
+                    ast_replace_with_ambiguity(opt_value_ambig, format_option);
+                }
+            }
+            else
+            {
+                // Start checking if it is a real NML
+                AST nml_io_spec = ast_get_ambiguity(opt_value_ambig, namelist_option);
+                AST value = ASTSon0(nml_io_spec);
+
+                scope_entry_t* entry = query_name(decl_context, ASTText(value));
+
+                if (entry == NULL
+                        || entry->kind != SK_NAMELIST)
+                {
+                    // This must be a FMT
+                    if (format_option < 0)
+                    {
+                        bad = 1;
+                    }
+                    else
+                    {
+                        ast_replace_with_ambiguity(opt_value_ambig, format_option);
+                    }
+                }
+                else
+                {
+                    // This is a NML
+                    ast_replace_with_ambiguity(opt_value_ambig, namelist_option);
+                }
+            }
+        }
+    }
+    else
+    {
+        bad = 1;
+    }
+
+    if (!bad)
+    {
+        // Not opt_value_ambig anymore
+        handle_opt_value(io_stmt, opt_value_ambig, decl_context);
+    }
+    else
+    {
+        running_error("%s: error: invalid io-control-spec '%s'\n", 
+                ast_location(opt_value_ambig),
+                fortran_prettyprint_in_buffer(opt_value_ambig));
+    }
 }
 
 static char check_statement_function_statement(AST stmt, decl_context_t decl_context)
@@ -3574,22 +3884,6 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
         return 0;
 
     return 1;
-}
-
-static void remove_computed_types(AST t)
-{
-    if (t == NULL)
-        return;
-
-    // Remove the computed type
-    expression_set_type(t, NULL);
-    expression_set_symbol(t, NULL);
-
-    int i;
-    for (i = 0; i < ASTNumChildren(t); i++)
-    {
-        remove_computed_types(ASTChild(t, i));
-    }
 }
 
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context)
@@ -3650,13 +3944,13 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     {
         // Default to an expression since 99% of times is what people meant
         AST expr = ast_get_ambiguity(ambig_stmt, index_expr);
-        remove_computed_types(expr);
+        expression_clear_computed_info(expr);
         ast_replace_with_ambiguity(ambig_stmt, index_expr);
     }
     else
     {
         AST tree = ast_get_ambiguity(ambig_stmt, result);
-        remove_computed_types(tree);
+        expression_clear_computed_info(tree);
         ast_replace_with_ambiguity(ambig_stmt, result);
     }
 }

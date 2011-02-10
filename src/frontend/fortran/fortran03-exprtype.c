@@ -203,6 +203,8 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                 ast_location(expression), 
                 ast_print_node_type(ASTType(expression)));
         expression_set_error(expression);
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+            raise(SIGABRT);
         return;
     }
     (handler->handler)(expression, decl_context);
@@ -731,7 +733,94 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     AST procedure_designator = ASTSon0(expr);
     AST actual_arg_spec_list = ASTSon1(expr);
 
-    fortran_check_expression_impl_(procedure_designator, decl_context);
+    if (ASTType(procedure_designator) == AST_SYMBOL
+            && is_call_stmt)
+    {
+        scope_entry_t* call_sym = query_name(decl_context, ASTText(procedure_designator));
+        if (call_sym == NULL)
+        {
+            // This should be regarded as an error, but it is not for some
+            // obscure reasons
+            call_sym = new_fortran_symbol(decl_context, ASTText(procedure_designator));
+            call_sym->kind = SK_FUNCTION;
+            call_sym->type_information = get_nonproto_function_type(NULL, 0);
+            call_sym->entity_specs.is_extern = 1;
+        }
+        else 
+        {
+            if (call_sym->entity_specs.is_implicit_basic_type)
+            {
+                call_sym->kind = SK_FUNCTION;
+                call_sym->type_information = get_nonproto_function_type(NULL, 0);
+                call_sym->entity_specs.is_implicit_basic_type = 0;
+                call_sym->entity_specs.is_extern = 1;
+            }
+        }
+        expression_set_symbol(procedure_designator, call_sym);
+        expression_set_type(procedure_designator, call_sym->type_information);
+    }
+    else
+    {
+        fortran_check_expression_impl_(procedure_designator, decl_context);
+    }
+
+    // Check arguments
+    if (actual_arg_spec_list != NULL)
+    {
+        char with_keyword = 0;
+        char seen_alternate_return = 0;
+        char wrong_arg_spec_list = 0;
+        AST it;
+        for_each_element(actual_arg_spec_list, it)
+        {
+            AST actual_arg_spec = ASTSon1(it);
+            AST keyword = ASTSon0(actual_arg_spec);
+            if (keyword != NULL)
+            {
+                with_keyword = 1;
+            }
+            else if (with_keyword) // keyword == NULL
+            {
+                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
+                        ast_location(actual_arg_spec),
+                        fortran_prettyprint_in_buffer(actual_arg_spec));
+            }
+            AST actual_arg = ASTSon1(actual_arg_spec);
+
+            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
+            {
+                fortran_check_expression_impl_(actual_arg, decl_context);
+
+                if (is_error_type(expression_get_type(actual_arg)))
+                {
+                    wrong_arg_spec_list = 1;
+                }
+            }
+            else
+            {
+                if (!is_call_stmt)
+                {
+                    running_error("%s: error: only CALL statement allows an alternate return\n",
+                            ast_location(actual_arg_spec));
+                }
+                if (!seen_alternate_return)
+                {
+                    seen_alternate_return = 1;
+                }
+                else
+                {
+                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
+                            ast_location(actual_arg_spec));
+                }
+            }
+        }
+
+        if (wrong_arg_spec_list)
+        {
+            expression_set_error(expr);
+            return;
+        }
+    }
 
     if (is_error_type(expression_get_type(procedure_designator)))
     {
@@ -760,66 +849,21 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: in function call, '%s' does not designate a procedure\n",
+            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
                     ast_location(expr),
+                    is_call_stmt ? "function reference" : "CALL statement",
                     fortran_prettyprint_in_buffer(procedure_designator));
         }
         expression_set_error(expr);
         return;
     }
 
-    if (actual_arg_spec_list != NULL)
-    {
-        char with_keyword = 0;
-        char seen_alternate_return = 0;
-        AST it;
-        for_each_element(actual_arg_spec_list, it)
-        {
-            AST actual_arg_spec = ASTSon1(it);
-            AST keyword = ASTSon0(actual_arg_spec);
-            if (keyword != NULL)
-            {
-                with_keyword = 1;
-            }
-            else if (with_keyword) // keyword == NULL
-            {
-                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
-                        ast_location(actual_arg_spec),
-                        fortran_prettyprint_in_buffer(actual_arg_spec));
-            }
-            AST actual_arg = ASTSon1(actual_arg_spec);
-
-            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
-            {
-                fortran_check_expression_impl_(actual_arg, decl_context);
-
-                if (is_error_type(expression_get_type(actual_arg)))
-                {
-                    expression_set_error(expr);
-                    return;
-                }
-            }
-            else
-            {
-                if (!seen_alternate_return)
-                {
-                    seen_alternate_return = 1;
-                }
-                else
-                {
-                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
-                            ast_location(actual_arg_spec));
-                }
-            }
-        }
-    }
 
 #define MAX_ARGUMENTS 128
     // This is a generic procedure reference
     if (is_void_type(symbol->type_information))
     {
-        running_error("%s: sorry: calls to generic interfaces not supported yet\n",
-                ast_location(expr));
+        running_error("%s: sorry: references to generic interfaces not supported yet\n", ast_location(expr));
     }
     // This is a specfic procedure reference
     else if (is_function_type(symbol->type_information))
@@ -930,7 +974,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
 
         ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
-                && num_args != function_type_get_num_parameters(symbol->type_information), 
+                && (num_args != function_type_get_num_parameters(symbol->type_information)), 
                 "Mismatch between arguments and the type of the function %d != %d", 
                 num_args,
                 function_type_get_num_parameters(symbol->type_information));
@@ -1267,6 +1311,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
     int i;
     int correct_option = -1;
+    int function_call = -1;
     for (i = 0; i < num_ambig; i++)
     {
         AST current_expr = ast_get_ambiguity(expr, i);
@@ -1279,6 +1324,11 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
                     enter_test_expression();
                     fortran_check_expression_impl_(current_expr, decl_context);
                     leave_test_expression();
+
+                    if (ASTType(current_expr) == AST_FUNCTION_CALL)
+                    {
+                        function_call = i;
+                    }
                     break;
                 }
             default:
@@ -1306,14 +1356,18 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
     if (correct_option < 0)
     {
-        // Do this for diagnostics in this case
-        fortran_check_expression_impl_(ast_get_ambiguity(expr, 0), decl_context);
-        expression_set_error(expr);
+        ERROR_CONDITION(function_call < 0, "Invalid ambiguity", 0);
+        // Default to function call as a fallback
+        ast_replace_with_ambiguity(expr, function_call);
     }
     else
     {
         ast_replace_with_ambiguity(expr, correct_option);
     }
+
+    // We want the diagnostics again
+    expression_clear_computed_info(expr);
+    fortran_check_expression_impl_(expr, decl_context);
 }
 
 static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
