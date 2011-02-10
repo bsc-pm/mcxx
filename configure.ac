@@ -1219,7 +1219,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox/devices/Makefile 
            src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanox/devices/smp_numa/Makefile 
-           src/tl/omp/nanox/devices/gpu/Makefile 
+           src/tl/omp/nanox/devices/cuda/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
