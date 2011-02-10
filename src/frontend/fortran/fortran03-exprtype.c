@@ -43,7 +43,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
 char fortran_check_expression(AST a, decl_context_t decl_context)
 {
     fortran_check_expression_impl_(a, decl_context);
-    return (is_error_type(expression_get_type(a)));
+    return (!is_error_type(expression_get_type(a)));
 }
 
 typedef void (*check_expression_function_t)(AST statement, decl_context_t);
@@ -207,10 +207,21 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s'\n",
-                ast_location(expression),
-                fortran_prettyprint_in_buffer(expression),
-                print_declarator(expression_get_type(expression)));
+        if (!expression_is_constant(expression))
+        {
+            fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s'\n",
+                    ast_location(expression),
+                    fortran_prettyprint_in_buffer(expression),
+                    print_declarator(expression_get_type(expression)));
+        }
+        else
+        {
+            fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
+                    ast_location(expression),
+                    fortran_prettyprint_in_buffer(expression),
+                    print_declarator(expression_get_type(expression)),
+                    fortran_prettyprint_in_buffer(const_value_to_tree(expression_get_constant(expression))));
+        }
     }
 }
 
@@ -1139,6 +1150,11 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
 {
     fortran_check_expression_impl_(ASTSon0(expr), decl_context);
     expression_set_type(expr, expression_get_type(ASTSon0(expr)));
+
+    if (expression_is_constant(ASTSon0(expr)))
+    {
+        expression_set_constant(expr, expression_get_constant(ASTSon0(expr)));
+    }
 }
 
 static void check_plus_op(AST expr, decl_context_t decl_context)
@@ -1328,6 +1344,11 @@ static void check_assignment(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, lvalue_type);
+
+    if (expression_is_constant(rvalue))
+    {
+        expression_set_constant(expr, expression_get_constant(rvalue));
+    }
 }
 
 static void disambiguate_expression(AST expr, decl_context_t decl_context)
@@ -1662,7 +1683,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
 
     operand_types_t* operand_types = value->operand_types;
     int i;
-    for (i = 0; i < value->num_operands; i++)
+    for (i = 0; i < value->num_operands && result == NULL; i++)
     {
         if (((lhs_type == NULL 
                         && operand_types[i].lhs_type == NULL)
@@ -1687,6 +1708,19 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
                         get_operator_for_expr(expr));
             }
             return get_error_type();
+        }
+    }
+
+    if (value->compute_const != NULL)
+    {
+        if (lhs_type != NULL) 
+        {
+            // Binary
+            value->compute_const(expr, ASTSon0(expr), ASTSon1(expr));
+        }
+        else
+        {
+            value->compute_const(expr, NULL, ASTSon0(expr));
         }
     }
 
@@ -1793,14 +1827,14 @@ static void const_unary_(AST expr, AST lhs, const_value_t* (*compute)(const_valu
     }
 }
 
-static void const_unary_plus(AST expr, AST lhs, AST rhs UNUSED_PARAMETER)
+static void const_unary_plus(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
 {
-    const_unary_(expr, lhs, const_value_plus);
+    const_unary_(expr, rhs, const_value_plus);
 }
 
-static void const_unary_neg(AST expr, AST lhs, AST rhs UNUSED_PARAMETER)
+static void const_unary_neg(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
 {
-    const_unary_(expr, lhs, const_value_neg);
+    const_unary_(expr, rhs, const_value_neg);
 }
 
 static void const_bin_add(AST expr, AST lhs, AST rhs)
@@ -1858,9 +1892,9 @@ static void const_bin_gte(AST expr, AST lhs, AST rhs)
     const_bin_(expr, lhs, rhs, const_value_gte);
 }
 
-static void const_unary_not(AST expr, AST lhs, AST rhs UNUSED_PARAMETER)
+static void const_unary_not(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
 {
-    const_unary_(expr, lhs, const_value_not);
+    const_unary_(expr, rhs, const_value_not);
 }
 
 static void const_bin_and(AST expr, AST lhs, AST rhs)
