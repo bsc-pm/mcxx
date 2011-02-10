@@ -81,7 +81,6 @@ OMPTransform::OMPTransform()
     // Not yet implemented
     on_directive_post["parallel|for"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["parallel|sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
-    on_directive_post["flush"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["ordered"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["declare|reduction"].connect(functor(&OMPTransform::unimplemented_yet, *this));
 

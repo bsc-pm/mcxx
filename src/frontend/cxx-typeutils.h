@@ -85,6 +85,7 @@ LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(AST type_expr, decl_context_t de
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 
 LIBMCXX_EXTERN type_t* get_user_defined_type(struct scope_entry_tag* entry);
+LIBMCXX_EXTERN type_t* get_indirect_type(scope_entry_t* entry);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type(struct scope_entry_tag* dependent_entity, 
         decl_context_t decl_context,
