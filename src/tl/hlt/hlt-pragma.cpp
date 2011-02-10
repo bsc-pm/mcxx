@@ -90,7 +90,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     params_list.append(arguments[0]);
     
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
-    result->symbol_name = BUILTIN_VE_NAME;
+    result->symbol_name = BUILTIN_VR_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)arguments[0])
         .get_generic_vector_to()
