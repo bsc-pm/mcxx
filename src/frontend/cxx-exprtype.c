@@ -4033,8 +4033,8 @@ static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* 
 static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, type_t** rhs)
 {
     type_t* ref_type = reference_type_get_referenced_type(*lhs);
-    cv_qualifier_t cv_qualif = CV_NONE;
 
+    cv_qualifier_t cv_qualif = CV_NONE;
     advance_over_typedefs_with_cv_qualif(ref_type, &cv_qualif);
 
     if (both_operands_are_arithmetic(ref_type, no_ref(*rhs)))
@@ -5746,11 +5746,14 @@ static void check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
-                    ast_location(expr),
-                    prettyprint_in_buffer(expr),
-                    prettyprint_in_buffer(subscripted_expr),
-                    print_type_str(subscripted_type, decl_context));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        prettyprint_in_buffer(subscripted_expr),
+                        print_type_str(subscripted_type, decl_context));
+            }
             expression_set_error(expr);
         }
     }

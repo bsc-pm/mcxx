@@ -723,6 +723,31 @@ AST ast_list_concat(AST before, AST after)
     return after;
 }
 
+void ast_list_split_head_tail(AST list, AST *head, AST* tail)
+{
+    if (list == NULL)
+    {
+        *head = NULL;
+        *tail = NULL;
+        return;
+    }
+
+    AST first = ast_list_head(list);
+    if (first == list)
+    {
+        *tail = NULL;
+    }
+    else
+    {
+        AST p = ASTParent(first);
+        ast_set_child(p, 0, NULL);
+        ast_set_parent(first, NULL);
+
+        *tail = list;
+    }
+    *head = first;
+}
+
 const char* ast_node_type_name(node_t n)
 {
     return ast_node_names[n];
@@ -878,6 +903,12 @@ void ast_free(AST a)
 {
     if (a != NULL)
     {
+        if (CURRENT_COMPILED_FILE != NULL
+                && CURRENT_COMPILED_FILE->scope_link != NULL)
+        {
+            scope_link_unset(CURRENT_COMPILED_FILE->scope_link, a);
+        }
+
         if (ast_get_type(a) == AST_AMBIGUITY)
         {
             int i;

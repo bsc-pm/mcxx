@@ -154,6 +154,12 @@ namespace TL
                 void for_preorder(PragmaCustomConstruct for_construct);
                 void for_postorder(PragmaCustomConstruct for_construct);
 
+                void parallel_do_preorder(PragmaCustomConstruct parallel_for_construct);
+                void parallel_do_postorder(PragmaCustomConstruct parallel_for_construct);
+
+                void do_preorder(PragmaCustomConstruct parallel_for_construct);
+                void do_postorder(PragmaCustomConstruct parallel_for_construct);
+
                 void parallel_sections_preorder(PragmaCustomConstruct parallel_sections_construct);
 
                 void parallel_sections_postorder(PragmaCustomConstruct parallel_sections_construct);

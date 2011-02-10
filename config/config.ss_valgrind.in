@@ -11,3 +11,17 @@ compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-task-analysis.so
 compiler_phase = libtl-ss-valgrind.so
 pragma_prefix = css
+
+[ssvalgrindcxx]
+language = C++
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
+preprocessor_name = mpicxx
+preprocessor_options = -E
+preprocessor_options = 
+compiler_name = mpicxx
+compiler_options =
+linker_name = mpicxx
+compiler_phase = libtlsuperscalar-configurator.so
+compiler_phase = libtlsuperscalar-task-analysis.so
+compiler_phase = libtl-ss-valgrind.so
+pragma_prefix = css

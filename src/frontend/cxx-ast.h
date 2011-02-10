@@ -116,6 +116,10 @@ LIBMCXX_EXTERN AST ast_list_head(AST list);
 // Concatenates two lists
 LIBMCXX_EXTERN AST ast_list_concat(AST before, AST after);
 
+// Splits a list in two parts, head (a list containing only the first element)
+// and tail (a list of the remainder elements)
+LIBMCXX_EXTERN void ast_list_split_head_tail(AST list, AST *head, AST* tail);
+
 // Returns the extensible struct of this AST
 LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
 

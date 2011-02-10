@@ -57,12 +57,11 @@ HANDLER_PROTOTYPE(array_constructor_handler);
 HANDLER_PROTOTYPE(array_constructor_spec_handler);
 HANDLER_PROTOTYPE(array_ref_handler);
 HANDLER_PROTOTYPE(array_spec_handler);
+HANDLER_PROTOTYPE(assigned_goto_statement_handler);
 HANDLER_PROTOTYPE(associate_construct_handler);
 HANDLER_PROTOTYPE(associate_statement_handler);
 HANDLER_PROTOTYPE(asynchronous_statement_handler);
-HANDLER_PROTOTYPE(assigned_goto_statement_handler);
 HANDLER_PROTOTYPE(attr_spec_handler);
-HANDLER_PROTOTYPE(bind_c_handler);
 HANDLER_PROTOTYPE(bind_c_spec_handler);
 HANDLER_PROTOTYPE(binding_statement_handler);
 HANDLER_PROTOTYPE(block_construct_handler);
@@ -71,7 +70,6 @@ HANDLER_PROTOTYPE(block_data_statement_handler);
 HANDLER_PROTOTYPE(block_statement_handler);
 HANDLER_PROTOTYPE(body_program_unit_handler);
 HANDLER_PROTOTYPE(bool_type_handler);
-HANDLER_PROTOTYPE(case_part_handler);
 HANDLER_PROTOTYPE(case_selector_handler);
 HANDLER_PROTOTYPE(case_statement_handler);
 HANDLER_PROTOTYPE(case_value_range_handler);
@@ -90,6 +88,7 @@ HANDLER_PROTOTYPE(complex_literal_handler);
 HANDLER_PROTOTYPE(complex_type_handler);
 HANDLER_PROTOTYPE(component_ref_handler);
 HANDLER_PROTOTYPE(computed_goto_statement_handler);
+HANDLER_PROTOTYPE(compound_statement_handler);
 HANDLER_PROTOTYPE(continue_statement_handler);
 HANDLER_PROTOTYPE(critical_construct_handler);
 HANDLER_PROTOTYPE(critical_statement_handler);
@@ -101,9 +100,10 @@ HANDLER_PROTOTYPE(deallocate_statement_handler);
 HANDLER_PROTOTYPE(declaration_handler);
 HANDLER_PROTOTYPE(declaration_specs_handler);
 HANDLER_PROTOTYPE(declaration_statement_handler);
+HANDLER_PROTOTYPE(default_statement_handler);
 HANDLER_PROTOTYPE(derived_type_constructor_handler);
-HANDLER_PROTOTYPE(derived_type_def_handler);
 HANDLER_PROTOTYPE(derived_type_def_body_handler);
+HANDLER_PROTOTYPE(derived_type_def_handler);
 HANDLER_PROTOTYPE(derived_type_name_handler);
 HANDLER_PROTOTYPE(derived_type_statement_handler);
 HANDLER_PROTOTYPE(dimension_decl_handler);
@@ -138,8 +138,8 @@ HANDLER_PROTOTYPE(if_then_statement_handler);
 HANDLER_PROTOTYPE(image_ref_handler);
 HANDLER_PROTOTYPE(implicit_spec_handler);
 HANDLER_PROTOTYPE(implicit_statement_handler);
-HANDLER_PROTOTYPE(implied_do_handler);
 HANDLER_PROTOTYPE(implied_do_control_handler);
+HANDLER_PROTOTYPE(implied_do_handler);
 HANDLER_PROTOTYPE(import_statement_handler);
 HANDLER_PROTOTYPE(intent_statement_handler);
 HANDLER_PROTOTYPE(interface_block_handler);
@@ -184,7 +184,6 @@ HANDLER_PROTOTYPE(rename_handler);
 HANDLER_PROTOTYPE(return_statement_handler);
 HANDLER_PROTOTYPE(save_statement_handler);
 HANDLER_PROTOTYPE(select_case_construct_handler);
-HANDLER_PROTOTYPE(select_case_statement_handler);
 HANDLER_PROTOTYPE(select_type_construct_handler);
 HANDLER_PROTOTYPE(select_type_statement_handler);
 HANDLER_PROTOTYPE(sequence_statement_handler);
@@ -201,8 +200,8 @@ HANDLER_PROTOTYPE(sync_images_statement_handler);
 HANDLER_PROTOTYPE(sync_memory_statement_handler);
 HANDLER_PROTOTYPE(target_statement_handler);
 HANDLER_PROTOTYPE(type_bound_generic_procedure_handler);
-HANDLER_PROTOTYPE(type_bound_procedure_statement_handler);
 HANDLER_PROTOTYPE(type_bound_procedure_part_handler);
+HANDLER_PROTOTYPE(type_bound_procedure_statement_handler);
 HANDLER_PROTOTYPE(type_guard_part_handler);
 HANDLER_PROTOTYPE(type_is_statement_handler);
 HANDLER_PROTOTYPE(type_name_handler);
@@ -216,8 +215,8 @@ HANDLER_PROTOTYPE(value_statement_handler);
 HANDLER_PROTOTYPE(vector_type_handler);
 HANDLER_PROTOTYPE(volatile_statement_handler);
 HANDLER_PROTOTYPE(wait_statement_handler);
-HANDLER_PROTOTYPE(where_construct_handler);
 HANDLER_PROTOTYPE(where_construct_body_handler);
+HANDLER_PROTOTYPE(where_construct_handler);
 HANDLER_PROTOTYPE(where_construct_statement_handler);
 HANDLER_PROTOTYPE(where_statement_handler);
 HANDLER_PROTOTYPE(write_statement_handler);
@@ -262,9 +261,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ASYNCHRONOUS_STATEMENT, asynchronous_statement_handler, NULL),
     NODE_HANDLER(AST_ATTR_SPEC, attr_spec_handler, NULL),
     NODE_HANDLER(AST_BINARY_LITERAL, simple_text_handler, NULL),
-    NODE_HANDLER(AST_BIND_C, bind_c_handler, NULL),
     NODE_HANDLER(AST_BIND_C_SPEC, bind_c_spec_handler, NULL),
-    NODE_HANDLER(AST_BINDING_STATEMENT, binding_statement_handler, NULL),
+    NODE_HANDLER(AST_BIND_STATEMENT, binding_statement_handler, NULL),
     NODE_HANDLER(AST_BLOCK_CONSTRUCT, block_construct_handler, NULL),
     NODE_HANDLER(AST_BLOCK_DATA_PROGRAM_UNIT, block_data_program_unit_handler, NULL),
     NODE_HANDLER(AST_BLOCK_DATA_STATEMENT, block_data_statement_handler, NULL),
@@ -273,7 +271,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_BOOLEAN_LITERAL, simple_text_handler, NULL),
     NODE_HANDLER(AST_BOOL_TYPE, bool_type_handler, NULL),
     NODE_HANDLER(AST_BREAK_STATEMENT, exit_statement_handler, NULL),
-    NODE_HANDLER(AST_CASE_PART, case_part_handler, NULL),
     NODE_HANDLER(AST_CASE_SELECTOR, case_selector_handler, NULL),
     NODE_HANDLER(AST_CASE_STATEMENT, case_statement_handler, NULL),
     NODE_HANDLER(AST_CASE_VALUE_RANGE, case_value_range_handler, NULL),
@@ -292,6 +289,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_COMPLEX_TYPE, complex_type_handler, NULL),
     NODE_HANDLER(AST_COMPONENT_REF, component_ref_handler, NULL),
     NODE_HANDLER(AST_COMPUTED_GOTO_STATEMENT, computed_goto_statement_handler, NULL),
+    NODE_HANDLER(AST_COMPOUND_STATEMENT, compound_statement_handler, NULL),
     NODE_HANDLER(AST_CONCAT_OP, binary_operator_handler, "//"),
     NODE_HANDLER(AST_CONTINUE_STATEMENT, cycle_statement_handler, NULL),
     NODE_HANDLER(AST_CRITICAL_CONSTRUCT, critical_construct_handler, NULL),
@@ -304,6 +302,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DECLARATION, declaration_handler, NULL),
     NODE_HANDLER(AST_DECLARATION_SPECS, declaration_specs_handler, NULL),
     NODE_HANDLER(AST_DECLARATION_STATEMENT, declaration_statement_handler, NULL),
+    NODE_HANDLER(AST_DEFAULT_STATEMENT, default_statement_handler, NULL),
     NODE_HANDLER(AST_DERIVED_TYPE_CONSTRUCTOR, derived_type_constructor_handler, NULL),
     NODE_HANDLER(AST_DERIVED_TYPE_DEF_BODY, derived_type_def_body_handler, NULL),
     NODE_HANDLER(AST_DERIVED_TYPE_DEF, derived_type_def_handler, NULL),
@@ -313,7 +312,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIMENSION_DECL, dimension_decl_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STATEMENT, dimension_statement_handler, NULL),
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
-    NODE_HANDLER(AST_FOR_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_DOUBLE_TYPE, double_type_handler, NULL),
     NODE_HANDLER(AST_ELSEWHERE_STATEMENT, elsewhere_statement_handler, NULL),
     NODE_HANDLER(AST_EMPTY_STATEMENT, continue_statement_handler, NULL),
@@ -336,6 +334,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_FORALL_STATEMENT, forall_statement_handler, NULL),
     NODE_HANDLER(AST_FORALL_TRIPLET_SPEC, forall_triplet_spec_handler, NULL),
     NODE_HANDLER(AST_FORMAT_STATEMENT, format_statement_handler, NULL),
+    NODE_HANDLER(AST_FOR_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_CALL, function_call_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_PROGRAM_UNIT, function_program_unit_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_PROTOTYPE, function_prototype_handler, NULL),
@@ -409,8 +408,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_RENAME, rename_handler, NULL),
     NODE_HANDLER(AST_RETURN_STATEMENT, return_statement_handler, NULL),
     NODE_HANDLER(AST_SAVE_STATEMENT, save_statement_handler, NULL),
-    NODE_HANDLER(AST_SELECT_CASE_CONSTRUCT, select_case_construct_handler, NULL),
-    NODE_HANDLER(AST_SELECT_CASE_STATEMENT, select_case_statement_handler, NULL),
     NODE_HANDLER(AST_SELECT_TYPE_CONSTRUCT, select_type_construct_handler, NULL),
     NODE_HANDLER(AST_SELECT_TYPE_STATEMENT, select_type_statement_handler, NULL),
     NODE_HANDLER(AST_SEQUENCE_STATEMENT, sequence_statement_handler, NULL),
@@ -422,6 +419,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_SUBROUTINE_PROGRAM_UNIT, subroutine_program_unit_handler, NULL),
     NODE_HANDLER(AST_SUBROUTINE_STATEMENT, subroutine_statement_handler, NULL),
     NODE_HANDLER(AST_SUBSCRIPT_TRIPLET, subscript_triplet_handler, NULL),
+    NODE_HANDLER(AST_SWITCH_STATEMENT, select_case_construct_handler, NULL),
     NODE_HANDLER(AST_SYMBOL, symbol_handler, NULL),
     NODE_HANDLER(AST_SYNC_ALL_STATEMENT, sync_all_statement_handler, NULL),
     NODE_HANDLER(AST_SYNC_IMAGES_STATEMENT, sync_images_statement_handler, NULL),
@@ -820,36 +818,39 @@ static void asynchronous_statement_handler(FILE* f, AST a, prettyprint_context_t
 
 static void attr_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
-    if (ASTSon0(a) != NULL)
+    if (ASTText(a)[0] != '_')
     {
-        token_fprintf(f, a, pt_ctx, "(");
-        if (ASTType(ASTSon0(a)) == AST_NODE_LIST)
+        token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
+        if (ASTSon0(a) != NULL)
         {
-            list_handler(f, ASTSon0(a), pt_ctx);
+            token_fprintf(f, a, pt_ctx, "(");
+            if (ASTType(ASTSon0(a)) == AST_NODE_LIST)
+            {
+                list_handler(f, ASTSon0(a), pt_ctx);
+            }
+            else
+            {
+                prettyprint_level(f, ASTSon0(a), pt_ctx);
+            }
+            token_fprintf(f, a, pt_ctx, ")");
         }
-        else
-        {
-            prettyprint_level(f, ASTSon0(a), pt_ctx);
-        }
-        token_fprintf(f, a, pt_ctx, ")");
     }
-}
-
-static void bind_c_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "BIND(C)");
+    else
+    {
+        // Special ones used as placeholders
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+    }
 }
 
 static void bind_c_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTSon0(a) == NULL)
     {
-        token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
+        token_fprintf(f, a, pt_ctx, "BIND (C)");
     }
     else
     {
-        token_fprintf(f, a, pt_ctx, "%s", strtoupper(ASTText(a)));
+        token_fprintf(f, a, pt_ctx, "BIND (C, ");
         prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, ")");
     }
@@ -909,19 +910,20 @@ static void block_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 
 static void body_program_unit_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    if (ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-        prettyprint_level(f, ASTSon0(a), new_ctx);
-        prettyprint_level(f, ASTSon1(a), new_ctx);
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+
         indent_at_level(f, a, pt_ctx);
         token_fprintf(f, a, pt_ctx, "CONTAINS");
-        prettyprint_level(f, ASTSon2(a), new_ctx);
+        end_of_statement_handler(f, a, pt_ctx);
+
+        NEW_PT_CONTEXT(new_ctx, increase_level);
+        prettyprint_level(f, ASTSon1(a), new_ctx);
     }
     else
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 }
 
@@ -934,12 +936,6 @@ static void bool_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, ")");
     }
-}
-
-static void case_part_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void case_selector_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -961,12 +957,22 @@ static void case_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "CASE ");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+    end_of_statement_handler(f, a, pt_ctx);
     if (ASTSon1(a) != NULL)
     {
-        token_fprintf(f, a, pt_ctx, " ");
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
+}
+
+static void default_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "CASE DEFAULT");
     end_of_statement_handler(f, a, pt_ctx);
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+    }
 }
 
 static void case_value_range_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -1147,6 +1153,11 @@ static void computed_goto_statement_handler(FILE* f, AST a, prettyprint_context_
     token_fprintf(f, a, pt_ctx, ") ");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
     end_of_statement_handler(f, a, pt_ctx);
+}
+
+static void compound_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
 static void continue_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -1720,7 +1731,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     if (ASTSon1(a) != NULL
-            && ASTType(ASTSon1(a)) != AST_NODE_LIST)
+            && ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
     {
         token_fprintf(f, a, pt_ctx, ") ");
     }
@@ -1732,7 +1743,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
 
     if (ASTSon1(a) != NULL)
     {
-        if (ASTType(ASTSon1(a)) == AST_NODE_LIST)
+        if (ASTType(ASTSon1(a)) == AST_COMPOUND_STATEMENT)
         {
             NEW_PT_CONTEXT(new_ctx, increase_level);
             prettyprint_level(f, ASTSon1(a), new_ctx);
@@ -2255,24 +2266,31 @@ static void save_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void select_case_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "SELECT CASE(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+    end_of_statement_handler(f, a, pt_ctx);
+
+    NEW_PT_CONTEXT(new_ctx, increase_level);
+    prettyprint_level(f, ASTSon1(a), new_ctx);
+
     prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
-static void select_case_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, ": ");
-    }
-    token_fprintf(f, a, pt_ctx, "SELECT CASE(");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ")");
-    end_of_statement_handler(f, a, pt_ctx);
-}
+// static void select_case_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     indent_at_level(f, a, pt_ctx);
+//     if (ASTSon0(a) != NULL)
+//     {
+//         prettyprint_level(f, ASTSon0(a), pt_ctx);
+//         token_fprintf(f, a, pt_ctx, ": ");
+//     }
+//     token_fprintf(f, a, pt_ctx, "SELECT CASE(");
+//     prettyprint_level(f, ASTSon1(a), pt_ctx);
+//     token_fprintf(f, a, pt_ctx, ")");
+//     end_of_statement_handler(f, a, pt_ctx);
+// }
 
 static void select_type_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {

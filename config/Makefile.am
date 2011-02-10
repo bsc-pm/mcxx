@@ -63,7 +63,7 @@ include ./Makefile.replace
 BUILT_SOURCES=$(CONFIG_MCXX) $(CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-config.% : config.%.in
+config.% : config.%.in Makefile
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install

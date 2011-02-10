@@ -6,6 +6,7 @@
 // Tokens for subparsing
 %token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR "<subparse-superscalar-declarator>"
 %token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR_LIST "<subparse-superscalar-declarator-list>"
+%token<token_atrib> SUBPARSE_SUPERSCALAR_EXPRESSION "<subparse-superscalar-expression>"
 
 // Tokens for rules
 %type<ast> superscalar_declarator superscalar_declarator_list opt_superscalar_region_spec_list superscalar_region_spec_list superscalar_region_spec
@@ -21,6 +22,10 @@ subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_supersca
 | SUBPARSE_SUPERSCALAR_DECLARATOR_LIST superscalar_declarator_list
 {
     $$ = $2;
+}
+| SUBPARSE_SUPERSCALAR_EXPRESSION expression opt_superscalar_region_spec_list
+{
+	$$ = ASTMake2(AST_SUPERSCALAR_EXPRESSION, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 

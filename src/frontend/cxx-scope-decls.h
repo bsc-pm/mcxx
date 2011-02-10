@@ -421,15 +421,60 @@ typedef struct entity_specifiers_tag
     char after_typedef:1;
 
 #ifdef FORTRAN_SUPPORT
-    // The symbol was created because it was mentioned elswhere
-    // and there was no IMPLICIT NONE
-    char is_implicit:1;
+    char is_implicit_basic_type:1;
+
+    // Is allocatable
+    char is_allocatable:1;
+
+    // In common
+    char is_in_common:1;
+
+    // In namelist
+    char is_in_namelist:1;
+
+    // Is optional dummy
+    char is_optional:1;
+
+    // Is target
+    char is_target:1;
+
+    // Is value dummy
+    char is_value:1;
+
+    // Is an elemental function
+    char is_elemental:1;
+
+    // Is a recursive function
+    char is_recursive:1;
+
+    // Is the result of a function
+    char is_result:1;
+
+    // Is a statement function
+    char is_stmt_function:1;
+
+    // Is a dummy of a statement function
+    char is_dummy_arg_stmt_function:1;
+
+    // Is generic spec
+    char is_generic_spec:1;
 #endif
 
     // -- End of bits, move all bits before this point
 
 #ifdef FORTRAN_SUPPORT
     intent_kind_t intent_kind;
+
+    // --> char is_in_common:1;
+    struct scope_entry_tag* in_common;
+
+    // --> char is_in_namelist:1
+    struct scope_entry_tag* namelist;
+
+    // Related symbols for this symbol,
+    // NAMELIST, COMMON, FUNCTION, SUBROUTINE, MODULE
+    int num_related_symbols;
+    struct scope_entry_tag** related_symbols;
 #endif
 
     // Accessibility: public, private, protected

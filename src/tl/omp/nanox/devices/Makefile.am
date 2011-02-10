@@ -24,5 +24,5 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=common smp smp_numa gpu smp_ocl gpu_ocl
+SUBDIRS=common smp smp_numa cuda smp_ocl gpu_ocl
 

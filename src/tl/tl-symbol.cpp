@@ -35,19 +35,30 @@ namespace TL
 
     tl_type_t* Symbol::get_extended_attribute(const std::string& name) const
     {
-        return default_get_extended_attribute(
-                &scope_entry_extensible_schema,
-                this->_symbol->extended_data,
-                name);
+        if (this->_symbol->extended_data != NULL)
+        {
+            return default_get_extended_attribute(
+                    &scope_entry_extensible_schema,
+                    this->_symbol->extended_data,
+                    name);
+        }
+        return NULL;
     }
 
     bool Symbol::set_extended_attribute(const std::string &str, const tl_type_t &data)
     {
-        return default_set_extended_attribute(
-                &scope_entry_extensible_schema,
-                this->_symbol->extended_data,
-                str,
-                data);
+        if (this->_symbol->extended_data != NULL)
+        {
+            return default_set_extended_attribute(
+                    &scope_entry_extensible_schema,
+                    this->_symbol->extended_data,
+                    str,
+                    data);
+        }
+        else
+        {
+            return false;
+        }
     }
 
     Type Symbol::get_type() const

@@ -33,6 +33,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
+#include "cxx-exprtype.h"
 #include "cxx-utils.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
@@ -114,7 +115,7 @@ namespace TL
 		}
 		
 		ObjectList<Type> parameter_types = function_type.nonadjusted_parameters();
-		if (parameter_types.size() < original_symbol.get_parameter_position()+1)
+		if ((int)parameter_types.size() < original_symbol.get_parameter_position()+1)
 		{
 			throw SyntaxErrorException();
 		}
@@ -139,6 +140,83 @@ namespace TL
 		scope_link_set(scope_link.get_internal_scope_link(), superscalar_declarator_ast, decl_context);
 		
 		return region;
+	}
+	
+	
+	Expression SourceBits::handle_superscalar_expression(AST_t ref_tree, 
+		ScopeLink scope_link,
+		std::string const &expression_string,
+		Region &region)
+	{
+		std::string mangled_text = "@SUPERSCALAR_EXPRESSION@ " + expression_string;
+		
+		// Separate the ".." so that we can parse it properly
+		std::string separated_mangled_text;
+		size_t index=0;
+		while (index != mangled_text.size())
+		{
+			size_t dotdot_pos = mangled_text.find("..", index);
+			if (dotdot_pos == std::string::npos)
+			{
+				separated_mangled_text.append(mangled_text.substr(index));
+				break;
+			}
+			else
+			{
+				separated_mangled_text.append(mangled_text.substr(index, dotdot_pos - index));
+				separated_mangled_text.append(" .. ");
+				index = dotdot_pos + 2;
+			}
+		}
+		
+		char* str = strdup(separated_mangled_text.c_str());
+		CXX_LANGUAGE()
+		{
+			mcxx_prepare_string_for_scanning(str);
+		}
+		C_LANGUAGE()
+		{
+			mc99_prepare_string_for_scanning(str);
+		}
+		
+		AST superscalar_expression_ast;
+		int parse_result = 0;
+		CXX_LANGUAGE()
+		{
+			parse_result = mcxxparse(&superscalar_expression_ast);
+		}
+		C_LANGUAGE()
+		{
+			parse_result = mc99parse(&superscalar_expression_ast);
+		}
+		if (parse_result != 0)
+		{
+			throw SyntaxErrorException();
+		}
+		
+		decl_context_t decl_context = scope_link_get_decl_context(scope_link.get_internal_scope_link(), ref_tree.get_internal_ast());
+		
+		AST c_expression_ast = ASTSon0(superscalar_expression_ast);
+		scope_link_set(scope_link.get_internal_scope_link(), c_expression_ast, decl_context);
+		if (!check_for_expression(c_expression_ast, decl_context))
+		{
+			throw SyntaxErrorException();
+		}
+		
+		Expression expression(c_expression_ast, scope_link);
+		
+		bool is_lvalue;
+		Type normalized_type = TypeUtils::normalize_type(expression.get_type(is_lvalue), ref_tree, scope_link);
+		
+		// Generate the region
+		ObjectList<Expression> array_subscripts = get_array_subscript_list(normalized_type, ref_tree, scope_link);
+		region = Region(Region::UNKNOWN_DIR, Region::UNKNOWN_RED, array_subscripts, ASTSon1(superscalar_expression_ast), ref_tree, scope_link);
+		
+		// Set scope link to the outermost node so if we query in this tree
+		// they will be solved in the proper scope
+		scope_link_set(scope_link.get_internal_scope_link(), superscalar_expression_ast, decl_context);
+		
+		return expression;
 	}
 	
 	

@@ -25,45 +25,12 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
+typedef int T1[10];
+typedef const T1 T2;
+typedef const int T2[10];
 
-
-#ifndef TL_SOURCE_BITS_HPP
-#define TL_SOURCE_BITS_HPP
-
-
-#include "tl-augmented-symbol.hpp"
-#include "tl-symbol.hpp"
-#include "tl-source.hpp"
-
-
-namespace TL
-{
-	class SourceBits
-	{
-		public:
-            static Region handle_superscalar_declarator(AST_t ref_tree, 
-                    ScopeLink scope_link, 
-                    std::string const &declarator_string, 
-                    Region::Direction direction,
-                    Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &original_symbol);
-
-			static Expression handle_superscalar_expression(AST_t ref_tree, 
-				ScopeLink scope_link,
-				std::string const &expression_string,
-				Region &region);
-			
-#if 0
-            static ObjectList<Region> handle_superscalar_declarator_list(AST_t ref_tree, 
-                    ScopeLink scope_link, 
-                    std::string const &declarator_string, 
-                    Region::Direction direction,
-                    Region::Reduction reduction, Symbol &original_symbol);
-#endif
-
-			static ObjectList<Expression> get_array_subscript_list(Type type, AST_t ref_tree, ScopeLink scope_link);
-	};
-	
-}
-
-
-#endif // TL_SOURCE_BITS_HPP

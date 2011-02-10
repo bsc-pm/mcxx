@@ -25,7 +25,7 @@
 --------------------------------------------------------------------*/
 
 
-
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
@@ -87,9 +87,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
     {
-        final_barrier
-            << "nanos_wg_wait_completion(nanos_current_wd());"
-            << "nanos_team_barrier();"
+        if (Nanos::Version::interface_is_at_least("openmp", 2))
+            final_barrier
+                << "nanos_omp_barrier();"
+            ;
+        else
+            final_barrier
+                << "nanos_wg_wait_completion(nanos_current_wd());"
+                << "nanos_team_barrier();"
             ;
     }
 
@@ -578,11 +583,12 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<     reduction_join_arr_decls
         <<     "if (single_guard)"
         <<     "{"
-        <<        "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
+        <<        "static nanos_slicer_t " << current_slicer << " = 0;"
         <<        "nanos_err_t err;"
         <<        "nanos_wd_t wd = (nanos_wd_t)0;"
         <<        device_description
         <<        "nanos_wd_props_t props;" 
+        <<        "if (!" << current_slicer << ") " << current_slicer <<  " = nanos_find_slicer(\"" << current_slicer << "\");"
         <<        "__builtin_memset(&props, 0, sizeof(props));"
         <<        "props.mandatory_creation = 1;"
         <<        "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"

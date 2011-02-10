@@ -729,7 +729,7 @@ then
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
-   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
@@ -1221,7 +1221,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox/devices/smp/Makefile    
            src/tl/omp/nanox/devices/smp_numa/Makefile
            src/tl/omp/nanox/devices/smp_ocl/Makefile
-           src/tl/omp/nanox/devices/gpu/Makefile 
+           src/tl/omp/nanox/devices/cuda/Makefile 
            src/tl/omp/nanox/devices/gpu_ocl/Makefile
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
