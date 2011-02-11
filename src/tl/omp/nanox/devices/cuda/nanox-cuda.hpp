@@ -25,8 +25,8 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef NANOX_GPU_HPP
-#define NANOX_GPU_CPP
+#ifndef NANOX_CUDA_HPP
+#define NANOX_CUDA_CPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -37,7 +37,7 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceGPU : public DeviceProvider
+        class DeviceCUDA : public DeviceProvider
         {
             private:
                 std::string _cudaFilename;
@@ -49,9 +49,9 @@ namespace TL
                 virtual void pre_run(DTO& dto);
                 virtual void run(DTO& dto) { }
 
-                DeviceGPU();
+                DeviceCUDA();
 
-                virtual ~DeviceGPU() { }
+                virtual ~DeviceCUDA() { }
 
                 virtual void create_outline(
                         const std::string& task_name,
@@ -84,4 +84,4 @@ namespace TL
 
 }
 
-#endif // NANOX_GPU_CPP
+#endif // NANOX_CUDA_CPP
