@@ -26,16 +26,17 @@ include ../../../../Makefile.phases
 
 END=
 
-phases_LTLIBRARIES=libtlnanox-gpu_ocl.la
+phases_LTLIBRARIES=libtlnanox-gpu.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core -I$(srcdir)/../common
 
-libtlnanox_gpu_ocl_la_CFLAGS = $(device_flags)
-libtlnanox_gpu_ocl_la_CXXFLAGS = $(device_flags)
+libtlnanox_gpu_la_CFLAGS = $(device_flags)
+libtlnanox_gpu_la_CXXFLAGS = $(device_flags)
 
-libtlnanox_gpu_ocl_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_gpu_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_gpu_la_LIBADD = ../common/libtlnanox-devices_common.la
 
-libtlnanox_gpu_ocl_la_SOURCES = \
-       nanox-gpu_ocl.hpp \
-       nanox-gpu_ocl.cpp \
+libtlnanox_gpu_la_SOURCES = \
+       nanox-gpu.hpp \
+       nanox-gpu.cpp \
        $(END)

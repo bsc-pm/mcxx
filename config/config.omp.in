@@ -39,7 +39,7 @@ linker_name = gcc
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_ocl.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
-{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-gpu_ocl.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
 
 
 [mcc : omp-base]

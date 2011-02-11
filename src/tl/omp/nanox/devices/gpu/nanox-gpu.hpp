@@ -1,5 +1,5 @@
-#ifndef NANOX_GPU_OCL_HPP
-#define NANOX_GPU_OCL_HPP
+#ifndef NANOX_GPU_HPP
+#define NANOX_GPU_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -10,15 +10,20 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceGPU_OCL : public DeviceProvider
+        class DeviceGPU : public DeviceProvider
         {
-            public:
+            private:
+                std::string _gpuFilename;
+                AST_t _root;
+                std::set<std::string> _taskSymbols;
 
+            public:
+                virtual void pre_run(DTO& dto);
                 virtual void run(DTO& dto) { }
 
-                DeviceGPU_OCL();
+                DeviceGPU();
 
-                virtual ~DeviceGPU_OCL() { }
+                virtual ~DeviceGPU() { }
 
                 virtual void create_outline(
                         const std::string& task_name,
@@ -45,8 +50,30 @@ namespace TL
                         Source &device_descriptor);
         };
 
+        class ReplaceSrcGPU : public ReplaceSrcIdExpression
+        {
+            private:
+                unsigned char * num_generic_vectors;
+
+            protected:
+                static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint(AST a, void* data);
+
+            public:
+                ReplaceSrcGPU(ScopeLink sl) : ReplaceSrcIdExpression(sl)
+                {
+                    num_generic_vectors = new unsigned char(0);
+                }
+
+                ~ReplaceSrcGPU()
+                {
+                    delete(num_generic_vectors);
+                }
+
+                Source replace(AST_t a) const;
+        };
     }
 
 }
 
-#endif // NANOX_GPU_OCL_HPP
+#endif // NANOX_GPU_HPP
