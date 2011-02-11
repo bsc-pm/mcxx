@@ -694,6 +694,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WHILE_STATEMENT,              build_scope_while_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
+ STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_executable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -1369,6 +1370,20 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         AST array_spec_item = ASTSon1(it);
         AST lower_bound = ASTSon0(array_spec_item);
         AST upper_bound = ASTSon1(array_spec_item);
+
+        if (lower_bound != NULL
+                && (ASTType(lower_bound) != AST_SYMBOL
+                    || (strcmp(ASTText(lower_bound), "*") != 0) ))
+        {
+            fortran_check_expression(lower_bound, decl_context);
+        }
+
+        if (upper_bound != NULL
+                && (ASTType(upper_bound) != AST_SYMBOL
+                    || (strcmp(ASTText(upper_bound), "*") != 0) ))
+        {
+            fortran_check_expression(upper_bound, decl_context);
+        }
 
         if (lower_bound == NULL
                 && upper_bound == NULL)
@@ -3237,6 +3252,11 @@ static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(statement, decl_context);
 }
 
+static void build_scope_pragma_custom_dir(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing for directives
+}
+
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t);
 
 typedef struct opt_value_map_tag
@@ -3428,8 +3448,9 @@ static char opt_common_logical_variable(AST value, decl_context_t decl_context, 
     return 1;
 }
 
-static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
 {
+    AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ACCESS");
 }
 
