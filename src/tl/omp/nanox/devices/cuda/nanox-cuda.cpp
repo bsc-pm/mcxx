@@ -170,12 +170,8 @@ static void do_gpu_outline_replacements(
 }
 
 DeviceCUDA::DeviceCUDA()
-	: DeviceProvider(/* needs_copies */ true), _cudaFilename("")
+	: DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
 {
-	DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-	device_handler.register_device("cuda", this);
-
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
 }

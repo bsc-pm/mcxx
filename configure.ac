@@ -476,7 +476,8 @@ fi
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes \
       -o x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes ;
+      -o x$is_enabled_tl_omp_profile = xyes \
+      -o x$is_enabled_fortran = xyes ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
