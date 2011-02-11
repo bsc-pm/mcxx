@@ -38,18 +38,19 @@ typedef
 struct prescanner_tag {
 	FILE* output_file;
 	FILE* input_file;
-	char* output_filename;
-	char* input_filename;
+	const char* output_filename;
+	const char* input_filename;
 	int width;
 	char append;
 	char pad_strings;
 	char openmp_processing;
     char quiet;
+    char line_marks;
 
 	int num_include_directories;
-	char** include_directories;
+	const char** include_directories;
 
-	char* output_include_directory;
+	const char* output_include_directory;
 } prescanner_t;
 
 MCXX_END_DECLS

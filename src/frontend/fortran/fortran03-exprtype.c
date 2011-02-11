@@ -43,7 +43,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
 char fortran_check_expression(AST a, decl_context_t decl_context)
 {
     fortran_check_expression_impl_(a, decl_context);
-    return (is_error_type(expression_get_type(a)));
+    return (!is_error_type(expression_get_type(a)));
 }
 
 typedef void (*check_expression_function_t)(AST statement, decl_context_t);
@@ -199,20 +199,29 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     if (handler == NULL 
             || handler->handler == NULL)
     {
-        fprintf(stderr, "%s: sorry: unhandled expression %s\n", 
+        running_error("%s: sorry: unhandled expression %s\n", 
                 ast_location(expression), 
                 ast_print_node_type(ASTType(expression)));
-        expression_set_error(expression);
-        return;
     }
     (handler->handler)(expression, decl_context);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s'\n",
-                ast_location(expression),
-                fortran_prettyprint_in_buffer(expression),
-                print_declarator(expression_get_type(expression)));
+        if (!expression_is_constant(expression))
+        {
+            fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s'\n",
+                    ast_location(expression),
+                    fortran_prettyprint_in_buffer(expression),
+                    print_declarator(expression_get_type(expression)));
+        }
+        else
+        {
+            fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s' with a constant value of '%s'\n",
+                    ast_location(expression),
+                    fortran_prettyprint_in_buffer(expression),
+                    print_declarator(expression_get_type(expression)),
+                    fortran_prettyprint_in_buffer(const_value_to_tree(expression_get_constant(expression))));
+        }
     }
 }
 
@@ -307,26 +316,33 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
         return;
     }
 
+    char symbol_is_invalid = 0;
+
+    type_t* array_type = NULL;
+    type_t* synthesized_type = NULL;
+
+    int rank_of_type = -1;
+
     scope_entry_t* symbol = expression_get_symbol(ASTSon0(expr));
     if (symbol == NULL
             || (!is_array_type(symbol->type_information)
                 && !is_pointer_to_array_type(symbol->type_information)))
     {
-        if (!checking_ambiguity())
-        {
-            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array\n",
-                    ast_location(expr), fortran_prettyprint_in_buffer(ASTSon0(expr)));
-        }
-        expression_set_error(expr);
-        return;
+        symbol_is_invalid = 1;
     }
-
-    type_t* array_type = symbol->type_information;
-    if (is_pointer_to_array_type(symbol->type_information))
+    else
+    {
+        array_type = symbol->type_information;
+        if (is_pointer_to_array_type(symbol->type_information))
             array_type = pointer_type_get_pointee_type(symbol->type_information);
 
-    type_t* synthesized_type = get_rank0_type(array_type);
-    int rank_of_type = get_rank_of_type(array_type);
+        synthesized_type = get_rank0_type(array_type);
+        rank_of_type = get_rank_of_type(array_type);
+
+        // get_rank_of_type normally does not take into account the array of chars
+        if (is_fortran_character_type(array_type))
+            rank_of_type++;
+    }
 
     AST subscript_list = ASTSon1(expr);
 
@@ -350,13 +366,27 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
 
             // Do not attempt to compute at the moment the sizes of the bounds
             // maybe we will in the future
-            synthesized_type = get_array_type_bounds(synthesized_type, NULL, NULL, decl_context);
+            if (!symbol_is_invalid)
+            {
+                synthesized_type = get_array_type_bounds(synthesized_type, NULL, NULL, decl_context);
+            }
         }
         else
         {
             fortran_check_expression_impl_(subscript, decl_context);
         }
         num_subscripts++;
+    }
+
+    if (symbol_is_invalid)
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array\n",
+                    ast_location(expr), fortran_prettyprint_in_buffer(ASTSon0(expr)));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     if (num_subscripts != rank_of_type)
@@ -379,7 +409,7 @@ static void compute_boz_literal(AST expr, char prefix, int base)
 {
     const char* literal_token = ASTText(expr);
 
-    char literal_text[strlen(literal_token)];
+    char literal_text[strlen(literal_token) + 1];
     memset(literal_text, 0, sizeof(literal_text));
 
     char *q = literal_text;
@@ -608,10 +638,10 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context)
 {
     const char* c = ASTText(expr);
 
-    char decimal_text[strlen(c)];
+    char decimal_text[strlen(c) + 1];
     memset(decimal_text, 0, sizeof(decimal_text));
-    char *q = decimal_text;
 
+    char *q = decimal_text;
     const char* p = c;
 
     while (*p != '\0'
@@ -731,7 +761,94 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     AST procedure_designator = ASTSon0(expr);
     AST actual_arg_spec_list = ASTSon1(expr);
 
-    fortran_check_expression_impl_(procedure_designator, decl_context);
+    if (ASTType(procedure_designator) == AST_SYMBOL
+            && is_call_stmt)
+    {
+        scope_entry_t* call_sym = query_name(decl_context, ASTText(procedure_designator));
+        if (call_sym == NULL)
+        {
+            // This should be regarded as an error, but it is not for some
+            // obscure reasons
+            call_sym = new_fortran_symbol(decl_context, ASTText(procedure_designator));
+            call_sym->kind = SK_FUNCTION;
+            call_sym->type_information = get_nonproto_function_type(NULL, 0);
+            call_sym->entity_specs.is_extern = 1;
+        }
+        else 
+        {
+            if (call_sym->entity_specs.is_implicit_basic_type)
+            {
+                call_sym->kind = SK_FUNCTION;
+                call_sym->type_information = get_nonproto_function_type(NULL, 0);
+                call_sym->entity_specs.is_implicit_basic_type = 0;
+                call_sym->entity_specs.is_extern = 1;
+            }
+        }
+        expression_set_symbol(procedure_designator, call_sym);
+        expression_set_type(procedure_designator, call_sym->type_information);
+    }
+    else
+    {
+        fortran_check_expression_impl_(procedure_designator, decl_context);
+    }
+
+    // Check arguments
+    if (actual_arg_spec_list != NULL)
+    {
+        char with_keyword = 0;
+        char seen_alternate_return = 0;
+        char wrong_arg_spec_list = 0;
+        AST it;
+        for_each_element(actual_arg_spec_list, it)
+        {
+            AST actual_arg_spec = ASTSon1(it);
+            AST keyword = ASTSon0(actual_arg_spec);
+            if (keyword != NULL)
+            {
+                with_keyword = 1;
+            }
+            else if (with_keyword) // keyword == NULL
+            {
+                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
+                        ast_location(actual_arg_spec),
+                        fortran_prettyprint_in_buffer(actual_arg_spec));
+            }
+            AST actual_arg = ASTSon1(actual_arg_spec);
+
+            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
+            {
+                fortran_check_expression_impl_(actual_arg, decl_context);
+
+                if (is_error_type(expression_get_type(actual_arg)))
+                {
+                    wrong_arg_spec_list = 1;
+                }
+            }
+            else
+            {
+                if (!is_call_stmt)
+                {
+                    running_error("%s: error: only CALL statement allows an alternate return\n",
+                            ast_location(actual_arg_spec));
+                }
+                if (!seen_alternate_return)
+                {
+                    seen_alternate_return = 1;
+                }
+                else
+                {
+                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
+                            ast_location(actual_arg_spec));
+                }
+            }
+        }
+
+        if (wrong_arg_spec_list)
+        {
+            expression_set_error(expr);
+            return;
+        }
+    }
 
     if (is_error_type(expression_get_type(procedure_designator)))
     {
@@ -760,66 +877,21 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: in function call, '%s' does not designate a procedure\n",
+            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
                     ast_location(expr),
+                    !is_call_stmt ? "function reference" : "CALL statement",
                     fortran_prettyprint_in_buffer(procedure_designator));
         }
         expression_set_error(expr);
         return;
     }
 
-    if (actual_arg_spec_list != NULL)
-    {
-        char with_keyword = 0;
-        char seen_alternate_return = 0;
-        AST it;
-        for_each_element(actual_arg_spec_list, it)
-        {
-            AST actual_arg_spec = ASTSon1(it);
-            AST keyword = ASTSon0(actual_arg_spec);
-            if (keyword != NULL)
-            {
-                with_keyword = 1;
-            }
-            else if (with_keyword) // keyword == NULL
-            {
-                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
-                        ast_location(actual_arg_spec),
-                        fortran_prettyprint_in_buffer(actual_arg_spec));
-            }
-            AST actual_arg = ASTSon1(actual_arg_spec);
-
-            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
-            {
-                fortran_check_expression_impl_(actual_arg, decl_context);
-
-                if (is_error_type(expression_get_type(actual_arg)))
-                {
-                    expression_set_error(expr);
-                    return;
-                }
-            }
-            else
-            {
-                if (!seen_alternate_return)
-                {
-                    seen_alternate_return = 1;
-                }
-                else
-                {
-                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
-                            ast_location(actual_arg_spec));
-                }
-            }
-        }
-    }
 
 #define MAX_ARGUMENTS 128
     // This is a generic procedure reference
     if (is_void_type(symbol->type_information))
     {
-        running_error("%s: sorry: calls to generic interfaces not supported yet\n",
-                ast_location(expr));
+        running_error("%s: sorry: references to generic interfaces not supported yet\n", ast_location(expr));
     }
     // This is a specfic procedure reference
     else if (is_function_type(symbol->type_information))
@@ -930,7 +1002,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
 
         ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
-                && num_args != function_type_get_num_parameters(symbol->type_information), 
+                && (num_args != function_type_get_num_parameters(symbol->type_information)), 
                 "Mismatch between arguments and the type of the function %d != %d", 
                 num_args,
                 function_type_get_num_parameters(symbol->type_information));
@@ -1078,6 +1150,11 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
 {
     fortran_check_expression_impl_(ASTSon0(expr), decl_context);
     expression_set_type(expr, expression_get_type(ASTSon0(expr)));
+
+    if (expression_is_constant(ASTSon0(expr)))
+    {
+        expression_set_constant(expr, expression_get_constant(ASTSon0(expr)));
+    }
 }
 
 static void check_plus_op(AST expr, decl_context_t decl_context)
@@ -1209,6 +1286,14 @@ static void check_symbol(AST expr, decl_context_t decl_context)
 
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
+
+        if (is_const_qualified_type(entry->type_information)
+                && entry->expression_value != NULL
+                && expression_is_constant(entry->expression_value))
+        {
+            // PARAMETER are const qualified
+            expression_set_constant(expr, expression_get_constant(entry->expression_value));
+        }
     }
     else if (entry->kind == SK_FUNCTION)
     {
@@ -1259,6 +1344,11 @@ static void check_assignment(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, lvalue_type);
+
+    if (expression_is_constant(rvalue))
+    {
+        expression_set_constant(expr, expression_get_constant(rvalue));
+    }
 }
 
 static void disambiguate_expression(AST expr, decl_context_t decl_context)
@@ -1267,6 +1357,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
     int i;
     int correct_option = -1;
+    int function_call = -1;
     for (i = 0; i < num_ambig; i++)
     {
         AST current_expr = ast_get_ambiguity(expr, i);
@@ -1279,6 +1370,11 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
                     enter_test_expression();
                     fortran_check_expression_impl_(current_expr, decl_context);
                     leave_test_expression();
+
+                    if (ASTType(current_expr) == AST_FUNCTION_CALL)
+                    {
+                        function_call = i;
+                    }
                     break;
                 }
             default:
@@ -1306,14 +1402,18 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
     if (correct_option < 0)
     {
-        // Do this for diagnostics in this case
-        fortran_check_expression_impl_(ast_get_ambiguity(expr, 0), decl_context);
-        expression_set_error(expr);
+        ERROR_CONDITION(function_call < 0, "Invalid ambiguity", 0);
+        // Default to function call as a fallback
+        ast_replace_with_ambiguity(expr, function_call);
     }
     else
     {
         ast_replace_with_ambiguity(expr, correct_option);
     }
+
+    // We want the diagnostics again
+    expression_clear_computed_info(expr);
+    fortran_check_expression_impl_(expr, decl_context);
 }
 
 static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
@@ -1469,39 +1569,58 @@ typedef struct operand_map_tag
     node_t node_type;
     operand_types_t* operand_types;
     int num_operands;
+
+    void (*compute_const)(AST expr, AST lhs, AST rhs);
 } operand_map_t;
 
-#define HANDLER_MAP(_node_op, _operands) \
-{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]) }
+#define HANDLER_MAP(_node_op, _operands, _compute_const) \
+{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const }
+
+static void const_unary_plus(AST expr, AST lhs, AST rhs);
+static void const_unary_neg(AST expr, AST lhs, AST rhs);
+static void const_bin_add(AST expr, AST lhs, AST rhs);
+static void const_bin_sub(AST expr, AST lhs, AST rhs);
+static void const_bin_mult(AST expr, AST lhs, AST rhs);
+static void const_bin_div(AST expr, AST lhs, AST rhs);
+static void const_bin_power(AST expr, AST lhs, AST rhs);
+static void const_bin_equal(AST expr, AST lhs, AST rhs);
+static void const_bin_not_equal(AST expr, AST lhs, AST rhs);
+static void const_bin_lt(AST expr, AST lhs, AST rhs);
+static void const_bin_lte(AST expr, AST lhs, AST rhs);
+static void const_bin_gt(AST expr, AST lhs, AST rhs);
+static void const_bin_gte(AST expr, AST lhs, AST rhs);
+static void const_unary_not(AST expr, AST lhs, AST rhs);
+static void const_bin_and(AST expr, AST lhs, AST rhs);
+static void const_bin_or(AST expr, AST lhs, AST rhs);
 
 static operand_map_t operand_map[] =
 {
     // Arithmetic unary
-    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary),
-    HANDLER_MAP(AST_NEG_OP, arithmetic_unary),
+    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus),
+    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg),
     // Arithmetic binary
-    HANDLER_MAP(AST_ADD_OP, arithmetic_binary),
-    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary),
-    HANDLER_MAP(AST_MULT_OP, arithmetic_binary),
-    HANDLER_MAP(AST_DIV_OP, arithmetic_binary),
-    HANDLER_MAP(AST_POWER_OP, arithmetic_binary),
+    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add),
+    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub),
+    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult),
+    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div),
+    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power),
     // String concat
-    HANDLER_MAP(AST_CONCAT_OP, concat_op),
+    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL),
     // Relational strong
-    HANDLER_MAP(AST_EQUAL_OP, relational_equality),
-    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality),
+    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal),
+    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal),
     // Relational weak
-    HANDLER_MAP(AST_LOWER_THAN, relational_weak),
-    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak),
-    HANDLER_MAP(AST_GREATER_THAN, relational_weak),
-    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak),
+    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt),
+    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte),
+    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt),
+    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte),
     // Unary logical
-    HANDLER_MAP(AST_NOT_OP, logical_unary),
+    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not),
     // Binary logical
-    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary),
-    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary),
-    HANDLER_MAP(AST_LOGICAL_AND, logical_binary),
-    HANDLER_MAP(AST_LOGICAL_OR, logical_binary),
+    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal),
+    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal),
+    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and),
+    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or),
 };
 static char operand_map_init = 0;
 
@@ -1564,7 +1683,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
 
     operand_types_t* operand_types = value->operand_types;
     int i;
-    for (i = 0; i < value->num_operands; i++)
+    for (i = 0; i < value->num_operands && result == NULL; i++)
     {
         if (((lhs_type == NULL 
                         && operand_types[i].lhs_type == NULL)
@@ -1589,6 +1708,19 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
                         get_operator_for_expr(expr));
             }
             return get_error_type();
+        }
+    }
+
+    if (value->compute_const != NULL)
+    {
+        if (lhs_type != NULL) 
+        {
+            // Binary
+            value->compute_const(expr, ASTSon0(expr), ASTSon1(expr));
+        }
+        else
+        {
+            value->compute_const(expr, NULL, ASTSon0(expr));
         }
     }
 
@@ -1660,9 +1792,118 @@ static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
     else
     {
         type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
-        return get_array_type_bounds(t, 
-                array_type_get_array_lower_bound(array_type),
-                array_type_get_array_upper_bound(array_type),
-                array_type_get_array_size_expr_context(array_type));
+        if (!array_type_is_unknown_size(array_type))
+        {
+            return get_array_type_bounds(t, 
+                    array_type_get_array_lower_bound(array_type),
+                    array_type_get_array_upper_bound(array_type),
+                    array_type_get_array_size_expr_context(array_type));
+        }
+        else
+        {
+            return get_array_type(t, NULL, array_type_get_array_size_expr_context(array_type));
+        }
     }
 }
+
+static void const_bin_(AST expr, AST lhs, AST rhs,
+        const_value_t* (*compute)(const_value_t*, const_value_t*))
+{
+    if (expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        const_value_t* t = compute(expression_get_constant(lhs),
+                expression_get_constant(rhs));
+        expression_set_constant(expr, t);
+    }
+}
+
+static void const_unary_(AST expr, AST lhs, const_value_t* (*compute)(const_value_t*))
+{
+    if (expression_is_constant(lhs))
+    {
+        const_value_t* t = compute(expression_get_constant(lhs));
+        expression_set_constant(expr, t);
+    }
+}
+
+static void const_unary_plus(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
+{
+    const_unary_(expr, rhs, const_value_plus);
+}
+
+static void const_unary_neg(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
+{
+    const_unary_(expr, rhs, const_value_neg);
+}
+
+static void const_bin_add(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_add);
+}
+
+static void const_bin_sub(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_sub);
+}
+
+static void const_bin_mult(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_mul);
+}
+
+static void const_bin_div(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_div);
+}
+
+static void const_bin_power(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_pow);
+}
+
+static void const_bin_equal(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_eq);
+}
+
+static void const_bin_not_equal(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_neq);
+}
+
+static void const_bin_lt(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_lt);
+}
+
+static void const_bin_lte(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_lte);
+}
+
+static void const_bin_gt(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_gt);
+}
+
+static void const_bin_gte(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_gte);
+}
+
+static void const_unary_not(AST expr, AST lhs UNUSED_PARAMETER, AST rhs)
+{
+    const_unary_(expr, rhs, const_value_not);
+}
+
+static void const_bin_and(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_and);
+}
+
+static void const_bin_or(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_or);
+}
+

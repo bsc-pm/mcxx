@@ -1083,7 +1083,7 @@ static void common_block_item_handler(FILE* f, AST a, prettyprint_context_t* pt_
         prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, " ");
     }
-    token_fprintf(f, a, pt_ctx, "/");
+    token_fprintf(f, a, pt_ctx, "/ ");
     list_handler(f, ASTSon1(a), pt_ctx);
 }
 

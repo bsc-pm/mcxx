@@ -15,6 +15,9 @@ LIBMF03_EXTERN char equivalent_tkr_types(type_t* t1, type_t* t2);
 LIBMF03_EXTERN char is_fortran_character_type(type_t*);
 LIBMF03_EXTERN char is_pointer_to_fortran_character_type(type_t* t);
 
+LIBMF03_EXTERN char is_fortran_array_type(type_t* t);
+LIBMF03_EXTERN char is_pointer_to_fortran_array_type(type_t* t);
+
 LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_type, 
         type_t* new_return_type);
 

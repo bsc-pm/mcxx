@@ -272,6 +272,11 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+
+   if test x$is_enabled_fortran = xyes;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} mf95"
+   fi
    
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda config.ocl"
 fi

@@ -175,6 +175,22 @@ void expression_set_error(AST expr)
     expression_set_type(expr, get_error_type());
 }
 
+
+void expression_clear_computed_info(AST t)
+{
+    if (t == NULL)
+        return;
+
+    expression_info_t* info = expression_get_expression_info(t);
+    memset(info, 0, sizeof(*info));
+
+    int i;
+    for (i = 0; i < ASTNumChildren(t); i++)
+    {
+        expression_clear_computed_info(ASTChild(t, i));
+    }
+}
+
 #define MAX_BUILTINS (256)
 typedef
 struct builtin_operators_set_tag

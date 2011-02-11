@@ -175,15 +175,22 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
     ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
 
     int num_parameters = function_type_get_num_parameters(function_type);
-    parameter_info_t parameter_info[1 + num_parameters];
-    memset(&parameter_info, 0, sizeof(parameter_info));
-    int i;
-    for (i = 0; i < num_parameters; i++)
+    if (!function_type_get_lacking_prototype(function_type))
     {
-        parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
-    }
+        parameter_info_t parameter_info[1 + num_parameters];
+        memset(&parameter_info, 0, sizeof(parameter_info));
+        int i;
+        for (i = 0; i < num_parameters; i++)
+        {
+            parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
+        }
 
-    return get_new_function_type(new_return_type, parameter_info, num_parameters);
+        return get_new_function_type(new_return_type, parameter_info, num_parameters);
+    }
+    else
+    {
+        return get_nonproto_function_type(new_return_type, num_parameters);
+    }
 }
 
 char equivalent_tkr_types(type_t* t1, type_t* t2)
@@ -254,4 +261,16 @@ char basic_type_is_void(type_t* t)
     }
     else
         return 0;
+}
+
+char is_fortran_array_type(type_t* t)
+{
+    return is_array_type(t)
+        && !is_fortran_character_type(t);
+}
+
+char is_pointer_to_fortran_array_type(type_t* t)
+{
+    return is_pointer_type(t)
+        && is_fortran_array_type(pointer_type_get_pointee_type(t));
 }
