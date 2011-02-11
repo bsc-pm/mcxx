@@ -332,7 +332,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	p = &c[6];
 
 	int parenthesis_level = 0;
-	char in_string = 0, delim;
+	char in_string = 0, delim = 0;
 
 	// We start working in the first statement
 	int current_sentence = 0;
@@ -466,7 +466,7 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 static void remove_all_spaces(char** line)
 {
 	char* newline = calloc(strlen(*line) + 1, sizeof(char));
-	char in_string = 0, inlined_comment = 0, delim;
+	char in_string = 0, inlined_comment = 0, delim = 0;
 	char *p, *q;
 
 	q = newline;
@@ -1005,7 +1005,7 @@ static void add_blank_module_procedure(char** line)
 static void add_blank_if_statement(prescanner_t* prescanner, char** line, int num_line)
 {
 	// We have to jump the IF(..) and identify the rest of the statement
-	char level = 1, delim;
+	char level = 1, delim = 0;
 	char in_string = 0;
 	char* p = &(*line)[3]; // We ignore "IF("
 

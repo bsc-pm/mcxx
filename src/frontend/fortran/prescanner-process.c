@@ -398,7 +398,7 @@ static void trim_inline_comment(line_t* trimmed_line, char* unended_string)
 {
 	// First we scan left to right to see if trimmed_line has left a constant string opened
 	// and we trim inline comments in trimmed_line
-	char in_string = 0, delim_string;
+	char in_string = 0, delim_string = 0;
 	char* p;
 
 	for (p = trimmed_line->line; *p != 0; p++)

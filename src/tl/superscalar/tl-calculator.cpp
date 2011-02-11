@@ -820,7 +820,7 @@ namespace TL {
 			throw SyntaxErrorException();
 		}
 		
-		CalculatorInternals::Number *result;
+		CalculatorInternals::Number *result = 0;
 		
 		switch (parser_value.type_class)
 		{
