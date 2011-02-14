@@ -1621,3 +1621,12 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
 
     return longest_match;
 }
+
+// Shut up the compiler
+#ifndef YY_NO_INPUT
+#ifdef __cplusplus
+    UNUSED_PARAMETER static int yyinput (void);
+#else
+    UNUSED_PARAMETER static int input  (void);
+#endif
+#endif
