@@ -889,7 +889,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
 #define MAX_ARGUMENTS 128
     // This is a generic procedure reference
-    if (is_void_type(symbol->type_information))
+    if (symbol->entity_specs.is_generic_spec)
     {
         running_error("%s: sorry: references to generic interfaces not supported yet\n", ast_location(expr));
     }

@@ -827,10 +827,20 @@ const char* get_name_of_generic_spec(AST generic_spec)
 }
 
 
-static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context UNUSED_PARAMETER)
+static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context)
 {
-    fprintf(stderr, "%s: warning: KIND not implemented yet, defaulting to 4\n", ast_location(kind_expr));
-    return 4;
+    fortran_check_expression(kind_expr, decl_context);
+
+    if (expression_is_constant(kind_expr))
+    {
+        return const_value_cast_to_4(expression_get_constant(kind_expr));
+    }
+    else
+    {
+        // We would issue a warning but since we are not implementing the
+        // builtins, we just fallback to 4
+        return 4;
+    }
 }
 
 static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int num_types, int kind_size)
@@ -889,9 +899,9 @@ static type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 {
     if (!logical_types_init)
     {
-        int_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
-        int_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
-        int_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
+        logical_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
+        logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
+        logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
         logical_types_init = 1;
     }
     return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size);
@@ -2494,6 +2504,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
         if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
         {
+            unsupported_statement(interface_specification, "MODULE PROCEDURE");
         }
         else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
                 || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
