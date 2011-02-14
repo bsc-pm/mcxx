@@ -252,3 +252,16 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
     }
     return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
 }
+
+scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
+{
+    scope_entry_t* entry = NULL;
+    scope_entry_list_t* entry_list = class_context_lookup(class_context, strtolower(name));
+    if (entry_list != NULL)
+    {
+        entry = entry_list_head(entry_list);
+    }
+    entry_list_free(entry_list);
+
+    return entry;
+}

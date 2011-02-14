@@ -175,6 +175,11 @@ void expression_set_error(AST expr)
     expression_set_type(expr, get_error_type());
 }
 
+char expression_is_error(AST expr)
+{
+    type_t* t = expression_get_type(expr);
+    return is_error_type(t);
+}
 
 void expression_clear_computed_info(AST t)
 {
@@ -633,8 +638,6 @@ static char* binary_expression_attr[] =
 
 static void check_for_expression_impl_(AST expression, decl_context_t decl_context);
 
-#define IS_ERROR_TYPE(_ast) is_error_type(expression_get_type(_ast))
-
 static char c_check_for_expression(AST expression, decl_context_t decl_context);
 
 char check_for_expression(AST expression, decl_context_t decl_context)
@@ -663,7 +666,7 @@ static char c_check_for_expression(AST expression, decl_context_t decl_context)
     {
         check_for_expression_impl_(expression, decl_context);
     }
-    return !IS_ERROR_TYPE(expression);
+    return !expression_is_error(expression);
 }
 
 static void check_for_expression_impl_(AST expression, decl_context_t decl_context)
@@ -679,7 +682,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 check_for_expression_impl_(ASTSon0(expression), decl_context);
 
                 expression_set_type(expression, expression_get_type(ASTSon0(expression)));
-                if (!IS_ERROR_TYPE(ASTSon0(expression)))
+                if (!expression_is_error(ASTSon0(expression)))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -795,7 +798,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 const_value_t* val = NULL;
                 check_for_qualified_id(expression, decl_context, &val);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     AST global_qualif = ASTSon0(expression);
                     AST nested_name_spec = ASTSon1(expression);
@@ -844,7 +847,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 //
                 const_value_t* val = NULL;
                 check_for_qualified_id(expression, decl_context, &val);
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     AST global_qualif = ASTSon0(expression);
                     AST nested_name_spec = ASTSon1(expression);
@@ -876,7 +879,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 const_value_t* val = NULL;
                 check_for_symbol(expression, decl_context, &val);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
@@ -898,7 +901,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
                 check_for_template_id_expr(expression, decl_context);
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -915,7 +918,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_template_id_expr(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
@@ -931,7 +934,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_ARRAY_SUBSCRIPT :
             {
                 check_for_array_subscript_expr(expression, decl_context);
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -945,7 +948,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_FUNCTION_CALL :
             {
                 check_for_function_call(expression, decl_context );
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -969,7 +972,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 char is_arrow = (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS);
                 check_for_member_access(expression, decl_context, is_arrow);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(ASTSon1(expression), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
@@ -999,7 +1002,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_postincrement(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
@@ -1012,7 +1015,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_postdecrement(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
@@ -1046,7 +1049,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_PREINCREMENT :
             {
                 check_for_preincrement(expression, decl_context);
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
@@ -1058,7 +1061,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_PREDECREMENT :
             {
                 check_for_predecrement(expression, decl_context);
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
@@ -1095,7 +1098,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 const_value_t* val = NULL;
                 check_for_unary_expression(expression, decl_context, &val);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, 
@@ -1119,7 +1122,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
 
                 check_for_cast_expr(expression, type_id, casted_expr, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_CAST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_CAST_TYPE, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -1165,7 +1168,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 const_value_t* val = NULL;
                 check_for_binary_expression(expression, decl_context, &val);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
@@ -1186,7 +1189,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_conditional_expression(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
                             tl_type_t, tl_bool(1));
@@ -1230,7 +1233,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_binary_expression(expression, decl_context, NULL);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
@@ -1250,7 +1253,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                     check_for_expression_impl_(ASTSon0(expression), decl_context);
                 }
                 if (ASTSon0(expression) == NULL
-                        || !IS_ERROR_TYPE(ASTSon0(expression)))
+                        || !expression_is_error(ASTSon0(expression)))
                 {
                     expression_set_type(expression, get_throw_expr_type());
                 }
@@ -1264,7 +1267,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_comma_operand(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -1286,7 +1289,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_GCC_IMAG_PART :
             {
                 check_for_expression_impl_(ASTSon0(expression), decl_context);
-                if (!IS_ERROR_TYPE(ASTSon0(expression)))
+                if (!expression_is_error(ASTSon0(expression)))
                 {
                     // Be careful because gcc accepts lvalues and transfers the lvalueness
                     type_t* complex_type = expression_get_type(ASTSon0(expression));
@@ -1406,7 +1409,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                     }
 
                     check_for_initializer_list(ASTSon1(expression), decl_context, type_in_context);
-                    if (!IS_ERROR_TYPE(ASTSon1(expression)))
+                    if (!expression_is_error(ASTSon1(expression)))
                     {
                         expression_set_type(expression, declarator_type);
                         expression_set_is_lvalue(expression, 0);
@@ -1423,7 +1426,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 // This is an historic builtin we do not handle by means of 
                 // the future generic builtin mechanism since it has special syntax
                 check_for_expression_impl_(ASTSon0(expression), decl_context);
-                if (IS_ERROR_TYPE(ASTSon0(expression))
+                if (expression_is_error(ASTSon0(expression))
                         || !check_for_type_id_tree(ASTSon1(expression), decl_context))
                 {
                     expression_set_error(expression);
@@ -1494,7 +1497,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     AST last_statement = ASTSon1(statement_seq);
 
-                    if (!IS_ERROR_TYPE(last_statement))
+                    if (!expression_is_error(last_statement))
                     {
                         expression_set_type(expression, expression_get_type(last_statement));
                         expression_set_is_lvalue(expression, expression_is_lvalue(last_statement));
@@ -1518,7 +1521,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_array_section_expression(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -1533,7 +1536,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             {
                 check_for_shaping_expression(expression, decl_context);
 
-                if (!IS_ERROR_TYPE(expression))
+                if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_SHAPING_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_SHAPE_LIST, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -5247,7 +5250,7 @@ static void check_for_unary_expression(AST expression, decl_context_t decl_conte
 
     check_for_expression_impl_(op, decl_context);
 
-    if (IS_ERROR_TYPE(op))
+    if (expression_is_error(op))
     {
         expression_set_error(expression);
         return;
@@ -5502,7 +5505,7 @@ static void check_for_symbol(AST expr, decl_context_t decl_context, const_value_
 {
     compute_symbol_type(expr, decl_context, val);
 
-    if (IS_ERROR_TYPE(expr)
+    if (expression_is_error(expr)
             && !checking_ambiguity())
     {
         fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
@@ -5655,13 +5658,13 @@ static void check_for_array_subscript_expr(AST expr, decl_context_t decl_context
 {
     check_for_expression_impl_(ASTSon0(expr), decl_context);
 
-    if (!IS_ERROR_TYPE(ASTSon0(expr)))
+    if (!expression_is_error(ASTSon0(expr)))
     {
         check_for_expression_impl_(ASTSon1(expr), decl_context);
     }
 
-    if (IS_ERROR_TYPE(ASTSon0(expr))
-            || IS_ERROR_TYPE(ASTSon1(expr)))
+    if (expression_is_error(ASTSon0(expr))
+            || expression_is_error(ASTSon1(expr)))
     {
         expression_set_error(expr);
     }
@@ -6051,18 +6054,18 @@ static void check_for_conditional_expression_impl(AST expression,
      */
 
     check_for_expression_impl_(first_op, decl_context);
-    if (!IS_ERROR_TYPE(first_op))
+    if (!expression_is_error(first_op))
     {
         check_for_expression_impl_(second_op, decl_context);
-        if (!IS_ERROR_TYPE(second_op))
+        if (!expression_is_error(second_op))
         {
             check_for_expression_impl_(third_op, decl_context);
         }
     }
 
-    if (IS_ERROR_TYPE(first_op)
-            || IS_ERROR_TYPE(second_op)
-            || IS_ERROR_TYPE(third_op))
+    if (expression_is_error(first_op)
+            || expression_is_error(second_op)
+            || expression_is_error(third_op))
     {
         expression_set_error(expression);
         return;
@@ -6419,7 +6422,7 @@ static void check_for_conditional_expression(AST expression, decl_context_t decl
     check_for_conditional_expression_impl(expression, 
             first_op, second_op, third_op, decl_context);
 
-    if (IS_ERROR_TYPE(expression))
+    if (expression_is_error(expression))
     {
         if (!checking_ambiguity())
         {
@@ -6917,7 +6920,7 @@ static void check_for_delete_expression(AST expression, decl_context_t decl_cont
 
     check_for_expression_impl_(deleted_expression, decl_context );
 
-    if (IS_ERROR_TYPE(deleted_expression))
+    if (expression_is_error(deleted_expression))
     {
         expression_set_error(expression);
         return;
@@ -7100,7 +7103,7 @@ static void check_for_explicit_type_conversion_common(type_t* type_info,
             AST current_expression = ASTSon1(iter);
 
             check_for_expression_impl_(current_expression, decl_context);
-            if (!IS_ERROR_TYPE(current_expression))
+            if (!expression_is_error(current_expression))
             {
                 argument_types[num_arguments] = expression_get_type(current_expression);
 
@@ -7280,7 +7283,7 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
 
             check_for_expression_impl_(parameter_expr, decl_context);
 
-            if (IS_ERROR_TYPE(parameter_expr))
+            if (expression_is_error(parameter_expr))
             {
                 DEBUG_CODE()
                 {
@@ -7386,7 +7389,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                         "is member or pointer to function type or dependent entity\n");
             }
             check_for_expression_impl_(called_expression, decl_context);
-            return !IS_ERROR_TYPE(called_expression);
+            return !expression_is_error(called_expression);
         }
     }
 
@@ -7543,7 +7546,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         check_for_expression_impl_(called_expression, decl_context);
 
-        if (IS_ERROR_TYPE(called_expression))
+        if (expression_is_error(called_expression))
         {
             if (ASTType(advanced_called_expression) == AST_SYMBOL)
             {
@@ -7765,7 +7768,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         // 3. b) If the call was not eligible for Koenig, just check normally
         check_for_expression_impl_(called_expression, decl_context);
-        valid_expr = !IS_ERROR_TYPE(called_expression);
+        valid_expr = !expression_is_error(called_expression);
     }
 
     if (!valid_expr)
@@ -8428,7 +8431,7 @@ static void check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
     
     check_for_expression_impl_(casted_expression, decl_context);
 
-    if (!IS_ERROR_TYPE(casted_expression))
+    if (!expression_is_error(casted_expression))
     {
         AST type_specifier = ASTSon0(type_id);
         AST abstract_declarator = ASTSon1(type_id);
@@ -8511,8 +8514,8 @@ static void check_for_comma_operand(AST expression, decl_context_t decl_context)
     check_for_expression_impl_(lhs, decl_context);
     check_for_expression_impl_(rhs, decl_context);
 
-    if (IS_ERROR_TYPE(lhs)
-            || IS_ERROR_TYPE(rhs))
+    if (expression_is_error(lhs)
+            || expression_is_error(rhs))
     {
         expression_set_error(expression);
         return;
@@ -8590,7 +8593,7 @@ static void check_for_member_access(AST member_access, decl_context_t decl_conte
 
     check_for_expression_impl_(class_expr, decl_context);
 
-    if (IS_ERROR_TYPE(class_expr))
+    if (expression_is_error(class_expr))
     {
         expression_set_error(member_access);
         return;
@@ -8898,7 +8901,7 @@ static void check_for_qualified_id(AST expr, decl_context_t decl_context, const_
 {
     compute_qualified_id_type(expr, decl_context, val);
 
-    if (IS_ERROR_TYPE(expr)
+    if (expression_is_error(expr)
             && !checking_ambiguity())
     {
         fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
@@ -9234,7 +9237,7 @@ static void check_for_postoperator(AST expr, AST operator, AST postoperated_expr
         decl_context_t decl_context, char is_decrement)
 {
     check_for_expression_impl_(postoperated_expr, decl_context);
-    if (IS_ERROR_TYPE(postoperated_expr))
+    if (expression_is_error(postoperated_expr))
     {
         expression_set_error(expr);
         return;
@@ -9352,7 +9355,7 @@ static void check_for_preoperator(AST expr, AST operator,
         char is_decrement)
 {
     check_for_expression_impl_(preoperated_expr, decl_context);
-    if (IS_ERROR_TYPE(preoperated_expr))
+    if (expression_is_error(preoperated_expr))
     {
         expression_set_error(expr);
         return;
@@ -9635,7 +9638,7 @@ static void check_for_typeid_expr(AST expr, decl_context_t decl_context)
 {
     check_for_expression_impl_(ASTSon0(expr), decl_context);
 
-    if (IS_ERROR_TYPE(ASTSon0(expr)))
+    if (expression_is_error(ASTSon0(expr)))
     {
         expression_set_error(expr);
         return;
@@ -9667,7 +9670,7 @@ static char check_for_designation(AST designation, decl_context_t decl_context)
             AST constant_expression = ASTSon0(index_designator);
             check_for_expression_impl_(constant_expression, decl_context);
 
-            if (IS_ERROR_TYPE(constant_expression))
+            if (expression_is_error(constant_expression))
                 return 0;
         }
     }
@@ -9910,7 +9913,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             }
 
             check_for_expression_impl_(expr, decl_context);
-            if (IS_ERROR_TYPE(expr))
+            if (expression_is_error(expr))
             {
                 return 0;
             }
@@ -10117,7 +10120,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
             {
                 check_for_expression_impl_(initializer, decl_context);
 
-                char result = !IS_ERROR_TYPE(initializer);
+                char result = !expression_is_error(initializer);
                 if (result)
                 {
                     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
@@ -10295,7 +10298,7 @@ static void check_for_pointer_to_pointer_to_member(AST expression, decl_context_
     check_for_expression_impl_(lhs, decl_context);
     check_for_expression_impl_(rhs, decl_context);
 
-    if (IS_ERROR_TYPE(lhs) || IS_ERROR_TYPE(rhs))
+    if (expression_is_error(lhs) || expression_is_error(rhs))
     {
         expression_set_error(expression);
         return;
@@ -10404,8 +10407,8 @@ static void check_for_pointer_to_member(AST expression, decl_context_t decl_cont
     check_for_expression_impl_(lhs, decl_context);
     check_for_expression_impl_(rhs, decl_context);
     
-    if (IS_ERROR_TYPE(lhs)
-            || IS_ERROR_TYPE(rhs))
+    if (expression_is_error(lhs)
+            || expression_is_error(rhs))
     {
         expression_set_error(expression);
         return;
@@ -10490,7 +10493,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         AST initializer = ASTSon1(iterator);
 
         check_for_expression_impl_(initializer, decl_context);
-        if (IS_ERROR_TYPE(initializer))
+        if (expression_is_error(initializer))
         {
             return 0;
         }
@@ -11101,7 +11104,7 @@ static void check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     AST sizeof_expression = ASTSon0(expr);
     check_for_expression_impl_(sizeof_expression, decl_context);
 
-    if (!IS_ERROR_TYPE(sizeof_expression))
+    if (!expression_is_error(sizeof_expression))
     {
         type_t* t = expression_get_type(sizeof_expression);
 
@@ -11283,7 +11286,7 @@ static void check_for_pseudo_destructor_call(AST expression, decl_context_t decl
     AST postfix_expression = ASTSon0(expression);
     
     check_for_expression_impl_(postfix_expression, decl_context);
-    if (IS_ERROR_TYPE(postfix_expression))
+    if (expression_is_error(postfix_expression))
     {
         DEBUG_CODE()
         {
@@ -11484,7 +11487,7 @@ static void check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
             {
                 AST constant_expr = ASTSon0(designator);
                 check_for_expression_impl_(constant_expr, decl_context);
-                if (IS_ERROR_TYPE(constant_expr))
+                if (expression_is_error(constant_expr))
                 {
                     expression_set_error(expression);
                     return;
@@ -11642,7 +11645,7 @@ static void check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
     // whether the expression is dependent
 
     check_for_expression_impl_(selector_expr, decl_context);
-    if (IS_ERROR_TYPE(selector_expr))
+    if (expression_is_error(selector_expr))
     {
         expression_set_error(expression);
         return;
@@ -11658,7 +11661,7 @@ static void check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
     if (const_value_is_nonzero(expression_get_constant(selector_expr)))
     {
         check_for_expression_impl_(first_expr, decl_context);
-        if (IS_ERROR_TYPE(first_expr))
+        if (expression_is_error(first_expr))
         {
             expression_set_error(expression);
             return;
@@ -11669,7 +11672,7 @@ static void check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
     else
     {
         check_for_expression_impl_(second_expr, decl_context);
-        if (IS_ERROR_TYPE(second_expr))
+        if (expression_is_error(second_expr))
         {
             expression_set_error(expression);
             return;
@@ -11753,9 +11756,9 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
     if (upper_bound != NULL)
         check_for_expression_impl_(upper_bound, decl_context);
 
-    if (IS_ERROR_TYPE(postfix_expression)
-            || (lower_bound != NULL && IS_ERROR_TYPE(lower_bound))
-            || (upper_bound != NULL && IS_ERROR_TYPE(upper_bound)))
+    if (expression_is_error(postfix_expression)
+            || (lower_bound != NULL && expression_is_error(lower_bound))
+            || (upper_bound != NULL && expression_is_error(upper_bound)))
     {
         expression_set_error(expression);
         return;
@@ -11800,7 +11803,7 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
 
     check_for_expression_impl_(shaped_expr, decl_context);
 
-    if (IS_ERROR_TYPE(shaped_expr))
+    if (expression_is_error(shaped_expr))
     {
         result = 0;
     }
@@ -11927,7 +11930,7 @@ char check_for_expression_list(AST expression_list, decl_context_t decl_context)
         if (check_for_expression_list(ASTSon0(expression_list), decl_context))
         {
             check_for_expression_impl_(ASTSon1(expression_list), decl_context);
-            return (!IS_ERROR_TYPE(ASTSon1(expression_list)));
+            return (!expression_is_error(ASTSon1(expression_list)));
         }
         else
         {

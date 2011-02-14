@@ -1316,7 +1316,8 @@ static void derived_type_constructor_handler(FILE* f, AST a, prettyprint_context
 static void derived_type_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    NEW_PT_CONTEXT(new_ctx, increase_level);
+    prettyprint_level(f, ASTSon1(a), new_ctx);
     prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 

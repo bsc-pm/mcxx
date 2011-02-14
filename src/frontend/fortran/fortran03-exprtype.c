@@ -31,9 +31,12 @@
 #include "fortran03-prettyprint.h"
 #include "fortran03-typeutils.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 #include "cxx-ast.h"
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
+#include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -370,6 +373,8 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
             {
                 synthesized_type = get_array_type_bounds(synthesized_type, NULL, NULL, decl_context);
             }
+
+            // FIXME - Mark subscript triplets
         }
         else
         {
@@ -403,6 +408,10 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, synthesized_type);
+
+    ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expr)));
+    ASTAttrSetValueType(expr, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
 static void compute_boz_literal(AST expr, char prefix, int base)
@@ -447,6 +456,9 @@ static void compute_boz_literal(AST expr, char prefix, int base)
 
     expression_set_type(expr, get_signed_int_type());
     expression_set_constant(expr, const_value_get(value, 4, 1));
+
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 }
 
 
@@ -471,6 +483,8 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     {
         internal_error("Invalid boolean literal", 0);
     }
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
 }
 
 static void check_complex_literal(AST expr, decl_context_t decl_context)
@@ -537,6 +551,9 @@ static void check_complex_literal(AST expr, decl_context_t decl_context)
                 ast_location(expr),
                 fortran_prettyprint_in_buffer(expr));
     }
+
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_COMPLEX_LITERAL, tl_type_t, tl_bool(1));
 }
 
 static void check_component_ref(AST expr, decl_context_t decl_context)
@@ -551,7 +568,8 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
         return;
     }
 
-    if (!is_class_type(t))
+    if (!is_pointer_to_class_type(t)
+            && !is_class_type(t))
     {
         if (!checking_ambiguity())
         {
@@ -563,11 +581,17 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
         return;
     }
 
-    decl_context_t class_context = class_type_get_inner_context(t);
+    type_t* class_type = t;
+    if (is_pointer_to_class_type(class_type))
+    {
+        class_type = pointer_type_get_pointee_type(t);
+    }
 
-    const char * field = ASTText(ASTSon1(expr));
+    decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(class_type));
 
-    scope_entry_t* entry = query_name(class_context, field);
+    const char* field = ASTText(ASTSon1(expr));
+    scope_entry_t* entry = query_name_in_class(class_context, field);
+
     if (entry == NULL)
     {
         if (!checking_ambiguity())
@@ -575,7 +599,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
             fprintf(stderr, "%s: warning: '%s' is not a component of '%s'\n",
                     ast_location(expr),
                     field,
-                    fortran_print_type_str(t));
+                    fortran_print_type_str(class_type));
         }
         expression_set_error(expr);
         return;
@@ -583,6 +607,20 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
 
     expression_set_type(expr, entry->type_information);
     expression_set_symbol(expr, entry);
+
+    ASTAttrSetValueType(ASTSon1(expr), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
+
+    ASTAttrSetValueType(expr, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expr)));
+    ASTAttrSetValueType(expr, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expr)));
+
+    if (is_pointer_to_class_type(t))
+    {
+        ASTAttrSetValueType(expr, LANG_IS_POINTER_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+    }
+    else
+    {
+        ASTAttrSetValueType(expr, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+    }
 }
 
 static void check_concat_op(AST expr, decl_context_t decl_context)
@@ -636,6 +674,9 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
 
 static void check_decimal_literal(AST expr, decl_context_t decl_context)
 {
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
+
     const char* c = ASTText(expr);
 
     char decimal_text[strlen(c) + 1];
@@ -751,6 +792,9 @@ static void check_floating_literal(AST expr, decl_context_t decl_context)
    }
 
    expression_set_type(expr, choose_float_type_from_kind(expr, kind));
+
+   ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+   ASTAttrSetValueType(expr, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 }
 
 static void check_function_call(AST expr, decl_context_t decl_context)
@@ -1151,6 +1195,9 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     fortran_check_expression_impl_(ASTSon0(expr), decl_context);
     expression_set_type(expr, expression_get_type(ASTSon0(expr)));
 
+    ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expr)));
+
     if (expression_is_constant(ASTSon0(expr)))
     {
         expression_set_constant(expr, expression_get_constant(ASTSon0(expr)));
@@ -1167,6 +1214,30 @@ static void check_power_op(AST expr, decl_context_t decl_context)
     common_binary_check(expr, decl_context);
 }
 
+static char* binary_expression_attr[] =
+{
+    [AST_MULT_OP] = LANG_IS_MULT_OP,
+    [AST_DIV_OP] = LANG_IS_DIVISION_OP,
+    [AST_MOD_OP] = LANG_IS_MODULUS_OP,
+    [AST_ADD_OP] = LANG_IS_ADDITION_OP,
+    [AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
+    [AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
+    [AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
+    [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
+    [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
+    [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
+    [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
+    [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
+    [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
+    [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
+    [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
+    [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
+    [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
+    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
+    [AST_POWER_OP] = LANG_IS_POWER_OP,
+    [AST_CONCAT_OP] = LANG_IS_CONCAT_OP,
+};
+
 static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type);
 static void common_binary_check(AST expr, decl_context_t decl_context)
 {
@@ -1181,6 +1252,14 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
     RETURN_IF_ERROR_2(lhs_type, rhs_type, expr);
 
     common_binary_intrinsic_check(expr, lhs_type, rhs_type);
+
+    if (!expression_is_error(expr))
+    {
+        ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+        ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    }
 }
 
 static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type)
@@ -1245,6 +1324,9 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
     AST length_tree = const_value_to_tree(const_value_get(length, 4, 1));
 
     expression_set_type(expr, get_array_type_bounds(get_char_type(), one, length_tree, decl_context));
+
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
