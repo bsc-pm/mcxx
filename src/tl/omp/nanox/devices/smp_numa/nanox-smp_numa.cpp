@@ -350,7 +350,7 @@ void DeviceSMP_NUMA::create_outline(
     }
 
     parameter_list
-        << struct_typename << "* _args"
+        << struct_typename << "* const _args"
         ;
 
     outline_name
