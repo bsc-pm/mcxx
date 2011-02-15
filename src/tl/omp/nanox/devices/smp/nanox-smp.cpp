@@ -527,6 +527,11 @@ void DeviceSMP::create_outline(
             Symbol sym = it->get_symbol();
             Type type = sym.get_type();
 
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
             private_vars
                 << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
                 ;
