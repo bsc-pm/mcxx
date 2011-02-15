@@ -674,9 +674,6 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
 
 static void check_decimal_literal(AST expr, decl_context_t decl_context)
 {
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
-
     const char* c = ASTText(expr);
 
     char decimal_text[strlen(c) + 1];
@@ -709,6 +706,10 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context)
 
     expression_set_type(expr, choose_int_type_from_kind(expr, kind));
     expression_set_constant(expr, const_value_get(value, kind, 1));
+
+    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
+
 }
 
 static void check_derived_type_constructor(AST expr, decl_context_t decl_context)
@@ -754,6 +755,9 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     }
 
     expression_set_type(expr, entry->type_information);
+
+    ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, tl_type_t, tl_ast(component_spec_list));
 }
 
 static void check_different_op(AST expr, decl_context_t decl_context)
@@ -1117,6 +1121,10 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, return_type);
+
+    ASTAttrSetValueType(expr, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(procedure_designator));
+    ASTAttrSetValueType(expr, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(actual_arg_spec_list));
 }
 
 static void check_greater_or_equal_than(AST expr, decl_context_t decl_context)
@@ -1195,13 +1203,13 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     fortran_check_expression_impl_(ASTSon0(expr), decl_context);
     expression_set_type(expr, expression_get_type(ASTSon0(expr)));
 
-    ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expr)));
-
     if (expression_is_constant(ASTSon0(expr)))
     {
         expression_set_constant(expr, expression_get_constant(ASTSon0(expr)));
     }
+
+    ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expr)));
 }
 
 static void check_plus_op(AST expr, decl_context_t decl_context)
@@ -1253,13 +1261,10 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
 
     common_binary_intrinsic_check(expr, lhs_type, rhs_type);
 
-    if (!expression_is_error(expr))
-    {
-        ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-        ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
-    }
+    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
 static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type)
@@ -1400,6 +1405,10 @@ static void check_symbol(AST expr, decl_context_t decl_context)
     {
         expression_set_error(expr);
     }
+
+    ASTAttrSetValueType(expr, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expr));
 }
 
 static void check_assignment(AST expr, decl_context_t decl_context)
@@ -1431,6 +1440,11 @@ static void check_assignment(AST expr, decl_context_t decl_context)
     {
         expression_set_constant(expr, expression_get_constant(rvalue));
     }
+
+    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
 static void disambiguate_expression(AST expr, decl_context_t decl_context)

@@ -1801,6 +1801,10 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context)
 
     fortran_check_expression(expr, decl_context);
     fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_case_statement(AST a, decl_context_t decl_context)
@@ -1831,6 +1835,10 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context)
     }
 
     fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_CASE_EXPRESSION, tl_type_t, tl_ast(case_selector));
+    ASTAttrSetValueType(a, LANG_CASE_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_default_statement(AST a, decl_context_t decl_context)
@@ -1851,6 +1859,9 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context)
 
         fortran_build_scope_statement(statement, decl_context);
     }
+
+    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
 }
 
 static void build_scope_close_stmt(AST a, decl_context_t decl_context)
@@ -2018,14 +2029,22 @@ static scope_entry_t* query_label(AST label,
 
 static void build_scope_labeled_stmt(AST a, decl_context_t decl_context)
 {
-    query_label(ASTSon0(a), decl_context, /* is_definition */ 1);
+    AST label = ASTSon0(a);
+    AST statement = ASTSon1(a);
+
+    query_label(label, decl_context, /* is_definition */ 1);
     // Sign in the label
-    fortran_build_scope_statement(ASTSon1(a), decl_context);
+    fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
+    ASTAttrSetValueType(a, LANG_LABELED_STATEMENT, tl_type_t, tl_ast(statement));
 }
 
-static void build_scope_continue_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for continue
+    ASTAttrSetValueType(a, LANG_IS_EMPTY_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_critical_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2033,9 +2052,10 @@ static void build_scope_critical_construct(AST a, decl_context_t decl_context UN
     unsupported_statement(a, "CRITICAL");
 }
 
-static void build_scope_cycle_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for cycle
+    ASTAttrSetValueType(a, LANG_IS_CONTINUE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void generic_implied_do_handler(AST a, decl_context_t decl_context,
@@ -2416,6 +2436,8 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
         fortran_check_expression(stride, decl_context);
 
     fortran_build_scope_statement(block, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2456,9 +2478,10 @@ static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_exit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for exit
+    ASTAttrSetValueType(a, LANG_IS_BREAK_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_external_stmt(AST a, decl_context_t decl_context)
@@ -2520,6 +2543,11 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context)
     {
         fortran_build_scope_statement(else_statement, decl_context);
     }
+
+    ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_CONDITION, tl_type_t, tl_ast(logical_expr));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_THEN_BODY, tl_type_t, tl_ast(then_statement));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_ELSE_BODY, tl_type_t, tl_ast(else_statement));
 }
 
 static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
@@ -3423,6 +3451,10 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context)
     }
 
     fortran_build_scope_statement(block, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_BODY, tl_type_t, tl_ast(block));
 }
 
 static void build_scope_write_stmt(AST a, decl_context_t decl_context)
