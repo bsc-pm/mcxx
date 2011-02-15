@@ -5667,6 +5667,7 @@ static void check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             || expression_is_error(ASTSon1(expr)))
     {
         expression_set_error(expr);
+        return;
     }
 
     AST subscripted_expr = ASTSon0(expr);
@@ -5711,6 +5712,7 @@ static void check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                         print_type_str(subscripted_type, decl_context));
             }
             expression_set_error(expr);
+            return;
         }
     }
 
@@ -6282,6 +6284,7 @@ static void check_for_conditional_expression_impl(AST expression,
                     error_message_overload_failed(decl_context, expression, candidate_set);
                 }
                 expression_set_error(expression);
+                return;
             }
 
             ensure_not_deleted(decl_context, expression, overloaded_call);
