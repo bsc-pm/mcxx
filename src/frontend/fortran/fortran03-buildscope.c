@@ -1164,7 +1164,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                         attr_handler_cmp);
 
                 if (handler == NULL 
-                        || handler->handler)
+                        || handler->handler == NULL)
                 {
                     internal_error("Unhandled handler of '%s'\n", ASTText(attr_spec_item));
                 }
@@ -2728,6 +2728,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
                         generic_spec_sym->entity_specs.num_related_symbols,
                         interface_sym);
             }
+
+            insert_entry(decl_context.current_scope, interface_sym);
         }
         else
         {
