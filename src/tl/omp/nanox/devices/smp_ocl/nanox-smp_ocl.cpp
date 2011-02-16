@@ -55,9 +55,9 @@ static bool is_nonstatic_member_symbol(Symbol s)
         && !s.is_static();
 }
 
-const char* ReplaceSrcSMP_OCL::recursive_prettyprint(AST a, void* data)
+const char* ReplaceSrcSMP_OCL::recursive_prettyprint(AST_t a, void* data)
 {
-    return prettyprint_in_buffer_callback(a,
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
             &ReplaceSrcSMP_OCL::prettyprint_callback, data);
 }
 
@@ -115,23 +115,25 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
                             FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME))).size();
             }
         }
-        else if (GCCAttributeSpecifier::predicate(ast) && (*_this->num_generic_vectors))
+        if (GCCAttributeSpecifier::predicate(ast) && (*_this->num_generic_vectors))
         {
             (*_this->num_generic_vectors)--;
 
             return "";
         }
-        else if (TypeSpec::predicate(ast) && (*_this->num_generic_vectors))
+        if (TypeSpec::predicate(ast) && (*_this->num_generic_vectors))
         {
             Type type((TypeSpec(ast, _this->_sl)).get_type());
 
-            std::stringstream type_num;
-            type_num << (_vector_width/type.get_size());
+            result
+               << "__global "
+               << ast.prettyprint()
+               << (_vector_width/type.get_size());
 
-            return ("__global " + ast.prettyprint() + type_num.str()).c_str();
+            return result.str().c_str();
 
         }
-        else if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
+        if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
@@ -148,7 +150,7 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
                 ;
             return result.str().c_str();
         }
-        else if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
+        if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
@@ -162,12 +164,26 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
 //                << arg_list[0].get_type().get_simple_declaration(_this->_sl.get_scope(ast), "")
                 << _vector_width/arg_list[0].get_type().get_size()
                 << " *) &("
-                << recursive_prettyprint(arg_list[0].get_ast().get_internal_ast(), _this)
+                << recursive_prettyprint(arg_list[0].get_ast(), _this)
                 << "))"
                 ;
 
             return result.str().c_str();
         }
+        if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1){
+                internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
+            }
+
+            result << recursive_prettyprint(arg_list[0].get_ast(), data);
+
+            return result.str().c_str();
+        }
+
         return NULL;
     }
 
@@ -768,7 +784,7 @@ void DeviceSMP_OCL::create_outline(
 
     // parameter_list
     parameter_list
-        << struct_typename << "* _args"
+        << struct_typename << "* __restrict__ _args"
         ;
 
     // body

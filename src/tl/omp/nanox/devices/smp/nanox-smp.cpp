@@ -60,17 +60,18 @@ std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope
      return output.str();
 }
 
-const char* ReplaceSrcSMP::recursive_prettyprint(AST a, void* data)
+const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
 {
-    return prettyprint_in_buffer_callback(a,
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
 
 
 const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 {
+    ObjectList<Expression> arg_list;
+    std::stringstream result;
     unsigned char i, counter;
-    std::stringstream output;
 
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
@@ -94,16 +95,16 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 if (sym_type.is_vector() &&
                         (!decl_ent.get_initializer().get_type().is_vector()))
                 {
-                    output
-                        << recursive_prettyprint(decl_ent.get_declarator_tree().get_internal_ast(), data)
+                    result
+                        << recursive_prettyprint(decl_ent.get_declarator_tree(), data)
                         << " = "
                         << scalar_op_to_vector_op(decl_ent.get_initializer(), sym_type, (_this->_sl).get_scope(ast));
 
-                    return uniquestr(output.str().c_str());
+                    return uniquestr(result.str().c_str());
                 }
             }    
         }
-        else if (Expression::predicate(ast))
+        if (Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
 
@@ -119,37 +120,49 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 if (first_type.is_vector() && 
                         (!second_type.is_vector())) 
                 {
-                    output << recursive_prettyprint(first_op.get_ast().get_internal_ast(), data)
+                    result << recursive_prettyprint(first_op.get_ast().get_internal_ast(), data)
                         << expr.get_operator_str();
 
                     if (expr.is_operation_assignment())
-                        output << "=";
+                        result << "=";
 
-                    output << scalar_op_to_vector_op(second_op, first_type, (_this->_sl).get_scope(ast));
+                    result << scalar_op_to_vector_op(second_op, first_type, (_this->_sl).get_scope(ast));
 
-                    return uniquestr(output.str().c_str());
+                    return uniquestr(result.str().c_str());
                 }
                 else if ((!first_type.is_vector()) && 
                         second_type.is_vector())
                 {
-                    output << scalar_op_to_vector_op(first_op, second_type, (_this->_sl).get_scope(ast))
+                    result << scalar_op_to_vector_op(first_op, second_type, (_this->_sl).get_scope(ast))
                         << expr.get_operator_str();
 
                     if (expr.is_operation_assignment())
-                        output << "=";
+                        result << "=";
 
-                    output << recursive_prettyprint(second_op.get_ast().get_internal_ast(), data);
+                    result << recursive_prettyprint(second_op.get_ast(), data);
 
-                    return uniquestr(output.str().c_str());
+                    return uniquestr(result.str().c_str());
                 }
             }
         }
-        else if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
+        if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
         {
-            std::stringstream output;
-            output << "__attribute__((vector_size(" << _vector_width << "))) ";
+            result << "__attribute__((vector_size(" << _vector_width << "))) ";
 
-            return uniquestr(output.str().c_str());
+            return uniquestr(result.str().c_str());
+        }
+        if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1){
+                internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
+            }
+
+            result << recursive_prettyprint(arg_list[0].get_ast(), data);
+
+            return result.str().c_str();
         }
 
         return NULL;
@@ -445,7 +458,7 @@ static void do_smp_outline_replacements(AST_t body,
                             initial_code
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
-                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
                                 << "_args->" << field_name
                                 << ");"
                                 ;
@@ -457,7 +470,7 @@ static void do_smp_outline_replacements(AST_t body,
                             initial_code
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
-                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
                                 << "_args->" << field_name
                                 << ");"
                                 ;
@@ -749,7 +762,7 @@ void DeviceSMP::create_outline(
     }
 
     parameter_list
-        << struct_typename << "* const _args"
+        << struct_typename << "* const __restrict__ _args"
         ;
 
     outline_name
@@ -849,7 +862,7 @@ void DeviceSMP::create_outline(
 
             Type t = Source(struct_typename).parse_type(reference_tree, sl);
 
-            member_parameter_list << t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "args");
+            member_parameter_list << t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "const __restrict__ args");
 
             AST_t member_decl_tree = 
                 member_declaration.parse_member(decl_point,

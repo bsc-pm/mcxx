@@ -13,7 +13,7 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-const unsigned int _vector_width = 4096;
+const unsigned int _vector_width = 1;
 
 static std::string gpu_outline_name(const std::string &task_name)
 {
@@ -55,9 +55,9 @@ static bool is_nonstatic_member_symbol(Symbol s)
         && !s.is_static();
 }
 
-const char* ReplaceSrcGPU::recursive_prettyprint(AST a, void* data)
+const char* ReplaceSrcGPU::recursive_prettyprint(AST_t a, void* data)
 {
-    return prettyprint_in_buffer_callback(a,
+    return prettyprint_in_buffer_callback(a.get_internal_ast(), 
             &ReplaceSrcGPU::prettyprint_callback, data);
 }
 
@@ -82,7 +82,7 @@ const char* ReplaceSrcGPU::prettyprint_callback (AST a, void* data)
         {
             return "";
         }
-        else if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
+        if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
@@ -93,14 +93,14 @@ const char* ReplaceSrcGPU::prettyprint_callback (AST a, void* data)
 
             result
                 << arg_list[0].get_id_expression()
-                << "+="
+                << " += "
                 << (arg_list[1].evaluate_constant_int_expression(constant_evaluation)
                         * (_vector_width))
                // / arg_list[2].evaluate_constant_int_expression(constant_evaluation)))
                 ;
             return result.str().c_str();
         }
-        else if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
+        if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
@@ -109,15 +109,31 @@ const char* ReplaceSrcGPU::prettyprint_callback (AST a, void* data)
                 internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
             }
 
-            result << arg_list[0];
+            result << recursive_prettyprint(arg_list[0].get_ast(), data);
 
             return result.str().c_str();
         }
+        if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1){
+                internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
+            }
+
+            result 
+                << "(blockIdx.x * blockDim.x + threadIdx.x) + "
+                << prettyprint_in_buffer_callback(arg_list[0].get_ast().get_internal_ast(),
+                    &ReplaceSrcGPU::prettyprint_callback, data);
+
+            return result.str().c_str();
+        }
+
         return NULL;
     }
 
     return c;
-
 }
 
 Source ReplaceSrcGPU::replace(AST_t a) const
@@ -222,6 +238,7 @@ static void do_gpu_outline_replacements(AST_t body,
     }
 */
     // Set up all replacements and needed castings
+
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();
             it++)
@@ -248,7 +265,8 @@ static void do_gpu_outline_replacements(AST_t body,
                     it++)
             {
                 Source new_dim;
-                new_dim << "_args->" << *it;
+//                new_dim << "_args->" << *it;
+                new_dim << *it;
 
                 arg_vla_dims.append(new_dim);
             }
@@ -270,7 +288,8 @@ static void do_gpu_outline_replacements(AST_t body,
                 << "="
                 << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
                 << "("
-                << "_args->" << field_name
+//                << "_args->" << field_name
+                << field_name
                 << ");"
                 ;
         }
@@ -289,7 +308,8 @@ static void do_gpu_outline_replacements(AST_t body,
                         << "="
                         << "("
                         << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                        << ") (_args->" << field_name << ");"
+//                        << ") (_args->" << field_name << ");"
+                        << ") (" << field_name << ");"
                         ;
                     replace_src.add_replacement(sym, field_name);
                 }
@@ -301,7 +321,8 @@ static void do_gpu_outline_replacements(AST_t body,
                         << "="
                         << "("
                         << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                        << ") (_args->" << field_name << ");"
+//                        << ") (_args->" << field_name << ");"
+                        << ") (" << field_name << ");"
                         ;
                     replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
@@ -331,7 +352,8 @@ static void do_gpu_outline_replacements(AST_t body,
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
                                 << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << "_args->" << field_name
+//                                << "_args->" << field_name
+                                << field_name
                                 << ");"
                                 ;
                         }
@@ -343,7 +365,8 @@ static void do_gpu_outline_replacements(AST_t body,
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
                                 << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << "_args->" << field_name
+//                                << "_args->" << field_name
+                                << field_name
                                 << ");"
                                 ;
                         }
@@ -354,7 +377,8 @@ static void do_gpu_outline_replacements(AST_t body,
                 }
                 else
                 {
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+//                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    replace_src.add_replacement(sym, "(" + field_name + ")");
                 }
             }
         }
@@ -369,7 +393,8 @@ static void do_gpu_outline_replacements(AST_t body,
             it != nonstatic_members.end();
             it++)
     {
-        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+//        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+        replace_src.add_replacement(*it, "(" + it->get_name() + ")");
     }
 
     replaced_outline << replace_src.replace(body);
@@ -547,12 +572,14 @@ void DeviceGPU::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, arguments_struct_definition, outline_name, parameter_list, body;
+    Source result, arguments_struct_definition, outline_name, 
+           parameter_list, argument_list, body, cuda_kernel, body_kernel;
     Source instrument_before, instrument_after;
 
     result
         << arguments_struct_definition
-        << "__device__ void " << outline_name << "(" << parameter_list << ")"
+        << cuda_kernel
+        << "\nvoid " << outline_name << "(" << struct_typename << "* __restrict__ _args)"
         << "{"
         << instrument_before
         << body
@@ -677,20 +704,49 @@ void DeviceGPU::create_outline(
             ;
     }
 */
+
+    // cuda_kernel
+    cuda_kernel
+        << "\n\n__global__ void " << outline_name << "_kernel(" << parameter_list << ")"
+        << body_kernel
+        ;
+
+    // parameter_list & argument_list
+    Type struct_typename_type = struct_typename_sym.get_type();
+    ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
+    Symbol sym;
+    int i;
+
+    for (i=0;
+         i < (data_member_list.size()-1);
+         i++)
+    {
+        sym = (Symbol)data_member_list[i];
+        parameter_list 
+            << sym.get_type().get_simple_declaration(sc, sym.get_name()) << ", "
+            ;
+        argument_list
+            << "_args->" << sym.get_name() << ", "
+            ;
+    }
+
+    sym = (Symbol)data_member_list[i];
+    parameter_list
+        << sym.get_type().get_simple_declaration(sc, sym.get_name())
+        ;
+    argument_list
+        << "_args->" << sym.get_name() 
+        ;
+
     // outline_name
     outline_name
         << gpu_outline_name(task_name)
         ;
 
-    // parameter_list
-    parameter_list
-        << struct_typename << "* _args"
-        ;
-
-    // body
+    // body_kernel
     Source private_vars, final_code;
 
-    body
+    body_kernel
         << private_vars
         << initial_setup
         << outline_body
@@ -729,6 +785,14 @@ void DeviceGPU::create_outline(
             << "nanos_leave_team();"
             ;
     }
+
+    // body
+    body
+       << "\n" << outline_name 
+       << "_kernel<<<1,1>>>("
+       << argument_list
+       << ");\n"
+       ;
 
     // Parse it in a sibling function context
     // AST_t outline_code_tree =

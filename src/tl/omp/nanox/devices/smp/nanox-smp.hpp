@@ -79,7 +79,7 @@ namespace TL
         {
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
-                static const char* recursive_prettyprint (AST a, void* data);
+                static const char* recursive_prettyprint (AST_t a, void* data);
 
             public:
                 ReplaceSrcSMP(ScopeLink sl) : ReplaceSrcIdExpression(sl){};

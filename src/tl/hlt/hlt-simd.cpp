@@ -47,9 +47,9 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
         if (TL::TypeSpec::predicate(ast))
         {
             return Type((TypeSpec(ast, _this->_sl)).get_type())
-                                            .get_generic_vector_to()
-                                            .get_simple_declaration(_this->_sl.get_scope(ast), "")
-                                            .c_str();
+                .get_generic_vector_to()
+                .get_simple_declaration(_this->_sl.get_scope(ast), "")
+                .c_str();
         }
         else if (TL::DataReference::predicate(ast))
         {
@@ -58,7 +58,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
             if (dataref.is_valid())
             {
                 Symbol sym = dataref.get_base_symbol();
-                
+
                 if (_this->_simd_id_exp_list.contains(functor(&IdExpression::get_symbol), sym))
                 {
                     std::stringstream result;
@@ -90,7 +90,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
         if (Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
-             
+
             if (expr.is_assignment())
             {
                 Expression left_expr(expr.get_first_operand());
@@ -125,7 +125,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 return output.str().c_str();
             }
 
-        return NULL;
+            return NULL;
         }
     }
 
@@ -165,16 +165,16 @@ LoopSimdization TL::HLT::simdize_loop(TL::ForStatement for_stmt, ObjectList<IdEx
 }
 
 
-LoopSimdization::LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list) 
-    : _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list)
+    LoopSimdization::LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list) 
+: _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list)
 {
 
     _smallest_type_size = 0;
     is_simdizable = true;
 
     if ((!_for_stmt.get_iterating_condition().is_binary_operation()) ||
-        (!_for_stmt.is_regular_loop()) ||
-        (!_for_stmt.get_step().is_constant()))
+            (!_for_stmt.is_regular_loop()) ||
+            (!_for_stmt.get_step().is_constant()))
     {
         _ostream
             << _for_stmt.get_ast().get_locus()
@@ -217,28 +217,28 @@ void LoopSimdization::gen_vector_type(IdExpression id){
                 id.get_ast().get_locus().c_str(),
                 old_sym_name.c_str());
     }
-/*
-    new_sym_name << "*((__attribute__((" << ATTR_GEN_VEC_NAME << ")) " 
-        << type.get_declaration(sym.get_scope(), "") 
-        << " *) &(" 
-        << sym.get_name() 
-        << ")"
-        ;
-*/
+    /*
+       new_sym_name << "*((__attribute__((" << ATTR_GEN_VEC_NAME << ")) " 
+       << type.get_declaration(sym.get_scope(), "") 
+       << " *) &(" 
+       << sym.get_name() 
+       << ")"
+       ;
+     */
 
     //Simd pointer declaration & init
-/*    _before_loop 
-        << type.get_generic_vector_to()
-               .get_pointer_to().get_declaration(sym.get_scope(), new_sym_name)
-        << "="
-    	<< "("
-        << type.get_generic_vector_to()
-               .get_pointer_to().get_declaration(sym.get_scope(), "")  
-        << ")" 
-	    << old_sym_name 
-        << ";"
-        ;
-*/
+    /*    _before_loop 
+          << type.get_generic_vector_to()
+          .get_pointer_to().get_declaration(sym.get_scope(), new_sym_name)
+          << "="
+          << "("
+          << type.get_generic_vector_to()
+          .get_pointer_to().get_declaration(sym.get_scope(), "")  
+          << ")" 
+          << old_sym_name 
+          << ";"
+          ;
+     */
     _replacement.add_replacement(sym, new_sym_name.str());
 
 }
@@ -250,35 +250,79 @@ TL::Source LoopSimdization::do_simdization()
     {
         return _for_stmt.prettyprint();
     }
-	
+
     //Simd variable initialization & sustitution
     std::for_each(_simd_id_exp_list.begin(), _simd_id_exp_list.end(), 
-        std::bind1st(std::mem_fun(&LoopSimdization::gen_vector_type), this));
+            std::bind1st(std::mem_fun(&LoopSimdization::gen_vector_type), this));
 
     Source replaced_loop_body = _replacement.replace(_for_stmt.get_loop_body());
 
 
     bool step_evaluation;
 
-    _loop << "for(" << _for_stmt.get_iterating_init().prettyprint() 
-          << _for_stmt.get_iterating_condition() << ";"
-          << BUILTIN_VL_NAME << "(" << _for_stmt.get_induction_variable() << ","
-          << _for_stmt.get_step().evaluate_constant_int_expression(step_evaluation) << "," 
-          << _smallest_type_size << "))"
-          << replaced_loop_body
-          ;
+    AST_t it_init_ast (_for_stmt.get_iterating_init());
+    Source it_init_source;
     
-    if (!step_evaluation){
-        running_error("%s: error: the loop is not simdizable. The step is not a compile-time evaluable constant.'\n",
-        _for_stmt.get_ast().get_locus().c_str());
+    if (Declaration::predicate(it_init_ast))
+    {
+        Declaration decl(it_init_ast, _for_stmt.get_scope_link());
+        ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
+
+        if(!decl_ent_list[0].has_initializer())
+        {
+            running_error("%s: error: Declared Entity does not have initializer'\n",
+                    it_init_ast.get_locus().c_str());
+        }
+
+        it_init_source 
+            << decl.get_declaration_specifiers()
+            << decl_ent_list[0].get_declared_symbol().get_name()
+            << "="
+            << BUILTIN_IV_NAME << "(" << decl_ent_list[0].get_initializer() << ");"
+            ;
+    }
+    else if (Expression::predicate(it_init_ast))
+    {
+        Expression exp(it_init_ast, _for_stmt.get_scope_link());
+
+        if (!exp.is_assignment())
+        {
+            running_error("%s: error: Iterating initializacion is an Expression but not an assignment'\n",
+                    it_init_ast.get_locus().c_str());
+        }
+
+        it_init_source
+            << exp.get_first_operand()
+            << "="
+            << BUILTIN_IV_NAME << "(" << exp.get_second_operand() << ");"
+            ;
+    }
+    else
+    {
+        running_error("%s: error: Iterating initializacion is not a Declaration or a Expression'\n",
+                it_init_ast.get_locus().c_str());
     }
 
-//      _loop << "for(" << _for_stmt.get_iterating_init().prettyprint() 
-//          << it_condition.get_first_operand() << it_condition.get_operator_str()
-//          << BUILTIN_VL_NAME << "(" << it_condition.get_second_operand() << "," << _smallest_type_size << ");"
-//          << _for_stmt.get_iterating_expression() << ")"
-//          << replaced_loop_body
-//          ;
+    _loop << "for(" 
+        << it_init_source
+        << _for_stmt.get_iterating_condition() << ";"
+        << BUILTIN_VL_NAME << "(" << _for_stmt.get_induction_variable() << ","
+        << _for_stmt.get_step().evaluate_constant_int_expression(step_evaluation) << "," 
+        << _smallest_type_size << "))"
+        << replaced_loop_body
+        ;
+
+    if (!step_evaluation){
+        running_error("%s: error: the loop is not simdizable. The step is not a compile-time evaluable constant.'\n",
+                _for_stmt.get_ast().get_locus().c_str());
+    }
+
+    //      _loop << "for(" << _for_stmt.get_iterating_init().prettyprint() 
+    //          << it_condition.get_first_operand() << it_condition.get_operator_str()
+    //          << BUILTIN_VL_NAME << "(" << it_condition.get_second_operand() << "," << _smallest_type_size << ");"
+    //          << _for_stmt.get_iterating_expression() << ")"
+    //          << replaced_loop_body
+    //          ;
 
     _result
         << "{"
