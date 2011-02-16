@@ -626,3 +626,13 @@ int yywrap()
 {
 	return 1;
 }
+
+UNUSED_PARAMETER static void yyunput (int c, register char * yy_bp );
+
+#ifndef YY_NO_INPUT
+#ifdef __cplusplus
+    UNUSED_PARAMETER static int yyinput (void);
+#else
+    UNUSED_PARAMETER static int input  (void);
+#endif
+#endif

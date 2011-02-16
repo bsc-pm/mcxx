@@ -315,6 +315,7 @@ typedef struct compilation_configuration_tag
     char do_not_prettyprint;
     char do_not_compile;
     char do_not_link;
+    char generate_assembler;
     char disable_openmp;
 	char force_language;
 

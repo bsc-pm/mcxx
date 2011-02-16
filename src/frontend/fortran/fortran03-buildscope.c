@@ -827,10 +827,20 @@ const char* get_name_of_generic_spec(AST generic_spec)
 }
 
 
-static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context UNUSED_PARAMETER)
+static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context)
 {
-    fprintf(stderr, "%s: warning: KIND not implemented yet, defaulting to 4\n", ast_location(kind_expr));
-    return 4;
+    fortran_check_expression(kind_expr, decl_context);
+
+    if (expression_is_constant(kind_expr))
+    {
+        return const_value_cast_to_4(expression_get_constant(kind_expr));
+    }
+    else
+    {
+        // We would issue a warning but since we are not implementing the
+        // builtins, we just fallback to 4
+        return 4;
+    }
 }
 
 static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int num_types, int kind_size)
@@ -889,9 +899,9 @@ static type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 {
     if (!logical_types_init)
     {
-        int_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
-        int_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
-        int_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
+        logical_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
+        logical_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
+        logical_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
         logical_types_init = 1;
     }
     return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size);
@@ -1791,6 +1801,10 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context)
 
     fortran_check_expression(expr, decl_context);
     fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_case_statement(AST a, decl_context_t decl_context)
@@ -1821,6 +1835,10 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context)
     }
 
     fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_CASE_EXPRESSION, tl_type_t, tl_ast(case_selector));
+    ASTAttrSetValueType(a, LANG_CASE_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_default_statement(AST a, decl_context_t decl_context)
@@ -1841,6 +1859,9 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context)
 
         fortran_build_scope_statement(statement, decl_context);
     }
+
+    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
 }
 
 static void build_scope_close_stmt(AST a, decl_context_t decl_context)
@@ -2008,14 +2029,22 @@ static scope_entry_t* query_label(AST label,
 
 static void build_scope_labeled_stmt(AST a, decl_context_t decl_context)
 {
-    query_label(ASTSon0(a), decl_context, /* is_definition */ 1);
+    AST label = ASTSon0(a);
+    AST statement = ASTSon1(a);
+
+    query_label(label, decl_context, /* is_definition */ 1);
     // Sign in the label
-    fortran_build_scope_statement(ASTSon1(a), decl_context);
+    fortran_build_scope_statement(statement, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
+    ASTAttrSetValueType(a, LANG_LABELED_STATEMENT, tl_type_t, tl_ast(statement));
 }
 
-static void build_scope_continue_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for continue
+    ASTAttrSetValueType(a, LANG_IS_EMPTY_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_critical_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2023,9 +2052,10 @@ static void build_scope_critical_construct(AST a, decl_context_t decl_context UN
     unsupported_statement(a, "CRITICAL");
 }
 
-static void build_scope_cycle_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for cycle
+    ASTAttrSetValueType(a, LANG_IS_CONTINUE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void generic_implied_do_handler(AST a, decl_context_t decl_context,
@@ -2152,8 +2182,187 @@ static void build_scope_deallocate_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_derived_type_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
 {
+    AST derived_type_stmt = ASTSon0(a);
+    AST derived_type_body = ASTSon1(a);
+
+    AST type_attr_spec_list = ASTSon0(derived_type_stmt);
+    AST name = ASTSon1(derived_type_stmt);
+    AST type_param_name_list = ASTSon2(derived_type_stmt);
+
+    if (type_param_name_list != NULL)
+    {
+        running_error("%s: sorry: derived types with type-parameters are not supported\n",
+                ast_location(a));
+    }
+
+    AST it;
+    if (type_attr_spec_list != NULL)
+    {
+        for_each_element(type_attr_spec_list, it)
+        {
+            AST type_attr_spec = ASTSon1(it);
+            switch (ASTType(type_attr_spec))
+            {
+                case AST_ABSTRACT:
+                    {
+                        break;
+                    }
+                case AST_ATTR_SPEC:
+                    {
+                        const char* attr_spec_name = ASTText(type_attr_spec);
+                        ERROR_CONDITION(attr_spec_name == NULL, "Invalid attr-spec-name\n", 0);
+
+                        fprintf(stderr, "%s: warning: ignoring specifier '%s'\n",
+                                ast_location(type_attr_spec),
+                                fortran_prettyprint_in_buffer(type_attr_spec));
+                        break;
+                    }
+                case AST_BIND_C_SPEC:
+                    {
+                        // Do not complain on this one
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("%s: unexpected tree\n",
+                                ast_location(type_attr_spec));
+                    }
+            }
+        }
+    }
+
+    scope_entry_t* class_name = new_fortran_symbol(decl_context, ASTText(name));
+    class_name->kind = SK_CLASS;
+    class_name->file = ASTFileName(name);
+    class_name->line = ASTLine(name);
+    class_name->type_information = get_new_class_type(decl_context, CK_STRUCT);
+
+    // Derived type body
+    AST type_param_def_stmt_seq = ASTSon0(derived_type_body);
+    // AST private_or_sequence_seq = ASTSon1(derived_type_body);
+    AST component_part = ASTSon2(derived_type_body);
+    AST type_bound_procedure_part = ASTSon3(derived_type_body);
+
+    if (type_param_def_stmt_seq != NULL)
+    {
+        running_error("%s: sorry: type-parameter definitions are not supported\n",
+                ast_location(type_param_def_stmt_seq));
+    }
+    if (type_bound_procedure_part != NULL)
+    {
+        running_error("%s: sorry: type-bound procedures are not supported\n",
+                ast_location(type_bound_procedure_part));
+    }
+
+    decl_context_t inner_decl_context = new_class_context(class_name->decl_context, class_name);
+    class_type_set_inner_context(class_name->type_information, inner_decl_context);
+
+    for_each_element(component_part, it)
+    {
+        AST component_def_stmt = ASTSon1(it);
+
+        if (ASTType(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
+        {
+            running_error("%s: sorry: unsupported procedure components in derived type definition\n",
+                    ast_location(component_def_stmt));
+        }
+        ERROR_CONDITION(ASTType(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
+                "Invalid tree", 0);
+
+        AST declaration_type_spec = ASTSon0(component_def_stmt);
+        AST component_attr_spec_list = ASTSon1(component_def_stmt);
+        AST component_decl_list = ASTSon2(component_def_stmt);
+
+        type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+
+        attr_spec_t attr_spec;
+        memset(&attr_spec, 0, sizeof(attr_spec));
+
+        if (component_attr_spec_list != NULL)
+        {
+            gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
+        }
+
+        AST it2;
+        for_each_element(component_decl_list, it2)
+        {
+            attr_spec_t current_attr_spec = attr_spec;
+            AST declaration = ASTSon1(it2);
+
+            AST component_name = ASTSon0(declaration);
+            AST entity_decl_specs = ASTSon1(declaration);
+
+            scope_entry_t* entry = new_fortran_symbol(inner_decl_context, ASTText(component_name));
+
+            entry->kind = SK_VARIABLE;
+
+            entry->file = ASTFileName(declaration);
+            entry->line = ASTLine(declaration);
+
+            entry->type_information = basic_type;
+            entry->entity_specs.is_implicit_basic_type = 0;
+
+            AST char_length = NULL;
+            AST initialization = NULL;
+            if (entity_decl_specs != NULL)
+            {
+                AST array_spec = ASTSon0(entity_decl_specs);
+                AST coarray_spec = ASTSon1(entity_decl_specs);
+                char_length = ASTSon2(entity_decl_specs);
+                initialization = ASTSon3(entity_decl_specs);
+
+                if (array_spec != NULL)
+                {
+                    if (current_attr_spec.is_dimension)
+                    {
+                        running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                    }
+                    current_attr_spec.is_dimension = 1;
+                    current_attr_spec.array_spec = array_spec;
+                }
+
+                if (coarray_spec != NULL)
+                {
+                    if (current_attr_spec.is_codimension)
+                    {
+                        running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                    }
+                    current_attr_spec.is_codimension = 1;
+                    current_attr_spec.coarray_spec = coarray_spec;
+                }
+
+                if (char_length != NULL)
+                {
+                    if (!is_fortran_character_type(entry->type_information))
+                    {
+                        running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                    }
+
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                    entry->type_information = get_array_type_bounds(
+                            array_type_get_element_type(entry->type_information), 
+                            lower_bound, char_length, decl_context);
+                }
+
+                // Stop the madness here
+                if (current_attr_spec.is_codimension)
+                {
+                    running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+                }
+
+                if (current_attr_spec.is_dimension)
+                {
+                    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                            current_attr_spec.array_spec,
+                            decl_context,
+                            /* array_spec_kind */ NULL);
+                    entry->type_information = array_type;
+                }
+            }
+        }
+    }
 }
 
 static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
@@ -2227,6 +2436,8 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
         fortran_check_expression(stride, decl_context);
 
     fortran_build_scope_statement(block, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2267,9 +2478,10 @@ static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_exit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing for exit
+    ASTAttrSetValueType(a, LANG_IS_BREAK_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_external_stmt(AST a, decl_context_t decl_context)
@@ -2331,6 +2543,11 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context)
     {
         fortran_build_scope_statement(else_statement, decl_context);
     }
+
+    ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_CONDITION, tl_type_t, tl_ast(logical_expr));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_THEN_BODY, tl_type_t, tl_ast(then_statement));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_ELSE_BODY, tl_type_t, tl_ast(else_statement));
 }
 
 static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
@@ -2494,6 +2711,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
         if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
         {
+            unsupported_statement(interface_specification, "MODULE PROCEDURE");
         }
         else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
                 || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
@@ -3233,6 +3451,10 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context)
     }
 
     fortran_build_scope_statement(block, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_BODY, tl_type_t, tl_ast(block));
 }
 
 static void build_scope_write_stmt(AST a, decl_context_t decl_context)

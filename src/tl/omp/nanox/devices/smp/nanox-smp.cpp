@@ -749,7 +749,7 @@ void DeviceSMP::create_outline(
     }
 
     parameter_list
-        << struct_typename << "* _args"
+        << struct_typename << "* const _args"
         ;
 
     outline_name
@@ -779,6 +779,11 @@ void DeviceSMP::create_outline(
         {
             Symbol sym = it->get_symbol();
             Type type = sym.get_type();
+
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
 
             private_vars
                 << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"

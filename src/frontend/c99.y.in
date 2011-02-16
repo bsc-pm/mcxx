@@ -1031,11 +1031,11 @@ declarator : direct_declarator
 
 ptr_operator : '*'
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '*' cv_qualifier_seq
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 

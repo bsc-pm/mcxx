@@ -45,6 +45,8 @@ LIBMF03_EXTERN scope_entry_t* query_name_no_implicit(decl_context_t, const char*
 LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
 LIBMF03_EXTERN scope_entry_t* query_name_with_locus(decl_context_t, AST locus, const char* name);
 
+LIBMF03_EXTERN scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name);
+
 LIBMF03_EXTERN void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type);
 LIBMF03_EXTERN void set_implicit_none(decl_context_t decl_context);
 LIBMF03_EXTERN char is_implicit_none(decl_context_t decl_context);

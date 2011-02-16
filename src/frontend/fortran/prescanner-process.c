@@ -536,7 +536,13 @@ static void read_lines(prescanner_t* prescanner)
 		char* line_buffer = (char*)calloc(buffer_size, sizeof(char));
 
 		// Read till '\n' or till buffer_size-1
-		fgets(line_buffer, buffer_size, prescanner->input_file);
+		if (fgets(line_buffer, buffer_size, prescanner->input_file) == NULL)
+        {
+            if (ferror(prescanner->input_file))
+            {
+                running_error("error while reading line");
+            }
+        }
 
 		// How many characters have we read
 		int length_read = strlen(line_buffer);
@@ -556,7 +562,13 @@ static void read_lines(prescanner_t* prescanner)
 			line_buffer = (char*) realloc(line_buffer, 2*buffer_size*sizeof(char));
 
 			// We read from the former end
-			fgets(&line_buffer[length_read], buffer_size, prescanner->input_file);
+			if (fgets(&line_buffer[length_read], buffer_size, prescanner->input_file) == NULL)
+            {
+                if (ferror(prescanner->input_file))
+                {
+                    running_error("error while reading line");
+                }
+            }
 			
 			buffer_size = buffer_size * 2;
 			length_read = strlen(line_buffer);
