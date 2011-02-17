@@ -2526,7 +2526,15 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
 
         if (!entry->entity_specs.is_extern)
         {
-            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            if (is_void_type(entry->type_information))
+            {
+                // We do not know it, set a type like one of a PROCEDURE
+                entry->type_information = get_nonproto_function_type(NULL, 0);
+            }
+            else
+            {
+                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            }
             // States it is extern
             entry->entity_specs.is_extern = 1;
         }
