@@ -17,11 +17,12 @@ const char* fortran_print_type_str(type_t* t)
     struct array_spec_tag {
         AST lower;
         AST upper;
-    } array_spec_list[MAX_ARRAY_SPEC] = { { 0, 0 }  };
+        char is_undefined;
+    } array_spec_list[MAX_ARRAY_SPEC] = { { 0, 0, 0 }  };
 
     int array_spec_idx;
     for (array_spec_idx = MAX_ARRAY_SPEC - 1; 
-            is_array_type(t); 
+            is_fortran_array_type(t);
             array_spec_idx--)
     {
         if (array_spec_idx < 0)
@@ -29,8 +30,15 @@ const char* fortran_print_type_str(type_t* t)
             internal_error("too many array dimensions %d\n", MAX_ARRAY_SPEC);
         }
 
-        array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
-        array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t);
+        if (!array_type_is_unknown_size(t))
+        {
+            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
+            array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t);
+        }
+        else
+        {
+            array_spec_list[array_spec_idx].is_undefined = 1;
+        }
 
         t = array_type_get_element_type(t);
     }
@@ -49,6 +57,11 @@ const char* fortran_print_type_str(type_t* t)
         if (is_bool_type(t))
         {
             type_name = "LOGICAL";
+        }
+        // Do not move this after is_integer_type
+        else if (is_character_type(t))
+        {
+            type_name = "CHARACTER";
         }
         else if (is_integer_type(t))
         {
@@ -83,6 +96,15 @@ const char* fortran_print_type_str(type_t* t)
 
         result = uniquestr(c);
     }
+    else if (is_fortran_character_type(t))
+    {
+        AST length = array_type_get_array_size_expr(t);
+        char c[128] = { 0 };
+        snprintf(c, 127, "CHARACTER(LEN=%s)",
+                length == NULL ? "*" : fortran_prettyprint_in_buffer(length));
+        c[127] = '\0';
+        result = uniquestr(c);
+    }
     else 
     {
         internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t));
@@ -100,9 +122,16 @@ const char* fortran_print_type_str(type_t* t)
 
         while (array_spec_idx <= (MAX_ARRAY_SPEC - 1))
         {
-            result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].lower));
-            result = strappend(result, ":");
-            result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].upper));
+            if (!array_spec_list[array_spec_idx].is_undefined)
+            {
+                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].lower));
+                result = strappend(result, ":");
+                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].upper));
+            }
+            else
+            {
+                result = strappend(result, ":");
+            }
             if ((array_spec_idx + 1) <= (MAX_ARRAY_SPEC - 1))
             {
                 result = strappend(result, ", ");
@@ -112,6 +141,10 @@ const char* fortran_print_type_str(type_t* t)
 
         result = strappend(result, ")");
     }
+
+    // if (is_character)
+    // {
+    // }
 
     return result;
 }

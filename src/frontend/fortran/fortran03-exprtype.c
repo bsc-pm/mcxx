@@ -1481,7 +1481,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
     AST one = const_value_to_tree(const_value_get_one(4, 1));
     AST length_tree = const_value_to_tree(const_value_get(length, 4, 1));
 
-    expression_set_type(expr, get_array_type_bounds(get_char_type(), one, length_tree, decl_context));
+    expression_set_type(expr, get_array_type_bounds(get_signed_char_type(), one, length_tree, decl_context));
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
@@ -2031,12 +2031,12 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type)
 {
-    if (is_array_type(lhs_type))
+    if (is_fortran_array_type(lhs_type))
     {
         // They should have the same shape so it does not matter very much which one we use, right?
         return rebuild_array_type(rank0_common, lhs_type);
     }
-    else if (is_array_type(rhs_type))
+    else if (is_fortran_array_type(rhs_type))
     {
         return rebuild_array_type(rank0_common, rhs_type);
     }
@@ -2048,9 +2048,10 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
 
 static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
-    ERROR_CONDITION(!is_scalar_type(rank0_type), "Invalid rank0 type", 0);
+    ERROR_CONDITION(!is_scalar_type(rank0_type)
+            && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
 
-    if (!is_array_type(array_type))
+    if (!is_fortran_array_type(array_type))
     {
         return rank0_type;
     }

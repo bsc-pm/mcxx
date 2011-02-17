@@ -972,7 +972,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_CHARACTER_TYPE:
             {
-                result = get_unsigned_char_type();
+                result = get_signed_char_type();
                 AST char_selector = ASTSon0(a);
                 AST len = NULL;
                 AST kind = NULL;
