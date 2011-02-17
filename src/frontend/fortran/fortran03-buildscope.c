@@ -3265,19 +3265,22 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 current_attr_spec.coarray_spec = coarray_spec;
             }
 
-            if (ASTType(char_length) != AST_SYMBOL
-                    || strcmp(ASTText(char_length), "*") != 0)
+            if (char_length != NULL)
             {
-                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
-                entry->type_information = get_array_type_bounds(
-                        array_type_get_element_type(entry->type_information), 
-                        lower_bound, char_length, decl_context);
-            }
-            else
-            {
-                entry->type_information = get_array_type(
-                        array_type_get_element_type(entry->type_information), 
-                        NULL, decl_context);
+                if (ASTType(char_length) != AST_SYMBOL
+                        || strcmp(ASTText(char_length), "*") != 0)
+                {
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                    entry->type_information = get_array_type_bounds(
+                            array_type_get_element_type(entry->type_information), 
+                            lower_bound, char_length, decl_context);
+                }
+                else
+                {
+                    entry->type_information = get_array_type(
+                            array_type_get_element_type(entry->type_information), 
+                            NULL, decl_context);
+                }
             }
         }
 
