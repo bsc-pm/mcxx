@@ -80,8 +80,9 @@ static void clear_unknown_symbols(void)
     {
         scope_entry_t* entry = unknown_symbols[i];
 
-        if (entry->type_information == NULL
+        if ((entry->type_information == NULL
                     || basic_type_is_void(entry->type_information))
+                    && !entry->entity_specs.is_builtin)
         {
             if (unresolved_implicits)
             {
@@ -3028,6 +3029,13 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
     AST saved_entity_list = ASTSon0(a);
 
     AST it;
+
+    if (saved_entity_list == NULL)
+    {
+        fprintf(stderr, "%s: warning: SAVE statement without saved-entity-list is not properly supported at the moment\n",
+                ast_location(a));
+        return;
+    }
 
     for_each_element(saved_entity_list, it)
     {
