@@ -414,7 +414,20 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
-static void compute_boz_literal(AST expr, char prefix, int base)
+static char in_string_set(char c, const char* char_set)
+{
+    int i;
+    int len = strlen(char_set);
+    for (i = 0; i < len; i++)
+    {
+        if (tolower(c) == tolower(char_set[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+static void compute_boz_literal(AST expr, const char *valid_prefix, int base)
 {
     const char* literal_token = ASTText(expr);
 
@@ -424,7 +437,7 @@ static void compute_boz_literal(AST expr, char prefix, int base)
     char *q = literal_text;
 
     char had_prefix = 0;
-    if (tolower(*literal_token) == prefix)
+    if (in_string_set(*literal_token, valid_prefix))
     {
         literal_token++;
         had_prefix = 1;
@@ -445,7 +458,7 @@ static void compute_boz_literal(AST expr, char prefix, int base)
     if (!had_prefix)
     {
         literal_token++;
-        if (tolower(*literal_token) != prefix)
+        if (!in_string_set(*literal_token, valid_prefix))
         {
             ERROR_CONDITION(*literal_token != '\''
                     && *literal_token != '\"', "Invalid expr token!", 0);
@@ -464,7 +477,7 @@ static void compute_boz_literal(AST expr, char prefix, int base)
 
 static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    compute_boz_literal(expr, 'b', 2);
+    compute_boz_literal(expr, "b", 2);
 }
 
 static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
@@ -1183,7 +1196,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
     }
 
-    if (num_arguments > function_type_get_num_parameters(symbol->type_information))
+    if (!function_type_get_lacking_prototype(symbol->type_information) 
+            && num_arguments > function_type_get_num_parameters(symbol->type_information))
     {
         fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
                 ast_location(expr),
@@ -1277,7 +1291,8 @@ static void check_greater_than(AST expr, decl_context_t decl_context)
 
 static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    compute_boz_literal(expr, 'z', 16);
+    // We allow X and Z
+    compute_boz_literal(expr, "xz", 16);
 }
 
 static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -1333,7 +1348,7 @@ static void check_not_op(AST expr, decl_context_t decl_context)
 
 static void check_octal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    compute_boz_literal(expr, 'o', 8);
+    compute_boz_literal(expr, "o", 8);
 }
 
 static void check_parenthesized_expression(AST expr, decl_context_t decl_context)
