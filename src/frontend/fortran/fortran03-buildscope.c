@@ -966,7 +966,16 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_COMPLEX_TYPE:
             {
-                type_t* element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                type_t* element_type = NULL; 
+                if (ASTType(ASTSon0(a)) == AST_DECIMAL_LITERAL)
+                {
+                    element_type = choose_type_from_kind(ASTSon0(a), decl_context, choose_float_type_from_kind);
+                }
+                else
+                {
+                    element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                }
+
                 result = get_complex_type(element_type);
                 break;
             }
