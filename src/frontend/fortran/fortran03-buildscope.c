@@ -2772,8 +2772,23 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    fprintf(stderr, "%s: warning: INTRINSIC statement not yet implemented\n",
-            ast_location(a));
+    AST intrinsic_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(intrinsic_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        scope_entry_t* entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        entry->kind = SK_FUNCTION;
+
+        if (!entry->entity_specs.is_extern)
+        {
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            // States it is intrinsic
+            entry->entity_specs.is_builtin = 1;
+        }
+    }
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -3538,6 +3553,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(encoding) \
   OPT_VALUE(eor) \
   OPT_VALUE(err) \
+  OPT_VALUE(end) \
   OPT_VALUE(errmsg) \
   OPT_VALUE(exist) \
   OPT_VALUE(file) \
@@ -3777,6 +3793,13 @@ static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER,
 }
 
 static void opt_err_handler(AST io_stmt UNUSED_PARAMETER, 
+        AST opt_value UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing
+}
+
+static void opt_end_handler(AST io_stmt UNUSED_PARAMETER, 
         AST opt_value UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
