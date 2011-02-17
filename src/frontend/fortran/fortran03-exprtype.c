@@ -1492,6 +1492,17 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context UN
     running_error("%s: sorry: not yet implemented\n", ast_location(expr));
 }
 
+static char function_has_result(scope_entry_t* entry)
+{
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
+            return 1;
+    }
+    return 0;
+}
+
 static void check_symbol(AST expr, decl_context_t decl_context)
 {
     scope_entry_t* entry = query_name(decl_context, ASTText(expr));
@@ -1538,8 +1549,7 @@ static void check_symbol(AST expr, decl_context_t decl_context)
     else if (entry->kind == SK_FUNCTION)
     {
         // This function has a RESULT(X) so it cannot be used as a variable
-        if (entry->entity_specs.num_related_symbols > 0
-                && entry->entity_specs.related_symbols[entry->entity_specs.num_related_symbols - 1]->entity_specs.is_result)
+        if (function_has_result(entry))
         {
             if (!checking_ambiguity())
             {
@@ -1552,7 +1562,10 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         }
 
         expression_set_symbol(expr, entry);
-        expression_set_type(expr, entry->type_information);
+        if (!entry->entity_specs.is_generic_spec)
+        {
+            expression_set_type(expr, function_type_get_return_type(entry->type_information));
+        }
     }
     else
     {
@@ -1590,16 +1603,10 @@ static void check_assignment(AST expr, decl_context_t decl_context)
     if (expression_has_symbol(lvalue))
     {
         scope_entry_t* sym = expression_get_symbol(lvalue);
-        if (sym->kind != SK_VARIABLE)
+        if (sym->kind == SK_FUNCTION)
         {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: '%s' is not a variable\n",
-                        ast_location(expr),
-                        fortran_prettyprint_in_buffer(lvalue));
-            }
-            expression_set_error(expr);
-            return;
+            ERROR_CONDITION(function_has_result(sym), "Function cannot have result here!", 0);
+            lvalue_type = function_type_get_return_type(sym->type_information);
         }
     }
 
