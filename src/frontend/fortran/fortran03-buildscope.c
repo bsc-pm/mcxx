@@ -982,6 +982,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                     kind = ASTSon1(char_selector);
                 }
 
+                char is_undefined = 0;
                 // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
                 {
@@ -992,8 +993,20 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 {
                     len = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(a), ASTLine(a), "1");
                 }
-                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
-                result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                else if (ASTType(len) == AST_SYMBOL
+                        && strcmp(ASTText(len), "*") == 0)
+                {
+                    is_undefined = 1;
+                }
+                if (!is_undefined)
+                {
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
+                    result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                }
+                else
+                {
+                    result = get_array_type(result, NULL, decl_context);
+                }
                 break;
             }
         case AST_BOOL_TYPE:
@@ -2340,10 +2353,20 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                         running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
 
-                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
-                    entry->type_information = get_array_type_bounds(
-                            array_type_get_element_type(entry->type_information), 
-                            lower_bound, char_length, decl_context);
+                    if (ASTType(char_length) != AST_SYMBOL
+                            || strcmp(ASTText(char_length), "*") != 0)
+                    {
+                        AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                        entry->type_information = get_array_type_bounds(
+                                array_type_get_element_type(entry->type_information), 
+                                lower_bound, char_length, decl_context);
+                    }
+                    else
+                    {
+                        entry->type_information = get_array_type(
+                                array_type_get_element_type(entry->type_information), 
+                                NULL, decl_context);
+                    }
                 }
 
                 // Stop the madness here
@@ -3242,17 +3265,19 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 current_attr_spec.coarray_spec = coarray_spec;
             }
 
-            if (char_length != NULL)
+            if (ASTType(char_length) != AST_SYMBOL
+                    || strcmp(ASTText(char_length), "*") != 0)
             {
-                if (!is_fortran_character_type(entry->type_information))
-                {
-                    running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
-                }
-
                 AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
                 entry->type_information = get_array_type_bounds(
                         array_type_get_element_type(entry->type_information), 
                         lower_bound, char_length, decl_context);
+            }
+            else
+            {
+                entry->type_information = get_array_type(
+                        array_type_get_element_type(entry->type_information), 
+                        NULL, decl_context);
             }
         }
 
