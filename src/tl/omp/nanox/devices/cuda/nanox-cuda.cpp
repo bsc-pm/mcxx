@@ -617,7 +617,8 @@ void DeviceCUDA::get_device_descriptor(const std::string& task_name,
 
 	ancillary_device_description
 		<< comment("CUDA device descriptor")
-		<< "nanos_smp_args_t " << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
+		<< "nanos_smp_args_t " 
+        << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
 		;
 
 	device_descriptor

@@ -31,7 +31,6 @@ using namespace TL::HLT;
 
 const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 {
-
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
 
@@ -157,15 +156,13 @@ TL::Source ReplaceSimdSrc::replace(TL::LangConstruct a) const
     return ReplaceSimdSrc::replace(a.get_ast());
 }
 
-
-
 LoopSimdization TL::HLT::simdize_loop(TL::ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list)
 {
     return LoopSimdization(for_stmt, simd_id_exp_list);
 }
 
 
-    LoopSimdization::LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list) 
+LoopSimdization::LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list) 
 : _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list)
 {
 
@@ -200,8 +197,8 @@ void LoopSimdization::gen_vector_type(IdExpression id){
     std::stringstream new_sym_name;
 
     //Save the smallest type size
-    if (_smallest_type_size < type.basic_type().get_size())
-        _smallest_type_size = type.basic_type().get_size();
+//    if (_smallest_type_size < type.basic_type().get_size())
+//        _smallest_type_size = type.basic_type().get_size();
 
     if (type.is_array())
     {
@@ -243,6 +240,49 @@ void LoopSimdization::gen_vector_type(IdExpression id){
 
 }
 
+bool isExpressionAssignment::do_(const AST_t& ast) const
+{
+    if (!ast.is_valid())
+        return false;
+
+    if (Statement::predicate(ast))
+    {
+        Statement stmt(ast, _sl);
+
+        if (stmt.is_expression())
+        {
+            Expression expr = stmt.get_expression();
+
+            if (expr.is_assignment() || expr.is_operation_assignment())
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int LoopSimdization::get_smallest_type_size()
+{
+    int statement_type_size;
+    int min = 100;
+
+    ObjectList<AST_t> assignment_list = _for_stmt.get_loop_body().
+        get_ast().depth_subtrees(isExpressionAssignment(_for_stmt.get_scope_link()));
+
+    for (ObjectList<AST_t>::iterator it = assignment_list.begin();
+            it != assignment_list.end();
+            it++)
+    {
+        Expression exp ((AST_t)*it, _for_stmt.get_scope_link());
+        statement_type_size = exp.get_first_operand().get_type().get_size();
+        min = (min <= statement_type_size) ? min : statement_type_size;
+
+        std::cout << exp.prettyprint() << " : " << statement_type_size << "\n";
+    }
+
+    return min;
+}
 
 TL::Source LoopSimdization::do_simdization()
 {
@@ -251,18 +291,31 @@ TL::Source LoopSimdization::do_simdization()
         return _for_stmt.prettyprint();
     }
 
+    //It calculates the smallest type of the first operand of an assignment
+    //and marks the statements that have to be replicated.
+    _smallest_type_size = get_smallest_type_size();
+
     //Simd variable initialization & sustitution
     std::for_each(_simd_id_exp_list.begin(), _simd_id_exp_list.end(), 
             std::bind1st(std::mem_fun(&LoopSimdization::gen_vector_type), this));
 
     Source replaced_loop_body = _replacement.replace(_for_stmt.get_loop_body());
 
-
     bool step_evaluation;
 
     AST_t it_init_ast (_for_stmt.get_iterating_init());
     Source it_init_source;
     
+    _result
+        << "{"
+//        << _induction_var_decl
+//        << _before_loop
+        << _loop
+//        << _after_loop
+//        << _epilogue
+        << "}"
+        ;
+
     if (Declaration::predicate(it_init_ast))
     {
         Declaration decl(it_init_ast, _for_stmt.get_scope_link());
@@ -317,22 +370,9 @@ TL::Source LoopSimdization::do_simdization()
                 _for_stmt.get_ast().get_locus().c_str());
     }
 
-    //      _loop << "for(" << _for_stmt.get_iterating_init().prettyprint() 
-    //          << it_condition.get_first_operand() << it_condition.get_operator_str()
-    //          << BUILTIN_VL_NAME << "(" << it_condition.get_second_operand() << "," << _smallest_type_size << ");"
-    //          << _for_stmt.get_iterating_expression() << ")"
-    //          << replaced_loop_body
-    //          ;
+    //For Statement is marked as HLT 
+    !!!!!!
 
-    _result
-        << "{"
-        << _induction_var_decl
-        << _before_loop
-        << _loop
-        << _after_loop
-        << _epilogue
-        << "}"
-        ;
 
     return _result;
 }

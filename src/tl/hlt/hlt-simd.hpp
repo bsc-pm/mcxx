@@ -64,8 +64,6 @@ namespace TL
 
         class LIBHLT_CLASS LoopSimdization : public BaseTransform
         {
-            public: 
-                void gen_vector_type(IdExpression id);
             protected:
                 virtual Source get_source();
             private:
@@ -78,42 +76,16 @@ namespace TL
                 bool _with_epilog;
 
                 Source _result;
-                Source _epilogue;
+//                Source _epilogue;
                 Source _loop;
-                Source _induction_var_decl;
-                Source _before_loop;
-                Source _after_loop;
+//                Source _induction_var_decl;
+//                Source _before_loop;
+//                Source _after_loop;
 
                 Source do_simdization();
+                int get_smallest_type_size();
+                void gen_vector_type(IdExpression id);
 
-/*
-                unsigned int _factor;
-                bool _with_epilog;
-                bool _ignore_omp;
-                bool _omp_bundling;
-                int _omp_bundling_factor;
-                bool _omp_aggregate_epilog;
-
-                bool _remove_tasks;
-                bool _timing;
-
-                Source do_simdization();
-                Source silly_simdization();
-
-                void simple_replication(int factor, Source &replicated_body, Source &epilog,
-                                        IdExpression induction_var, Statement loop_body);
-                void omp_replication(int factor, Source &replicated_body, Source &epilog,
-                                     IdExpression induction_var, Statement loop_body,
-                                     Source &before, Source &after);
-                void omp_replication_by_task_aggregation(int factor, Source &replicated_body,
-                                                         IdExpression induction_var, Statement loop_body);
-                void omp_replication_by_task_bundling(int factor, Source& replicated_body,
-                                                      IdExpression induction_var, Statement loop_body,
-                                                      Source& before, Source &after);
-
-
-                Source flatten_compound(Statement stmt, int num, Symbol sym);
-*/
             public:
                 //! Creates a LoopSimdization object
                 /*!
@@ -123,19 +95,18 @@ namespace TL
                   \param factor Number of times this loop is simdizationed
                  */
                 LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list);
-/*
-                LoopSimdization& ignore_omp(bool b);
-                LoopSimdization& enable_omp_bundling(bool b);
 
-                LoopSimdization& set_omp_bundling_factor(int n);
-
-                LoopSimdization& set_remove_tasks(bool b);
-
-                LoopSimdization& set_timing(bool b);
-
-                LoopSimdization& set_omp_aggregate_epilog(bool b);
-*/
         };
+
+        class isExpressionAssignment : public TL::Predicate<AST_t>
+        {
+            private:
+                ScopeLink _sl;
+            public:
+                isExpressionAssignment(ScopeLink sl) : _sl(sl){};
+                virtual bool do_(const AST_t& ast) const;
+        };
+
 
         //! Creates a LoopSimdization object
         /*!

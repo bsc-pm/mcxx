@@ -247,7 +247,7 @@ static void do_smp_outline_replacements(AST_t body,
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
     
-    replace_src.add_this_replacement("_args->_this");
+//    replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
     builtin_ast_list = 
@@ -376,7 +376,8 @@ static void do_smp_outline_replacements(AST_t body,
                     it++)
             {
                 Source new_dim;
-                new_dim << "_args->" << *it;
+                new_dim << "_" << *it;
+//                new_dim << "_args->" << *it;
 
                 arg_vla_dims.append(new_dim);
             }
@@ -398,7 +399,8 @@ static void do_smp_outline_replacements(AST_t body,
                 << "="
                 << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
                 << "("
-                << "_args->" << field_name
+                << "_" << field_name
+//                << "_args->" << field_name
                 << ");"
                 ;
         }
@@ -417,7 +419,8 @@ static void do_smp_outline_replacements(AST_t body,
                             << "="
                             << "("
                             << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") (_args->" << field_name << ");"
+                            << ") (_" << field_name << ");"
+//                            << ") (_args->" << field_name << ");"
                             ;
                     replace_src.add_replacement(sym, field_name);
                 }
@@ -429,7 +432,8 @@ static void do_smp_outline_replacements(AST_t body,
                             << "="
                             << "("
                             << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") (_args->" << field_name << ");"
+                            << ") (_" << field_name << ");"
+//                            << ") (_args->" << field_name << ");"
                             ;
                     replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
@@ -459,7 +463,8 @@ static void do_smp_outline_replacements(AST_t body,
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
                                 << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << "_args->" << field_name
+                                << field_name
+//                                << "_args->" << field_name
                                 << ");"
                                 ;
                         }
@@ -471,7 +476,8 @@ static void do_smp_outline_replacements(AST_t body,
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
                                 << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << "_args->" << field_name
+                                << field_name
+//                                << "_args->" << field_name
                                 << ");"
                                 ;
                         }
@@ -482,7 +488,8 @@ static void do_smp_outline_replacements(AST_t body,
                 }
                 else
                 {
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    replace_src.add_replacement(sym, "(_" + field_name + ")");
+//                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
                 }
             }
         }
@@ -497,7 +504,8 @@ static void do_smp_outline_replacements(AST_t body,
             it != nonstatic_members.end();
             it++)
     {
-        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+        replace_src.add_replacement(*it, "(_" + it->get_name() + ")");
+//        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
     }
 
     // Create local variables for reduction symbols
@@ -573,7 +581,7 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list;
+    Source result, body, outline_name, full_outline_name, parameter_list, local_copies;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -776,11 +784,32 @@ void DeviceSMP::create_outline(
     Source private_vars, final_code;
 
     body
+        << local_copies
         << private_vars
         << initial_setup
         << outline_body
         << final_code
         ;
+
+    // local_copies
+    Scope sc = sl.get_scope(reference_tree);
+    Type struct_typename_type = sc.get_symbol_from_name(struct_typename).get_type();
+    ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
+    Symbol sym;
+    int i;
+
+    for (i=0; i < (data_member_list.size()); i++)
+    {
+        sym = (Symbol)data_member_list[i];
+
+        local_copies
+            << sym.get_type().get_simple_declaration(sc, "_" + sym.get_name())
+            << " = "
+            << "_args->" << sym.get_name() 
+            << ";\n"
+            ;
+    }
+
 
     ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
 
@@ -792,11 +821,6 @@ void DeviceSMP::create_outline(
         {
             Symbol sym = it->get_symbol();
             Type type = sym.get_type();
-
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
 
             private_vars
                 << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
@@ -862,7 +886,8 @@ void DeviceSMP::create_outline(
 
             Type t = Source(struct_typename).parse_type(reference_tree, sl);
 
-            member_parameter_list << t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "const __restrict__ args");
+            member_parameter_list << 
+                t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "const __restrict__ args");
 
             AST_t member_decl_tree = 
                 member_declaration.parse_member(decl_point,
