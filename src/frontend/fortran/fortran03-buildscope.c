@@ -80,8 +80,9 @@ static void clear_unknown_symbols(void)
     {
         scope_entry_t* entry = unknown_symbols[i];
 
-        if (entry->type_information == NULL
+        if ((entry->type_information == NULL
                     || basic_type_is_void(entry->type_information))
+                    && !entry->entity_specs.is_builtin)
         {
             if (unresolved_implicits)
             {
@@ -966,13 +967,22 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_COMPLEX_TYPE:
             {
-                type_t* element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                type_t* element_type = NULL; 
+                if (ASTType(ASTSon0(a)) == AST_DECIMAL_LITERAL)
+                {
+                    element_type = choose_type_from_kind(ASTSon0(a), decl_context, choose_float_type_from_kind);
+                }
+                else
+                {
+                    element_type = gather_type_from_declaration_type_spec_(ASTSon0(a), decl_context);
+                }
+
                 result = get_complex_type(element_type);
                 break;
             }
         case AST_CHARACTER_TYPE:
             {
-                result = get_unsigned_char_type();
+                result = get_signed_char_type();
                 AST char_selector = ASTSon0(a);
                 AST len = NULL;
                 AST kind = NULL;
@@ -982,6 +992,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                     kind = ASTSon1(char_selector);
                 }
 
+                char is_undefined = 0;
                 // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
                 {
@@ -992,8 +1003,20 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 {
                     len = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(a), ASTLine(a), "1");
                 }
-                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
-                result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                else if (ASTType(len) == AST_SYMBOL
+                        && strcmp(ASTText(len), "*") == 0)
+                {
+                    is_undefined = 1;
+                }
+                if (!is_undefined)
+                {
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
+                    result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                }
+                else
+                {
+                    result = get_array_type(result, NULL, decl_context);
+                }
                 break;
             }
         case AST_BOOL_TYPE:
@@ -1164,7 +1187,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                         attr_handler_cmp);
 
                 if (handler == NULL 
-                        || handler->handler)
+                        || handler->handler == NULL)
                 {
                     internal_error("Unhandled handler of '%s'\n", ASTText(attr_spec_item));
                 }
@@ -1894,13 +1917,9 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
         AST common_name = ASTSon0(common_block_item);
         AST common_block_object_list = ASTSon1(common_block_item);
 
-        const char* common_name_str = NULL;
-        if (common_name != NULL)
-        {
-            common_name_str = ASTText(common_name);
-        }
+        const char* common_name_str = ASTText(common_name);
         
-        scope_entry_t* common_sym = query_name(decl_context, common_name_str);
+        scope_entry_t* common_sym = query_name(decl_context, get_common_name_str(ASTText(common_name)));
         if (common_sym == NULL)
         {
             common_sym = new_common(decl_context, common_name_str);
@@ -2340,10 +2359,20 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                         running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                     }
 
-                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
-                    entry->type_information = get_array_type_bounds(
-                            array_type_get_element_type(entry->type_information), 
-                            lower_bound, char_length, decl_context);
+                    if (ASTType(char_length) != AST_SYMBOL
+                            || strcmp(ASTText(char_length), "*") != 0)
+                    {
+                        AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                        entry->type_information = get_array_type_bounds(
+                                array_type_get_element_type(entry->type_information), 
+                                lower_bound, char_length, decl_context);
+                    }
+                    else
+                    {
+                        entry->type_information = get_array_type(
+                                array_type_get_element_type(entry->type_information), 
+                                NULL, decl_context);
+                    }
                 }
 
                 // Stop the madness here
@@ -2498,7 +2527,15 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
 
         if (!entry->entity_specs.is_extern)
         {
-            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            if (is_void_type(entry->type_information))
+            {
+                // We do not know it, set a type like one of a PROCEDURE
+                entry->type_information = get_nonproto_function_type(NULL, 0);
+            }
+            else
+            {
+                entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            }
             // States it is extern
             entry->entity_specs.is_extern = 1;
         }
@@ -2728,6 +2765,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
                         generic_spec_sym->entity_specs.num_related_symbols,
                         interface_sym);
             }
+
+            insert_entry(decl_context.current_scope, interface_sym);
         }
         else
         {
@@ -2738,8 +2777,23 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    fprintf(stderr, "%s: warning: INTRINSIC statement not yet implemented\n",
-            ast_location(a));
+    AST intrinsic_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(intrinsic_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        scope_entry_t* entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        entry->kind = SK_FUNCTION;
+
+        if (!entry->entity_specs.is_extern)
+        {
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            // States it is intrinsic
+            entry->entity_specs.is_builtin = 1;
+        }
+    }
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2975,6 +3029,13 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
     AST saved_entity_list = ASTSon0(a);
 
     AST it;
+
+    if (saved_entity_list == NULL)
+    {
+        fprintf(stderr, "%s: warning: SAVE statement without saved-entity-list is not properly supported at the moment\n",
+                ast_location(a));
+        return;
+    }
 
     for_each_element(saved_entity_list, it)
     {
@@ -3242,15 +3303,20 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
             if (char_length != NULL)
             {
-                if (!is_fortran_character_type(entry->type_information))
+                if (ASTType(char_length) != AST_SYMBOL
+                        || strcmp(ASTText(char_length), "*") != 0)
                 {
-                    running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                    entry->type_information = get_array_type_bounds(
+                            array_type_get_element_type(entry->type_information), 
+                            lower_bound, char_length, decl_context);
                 }
-
-                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
-                entry->type_information = get_array_type_bounds(
-                        array_type_get_element_type(entry->type_information), 
-                        lower_bound, char_length, decl_context);
+                else
+                {
+                    entry->type_information = get_array_type(
+                            array_type_get_element_type(entry->type_information), 
+                            NULL, decl_context);
+                }
             }
         }
 
@@ -3499,6 +3565,7 @@ typedef struct opt_value_map_tag
   OPT_VALUE(encoding) \
   OPT_VALUE(eor) \
   OPT_VALUE(err) \
+  OPT_VALUE(end) \
   OPT_VALUE(errmsg) \
   OPT_VALUE(exist) \
   OPT_VALUE(file) \
@@ -3738,6 +3805,13 @@ static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER,
 }
 
 static void opt_err_handler(AST io_stmt UNUSED_PARAMETER, 
+        AST opt_value UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing
+}
+
+static void opt_end_handler(AST io_stmt UNUSED_PARAMETER, 
         AST opt_value UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {

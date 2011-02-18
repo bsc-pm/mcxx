@@ -248,7 +248,9 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "SCOPE: Creating new symbol '%s'\n", strtolower(name));
+        fprintf(stderr, "SCOPE: Creating new symbol '%s' in scope '%p'\n", 
+                strtolower(name),
+                decl_context.current_scope);
     }
     return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
 }

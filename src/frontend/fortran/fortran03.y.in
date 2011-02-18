@@ -3171,7 +3171,7 @@ if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmts
     AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $6, NULL, NULL, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
     {
-        $$ = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
     }
     $$ = result;
 }

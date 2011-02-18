@@ -1725,9 +1725,13 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     {
         AST parent = ASTParent(a);
         if (ASTType(parent) == AST_LABELED_STATEMENT)
+        {
             parent = ASTSon1(parent);
-        if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+        }
+        else if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+        {
             token_fprintf(f, a, pt_ctx, "ELSE");
+        }
     }
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
