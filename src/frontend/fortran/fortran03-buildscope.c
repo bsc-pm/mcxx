@@ -365,13 +365,27 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    if (is_function)
+    entry = query_name_no_implicit(decl_context, ASTText(name));
+
+    if (entry != NULL)
     {
-        entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: warning: redeclaration of entity '%s'\n", 
+                    ast_location(name), 
+                    ASTText(name));
+        }
     }
     else
     {
-        entry = new_fortran_symbol(decl_context, ASTText(name));
+        if (is_function)
+        {
+            entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        }
+        else
+        {
+            entry = new_fortran_symbol(decl_context, ASTText(name));
+        }
     }
 
     entry->kind = SK_FUNCTION;
@@ -380,7 +394,14 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     type_t* return_type = NULL;
     if (is_function)
+    {
         return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+    }
+    else
+    {
+        // Not an implicit basic type anymore
+        entry->entity_specs.is_implicit_basic_type = 0;
+    }
 
     if (prefix != NULL)
     {
@@ -528,10 +549,13 @@ static void build_scope_internal_subprograms(AST internal_subprograms, decl_cont
     for_each_element(internal_subprograms, it)
     {
         AST internal_subprogram = ASTSon1(it);
+        scope_entry_t* subprogram_sym = NULL;
         build_scope_program_unit(internal_subprogram, 
                 decl_context, 
                 new_internal_program_unit_context,
-                NULL);
+                &subprogram_sym);
+
+        insert_entry(decl_context.current_scope, subprogram_sym);
     }
 }
 
@@ -2723,55 +2747,66 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
         unsupported_construct(a, "ABSTRACT INTERFACE");
     }
 
-    scope_entry_t* generic_spec_sym = NULL;
     AST generic_spec = ASTSon1(interface_stmt);
+
+    scope_entry_t** related_symbols = NULL;
+    int num_related_symbols = 0;
+
+    if (interface_specification_seq != NULL)
+    {
+        AST it;
+        for_each_element(interface_specification_seq, it)
+        {
+            AST interface_specification = ASTSon1(it);
+
+            if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+            {
+                unsupported_statement(interface_specification, "MODULE PROCEDURE");
+            }
+            else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+                    || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+            {
+                scope_entry_t* interface_sym = NULL;
+                build_scope_program_unit(interface_specification, 
+                        decl_context, 
+                        new_program_unit_context, 
+                        &interface_sym);
+
+                if (generic_spec != NULL)
+                {
+                    P_LIST_ADD(related_symbols,
+                            num_related_symbols,
+                            interface_sym);
+                }
+
+                insert_entry(decl_context.current_scope, interface_sym);
+            }
+            else
+            {
+                internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+            }
+        }
+    }
+
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
+        
+        scope_entry_t* generic_spec_sym = query_name_no_implicit(decl_context, name);
 
-        generic_spec_sym = new_fortran_symbol(decl_context, name);
+        if (generic_spec_sym == NULL)
+        {
+            generic_spec_sym = new_fortran_symbol(decl_context, name);
+            // If this name is not related to a specific interface, make it void
+            generic_spec_sym->type_information = get_void_type();
+        }
 
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->file = ASTFileName(generic_spec);
         generic_spec_sym->line = ASTLine(generic_spec);
         generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->type_information = get_void_type();
-    }
-
-    if (interface_specification_seq == NULL)
-        return;
-
-    AST it;
-    for_each_element(interface_specification_seq, it)
-    {
-        AST interface_specification = ASTSon1(it);
-
-        if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
-        {
-            unsupported_statement(interface_specification, "MODULE PROCEDURE");
-        }
-        else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
-                || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
-        {
-            scope_entry_t* interface_sym = NULL;
-            build_scope_program_unit(interface_specification, 
-                    decl_context, 
-                    new_program_unit_context, 
-                    &interface_sym);
-
-            if (generic_spec != NULL)
-            {
-                P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
-                        generic_spec_sym->entity_specs.num_related_symbols,
-                        interface_sym);
-            }
-
-            insert_entry(decl_context.current_scope, interface_sym);
-        }
-        else
-        {
-            internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
-        }
+        generic_spec_sym->entity_specs.related_symbols = related_symbols;
+        generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
     }
 }
 

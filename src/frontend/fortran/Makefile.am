@@ -58,6 +58,8 @@ libmf03_la_SOURCES = \
                      fortran03-buildscope.c \
                      fortran03-exprtype.h \
                      fortran03-exprtype.c \
+                     fortran03-intrinsics.h \
+                     fortran03-intrinsics.c \
                      libmf03-common.h \
                      $(END)
 

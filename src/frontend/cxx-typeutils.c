@@ -6329,6 +6329,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             }
         case SK_TYPEDEF :
         case SK_VARIABLE :
+        case SK_FUNCTION :
             {
                 type_t* aliased_type = advance_over_typedefs(user_defined_type->type_information);
 

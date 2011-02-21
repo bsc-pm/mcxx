@@ -226,6 +226,17 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                     fortran_prettyprint_in_buffer(const_value_to_tree(expression_get_constant(expression))));
         }
     }
+
+    if (CURRENT_CONFIGURATION->strict_typecheck)
+    {
+        if (expression_get_type(expression) == NULL
+                || expression_is_error(expression))
+        {
+            internal_error("%s: invalid expression '%s'\n",
+                    ast_location(expression),
+                    fortran_prettyprint_in_buffer(expression));
+        }
+    }
 }
 
 static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, type_t* rhs_type);
@@ -944,6 +955,18 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
     return result;
 }
 
+static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t* entry)
+{
+    scope_t* sc = decl_context.current_scope;
+    while (sc != NULL)
+    {
+        if (sc->related_entry == entry)
+            return 1;
+        sc = sc->contained_in;
+    }
+    return 0;
+}
+
 static void check_function_call(AST expr, decl_context_t decl_context)
 {
     char is_call_stmt = (ASTText(expr) != NULL
@@ -1075,6 +1098,14 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         expression_set_error(expr);
         return;
+    }
+
+    if (inside_context_of_symbol(decl_context, symbol)
+            && !symbol->entity_specs.is_recursive)
+    {
+        running_error("%s: error: cannot call recursively '%s'\n",
+                ast_location(expr),
+                fortran_prettyprint_in_buffer(procedure_designator));
     }
 
     actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
@@ -1549,23 +1580,8 @@ static void check_symbol(AST expr, decl_context_t decl_context)
     else if (entry->kind == SK_FUNCTION)
     {
         // This function has a RESULT(X) so it cannot be used as a variable
-        if (function_has_result(entry))
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: entity '%s' is not a variable\n",
-                        ast_location(expr),
-                        fortran_prettyprint_in_buffer(expr));
-            }
-            expression_set_error(expr);
-            return;
-        }
-
         expression_set_symbol(expr, entry);
-        if (!entry->entity_specs.is_generic_spec)
-        {
-            expression_set_type(expr, function_type_get_return_type(entry->type_information));
-        }
+        expression_set_type(expr, entry->type_information);
     }
     else
     {
@@ -1605,8 +1621,25 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         scope_entry_t* sym = expression_get_symbol(lvalue);
         if (sym->kind == SK_FUNCTION)
         {
-            ERROR_CONDITION(function_has_result(sym), "Function cannot have result here!", 0);
-            lvalue_type = function_type_get_return_type(sym->type_information);
+            if(function_type_get_return_type(sym->type_information) != NULL
+                    && !function_has_result(sym))
+            {
+                lvalue_type = function_type_get_return_type(sym->type_information);
+            }
+            else
+            {
+                running_error("%s: '%s' is not a variable\n",
+                        ast_location(expr), fortran_prettyprint_in_buffer(lvalue));
+
+            }
+        }
+        else if (sym->kind == SK_VARIABLE)
+        {
+            // Do nothing
+        }
+        else
+        {
+            internal_error("Invalid symbol kind in left part of assignment", 0);
         }
     }
 
