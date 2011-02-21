@@ -1136,6 +1136,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
     }
 
+    type_t* return_type = NULL; 
     // This is a generic procedure reference
     if (symbol->entity_specs.is_generic_spec)
     {
@@ -1153,134 +1154,156 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         symbol = specific_symbol;
     }
-
-    // This is now a specfic procedure reference
-    ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
-
-    // Complete with those arguments that are not present
-    // Reorder the arguments
-    actual_argument_info_t argument_types[MAX_ARGUMENTS];
-    memset(argument_types, 0, sizeof(argument_types));
-
-    for (i = 0; i < num_arguments; i++)
+    else if (symbol->entity_specs.is_builtin)
     {
-        int position = -1;
-        if (temp_argument_types[i].keyword == NULL)
-        {
-            position = i;
-        }
-        else
-        {
-            int j;
-            for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
-            {
-                scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+        // Builtins have their own mechanism. Note that the scope passed is the
+        // one of the builtin, lest some symbol was created
+        symbol = (symbol->entity_specs.builtin_check)(symbol->decl_context, /* is_actual_argument */ 0,
+                procedure_designator, actual_arg_spec_list);
 
-                if (!related_sym->entity_specs.is_parameter)
-                    continue;
-
-                if (strcasecmp(related_sym->symbol_name, temp_argument_types[i].keyword) == 0)
-                {
-                    position = related_sym->entity_specs.parameter_position;
-                }
-            }
-            if (position < 0)
-            {
-                running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
-                        ast_location(expr), 
-                        temp_argument_types[i].keyword,
-                        symbol->symbol_name);
-            }
+        if (symbol == NULL)
+        {
+            fprintf(stderr, "%s: warning: call to intrinsic function '%s' is invalid\n",
+                    ast_location(expr),
+                    symbol->symbol_name);
+            expression_set_error(expr);
+            return;
         }
 
-        if (argument_types[position].type != NULL)
-        {
-            running_error("%s: error: argument keyword '%s' specified more than once\n",
-                    ast_location(expr), temp_argument_types[i].keyword);
-        }
-        argument_types[position].type = temp_argument_types[i].type;
+        return_type = function_type_get_return_type(symbol->type_information);
     }
-
-
-    // Now complete with the optional ones
-    for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
+    else
     {
-        scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
 
-        if (related_sym->entity_specs.is_parameter)
+        // This is now a specfic procedure reference
+        ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
+
+        // Complete with those arguments that are not present
+        // Reorder the arguments
+        actual_argument_info_t argument_types[MAX_ARGUMENTS];
+        memset(argument_types, 0, sizeof(argument_types));
+
+        for (i = 0; i < num_arguments; i++)
         {
-            if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
+            int position = -1;
+            if (temp_argument_types[i].keyword == NULL)
             {
-                if (related_sym->entity_specs.is_optional)
+                position = i;
+            }
+            else
+            {
+                int j;
+                for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
                 {
-                    argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                    num_arguments++;
+                    scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+
+                    if (!related_sym->entity_specs.is_parameter)
+                        continue;
+
+                    if (strcasecmp(related_sym->symbol_name, temp_argument_types[i].keyword) == 0)
+                    {
+                        position = related_sym->entity_specs.parameter_position;
+                    }
                 }
-                else 
+                if (position < 0)
                 {
-                    running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
-                            ast_location(expr),
-                            related_sym->symbol_name,
+                    running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
+                            ast_location(expr), 
+                            temp_argument_types[i].keyword,
                             symbol->symbol_name);
                 }
             }
+
+            if (argument_types[position].type != NULL)
+            {
+                running_error("%s: error: argument keyword '%s' specified more than once\n",
+                        ast_location(expr), temp_argument_types[i].keyword);
+            }
+            argument_types[position].type = temp_argument_types[i].type;
         }
-    }
 
-    if (!function_type_get_lacking_prototype(symbol->type_information) 
-            && num_arguments > function_type_get_num_parameters(symbol->type_information))
-    {
-        fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
-                ast_location(expr),
-                symbol->symbol_name);
-        expression_set_error(expr);
-        return;
-    }
 
-    ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
-            && (num_arguments != function_type_get_num_parameters(symbol->type_information)), 
-            "Mismatch between arguments and the type of the function %d != %d", 
-            num_arguments,
-            function_type_get_num_parameters(symbol->type_information));
-
-    char argument_type_mismatch = 0;
-    if (!function_type_get_lacking_prototype(symbol->type_information))
-    {
-        // Now check that every type matches, otherwise error
-        for (i = 0; i < num_arguments; i++)
+        // Now complete with the optional ones
+        for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
         {
-            type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
-            type_t* real_type = argument_types[i].type;
+            scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
 
-            // Note that for ELEMENTAL some more checks should be done
-            if (symbol->entity_specs.is_elemental)
+            if (related_sym->entity_specs.is_parameter)
             {
-                real_type = get_rank0_type(real_type);
-            }
-
-            if (!equivalent_tkr_types(formal_type, real_type))
-            {
-                if (!checking_ambiguity())
+                if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
                 {
-                    fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
-                            "real argument %s and the dummy argument %s\n",
-                            ast_location(expr),
-                            i + 1,
-                            fortran_print_type_str(real_type),
-                            fortran_print_type_str(formal_type));
+                    if (related_sym->entity_specs.is_optional)
+                    {
+                        argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                        num_arguments++;
+                    }
+                    else 
+                    {
+                        running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
+                                ast_location(expr),
+                                related_sym->symbol_name,
+                                symbol->symbol_name);
+                    }
                 }
-                argument_type_mismatch = 1;
             }
         }
+
+        if (!function_type_get_lacking_prototype(symbol->type_information) 
+                && num_arguments > function_type_get_num_parameters(symbol->type_information))
+        {
+            fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
+                    ast_location(expr),
+                    symbol->symbol_name);
+            expression_set_error(expr);
+            return;
+        }
+
+        ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
+                && (num_arguments != function_type_get_num_parameters(symbol->type_information)), 
+                "Mismatch between arguments and the type of the function %d != %d", 
+                num_arguments,
+                function_type_get_num_parameters(symbol->type_information));
+
+        char argument_type_mismatch = 0;
+        if (!function_type_get_lacking_prototype(symbol->type_information))
+        {
+            // Now check that every type matches, otherwise error
+            for (i = 0; i < num_arguments; i++)
+            {
+                type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
+                type_t* real_type = argument_types[i].type;
+
+                // Note that for ELEMENTAL some more checks should be done
+                if (symbol->entity_specs.is_elemental)
+                {
+                    real_type = get_rank0_type(real_type);
+                }
+
+                if (!equivalent_tkr_types(formal_type, real_type))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
+                                "real argument %s and the dummy argument %s\n",
+                                ast_location(expr),
+                                i + 1,
+                                fortran_print_type_str(real_type),
+                                fortran_print_type_str(formal_type));
+                    }
+                    argument_type_mismatch = 1;
+                }
+            }
+        }
+
+        if (argument_type_mismatch)
+        {
+            expression_set_error(expr);
+            return;
+        }
+
+        return_type = function_type_get_return_type(symbol->type_information);
     }
 
-    if (argument_type_mismatch)
-    {
-        expression_set_error(expr);
-        return;
-    }
-
-    type_t* return_type = function_type_get_return_type(symbol->type_information);
     if (return_type == NULL)
     {
         if (!is_call_stmt)

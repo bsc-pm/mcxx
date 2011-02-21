@@ -14,6 +14,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
+#include "fortran03-intrinsics.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -25,7 +26,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 {
     decl_context_t decl_context;
     initialize_translation_unit_scope(translation_unit, &decl_context);
-    // TODO: Fortran intrinsics
+
+    fortran_init_intrisics(decl_context);
 }
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
@@ -921,7 +923,7 @@ type_t* choose_float_type_from_kind(AST expr, int kind_size)
 #define MAX_LOGICAL_KIND 16
 static char logical_types_init = 0;
 static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
-static type_t* choose_logical_type_from_kind(AST expr, int kind_size)
+type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 {
     if (!logical_types_init)
     {
@@ -2128,13 +2130,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     do_variable->file = ASTFileName(io_do_variable);
     do_variable->line = ASTLine(io_do_variable);
 
-    AST it;
-
-    for_each_element(implied_do_object_list, it)
-    {
-        AST implied_do_object = ASTSon1(it);
-        rec_handler(implied_do_object, new_context);
-    }
+    rec_handler(implied_do_object_list, new_context);
 }
 
 static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_context_t decl_context)
@@ -2145,7 +2141,7 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
         AST data_stmt_object = ASTSon1(it2);
         if (ASTType(data_stmt_object) == AST_IMPLIED_DO)
         {
-            generic_implied_do_handler(data_stmt_object_list, decl_context,
+            generic_implied_do_handler(data_stmt_object, decl_context,
                     build_scope_data_stmt_object_list);
         }
         else
@@ -3003,7 +2999,7 @@ static void build_scope_input_output_item(AST input_output_item, decl_context_t 
     if (ASTType(input_output_item) == AST_IMPLIED_DO)
     {
         generic_implied_do_handler(input_output_item, decl_context,
-                build_scope_input_output_item);
+                build_scope_input_output_item_list);
     }
     else 
     {
@@ -3014,7 +3010,6 @@ static void build_scope_input_output_item(AST input_output_item, decl_context_t 
 static void build_scope_input_output_item_list(AST input_output_item_list, decl_context_t decl_context)
 {
     AST it;
-
     for_each_element(input_output_item_list, it)
     {
         build_scope_input_output_item(ASTSon1(it), decl_context);
