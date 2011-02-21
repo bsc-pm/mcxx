@@ -620,6 +620,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> a_list_of_names
 %type<ast> decimal_literal 
 %type<ast> labeldef
+%type<ast> unknown_pragma
 // Node types
 %type<node_type> sign
 // Token rules
@@ -877,10 +878,10 @@ static void append_statement_to_block(AST block, AST stmt)
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
-%token UNKNOWN_PRAGMA
-%token SUBPARSE_PROGRAM_UNIT
-%token SUBPARSE_EXPRESSION
-%token SUBPARSE_STATEMENT
+%token<token_atrib> UNKNOWN_PRAGMA
+%token<token_atrib> SUBPARSE_PROGRAM_UNIT
+%token<token_atrib> SUBPARSE_EXPRESSION
+%token<token_atrib> SUBPARSE_STATEMENT
 
 // // FIXME
 // %token OMP_SENTINEL
@@ -4248,6 +4249,12 @@ non_top_level_program_unit_stmts : access_stmt
 | where_construct
 | where_stmt
 | write_stmt
+| unknown_pragma
+;
+unknown_pragma : UNKNOWN_PRAGMA eos
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_file, $1.token_line, $1.token_text);
+}
 ;
 program_body : top_level_block internal_subprogram_part 
 {
