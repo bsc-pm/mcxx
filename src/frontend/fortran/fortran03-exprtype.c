@@ -2292,6 +2292,11 @@ static void const_bin_or(AST expr, AST lhs, AST rhs)
 
 type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
 {
+    if (is_pointer_type(t1))
+        t1 = pointer_type_get_pointee_type(t1);
+    if (is_pointer_type(t2))
+        t2 = pointer_type_get_pointee_type(t2);
+
     if ((is_bool_type(t1) && is_bool_type(t2))
             || (is_integer_type(t1) && is_integer_type(t2))
             || (is_floating_type(t1) && is_floating_type(t2))
@@ -2310,6 +2315,26 @@ type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
             {
                 return  (arithmetic_binary[i].common_type)(t1, t2);
             }
+        }
+    }
+    return NULL;
+}
+
+type_t* common_type_of_equality_operation(type_t* t1, type_t* t2)
+{
+    if (is_pointer_type(t1))
+        t1 = pointer_type_get_pointee_type(t1);
+    if (is_pointer_type(t2))
+        t2 = pointer_type_get_pointee_type(t2);
+
+    int i;
+    int max = sizeof(relational_equality) / sizeof(relational_equality[0]);
+    for (i = 0; i < max; i++)
+    {
+        if ((relational_equality[i].lhs_type)(t1)
+                && (relational_equality[i].rhs_type)(t2))
+        {
+            return  (relational_equality[i].common_type)(t1, t2);
         }
     }
     return NULL;

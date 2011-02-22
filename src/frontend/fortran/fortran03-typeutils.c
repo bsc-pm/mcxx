@@ -349,3 +349,26 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
         internal_error("Invalid rank %d\n", rank);
     }
 }
+
+char is_fortran_intrinsic_type(type_t* t)
+{
+    if (is_pointer_type(t))
+        t = pointer_type_get_pointee_type(t);
+
+    return (is_integer_type(t)
+            || is_floating_type(t)
+            || is_complex_type(t)
+            || is_bool_type(t)
+            || is_fortran_character_type(t));
+}
+
+char are_conformable_types(type_t* t1, type_t* t2)
+{
+    if (get_rank_of_type(t1) == get_rank_of_type(t2))
+        return 1;
+    else if (get_rank_of_type(t1) == 1
+            || get_rank_of_type(t2) == 1)
+        return 1;
+    else
+        return 0;
+}

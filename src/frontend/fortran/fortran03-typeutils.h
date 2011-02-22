@@ -6,6 +6,8 @@
 
 LIBMF03_EXTERN const char* fortran_print_type_str(type_t*);
 
+LIBMF03_EXTERN char is_fortran_intrinsic_type(type_t* t);
+
 LIBMF03_EXTERN char is_pointer_to_array_type(type_t*);
 LIBMF03_EXTERN int get_rank_of_type(type_t* t);
 LIBMF03_EXTERN type_t* get_rank0_type(type_t* t);
@@ -28,5 +30,6 @@ LIBMF03_EXTERN char basic_type_is_void(type_t* t);
 
 LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
 
+LIBMF03_EXTERN char are_conformable_types(type_t* t1, type_t* t2);
 
 #endif // FORTRAN03_TYPEUTILS_H
