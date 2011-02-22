@@ -157,7 +157,7 @@ char is_pointer_to_array_type(type_t* t)
 
 int get_rank_of_type(type_t* t)
 {
-    if (!is_array_type(t)
+    if (!is_fortran_array_type(t)
             && !is_pointer_to_array_type(t))
         return 0;
 
@@ -167,8 +167,7 @@ int get_rank_of_type(type_t* t)
     }
 
     int result = 0;
-    while (is_array_type(t)
-            && !is_fortran_character_type(t))
+    while (is_fortran_array_type(t))
     {
         result++;
         t = array_type_get_element_type(t);
@@ -179,8 +178,7 @@ int get_rank_of_type(type_t* t)
 
 type_t* get_rank0_type(type_t* t)
 {
-    while (is_array_type(t)
-            && !is_fortran_character_type(t))
+    while (is_fortran_array_type(t))
     {
         t = array_type_get_element_type(t);
     }
@@ -306,4 +304,48 @@ char is_pointer_to_fortran_array_type(type_t* t)
 {
     return is_pointer_type(t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
+}
+
+type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
+{
+    ERROR_CONDITION(!is_scalar_type(rank0_type)
+            && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
+
+    if (!is_fortran_array_type(array_type))
+    {
+        return rank0_type;
+    }
+    else
+    {
+        type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
+        if (!array_type_is_unknown_size(array_type))
+        {
+            return get_array_type_bounds(t, 
+                    array_type_get_array_lower_bound(array_type),
+                    array_type_get_array_upper_bound(array_type),
+                    array_type_get_array_size_expr_context(array_type));
+        }
+        else
+        {
+            return get_array_type(t, NULL, array_type_get_array_size_expr_context(array_type));
+        }
+    }
+}
+
+type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
+{
+    ERROR_CONDITION(is_fortran_array_type(scalar_type), "This is not a scalar type!", 0);
+
+    if (rank == 0)
+    {
+        return scalar_type;
+    }
+    else if (rank > 0)
+    {
+        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), NULL, decl_context);
+    }
+    else
+    {
+        internal_error("Invalid rank %d\n", rank);
+    }
 }

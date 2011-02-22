@@ -475,8 +475,6 @@ typedef struct entity_specifiers_tag
     // NAMELIST, COMMON, FUNCTION, SUBROUTINE, MODULE
     int num_related_symbols;
     struct scope_entry_tag** related_symbols;
-
-    struct scope_entry_tag* (*builtin_check)(decl_context_t, char is_actual_argument, AST ref, AST argument_list);
 #endif
 
     // Accessibility: public, private, protected

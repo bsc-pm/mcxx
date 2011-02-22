@@ -1138,42 +1138,63 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     type_t* return_type = NULL; 
     // This is a generic procedure reference
-    if (symbol->entity_specs.is_generic_spec)
+    if (symbol->entity_specs.is_builtin)
     {
-        scope_entry_t* specific_symbol = get_specific_interface(symbol, num_arguments, temp_argument_types);
-        if (specific_symbol == NULL)
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
-                        ast_location(expr),
-                        symbol->symbol_name);
-            }
-            expression_set_error(expr);
-            return;
-        }
-        symbol = specific_symbol;
-    }
-    else if (symbol->entity_specs.is_builtin)
-    {
-        // Builtins have their own mechanism. Note that the scope passed is the
-        // one of the builtin, lest some symbol was created
-        symbol = (symbol->entity_specs.builtin_check)(symbol->decl_context, /* is_actual_argument */ 0,
-                procedure_designator, actual_arg_spec_list);
+        // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
+        // will be a computed function type
 
-        if (symbol == NULL)
+        computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
+
+        int num_args = 0;
+        AST* arg_list = NULL;
+        type_t** type_list = NULL;
+        if (actual_arg_spec_list != NULL)
         {
-            fprintf(stderr, "%s: warning: call to intrinsic function '%s' is invalid\n",
+            AST it;
+            for_each_element(actual_arg_spec_list, it)
+            {
+                AST actual_arg_spec = ASTSon1(it);
+                AST actual_arg = ASTSon1(actual_arg_spec);
+
+                if (ASTType(actual_arg) == AST_ALTERNATE_RESULT_SPEC)
+                    continue;
+
+                P_LIST_ADD(arg_list, num_args, actual_arg_spec);
+                num_args--;
+                P_LIST_ADD(type_list, num_args, expression_get_type(actual_arg));
+            }
+        }
+
+        scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
+        if (entry == NULL)
+        {
+            fprintf(stderr, "%s: cannot call intrinsic '%s'\n", 
                     ast_location(expr),
                     symbol->symbol_name);
             expression_set_error(expr);
             return;
         }
 
-        return_type = function_type_get_return_type(symbol->type_information);
+        return_type = function_type_get_return_type(entry->type_information);
     }
     else
     {
+        if (symbol->entity_specs.is_generic_spec)
+        {
+            scope_entry_t* specific_symbol = get_specific_interface(symbol, num_arguments, temp_argument_types);
+            if (specific_symbol == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
+                            ast_location(expr),
+                            symbol->symbol_name);
+                }
+                expression_set_error(expr);
+                return;
+            }
+            symbol = specific_symbol;
+        }
 
         // This is now a specfic procedure reference
         ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
@@ -1265,19 +1286,44 @@ static void check_function_call(AST expr, decl_context_t decl_context)
                 function_type_get_num_parameters(symbol->type_information));
 
         char argument_type_mismatch = 0;
+        int common_rank = -1;
         if (!function_type_get_lacking_prototype(symbol->type_information))
         {
-            // Now check that every type matches, otherwise error
+            actual_argument_info_t fixed_argument_types[MAX_ARGUMENTS];
+            memcpy(fixed_argument_types, argument_types, sizeof(fixed_argument_types));
+
+            if (symbol->entity_specs.is_elemental)
+            {
+                // We may have to adjust the ranks, first check that all the
+                // ranks match
+                char ok = 1;
+                for (i = 0; i < num_arguments && ok; i++)
+                {
+                    int current_rank = get_rank_of_type(fixed_argument_types[i].type); 
+                    if (common_rank < 0)
+                    {
+                        common_rank = current_rank;
+                    }
+                    else if (common_rank != current_rank)
+                    {
+                        ok = 0;
+                    }
+                }
+
+                if (ok)
+                {
+                    // Remove rank if they match, otherwise let it fail later
+                    for (i = 0; i < num_arguments && ok; i++)
+                    {
+                        fixed_argument_types[i].type = get_rank0_type(fixed_argument_types[i].type);
+                    }
+                }
+            }
+
             for (i = 0; i < num_arguments; i++)
             {
                 type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
-                type_t* real_type = argument_types[i].type;
-
-                // Note that for ELEMENTAL some more checks should be done
-                if (symbol->entity_specs.is_elemental)
-                {
-                    real_type = get_rank0_type(real_type);
-                }
+                type_t* real_type = fixed_argument_types[i].type;
 
                 if (!equivalent_tkr_types(formal_type, real_type))
                 {
@@ -1302,6 +1348,15 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
 
         return_type = function_type_get_return_type(symbol->type_information);
+
+        if (symbol->entity_specs.is_elemental
+                && return_type != NULL)
+        {
+            if (common_rank > 0)
+            {
+                return_type = get_n_ranked_type(return_type, common_rank, decl_context);
+            }
+        }
     }
 
     if (return_type == NULL)
@@ -1744,8 +1799,6 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
     fortran_check_expression_impl_(expr, decl_context);
 }
 
-static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type);
-
 static type_t* common_kind(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION(!is_scalar_type(t1)
@@ -2088,15 +2141,42 @@ static const char * get_operator_for_expr(AST expr)
 
 static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type)
 {
-    *conf_lhs_type = get_rank0_type(lhs_type);
-    *conf_rhs_type = get_rank0_type(rhs_type);
+    if (!is_fortran_array_type(lhs_type)
+            && !is_fortran_array_type(rhs_type))
+    {
+        *conf_lhs_type = lhs_type;
+        *conf_rhs_type = rhs_type;
+    }
+    else if (is_fortran_array_type(lhs_type)
+            != is_fortran_array_type(rhs_type))
+    {
+        // One is array and the other is scalar
+        *conf_lhs_type = get_rank0_type(lhs_type);
+        *conf_rhs_type = get_rank0_type(rhs_type);
+    }
+    else 
+    {
+        // Both are arrays, they only conform if their rank (and ultimately its
+        // shape but this is not always checkable) matches
+        if (get_rank_of_type(lhs_type) == get_rank_of_type(rhs_type))
+        {
+            *conf_lhs_type = get_rank0_type(lhs_type);
+            *conf_rhs_type = get_rank0_type(rhs_type);
+        }
+        else
+        // Do not conform
+        {
+            *conf_lhs_type = lhs_type;
+            *conf_rhs_type = rhs_type;
+        }
+    }
 }
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type)
 {
     if (is_fortran_array_type(lhs_type))
     {
-        // They should have the same shape so it does not matter very much which one we use, right?
+        // They should have the same rank and shape so it does not matter very much which one we use, right?
         return rebuild_array_type(rank0_common, lhs_type);
     }
     else if (is_fortran_array_type(rhs_type))
@@ -2106,32 +2186,6 @@ static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_t
     else
     {
         return rank0_common;
-    }
-}
-
-static type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
-{
-    ERROR_CONDITION(!is_scalar_type(rank0_type)
-            && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
-
-    if (!is_fortran_array_type(array_type))
-    {
-        return rank0_type;
-    }
-    else
-    {
-        type_t* t = rebuild_array_type(rank0_type, array_type_get_element_type(array_type));
-        if (!array_type_is_unknown_size(array_type))
-        {
-            return get_array_type_bounds(t, 
-                    array_type_get_array_lower_bound(array_type),
-                    array_type_get_array_upper_bound(array_type),
-                    array_type_get_array_size_expr_context(array_type));
-        }
-        else
-        {
-            return get_array_type(t, NULL, array_type_get_array_size_expr_context(array_type));
-        }
     }
 }
 
@@ -2236,3 +2290,27 @@ static void const_bin_or(AST expr, AST lhs, AST rhs)
     const_bin_(expr, lhs, rhs, const_value_or);
 }
 
+type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
+{
+    if ((is_bool_type(t1) && is_bool_type(t2))
+            || (is_integer_type(t1) && is_integer_type(t2))
+            || (is_floating_type(t1) && is_floating_type(t2))
+            || (is_complex_type(t1) && is_complex_type(t2)))
+    {
+        return common_kind(t1, t2);
+    }
+    else 
+    {
+        int i;
+        int max = sizeof(arithmetic_binary) / sizeof(arithmetic_binary[0]);
+        for (i = 0; i < max; i++)
+        {
+            if ((arithmetic_binary[i].lhs_type)(t1)
+                    && (arithmetic_binary[i].rhs_type)(t2))
+            {
+                return  (arithmetic_binary[i].common_type)(t1, t2);
+            }
+        }
+    }
+    return NULL;
+}

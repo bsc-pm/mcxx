@@ -7589,7 +7589,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             scope_entry_t *entry = entry_list_head(entry_list);
             entry_list_free(entry_list);
 
-            type_t** argument_list = NULL;
+            AST* argument_exprs = NULL;
+            type_t** argument_types = NULL;
             int num_arguments_tmp = 0;
 
             // Create the argument array
@@ -7597,10 +7598,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             for_each_element(arguments, iter)
             {
                 AST current_arg = ASTSon1(iter);
-                P_LIST_ADD(argument_list, num_arguments_tmp, expression_get_type(current_arg));
+                P_LIST_ADD(argument_exprs, num_arguments_tmp, current_arg);
+                num_arguments_tmp--; // This is being modified in P_LIST_ADD
+                P_LIST_ADD(argument_types, num_arguments_tmp, expression_get_type(current_arg));
             }
 
-            scope_entry_t* solved_function = compute_type_function(entry, argument_list, num_arguments_tmp);
+            scope_entry_t* solved_function = compute_type_function(entry, argument_types, argument_exprs, num_arguments_tmp);
 
             if (solved_function != NULL)
             {
