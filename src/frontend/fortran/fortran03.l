@@ -1627,6 +1627,11 @@ select {
     RETURN_TOKEN(TOK_SELECT);
 }
 
+selectcase {
+    parse_token_text();
+    RETURN_TOKEN(TOK_SELECTCASE);
+}
+
 direct {
     parse_token_text();
     RETURN_TOKEN(TOK_DIRECT);

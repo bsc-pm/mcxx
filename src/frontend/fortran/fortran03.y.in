@@ -643,6 +643,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<token_atrib> goto_toks
 %type<token_atrib> elseif_toks
 %type<token_atrib> elsewhere_toks
+%type<token_atrib> selectcase_toks
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -750,6 +751,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %token<token_atrib> TOK_LOCK "LOCK"
 %token<token_atrib> TOK_DECIMAL "DECIMAL"
 %token<token_atrib> TOK_SELECT "SELECT"
+%token<token_atrib> TOK_SELECTCASE "SELECTCASE"
 %token<token_atrib> TOK_DIRECT "DIRECT"
 %token<token_atrib> TOK_WRITE "WRITE"
 %token<token_atrib> TOK_CODIMENSION "CODIMENSION"
@@ -3198,7 +3200,8 @@ case_construct : select_case_stmt case_part_seq end_select_stmt
     }
 
     // Store the block
-    ast_set_child(switch_tree, 1, $2);
+    ast_set_child(switch_tree, 1, 
+            ASTMake1(AST_COMPOUND_STATEMENT, $2, ASTFileName($2), ASTLine($2), NULL));
 
     // Store the ending statement, if any
     if ($3 != NULL)
@@ -3212,41 +3215,40 @@ case_construct : select_case_stmt case_part_seq end_select_stmt
 case_part : case_stmt block
 {
     AST returned_tree = $1;
-    AST block = $2;
-    if (block != NULL)
+    // Because a block is a compound statement, we want its list
+    AST block = ASTSon0($2);
+
+    // Mold the tree to match that of C/C++
+    AST case_stmt = returned_tree;
+    if (ASTType(case_stmt) == AST_LABELED_STATEMENT)
     {
-        // Mold the tree to match that of C/C++
-        AST case_stmt = returned_tree;
-        if (ASTType(case_stmt) == AST_LABELED_STATEMENT)
-        {
-            case_stmt = ASTSon1(case_stmt);
-        }
-        AST head = NULL; 
-        AST tail = NULL;
-        ast_list_split_head_tail(block, &head, &tail);
-
-        int son = 0;
-        if (ASTType(case_stmt) == AST_CASE_STATEMENT)
-        {
-            son = 1;
-        }
-        else if (ASTType(case_stmt) == AST_DEFAULT_STATEMENT)
-        {
-            son = 0;
-        }
-        else
-        {
-            internal_error("Unexpected node '%s'\n", 
-                    ast_print_node_type(ASTType(case_stmt)));
-        }
-
-        ast_set_child(case_stmt, son, ASTSon1(head));
-
-        ast_set_child(head, 1, NULL);
-        ast_free(head);
-
-        block = tail;
+        case_stmt = ASTSon1(case_stmt);
     }
+    AST head = NULL; 
+    AST tail = NULL;
+    ast_list_split_head_tail(block, &head, &tail);
+
+    int son = 0;
+    if (ASTType(case_stmt) == AST_CASE_STATEMENT)
+    {
+        son = 1;
+    }
+    else if (ASTType(case_stmt) == AST_DEFAULT_STATEMENT)
+    {
+        son = 0;
+    }
+    else
+    {
+        internal_error("Unexpected node '%s'\n", 
+                ast_print_node_type(ASTType(case_stmt)));
+    }
+
+    ast_set_child(case_stmt, son, ASTSon1(head));
+
+    ast_set_child(head, 1, NULL);
+    ast_free(head);
+
+    block = tail;
 
     $$ = ast_list_concat(ASTListLeaf(returned_tree), block);
 }
@@ -3260,15 +3262,25 @@ case_part_seq : case_part
   $$ = ast_list_concat($1, $2);
 }
 ;
-select_case_stmt : labeldef name ':' TOK_SELECT TOK_CASE '(' case_expr ')' eos
+select_case_stmt : labeldef name ':' selectcase_toks '(' case_expr ')' eos
 {
-    $$ = ASTMake4Label(AST_SWITCH_STATEMENT, $1, $7, NULL, NULL, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_SWITCH_STATEMENT, $1, $6, NULL, NULL, $4.token_file, $4.token_line, $4.token_text);
 }
-| labeldef TOK_SELECT TOK_CASE '(' case_expr ')' eos
+| labeldef selectcase_toks '(' case_expr ')' eos
 {
-    $$ = ASTMake4Label(AST_SWITCH_STATEMENT, $1, $5, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_SWITCH_STATEMENT, $1, $4, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
+selectcase_toks : TOK_SELECT TOK_CASE
+{
+    $$ = $1;
+}
+| TOK_SELECTCASE
+{
+    $$ = $1;
+}
+;
+
 case_stmt : labeldef TOK_CASE case_selector name eos
 {
     AST case_selector = $3;
@@ -5834,6 +5846,7 @@ keyword : TOK_FORMAT
 | TOK_LOCK
 | TOK_DECIMAL
 | TOK_SELECT
+| TOK_SELECTCASE
 | TOK_DIRECT
 | TOK_WRITE
 | TOK_CODIMENSION
