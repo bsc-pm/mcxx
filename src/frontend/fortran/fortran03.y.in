@@ -642,6 +642,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<token_atrib> end_block_data_toks
 %type<token_atrib> goto_toks
 %type<token_atrib> elseif_toks
+%type<token_atrib> elsewhere_toks
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -2656,22 +2657,31 @@ where_assignment_stmt : assignment_stmt
 ;
 mask_expr : logical_expr
 ;
-masked_elsewhere_stmt : labeldef TOK_ELSEWHERE '(' mask_expr ')' name eos
+masked_elsewhere_stmt : labeldef elsewhere_toks '(' mask_expr ')' name eos
 {
     $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_ELSEWHERE '(' mask_expr ')' eos
+| labeldef elsewhere_toks '(' mask_expr ')' eos
 {
     $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-elsewhere_stmt : labeldef TOK_ELSEWHERE name eos
+elsewhere_stmt : labeldef elsewhere_toks name eos
 {
     $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_ELSEWHERE eos
+| labeldef elsewhere_toks eos
 {
     $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+}
+;
+elsewhere_toks : TOK_ELSE TOK_WHERE
+{
+    $$ = $1;
+}
+| TOK_ELSEWHERE
+{
+    $$ = $1;
 }
 ;
 end_where_stmt : labeldef TOK_END TOK_WHERE name eos
