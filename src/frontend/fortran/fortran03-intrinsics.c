@@ -304,13 +304,28 @@ static int intrinsic_descr_cmp(const void* i1, const void* i2)
 
 static rb_red_blk_tree* intrinsic_map = NULL;
 
-static char generic_keyword_check(int *num_arguments,
+static char generic_keyword_check(
+        scope_entry_t* symbol,
+        int *num_arguments,
         AST *argument_expressions,
         const char* keywords,
         type_t** reordered_types,
         AST* reordered_exprs)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INTRINSIC: Checking intrinsic '%s'\n",
+                symbol->symbol_name);
+        fprintf(stderr, "INTRINSICS: Keywords of this intrinsic\n");
+        int i;
+        for (i = 0; i < current_variant.num_keywords; i++)
+        {
+            fprintf(stderr, "INTRINSICS:     %-10s   %s\n",
+                    strtoupper(current_variant.keyword_names[i]),
+                    current_variant.is_optional[i] ? "[OPTIONAL]" : "");
+        }
+    }
 
     char ok = 1;
     int i;
@@ -324,8 +339,12 @@ static char generic_keyword_check(int *num_arguments,
         AST keyword = ASTSon0(argument);
         AST expr = ASTSon1(argument);
 
+
         if (keyword != NULL)
         {
+            DEBUG_CODE()
+            {
+            }
             char found = 0;
             int j;
             for (j = 0; j < current_variant.num_keywords && !found; j++)
@@ -343,6 +362,12 @@ static char generic_keyword_check(int *num_arguments,
                 //         ast_location(keyword),
                 //         ASTText(keyword),
                 //         intrinsic_info->intrinsic_name);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INTRINSICS: Intrinsic '%s' does not have any keyword '%s'\n",
+                            symbol->symbol_name,
+                            ASTText(keyword));
+                }
                 ok = 0;
                 break;
             }
@@ -354,6 +379,13 @@ static char generic_keyword_check(int *num_arguments,
             if (position > current_variant.num_keywords)
             {
                 ok = 0;
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INTRINSICS: Too many parameters (%d) for intrinsic '%s' (maximum is %d)\n",
+                            position,
+                            symbol->symbol_name,
+                            current_variant.num_keywords);
+                }
                 break;
             }
         }
@@ -373,6 +405,12 @@ static char generic_keyword_check(int *num_arguments,
             //         ast_location(argument),
             //         position,
             //         intrinsic_info->intrinsic_name);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' already got an actual argument\n",
+                        current_variant.keyword_names[position],
+                        symbol->symbol_name);
+            }
             ok = 0;
             break;
         }
@@ -390,6 +428,12 @@ static char generic_keyword_check(int *num_arguments,
             //         ast_location(argument),
             //         current_variant->keyword_names[j],
             //         intrinsic_info->intrinsic_name);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "INTRINSICS: No real argument given for nonoptional dummy argument '%s' of intrinsic '%s'\n",
+                        current_variant.keyword_names[j],
+                        symbol->symbol_name);
+            }
             ok = 0;
             break;
         }
@@ -398,6 +442,19 @@ static char generic_keyword_check(int *num_arguments,
     if (ok)
     {
         *num_arguments = current_variant.num_keywords;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' seems fine\n",
+                    symbol->symbol_name);
+        }
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' has failed\n",
+                    symbol->symbol_name);
+        }
     }
 
     return ok;
@@ -545,7 +602,7 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
     AST reordered_exprs[MAX_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(&num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name (symbol, reordered_types, reordered_exprs, num_arguments); \
     } \
@@ -570,13 +627,13 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
     AST reordered_exprs[MAX_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(&num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name##_0(symbol, reordered_types, reordered_exprs, num_arguments); \
     } \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(&num_arguments, argument_expressions, keywords1, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords1, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name##_1(symbol, reordered_types, reordered_exprs, num_arguments); \
     } \

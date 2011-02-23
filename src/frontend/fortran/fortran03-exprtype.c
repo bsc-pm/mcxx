@@ -1168,14 +1168,55 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
         if (entry == NULL)
         {
-            fprintf(stderr, "%s: cannot call intrinsic '%s'\n", 
+            fprintf(stderr, "%s: warning: call to intrinsic '%s' failed\n", 
                     ast_location(expr),
-                    symbol->symbol_name);
+                    strtoupper(symbol->symbol_name));
             expression_set_error(expr);
             return;
         }
 
-        return_type = function_type_get_return_type(entry->type_information);
+        if (entry->entity_specs.is_elemental)
+        {
+            // Try to come up with a common_rank
+            int common_rank = -1;
+            for (i = 0; i < num_arguments; i++)
+            {
+                int current_rank = get_rank_of_type(type_list[i]);
+                if (common_rank < 0)
+                {
+                    common_rank = current_rank;
+                }
+                else if (current_rank != common_rank
+                        && current_rank != 0)
+                {
+                    common_rank = -1;
+                    break;
+                }
+            }
+
+            if (common_rank == 0)
+            {
+                return_type = function_type_get_return_type(entry->type_information);
+            }
+            else if (common_rank > 0)
+            {
+                return_type = get_n_ranked_type(
+                        function_type_get_return_type(entry->type_information),
+                        common_rank, decl_context);
+            }
+            else
+            {
+                fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
+                        ast_location(expr),
+                        strtoupper(symbol->symbol_name));
+                expression_set_error(expr);
+                return;
+            }
+        }
+        else
+        {
+            return_type = function_type_get_return_type(entry->type_information);
+        }
     }
     else
     {
@@ -1304,7 +1345,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
                     {
                         common_rank = current_rank;
                     }
-                    else if (common_rank != current_rank)
+                    else if ((common_rank != current_rank)
+                            && current_rank != 0)
                     {
                         ok = 0;
                     }
