@@ -42,8 +42,8 @@
  */
 static void print_scope_full_context(decl_context_t decl_context, int global_indent);
 static void print_scope_full(scope_t* scope, int global_indent);
-static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent);
-static void print_scope_entry(scope_entry_t* entry, int global_indent);
+static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_list, int global_indent);
+static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent);
 
 static void indent_at_level(FILE* f, int n)
 {
@@ -100,10 +100,24 @@ static char* symbol_kind_names[] =
 //     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 // };
 
+#define MAX_SCOPES_DEPTH 128
+
+typedef
+struct print_context_data_tag
+{
+    int global_indent;
+    int num_scopes;
+    scope_t* scope_set[MAX_SCOPES_DEPTH];
+} print_context_data_t;
+
+static print_context_data_t print_context_data;
+
 void print_scope(decl_context_t decl_context)
 {
+    memset(&print_context_data, 0, sizeof(print_context_data));
     print_scope_full_context(decl_context, 0);
 }
+
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
@@ -137,15 +151,31 @@ static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, v
 {
     scope_entry_list_t* entry_list = (scope_entry_list_t*)info;
 
-    print_scope_entry_list(entry_list, *(int*)data);
+    print_scope_entry_list((const char*)key, entry_list, *(int*)data);
 }
 
 static void print_scope_full(scope_t* st, int global_indent)
 {
+    int i;
+    for (i = 0; i < print_context_data.num_scopes; i++)
+    {
+        if (print_context_data.scope_set[i] == st)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent, "<<Recursive scope not printed>>\n");
+            return;
+        }
+    }
+
+    print_context_data.scope_set[print_context_data.num_scopes] = st;
+    print_context_data.num_scopes++;
+
     rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
+
+    print_context_data.num_scopes--;
+    print_context_data.scope_set[print_context_data.num_scopes] = NULL;
 }
 
-static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)
+static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_list, int global_indent)
 {
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(entry_list);
@@ -157,16 +187,23 @@ static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_in
         {
             continue;
         }
-        print_scope_entry(entry, global_indent);
+        print_scope_entry(key, entry, global_indent);
     }
     entry_list_iterator_free(it);
 }
 
 
 
-static void print_scope_entry(scope_entry_t* entry, int global_indent)
+static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent)
 {
-    PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+    if (strcmp(key, entry->symbol_name) == 0)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+    }
+    else
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_names[entry->kind]);
+    }
 
     if (entry->defined)
     {
@@ -212,7 +249,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Specialization: [%d] %p\n", i, specialization->type_information);
 
-            print_scope_entry(specialization, global_indent + 1);
+            print_scope_entry(specialization->symbol_name, specialization, global_indent + 1);
         }
 
     }
@@ -329,7 +366,6 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         {
             PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                     print_declarator(entry->type_information));
-            // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
             C_LANGUAGE()
             {
                 if (function_type_get_lacking_prototype(entry->type_information))
@@ -392,6 +428,18 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
             || entry->kind == SK_MODULE)
     {
         print_scope_full_context(entry->related_decl_context, global_indent + 1);
+    }
+    if (entry->entity_specs.is_generic_spec)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
+
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
+            PRINT_INDENTED_LINE(stderr, global_indent+2, "[%d] \"%s\" at %s:%d\n",
+                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+        }
     }
 #endif
 }

@@ -2528,7 +2528,7 @@ static type_t* _get_array_type(type_t* element_type,
             if (data[i].tree == NULL)
                 continue;
             char check_expr = check_for_expression(*(data[i].tree), decl_context);
-            if (check_expr )
+            if (check_expr)
             {
                 if (expression_is_constant(*(data[i].tree)))
                 {
@@ -5126,6 +5126,7 @@ AST array_type_get_array_size_expr(type_t* t)
 char array_type_is_unknown_size(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
 
     return t->array->whole_size == NULL;
 }
@@ -5134,6 +5135,7 @@ AST array_type_get_array_lower_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have lower bound", 0);
+    t = advance_over_typedefs(t);
 
     return t->array->lower_bound;
 }
@@ -5142,6 +5144,7 @@ AST array_type_get_array_upper_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have upper bound", 0);
+    t = advance_over_typedefs(t);
 
     return t->array->upper_bound;
 }
@@ -6325,6 +6328,8 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
                 break;
             }
         case SK_TYPEDEF :
+        case SK_VARIABLE :
+        case SK_FUNCTION :
             {
                 type_t* aliased_type = advance_over_typedefs(user_defined_type->type_information);
 
@@ -6370,7 +6375,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             snprintf(user_defined_str, MAX_LENGTH, "<dependent entity>");
             break;
         default :
-            snprintf(user_defined_str, MAX_LENGTH, "¿¿¿unknown user defined type??? (kind=%d)", user_defined_type->kind);
+            snprintf(user_defined_str, MAX_LENGTH, "<<<unknown user defined type>>> (kind=%d)", user_defined_type->kind);
     }
     result = strappend(result, user_defined_str);
 

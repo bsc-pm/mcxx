@@ -1891,7 +1891,9 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             computed_function_type_get_computing_function(candidate_set->entry->type_information);
 
         scope_entry_t* solved_function = compute_type_function(candidate_set->entry, 
-                candidate_set->args, candidate_set->num_args);
+                candidate_set->args, 
+                NULL,
+                candidate_set->num_args);
 
         return solved_function;
     }

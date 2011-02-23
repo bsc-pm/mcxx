@@ -227,6 +227,16 @@
 "  -Xpreprocessor OPTION\n" \
 "  -Xlinker OPTION\n" \
 "  -Xassembler OPTION\n" \
+"  -S\n" \
+"  -dA\n" \
+"  -dD\n" \
+"  -dH\n" \
+"  -dm\n" \
+"  -dp\n" \
+"  -dP\n" \
+"  -dv\n" \
+"  -dx\n" \
+"  -dy\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -1380,9 +1390,37 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     }
                     (*should_advance)++;
                 }
+                else if (strlen(argument) == 3 // -dX
+                    && (argument[2] == 'A'
+                        || argument[2] == 'D'
+                        || argument[2] == 'H'
+                        || argument[2] == 'm'
+                        || argument[2] == 'p'
+                        || argument[2] == 'P'
+                        || argument[2] == 'v'
+                        || argument[2] == 'x'
+                        || argument[2] == 'y'))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
                 else
                 {
                     failure = 1;
+                }
+                break;
+            }
+        case 'S' :
+            {
+                if (strlen(argument) == 2) // -S
+                {
+                    // This disables linking
+                    if (!dry_run)
+                    {
+                        CURRENT_CONFIGURATION->generate_assembler = 1;
+                        CURRENT_CONFIGURATION->do_not_link = 1;
+                    }
+                    (*should_advance)++;
                 }
                 break;
             }
@@ -2509,11 +2547,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 timing_elapsed(&timing_semantic));
     }
 
-    // At the moment do not check Fortran
-    if (!IS_FORTRAN_LANGUAGE)
-    {
-        check_tree(translation_unit->parsed_tree);
-    }
+    check_tree(translation_unit->parsed_tree);
 }
 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
@@ -2933,7 +2967,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 
     int num_arguments = prescanner_args;
     // -q input -o output
-    num_arguments += 4;
+    num_arguments += 5;
     // NULL
     num_arguments += 1;
 
@@ -2956,6 +2990,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
     }
 
+    prescanner_options[i] = uniquestr("-l");
+    i++;
     prescanner_options[i] = uniquestr("-q");
     i++;
     prescanner_options[i] = uniquestr("-o");
@@ -3004,7 +3040,14 @@ static void native_compilation(translation_unit_t* translation_unit,
             *p = '\0';
         }
 
-        output_object_filename = strappend(temp, ".o");
+        if (!CURRENT_CONFIGURATION->generate_assembler)
+        {
+            output_object_filename = strappend(temp, ".o");
+        }
+        else
+        {
+            output_object_filename = strappend(temp, ".s");
+        }
 
         translation_unit->output_filename = output_object_filename;
     }
@@ -3030,7 +3073,14 @@ static void native_compilation(translation_unit_t* translation_unit,
         native_compilation_args[i] = CURRENT_CONFIGURATION->native_compiler_options[i];
     }
 
-    native_compilation_args[i] = uniquestr("-c");
+    if (!CURRENT_CONFIGURATION->generate_assembler)
+    {
+        native_compilation_args[i] = uniquestr("-c");
+    }
+    else
+    {
+        native_compilation_args[i] = uniquestr("-S");
+    }
     i++;
     native_compilation_args[i] = uniquestr("-o");
     i++;

@@ -232,6 +232,7 @@ HANDLER_PROTOTYPE(end_of_statement_handler);
 HANDLER_PROTOTYPE(sequence_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(ambiguity_handler);
+HANDLER_PROTOTYPE(unknown_pragma_handler);
 
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
@@ -449,6 +450,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_WHILE_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_WRITE_STATEMENT, write_statement_handler, NULL),
     // Pragma custom
+    NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
@@ -910,19 +912,20 @@ static void block_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 
 static void body_program_unit_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    if (ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-        prettyprint_level(f, ASTSon0(a), new_ctx);
-        prettyprint_level(f, ASTSon1(a), new_ctx);
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+
         indent_at_level(f, a, pt_ctx);
         token_fprintf(f, a, pt_ctx, "CONTAINS");
-        prettyprint_level(f, ASTSon2(a), new_ctx);
+        end_of_statement_handler(f, a, pt_ctx);
+
+        NEW_PT_CONTEXT(new_ctx, increase_level);
+        prettyprint_level(f, ASTSon1(a), new_ctx);
     }
     else
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 }
 
@@ -1082,7 +1085,7 @@ static void common_block_item_handler(FILE* f, AST a, prettyprint_context_t* pt_
         prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, " ");
     }
-    token_fprintf(f, a, pt_ctx, "/");
+    token_fprintf(f, a, pt_ctx, "/ ");
     list_handler(f, ASTSon1(a), pt_ctx);
 }
 
@@ -1315,7 +1318,8 @@ static void derived_type_constructor_handler(FILE* f, AST a, prettyprint_context
 static void derived_type_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    NEW_PT_CONTEXT(new_ctx, increase_level);
+    prettyprint_level(f, ASTSon1(a), new_ctx);
     prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
@@ -1723,9 +1727,13 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     {
         AST parent = ASTParent(a);
         if (ASTType(parent) == AST_LABELED_STATEMENT)
+        {
             parent = ASTSon1(parent);
-        if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+        }
+        else if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+        {
             token_fprintf(f, a, pt_ctx, "ELSE");
+        }
     }
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
@@ -2756,6 +2764,11 @@ static void pragma_custom_line_handler(FILE* f, AST a, prettyprint_context_t* pt
         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, "\n");
+}
+
+static void unknown_pragma_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
+{
+    token_fprintf(f, a, pt_ctx, "%s\n", ASTText(a));
 }
 
 static void pragma_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

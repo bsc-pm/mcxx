@@ -19,7 +19,7 @@ compiler_options =
 linker_name = g++
 linker_options = 
 
-[plainf95]
+[plainfc]
 language = Fortran
 options = 
 preprocessor_name = gfortran
@@ -28,3 +28,6 @@ compiler_name = gfortran
 compiler_options = 
 linker_name = gfortran
 linker_options = 
+compiler_phase = libtlomp-core.so
+
+[plainf95 : plainfc]
