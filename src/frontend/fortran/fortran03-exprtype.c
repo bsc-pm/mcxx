@@ -93,6 +93,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_USER_DEFINED_UNARY_OP, check_user_defined_unary_op) \
  STATEMENT_HANDLER(AST_SYMBOL, check_symbol) \
  STATEMENT_HANDLER(AST_ASSIGNMENT, check_assignment) \
+ STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
  STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) 
 
 // Enable this if you really need extremely verbose typechecking
@@ -1140,6 +1141,18 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     // This is a generic procedure reference
     if (symbol->entity_specs.is_builtin)
     {
+        if (CURRENT_CONFIGURATION->disable_intrinsics)
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: call to intrinsic '%s' not implemented\n", 
+                        ast_location(expr),
+                        strtoupper(symbol->symbol_name));
+            }
+            expression_set_error(expr);
+            return;
+        }
+
         // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
         // will be a computed function type
 
@@ -1168,9 +1181,12 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
         if (entry == NULL)
         {
-            fprintf(stderr, "%s: warning: call to intrinsic '%s' failed\n", 
-                    ast_location(expr),
-                    strtoupper(symbol->symbol_name));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: call to intrinsic '%s' failed\n", 
+                        ast_location(expr),
+                        strtoupper(symbol->symbol_name));
+            }
             expression_set_error(expr);
             return;
         }
@@ -1206,9 +1222,12 @@ static void check_function_call(AST expr, decl_context_t decl_context)
             }
             else
             {
-                fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
-                        ast_location(expr),
-                        strtoupper(symbol->symbol_name));
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
+                            ast_location(expr),
+                            strtoupper(symbol->symbol_name));
+                }
                 expression_set_error(expr);
                 return;
             }
@@ -1769,6 +1788,52 @@ static void check_assignment(AST expr, decl_context_t decl_context)
     {
         expression_set_constant(expr, expression_get_constant(rvalue));
     }
+
+    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+}
+
+static void check_ptr_assignment(AST expr, decl_context_t decl_context)
+{
+    AST lvalue = ASTSon0(expr);
+    AST rvalue = ASTSon1(expr);
+
+    fortran_check_expression_impl_(lvalue, decl_context);
+
+    type_t* lvalue_type = expression_get_type(lvalue);
+    if (is_error_type(lvalue_type))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    fortran_check_expression_impl_(rvalue, decl_context);
+
+    type_t* rvalue_type = expression_get_type(rvalue);
+    if (is_error_type(rvalue_type))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    scope_entry_t* sym = NULL;
+    if (expression_has_symbol(lvalue))
+    {
+        sym = expression_get_symbol(lvalue);
+    }
+    if (sym == NULL
+            || sym->kind != SK_VARIABLE
+            || !is_pointer_type(sym->type_information))
+    {
+        fprintf(stderr, "%s: warning: left hand of pointer assignment is not a pointer data-reference\n",
+                ast_location(expr));
+        expression_set_error(expr);
+        return;
+    }
+
+    expression_set_type(expr, lvalue_type);
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));

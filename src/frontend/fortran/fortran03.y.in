@@ -1846,7 +1846,7 @@ initialization : '=' constant_expr
 {
     $$ = $2;
 }
-| TOK_POINTER_ACCESS data_ref
+| TOK_POINTER_ACCESS constant_expr
 {
     $$ = ASTMake1(AST_POINTER_INITIALIZATION, $2, $1.token_file, $1.token_line, NULL);
 }
