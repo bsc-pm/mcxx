@@ -198,6 +198,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> attributes
 %type<ast> attribute_value
 %type<ast> block_declaration
+%type<ast> non_empty_block_declaration
+%type<ast> common_block_declaration
 %type<ast> builtin_types
 %type<ast> cast_expression
 %type<ast> class_head
@@ -280,6 +282,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> selection_statement
 %type<ast> shift_expression
 %type<ast> simple_declaration
+%type<ast> non_empty_simple_declaration
 %type<ast> simple_type_specifier
 %type<ast> statement
 %type<ast> statement_seq
@@ -379,7 +382,23 @@ block_declaration : simple_declaration
 {
 	$$ = $1;
 }
-| asm_definition
+| common_block_declaration
+{
+    $$ = $1;
+}
+;
+
+non_empty_block_declaration : non_empty_simple_declaration
+{
+    $$ = $1;
+}
+| common_block_declaration
+{
+    $$ = $1;
+}
+;
+
+common_block_declaration : asm_definition
 {
 	$$ = $1;
 }
@@ -407,8 +426,6 @@ block_declaration : simple_declaration
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_file, $1.token_line, $1.token_text);
 }
-;
-
 ;
 
 /* GNU Extension */
@@ -558,7 +575,18 @@ asm_operand : string_literal '(' expression ')'
 /* End of GNU extensions */
 
 
-simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambiguityHandler>
+simple_declaration : non_empty_simple_declaration
+{
+    $$ = $1;
+}
+| ';'
+{
+    // This is an error but also a common extension
+    $$ = ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+non_empty_simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -569,11 +597,6 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambigui
 | init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| ';'
-{
-	// This is an error but also a common extension
-	$$ = ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1787,14 +1810,14 @@ expression_statement : expression ';'
 {
 	$$ = ASTMake1(AST_EXPRESSION_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-// | ';'
-// {
-// 	// Empty statement ...
-// 	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_file, $1.token_line, NULL);
-// }
+| ';'
+{
+	// Empty statement ...
+	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_file, $1.token_line, NULL);
+}
 ;
 
-declaration_statement : block_declaration
+declaration_statement : non_empty_block_declaration
 {
 	$$ = ASTMake1(AST_DECLARATION_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1921,7 +1944,7 @@ for_init_statement : expression_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| simple_declaration %merge<ambiguityHandler>
+| non_empty_simple_declaration %merge<ambiguityHandler>
 {
 	$$ = $1;
 }

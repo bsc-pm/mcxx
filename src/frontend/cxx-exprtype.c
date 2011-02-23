@@ -1232,6 +1232,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (ASTSon0(expression) != NULL)
                 {
                     check_for_expression_impl_(ASTSon0(expression), decl_context);
+                    ASTAttrSetValueType(expression, LANG_IS_THROW_EXPRESSION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_THROW_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
                 }
                 if (ASTSon0(expression) == NULL
                         || !IS_ERROR_TYPE(ASTSon0(expression)))
@@ -8651,7 +8653,7 @@ static void check_for_member_access(AST member_access, decl_context_t decl_conte
         }
 
         type_t* argument_types[1] = { 
-            /* Note that we want the real original type since it might be a referenced type (¿?¿??) */
+            /* Note that we want the real original type since it might be a referenced type */
             expression_get_type(class_expr) 
         };
 
