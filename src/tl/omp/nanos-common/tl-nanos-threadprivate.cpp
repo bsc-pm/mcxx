@@ -53,16 +53,7 @@ static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_
             remade_declaration << " __thread";
         }
 
-        remade_declaration << " " << it->prettyprint();
-
-        if (it->has_initializer())
-        {
-            // This .original_tree is to work around a quirk of TL::Expression
-            // (as it skips the '=' in an initializer of the form '= e')
-            remade_declaration << it->get_initializer().original_tree().prettyprint();
-        }
-
-        remade_declaration << ";\n";
+        remade_declaration << " " << it->prettyprint() << ";\n";
     }
 
     AST_t tree(NULL);

@@ -247,9 +247,114 @@ static void do_smp_outline_replacements(AST_t body,
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
     
-//    replace_src.add_this_replacement("_args->_this");
+    replace_src.add_this_replacement("_args->_this");
+
+    //FIXME: This code could be replicated among devices
+    //Statements replication and loop unrolling
+    builtin_ast_list =
+        body.depth_subtrees(TL::TraverseASTPredicate(PredicateAttr(HLT_SIMD_FOR_INFO)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ForStatement for_stmt (*it, scope_link);
+        const int min_stmt_size = (Integer)for_stmt.get_ast().
+                get_attribute(HLT_SIMD_FOR_INFO);
+
+        //Unrolling
+        Expression it_exp = for_stmt.get_iterating_expression();
+        AST_t it_exp_ast = it_exp.get_ast();
+        Source it_exp_source;
+
+        if (it_exp.is_unary_operation())
+        {
+            it_exp_source
+                << it_exp.get_unary_operand();
+        } 
+        else if (it_exp.is_binary_operation())
+        {
+            it_exp_source
+                << it_exp.get_first_operand();
+        }
+        else
+        {
+            internal_error("Wrong Expression in ForStatement iterating Expression", 0);
+        }
+
+        it_exp_source
+            << " += "
+            << (for_stmt.get_step().evaluate_constant_int_expression(constant_evaluation)
+                    * (_vector_width / min_stmt_size))
+            ;
+
+        it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+
+        //Statements Replication
+        Statement stmt = for_stmt.get_loop_body();
+    
+        if (stmt.is_compound_statement())
+        {
+            ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+
+            for (ObjectList<Statement>::iterator it = stmt_list.begin();
+                    it != stmt_list.end();
+                    it++)
+            {
+                Statement& statement = (Statement&)*it;
+
+                if (statement.is_expression())
+                {
+                    Expression exp = statement.get_expression();
+                    if (exp.is_assignment() || exp.is_operation_assignment())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
+                        {
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
+
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
+                            {
+                                Source new_stmt_src;
+
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
+                                    ;
+
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
+
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
+                            }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     //__builtin_vector_loop AST replacement
+    /*
     builtin_ast_list = 
         body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
 
@@ -278,7 +383,7 @@ static void do_smp_outline_replacements(AST_t body,
 
         ast.replace(builtin_vl_replacement.parse_expression(ast, scope_link));
     }
-
+*/
     //__builtin_vector_reference AST replacement
     builtin_ast_list =
         body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
@@ -376,8 +481,7 @@ static void do_smp_outline_replacements(AST_t body,
                     it++)
             {
                 Source new_dim;
-                new_dim << "_" << *it;
-//                new_dim << "_args->" << *it;
+                new_dim << "_args->" << *it;
 
                 arg_vla_dims.append(new_dim);
             }
@@ -399,8 +503,7 @@ static void do_smp_outline_replacements(AST_t body,
                 << "="
                 << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
                 << "("
-                << "_" << field_name
-//                << "_args->" << field_name
+                << "_args->" << field_name
                 << ");"
                 ;
         }
@@ -419,8 +522,7 @@ static void do_smp_outline_replacements(AST_t body,
                             << "="
                             << "("
                             << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") (_" << field_name << ");"
-//                            << ") (_args->" << field_name << ");"
+                            << ") (_args->" << field_name << ");"
                             ;
                     replace_src.add_replacement(sym, field_name);
                 }
@@ -432,8 +534,7 @@ static void do_smp_outline_replacements(AST_t body,
                             << "="
                             << "("
                             << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") (_" << field_name << ");"
-//                            << ") (_args->" << field_name << ");"
+                            << ") (_args->" << field_name << ");"
                             ;
                     replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
@@ -462,9 +563,8 @@ static void do_smp_outline_replacements(AST_t body,
                             initial_code
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
-                                << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << field_name
-//                                << "_args->" << field_name
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
                                 << ");"
                                 ;
                         }
@@ -475,9 +575,8 @@ static void do_smp_outline_replacements(AST_t body,
                             initial_code
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
-                                << "*(_" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
-                                << field_name
-//                                << "_args->" << field_name
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
                                 << ");"
                                 ;
                         }
@@ -486,10 +585,17 @@ static void do_smp_outline_replacements(AST_t body,
                         replace_src.add_replacement(sym, field_name);
                     }
                 }
+                //USUAL CASE
                 else
                 {
-                    replace_src.add_replacement(sym, "(_" + field_name + ")");
-//                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    if (data_env_info.has_local_copies() && data_env_item.get_type().is_pointer())
+                    {
+                        replace_src.add_replacement(sym, "(_" + field_name + ")");
+                    }
+                    else
+                    {
+                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    }
                 }
             }
         }
@@ -504,8 +610,8 @@ static void do_smp_outline_replacements(AST_t body,
             it != nonstatic_members.end();
             it++)
     {
-        replace_src.add_replacement(*it, "(_" + it->get_name() + ")");
-//        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+//        replace_src.add_replacement(*it, "(_" + it->get_name() + ")");
+        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
     }
 
     // Create local variables for reduction symbols
@@ -791,25 +897,37 @@ void DeviceSMP::create_outline(
         << final_code
         ;
 
-    // local_copies
+    // Local Copies
+    /*
     Scope sc = sl.get_scope(reference_tree);
-    Type struct_typename_type = sc.get_symbol_from_name(struct_typename).get_type();
-    ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
-    Symbol sym;
-    int i;
+    Symbol struct_sym = sc.get_symbol_from_name(struct_typename);
 
-    for (i=0; i < (data_member_list.size()); i++)
+    if (struct_sym.is_valid())
     {
-        sym = (Symbol)data_member_list[i];
+        Type struct_typename_type = struct_sym.get_type();
+        ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
+        int i;
 
-        local_copies
-            << sym.get_type().get_simple_declaration(sc, "_" + sym.get_name())
-            << " = "
-            << "_args->" << sym.get_name() 
-            << ";\n"
-            ;
+        for (ObjectList<Symbol>::iterator it = data_member_list.begin();
+                it != data_member_list.end();
+                it ++)
+        {
+            const Symbol& sym = (Symbol)*it;
+            const Type& sym_type = sym.get_type();
+
+//            if (sym_type.is_scalar_type() || sym_type.is_pointer())
+            if (sym_type.is_pointer())
+            {
+                local_copies
+                    << sym_type.get_simple_declaration(sc, "_" + sym.get_name())
+                    << " = "
+                    << "_args->" << sym.get_name() 
+                    << ";\n"
+                    ;
+            }
+        }
     }
-
+    */
 
     ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
 
@@ -845,6 +963,28 @@ void DeviceSMP::create_outline(
             final_code
                 << field_name << ".~" << type.get_symbol().get_name() << "();"
                 ;
+        }
+        else if (it->is_firstprivate()
+                // VLA types are handled specially and their declaration has
+                // been generated earlier in this file
+                && !it->is_vla_type())
+        {
+            //Local Copies
+            if (data_environ.has_local_copies())
+            {
+                Symbol sym = it->get_symbol();
+                Type type = sym.get_type();
+
+                if (type.is_pointer())
+                {
+                    local_copies
+                        << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())
+                        << " = "
+                        << "_args->" << it->get_field_name() 
+                        << ";\n"
+                        ;
+                }
+            }
         }
     }
 
@@ -887,7 +1027,7 @@ void DeviceSMP::create_outline(
             Type t = Source(struct_typename).parse_type(reference_tree, sl);
 
             member_parameter_list << 
-                t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "const __restrict__ args");
+                t.get_pointer_to().get_declaration(sl.get_scope(decl_point), " const __restrict__ args");
 
             AST_t member_decl_tree = 
                 member_declaration.parse_member(decl_point,

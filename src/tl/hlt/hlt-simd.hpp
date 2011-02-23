@@ -67,13 +67,12 @@ namespace TL
             protected:
                 virtual Source get_source();
             private:
-                ForStatement _for_stmt;
-                ObjectList<IdExpression> _simd_id_exp_list;
+                ForStatement& _for_stmt;
+                const ObjectList<IdExpression>& _simd_id_exp_list;
                 ReplaceSimdSrc _replacement;
                 bool is_simdizable;
 
-                int _smallest_type_size;
-                bool _with_epilog;
+                unsigned char& _min_stmt_size;
 
                 Source _result;
 //                Source _epilogue;
@@ -83,7 +82,7 @@ namespace TL
 //                Source _after_loop;
 
                 Source do_simdization();
-                int get_smallest_type_size();
+                void compute_min_stmt_size();
                 void gen_vector_type(IdExpression id);
 
             public:
@@ -94,7 +93,7 @@ namespace TL
                   \param for_stmt Regular loop
                   \param factor Number of times this loop is simdizationed
                  */
-                LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list);
+                LoopSimdization(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size);
 
         };
 
@@ -114,7 +113,7 @@ namespace TL
           \param for_stmt Regular loop
           \param factor Number of times this loop is simdizationed
          */
-        LIBHLT_EXTERN LoopSimdization simdize_loop(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list);
+        LIBHLT_EXTERN LoopSimdization simdize_loop(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size);
 
         //! @}
     }

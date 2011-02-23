@@ -47,6 +47,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);
+    data_environ_info.set_local_copies(true);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();

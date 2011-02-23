@@ -108,6 +108,7 @@ const char* ReplaceSrcGPU::prettyprint_callback (AST a, void* data)
         {
             return "";
         }
+        /*
         if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -126,6 +127,7 @@ const char* ReplaceSrcGPU::prettyprint_callback (AST a, void* data)
                 ;
             return result.str().c_str();
         }
+        */
         if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);

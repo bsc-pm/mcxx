@@ -104,7 +104,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
         decl_context_t declarator_context);
-static void build_scope_declarator_rec(AST a, type_t** declarator_type, 
+static void build_scope_declarator_rec(AST top_declarator, 
+        AST a, type_t** declarator_type, 
         gather_decl_spec_t* gather_info,
         decl_context_t declarator_context,
         decl_context_t entity_context,
@@ -196,7 +197,6 @@ static const char* current_linkage = "\"C++\"";
 
 static void initialize_builtin_symbols(decl_context_t decl_context);
 
-static AST advance_over_declarator_nests(AST a, decl_context_t decl_context);
 
 static void gather_decl_spec_information(AST a, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -4255,7 +4255,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
 
         // Second traversal, here we build the type
-        build_scope_declarator_rec(a, declarator_type, 
+        build_scope_declarator_rec(a, a, declarator_type, 
                 gather_info, decl_context, entity_context, prototype_context);
 
         if (declarator_name != NULL)
@@ -4819,7 +4819,9 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
  *
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
-static void build_scope_declarator_rec(AST a, type_t** declarator_type, 
+static void build_scope_declarator_rec(
+        AST top_declarator, AST a, 
+        type_t** declarator_type, 
         gather_decl_spec_t* gather_info, 
         // This one contains the context of the occurring declarator
         // e.g void A::f(T) will contain the context of 'void A::f(T)'
@@ -4840,14 +4842,14 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
                 set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
-                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4858,27 +4860,17 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
                         entity_context);
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                {
-                    // KLUDGE
-                    // FIXME - Rework declarators to avoid this
-                    AST set_declarator = a;
-                    if (ASTType(ASTParent(a)) == AST_INIT_DECLARATOR
-                            || ASTType(ASTParent(a)) == AST_GCC_INIT_DECLARATOR)
-                    {
-                        set_declarator = ASTParent(a);
-                    }
-                    ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
-                }
+                ASTAttrSetValueType(top_declarator, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
 
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4892,8 +4884,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         case AST_GCC_DECLARATOR :
             {
                 ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
-
-                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
             }
@@ -4902,16 +4893,15 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         case AST_GCC_POINTER_DECLARATOR :
             {
                 ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
-
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
-                build_scope_declarator_rec(ASTSon2(a), declarator_type, 
+                build_scope_declarator_rec(top_declarator, ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
             // functional-declarator attribute
         case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
-                build_scope_declarator_rec(ASTSon0(a), declarator_type,
+                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type,
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4919,7 +4909,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             {
                 solve_ambiguous_declarator(a, declarator_context);
                 // Restart function
-                build_scope_declarator_rec(a, declarator_type, 
+                build_scope_declarator_rec(top_declarator, a, declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -9633,6 +9623,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
     }
 }
 
+#if 0
 static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION(a == NULL, "This node cannot be null", 0);
@@ -9655,6 +9646,7 @@ static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
             return a;
     }
 }
+#endif
 
 // Returns non-null tree with the leftmost declarator
 // that is not preceded by any other sign 

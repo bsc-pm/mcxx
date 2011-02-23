@@ -735,7 +735,17 @@ namespace TL
 
     unsigned int Type::get_size() 
     {
-        return (unsigned int)type_get_size(_type_info);
+        unsigned int result;
+
+        if (is_generic_vector_type(_type_info))
+        {
+            result = this->basic_type().get_size(); 
+        }
+        else
+        {
+            result = (unsigned int) type_get_size(_type_info);
+        }
+        return result;
     }
 
     Type Type::advance_over_typedefs()

@@ -110,6 +110,12 @@ namespace TL
                     return _is_copy;
                 }
 
+                //! States if this item is firstprivate (to be copied)
+                bool is_firstprivate() const
+                {
+                    return _is_copy;
+                }
+
                 //! Sets this item to be copied
                 DataEnvironItem& set_is_copy(bool b)
                 {
@@ -189,13 +195,14 @@ namespace TL
                 ObjectList<DataEnvironItem> _data_env_items;
                 ObjectList<OpenMP::CopyItem> _copy_items;
                 ObjectList<OpenMP::ReductionSymbol> _reduction_symbols;
+                bool _has_local_copies;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
                     return item.get_symbol().is_valid();
                 }
             public:
-                DataEnvironInfo() { }
+                DataEnvironInfo() { _has_local_copies = false; }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
@@ -208,6 +215,18 @@ namespace TL
                 {
                     return _data_env_items.filter(predicate(data_env_item_has_sym));
                 }
+
+                //! States if the DataEnvironItems are copied locally
+                bool has_local_copies() const
+                {
+                    return _has_local_copies;
+                } 
+
+                //! Sets if the DataEnvironItems are copied locally
+                void set_local_copies(const bool has_local_copies) 
+                {
+                    _has_local_copies = has_local_copies;
+                } 
 
                 //! Returns the data environment item for a given symbol
                 /*

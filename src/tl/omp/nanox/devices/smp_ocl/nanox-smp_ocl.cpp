@@ -133,6 +133,7 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
             return result.str().c_str();
 
         }
+        /*
         if(FindFunction(_this->_sl, BUILTIN_VL_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -150,6 +151,7 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
                 ;
             return result.str().c_str();
         }
+        */
         if(FindFunction(_this->_sl, BUILTIN_VR_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -183,12 +185,9 @@ const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
 
             return result.str().c_str();
         }
-
         return NULL;
     }
-
     return c;
-
 }
 
 Source ReplaceSrcSMP_OCL::replace(AST_t a) const
@@ -228,6 +227,112 @@ static void do_smp_ocl_outline_replacements(AST_t body,
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     replace_src.add_this_replacement("_args->_this");
+
+    //FIXME: This code could be replicated among devices
+    //Statements replication and loop unrolling
+    builtin_ast_list =
+        body.depth_subtrees(TL::TraverseASTPredicate(PredicateAttr(HLT_SIMD_FOR_INFO)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ForStatement for_stmt (*it, scope_link);
+        const int min_stmt_size = (Integer)for_stmt.get_ast().
+                get_attribute(HLT_SIMD_FOR_INFO);
+
+        //Unrolling
+        Expression it_exp = for_stmt.get_iterating_expression();
+        AST_t it_exp_ast = it_exp.get_ast();
+        Source it_exp_source;
+
+        if (it_exp.is_unary_operation())
+        {
+            it_exp_source
+                << it_exp.get_unary_operand();
+        } 
+        else if (it_exp.is_binary_operation())
+        {
+            it_exp_source
+                << it_exp.get_first_operand();
+        }
+        else
+        {
+            internal_error("Wrong Expression in ForStatement iterating Expression", 0);
+        }
+
+        it_exp_source
+            << " += "
+            << (for_stmt.get_step().evaluate_constant_int_expression(constant_evaluation)
+                    * (_vector_width / min_stmt_size))
+            ;
+
+        it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+
+        //Statements Replication
+        Statement stmt = for_stmt.get_loop_body();
+    
+        if (stmt.is_compound_statement())
+        {
+            ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+
+            for (ObjectList<Statement>::iterator it = stmt_list.begin();
+                    it != stmt_list.end();
+                    it++)
+            {
+                Statement& statement = (Statement&)*it;
+
+                if (statement.is_expression())
+                {
+                    Expression exp = statement.get_expression();
+                    if (exp.is_assignment() || exp.is_operation_assignment())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
+                        {
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
+
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
+                            {
+                                Source new_stmt_src;
+
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
+                                    ;
+
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
+
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
+                            }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 
     //__builtin_vector_loop AST replacement
 /*    

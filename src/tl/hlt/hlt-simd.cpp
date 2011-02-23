@@ -156,17 +156,15 @@ TL::Source ReplaceSimdSrc::replace(TL::LangConstruct a) const
     return ReplaceSimdSrc::replace(a.get_ast());
 }
 
-LoopSimdization TL::HLT::simdize_loop(TL::ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list)
+LoopSimdization TL::HLT::simdize_loop(TL::ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size)
 {
-    return LoopSimdization(for_stmt, simd_id_exp_list);
+    return LoopSimdization(for_stmt, simd_id_exp_list, min_stmt_size);
 }
 
 
-LoopSimdization::LoopSimdization(ForStatement for_stmt, ObjectList<IdExpression> simd_id_exp_list) 
-: _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list)
+LoopSimdization::LoopSimdization(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size) 
+: _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list), _min_stmt_size(min_stmt_size)
 {
-
-    _smallest_type_size = 0;
     is_simdizable = true;
 
     if ((!_for_stmt.get_iterating_condition().is_binary_operation()) ||
@@ -197,8 +195,8 @@ void LoopSimdization::gen_vector_type(IdExpression id){
     std::stringstream new_sym_name;
 
     //Save the smallest type size
-//    if (_smallest_type_size < type.basic_type().get_size())
-//        _smallest_type_size = type.basic_type().get_size();
+//    if (_min_stmt_size < type.basic_type().get_size())
+//        _min_stmt_size = type.basic_type().get_size();
 
     if (type.is_array())
     {
@@ -262,10 +260,10 @@ bool isExpressionAssignment::do_(const AST_t& ast) const
     return false;
 }
 
-int LoopSimdization::get_smallest_type_size()
+void LoopSimdization::compute_min_stmt_size()
 {
-    int statement_type_size;
-    int min = 100;
+    unsigned char statement_type_size;
+    unsigned char min = 100;
 
     ObjectList<AST_t> assignment_list = _for_stmt.get_loop_body().
         get_ast().depth_subtrees(isExpressionAssignment(_for_stmt.get_scope_link()));
@@ -277,11 +275,9 @@ int LoopSimdization::get_smallest_type_size()
         Expression exp ((AST_t)*it, _for_stmt.get_scope_link());
         statement_type_size = exp.get_first_operand().get_type().get_size();
         min = (min <= statement_type_size) ? min : statement_type_size;
-
-        std::cout << exp.prettyprint() << " : " << statement_type_size << "\n";
     }
 
-    return min;
+    _min_stmt_size = min;
 }
 
 TL::Source LoopSimdization::do_simdization()
@@ -291,9 +287,8 @@ TL::Source LoopSimdization::do_simdization()
         return _for_stmt.prettyprint();
     }
 
-    //It calculates the smallest type of the first operand of an assignment
-    //and marks the statements that have to be replicated.
-    _smallest_type_size = get_smallest_type_size();
+    //It computes the smallest type of the first operand of an assignment and stores it in _min_stmt_size
+    compute_min_stmt_size();
 
     //Simd variable initialization & sustitution
     std::for_each(_simd_id_exp_list.begin(), _simd_id_exp_list.end(), 
@@ -305,15 +300,13 @@ TL::Source LoopSimdization::do_simdization()
 
     AST_t it_init_ast (_for_stmt.get_iterating_init());
     Source it_init_source;
-    
+
     _result
-        << "{"
 //        << _induction_var_decl
 //        << _before_loop
         << _loop
 //        << _after_loop
 //        << _epilogue
-        << "}"
         ;
 
     if (Declaration::predicate(it_init_ast))
@@ -359,9 +352,17 @@ TL::Source LoopSimdization::do_simdization()
     _loop << "for(" 
         << it_init_source
         << _for_stmt.get_iterating_condition() << ";"
+        << _for_stmt.get_iterating_expression()
+        << ")"
+        << replaced_loop_body
+        ;
+/*    
+    _loop << "for(" 
+        << it_init_source
+        << _for_stmt.get_iterating_condition() << ";"
         << BUILTIN_VL_NAME << "(" << _for_stmt.get_induction_variable() << ","
         << _for_stmt.get_step().evaluate_constant_int_expression(step_evaluation) << "," 
-        << _smallest_type_size << "))"
+        << _min_stmt_size << "))"
         << replaced_loop_body
         ;
 
@@ -369,11 +370,7 @@ TL::Source LoopSimdization::do_simdization()
         running_error("%s: error: the loop is not simdizable. The step is not a compile-time evaluable constant.'\n",
                 _for_stmt.get_ast().get_locus().c_str());
     }
-
-    //For Statement is marked as HLT 
-    !!!!!!
-
-
+*/
     return _result;
 }
 
