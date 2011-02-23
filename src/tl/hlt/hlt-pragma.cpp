@@ -62,7 +62,10 @@ static void update_identity_flag(const std::string &str)
             "Option 'disable_identity' is a boolean flag");
 }
 
-static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
+static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types,  
+        AST *arguments UNUSED_PARAMETER,
+        int num_arguments)
 {
     char name[256];
     int i;
@@ -77,7 +80,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
 
     for(i=1; i<builtin_vr_list.size(); i++) 
     {
-        if (equivalent_types(get_unqualified_type(arguments[0]),
+        if (equivalent_types(get_unqualified_type(types[0]),
                              function_type_get_parameter_type_num(builtin_vr_list[i]->get_type()
                                                                                     .get_internal_type(), 0)));
         {
@@ -87,12 +90,12 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
 
     //No Match: Add a new Symbol to the list.
     TL::ObjectList<TL::Type> params_list;
-    params_list.append(arguments[0]);
+    params_list.append(types[0]);
     
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VR_NAME;
     result->kind = SK_FUNCTION;
-    result->type_information = ((TL::Type)arguments[0])
+    result->type_information = ((TL::Type)types[0])
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
