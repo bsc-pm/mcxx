@@ -14,6 +14,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
+#include "fortran03-intrinsics.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -25,7 +26,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 {
     decl_context_t decl_context;
     initialize_translation_unit_scope(translation_unit, &decl_context);
-    // TODO: Fortran intrinsics
+
+    fortran_init_intrisics(decl_context);
 }
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
@@ -365,13 +367,27 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    if (is_function)
+    entry = query_name_no_implicit(decl_context, ASTText(name));
+
+    if (entry != NULL)
     {
-        entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: warning: redeclaration of entity '%s'\n", 
+                    ast_location(name), 
+                    ASTText(name));
+        }
     }
     else
     {
-        entry = new_fortran_symbol(decl_context, ASTText(name));
+        if (is_function)
+        {
+            entry = query_name_spec_stmt(decl_context, name, ASTText(name));
+        }
+        else
+        {
+            entry = new_fortran_symbol(decl_context, ASTText(name));
+        }
     }
 
     entry->kind = SK_FUNCTION;
@@ -380,7 +396,14 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     type_t* return_type = NULL;
     if (is_function)
+    {
         return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
+    }
+    else
+    {
+        // Not an implicit basic type anymore
+        entry->entity_specs.is_implicit_basic_type = 0;
+    }
 
     if (prefix != NULL)
     {
@@ -528,10 +551,13 @@ static void build_scope_internal_subprograms(AST internal_subprograms, decl_cont
     for_each_element(internal_subprograms, it)
     {
         AST internal_subprogram = ASTSon1(it);
+        scope_entry_t* subprogram_sym = NULL;
         build_scope_program_unit(internal_subprogram, 
                 decl_context, 
                 new_internal_program_unit_context,
-                NULL);
+                &subprogram_sym);
+
+        insert_entry(decl_context.current_scope, subprogram_sym);
     }
 }
 
@@ -696,6 +722,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_executable_0  ) \
+ STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_continue_stmt,         kind_nonexecutable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -896,7 +923,7 @@ type_t* choose_float_type_from_kind(AST expr, int kind_size)
 #define MAX_LOGICAL_KIND 16
 static char logical_types_init = 0;
 static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
-static type_t* choose_logical_type_from_kind(AST expr, int kind_size)
+type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 {
     if (!logical_types_init)
     {
@@ -2103,13 +2130,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     do_variable->file = ASTFileName(io_do_variable);
     do_variable->line = ASTLine(io_do_variable);
 
-    AST it;
-
-    for_each_element(implied_do_object_list, it)
-    {
-        AST implied_do_object = ASTSon1(it);
-        rec_handler(implied_do_object, new_context);
-    }
+    rec_handler(implied_do_object_list, new_context);
 }
 
 static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_context_t decl_context)
@@ -2120,7 +2141,7 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
         AST data_stmt_object = ASTSon1(it2);
         if (ASTType(data_stmt_object) == AST_IMPLIED_DO)
         {
-            generic_implied_do_handler(data_stmt_object_list, decl_context,
+            generic_implied_do_handler(data_stmt_object, decl_context,
                     build_scope_data_stmt_object_list);
         }
         else
@@ -2723,55 +2744,66 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
         unsupported_construct(a, "ABSTRACT INTERFACE");
     }
 
-    scope_entry_t* generic_spec_sym = NULL;
     AST generic_spec = ASTSon1(interface_stmt);
+
+    scope_entry_t** related_symbols = NULL;
+    int num_related_symbols = 0;
+
+    if (interface_specification_seq != NULL)
+    {
+        AST it;
+        for_each_element(interface_specification_seq, it)
+        {
+            AST interface_specification = ASTSon1(it);
+
+            if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+            {
+                unsupported_statement(interface_specification, "MODULE PROCEDURE");
+            }
+            else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+                    || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+            {
+                scope_entry_t* interface_sym = NULL;
+                build_scope_program_unit(interface_specification, 
+                        decl_context, 
+                        new_program_unit_context, 
+                        &interface_sym);
+
+                if (generic_spec != NULL)
+                {
+                    P_LIST_ADD(related_symbols,
+                            num_related_symbols,
+                            interface_sym);
+                }
+
+                insert_entry(decl_context.current_scope, interface_sym);
+            }
+            else
+            {
+                internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+            }
+        }
+    }
+
     if (generic_spec != NULL)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
+        
+        scope_entry_t* generic_spec_sym = query_name_no_implicit(decl_context, name);
 
-        generic_spec_sym = new_fortran_symbol(decl_context, name);
+        if (generic_spec_sym == NULL)
+        {
+            generic_spec_sym = new_fortran_symbol(decl_context, name);
+            // If this name is not related to a specific interface, make it void
+            generic_spec_sym->type_information = get_void_type();
+        }
 
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->file = ASTFileName(generic_spec);
         generic_spec_sym->line = ASTLine(generic_spec);
         generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->type_information = get_void_type();
-    }
-
-    if (interface_specification_seq == NULL)
-        return;
-
-    AST it;
-    for_each_element(interface_specification_seq, it)
-    {
-        AST interface_specification = ASTSon1(it);
-
-        if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
-        {
-            unsupported_statement(interface_specification, "MODULE PROCEDURE");
-        }
-        else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
-                || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
-        {
-            scope_entry_t* interface_sym = NULL;
-            build_scope_program_unit(interface_specification, 
-                    decl_context, 
-                    new_program_unit_context, 
-                    &interface_sym);
-
-            if (generic_spec != NULL)
-            {
-                P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
-                        generic_spec_sym->entity_specs.num_related_symbols,
-                        interface_sym);
-            }
-
-            insert_entry(decl_context.current_scope, interface_sym);
-        }
-        else
-        {
-            internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
-        }
+        generic_spec_sym->entity_specs.related_symbols = related_symbols;
+        generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
     }
 }
 
@@ -2967,7 +2999,7 @@ static void build_scope_input_output_item(AST input_output_item, decl_context_t 
     if (ASTType(input_output_item) == AST_IMPLIED_DO)
     {
         generic_implied_do_handler(input_output_item, decl_context,
-                build_scope_input_output_item);
+                build_scope_input_output_item_list);
     }
     else 
     {
@@ -2978,7 +3010,6 @@ static void build_scope_input_output_item(AST input_output_item, decl_context_t 
 static void build_scope_input_output_item_list(AST input_output_item_list, decl_context_t decl_context)
 {
     AST it;
-
     for_each_element(input_output_item_list, it)
     {
         build_scope_input_output_item(ASTSon1(it), decl_context);

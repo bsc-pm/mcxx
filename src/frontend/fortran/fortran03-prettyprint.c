@@ -232,6 +232,7 @@ HANDLER_PROTOTYPE(end_of_statement_handler);
 HANDLER_PROTOTYPE(sequence_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(ambiguity_handler);
+HANDLER_PROTOTYPE(unknown_pragma_handler);
 
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
@@ -449,6 +450,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_WHILE_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_WRITE_STATEMENT, write_statement_handler, NULL),
     // Pragma custom
+    NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
@@ -2762,6 +2764,11 @@ static void pragma_custom_line_handler(FILE* f, AST a, prettyprint_context_t* pt
         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, "\n");
+}
+
+static void unknown_pragma_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
+{
+    token_fprintf(f, a, pt_ctx, "%s\n", ASTText(a));
 }
 
 static void pragma_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

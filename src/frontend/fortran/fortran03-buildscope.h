@@ -42,6 +42,7 @@ LIBMF03_EXTERN void build_scope_fortran_translation_unit(translation_unit_t* tra
 
 LIBMF03_EXTERN type_t* choose_int_type_from_kind(AST expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_float_type_from_kind(AST expr, int kind_size);
+LIBMF03_EXTERN type_t* choose_logical_type_from_kind(AST expr, int kind_size);
 
 MCXX_END_DECLS
 
