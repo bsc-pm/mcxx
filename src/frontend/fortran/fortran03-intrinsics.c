@@ -321,6 +321,7 @@ static char generic_keyword_check(
         int *num_arguments,
         AST *argument_expressions,
         const char* keywords,
+        type_t** argument_types,
         type_t** reordered_types,
         AST* reordered_exprs)
 {
@@ -341,6 +342,22 @@ static char generic_keyword_check(
         {
             fprintf(stderr, "INTRINSICS:     unlimited keyword list\n");
         }
+    }
+
+    if (argument_expressions == NULL)
+    {
+        int i;
+        for (i = 0; i < current_variant.num_keywords; i++)
+        {
+            reordered_types[i] = argument_types[i];
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' suceeds trivially because there are no expressions given\n",
+                    symbol->symbol_name);
+        }
+        return 1;
     }
 
     if (current_variant.num_keywords < 0)
@@ -364,7 +381,6 @@ static char generic_keyword_check(
 
         AST keyword = ASTSon0(argument);
         AST expr = ASTSon1(argument);
-
 
         if (keyword != NULL)
         {
@@ -440,6 +456,7 @@ static char generic_keyword_check(
             ok = 0;
             break;
         }
+
         position++;
     }
 
@@ -628,7 +645,7 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
     AST reordered_exprs[MAX_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name (symbol, reordered_types, reordered_exprs, num_arguments); \
     } \
@@ -653,13 +670,13 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
     AST reordered_exprs[MAX_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name##_0(symbol, reordered_types, reordered_exprs, num_arguments); \
     } \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords1, reordered_types, reordered_exprs)) \
+    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords1, argument_types, reordered_types, reordered_exprs)) \
     { \
         return compute_intrinsic_##name##_1(symbol, reordered_types, reordered_exprs, num_arguments); \
     } \
@@ -680,6 +697,7 @@ void fortran_init_intrisics(decl_context_t decl_context)
     { \
         scope_entry_t* new_intrinsic = new_symbol(decl_context, decl_context.current_scope, #name); \
         new_intrinsic->kind = SK_FUNCTION; \
+        new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
         new_intrinsic->entity_specs.is_builtin = 1; \
     }
@@ -688,6 +706,7 @@ void fortran_init_intrisics(decl_context_t decl_context)
     { \
         scope_entry_t* new_intrinsic = new_symbol(decl_context, decl_context.current_scope, #name); \
         new_intrinsic->kind = SK_FUNCTION; \
+        new_intrinsic->do_not_print = 1; \
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
         new_intrinsic->entity_specs.is_builtin = 1; \
     }
@@ -707,8 +726,7 @@ static scope_entry_t* register_specific_intrinsic_name(
         const char *generic_name, 
         const char *specific_name,
         int num_args,
-        type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6,
-        AST expr_0, AST expr_1, AST expr_2, AST expr_3, AST expr_4, AST expr_5, AST expr_6)
+        type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
     scope_entry_t* generic_entry = query_name(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
@@ -716,11 +734,12 @@ static scope_entry_t* register_specific_intrinsic_name(
     computed_function_type_t fun = computed_function_type_get_computing_function(generic_entry->type_information);
 
     type_t* type_list[7] = { t0, t1, t2, t3, t4, t5, t6 };
-    AST expr_list[7] = { expr_0, expr_1, expr_2, expr_3, expr_4, expr_5, expr_6 };
 
-    scope_entry_t* specific_entry = fun(generic_entry, type_list, expr_list, num_args);
+    scope_entry_t* specific_entry = fun(generic_entry, type_list, NULL, num_args);
 
-    ERROR_CONDITION(specific_entry == NULL, "No specific symbol exists when registering specific intrinsic name\n", 0);
+    ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
+            specific_name,
+            generic_name);
 
     // Insert alias only if they are different names
     if (strcasecmp(generic_name, specific_name) != 0)
@@ -738,10 +757,11 @@ static scope_entry_t* register_specific_intrinsic_name(
 #if 0
 The macros below have been generated using this shell script
 
+
 for i in `seq 0 7`; 
 do 
-  echo -n "\#define REGISTER_SPECIFIC_INTRINSIC_$i(_specific_name, _generic_name"; 
-  for p in t_ expr_; 
+  echo -n "#define REGISTER_SPECIFIC_INTRINSIC_$i(_specific_name, _generic_name"; 
+  for p in t_ ; 
   do 
     for j in `seq 0 $(($i - 1))`; 
     do 
@@ -750,7 +770,7 @@ do
   done; 
   echo ") \\"; 
   echo -n "  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), $i"; 
-  for p in t_ expr_; 
+  for p in t_ ; 
   do 
     for j in `seq 0 $(($i - 1))`; 
     do 
@@ -763,166 +783,101 @@ do
   done; 
   echo ")"; 
 done;
+
 #endif
 
 #define REGISTER_SPECIFIC_INTRINSIC_0(_specific_name, _generic_name) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_1(_specific_name, _generic_name, t_0, expr_0) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 1, (t_0), NULL, NULL, NULL, NULL, NULL, NULL, (expr_0), NULL, NULL, NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_2(_specific_name, _generic_name, t_0, t_1, expr_0, expr_1) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 2, (t_0), (t_1), NULL, NULL, NULL, NULL, NULL, (expr_0), (expr_1), NULL, NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_3(_specific_name, _generic_name, t_0, t_1, t_2, expr_0, expr_1, expr_2) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 3, (t_0), (t_1), (t_2), NULL, NULL, NULL, NULL, (expr_0), (expr_1), (expr_2), NULL, NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_4(_specific_name, _generic_name, t_0, t_1, t_2, t_3, expr_0, expr_1, expr_2, expr_3) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 4, (t_0), (t_1), (t_2), (t_3), NULL, NULL, NULL, (expr_0), (expr_1), (expr_2), (expr_3), NULL, NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_5(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, expr_0, expr_1, expr_2, expr_3, expr_4) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 5, (t_0), (t_1), (t_2), (t_3), (t_4), NULL, NULL, (expr_0), (expr_1), (expr_2), (expr_3), (expr_4), NULL, NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_6(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5, expr_0, expr_1, expr_2, expr_3, expr_4, expr_5) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 6, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), NULL, (expr_0), (expr_1), (expr_2), (expr_3), (expr_4), (expr_5), NULL)
-#define REGISTER_SPECIFIC_INTRINSIC_7(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5, t_6, expr_0, expr_1, expr_2, expr_3, expr_4, expr_5, expr_6) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 7, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), (t_6), (expr_0), (expr_1), (expr_2), (expr_3), (expr_4), (expr_5), (expr_6))
-
-
-#define GET_KIND_OF_TYPE(x) \
-    const_value_to_tree(const_value_get(type_get_size(x), 4, 0))
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_1(_specific_name, _generic_name, t_0) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 1, (t_0), NULL, NULL, NULL, NULL, NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_2(_specific_name, _generic_name, t_0, t_1) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 2, (t_0), (t_1), NULL, NULL, NULL, NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_3(_specific_name, _generic_name, t_0, t_1, t_2) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 3, (t_0), (t_1), (t_2), NULL, NULL, NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_4(_specific_name, _generic_name, t_0, t_1, t_2, t_3) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 4, (t_0), (t_1), (t_2), (t_3), NULL, NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_5(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 5, (t_0), (t_1), (t_2), (t_3), (t_4), NULL, NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_6(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 6, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), NULL)
+#define REGISTER_SPECIFIC_INTRINSIC_7(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5, t_6) \
+  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 7, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), (t_6))
 
 static void fortran_init_specific_names(decl_context_t decl_context)
 {
     type_t* default_char = get_array_type(get_char_type(), NULL, decl_context);
 
-    REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("aimag", "aimag", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("aint", "aint", 
-            get_complex_type(get_float_type()), NULL,
-            NULL,                               GET_KIND_OF_TYPE(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("alog", "log", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("alog10", "log10", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("amod", "mod", 
-            get_float_type(), get_float_type(), 
-            NULL,             NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("aimag", "aimag", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_2("aint", "aint", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("alog", "log", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("alog10", "log10", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("amod", "mod", get_float_type(), get_float_type());
     // 'amax0' 'amax1' 'amin0' 'amin1' are defined as generic intrinsics due to their non-fortranish nature of unbounded number of parameters
-    REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", 
-            get_complex_type(get_float_type()), NULL,
-            NULL,                               GET_KIND_OF_TYPE(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("atan2", "atan2", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("char", "char", 
-            default_char, NULL,
-            NULL,         GET_KIND_OF_TYPE(get_char_type())
-            );
-    REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("conjg", "conjg", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("cos", "cos", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("cosh", "cosh", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("csin", "sin", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("csqrt", "sqrt", get_complex_type(get_float_type()), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dabs", "abs", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("datan2", "atan2", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", 
-            get_double_type(), get_double_type(), 
-            NULL,              NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dexp", "exp", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dim", "dim", 
-            get_float_type(), get_float_type(), 
-            NULL,             NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dint", "aint", 
-            get_double_type(), NULL, 
-            NULL,              GET_KIND_OF_TYPE(get_double_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("dlog", "log", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dlog10", "log10", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("atan2", "atan2", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_2("char", "char", get_signed_int_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("clog", "log", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("conjg", "conjg", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("cos", "cos", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("cosh", "cosh", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("csin", "sin", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("csqrt", "sqrt", get_complex_type(get_float_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("dabs", "abs", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("datan2", "atan2", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", get_double_type(), get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dexp", "exp", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dim", "dim", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dint", "aint", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("dlog", "log", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dlog10", "log10", get_double_type());
     // dmax1 dmin1 are defined as generic intrinsics
-    REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", 
-            get_double_type(), get_double_type(),
-            NULL,              NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", 
-            get_double_type(), NULL, 
-            NULL,              GET_KIND_OF_TYPE(get_double_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", 
-            get_float_type(), get_float_type(), 
-            NULL,             NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", 
-            get_double_type(), get_double_type(), 
-            NULL,              NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dsqrt", "sqrt", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", get_double_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("float", "real", 
-            get_signed_int_type(), NULL,
-            NULL,                  GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", get_signed_int_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("ichar", "ichar", 
-            default_char, NULL,
-            NULL,         GET_KIND_OF_TYPE(get_signed_int_type())
-            );
-    REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", 
-            get_signed_int_type(), get_signed_int_type(), 
-            NULL,                  NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("idint", "int", 
-            get_double_type(), NULL,
-            NULL,              GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("idnint", "nint", 
-            get_double_type(), NULL, 
-            NULL,              GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("ifix", "int", 
-            get_float_type(), NULL, 
-            NULL,             GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_3("index", "index",
-            default_char, default_char, default_char,
-            NULL, NULL, NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("int", "int",
-            get_signed_int_type(), NULL,
-            NULL,                  GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("isign", "sign", 
-            get_signed_int_type(), get_signed_int_type(), 
-            NULL,                  NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("len", "len",
-            default_char, NULL,
-            NULL,         GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("lge", "lge",
-            default_char, default_char,
-            NULL,         NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("lgt", "lgt",
-            default_char, default_char,
-            NULL,         NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("lle", "lle",
-            default_char, default_char,
-            NULL,         NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("llt", "llt",
-            default_char, default_char,
-            NULL,         NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("mod", "mod", 
-            get_signed_int_type(), get_signed_int_type(),
-            NULL,                  NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("nint", "nint",
-            get_float_type(), NULL,
-            NULL,             GET_KIND_OF_TYPE(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("real", "real",
-            get_signed_int_type(), NULL,
-            NULL,                  GET_KIND_OF_TYPE(get_signed_int_type()));
-    REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign",
-            get_float_type(), get_float_type(),
-            NULL,             NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", 
-            get_double_type(), NULL, 
-            NULL,              GET_KIND_OF_TYPE(get_float_type()));
-    REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type(), NULL);
-    REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("dmod", "mod", get_double_type(), get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dnint", "anint", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("dprod", "dprod", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("dsign", "sign", get_double_type(), get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsin", "sin", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsinh", "sinh", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dsqrt", "sqrt", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtan", "tan", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("dtanh", "tanh", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("exp", "exp", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("float", "real", get_signed_int_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("iabs", "abs", get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("ichar", "ichar", default_char, NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("idim", "dim", get_signed_int_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("idint", "int", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("idnint", "nint", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("ifix", "int", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("index", "index", default_char, default_char);
+    REGISTER_SPECIFIC_INTRINSIC_2("int", "int", get_signed_int_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("isign", "sign", get_signed_int_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("len", "len", default_char, NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("lge", "lge", default_char, default_char);
+    REGISTER_SPECIFIC_INTRINSIC_2("lgt", "lgt", default_char, default_char);
+    REGISTER_SPECIFIC_INTRINSIC_2("lle", "lle", default_char, default_char);
+    REGISTER_SPECIFIC_INTRINSIC_2("llt", "llt", default_char, default_char);
+    REGISTER_SPECIFIC_INTRINSIC_2("mod", "mod", get_signed_int_type(), get_signed_int_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("nint", "nint", get_float_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("real", "real", get_signed_int_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_2("sign", "sign", get_float_type(), get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("sin", "sin", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("sngl", "real", get_double_type(), NULL);
+    REGISTER_SPECIFIC_INTRINSIC_1("sqrt", "sqrt", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type());
 }
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -2307,7 +2262,7 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     int di = 4;
-    if (is_integer_type(t0)
+    if (is_fortran_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_ELEMENTAL("ichar",
@@ -2629,7 +2584,7 @@ scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if (is_fortran_character_type(t0)
-            && is_floating_type(t1))
+            && is_fortran_character_type(t1))
     {
         return GET_INTRINSIC_ELEMENTAL("lge", get_bool_type(), t0, t1);
     }
@@ -2646,9 +2601,9 @@ scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if (is_fortran_character_type(t0)
-            && is_floating_type(t1))
+            && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lge", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("lgt", get_bool_type(), t0, t1);
     }
 
     return NULL;
@@ -2663,9 +2618,9 @@ scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if (is_fortran_character_type(t0)
-            && is_floating_type(t1))
+            && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lge", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("lle", get_bool_type(), t0, t1);
     }
 
     return NULL;
@@ -2680,9 +2635,9 @@ scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if (is_fortran_character_type(t0)
-            && is_floating_type(t1))
+            && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lge", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("llt", get_bool_type(), t0, t1);
     }
 
     return NULL;
@@ -2696,7 +2651,7 @@ scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     if (is_floating_type(t0)
-            && is_complex_type(t0))
+            || is_complex_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("log", t0, t0);
     }
@@ -2711,9 +2666,9 @@ scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     if (is_floating_type(t0)
-            && is_complex_type(t0))
+            || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("log", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL("log_gamma", t0, t0);
     }
     return NULL;
 }
@@ -2726,9 +2681,9 @@ scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     if (is_floating_type(t0)
-            && is_complex_type(t0))
+            || is_complex_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("log", t0, t0);
+        return GET_INTRINSIC_ELEMENTAL("log10", t0, t0);
     }
     return NULL;
 }
