@@ -144,7 +144,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << loop_distr_setup
             << "for ("
             <<    induction_var_name << "= _nth_lower;"
-            <<    "(_nth_step_sign * " << induction_var_name << ")" << "<= _nth_upper;"
+            <<    "(_nth_step_sign * " << induction_var_name << ")" << "<= (_nth_step_sign * _nth_upper);"
             <<    induction_var_name << "+= _nth_step"
             << ")"
             << "{"
