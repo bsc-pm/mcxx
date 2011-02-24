@@ -30,6 +30,7 @@
 #define TL_LANGCONSTRUCT_HPP
 
 #include "tl-common.hpp"
+#include "tl-object.hpp"
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
@@ -59,7 +60,7 @@ namespace TL
      * This is the base class for all classes wrapping distinguished
      * language constructs.
      */
-    class LIBTL_CLASS LangConstruct
+    class LIBTL_CLASS LangConstruct : public TL::Object
     {
         protected:
             //! Wrapped tree

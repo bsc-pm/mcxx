@@ -151,7 +151,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             return uniquestr(result.str().c_str());
         }
-        if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+        else if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
@@ -163,6 +163,33 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             result << recursive_prettyprint(arg_list[0].get_ast(), data);
 
             return result.str().c_str();
+        }
+        else if (ast.has_attribute(HLT_SIMD_EPILOG))
+        {
+            ForStatement for_stmt(ast, _this->_sl);
+
+            Expression lower_exp = *((Expression *)ast.get_attribute(HLT_SIMD_EPILOG).get_pointer());
+            Expression upper_exp = for_stmt.get_upper_bound();
+            Expression step_exp = for_stmt.get_step();
+
+            if (upper_exp.is_constant() && lower_exp.is_constant() && step_exp.is_constant())
+            {
+                bool valid_upper, valid_lower, valid_step;
+
+                int upper_i = upper_exp.evaluate_constant_int_expression(valid_upper);
+                int lower_i = lower_exp.evaluate_constant_int_expression(valid_lower);
+                int step_i = step_exp.evaluate_constant_int_expression(valid_step);
+
+                if (valid_upper && valid_lower && valid_step)
+                {
+                    if (((upper_i - lower_i)%step_i) == 0)
+                    {
+                        return "";
+                    }
+                }
+            }
+            //Replacements don't have to applied
+            return ReplaceSrcIdExpression::prettyprint_callback(a, data);
         }
 
         return NULL;
@@ -252,7 +279,7 @@ static void do_smp_outline_replacements(AST_t body,
     //FIXME: This code could be replicated among devices
     //Statements replication and loop unrolling
     builtin_ast_list =
-        body.depth_subtrees(TL::TraverseASTPredicate(PredicateAttr(HLT_SIMD_FOR_INFO)));
+        body.depth_subtrees(PredicateAttr(HLT_SIMD_FOR_INFO));
 
     for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
             it != builtin_ast_list.end();
@@ -492,7 +519,6 @@ static void do_smp_outline_replacements(AST_t body,
                         arg_vla_dims.begin(), arg_vla_dims.end());
 
             // Adjust the type if it is an array
-
             if (repl_type.is_array())
             {
                 repl_type = repl_type.array_element().get_pointer_to();

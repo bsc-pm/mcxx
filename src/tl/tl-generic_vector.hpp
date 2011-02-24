@@ -8,5 +8,6 @@
 #define BUILTIN_IV_NAME "__builtin_induction_variable"
 #define IS_HLT_SIMD_FOR "IS_HLT_SIMD_FOR"
 #define HLT_SIMD_FOR_INFO "HLT_SIMD_FOR_INFO"
+#define HLT_SIMD_EPILOG "HLT_SIMD_EPILOG"
 
 #endif

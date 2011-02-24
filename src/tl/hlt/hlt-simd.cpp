@@ -294,7 +294,8 @@ TL::Source LoopSimdization::do_simdization()
     std::for_each(_simd_id_exp_list.begin(), _simd_id_exp_list.end(), 
             std::bind1st(std::mem_fun(&LoopSimdization::gen_vector_type), this));
 
-    Source replaced_loop_body = _replacement.replace(_for_stmt.get_loop_body());
+    Statement initial_loop_body = _for_stmt.get_loop_body();
+    Source replaced_loop_body = _replacement.replace(initial_loop_body);
 
     bool step_evaluation;
 
@@ -302,11 +303,13 @@ TL::Source LoopSimdization::do_simdization()
     Source it_init_source;
 
     _result
+        << "{"
 //        << _induction_var_decl
 //        << _before_loop
         << _loop
 //        << _after_loop
-//        << _epilogue
+        << _epilog
+        << "}"
         ;
 
     if (Declaration::predicate(it_init_ast))
@@ -371,6 +374,18 @@ TL::Source LoopSimdization::do_simdization()
                 _for_stmt.get_ast().get_locus().c_str());
     }
 */
+
+    //Epilog
+
+    _epilog
+        << "for(; " 
+        << _for_stmt.get_iterating_condition() 
+        << "; " 
+        << _for_stmt.get_iterating_expression()
+        << ")"
+        << initial_loop_body
+        ;
+
     return _result;
 }
 

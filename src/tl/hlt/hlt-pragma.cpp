@@ -1002,6 +1002,9 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
 {
     unsigned char min_stmt_size;
 
+    TL::Expression lower_bound = for_stmt.get_lower_bound();
+
+    //simdize_loop returns a Compound Statement!
     TL::Source simdized_loop_src = TL::HLT::simdize_loop(for_stmt, simd_id_exp_list, min_stmt_size); 
 
     TL::AST_t simdized_loop_tree = simdized_loop_src.parse_statement(for_stmt.get_ast(),
@@ -1009,8 +1012,36 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
 
     for_stmt.get_ast().replace(simdized_loop_tree);
 
+    TL::Statement& stmt = for_stmt;
+
+    if (stmt.is_compound_statement())
+    {
+        TL::ObjectList<TL::Statement> statement_list = stmt.get_inner_statements();
+
+        //SIMD for + Epilog for
+        if (statement_list.size() != 2)
+        {
+            internal_error("The number of expected ForStatements is not correct.\n", 0);
+        }
+
+        TL::ForStatement& for_stmt_simd = (TL::ForStatement&) statement_list[0];
+        TL::ForStatement& for_stmt_epilog = (TL::ForStatement&) statement_list[1];
+
+        // This ForStatement is the unrolled loop (SIMD)
+        for_stmt_simd.get_ast().set_attribute(HLT_SIMD_FOR_INFO, min_stmt_size);
+
+        // This ForStatement is marked as Epilog
+        TL::RefPtr<TL::Expression> lower_bound_ref(new TL::Expression(lower_bound));
+        for_stmt_epilog.get_ast().set_attribute(HLT_SIMD_EPILOG, lower_bound_ref);
+    }
+    else
+    {
+        internal_error("simdize_loop should return a compound statement.\n", 0);
+    }
+
+
     //For Statement is marked as HLT 
-    for_stmt.get_ast().set_attribute(HLT_SIMD_FOR_INFO, min_stmt_size);
+    // for_stmt.get_ast().set_attribute(HLT_SIMD_FOR_INFO, min_stmt_size);
 }
 
 

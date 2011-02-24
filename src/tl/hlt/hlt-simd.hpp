@@ -75,7 +75,7 @@ namespace TL
                 unsigned char& _min_stmt_size;
 
                 Source _result;
-//                Source _epilogue;
+                Source _epilog;
                 Source _loop;
 //                Source _induction_var_decl;
 //                Source _before_loop;
