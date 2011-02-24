@@ -139,27 +139,23 @@ void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
     this->set_extended_attribute(name, value);
 }
 
-static tl_type_t found_but_not_set;
 tl_type_t* default_get_extended_attribute(
         extensible_schema_t* extensible_schema, 
         extensible_struct_t* extensible_struct, 
         const std::string& name)
 {
     //  First get the extended attribute
-    char found = 0;
+    char found_in_schema = 0;
     void* p = extensible_struct_get_field_pointer_lazy(extensible_schema,
             extensible_struct,
             name.c_str(),
-            &found);
+            &found_in_schema);
 
-    if (found)
+    if (found_in_schema)
     {
         if (p == NULL)
         {
-            // It was found but nobody wrote on this attribute
-            // Clear the static return type
-            memset(&found_but_not_set, 0, sizeof(found_but_not_set));
-            return &found_but_not_set;
+            return NULL;
         }
         else
         {

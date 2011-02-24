@@ -55,11 +55,12 @@ int extensible_schema_add_field(extensible_schema_t* schema,
 {
     extensible_schema_item_t* schema_item = calloc(1, sizeof(*schema_item));
 
+    const char* c = uniquestr(field_name);
+
     schema_item->size = field_size;
-    schema_item->field_name = field_name;
+    schema_item->field_name = c;
     schema_item->field_order = schema->num_fields;
 
-    const char* c = uniquestr(field_name);
     hash_put(schema->hash, c, schema_item);
 
     schema->num_fields++;
