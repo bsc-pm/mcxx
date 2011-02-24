@@ -2383,6 +2383,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                     if (ASTType(char_length) != AST_SYMBOL
                             || strcmp(ASTText(char_length), "*") != 0)
                     {
+                        fortran_check_expression(char_length, decl_context);
                         AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
                         entry->type_information = get_array_type_bounds(
                                 array_type_get_element_type(entry->type_information), 
@@ -3337,6 +3338,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 if (ASTType(char_length) != AST_SYMBOL
                         || strcmp(ASTText(char_length), "*") != 0)
                 {
+                    fortran_check_expression(char_length, decl_context);
+
                     AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
                     entry->type_information = get_array_type_bounds(
                             array_type_get_element_type(entry->type_information), 
@@ -3348,6 +3351,20 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                             array_type_get_element_type(entry->type_information), 
                             NULL, decl_context);
                 }
+            }
+
+            if (initialization != NULL)
+            {
+                if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+                {
+                    if (!current_attr_spec.is_pointer)
+                    {
+                        running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
+                                ast_location(initialization));
+                    }
+                    initialization = ASTSon0(initialization);
+                }
+                fortran_check_expression(initialization, decl_context);
             }
         }
 
@@ -3364,6 +3381,20 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     decl_context,
                     /* array_spec_kind */ NULL);
             entry->type_information = array_type;
+        }
+
+        if (initialization != NULL)
+        {
+            if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+            {
+                if (!current_attr_spec.is_pointer)
+                {
+                    running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
+                            ast_location(initialization));
+                }
+                initialization = ASTSon0(initialization);
+            }
+            fortran_check_expression(initialization, decl_context);
         }
 
         if (current_attr_spec.is_constant)
@@ -3452,7 +3483,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
+            fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
 }

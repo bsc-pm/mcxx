@@ -56,6 +56,7 @@
 
 enum {
     OPTION_EMBED_VERSION = 1024,
+    OPTION_EMBED_VERBOSE,
     OPTION_EMBED_PROFILE,
     OPTION_EMBED_COMPILER_PROFILE,
 };
@@ -70,7 +71,7 @@ struct command_line_long_options command_line_long_options[] =
     {"output",      CLP_REQUIRED_ARGUMENT, 'o' },
     {"profile",     CLP_REQUIRED_ARGUMENT, OPTION_EMBED_PROFILE },
     {"compiler-profile", CLP_REQUIRED_ARGUMENT, OPTION_EMBED_COMPILER_PROFILE },
-    {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE },
+    {"verbose",     CLP_NO_ARGUMENT, OPTION_EMBED_VERBOSE },
 };
 
 #define MAX_EMBED_FILES 64
@@ -275,7 +276,7 @@ int main(int argc, char *argv[])
                         current_profile = strdup(parameter_info.argument);
                         break;
                     }
-                case OPTION_VERBOSE:
+                case OPTION_EMBED_VERBOSE:
                     {
                         CURRENT_CONFIGURATION->verbose = 1;
                         break;

@@ -203,6 +203,7 @@
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
+"  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -248,6 +249,46 @@
 #if !defined(WIN32_BUILD)
 static char *_alternate_signal_stack;
 #endif
+
+// Options for command line arguments
+typedef enum 
+{
+    OPTION_UNDEFINED = 1024,
+    OPTION_VERSION,
+    OPTION_PREPROCESSOR_NAME,
+    OPTION_NATIVE_COMPILER_NAME,
+    OPTION_LINKER_NAME,
+    OPTION_DEBUG_FLAG,
+    OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
+    OPTION_OUTPUT_DIRECTORY,
+    OPTION_NO_OPENMP,
+    OPTION_EXTERNAL_VAR,
+    OPTION_CONFIG_FILE,
+    OPTION_CONFIG_DIR,
+    OPTION_PROFILE,
+    OPTION_TYPECHECK,
+    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_DISABLE_GXX_TRAITS,
+    OPTION_PASS_THROUGH,
+    OPTION_DISABLE_SIZEOF,
+    OPTION_SET_ENVIRONMENT,
+    OPTION_LIST_ENVIRONMENTS,
+    OPTION_PRINT_CONFIG_FILE,
+    OPTION_PRINT_CONFIG_DIR,
+    OPTION_ENABLE_UPC,
+    OPTION_ENABLE_HLT,
+    OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
+    OPTION_EMPTY_SENTINELS,
+    OPTION_DISABLE_INTRINSICS,
+    OPTION_VERBOSE
+} COMMAND_LINE_OPTIONS;
+
 
 // It mimics getopt
 #define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
@@ -299,6 +340,7 @@ struct command_line_long_options command_line_long_options[] =
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
+    {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1075,6 +1117,15 @@ int parse_arguments(int argc, const char* argv[],
                         {
                             fprintf(stderr, "Invalid value given for --pp option, valid values are 'on' or 'off'\n");
                         }
+                        break;
+                    }
+                case OPTION_DISABLE_INTRINSICS:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->disable_intrinsics = 1;
+#else
+                        running_error("Option --width is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
