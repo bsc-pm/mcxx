@@ -107,18 +107,7 @@ const char* fortran_print_type_str(type_t* t)
     }
     else if (is_function_type(t))
     {
-        type_t* return_type = function_type_get_return_type(t);
-
-        if (return_type == NULL)
-        {
-            result = "SUBROUTINE";
-        }
-        else
-        {
-            result = "FUNCTION";
-            // result = strappend(fortran_print_type_str(return_type), " FUNCTION");
-        }
-
+        result = "PROCEDURE";
         // result = strappend(result, "(");
 
         // int i;

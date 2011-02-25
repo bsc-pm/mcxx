@@ -214,6 +214,14 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
 
     PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in %s:%d\n", entry->file, entry->line);
 
+    if (entry->kind == SK_UNDEFINED)
+    {
+        if (entry->type_information != NULL)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
+                    print_declarator(entry->type_information));
+        }
+    }
     if (entry->kind == SK_VARIABLE)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 

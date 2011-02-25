@@ -1979,6 +1979,9 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
                         sym->symbol_name);
             }
 
+            if (sym->kind == SK_UNDEFINED)
+                sym->kind = SK_VARIABLE;
+
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
 
@@ -2443,6 +2446,9 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
                 array_spec,
                 decl_context,
                 /* array_spec_kind */ NULL);
+
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
 
         entry->type_information = array_type;
 
@@ -2936,6 +2942,9 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
                     ASTText(name));
         }
 
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
+
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->expression_value = constant_expr;
     }
@@ -2983,6 +2992,9 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
                     /* array_spec_kind */ NULL);
             entry->type_information = array_type;
         }
+
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
 
         entry->type_information = get_pointer_type(entry->type_information);
     }
@@ -3083,6 +3095,9 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
         {
             entry = query_name_spec_stmt(decl_context, saved_entity, ASTText(saved_entity));
         }
+
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
 
         entry->entity_specs.is_static = 1;
     }
@@ -3233,6 +3248,9 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context)
                     ast_location(target_decl),
                     entry->symbol_name);
         }
+
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
 
         entry->entity_specs.is_target = 1;
     }
@@ -3515,6 +3533,9 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context)
                     entry->symbol_name);
         }
 
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
+
         entry->entity_specs.is_value = 1;
     }
 }
@@ -3536,6 +3557,9 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
                     ast_location(name),
                     entry->symbol_name);
         }
+
+        if (entry->kind == SK_UNDEFINED)
+            entry->kind = SK_VARIABLE;
 
         if (!is_volatile_qualified_type(entry->type_information))
         {
