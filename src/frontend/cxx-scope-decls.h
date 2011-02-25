@@ -458,6 +458,9 @@ typedef struct entity_specifiers_tag
 
     // Is generic spec
     char is_generic_spec:1;
+
+    // Builtin is a subroutine
+    char is_builtin_subroutine:1;
 #endif
 
     // -- End of bits, move all bits before this point

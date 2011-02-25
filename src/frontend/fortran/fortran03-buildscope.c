@@ -133,7 +133,7 @@ static void update_unknown_symbols(decl_context_t decl_context)
 
 static scope_entry_t* query_name_spec_stmt(decl_context_t decl_context, AST locus, const char* name)
 {
-    scope_entry_t* result = query_name_no_implicit(decl_context, name);
+    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
     if (result == NULL)
     {
         result = new_fortran_symbol(decl_context, name);
@@ -367,16 +367,15 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 {
     scope_entry_t* entry = NULL;
 
-    entry = query_name_no_implicit(decl_context, ASTText(name));
+    entry = query_name_no_implicit_or_builtin(decl_context, ASTText(name));
 
-    if (entry != NULL)
+    if (entry != NULL
+            && !entry->entity_specs.is_parameter
+            && !entry->entity_specs.is_builtin)
     {
-        if (!entry->entity_specs.is_parameter)
-        {
-            running_error("%s: warning: redeclaration of entity '%s'\n", 
-                    ast_location(name), 
-                    ASTText(name));
-        }
+        running_error("%s: warning: redeclaration of entity '%s'\n", 
+                ast_location(name), 
+                ASTText(name));
     }
     else
     {
@@ -1795,7 +1794,7 @@ static const char* get_common_name_str(const char* common_name)
 
 static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
 {
-    scope_entry_t* result = query_name_no_implicit(decl_context, 
+    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, 
             get_common_name_str(common_name));
 
     return result;
@@ -2790,7 +2789,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
     {
         const char* name = get_name_of_generic_spec(generic_spec);
         
-        scope_entry_t* generic_spec_sym = query_name_no_implicit(decl_context, name);
+        scope_entry_t* generic_spec_sym = query_name_no_implicit_or_builtin(decl_context, name);
 
         if (generic_spec_sym == NULL)
         {

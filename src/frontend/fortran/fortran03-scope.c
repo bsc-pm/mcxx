@@ -192,6 +192,24 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
+scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t decl_context, const char* name)
+{
+    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
+
+    scope_entry_t* result = NULL;
+
+    if (entry_list != NULL )
+    {
+        result = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        if (result->entity_specs.is_builtin)
+            result = NULL;
+    }
+
+    return result;
+}
+
 scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* name)
 {
     scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
@@ -213,7 +231,9 @@ scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, con
 
     if (result == NULL)
     {
-        if (decl_context.implicit_info->data->implicit_letter_set != NULL)
+        if (decl_context.implicit_info != NULL
+                && decl_context.implicit_info->data != NULL
+                && decl_context.implicit_info->data->implicit_letter_set != NULL)
         {
             DEBUG_CODE()
             {

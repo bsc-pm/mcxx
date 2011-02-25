@@ -229,7 +229,7 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
     type_t* r1 = get_rank0_type(t1);
     type_t* r2 = get_rank0_type(t2);
 
-    if (!equivalent_types(r1, r2))
+    if (!equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2)))
         return 0;
 
     int rank1 = get_rank_of_type(t1);

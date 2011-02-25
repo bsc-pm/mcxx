@@ -980,7 +980,9 @@ static void check_function_call(AST expr, decl_context_t decl_context)
             && is_call_stmt)
     {
         scope_entry_t* call_sym = query_name(decl_context, ASTText(procedure_designator));
-        if (call_sym == NULL)
+        if (call_sym == NULL
+                || (call_sym->entity_specs.is_builtin
+                    && !call_sym->entity_specs.is_builtin_subroutine))
         {
             // This should be regarded as an error, but it is not for some
             // obscure reasons
@@ -991,6 +993,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         else 
         {
+            // We know this function because of an EXTERNAL
             if (call_sym->entity_specs.is_implicit_basic_type)
             {
                 call_sym->kind = SK_FUNCTION;
@@ -1179,13 +1182,28 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
 
         scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
+
         if (entry == NULL)
         {
+            const char* actual_arguments = "(";
+
+            for (i = 0; i < num_args; i++)
+            {
+                char c[256];
+                snprintf(c, 255, "%s%s", i != 0 ? ", " : "", 
+                        fortran_print_type_str(type_list[i]));
+                c[255] = '\0';
+
+                actual_arguments = strappend(actual_arguments, c);
+            }
+            actual_arguments = strappend(actual_arguments, ")");
+            
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic '%s' failed\n", 
+                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
                         ast_location(expr),
-                        strtoupper(symbol->symbol_name));
+                        strtoupper(symbol->symbol_name),
+                        actual_arguments);
             }
             expression_set_error(expr);
             return;
@@ -1943,7 +1961,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     type_t* char1 = array_type_get_element_type(t1);
     type_t* char2 = array_type_get_element_type(t2);
 
-    if (!equivalent_types(char1, char2))
+    if (!equivalent_types(get_unqualified_type(char1), get_unqualified_type(char2)))
         return NULL;
 
     type_t* result = NULL;
