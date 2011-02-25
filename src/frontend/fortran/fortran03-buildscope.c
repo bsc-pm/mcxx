@@ -3284,21 +3284,18 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
         else
         {
-            if (entry->kind == SK_UNDEFINED)
-                entry->kind = SK_VARIABLE;
-
             entry->file = ASTFileName(declaration);
             entry->line = ASTLine(declaration);
         }
 
-        if (entry->kind != SK_VARIABLE
-                && entry->kind != SK_FUNCTION)
-        {
-            running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
-                    ast_location(declaration),
-                    entry->file,
-                    entry->line);
-        }
+        // if (entry->kind != SK_VARIABLE
+        //         && entry->kind != SK_FUNCTION)
+        // {
+        //     running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
+        //             ast_location(declaration),
+        //             entry->file,
+        //             entry->line);
+        // }
 
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
@@ -3379,6 +3376,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     current_attr_spec.array_spec,
                     decl_context,
                     /* array_spec_kind */ NULL);
+            entry->kind = SK_VARIABLE;
             entry->type_information = array_type;
         }
 
@@ -3394,16 +3392,31 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 initialization = ASTSon0(initialization);
             }
             fortran_check_expression(initialization, decl_context);
+
+            entry->kind = SK_VARIABLE;
         }
 
-        if (current_attr_spec.is_constant)
+        if (initialization != NULL)
         {
-            if (initialization == NULL)
-            {
-                running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
-            }
-            entry->type_information = get_const_qualified_type(entry->type_information);
             entry->expression_value = initialization;
+            entry->kind = SK_VARIABLE;
+            if (!current_attr_spec.is_constant)
+            {
+                entry->entity_specs.is_static = 1;
+            }
+            else
+            {
+                entry->type_information = get_const_qualified_type(entry->type_information);
+            }
+        }
+
+        if (current_attr_spec.is_constant && initialization == NULL)
+        {
+            running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+        }
+
+        if (!current_attr_spec.is_constant)
+        {
         }
 
         // FIXME - Should we do something with this attribute?
@@ -3447,6 +3460,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                         ast_location(declaration));
             }
             entry->entity_specs.is_allocatable = 1;
+            entry->kind = SK_VARIABLE;
         }
 
         if (current_attr_spec.is_external
@@ -3464,15 +3478,6 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         if (current_attr_spec.is_save)
         {
             entry->entity_specs.is_static = 1;
-        }
-
-        if (!current_attr_spec.is_constant)
-        {
-            if (initialization != NULL)
-            {
-                entry->entity_specs.is_static = 1;
-                entry->expression_value = initialization;
-            }
         }
 
         if (current_attr_spec.is_pointer)

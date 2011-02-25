@@ -802,14 +802,14 @@ static void check_equal_op(AST expr, decl_context_t decl_context)
 
 static void check_floating_literal(AST expr, decl_context_t decl_context)
 {
-   const char* floating_text = ASTText(expr);
+   const char* floating_text = strtolower(ASTText(expr));
 
    // Our constant evaluation system does not support floats yet so simply
    // compute the type
 
    int kind = 4;
-   const char *q = strchr(floating_text, '_');
-   if (q != NULL)
+   const char *q = NULL; 
+   if ((q = strchr(floating_text, '_')) != NULL)
    {
        q++;
        kind = compute_kind_from_literal(q, expr, decl_context);
@@ -818,6 +818,10 @@ static void check_floating_literal(AST expr, decl_context_t decl_context)
            expression_set_error(expr);
            return;
        }
+   }
+   else if ((q = strchr(floating_text, 'd')) != NULL)
+   {
+       kind = 8;
    }
 
    expression_set_type(expr, choose_float_type_from_kind(expr, kind));
@@ -1691,6 +1695,29 @@ static char function_has_result(scope_entry_t* entry)
     return 0;
 }
 
+static char is_name_of_funtion_call(AST expr)
+{
+    return ASTParent(expr) != NULL
+        && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
+}
+
+static char is_name_in_actual_arg_spec_list(AST expr)
+{
+    node_t hierarchy[] = { AST_NAMED_PAIR_SPEC, AST_NODE_LIST, AST_FUNCTION_CALL, AST_INVALID_NODE };
+
+    AST p = ASTParent(expr);
+    int i = 0;
+    while (hierarchy[i] != AST_INVALID_NODE
+            && p != NULL
+            && ASTType(p) == hierarchy[i])
+    {
+        p = ASTParent(p);
+        i++;
+    }
+
+    return (hierarchy[i] == AST_INVALID_NODE);
+}
+
 static void check_symbol(AST expr, decl_context_t decl_context)
 {
     scope_entry_t* entry = query_name(decl_context, ASTText(expr));
@@ -1705,6 +1732,24 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         }
         expression_set_error(expr);
         return;
+    }
+
+    if (entry->kind == SK_UNDEFINED)
+    {
+        if (is_name_of_funtion_call(expr))
+        {
+            entry->kind = SK_FUNCTION;
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+        }
+        else if (is_name_in_actual_arg_spec_list(expr))
+        {
+            // If we are an actual argument do not change our status
+        }
+        else
+        {
+            // Otherwise we are a variable
+            entry->kind = SK_VARIABLE;
+        }
     }
 
     if (entry->kind == SK_VARIABLE)
@@ -1734,9 +1779,9 @@ static void check_symbol(AST expr, decl_context_t decl_context)
             expression_set_constant(expr, expression_get_constant(entry->expression_value));
         }
     }
-    else if (entry->kind == SK_FUNCTION)
+    else if (entry->kind == SK_FUNCTION
+            || entry->kind == SK_UNDEFINED)
     {
-        // This function has a RESULT(X) so it cannot be used as a variable
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
     }
