@@ -203,6 +203,7 @@
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
+"  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -227,6 +228,16 @@
 "  -Xpreprocessor OPTION\n" \
 "  -Xlinker OPTION\n" \
 "  -Xassembler OPTION\n" \
+"  -S\n" \
+"  -dA\n" \
+"  -dD\n" \
+"  -dH\n" \
+"  -dm\n" \
+"  -dp\n" \
+"  -dP\n" \
+"  -dv\n" \
+"  -dx\n" \
+"  -dy\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -238,6 +249,46 @@
 #if !defined(WIN32_BUILD)
 static char *_alternate_signal_stack;
 #endif
+
+// Options for command line arguments
+typedef enum 
+{
+    OPTION_UNDEFINED = 1024,
+    OPTION_VERSION,
+    OPTION_PREPROCESSOR_NAME,
+    OPTION_NATIVE_COMPILER_NAME,
+    OPTION_LINKER_NAME,
+    OPTION_DEBUG_FLAG,
+    OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
+    OPTION_OUTPUT_DIRECTORY,
+    OPTION_NO_OPENMP,
+    OPTION_EXTERNAL_VAR,
+    OPTION_CONFIG_FILE,
+    OPTION_CONFIG_DIR,
+    OPTION_PROFILE,
+    OPTION_TYPECHECK,
+    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_DISABLE_GXX_TRAITS,
+    OPTION_PASS_THROUGH,
+    OPTION_DISABLE_SIZEOF,
+    OPTION_SET_ENVIRONMENT,
+    OPTION_LIST_ENVIRONMENTS,
+    OPTION_PRINT_CONFIG_FILE,
+    OPTION_PRINT_CONFIG_DIR,
+    OPTION_ENABLE_UPC,
+    OPTION_ENABLE_HLT,
+    OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
+    OPTION_EMPTY_SENTINELS,
+    OPTION_DISABLE_INTRINSICS,
+    OPTION_VERBOSE
+} COMMAND_LINE_OPTIONS;
+
 
 // It mimics getopt
 #define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
@@ -289,6 +340,7 @@ struct command_line_long_options command_line_long_options[] =
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
+    {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1067,6 +1119,15 @@ int parse_arguments(int argc, const char* argv[],
                         }
                         break;
                     }
+                case OPTION_DISABLE_INTRINSICS:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->disable_intrinsics = 1;
+#else
+                        running_error("Option --width is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
                     {
 #ifdef FORTRAN_SUPPORT
@@ -1380,9 +1441,37 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     }
                     (*should_advance)++;
                 }
+                else if (strlen(argument) == 3 // -dX
+                    && (argument[2] == 'A'
+                        || argument[2] == 'D'
+                        || argument[2] == 'H'
+                        || argument[2] == 'm'
+                        || argument[2] == 'p'
+                        || argument[2] == 'P'
+                        || argument[2] == 'v'
+                        || argument[2] == 'x'
+                        || argument[2] == 'y'))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
                 else
                 {
                     failure = 1;
+                }
+                break;
+            }
+        case 'S' :
+            {
+                if (strlen(argument) == 2) // -S
+                {
+                    // This disables linking
+                    if (!dry_run)
+                    {
+                        CURRENT_CONFIGURATION->generate_assembler = 1;
+                        CURRENT_CONFIGURATION->do_not_link = 1;
+                    }
+                    (*should_advance)++;
                 }
                 break;
             }
@@ -2929,7 +3018,7 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
 
     int num_arguments = prescanner_args;
     // -q input -o output
-    num_arguments += 4;
+    num_arguments += 5;
     // NULL
     num_arguments += 1;
 
@@ -2952,6 +3041,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
     }
 
+    prescanner_options[i] = uniquestr("-l");
+    i++;
     prescanner_options[i] = uniquestr("-q");
     i++;
     prescanner_options[i] = uniquestr("-o");
@@ -3000,7 +3091,14 @@ static void native_compilation(translation_unit_t* translation_unit,
             *p = '\0';
         }
 
-        output_object_filename = strappend(temp, ".o");
+        if (!CURRENT_CONFIGURATION->generate_assembler)
+        {
+            output_object_filename = strappend(temp, ".o");
+        }
+        else
+        {
+            output_object_filename = strappend(temp, ".s");
+        }
 
         translation_unit->output_filename = output_object_filename;
     }
@@ -3026,7 +3124,14 @@ static void native_compilation(translation_unit_t* translation_unit,
         native_compilation_args[i] = CURRENT_CONFIGURATION->native_compiler_options[i];
     }
 
-    native_compilation_args[i] = uniquestr("-c");
+    if (!CURRENT_CONFIGURATION->generate_assembler)
+    {
+        native_compilation_args[i] = uniquestr("-c");
+    }
+    else
+    {
+        native_compilation_args[i] = uniquestr("-S");
+    }
     i++;
     native_compilation_args[i] = uniquestr("-o");
     i++;

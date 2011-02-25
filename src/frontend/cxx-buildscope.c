@@ -533,8 +533,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_declaration(a, decl_context);
                 break;
             }
-        case AST_ASM_DEFINITION :
         case AST_EMPTY_DECL :
+        case AST_ASM_DEFINITION :
         case AST_UNKNOWN_PRAGMA :
             {
                 // Do nothing
@@ -8864,7 +8864,7 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
+    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));        
 }
 
 static void build_scope_if_else_statement(AST a, 

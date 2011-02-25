@@ -458,6 +458,9 @@ typedef struct entity_specifiers_tag
 
     // Is generic spec
     char is_generic_spec:1;
+
+    // Builtin is a subroutine
+    char is_builtin_subroutine:1;
 #endif
 
     // -- End of bits, move all bits before this point
@@ -475,6 +478,11 @@ typedef struct entity_specifiers_tag
     // NAMELIST, COMMON, FUNCTION, SUBROUTINE, MODULE
     int num_related_symbols;
     struct scope_entry_tag** related_symbols;
+
+    // --> char is_builtin : 1
+    // Is the symbol we should use if we name the intrinsic alone
+    // not in a call
+    struct scope_entry_tag* specific_intrinsic;
 #endif
 
     // Accessibility: public, private, protected

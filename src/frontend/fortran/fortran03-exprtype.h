@@ -33,11 +33,15 @@
 
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
+#include "cxx-typeutils.h"
 #include "libmf03-common.h"
 
 MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN char fortran_check_expression(AST a, decl_context_t decl_context);
+
+LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
+LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);
 
 MCXX_END_DECLS
 

@@ -462,15 +462,18 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
     {
         if (sc->related_entry == NULL)
         {
-        fprintf(stderr, "SCOPE: Looking symbol '%s' in %s (scope=%p, hash=%p)...\n", 
-                name, scope_names[sc->kind], sc, sc->hash);
+        fprintf(stderr, "SCOPE: Looking symbol '%s' in %p [kind=%s]...\n", 
+                name, 
+                sc, 
+                scope_names[sc->kind]);
         }
         else
         {
-        fprintf(stderr, "SCOPE: Looking symbol '%s' in %s (qualification=%s, scope=%p, hash=%p)...\n", 
-                name, scope_names[sc->kind], 
-                sc->related_entry->symbol_name,
-                sc, sc->hash);
+        fprintf(stderr, "SCOPE: Looking symbol '%s' in %p [kind=%s, qualification=%s]...\n", 
+                name, 
+                sc, 
+                scope_names[sc->kind],
+                sc->related_entry->symbol_name);
         }
     }
 
@@ -485,11 +488,11 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
     {
         if (result == NULL)
         {
-            fprintf(stderr, "SCOPE: Symbol '%s' NOT found in scope '%p' [%p]\n", name, sc, sc->hash);
+            fprintf(stderr, "SCOPE: Symbol '%s' NOT found in scope '%p'\n", name, sc);
         }
         else
         {
-            fprintf(stderr, "SCOPE: Symbol '%s' found in scope '%p' [%p]\n", name, sc, sc->hash);
+            fprintf(stderr, "SCOPE: Symbol '%s' found in scope '%p'\n", name, sc);
         }
     }
 
@@ -512,7 +515,6 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
-        // FIXME - Do not add it twice. Improve it
         char do_not_add = 0;
         scope_entry_list_iterator_t* it = entry_list_iterator_begin(result_set);
         while (!entry_list_iterator_end(it) && !do_not_add)

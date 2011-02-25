@@ -130,7 +130,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
     }
 
 // This is required for the sync overloaded functions
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments);
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, AST *arguments, int num_arguments);
 DEF_PRIMITIVE_TYPE(BT_FN_SYNC_OVERLOAD, get_computed_function_type(solve_gcc_sync_builtins_overload_name))
 
 // Basic types
@@ -2175,7 +2175,10 @@ DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_END, "GOMP_single_copy_end",
 
 }
 
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types, 
+        AST *arguments UNUSED_PARAMETER,
+        int num_arguments)
 {
     // Why people insists on having overload in C?
     char name[256];
@@ -2188,16 +2191,16 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "GCC-BUILTIN: Trying to figure out the exact version of '%s' given the following %d arguments\n",
+        fprintf(stderr, "GCC-BUILTIN: Trying to figure out the exact version of '%s' given the following %d types\n",
                 overloaded_function->symbol_name,
                 num_arguments);
         int j;
         for (j = 0; j < num_arguments; j++)
         {
-            if (arguments[j] != NULL)
+            if (types[j] != NULL)
             {
                 fprintf(stderr, "GCC-BUILTIN:     [%d] %s\n", j,
-                        print_declarator(arguments[j]));
+                        print_declarator(types[j]));
             }
             else
             {
@@ -2247,7 +2250,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
         char all_arguments_matched = 1;
         for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
         {
-            type_t* argument_type = arguments[j];
+            type_t* argument_type = types[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
             if (is_pointer_type(argument_type)

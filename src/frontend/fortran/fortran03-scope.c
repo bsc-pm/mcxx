@@ -133,6 +133,7 @@ char implicit_has_been_set(decl_context_t decl_context)
 decl_context_t new_program_unit_context(decl_context_t decl_context)
 {
     decl_context_t result = new_block_context(decl_context);
+    result = new_function_context(result);
     result.implicit_info = allocate_implicit_info_sharing_set(get_default_fortran_implicit());
 
     return result;
@@ -141,7 +142,7 @@ decl_context_t new_program_unit_context(decl_context_t decl_context)
 decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
 {
     decl_context_t result = new_block_context(decl_context);
-
+    result = new_function_context(result);
     result.implicit_info = allocate_implicit_info_sharing_set(decl_context.implicit_info);
 
     return result;
@@ -191,6 +192,24 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     return implicit_type;
 }
 
+scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t decl_context, const char* name)
+{
+    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
+
+    scope_entry_t* result = NULL;
+
+    if (entry_list != NULL )
+    {
+        result = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+
+        if (result->entity_specs.is_builtin)
+            result = NULL;
+    }
+
+    return result;
+}
+
 scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* name)
 {
     scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
@@ -212,7 +231,9 @@ scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, con
 
     if (result == NULL)
     {
-        if (decl_context.implicit_info->data->implicit_letter_set != NULL)
+        if (decl_context.implicit_info != NULL
+                && decl_context.implicit_info->data != NULL
+                && decl_context.implicit_info->data->implicit_letter_set != NULL)
         {
             DEBUG_CODE()
             {
@@ -247,7 +268,22 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "SCOPE: Creating new symbol '%s'\n", strtolower(name));
+        fprintf(stderr, "SCOPE: Creating new symbol '%s' in scope '%p'\n", 
+                strtolower(name),
+                decl_context.current_scope);
     }
     return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
+}
+
+scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
+{
+    scope_entry_t* entry = NULL;
+    scope_entry_list_t* entry_list = class_context_lookup(class_context, strtolower(name));
+    if (entry_list != NULL)
+    {
+        entry = entry_list_head(entry_list);
+    }
+    entry_list_free(entry_list);
+
+    return entry;
 }

@@ -169,18 +169,14 @@ static void do_gpu_outline_replacements(
     replaced_outline << replace_src.replace(body);
 }
 
-DeviceGPU::DeviceGPU()
-	: DeviceProvider(/* needs_copies */ true), _cudaFilename("")
+DeviceCUDA::DeviceCUDA()
+	: DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
 {
-	DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-	device_handler.register_device("cuda", this);
-
-	set_phase_name("Nanox GPU (CUDA) support");
-	set_phase_description("This phase is used by Nanox phases to implement GPU (CUDA) device support");
+	set_phase_name("Nanox CUDA support");
+	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
 }
 
-void DeviceGPU::create_outline(
+void DeviceCUDA::create_outline(
 		const std::string& task_name,
 		const std::string& struct_typename,
 		DataEnvironInfo &data_environ,
@@ -474,15 +470,35 @@ void DeviceGPU::create_outline(
 			it != data_env_items.end();
 			it++)
 	{
-		if (!it->is_private())
-			continue;
+		if (it->is_private())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-		Symbol sym = it->get_symbol();
-		Type type = sym.get_type();
+            private_vars
+                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                ;
+        }
+        else if (it->is_raw_buffer())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
+            std::string field_name = it->get_field_name();
 
-		private_vars
-			<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-			;
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
+            if (!type.is_named_class())
+            {
+                internal_error("invalid class type in field of raw buffer", 0);
+            }
+
+            final_code
+                << field_name << ".~" << type.get_symbol().get_name() << "();"
+                ;
+        }
 	}
 
 	// final_code
@@ -579,7 +595,7 @@ void DeviceGPU::create_outline(
 	}
 }
 
-void DeviceGPU::get_device_descriptor(const std::string& task_name,
+void DeviceCUDA::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags& outline_flags,
         AST_t reference_tree,
@@ -600,7 +616,7 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
 	}
 
 	ancillary_device_description
-		<< comment("GPU device descriptor")
+		<< comment("CUDA device descriptor")
 		<< "nanos_smp_args_t " << task_name << "_gpu_args = { (void(*)(void*))" << outline_name << "};"
 		;
 
@@ -609,7 +625,7 @@ void DeviceGPU::get_device_descriptor(const std::string& task_name,
 		;
 }
 
-void DeviceGPU::do_replacements(DataEnvironInfo& data_environ,
+void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,
 		AST_t body,
 		ScopeLink scope_link,
 		Source &initial_setup,
@@ -622,15 +638,15 @@ void DeviceGPU::do_replacements(DataEnvironInfo& data_environ,
 			replaced_src);
 }
 
-void DeviceGPU::phase_cleanup(DTO& data_flow)
+void DeviceCUDA::phase_cleanup(DTO& data_flow)
 {
 	_cudaFilename = "";
 	_root = AST_t(0);
 }
 
-void DeviceGPU::pre_run(DTO& dto)
+void DeviceCUDA::pre_run(DTO& dto)
 {
 	_root = dto["translation_unit"];
 }
 
-EXPORT_PHASE(TL::Nanox::DeviceGPU);
+EXPORT_PHASE(TL::Nanox::DeviceCUDA);

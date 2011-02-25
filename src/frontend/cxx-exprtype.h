@@ -82,6 +82,8 @@ LIBMCXX_EXTERN char expression_is_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_error(AST expr);
 
+LIBMCXX_EXTERN char expression_is_error(AST expr);
+
 LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);
@@ -97,6 +99,8 @@ LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_depen
 LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
 
 LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
+
+LIBMCXX_EXTERN void expression_clear_computed_info(AST expr);
 
 LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 

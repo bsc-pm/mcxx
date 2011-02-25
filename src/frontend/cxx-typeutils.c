@@ -2528,7 +2528,7 @@ static type_t* _get_array_type(type_t* element_type,
             if (data[i].tree == NULL)
                 continue;
             char check_expr = check_for_expression(*(data[i].tree), decl_context);
-            if (check_expr )
+            if (check_expr)
             {
                 if (expression_is_constant(*(data[i].tree)))
                 {
@@ -6329,6 +6329,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             }
         case SK_TYPEDEF :
         case SK_VARIABLE :
+        case SK_FUNCTION :
             {
                 type_t* aliased_type = advance_over_typedefs(user_defined_type->type_information);
 

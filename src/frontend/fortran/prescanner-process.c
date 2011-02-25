@@ -398,7 +398,7 @@ static void trim_inline_comment(line_t* trimmed_line, char* unended_string)
 {
 	// First we scan left to right to see if trimmed_line has left a constant string opened
 	// and we trim inline comments in trimmed_line
-	char in_string = 0, delim_string;
+	char in_string = 0, delim_string = 0;
 	char* p;
 
 	for (p = trimmed_line->line; *p != 0; p++)
@@ -475,15 +475,24 @@ static void print_lines(prescanner_t* prescanner)
 	while (iter != NULL)
 	{
 		int i = 0;
+        if (prescanner->line_marks)
+        {
+            fprintf(prescanner->output_file, "#line %d \"%s\"\n",
+                    iter->line_number,
+                    prescanner->input_filename);
+        }
 		fprintf(prescanner->output_file, "%s", iter->line);
 		if (iter->next != NULL) 
 		{
 			fprintf(prescanner->output_file, "\n");
 		}
-		for (i = 0; i < iter->joined_lines; i++)
-		{
-			fprintf(prescanner->output_file, "\n");
-		}
+        if (!prescanner->line_marks)
+        {
+            for (i = 0; i < iter->joined_lines; i++)
+            {
+                fprintf(prescanner->output_file, "\n");
+            }
+        }
 		iter = iter->next;
 	}
 }
@@ -527,7 +536,13 @@ static void read_lines(prescanner_t* prescanner)
 		char* line_buffer = (char*)calloc(buffer_size, sizeof(char));
 
 		// Read till '\n' or till buffer_size-1
-		fgets(line_buffer, buffer_size, prescanner->input_file);
+		if (fgets(line_buffer, buffer_size, prescanner->input_file) == NULL)
+        {
+            if (ferror(prescanner->input_file))
+            {
+                running_error("error while reading line");
+            }
+        }
 
 		// How many characters have we read
 		int length_read = strlen(line_buffer);
@@ -547,7 +562,13 @@ static void read_lines(prescanner_t* prescanner)
 			line_buffer = (char*) realloc(line_buffer, 2*buffer_size*sizeof(char));
 
 			// We read from the former end
-			fgets(&line_buffer[length_read], buffer_size, prescanner->input_file);
+			if (fgets(&line_buffer[length_read], buffer_size, prescanner->input_file) == NULL)
+            {
+                if (ferror(prescanner->input_file))
+                {
+                    running_error("error while reading line");
+                }
+            }
 			
 			buffer_size = buffer_size * 2;
 			length_read = strlen(line_buffer);
@@ -565,7 +586,7 @@ static void read_lines(prescanner_t* prescanner)
 		}
 
 		new_line->line = line_buffer;
-		new_line->line_number = line_number++;
+		new_line->line_number = line_number;
 		new_line->next = NULL;
 		new_line->joined_lines = 0;
 		
@@ -579,6 +600,8 @@ static void read_lines(prescanner_t* prescanner)
 			last_line->next = new_line;
 			last_line = new_line;
 		}
+
+        line_number++;
 	}
 }
 
@@ -614,11 +637,12 @@ static void manage_included_file(
 static void handle_include_directives(prescanner_t* prescanner)
 {
 	static int maximum_nesting_level = 0;
-	// We save actual information
-	line_t* actual_file_lines = file_lines;
-	line_t* actual_last_line = last_line;
-	FILE* actual_input_file = prescanner->input_file;
-	FILE* actual_output_file = prescanner->output_file;
+	// We save current information
+	line_t* current_file_lines = file_lines;
+	line_t* current_last_line = last_line;
+	FILE* current_input_file = prescanner->input_file;
+	FILE* current_output_file = prescanner->output_file;
+    const char* current_filename = prescanner->input_filename;
 	int code;
 
 	regex_t match_include_directive;
@@ -632,8 +656,7 @@ static void handle_include_directives(prescanner_t* prescanner)
 		internal_error("Error when compiling regular expression (%s)\n", error_message);
 	}
 
-
-	line_t* iter = actual_file_lines;
+	line_t* iter = current_file_lines;
 	while (iter != NULL)
 	{
 		if (regexec(&match_include_directive, iter->line, 2, sub_matching, 0) == 0)
@@ -687,10 +710,11 @@ static void handle_include_directives(prescanner_t* prescanner)
 	}
 
 	// We restore saved information
-	file_lines = actual_file_lines;
-	last_line = actual_last_line;
-	prescanner->input_file = actual_input_file;
-	prescanner->output_file = actual_output_file;
+	file_lines = current_file_lines;
+	last_line = current_last_line;
+    prescanner->input_filename = current_filename;
+	prescanner->input_file = current_input_file;
+	prescanner->output_file = current_output_file;
 }
 
 static char* get_filename_include(char* c, regmatch_t sub_matching[])
@@ -849,6 +873,7 @@ static void manage_included_file(
 
 		if (handle != NULL)
 		{
+            prescanner->input_filename = full_name;
 			// We got to open the include then create the output filename
 			// 
 			// If the user specified a directory for include regeneration use it

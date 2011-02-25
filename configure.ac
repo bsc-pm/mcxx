@@ -136,7 +136,7 @@ if test x$is_enabled_fortran = xyes;
 then
     FRONTEND_EXTENSIONS=" fortran"
     AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
-    COMPILER_NAMES="${COMPILER_NAMES} plainf95"
+    COMPILER_NAMES="${COMPILER_NAMES} plainf95 plainfc"
 fi
 
 AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
@@ -272,6 +272,11 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+
+   if test x$is_enabled_fortran = xyes;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} mf95"
+   fi
    
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
@@ -471,7 +476,8 @@ fi
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes \
       -o x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes ;
+      -o x$is_enabled_tl_omp_profile = xyes \
+      -o x$is_enabled_fortran = xyes ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"

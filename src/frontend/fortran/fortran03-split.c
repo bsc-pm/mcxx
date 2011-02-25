@@ -285,7 +285,13 @@ static char* read_whole_line(FILE* input)
 	int length_read;
 	char* temporal_buffer = calloc(buffer_size, sizeof(char));
 	// We read buffer_size-1 characters
-	fgets(temporal_buffer, buffer_size, input);
+	if (fgets(temporal_buffer, buffer_size, input) == NULL)
+    {
+        if (ferror(input))
+        {
+            running_error("error: while starting to split file\n");
+        }
+    }
 
 	if (temporal_buffer[0] == '\0')
 	{
@@ -299,7 +305,13 @@ static char* read_whole_line(FILE* input)
 	while ((temporal_buffer[length_read - 1] != '\n') && !was_eof)
 	{
 		temporal_buffer = realloc(temporal_buffer, 2*sizeof(char)*buffer_size);
-		fgets(&temporal_buffer[length_read], buffer_size, input);
+		if (fgets(&temporal_buffer[length_read], buffer_size, input) == NULL)
+        {
+            if (ferror(input))
+            {
+                running_error("error: while splitting file\n");
+            }
+        }
 
 		length_read = strlen(temporal_buffer);
 		buffer_size = buffer_size * 2;

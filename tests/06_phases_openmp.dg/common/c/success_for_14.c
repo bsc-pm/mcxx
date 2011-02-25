@@ -25,34 +25,53 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef PRESCANNER_PROCESS_DECLS_H
-#define PRESCANNER_PROCESS_DECLS_H
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "cxx-macros.h"
+#define MAX_ELEMS 100
 
-MCXX_BEGIN_DECLS
+int main(int argc, char *argv[])
+{
+    int c[100 + MAX_ELEMS + 100];
+    int i;
 
-typedef
-struct prescanner_tag {
-	FILE* output_file;
-	FILE* input_file;
-	const char* output_filename;
-	const char* input_filename;
-	int width;
-	char append;
-	char pad_strings;
-	char openmp_processing;
-    char quiet;
-    char line_marks;
+    memset(c, 0, sizeof(c));
 
-	int num_include_directories;
-	const char** include_directories;
+#pragma omp for
+    for (i = MAX_ELEMS; i > 0; i--)
+    {
+        c[i + 100 - 1] = i - 1;
+    }
 
-	const char* output_include_directory;
-} prescanner_t;
+    for (i = 0; i < MAX_ELEMS; i++)
+    {
+        if (c[i + 100] != i)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", i + 100, c[i + 100], i);
+            abort();
+        }
+    }
+    for (i = 0; i < 100; i++)
+    {
+        if (c[i] != 0)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", i, c[i], 0);
+            abort();
+        }
+        if (c[100 + MAX_ELEMS + i] != 0)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", 100 + MAX_ELEMS + i, c[100 + MAX_ELEMS + i], 0);
+            abort();
+        }
+    }
 
-MCXX_END_DECLS
 
-#endif // PRESCANNER_PROCESS_DECLS_H
+    return 0;
+}
