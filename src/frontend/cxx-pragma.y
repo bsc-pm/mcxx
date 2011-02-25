@@ -288,7 +288,7 @@ verbatim_construct : VERBATIM_PRAGMA VERBATIM_TYPE '(' IDENTIFIER ')' VERBATIM_T
 }
 ;
 
-block_declaration : verbatim_construct
+common_block_declaration : verbatim_construct
 {
     $$ = $1;
 }
