@@ -369,29 +369,25 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     entry = query_name_no_implicit_or_builtin(decl_context, ASTText(name));
 
-    if (entry != NULL
-            && !entry->entity_specs.is_parameter
-            && !entry->entity_specs.is_builtin)
+    if (entry != NULL)
     {
-        running_error("%s: warning: redeclaration of entity '%s'\n", 
-                ast_location(name), 
-                ASTText(name));
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: warning: redeclaration of entity '%s'\n", 
+                    ast_location(name), 
+                    ASTText(name));
+        }
     }
-    else
+
+    if (entry == NULL)
     {
-        if (is_function)
-        {
-            entry = query_name_spec_stmt(decl_context, name, ASTText(name));
-        }
-        else
-        {
-            entry = new_fortran_symbol(decl_context, ASTText(name));
-        }
+        entry = new_fortran_symbol(decl_context, ASTText(name));
     }
 
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);
     entry->line = ASTLine(name);
+    entry->entity_specs.is_implicit_basic_type = 1;
 
     type_t* return_type = NULL;
     if (is_function)
@@ -476,7 +472,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
             scope_entry_t* dummy_arg = query_name_spec_stmt(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
 
-            dummy_arg->kind = SK_VARIABLE;
+            // dummy_arg->kind = SK_VARIABLE;
             dummy_arg->type_information = 
                 get_implicit_type_for_symbol(decl_context, ASTText(dummy_arg_name));
             dummy_arg->file = ASTFileName(dummy_arg_name);
@@ -2816,14 +2812,13 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
     {
         AST name = ASTSon1(it);
 
-        scope_entry_t* entry = query_name_spec_stmt(decl_context, name, ASTText(name));
-        entry->kind = SK_FUNCTION;
-
-        if (!entry->entity_specs.is_extern)
+        scope_entry_t* entry = query_name_no_implicit(decl_context, ASTText(name));
+        if (entry == NULL
+                || !entry->entity_specs.is_builtin)
         {
-            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
-            // States it is intrinsic
-            entry->entity_specs.is_builtin = 1;
+            fprintf(stderr, "%s: warning: name '%s' is not known as an intrinsic\n", 
+                    ast_location(name),
+                    ASTText(name));
         }
     }
 }
@@ -3559,14 +3554,65 @@ static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARA
     unsupported_statement(a, "WAIT");
 }
 
-static void build_scope_where_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_context)
 {
-    unsupported_construct(a, "WHERE");
+    if (a == NULL)
+        return;
+
+    AST it;
+    for_each_element(a, it)
+    {
+        AST statement = ASTSon1(it);
+        fortran_build_scope_statement(statement, decl_context);
+    }
 }
 
-static void build_scope_where_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, decl_context_t decl_context)
 {
-    unsupported_statement(a, "WHERE");
+    if (mask_elsewhere_part_seq == NULL)
+        return;
+
+    AST it;
+    for_each_element(mask_elsewhere_part_seq, it)
+    {
+        AST mask_elsewhere_part = ASTSon1(it);
+
+        AST masked_elsewhere_stmt = ASTSon0(mask_elsewhere_part);
+        AST where_body_construct_seq = ASTSon1(mask_elsewhere_part);
+
+        AST expr = ASTSon0(masked_elsewhere_stmt);
+        fortran_check_expression(expr, decl_context);
+
+        build_scope_where_body_construct_seq(where_body_construct_seq, decl_context);
+    }
+}
+
+static void build_scope_where_construct(AST a, decl_context_t decl_context)
+{
+    AST where_construct_stmt = ASTSon0(a);
+    AST mask_expr = ASTSon1(where_construct_stmt);
+    fortran_check_expression(mask_expr, decl_context);
+    
+    AST where_construct_body = ASTSon1(a);
+
+    AST main_where_body = ASTSon0(where_construct_body);
+    build_scope_where_body_construct_seq(main_where_body, decl_context);
+
+    AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
+    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context);
+    
+    // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
+
+    AST elsewhere_body = ASTSon3(where_construct_body);
+    build_scope_where_body_construct_seq(elsewhere_body, decl_context);
+}
+
+static void build_scope_where_stmt(AST a, decl_context_t decl_context)
+{
+    AST mask_expr = ASTSon0(a);
+    fortran_check_expression(mask_expr, decl_context);
+    AST where_assignment_stmt = ASTSon1(a);
+    build_scope_expression_stmt(where_assignment_stmt, decl_context);
 }
 
 static void build_scope_while_stmt(AST a, decl_context_t decl_context)

@@ -1445,9 +1445,13 @@ static void double_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void elsewhere_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "ELSEWHERE(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ")");
+    token_fprintf(f, a, pt_ctx, "ELSEWHERE");
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
     if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
@@ -2683,9 +2687,10 @@ static void where_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 
 static void where_construct_body_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    NEW_PT_CONTEXT(new_ctx, increase_level);
     if (ASTSon0(a) != NULL)
     {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        prettyprint_level(f, ASTSon0(a), new_ctx);
     }
     if (ASTSon1(a) != NULL)
     {
@@ -2697,7 +2702,7 @@ static void where_construct_body_handler(FILE* f, AST a, prettyprint_context_t* 
     }
     if (ASTSon3(a) != NULL)
     {
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
+        prettyprint_level(f, ASTSon3(a), new_ctx);
     }
 }
 

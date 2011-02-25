@@ -1146,7 +1146,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     type_t* return_type = NULL; 
     // This is a generic procedure reference
-    if (symbol->entity_specs.is_builtin)
+    if (symbol->entity_specs.is_builtin
+            && is_computed_function_type(symbol->type_information))
     {
         if (CURRENT_CONFIGURATION->disable_intrinsics)
         {
@@ -1779,11 +1780,39 @@ static void check_symbol(AST expr, decl_context_t decl_context)
             expression_set_constant(expr, expression_get_constant(entry->expression_value));
         }
     }
-    else if (entry->kind == SK_FUNCTION
-            || entry->kind == SK_UNDEFINED)
+    else if (entry->kind == SK_UNDEFINED)
     {
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
+    }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        if (is_name_of_funtion_call(expr)
+                || is_name_in_actual_arg_spec_list(expr))
+        {
+            expression_set_type(expr, entry->type_information);
+        }
+        else
+        {
+            // This must act as a variable
+            type_t* return_type = NULL; 
+            if (is_function_type(entry->type_information))
+                return_type = function_type_get_return_type(entry->type_information);
+            if (return_type == NULL
+                    || function_has_result(entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
+                            ast_location(expr),
+                            fortran_prettyprint_in_buffer(expr));
+                }
+                expression_set_error(expr);
+                return;
+            }
+            expression_set_type(expr, function_type_get_return_type(entry->type_information));
+        }
+        expression_set_symbol(expr, entry);
     }
     else
     {
@@ -1818,6 +1847,7 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
+#if 0
     if (expression_has_symbol(lvalue))
     {
         scope_entry_t* sym = expression_get_symbol(lvalue);
@@ -1844,6 +1874,7 @@ static void check_assignment(AST expr, decl_context_t decl_context)
             internal_error("Invalid symbol kind in left part of assignment", 0);
         }
     }
+#endif
 
     expression_set_type(expr, lvalue_type);
 

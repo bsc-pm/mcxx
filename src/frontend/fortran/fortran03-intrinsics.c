@@ -347,10 +347,13 @@ static char generic_keyword_check(
 
     if (argument_expressions == NULL)
     {
-        int i;
-        for (i = 0; i < current_variant.num_keywords; i++)
+        if (argument_types != NULL)
         {
-            reordered_types[i] = argument_types[i];
+            int i;
+            for (i = 0; i < current_variant.num_keywords; i++)
+            {
+                reordered_types[i] = argument_types[i];
+            }
         }
 
         DEBUG_CODE()
@@ -562,13 +565,15 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         }
         type_t* function_type = get_new_function_type(result_type, param_info, num_types);
 
-
         scope_entry_t* new_entry = new_symbol(decl_context, decl_context.current_scope, name);
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
         new_entry->entity_specs.is_elemental = is_elemental;
         new_entry->entity_specs.is_pure = (is_pure || is_elemental);
+
+        new_entry->entity_specs.is_builtin = 1;
+        new_entry->entity_specs.is_builtin_subroutine = (result_type == NULL);
 
         rb_tree_add(intrinsic_map, p, new_entry);
 

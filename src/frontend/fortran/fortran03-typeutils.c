@@ -105,6 +105,38 @@ const char* fortran_print_type_str(type_t* t)
         c[127] = '\0';
         result = uniquestr(c);
     }
+    else if (is_function_type(t))
+    {
+        type_t* return_type = function_type_get_return_type(t);
+
+        if (return_type == NULL)
+        {
+            result = "SUBROUTINE";
+        }
+        else
+        {
+            result = "FUNCTION";
+            // result = strappend(fortran_print_type_str(return_type), " FUNCTION");
+        }
+
+        // result = strappend(result, "(");
+
+        // int i;
+        // 
+        // int n = function_type_get_num_parameters(t);
+        // for (i = 0; i < n; i++)
+        // {
+        //     type_t* param_type = function_type_get_parameter_type_num(t, i);
+        //     char c[256];
+        //     snprintf(c, 255, "%s%s", (i == 0 ? "" : ", "), 
+        //             fortran_print_type_str(param_type));
+        //     c[255] = '\0';
+
+        //     result = strappend(result, c);
+        // }
+
+        // result = strappend(result, ")");
+    }
     else 
     {
         internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t));
