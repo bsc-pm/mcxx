@@ -8921,6 +8921,14 @@ static void build_scope_for_statement(AST a,
     {
         build_scope_expression_statement(for_init_statement, block_context, NULL);
     }
+    else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
+    {
+        build_scope_statement(for_init_statement, decl_context);
+    }
+    else
+    {
+        internal_error("unexpected node '%s'", ast_print_node_type(ASTType(for_init_statement)));
+    }
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, for_init_statement, block_context);
 
     if (condition != NULL)
