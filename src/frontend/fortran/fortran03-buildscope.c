@@ -146,6 +146,14 @@ static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
 
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            P_LIST_ADD( decl_context.current_scope->related_entry->entity_specs.related_symbols,
+                    decl_context.current_scope->related_entry->entity_specs.num_related_symbols,
+                    result);
+        }
+
         add_unknown_symbol(decl_context, result);
     }
 
@@ -575,7 +583,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
 static void fortran_build_scope_statement(AST statement, decl_context_t decl_context);
 
-static void build_scope_internal_subprograms(AST internal_subprograms, decl_context_t decl_context)
+static void build_scope_internal_subprograms(AST internal_subprograms, 
+        decl_context_t decl_context,
+        void (*process_symbol)(decl_context_t, scope_entry_t*))
 {
     if (internal_subprograms == NULL)
         return;
@@ -590,8 +600,25 @@ static void build_scope_internal_subprograms(AST internal_subprograms, decl_cont
                 new_internal_program_unit_context,
                 &subprogram_sym);
 
-        insert_entry(decl_context.current_scope, subprogram_sym);
+        process_symbol(decl_context, subprogram_sym);
     }
+}
+
+static void insert_in_scope(decl_context_t decl_context, scope_entry_t* subprogram_sym)
+{
+    insert_entry(decl_context.current_scope, subprogram_sym);
+}
+
+static void insert_in_scope_and_module(decl_context_t decl_context, scope_entry_t* subprogram_sym)
+{
+    insert_in_scope(decl_context, subprogram_sym);
+
+    ERROR_CONDITION(decl_context.current_scope->related_entry == NULL
+            || decl_context.current_scope->related_entry->kind != SK_MODULE,
+            "Invalid context", 0);
+    P_LIST_ADD( decl_context.current_scope->related_entry->entity_specs.related_symbols,
+            decl_context.current_scope->related_entry->entity_specs.num_related_symbols,
+            subprogram_sym);
 }
 
 static char statement_is_executable(AST statement);
@@ -629,7 +656,7 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
         }
     }
 
-    build_scope_internal_subprograms(internal_subprograms, decl_context);
+    build_scope_internal_subprograms(internal_subprograms, decl_context, insert_in_scope_and_module);
 
     clear_unknown_symbols(decl_context);
 }
@@ -671,7 +698,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
                 // Make sure all symbols seen so far have basic type
                 clear_unknown_symbols(decl_context);
 
-                build_scope_internal_subprograms(internal_subprograms, decl_context);
+                build_scope_internal_subprograms(internal_subprograms, decl_context, insert_in_scope);
                 seen_executables = 1;
                 seen_internal_subprograms = 1;
             }
@@ -686,7 +713,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
     }
     if (!seen_internal_subprograms)
     {
-        build_scope_internal_subprograms(internal_subprograms, decl_context);
+        build_scope_internal_subprograms(internal_subprograms, decl_context, insert_in_scope);
         seen_internal_subprograms = 1;
     }
 }
@@ -2868,7 +2895,15 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
                             interface_sym);
                 }
 
-                insert_entry(decl_context.current_scope, interface_sym);
+                if (decl_context.current_scope->related_entry != NULL
+                        && decl_context.current_scope->related_entry->kind == SK_MODULE)
+                {
+                    insert_in_scope_and_module(decl_context, interface_sym);
+                }
+                else
+                {
+                    insert_in_scope(decl_context, interface_sym);
+                }
             }
             else
             {
@@ -2888,11 +2923,20 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
             generic_spec_sym = new_fortran_symbol(decl_context, name);
             // If this name is not related to a specific interface, make it void
             generic_spec_sym->type_information = get_void_type();
+
+            generic_spec_sym->file = ASTFileName(generic_spec);
+            generic_spec_sym->line = ASTLine(generic_spec);
+        }
+
+        if (generic_spec_sym->kind != SK_UNDEFINED
+                && generic_spec_sym->kind != SK_FUNCTION)
+        {
+            running_error("%s: error: redefining symbol '%s'\n", 
+                    ast_location(generic_spec),
+                    name);
         }
 
         generic_spec_sym->kind = SK_FUNCTION;
-        generic_spec_sym->file = ASTFileName(generic_spec);
-        generic_spec_sym->line = ASTLine(generic_spec);
         generic_spec_sym->entity_specs.is_generic_spec = 1;
         generic_spec_sym->entity_specs.related_symbols = related_symbols;
         generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
@@ -3387,12 +3431,6 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         {
             entry->file = ASTFileName(declaration);
             entry->line = ASTLine(declaration);
-        }
-
-        if (decl_context.current_scope->related_entry != NULL
-                && decl_context.current_scope->related_entry->kind == SK_MODULE)
-        {
-            entry->kind = SK_VARIABLE;
         }
 
         // if (entry->kind != SK_VARIABLE
