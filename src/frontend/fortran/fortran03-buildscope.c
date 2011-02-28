@@ -268,6 +268,10 @@ static void build_scope_main_program_unit(AST program_unit,
         return;
 
     build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
 }
 
 static void build_scope_function_program_unit(AST program_unit, 
@@ -305,6 +309,10 @@ static void build_scope_function_program_unit(AST program_unit,
         return;
 
     build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
 }
 
 static void build_scope_subroutine_program_unit(AST program_unit, 
@@ -350,6 +358,10 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         return;
 
     build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
@@ -383,6 +395,10 @@ static void build_scope_module_program_unit(AST program_unit,
         *program_unit_symbol = new_entry;
 
     build_scope_program_body_module(module_body, program_unit_context, allow_all_statements);
+
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(module_body));
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
@@ -394,6 +410,9 @@ static void build_scope_block_data_program_unit(AST program_unit,
     {
         fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
     }
+
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_BLOCK_DATA, tl_type_t, tl_bool(1));
 }
 
 static type_t* gather_type_from_declaration_type_spec_(AST a, 
@@ -659,6 +678,9 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
     build_scope_internal_subprograms(internal_subprograms, decl_context, insert_in_scope_and_module);
 
     clear_unknown_symbols(decl_context);
+
+    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, tl_type_t, tl_ast(program_unit_stmts));
+    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, tl_type_t, tl_ast(internal_subprograms));
 }
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context,
@@ -716,6 +738,9 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         build_scope_internal_subprograms(internal_subprograms, decl_context, insert_in_scope);
         seen_internal_subprograms = 1;
     }
+
+    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, tl_type_t, tl_ast(program_unit_stmts));
+    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, tl_type_t, tl_ast(internal_subprograms));
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t);
@@ -1681,6 +1706,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context)
         running_error("%s: error: access-statement without access-id-list not yet supported\n",
                 ast_location(a));
     }
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_dimension_decl(AST a, decl_context_t decl_context)
@@ -1723,6 +1749,8 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
             decl_context,
             /* array_spec_kind */ NULL);
     entry->type_information = array_type;
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
@@ -1770,6 +1798,8 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
         }
         entry->entity_specs.is_allocatable = 1;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_allocate_stmt(AST a, decl_context_t decl_context)
@@ -1946,6 +1976,8 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_co
                     fortran_prettyprint_in_buffer(bind_entity));
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_block_construct(AST a, decl_context_t decl_context)
@@ -1954,6 +1986,9 @@ static void build_scope_block_construct(AST a, decl_context_t decl_context)
 
     AST block = ASTSon1(a);
     fortran_build_scope_statement(block, new_context);
+
+    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(ASTSon0(a)));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context)
@@ -2124,6 +2159,8 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
                     sym);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context)
@@ -2268,7 +2305,6 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
 
 static void build_scope_data_stmt(AST a, decl_context_t decl_context)
 {
-    // Do nothing for DATA
     AST data_stmt_set_list = ASTSon0(a);
 
     AST it;
@@ -2297,6 +2333,8 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context)
             }
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_deallocate_stmt(AST a, decl_context_t decl_context)
@@ -2529,6 +2567,8 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
             }
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
@@ -2574,6 +2614,8 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
             entry->type_information = get_pointer_type(entry->type_information);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_do_construct(AST a, decl_context_t decl_context)
@@ -2607,6 +2649,9 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(block, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_FORTRAN_DO_INIT, tl_type_t, tl_ast(assig));
+    ASTAttrSetValueType(a, LANG_FORTRAN_DO_UPPER, tl_type_t, tl_ast(upper));
+    ASTAttrSetValueType(a, LANG_FORTRAN_DO_STRIDE, tl_type_t, tl_ast(stride));
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2645,6 +2690,8 @@ static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context)
             fortran_check_expression(equiv_obj, decl_context);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2686,6 +2733,8 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
                     entry->symbol_name);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_forall_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2701,6 +2750,7 @@ static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_
 static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing in FORMAT
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2810,6 +2860,8 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
         }
     }
     update_unknown_symbols(decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2850,6 +2902,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context)
 
         entry->entity_specs.intent_kind = attr_spec.intent_kind;
     }
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_interface_block(AST a, decl_context_t decl_context)
@@ -2941,6 +2994,8 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
         generic_spec_sym->entity_specs.related_symbols = related_symbols;
         generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2961,6 +3016,8 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
                     ASTText(name));
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -3004,6 +3061,8 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context)
                     namelist_element);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_nullify_stmt(AST a, decl_context_t decl_context)
@@ -3050,6 +3109,8 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context)
         }
         entry->entity_specs.is_optional = 1;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
@@ -3082,6 +3143,8 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->expression_value = constant_expr;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
@@ -3132,8 +3195,9 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
 
         entry->type_information = get_pointer_type(entry->type_information);
     }
-}
 
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
+}
 
 static void build_scope_input_output_item(AST input_output_item, decl_context_t decl_context)
 {
@@ -3235,6 +3299,8 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
         entry->entity_specs.is_static = 1;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_select_type_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -3296,6 +3362,8 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context)
     entry->type_information = new_type;
 
     fortran_check_expression(expr, decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
@@ -3388,6 +3456,8 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context)
 
         entry->entity_specs.is_target = 1;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context)
@@ -3635,6 +3705,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -3670,6 +3742,8 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context)
 
         entry->entity_specs.is_value = 1;
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
@@ -3703,6 +3777,8 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
                     ast_location(a), entry->symbol_name);
         }
     }
+
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)

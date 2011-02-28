@@ -2777,7 +2777,8 @@ top_level_block : top_level_program_unit_stmts_seq
 }
 | /* empty */
 {
-    $$ = ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL);
+    AST empty = ASTListLeaf(ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL));
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, empty, ASTFileName(empty), ASTLine(empty), NULL);
 }
 ;
 block : non_top_level_program_unit_stmts_seq

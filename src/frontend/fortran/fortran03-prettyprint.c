@@ -608,6 +608,14 @@ static void list_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     character_separated_sequence_handler(f, a, pt_ctx, ", ", NULL);
 }
 
+const char* fortran_list_handler_in_buffer(AST a)
+{
+    prettyprint_context_t pt_ctx;
+    prettyprint_context_init(&pt_ctx);
+
+    return prettyprint_in_buffer_common(a, list_handler, &pt_ctx);
+}
+
 static void sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     character_separated_sequence_handler(f, a, pt_ctx, "", NULL);

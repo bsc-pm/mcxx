@@ -3582,7 +3582,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             internal_error("Code unreachable", 0);
     }
 
-    char* qualification_name = NULL;
+    const char* qualification_name = NULL;
     if (class_id_expression != NULL
             && is_unqualified_id_expression(class_id_expression))
     {
@@ -6584,7 +6584,7 @@ static void build_scope_nontype_template_parameter(AST a,
     AST declarator_name = get_declarator_name(parameter_declarator, template_context);
     if (declarator_name != NULL)
     {
-        char *declarator_name_str = prettyprint_in_buffer(declarator_name);
+        const char *declarator_name_str = prettyprint_in_buffer(declarator_name);
         DEBUG_CODE()
         {
             fprintf(stderr, "[%d] Remembering '%s' as a non-type template parameter in %p\n", 

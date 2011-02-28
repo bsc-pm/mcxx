@@ -85,7 +85,7 @@ namespace TL
     {
         // This is always internal
         prettyprint_set_internal_output();
-        char *c = NULL;
+        const char *c = NULL;
         if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
         {
             c = list_handler_in_buffer(this->_ast);
@@ -97,7 +97,7 @@ namespace TL
 
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free(c);
+            free((void*)c);
         return result;
     }
 
@@ -111,10 +111,10 @@ namespace TL
         // This is always external
         prettyprint_set_not_internal_output();
 
-        char* c = prettyprint_in_buffer(this->_ast);
+        const char* c = prettyprint_in_buffer(this->_ast);
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free(c);
+            free((void*)c);
         return result;
     }
 
@@ -1129,11 +1129,11 @@ namespace TL
     std::string AST_t::prettyprint_with_callback(const Functor<callback_result, AST_t> &functor)
     {
         // This const cast is fine
-        char *c = prettyprint_in_buffer_callback(_ast,
+        const char *c = prettyprint_in_buffer_callback(_ast,
                 auxiliar_handler_prettprint, const_cast<Functor<callback_result, AST_t>*>(&functor));
 
         std::string result(c);
-        free(c);
+        free((void*)c);
         return result;
     } 
 }

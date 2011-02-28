@@ -894,7 +894,6 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
         if (!ok)
             continue;
 
-
         // Now complete with the optional ones
         for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
         {
@@ -1584,9 +1583,8 @@ static char* binary_expression_attr[] =
     [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
     [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
     [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
-    [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
-    [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
-    [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
+    [AST_LOGICAL_EQUAL] = LANG_IS_EQUAL_OP,
+    [AST_LOGICAL_DIFFERENT] = LANG_IS_DIFFERENT_OP,
     [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
     [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
     [AST_POWER_OP] = LANG_IS_POWER_OP,
@@ -1620,6 +1618,14 @@ static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rh
 }
 
 static void common_unary_intrinsic_check(AST expr, type_t* rhs_type);
+
+static char* unary_expression_attr[] =
+{
+    [AST_PLUS_OP]       = LANG_IS_PLUS_OP,
+    [AST_NEG_OP]        = LANG_IS_NEGATE_OP,
+    [AST_NOT_OP]        = LANG_IS_NOT_OP,
+};
+
 static void common_unary_check(AST expr, decl_context_t decl_context) 
 {
     AST rhs = ASTSon0(expr);
@@ -1630,6 +1636,10 @@ static void common_unary_check(AST expr, decl_context_t decl_context)
     RETURN_IF_ERROR_1(rhs_type, expr);
 
     common_unary_intrinsic_check(expr, rhs_type);
+
+    ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
 }
 
 static void common_unary_intrinsic_check(AST expr, type_t* rhs_type)

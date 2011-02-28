@@ -1370,7 +1370,7 @@ namespace TL
     {
         Source result;
 
-        char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
+        const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
                 &ReplaceSrcIdExpression::prettyprint_callback, (void*)this);
 
         // Not sure whether this could happen or not
@@ -1380,7 +1380,7 @@ namespace TL
         }
 
         // The returned pointer came from C code, so 'free' it
-        free(c);
+        free((void*)c);
 
         return result;
     }
