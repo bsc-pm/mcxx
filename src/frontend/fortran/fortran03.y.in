@@ -4320,19 +4320,19 @@ end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
 ;
 module : module_stmt block module_subprogram_part end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | module_stmt module_subprogram_part end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | module_stmt block end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4467,19 +4467,19 @@ local_defined_operator : user_defined_op
 ;
 submodule : submodule_stmt block module_subprogram_part end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt module_subprogram_part end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt block end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4614,7 +4614,7 @@ end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
 
 interface_program_body : block 
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

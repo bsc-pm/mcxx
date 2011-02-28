@@ -746,7 +746,7 @@ static scope_entry_t* register_specific_intrinsic_name(
         int num_args,
         type_t* t0, type_t* t1, type_t* t2, type_t* t3, type_t* t4, type_t* t5, type_t* t6)
 {
-    scope_entry_t* generic_entry = query_name(decl_context, generic_name);
+    scope_entry_t* generic_entry = query_name_with_locus(decl_context, NULL, generic_name);
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
     computed_function_type_t fun = computed_function_type_get_computing_function(generic_entry->type_information);

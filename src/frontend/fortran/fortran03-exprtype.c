@@ -672,7 +672,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
     }
     else
     {
-        scope_entry_t* sym = query_name(decl_context, p);
+        scope_entry_t* sym = query_name_with_locus(decl_context, expr, p);
         if (sym == NULL
                 || sym->kind != SK_VARIABLE
                 || !is_const_qualified_type(sym->type_information))
@@ -749,7 +749,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     }
 
     AST derived_name = ASTSon0(derived_type_spec);
-    scope_entry_t* entry = query_name(decl_context, ASTText(derived_name));
+    scope_entry_t* entry = query_name_with_locus(decl_context, derived_name, ASTText(derived_name));
 
     if (entry == NULL
             || entry->kind != SK_CLASS)
@@ -983,7 +983,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     if (ASTType(procedure_designator) == AST_SYMBOL
             && is_call_stmt)
     {
-        scope_entry_t* call_sym = query_name(decl_context, ASTText(procedure_designator));
+        scope_entry_t* call_sym 
+            = query_name_with_locus(decl_context, procedure_designator, ASTText(procedure_designator));
         if (call_sym == NULL
                 || (call_sym->entity_specs.is_builtin
                     && !call_sym->entity_specs.is_builtin_subroutine))
@@ -1721,7 +1722,7 @@ static char is_name_in_actual_arg_spec_list(AST expr)
 
 static void check_symbol(AST expr, decl_context_t decl_context)
 {
-    scope_entry_t* entry = query_name(decl_context, ASTText(expr));
+    scope_entry_t* entry = query_name_with_locus(decl_context, expr, ASTText(expr));
 
     if (entry == NULL)
     {

@@ -253,11 +253,6 @@ scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, con
     return result;
 }
 
-scope_entry_t* query_name(decl_context_t decl_context, const char* name)
-{
-    return query_name_with_locus(decl_context, NULL, name);
-}
-
 decl_context_t fortran_new_block_context(decl_context_t decl_context)
 {
     decl_context_t result = new_block_context(decl_context);

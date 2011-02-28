@@ -43,7 +43,6 @@ LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);
 LIBMF03_EXTERN scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t, const char* name);
 LIBMF03_EXTERN scope_entry_t* query_name_no_implicit(decl_context_t, const char* name);
-LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
 LIBMF03_EXTERN scope_entry_t* query_name_with_locus(decl_context_t, AST locus, const char* name);
 
 LIBMF03_EXTERN scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name);
