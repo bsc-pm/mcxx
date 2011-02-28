@@ -132,6 +132,9 @@ static void update_unknown_symbols(decl_context_t decl_context)
 
 // This function queries a symbol. If not found it uses implicit info to create
 // one adding it to the set of unknown symbols of this context
+//
+// The difference of this function to query_name_with_locus is that
+// query_name_with_locus always creates a SK_VARIABLE
 static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus, const char* name)
 {
     scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
@@ -353,9 +356,7 @@ static void build_scope_module_program_unit(AST program_unit,
     AST module_stmt = ASTSon0(program_unit);
     AST module_name = ASTSon0(module_stmt);
 
-    scope_entry_t* new_entry = new_symbol(program_unit_context,
-            program_unit_context.current_scope, 
-            ASTText(module_name));
+    scope_entry_t* new_entry = new_fortran_symbol(program_unit_context, ASTText(module_name));
     new_entry->kind = SK_MODULE;
 
     new_entry->related_decl_context = program_unit_context;
