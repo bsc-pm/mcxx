@@ -106,13 +106,11 @@ enum simple_type_kind_tag
     STK_TYPEOF  // [8] __typeof__(int) {identifier};
 } simple_type_kind_t;
 
-struct scope_entry_tag;
-
 // Information of enums
 typedef 
 struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
-    struct scope_entry_tag** enumeration_list; // The symtab entry of the enum
+    scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
 } enum_info_t;
 
@@ -127,7 +125,7 @@ struct base_class_info_tag
     type_t* class_type;
 
     // The parent class symbol
-    struct scope_entry_tag* class_symbol;
+    scope_entry_t* class_symbol;
 
     // The access specifier (public, private, protected inheritance)
     access_specifier_t access_specifier;
@@ -144,7 +142,7 @@ struct base_class_info_tag
 typedef
 struct virtual_base_class_info_tag
 {
-    struct scope_entry_tag* virtual_base;
+    scope_entry_t* virtual_base;
     _size_t virtual_base_offset;
 } virtual_base_class_info_t;
 
@@ -168,57 +166,57 @@ struct class_information_tag {
     
     // All members must be here, but can also be in lists below
     int num_members;
-    struct scope_entry_tag** members;
+    scope_entry_t** members;
 
     // Destructor
-    struct scope_entry_tag* destructor;
+    scope_entry_t* destructor;
 
     // Member functions
     int num_member_functions;
-    struct scope_entry_tag** member_functions;
+    scope_entry_t** member_functions;
 
     // Conversion functions info
     int num_conversion_functions;
-    struct scope_entry_tag** conversion_functions;
+    scope_entry_t** conversion_functions;
 
     // Copy assignment function info
     int num_copy_assignment_operator_functions;
-    struct scope_entry_tag** copy_assignment_operator_function_list;
+    scope_entry_t** copy_assignment_operator_function_list;
 
     // Move assignment function info
     int num_move_assignment_operator_functions;
-    struct scope_entry_tag** move_assignment_operator_function_list;
+    scope_entry_t** move_assignment_operator_function_list;
 
     // Class constructors info
     int num_constructors;
-    struct scope_entry_tag** constructor_list;
+    scope_entry_t** constructor_list;
 
     // Default constructor
-    struct scope_entry_tag* default_constructor;
+    scope_entry_t* default_constructor;
 
     // Copy constructors
     int num_copy_constructors;
-    struct scope_entry_tag** copy_constructor_list;
+    scope_entry_t** copy_constructor_list;
 
     // Move constructors
     int num_move_constructors;
-    struct scope_entry_tag** move_constructor_list;
+    scope_entry_t** move_constructor_list;
 
     // Nonstatic data members
     int num_nonstatic_data_members;
-    struct scope_entry_tag** nonstatic_data_members;
+    scope_entry_t** nonstatic_data_members;
     
     // Static data members
     int num_static_data_members;
-    struct scope_entry_tag** static_data_members;
+    scope_entry_t** static_data_members;
 
     // Virtual functions
     int num_virtual_functions;
-    struct scope_entry_tag** virtual_functions;
+    scope_entry_t** virtual_functions;
 
     // Typenames (either typedefs, enums or inner classes)
     int num_typenames;
-    struct scope_entry_tag** typenames;
+    scope_entry_t** typenames;
 
     // Base (parent classes) info
     int num_bases;
@@ -273,7 +271,7 @@ struct simple_type_tag {
     // creates an 'A' symbol of type SK_CLASS
     // and a 'b' symbol SK_VARIABLE with type STK_INDIRECT
     // pointing to 'A' symbol
-    struct scope_entry_tag* user_defined_type;
+    scope_entry_t* user_defined_type;
 
     // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
@@ -346,7 +344,7 @@ struct pointer_tag
 
     // If the type was a TK_POINTER_TO_MEMBER
     // the pointee class
-    struct scope_entry_tag* pointee_class;
+    scope_entry_t* pointee_class;
 } pointer_info_t;
 
 // Array information
@@ -3307,7 +3305,7 @@ scope_entry_t* class_type_get_destructor(type_t* class_type)
     return class_type->type->class_info->destructor;
 }
 
-void class_type_set_default_constructor(type_t* class_type, struct scope_entry_tag* entry)
+void class_type_set_default_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     class_type->type->class_info->default_constructor = entry;
@@ -3684,7 +3682,7 @@ int class_type_get_num_member_functions(type_t* class_type)
     return class_type->type->class_info->num_member_functions;
 }
 
-struct scope_entry_tag* class_type_get_member_function_num(type_t* class_type, int i)
+scope_entry_t* class_type_get_member_function_num(type_t* class_type, int i)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
@@ -3780,7 +3778,7 @@ int class_type_get_num_typenames(type_t* class_type)
     return class_type->type->class_info->num_typenames;
 }
 
-struct scope_entry_tag* class_type_get_typename_num(type_t* class_type, int num)
+scope_entry_t* class_type_get_typename_num(type_t* class_type, int num)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->typenames[num];
@@ -3792,7 +3790,7 @@ int class_type_get_num_members(type_t* class_type)
     return class_type->type->class_info->num_members;
 }
 
-struct scope_entry_tag* class_type_get_member_num(type_t* class_type, int num)
+scope_entry_t* class_type_get_member_num(type_t* class_type, int num)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->members[num];

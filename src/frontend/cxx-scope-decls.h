@@ -61,6 +61,7 @@ MCXX_BEGIN_DECLS
  *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
+typedef struct scope_entry_tag scope_entry_t;
 
 #define BITMAP(x) (1 << (x))
 
@@ -145,6 +146,9 @@ typedef struct decl_context_tag
 
 #ifdef FORTRAN_SUPPORT
     implicit_info_t* implicit_info;
+
+    int num_unknown_symbols;
+    scope_entry_t** unknown_symbols;
 #endif 
 
     // Scope of the declaration,
@@ -250,7 +254,7 @@ typedef struct template_parameter_tag
 
     // The related symbol associated to this parameter it may be faked if the
     // symbol did not have name, we are mainly interested in their type
-    struct scope_entry_tag* entry;
+    scope_entry_t* entry;
 
     char has_default_argument;
     template_argument_t* default_template_argument;
@@ -284,8 +288,6 @@ enum dependency_info_tag
         // enum is or not dependent. In this case, infinite recursion could happen
         // if no care is taken
 } dependency_info_t;
-
-struct scope_entry_tag;
 
 
 typedef
@@ -469,20 +471,20 @@ typedef struct entity_specifiers_tag
     intent_kind_t intent_kind;
 
     // --> char is_in_common:1;
-    struct scope_entry_tag* in_common;
+    scope_entry_t* in_common;
 
     // --> char is_in_namelist:1
-    struct scope_entry_tag* namelist;
+    scope_entry_t* namelist;
 
     // Related symbols for this symbol,
     // NAMELIST, COMMON, FUNCTION, SUBROUTINE, MODULE
     int num_related_symbols;
-    struct scope_entry_tag** related_symbols;
+    scope_entry_t** related_symbols;
 
     // --> char is_builtin : 1
     // Is the symbol we should use if we name the intrinsic alone
     // not in a call
-    struct scope_entry_tag* specific_intrinsic;
+    scope_entry_t* specific_intrinsic;
 #endif
 
     // Accessibility: public, private, protected
@@ -507,7 +509,7 @@ typedef struct entity_specifiers_tag
     // States if this is the injected class name of every class
     // --> char is_injected_class_name:1;
     // and its real symbol class
-    struct scope_entry_tag* injected_class_referred_symbol;
+    scope_entry_t* injected_class_referred_symbol;
     
     // Linkage specifier ("C" or "C++")
     // Unused field
@@ -540,7 +542,6 @@ typedef struct entity_specifiers_tag
 } entity_specifiers_t;
 
 // This is an entry in the scope
-typedef 
 struct scope_entry_tag
 {
     // Kind of this symbol
@@ -602,7 +603,7 @@ struct scope_entry_tag
 
     // Extensible information of a symbol
     extensible_struct_t* extended_data;
-} scope_entry_t;
+}; 
 
 // Scope kind
 enum scope_kind
@@ -635,7 +636,7 @@ struct scope_tag
     // using namespace statements (using directives) will fill this
     // Only valid for BLOCK_SCOPE, CLASS_SCOPE and NAMESPACE_SCOPE
     int num_used_namespaces;
-    struct scope_entry_tag** use_namespace;
+    scope_entry_t** use_namespace;
 
     // Only valid for NAMESPACE_SCOPE, CLASS_SCOPE and BLOCK_SCOPE
     // they contain the namespace symbol (if any), the class symbol

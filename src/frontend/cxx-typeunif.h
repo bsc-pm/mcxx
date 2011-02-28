@@ -49,7 +49,7 @@ LIBMCXX_EXTERN char same_functional_expression(struct AST_tag* left_tree, decl_c
         decl_context_t right_decl_context, deduction_flags_t flags);
 
 LIBMCXX_EXTERN deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
-        struct scope_entry_tag* s1);
+        scope_entry_t* s1);
 
 LIBMCXX_EXTERN long long int typeunif_used_memory(void);
 
