@@ -1533,36 +1533,44 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context)
     gather_attr_spec_item(access_spec, decl_context, &attr_spec);
 
     AST access_id_list = ASTSon1(a);
-    AST it;
-    for_each_element(access_id_list, it)
+    if (access_id_list != NULL)
     {
-        AST access_id = ASTSon1(it);
-
-        const char* name = get_name_of_generic_spec(access_id);
-
-        scope_entry_t* sym = query_name_spec_stmt(decl_context, access_id, name);
-
-        if (sym->entity_specs.access != AS_UNKNOWN)
+        AST it;
+        for_each_element(access_id_list, it)
         {
-            running_error("%s: access specifier already given for entity '%s'\n",
-                    ast_location(access_id),
-                    sym->symbol_name);
-        }
-        else
-        {
-            if (attr_spec.is_public)
+            AST access_id = ASTSon1(it);
+
+            const char* name = get_name_of_generic_spec(access_id);
+
+            scope_entry_t* sym = query_name_spec_stmt(decl_context, access_id, name);
+
+            if (sym->entity_specs.access != AS_UNKNOWN)
             {
-                sym->entity_specs.access = AS_PUBLIC;
-            }
-            else if (attr_spec.is_private)
-            {
-                sym->entity_specs.access = AS_PRIVATE;
+                running_error("%s: access specifier already given for entity '%s'\n",
+                        ast_location(access_id),
+                        sym->symbol_name);
             }
             else
             {
-                internal_error("code unreachable", 0);
+                if (attr_spec.is_public)
+                {
+                    sym->entity_specs.access = AS_PUBLIC;
+                }
+                else if (attr_spec.is_private)
+                {
+                    sym->entity_specs.access = AS_PRIVATE;
+                }
+                else
+                {
+                    internal_error("code unreachable", 0);
+                }
             }
         }
+    }
+    else
+    {
+        running_error("%s: error: access-statement without access-id-list not yet supported\n",
+                ast_location(a));
     }
 }
 
