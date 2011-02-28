@@ -69,7 +69,7 @@ namespace TL
                 vla_counter++;
 
                 dim_names.append(dim_name);
-                dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_dimension().prettyprint());
+                dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_get_size().prettyprint());
 
                 dimensional_replacements_of_variable_type_aux(type.array_element(), sym, dim_names, dim_decls);
             }
@@ -250,7 +250,7 @@ namespace TL
                     Source src;
                     src
                         << "char [(" 
-                        << type.array_dimension().prettyprint() 
+                        << type.array_get_size().prettyprint() 
                         << ") * sizeof(" 
                         << element_type.get_declaration(sym.get_scope(), "") 
                         << ")]"
@@ -702,7 +702,7 @@ namespace TL
                         Source type_decl;
                         type_decl << type.get_declaration(sym.get_scope(), "") 
                             ;
-                        result << "for (int _i = 0; _i < (" << type.array_dimension().prettyprint() << "); _i++)"
+                        result << "for (int _i = 0; _i < (" << type.array_get_size().prettyprint() << "); _i++)"
                             << "{"
                             << "new ( &((" << ptr_type_decl << ")" << field_name << ")[_i])"
                             << type_decl << "(" << sym.get_qualified_name() << "[_i]);"

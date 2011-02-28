@@ -257,6 +257,12 @@ namespace TL
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
 
+            //! States whether the symbol is actually a Fortran intrinsic
+            /*!
+              This is actually an alias of is_builtin
+              */
+            bool is_intrinsic() const;
+
             //! States whether the symbol has been create because of a typedef
             //against an unnamed struct/enum
             /*!
@@ -296,6 +302,95 @@ namespace TL
             {
                 return _symbol;
             }
+
+            //! Is a COMMON name
+            /*! 
+              States whether this symbol is the symbol of a Fortran COMMON name. 
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_common() const;
+
+            //! This symbol is ALLOCATABLE
+            /*! 
+              States whether this symbol has the ALLOCATABLE attribute set
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_allocatable() const;
+
+            //! This symbol is in a common
+            /*! 
+              States whether this symbol has been defined to be in a COMMON.
+              Use get_common to retrieve the COMMON symbol containing this symbol
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_in_common() const;
+
+            //! This symbol is in a namelist
+            /*! 
+              States whether this symbol has been defined to be in a NAMELIST
+              Use get_common to retrieve the NAMELIST symbol containing this symbol
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_in_namelist() const;
+
+            //! This symbol is OPTIONAL
+            /*! 
+              States whether this dummy argument is an OPTIONAL dummy argument
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_optional() const;
+
+            //! This symbol is TARGET
+            /*! 
+              States whether this symbol has the TARGET attribute
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_target() const;
+
+            //! This symbol is VALUE
+            /*! 
+              States whether this dummy argument has the VALUE attribute
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_value() const;
+
+            //! This symbol is ELEMENTAL
+            /*! 
+              States whether this dummy argument has the ELEMENTAL attribute
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_elemental() const;
+
+            //! This symbol is RECURSIVE
+            /*! 
+              States whether this dummy argument has the RECURSIVE attribute
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_recursive() const;
+
+            //! This symbol is RESULT
+            /*! 
+              States whether this symbol is a RESULT attribute
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_result() const;
+
+            //! This symbol is a generic-specifier name
+            /*! 
+              States whether this symbol is a generic-specifier name
+
+              This function is only meaningful in Fortran. In C/C++ it always returns false
+              */
+            bool is_generic_specifier() const;
     };
     
     //! @}

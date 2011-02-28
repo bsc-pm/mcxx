@@ -232,14 +232,14 @@ namespace TL
 		if (type.is_array())
 		{
 			_result = get_array_subscript_list(type.array_element(), ref_tree, scope_link);
-			if (!type.explicit_array_dimension())
+			if (!type.array_has_size())
 			{
 				throw MissingArrayDimensions();
 			}
 			
 			_result.push_back(
 				Expression(
-					Source(type.array_dimension().prettyprint())
+					Source(type.array_get_size().prettyprint())
 					.parse_expression(ref_tree, scope_link),
 					scope_link
 			    	)
