@@ -600,8 +600,6 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     return entry;
 }
 
-static void fortran_build_scope_statement(AST statement, decl_context_t decl_context);
-
 static void build_scope_internal_subprograms(AST internal_subprograms, 
         decl_context_t decl_context,
         void (*process_symbol)(decl_context_t, scope_entry_t*))
@@ -934,7 +932,7 @@ static char statement_is_nonexecutable(AST statement)
 }
 #endif
 
-static void fortran_build_scope_statement(AST statement, decl_context_t decl_context)
+void fortran_build_scope_statement(AST statement, decl_context_t decl_context)
 {
     init_statement_array();
 

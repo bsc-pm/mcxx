@@ -40,6 +40,8 @@ LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t
 
 LIBMF03_EXTERN void build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
 
+LIBMF03_EXTERN void fortran_build_scope_statement(AST statement, decl_context_t decl_context);
+
 LIBMF03_EXTERN type_t* choose_int_type_from_kind(AST expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_float_type_from_kind(AST expr, int kind_size);
 LIBMF03_EXTERN type_t* choose_logical_type_from_kind(AST expr, int kind_size);

@@ -878,32 +878,11 @@ static void append_statement_to_block(AST block, AST stmt)
 %token<token_atrib> TOK_SHARED_LABEL "shared-do-label"
 
 /*!define GRAMMAR_PROLOGUE*/
+/*!include fortran03-subparse.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %token<token_atrib> UNKNOWN_PRAGMA
-%token<token_atrib> SUBPARSE_PROGRAM_UNIT
-%token<token_atrib> SUBPARSE_EXPRESSION
-%token<token_atrib> SUBPARSE_STATEMENT
-
-// // FIXME
-// %token OMP_SENTINEL
-// %token PRAGMA_CUSTOM
-// %token PRAGMA_CUSTOM_DIRECTIVE
-// %token PRAGMA_CUSTOM_CONSTRUCT
-// %token PRAGMA_CUSTOM_CLAUSE
-// %token PRAGMA_CLAUSE_ARG_TEXT
-// %token UNKNOWN_PRAGMA
-// %token CSS_START
-// %token CSS_FINISH
-// %token CSS_WAITON
-// %token CSS_BARRIER
-// %token CSS_TASK
-// %token SUBPARSE_PROGRAM_UNIT
-// %token SUBPARSE_EXPRESSION
-// %token SUBPARSE_STATEMENT
-// %token ONERROR
-
 
 %start program
 
@@ -5945,6 +5924,7 @@ labeldef : label
 ;
 
 /*!define GRAMMAR_RULES*/
+/*!include fortran03-subparse.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_RULES*/
 

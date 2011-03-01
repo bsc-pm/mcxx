@@ -45,9 +45,11 @@ BUILT_SOURCES = $(top_builddir)/src/frontend/cxx-asttype.h
 
 COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/frontend/fortran \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/frontend/fortran \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib \
     $(END)
@@ -142,3 +144,7 @@ libtl_la_LIBADD = \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)
+
+if FORTRAN_SUPPORT
+libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+endif

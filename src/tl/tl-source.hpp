@@ -155,6 +155,31 @@ namespace TL
              */
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
 
+            typedef int (*prepare_lexer_fun_t)(const char*);
+            typedef int (*parse_fun_t)(AST*);
+            template <typename T>
+            struct FinishParseFun
+            { 
+                typedef T (*Type)(ParseFlags, decl_context_t, scope_link_t*, AST);
+            };
+
+            template <typename T>
+            T parse_generic(AST_t ref_tree, 
+                    TL::ScopeLink scope_link, 
+                    ParseFlags parse_flags,
+                    const std::string& subparsing_prefix,
+                    prepare_lexer_fun_t prepare_lexer,
+                    parse_fun_t parse_function,
+                    typename FinishParseFun<T>::Type finish_parse
+                    );
+
+            template <typename T>
+            T parse_generic_lang(AST_t ref_tree, 
+                    TL::ScopeLink scope_link, 
+                    ParseFlags parse_flags,
+                    const std::string& subparsing_prefix,
+                    typename FinishParseFun<T>::Type finish_parse
+                    );
         public:
             //! Constructor
             /*!
@@ -221,8 +246,10 @@ namespace TL
             
             //! Returns the textual information held by this Source
             /*!
-             * Referenced Source objects in this one are recursively called their get_source
-             * to form the whole text.
+             * Referenced Source objects in this one are recursively called
+             * their get_source to form the whole text.
+             *
+             * \a with_newlines Formats in a pretty way the source code so it can be more readable
              */
             std::string get_source(bool with_newlines = false) const;
 
@@ -256,13 +283,14 @@ namespace TL
             //! Appends a reference to Source
             Source& operator<<(RefPtr<Source>);
 
-            // -- new family of parse_XXX
             // These should work correctly in C++ as they are able to get the exact
             // declaration context of the reference tree (ref_tree)
             //! Parses a top-level declaration in context of global scope
             /*!
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
+             *
+             * This function is only for C/C++
              */
             AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
             //! Parses a statement
@@ -277,6 +305,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function can be used in C/C++ and Fortran
              */
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             //! Parses an expression list
@@ -284,6 +314,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function can be used in C/C++ and Fortran
              */
             AST_t parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
@@ -292,6 +324,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function is only for C/C++
              */
             AST_t parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
@@ -300,6 +334,8 @@ namespace TL
              * \param scope Scope used to parse this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function is only for C/C++
              */
             AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
@@ -308,6 +344,8 @@ namespace TL
              * \param scope Scope used to parse this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function is only for C/C++
              */
             AST_t parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
@@ -316,6 +354,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param parse_flags Parsing flags
+             *
+             * This function is only for C/C++
              */
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
@@ -324,6 +364,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \param class_symbol Class symbol where this member should belong to
+             *
+             * This function is only for C/C++
              */
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symbol);
             //! Convenience function to parse a type and synthesize it
@@ -331,6 +373,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \return The synthesized type
+             *
+             * This function is only for C/C++
              */
             Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
             //! Convenience function to parse a comma separated list of types and synthesize them
@@ -338,6 +382,8 @@ namespace TL
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
              * \return The synthesized type
+             *
+             * This function is only for C/C++
              */
             ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
@@ -375,6 +421,16 @@ namespace TL
      * statement.
      */
     LIBTL_EXTERN std::string statement_placeholder(AST_t& placeholder);
+
+    //! Creates a #line marker
+    /*!
+     * This function adds a line marker useable for cpp-style preprocessing. 
+     * Use this to add more context to your trees, so warnings and messages
+     * have better context
+     * \a filename Can be an empty string
+     * \a line Line
+     */
+    LIBTL_EXTERN std::string line_marker(const std::string& filename, int line);
 
     //! Convenience function to convert a list into a string
     /*!
