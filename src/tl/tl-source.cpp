@@ -283,6 +283,7 @@ namespace TL
         return AST_t(a);
     }
 
+#ifdef FORTRAN_SUPPORT
     static AST_t finish_parse_block_fortran(
             Source::ParseFlags parse_flags, 
             decl_context_t decl_context,
@@ -294,6 +295,7 @@ namespace TL
 
         return AST_t(a);
     }
+#endif
 
     AST_t Source::parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
     {
@@ -363,6 +365,7 @@ namespace TL
         return AST_t(a);
     }
 
+#ifdef FORTRAN_SUPPORT
     static AST_t finish_parse_expression_fortran(
             Source::ParseFlags parse_flags, 
             decl_context_t decl_context,
@@ -374,6 +377,7 @@ namespace TL
 
         return AST_t(a);
     }
+#endif
 
     AST_t Source::parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
     {
