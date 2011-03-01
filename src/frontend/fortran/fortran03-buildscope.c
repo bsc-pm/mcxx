@@ -40,17 +40,14 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
     decl_context_t decl_context 
         = scope_link_get_global_decl_context(translation_unit->scope_link);
 
+    scope_link_set(translation_unit->scope_link, a, decl_context);
+
     AST list = ASTSon0(a);
     if (list != NULL)
     {
         build_scope_program_unit_seq(list, decl_context);
     }
 }
-
-static void build_scope_program_unit(AST program_unit, 
-        decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
-        scope_entry_t** program_unit_symbol);
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context)
@@ -176,12 +173,14 @@ static void build_scope_block_data_program_unit(AST program_unit,
 static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
         decl_context_t decl_context);
 
-static void build_scope_program_unit(AST program_unit, 
+void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context,
         decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol)
 {
     decl_context_t program_unit_context = new_context(decl_context);
+
+    scope_link_set(CURRENT_COMPILED_FILE->scope_link, program_unit, program_unit_context);
 
     switch (ASTType(program_unit))
     {
@@ -1985,6 +1984,11 @@ static void build_scope_block_construct(AST a, decl_context_t decl_context)
     AST block = ASTSon1(a);
     fortran_build_scope_statement(block, new_context);
 
+    if (block != NULL)
+    {
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, block, new_context);
+    }
+
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(ASTSon0(a)));
 }
@@ -2280,6 +2284,8 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     do_variable->file = ASTFileName(io_do_variable);
     do_variable->line = ASTLine(io_do_variable);
 
+    scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, new_context);
+
     rec_handler(implied_do_object_list, new_context);
 }
 
@@ -2450,117 +2456,122 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
     decl_context_t inner_decl_context = new_class_context(class_name->decl_context, class_name);
     class_type_set_inner_context(class_name->type_information, inner_decl_context);
 
-    for_each_element(component_part, it)
+    if (component_part != NULL)
     {
-        AST component_def_stmt = ASTSon1(it);
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, component_part, inner_decl_context);
 
-        if (ASTType(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
+        for_each_element(component_part, it)
         {
-            running_error("%s: sorry: unsupported procedure components in derived type definition\n",
-                    ast_location(component_def_stmt));
-        }
-        ERROR_CONDITION(ASTType(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
-                "Invalid tree", 0);
+            AST component_def_stmt = ASTSon1(it);
 
-        AST declaration_type_spec = ASTSon0(component_def_stmt);
-        AST component_attr_spec_list = ASTSon1(component_def_stmt);
-        AST component_decl_list = ASTSon2(component_def_stmt);
-
-        type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
-
-        attr_spec_t attr_spec;
-        memset(&attr_spec, 0, sizeof(attr_spec));
-
-        if (component_attr_spec_list != NULL)
-        {
-            gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
-        }
-
-        AST it2;
-        for_each_element(component_decl_list, it2)
-        {
-            attr_spec_t current_attr_spec = attr_spec;
-            AST declaration = ASTSon1(it2);
-
-            AST component_name = ASTSon0(declaration);
-            AST entity_decl_specs = ASTSon1(declaration);
-
-            scope_entry_t* entry = new_fortran_symbol(inner_decl_context, ASTText(component_name));
-
-            entry->kind = SK_VARIABLE;
-
-            entry->file = ASTFileName(declaration);
-            entry->line = ASTLine(declaration);
-
-            entry->type_information = basic_type;
-            entry->entity_specs.is_implicit_basic_type = 0;
-
-            AST char_length = NULL;
-            AST initialization = NULL;
-            if (entity_decl_specs != NULL)
+            if (ASTType(component_def_stmt) == AST_PROC_COMPONENT_DEF_STATEMENT)
             {
-                AST array_spec = ASTSon0(entity_decl_specs);
-                AST coarray_spec = ASTSon1(entity_decl_specs);
-                char_length = ASTSon2(entity_decl_specs);
-                initialization = ASTSon3(entity_decl_specs);
+                running_error("%s: sorry: unsupported procedure components in derived type definition\n",
+                        ast_location(component_def_stmt));
+            }
+            ERROR_CONDITION(ASTType(component_def_stmt) != AST_DATA_COMPONENT_DEF_STATEMENT, 
+                    "Invalid tree", 0);
 
-                if (array_spec != NULL)
+            AST declaration_type_spec = ASTSon0(component_def_stmt);
+            AST component_attr_spec_list = ASTSon1(component_def_stmt);
+            AST component_decl_list = ASTSon2(component_def_stmt);
+
+            type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+
+            attr_spec_t attr_spec;
+            memset(&attr_spec, 0, sizeof(attr_spec));
+
+            if (component_attr_spec_list != NULL)
+            {
+                gather_attr_spec_list(component_attr_spec_list, decl_context, &attr_spec);
+            }
+
+            AST it2;
+            for_each_element(component_decl_list, it2)
+            {
+                attr_spec_t current_attr_spec = attr_spec;
+                AST declaration = ASTSon1(it2);
+
+                AST component_name = ASTSon0(declaration);
+                AST entity_decl_specs = ASTSon1(declaration);
+
+                scope_entry_t* entry = new_fortran_symbol(inner_decl_context, ASTText(component_name));
+
+                entry->kind = SK_VARIABLE;
+
+                entry->file = ASTFileName(declaration);
+                entry->line = ASTLine(declaration);
+
+                entry->type_information = basic_type;
+                entry->entity_specs.is_implicit_basic_type = 0;
+
+                AST char_length = NULL;
+                AST initialization = NULL;
+                if (entity_decl_specs != NULL)
                 {
-                    if (current_attr_spec.is_dimension)
+                    AST array_spec = ASTSon0(entity_decl_specs);
+                    AST coarray_spec = ASTSon1(entity_decl_specs);
+                    char_length = ASTSon2(entity_decl_specs);
+                    initialization = ASTSon3(entity_decl_specs);
+
+                    if (array_spec != NULL)
                     {
-                        running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                        if (current_attr_spec.is_dimension)
+                        {
+                            running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                        }
+                        current_attr_spec.is_dimension = 1;
+                        current_attr_spec.array_spec = array_spec;
                     }
-                    current_attr_spec.is_dimension = 1;
-                    current_attr_spec.array_spec = array_spec;
-                }
 
-                if (coarray_spec != NULL)
-                {
+                    if (coarray_spec != NULL)
+                    {
+                        if (current_attr_spec.is_codimension)
+                        {
+                            running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                        }
+                        current_attr_spec.is_codimension = 1;
+                        current_attr_spec.coarray_spec = coarray_spec;
+                    }
+
+                    if (char_length != NULL)
+                    {
+                        if (!is_fortran_character_type(entry->type_information))
+                        {
+                            running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                        }
+
+                        if (ASTType(char_length) != AST_SYMBOL
+                                || strcmp(ASTText(char_length), "*") != 0)
+                        {
+                            fortran_check_expression(char_length, decl_context);
+                            AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                            entry->type_information = get_array_type_bounds(
+                                    array_type_get_element_type(entry->type_information), 
+                                    lower_bound, char_length, decl_context);
+                        }
+                        else
+                        {
+                            entry->type_information = get_array_type(
+                                    array_type_get_element_type(entry->type_information), 
+                                    NULL, decl_context);
+                        }
+                    }
+
+                    // Stop the madness here
                     if (current_attr_spec.is_codimension)
                     {
-                        running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                        running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
                     }
-                    current_attr_spec.is_codimension = 1;
-                    current_attr_spec.coarray_spec = coarray_spec;
-                }
 
-                if (char_length != NULL)
-                {
-                    if (!is_fortran_character_type(entry->type_information))
+                    if (current_attr_spec.is_dimension)
                     {
-                        running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                        type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                                current_attr_spec.array_spec,
+                                decl_context,
+                                /* array_spec_kind */ NULL);
+                        entry->type_information = array_type;
                     }
-
-                    if (ASTType(char_length) != AST_SYMBOL
-                            || strcmp(ASTText(char_length), "*") != 0)
-                    {
-                        fortran_check_expression(char_length, decl_context);
-                        AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
-                        entry->type_information = get_array_type_bounds(
-                                array_type_get_element_type(entry->type_information), 
-                                lower_bound, char_length, decl_context);
-                    }
-                    else
-                    {
-                        entry->type_information = get_array_type(
-                                array_type_get_element_type(entry->type_information), 
-                                NULL, decl_context);
-                    }
-                }
-
-                // Stop the madness here
-                if (current_attr_spec.is_codimension)
-                {
-                    running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
-                }
-
-                if (current_attr_spec.is_dimension)
-                {
-                    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
-                            current_attr_spec.array_spec,
-                            decl_context,
-                            /* array_spec_kind */ NULL);
-                    entry->type_information = array_type;
                 }
             }
         }

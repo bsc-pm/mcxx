@@ -716,6 +716,38 @@ namespace TL
                 "@TYPE-LIST@", finish_parse_type_list_c_cxx);
     }
 
+    static AST_t finish_parse_program_unit_fortran(
+            Source::ParseFlags parse_flags, 
+            decl_context_t decl_context,
+            scope_link_t* scope_link,
+            AST a)
+    {
+        decl_context_t (*new_context_fun)(decl_context_t) = NULL;
+
+        build_scope_program_unit(a, 
+                decl_context, 
+                new_context_fun,
+                NULL);
+
+        return AST_t(a);
+    }
+
+    AST_t Source::parse_program_unit(AST_t ref_tree, TL::ScopeLink scope_link)
+    {
+#ifdef FORTRAN_SUPPORT
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+#endif
+#ifndef FORTRAN_SUPPORT
+        { 
+            internal_error("This function requires can only be called in Fortran", 0); 
+        }
+#endif
+
+        return parse_generic_lang<AST_t>(ref_tree, scope_link, Source::DEFAULT,
+                "@PROGRAM-UNIT@", finish_parse_program_unit_fortran);
+    }
+
     bool Source::operator==(const Source& src) const
     {
         return this->get_source() == src.get_source();

@@ -847,7 +847,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 }
 
-@PROGRAM_UNIT@ {		
+@PROGRAM-UNIT@ {		
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_PROGRAM_UNIT);
 }

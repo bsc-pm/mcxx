@@ -386,7 +386,16 @@ namespace TL
              * This function is only for C/C++
              */
             ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
-            // -- end of new family of parse_XXX
+
+            //! Parses a Fortran program unit
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             *
+             * This function is only for Fortran
+             *
+             */
+            AST_t parse_program_unit(AST_t ref_tree, ScopeLink scope_link);
 
             // Format string for debugging
             static std::string format_source(const std::string&);
