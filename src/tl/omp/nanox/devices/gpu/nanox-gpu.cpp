@@ -168,7 +168,7 @@ Source ReplaceSrcGPU::replace(AST_t a) const
 {
     Source result;
 
-    char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
+    const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
             &ReplaceSrcGPU::prettyprint_callback, (void*)this);
 
     // Not sure whether this could happen or not
@@ -178,7 +178,7 @@ Source ReplaceSrcGPU::replace(AST_t a) const
     }
 
     // The returned pointer came from C code, so 'free' it
-    free(c);
+    free((void*)c);
 
     return result;
 }
