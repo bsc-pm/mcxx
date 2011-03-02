@@ -716,6 +716,7 @@ namespace TL
                 "@TYPE-LIST@", finish_parse_type_list_c_cxx);
     }
 
+#ifdef FORTRAN_SUPPORT
     static AST_t finish_parse_program_unit_fortran(
             Source::ParseFlags parse_flags, 
             decl_context_t decl_context,
@@ -731,6 +732,7 @@ namespace TL
 
         return AST_t(a);
     }
+#endif
 
     AST_t Source::parse_program_unit(AST_t ref_tree, TL::ScopeLink scope_link)
     {
@@ -738,14 +740,15 @@ namespace TL
         if (IS_C_LANGUAGE
                 || IS_CXX_LANGUAGE)
 #endif
-#ifndef FORTRAN_SUPPORT
         { 
-            internal_error("This function requires can only be called in Fortran", 0); 
+            internal_error("This function can only be called in Fortran", 0); 
         }
-#endif
-
+#ifdef FORTRAN_SUPPORT
         return parse_generic_lang<AST_t>(ref_tree, scope_link, Source::DEFAULT,
                 "@PROGRAM-UNIT@", finish_parse_program_unit_fortran);
+#else
+        return AST_t();
+#endif
     }
 
     bool Source::operator==(const Source& src) const
