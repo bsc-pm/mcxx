@@ -71,7 +71,7 @@ namespace TL
 				{
 					Type subtype = type.array_element();
 					subtype = remove_inner_pointer_rec(subtype, filter, scope_link);
-					type = subtype.get_array_to(type.array_dimension(), scope_link.get_scope(type.array_dimension()));
+					type = subtype.get_array_to(type.array_get_size(), scope_link.get_scope(type.array_get_size()));
 					return type;
 				}
 				else
@@ -119,11 +119,11 @@ namespace TL
 				if (type.is_array())
 				{
 					result = get_array_dimensions(type.array_element(), scope_link);
-					if (!type.explicit_array_dimension())
+					if (!type.array_has_size())
 					{
 						throw NotFoundException();
 					}
-					result.push_back(Expression(type.array_dimension(), scope_link));
+					result.push_back(Expression(type.array_get_size(), scope_link));
 				}
 				return result;
 			}

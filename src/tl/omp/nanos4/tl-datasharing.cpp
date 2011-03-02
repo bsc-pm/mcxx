@@ -538,7 +538,7 @@ namespace TL
                 vla_counter++;
 
                 dim_names.append(dim_name);
-                dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_dimension().prettyprint());
+                dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_get_size().prettyprint());
 
                 dimensional_replacements_of_variable_type_aux(t.array_element(), sym, dim_names, dim_decls);
             }

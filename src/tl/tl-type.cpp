@@ -373,7 +373,17 @@ namespace TL
         return (is_unnamed_class_type(_type_info));
     }
 
-    bool Type::explicit_array_dimension() const
+    bool Type::explicit_array_dimension() const 
+    {
+        return array_has_size();
+    }
+
+    AST_t Type::array_dimension() const
+    {
+        return array_get_size();
+    }
+
+    bool Type::array_has_size() const
     {
         if (is_array())
         {
@@ -383,10 +393,16 @@ namespace TL
         return false;
     }
 
-    AST_t Type::array_dimension() const
+    AST_t Type::array_get_size() const
     {
         AST expression = array_type_get_array_size_expr(_type_info);
         return expression;
+    }
+
+    void Type::array_get_bounds(AST_t& lower, AST_t& upper)
+    {
+        lower = AST_t(array_type_get_array_lower_bound(_type_info));
+        upper = AST_t(array_type_get_array_upper_bound(_type_info));
     }
 
     Type Type::get_int_type(void)

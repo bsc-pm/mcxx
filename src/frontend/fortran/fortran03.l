@@ -847,17 +847,17 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 }
 
-@PROGRAM_UNIT@ {		// CSS / mf03: SUBPARSING
+@PROGRAM-UNIT@ {		
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_PROGRAM_UNIT);
 }
 
-@EXPRESSION@ {			// CSS / mf03: SUBPARSING
+@EXPRESSION@ {			
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_EXPRESSION);
 }
 
-@STATEMENT@ {			// CSS / mf03: SUBPARSING
+@STATEMENT@ {			
 	parse_token_text();
 	RETURN_TOKEN(SUBPARSE_STATEMENT);
 }

@@ -173,7 +173,6 @@ HANDLER_PROTOTYPE(pixel_type_handler);
 HANDLER_PROTOTYPE(pointer_initialization_handler);
 HANDLER_PROTOTYPE(pointer_statement_handler);
 HANDLER_PROTOTYPE(print_statement_handler);
-HANDLER_PROTOTYPE(private_statement_handler);
 HANDLER_PROTOTYPE(proc_component_def_statement_handler);
 HANDLER_PROTOTYPE(procedure_decl_statement_handler);
 HANDLER_PROTOTYPE(procedure_suffix_handler);
@@ -398,7 +397,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_POINTER_STATEMENT, pointer_statement_handler, NULL),
     NODE_HANDLER(AST_POWER_OP, binary_operator_handler, "**"),
     NODE_HANDLER(AST_PRINT_STATEMENT, print_statement_handler, NULL),
-    NODE_HANDLER(AST_PRIVATE_STATEMENT, private_statement_handler, NULL),
     NODE_HANDLER(AST_PROC_COMPONENT_DEF_STATEMENT, proc_component_def_statement_handler, NULL),
     NODE_HANDLER(AST_PROCEDURE_DECL_STATEMENT, procedure_decl_statement_handler, NULL),
     NODE_HANDLER(AST_PROCEDURE_SUFFIX, procedure_suffix_handler, NULL),
@@ -610,6 +608,14 @@ static void list_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     character_separated_sequence_handler(f, a, pt_ctx, ", ", NULL);
 }
 
+const char* fortran_list_handler_in_buffer(AST a)
+{
+    prettyprint_context_t pt_ctx;
+    prettyprint_context_init(&pt_ctx);
+
+    return prettyprint_in_buffer_common(a, list_handler, &pt_ctx);
+}
+
 static void sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     character_separated_sequence_handler(f, a, pt_ctx, "", NULL);
@@ -664,8 +670,11 @@ static void access_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_c
 {
     indent_at_level(f, a, pt_ctx);
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " :: ");
-    list_handler(f, ASTSon1(a), pt_ctx);
+    if (ASTSon1(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, " :: ");
+        list_handler(f, ASTSon1(a), pt_ctx);
+    }
     end_of_statement_handler(f, a, pt_ctx);
 }
 
@@ -1445,9 +1454,13 @@ static void double_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void elsewhere_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "ELSEWHERE(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ")");
+    token_fprintf(f, a, pt_ctx, "ELSEWHERE");
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
     if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
@@ -2151,13 +2164,6 @@ static void print_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
     end_of_statement_handler(f, a, pt_ctx);
 }
 
-static void private_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "PRIVATE");
-    end_of_statement_handler(f, a, pt_ctx);
-}
-
 static void proc_component_def_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -2683,9 +2689,10 @@ static void where_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 
 static void where_construct_body_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    NEW_PT_CONTEXT(new_ctx, increase_level);
     if (ASTSon0(a) != NULL)
     {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        prettyprint_level(f, ASTSon0(a), new_ctx);
     }
     if (ASTSon1(a) != NULL)
     {
@@ -2697,7 +2704,7 @@ static void where_construct_body_handler(FILE* f, AST a, prettyprint_context_t* 
     }
     if (ASTSon3(a) != NULL)
     {
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
+        prettyprint_level(f, ASTSon3(a), new_ctx);
     }
 }
 

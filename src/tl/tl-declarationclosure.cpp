@@ -183,9 +183,9 @@ namespace TL
                 return false;
 
             // Get the symbols of the expression
-            if (t.explicit_array_dimension())
+            if (t.array_has_size())
             {
-                Expression expr(t.array_dimension(), _scope_link);
+                Expression expr(t.array_get_size(), _scope_link);
 
                 if (expr.is_constant())
                 {

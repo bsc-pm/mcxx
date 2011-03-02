@@ -40,13 +40,27 @@ LIBMF03_EXTERN decl_context_t new_program_unit_context(decl_context_t);
 LIBMF03_EXTERN decl_context_t new_internal_program_unit_context(decl_context_t);
 LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 
+// Creates a new fortran symbol. Use this function instead of new_symbol as
+// this one takes care of case. It always uses current_scope.
 LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);
+
+// Use this one as a normal lookup of a name without using IMPLICIT info and
+// ignoring intrinsic names
+LIBMF03_EXTERN scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t, const char* name);
+
+// Use this one as a normal lookup of a name without using IMPLICIT info
 LIBMF03_EXTERN scope_entry_t* query_name_no_implicit(decl_context_t, const char* name);
-LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
+
+// Use this one for typechecking of expressions only. This function uses
+// IMPLIICT info and creates SK_VARIABLEs as needed using the locus
+// information. locus may be NULL
 LIBMF03_EXTERN scope_entry_t* query_name_with_locus(decl_context_t, AST locus, const char* name);
 
+// Query of derived type. 
+// class_context should have a current_scope->kind ==  CLASS_SCOPE
 LIBMF03_EXTERN scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name);
 
+// IMPLICIT info functions
 LIBMF03_EXTERN void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type);
 LIBMF03_EXTERN void set_implicit_none(decl_context_t decl_context);
 LIBMF03_EXTERN char is_implicit_none(decl_context_t decl_context);

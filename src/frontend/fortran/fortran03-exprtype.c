@@ -672,7 +672,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
     }
     else
     {
-        scope_entry_t* sym = query_name(decl_context, p);
+        scope_entry_t* sym = query_name_with_locus(decl_context, expr, p);
         if (sym == NULL
                 || sym->kind != SK_VARIABLE
                 || !is_const_qualified_type(sym->type_information))
@@ -749,7 +749,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     }
 
     AST derived_name = ASTSon0(derived_type_spec);
-    scope_entry_t* entry = query_name(decl_context, ASTText(derived_name));
+    scope_entry_t* entry = query_name_with_locus(decl_context, derived_name, ASTText(derived_name));
 
     if (entry == NULL
             || entry->kind != SK_CLASS)
@@ -802,14 +802,14 @@ static void check_equal_op(AST expr, decl_context_t decl_context)
 
 static void check_floating_literal(AST expr, decl_context_t decl_context)
 {
-   const char* floating_text = ASTText(expr);
+   const char* floating_text = strtolower(ASTText(expr));
 
    // Our constant evaluation system does not support floats yet so simply
    // compute the type
 
    int kind = 4;
-   const char *q = strchr(floating_text, '_');
-   if (q != NULL)
+   const char *q = NULL; 
+   if ((q = strchr(floating_text, '_')) != NULL)
    {
        q++;
        kind = compute_kind_from_literal(q, expr, decl_context);
@@ -818,6 +818,10 @@ static void check_floating_literal(AST expr, decl_context_t decl_context)
            expression_set_error(expr);
            return;
        }
+   }
+   else if ((q = strchr(floating_text, 'd')) != NULL)
+   {
+       kind = 8;
    }
 
    expression_set_type(expr, choose_float_type_from_kind(expr, kind));
@@ -889,7 +893,6 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
 
         if (!ok)
             continue;
-
 
         // Now complete with the optional ones
         for (i = 0; (i < specific_symbol->entity_specs.num_related_symbols) && ok; i++)
@@ -979,8 +982,11 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     if (ASTType(procedure_designator) == AST_SYMBOL
             && is_call_stmt)
     {
-        scope_entry_t* call_sym = query_name(decl_context, ASTText(procedure_designator));
-        if (call_sym == NULL)
+        scope_entry_t* call_sym 
+            = query_name_with_locus(decl_context, procedure_designator, ASTText(procedure_designator));
+        if (call_sym == NULL
+                || (call_sym->entity_specs.is_builtin
+                    && !call_sym->entity_specs.is_builtin_subroutine))
         {
             // This should be regarded as an error, but it is not for some
             // obscure reasons
@@ -991,6 +997,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         else 
         {
+            // We know this function because of an EXTERNAL
             if (call_sym->entity_specs.is_implicit_basic_type)
             {
                 call_sym->kind = SK_FUNCTION;
@@ -1139,7 +1146,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     type_t* return_type = NULL; 
     // This is a generic procedure reference
-    if (symbol->entity_specs.is_builtin)
+    if (symbol->entity_specs.is_builtin
+            && is_computed_function_type(symbol->type_information))
     {
         if (CURRENT_CONFIGURATION->disable_intrinsics)
         {
@@ -1179,13 +1187,28 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
 
         scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
+
         if (entry == NULL)
         {
+            const char* actual_arguments = "(";
+
+            for (i = 0; i < num_args; i++)
+            {
+                char c[256];
+                snprintf(c, 255, "%s%s", i != 0 ? ", " : "", 
+                        fortran_print_type_str(type_list[i]));
+                c[255] = '\0';
+
+                actual_arguments = strappend(actual_arguments, c);
+            }
+            actual_arguments = strappend(actual_arguments, ")");
+            
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic '%s' failed\n", 
+                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
                         ast_location(expr),
-                        strtoupper(symbol->symbol_name));
+                        strtoupper(symbol->symbol_name),
+                        actual_arguments);
             }
             expression_set_error(expr);
             return;
@@ -1560,9 +1583,8 @@ static char* binary_expression_attr[] =
     [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
     [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
     [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
-    [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
-    [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
-    [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
+    [AST_LOGICAL_EQUAL] = LANG_IS_EQUAL_OP,
+    [AST_LOGICAL_DIFFERENT] = LANG_IS_DIFFERENT_OP,
     [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
     [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
     [AST_POWER_OP] = LANG_IS_POWER_OP,
@@ -1596,6 +1618,14 @@ static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rh
 }
 
 static void common_unary_intrinsic_check(AST expr, type_t* rhs_type);
+
+static char* unary_expression_attr[] =
+{
+    [AST_PLUS_OP]       = LANG_IS_PLUS_OP,
+    [AST_NEG_OP]        = LANG_IS_NEGATE_OP,
+    [AST_NOT_OP]        = LANG_IS_NOT_OP,
+};
+
 static void common_unary_check(AST expr, decl_context_t decl_context) 
 {
     AST rhs = ASTSon0(expr);
@@ -1606,6 +1636,10 @@ static void common_unary_check(AST expr, decl_context_t decl_context)
     RETURN_IF_ERROR_1(rhs_type, expr);
 
     common_unary_intrinsic_check(expr, rhs_type);
+
+    ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
 }
 
 static void common_unary_intrinsic_check(AST expr, type_t* rhs_type)
@@ -1673,9 +1707,32 @@ static char function_has_result(scope_entry_t* entry)
     return 0;
 }
 
+static char is_name_of_funtion_call(AST expr)
+{
+    return ASTParent(expr) != NULL
+        && ASTType(ASTParent(expr)) == AST_FUNCTION_CALL;
+}
+
+static char is_name_in_actual_arg_spec_list(AST expr)
+{
+    node_t hierarchy[] = { AST_NAMED_PAIR_SPEC, AST_NODE_LIST, AST_FUNCTION_CALL, AST_INVALID_NODE };
+
+    AST p = ASTParent(expr);
+    int i = 0;
+    while (hierarchy[i] != AST_INVALID_NODE
+            && p != NULL
+            && ASTType(p) == hierarchy[i])
+    {
+        p = ASTParent(p);
+        i++;
+    }
+
+    return (hierarchy[i] == AST_INVALID_NODE);
+}
+
 static void check_symbol(AST expr, decl_context_t decl_context)
 {
-    scope_entry_t* entry = query_name(decl_context, ASTText(expr));
+    scope_entry_t* entry = query_name_with_locus(decl_context, expr, ASTText(expr));
 
     if (entry == NULL)
     {
@@ -1687,6 +1744,24 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         }
         expression_set_error(expr);
         return;
+    }
+
+    if (entry->kind == SK_UNDEFINED)
+    {
+        if (is_name_of_funtion_call(expr))
+        {
+            entry->kind = SK_FUNCTION;
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+        }
+        else if (is_name_in_actual_arg_spec_list(expr))
+        {
+            // If we are an actual argument do not change our status
+        }
+        else
+        {
+            // Otherwise we are a variable
+            entry->kind = SK_VARIABLE;
+        }
     }
 
     if (entry->kind == SK_VARIABLE)
@@ -1716,11 +1791,39 @@ static void check_symbol(AST expr, decl_context_t decl_context)
             expression_set_constant(expr, expression_get_constant(entry->expression_value));
         }
     }
-    else if (entry->kind == SK_FUNCTION)
+    else if (entry->kind == SK_UNDEFINED)
     {
-        // This function has a RESULT(X) so it cannot be used as a variable
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
+    }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        if (is_name_of_funtion_call(expr)
+                || is_name_in_actual_arg_spec_list(expr))
+        {
+            expression_set_type(expr, entry->type_information);
+        }
+        else
+        {
+            // This must act as a variable
+            type_t* return_type = NULL; 
+            if (is_function_type(entry->type_information))
+                return_type = function_type_get_return_type(entry->type_information);
+            if (return_type == NULL
+                    || function_has_result(entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
+                            ast_location(expr),
+                            fortran_prettyprint_in_buffer(expr));
+                }
+                expression_set_error(expr);
+                return;
+            }
+            expression_set_type(expr, function_type_get_return_type(entry->type_information));
+        }
+        expression_set_symbol(expr, entry);
     }
     else
     {
@@ -1755,6 +1858,7 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
+#if 0
     if (expression_has_symbol(lvalue))
     {
         scope_entry_t* sym = expression_get_symbol(lvalue);
@@ -1781,6 +1885,7 @@ static void check_assignment(AST expr, decl_context_t decl_context)
             internal_error("Invalid symbol kind in left part of assignment", 0);
         }
     }
+#endif
 
     expression_set_type(expr, lvalue_type);
 
@@ -1943,7 +2048,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     type_t* char1 = array_type_get_element_type(t1);
     type_t* char2 = array_type_get_element_type(t2);
 
-    if (!equivalent_types(char1, char2))
+    if (!equivalent_types(get_unqualified_type(char1), get_unqualified_type(char2)))
         return NULL;
 
     type_t* result = NULL;

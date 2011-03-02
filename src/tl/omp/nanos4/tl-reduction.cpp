@@ -120,14 +120,14 @@ namespace TL
                         for (int i = 0; i < udr.get_num_dimensions(); i++)
                         {
                             if (!current_type.is_array()
-                                    || !current_type.explicit_array_dimension())
+                                    || !current_type.array_has_size())
                             {    
                                 internal_error("We expected an array type here but we got '%s'", 
                                         print_declarator(current_type.get_internal_type()));
                             }
                             else
                             {
-                                result << current_type.array_dimension().prettyprint() << ","
+                                result << current_type.array_get_size().prettyprint() << ","
                                     ;
                             }
                             current_type = current_type.array_element();
@@ -158,14 +158,14 @@ namespace TL
                         for (int i = 0; i < udr.get_num_dimensions(); i++)
                         {
                             if (!current_type.is_array()
-                                    || !current_type.explicit_array_dimension())
+                                    || !current_type.array_has_size())
                             {
                                 internal_error("We expected an array type here but we got '%s'", 
                                     print_declarator(current_type.get_internal_type()));
                             }
                             else
                             {
-                                result << "," << current_type.array_dimension().prettyprint()
+                                result << "," << current_type.array_get_size().prettyprint()
                                     ;
                             }
                             current_type = current_type.array_element();

@@ -400,9 +400,34 @@ namespace TL
             //! Returns the element type of an array-type
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
-            bool explicit_array_dimension() const;
+            bool array_has_size() const;
+
+            //! This is an alias to array_has_size
+            /*!
+              \deprecated Do not use it, use array_has_size instead
+              */
+            DEPRECATED bool explicit_array_dimension() const;
+
             //! Returns the expression of the array dimension
-            AST_t array_dimension() const;
+            AST_t array_get_size() const; 
+
+            //! This is an alias to array_get_size
+            /*!
+              \deprecated Do not use it, use array_get_size instead
+              */
+            DEPRECATED AST_t array_dimension() const;
+
+            //! This returns the bounds of the array
+            /*!
+              The array bounds are expressed as a range of [lower, upper] (both ends included)
+              \a lower Output argument with the tree of the lower expression boundary
+              \a upper Output argument with the tree of the upper expression boundary
+
+              In C all the arrays with explicit size will have a lower of zero
+              and an upper of N-1 where N is the size of the array as returned
+              by array_get_size
+              */
+            void array_get_bounds(AST_t& lower, AST_t& upper);
 
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;

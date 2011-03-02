@@ -878,32 +878,11 @@ static void append_statement_to_block(AST block, AST stmt)
 %token<token_atrib> TOK_SHARED_LABEL "shared-do-label"
 
 /*!define GRAMMAR_PROLOGUE*/
+/*!include fortran03-subparse.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %token<token_atrib> UNKNOWN_PRAGMA
-%token<token_atrib> SUBPARSE_PROGRAM_UNIT
-%token<token_atrib> SUBPARSE_EXPRESSION
-%token<token_atrib> SUBPARSE_STATEMENT
-
-// // FIXME
-// %token OMP_SENTINEL
-// %token PRAGMA_CUSTOM
-// %token PRAGMA_CUSTOM_DIRECTIVE
-// %token PRAGMA_CUSTOM_CONSTRUCT
-// %token PRAGMA_CUSTOM_CLAUSE
-// %token PRAGMA_CLAUSE_ARG_TEXT
-// %token UNKNOWN_PRAGMA
-// %token CSS_START
-// %token CSS_FINISH
-// %token CSS_WAITON
-// %token CSS_BARRIER
-// %token CSS_TASK
-// %token SUBPARSE_PROGRAM_UNIT
-// %token SUBPARSE_EXPRESSION
-// %token SUBPARSE_STATEMENT
-// %token ONERROR
-
 
 %start program
 
@@ -1493,7 +1472,8 @@ type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_s
 ;
 private_stmt : labeldef TOK_PRIVATE eos
 {
-    $$ = ASTMake1Label(AST_PRIVATE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
+    AST priv_spec = ASTLeaf(AST_ATTR_SPEC, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, priv_spec, NULL, ASTFileName(priv_spec), ASTLine(priv_spec), NULL);
 }
 ;
 type_bound_proc_binding : type_bound_procedure_stmt
@@ -1856,11 +1836,11 @@ initialization : '=' constant_expr
 ;
 access_spec : TOK_PUBLIC
 {
-    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_PRIVATE
 {
-    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 proc_language_binding_spec : language_binding_spec
@@ -1937,6 +1917,10 @@ access_stmt : labeldef access_spec ':' ':' access_id_list eos
 | labeldef access_spec access_id_list eos
 {
     $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+}
+| labeldef access_spec eos
+{
+    $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 access_id : generic_spec
@@ -2772,7 +2756,8 @@ top_level_block : top_level_program_unit_stmts_seq
 }
 | /* empty */
 {
-    $$ = ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL);
+    AST empty = ASTListLeaf(ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL));
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, empty, ASTFileName(empty), ASTLine(empty), NULL);
 }
 ;
 block : non_top_level_program_unit_stmts_seq
@@ -4315,19 +4300,19 @@ end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
 ;
 module : module_stmt block module_subprogram_part end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | module_stmt module_subprogram_part end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | module_stmt block end_module_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4462,19 +4447,19 @@ local_defined_operator : user_defined_op
 ;
 submodule : submodule_stmt block module_subprogram_part end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt module_subprogram_part end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt block end_submodule_stmt
 {
-    AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
+    AST module_body = ASTMake2(AST_BODY_PROGRAM_UNIT, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4609,7 +4594,7 @@ end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
 
 interface_program_body : block 
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -5939,6 +5924,7 @@ labeldef : label
 ;
 
 /*!define GRAMMAR_RULES*/
+/*!include fortran03-subparse.y*/
 /*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_RULES*/
 

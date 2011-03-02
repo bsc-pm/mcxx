@@ -161,7 +161,7 @@ Source FunctionCallInline::get_source()
 
     FunctionDefinition funct_def(definition_tree, _function_call.get_scope_link());
 
-    char *c = prettyprint_in_buffer_callback(funct_def.get_function_body().get_ast().get_internal_ast(), 
+    const char *c = prettyprint_in_buffer_callback(funct_def.get_function_body().get_ast().get_internal_ast(), 
             &FunctionCallInline::inline_prettyprint_callback, (void*)this);
 
     if (c != NULL)
@@ -170,7 +170,7 @@ Source FunctionCallInline::get_source()
     }
 
     // The returned pointer came from C code, so 'free' it
-    free(c);
+    free((void*)c);
 
     result
         << "({"

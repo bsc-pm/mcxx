@@ -56,13 +56,13 @@ namespace TL
             {
                 ObjectList<AST_t> previous_dim = compute_array_dimensions_of_type(t.array_element());
 
-                if (!t.explicit_array_dimension())
+                if (!t.array_has_size())
                 {
                     return result;
                 }
 
                 result = previous_dim;
-                result.append(t.array_dimension());
+                result.append(t.array_get_size());
             }
 
             return result;

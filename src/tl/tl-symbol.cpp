@@ -404,4 +404,104 @@ namespace TL
     {
         return _symbol->line;
     }
+
+
+    bool Symbol::is_common() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->kind == SK_COMMON;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_allocatable() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_allocatable;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_in_common() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_in_common;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_in_namelist() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_in_namelist;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_optional() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_optional;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_target() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_target;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_value() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_value;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_elemental() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_elemental;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_recursive() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_recursive;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_result() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_result;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_generic_specifier() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_builtin_subroutine;
+#else
+        return false;
+#endif
+    }
 }

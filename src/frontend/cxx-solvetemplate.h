@@ -45,7 +45,7 @@ LIBMCXX_EXTERN struct type_tag* solve_class_template(decl_context_t decl_context
         const char *filename,
         int line);
 
-LIBMCXX_EXTERN struct scope_entry_tag* solve_template_function(struct scope_entry_list_tag* template_set,
+LIBMCXX_EXTERN scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         template_argument_list_t* explicit_template_arguments,
         struct type_tag* function_type, decl_context_t decl_context,
         const char *filename, int line);

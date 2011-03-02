@@ -105,6 +105,27 @@ const char* fortran_print_type_str(type_t* t)
         c[127] = '\0';
         result = uniquestr(c);
     }
+    else if (is_function_type(t))
+    {
+        result = "PROCEDURE";
+        // result = strappend(result, "(");
+
+        // int i;
+        // 
+        // int n = function_type_get_num_parameters(t);
+        // for (i = 0; i < n; i++)
+        // {
+        //     type_t* param_type = function_type_get_parameter_type_num(t, i);
+        //     char c[256];
+        //     snprintf(c, 255, "%s%s", (i == 0 ? "" : ", "), 
+        //             fortran_print_type_str(param_type));
+        //     c[255] = '\0';
+
+        //     result = strappend(result, c);
+        // }
+
+        // result = strappend(result, ")");
+    }
     else 
     {
         internal_error("Not a FORTRAN printable type '%s'\n", print_declarator(t));
@@ -229,7 +250,7 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
     type_t* r1 = get_rank0_type(t1);
     type_t* r2 = get_rank0_type(t2);
 
-    if (!equivalent_types(r1, r2))
+    if (!equivalent_types(get_unqualified_type(r1), get_unqualified_type(r2)))
         return 0;
 
     int rank1 = get_rank_of_type(t1);

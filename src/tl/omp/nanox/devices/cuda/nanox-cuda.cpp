@@ -268,10 +268,10 @@ void DeviceCUDA::create_outline(
 				// Keep record of which tasks have been printed to the CUDA file
 				// in order to avoid repeating them
 				_taskSymbols.insert(outline_flags.task_symbol.get_name());
-			}
 
-			// Remove the function definition from the original source code
-			function_tree.remove_in_list();
+				// Remove the function definition from the original source code
+				function_tree.remove_in_list();
+			}
 		}
 		else
 		{

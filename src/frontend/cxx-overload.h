@@ -40,7 +40,7 @@ LIBMCXX_EXTERN candidate_t* add_to_candidate_set(candidate_t* candidate_set,
         int num_args,
         type_t** args);
 
-LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(candidate_t* candidate_set,
+LIBMCXX_EXTERN scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** conversor_per_argument);
@@ -48,7 +48,7 @@ LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(candidate_t* candidate_set
 LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
         char *ambiguous_conversion, scope_entry_t** conversor);
 
-LIBMCXX_EXTERN struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_tag* overload_set, 
+LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
         template_argument_list_t* explicit_template_arguments,
         struct type_tag* target_type,
         decl_context_t decl_context,

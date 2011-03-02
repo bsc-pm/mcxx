@@ -35,7 +35,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void instantiate_template_class(struct scope_entry_tag* entry, decl_context_t decl_context, 
+LIBMCXX_EXTERN void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, 
         const char *filename, int line);
 
 LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);

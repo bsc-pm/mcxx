@@ -1286,7 +1286,7 @@ namespace TL
                 if (t.is_array())
                 {
                     return "((" 
-                        + t.array_dimension().prettyprint() 
+                        + t.array_get_size().prettyprint() 
                         + ") * sizeof( * " 
                         + expr.prettyprint() + "))";
                 }

@@ -3584,7 +3584,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             internal_error("Code unreachable", 0);
     }
 
-    char* qualification_name = NULL;
+    const char* qualification_name = NULL;
     if (class_id_expression != NULL
             && is_unqualified_id_expression(class_id_expression))
     {
@@ -6616,7 +6616,7 @@ static void build_scope_nontype_template_parameter(AST a,
     AST declarator_name = get_declarator_name(parameter_declarator, template_context);
     if (declarator_name != NULL)
     {
-        char *declarator_name_str = prettyprint_in_buffer(declarator_name);
+        const char *declarator_name_str = prettyprint_in_buffer(declarator_name);
         DEBUG_CODE()
         {
             fprintf(stderr, "[%d] Remembering '%s' as a non-type template parameter in %p\n", 
@@ -8952,6 +8952,14 @@ static void build_scope_for_statement(AST a,
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         build_scope_expression_statement(for_init_statement, block_context, NULL);
+    }
+    else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
+    {
+        build_scope_statement(for_init_statement, decl_context);
+    }
+    else
+    {
+        internal_error("unexpected node '%s'", ast_print_node_type(ASTType(for_init_statement)));
     }
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, for_init_statement, block_context);
 

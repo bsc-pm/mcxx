@@ -145,6 +145,21 @@ AC_SUBST([FRONTEND_EXTENSIONS])
 
 dnl ----- End of Fortran support ----
 
+dnl ----- SQLITE - Required only for fortran ---
+
+PKG_PROG_PKG_CONFIG
+
+if test x$is_enabled_fortran = xyes;
+then
+    PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
+            [], 
+            AC_MSG_WARN([Fortran support requires sqlite 3.6.16]))
+fi
+
+AC_SUBST([sqlite3_CFLAGS])
+AC_SUBST([sqlite3_LIBS])
+
+dnl ----- End Sqlite ---------------------------
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
@@ -1273,6 +1288,11 @@ echo ""
 echo " * Default type environment : " $default_type_environ
 echo ""
 echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
+if test x$is_enabled_fortran = xyes;
+then
+   echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
+   echo "   SQLite 3 libs: " $sqlite3_LIBS
+fi
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""

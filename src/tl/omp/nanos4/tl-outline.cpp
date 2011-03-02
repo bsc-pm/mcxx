@@ -86,7 +86,7 @@ namespace TL
                 init
                     << "{"
                     << "int _i" << n << ";"
-                    << "for (_i" << n << " = 0; _i" << n << " < (" << type.array_dimension().prettyprint() << "); _i" << n << "++)"
+                    << "for (_i" << n << " = 0; _i" << n << " < (" << type.array_get_size().prettyprint() << "); _i" << n << "++)"
                     << "{"
                     <<     inner_init
                     << "}"
@@ -532,7 +532,7 @@ namespace TL
 
 		                        for (int i = 0; i < udr.get_num_dimensions(); i++)
 		                        {
-		                            Expression expr(array_type.array_dimension(),
+		                            Expression expr(array_type.array_get_size(),
 		                                    construct.get_scope_link());
 		                            bool valid;
 		                            dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
@@ -882,7 +882,7 @@ namespace TL
 
 		                        for (int i = 0; i < udr.get_num_dimensions(); i++)
 		                        {
-		                            Expression expr(array_type.array_dimension(),
+		                            Expression expr(array_type.array_get_size(),
 		                                    construct.get_scope_link());
 		                            bool valid;
 		                            dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
