@@ -34,6 +34,8 @@ using namespace TL;
 using namespace TL::Nanox;
 
 const unsigned int _vector_width = 16;
+std::map< Symbol, Source> generic_function_map;
+
 
 std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope)
 {
@@ -59,6 +61,7 @@ std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope
 
      return output.str();
 }
+
 
 const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
 {
@@ -161,6 +164,133 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             }
 
             result << recursive_prettyprint(arg_list[0].get_ast(), data);
+
+            return result.str().c_str();
+        }
+        else if(FindFunction(_this->_sl, BUILTIN_GF_NAME).do_(ast))
+        {
+            int i, j;
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (!arg_list[0].is_id_expression())
+            {
+                internal_error("Wrong arguments in %s", BUILTIN_GF_NAME);
+            }
+
+            //If the function exists in the map
+            Symbol func_sym = arg_list[0].get_id_expression().get_symbol(); 
+            std::stringstream func_name;
+
+            func_name
+                << "_"
+                << func_sym.get_name() 
+                << "_smp_"
+                << _vector_width
+                ;
+
+            //If the function doesn't exists yet, we generate its source code
+            if (generic_function_map[func_sym].empty())
+            {
+                Source func, func_body;
+                Type func_ret_type = func_sym
+                    .get_type().basic_type()
+                    .get_vector_to(_vector_width);
+
+                func
+                    << func_ret_type.get_simple_declaration(_this->_sl.get_scope(ast), func_name.str())
+                    << "("
+                    ;
+
+                //Function arguments and Unions
+                for (i=1; i<(arg_list.size()-1); i++)
+                {
+                    Type arg_vec_type = arg_list[i].get_type()
+                        .basic_type().get_vector_to(_vector_width);
+
+                    func
+                        << arg_vec_type.get_simple_declaration(_this->_sl.get_scope(ast), arg_list[i].prettyprint())
+                        << ", "
+                        ;
+
+                    func_body
+                        << "union {"
+                        << arg_vec_type.get_pointer_to()
+                        .get_simple_declaration(_this->_sl.get_scope(ast), "v") << ";"
+                        << arg_vec_type.basic_type().get_pointer_to()
+                        .get_simple_declaration(_this->_sl.get_scope(ast), "w") << ";"
+                        << "} u_" << arg_list[i] << " = { &" << arg_list[i] << " };"
+                        ;
+                }
+
+                Type arg_vec_type = arg_list[i].get_type()
+                    .basic_type().get_vector_to(_vector_width);
+
+                func
+                    << arg_vec_type.get_simple_declaration(_this->_sl.get_scope(ast), arg_list[i].prettyprint())
+                    << ")"
+                    << "{"
+                    << func_body
+                    << "}"
+                    ;
+
+                Source vec_size_src;
+                int vec_size = _vector_width/func_ret_type.basic_type().get_size();
+
+                vec_size_src << vec_size;
+//                std::cerr << "!!!!" << vec_size_src.get_source();
+                //Last union from the arguments + result union
+                func_body
+                    << "union {"
+                    << arg_vec_type.get_pointer_to()
+                    .get_simple_declaration(_this->_sl.get_scope(ast), "v") << ";"
+                    << arg_vec_type.basic_type().get_pointer_to()
+                    .get_simple_declaration(_this->_sl.get_scope(ast), "w") << ";"
+                    << "} u_" << arg_list[i] << " = { &" << arg_list[i] << " };"
+
+                    << "union u_return{"
+                    << func_ret_type.get_simple_declaration(_this->_sl.get_scope(ast), "v") << ";"
+                    << func_ret_type.basic_type().get_array_to(
+                            vec_size_src.parse_expression(ast, _this->_sl), _this->_sl.get_scope(ast))
+                    .get_simple_declaration(_this->_sl.get_scope(ast), "w") << ";"
+                    << "};"
+
+                    << "union u_return _result;"
+                    ;
+
+                for (i=0; i<vec_size; i++)
+                {
+                    func_body
+                        << "_result.w[" << i << "] = " << func_sym.get_name() 
+                        << "("
+                        ;
+
+                    for (j=1; j<(arg_list.size()-1); j++)
+                    {
+                        func_body << "u_" << arg_list[j] << ".w[" << i << "], ";
+                    }
+
+                    func_body << "u_" <<  arg_list[j] << ".w[" << i << "]);";
+                }
+
+                func_body << "return _result.v;";
+
+                generic_function_map[func_sym] = func;
+            }
+
+            //Call to the new function
+            result 
+                << func_name.str()
+                << "("
+                ;
+
+            for (i=1; i<(arg_list.size()-1); i++)
+            {
+                result
+                    << recursive_prettyprint(arg_list[i].get_ast(), data) << ", ";
+            }
+            result
+                << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
 
             return result.str().c_str();
         }
@@ -713,7 +843,7 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list, local_copies;
+    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -804,6 +934,7 @@ void DeviceSMP::create_outline(
         << forward_declaration
         << template_header
         << static_specifier
+        << generic_functions
         << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
@@ -811,6 +942,14 @@ void DeviceSMP::create_outline(
         << instrument_after
         << "}"
         ;
+
+    //generic_functions
+    for (std::map<Symbol, Source>::iterator it = generic_function_map.begin();
+            it != generic_function_map.end();
+            it++)
+    {
+            generic_functions << it->second;
+    }
 
     if (instrumentation_enabled())
     {

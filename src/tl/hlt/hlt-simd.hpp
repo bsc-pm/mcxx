@@ -40,6 +40,8 @@ namespace TL
                 ObjectList<IdExpression> _simd_id_exp_list;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint (AST_t a, void* data);
+
 
             public:
                 ReplaceSimdSrc(ScopeLink sl, ObjectList<IdExpression> simd_id_exp_list) 

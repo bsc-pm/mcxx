@@ -28,6 +28,15 @@
 
 using namespace TL::HLT;
 
+static TL::ObjectList<TL::Symbol*> _list;
+
+
+const char* ReplaceSimdSrc::recursive_prettyprint(AST_t a, void* data)
+{
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSimdSrc::prettyprint_callback, data);
+}
+
 
 const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 {
@@ -50,10 +59,9 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 .get_simple_declaration(_this->_sl.get_scope(ast), "")
                 .c_str();
         }
-        else if (TL::DataReference::predicate(ast))
+        if (TL::DataReference::predicate(ast))
         {
             DataReference dataref(ast, _this->_sl);
-
             if (dataref.is_valid())
             {
                 Symbol sym = dataref.get_base_symbol();
@@ -69,6 +77,38 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 
                     return result.str().c_str();
                 }
+            }
+        }
+        if (TL::Expression::predicate(ast))
+        {
+            Expression exp(ast, _this->_sl);
+
+            if (exp.is_function_call())
+            {
+                std::stringstream result;
+
+                result << BUILTIN_GF_NAME
+                    << "("
+                    << recursive_prettyprint(exp.get_called_expression().get_ast(), data)
+                    << ", "
+                    ;
+
+                ObjectList<Expression> arg_list = exp.get_argument_list();
+
+                int i;
+                for (i=0; i<(arg_list.size()-1); i++)
+                {
+                    result
+                        << recursive_prettyprint(arg_list[i].get_ast(), data)
+                        << ", "
+                        ;
+                }
+                result
+                    << recursive_prettyprint(arg_list[i].get_ast(), data)
+                    << ")"
+                    ;
+                
+                return result.str().c_str();
             }
         }
     }       
