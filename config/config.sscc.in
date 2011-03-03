@@ -9,6 +9,7 @@ preprocessor_options =
 compiler_name = gcc
 compiler_options = -std=gnu99
 linker_name = gcc
+linker_options = -Wl,--add-needed
 {openmp,!(debug|instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
 {openmp,debug} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
 {openmp,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
@@ -39,6 +40,7 @@ preprocessor_options =
 compiler_name = g++
 compiler_options = 
 linker_name = g++
+linker_options = -Wl,--add-needed
 {openmp,!(debug|instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
 {openmp,debug} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
 {openmp,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
