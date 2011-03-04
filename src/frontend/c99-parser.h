@@ -28,8 +28,8 @@
 #ifndef C99_PARSER_H
 #define C99_PARSER_H
 
+#include "libmcxx-common.h"
 #include "cxx-ast.h"
-#include "cxx-utils.h"
 
 MCXX_BEGIN_DECLS
 

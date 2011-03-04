@@ -39,6 +39,11 @@
 #include <ctype.h>
 #include <errno.h>
 
+#ifdef WIN32_BUILD
+#include <windows.h>
+#include <shellapi.h>
+#endif
+
 // int stat(const char *restrict path, struct stat *restrict buf);
 
 char multifile_dir_exists(void)
@@ -71,18 +76,27 @@ void multifile_init_dir(void)
 
 void multifile_remove_dir(void)
 {
-    // This is a bit lame but it is far easier than using nftw
+    int result = 0;
 #ifndef WIN32_BUILD
+    // This is a bit lame but it is far easier than using nftw
     char c[256];
     snprintf(c, 255, "rm -r %s", MULTIFILE_DIRECTORY);
-
-    if (system(c) != 0)
+    result = (system(c) != 0);
+#else
+    SHFILEOPSTRUCT op_struct;
+    memset(&op_struct, 0, sizeof(op_struct));
+    op_struct.wFunc = FO_DELETE;
+    char from[strlen(MULTIFILE_DIRECTORY) + 2];
+    memset(from, 0, sizeof(from));
+    strcpy(from, MULTIFILE_DIRECTORY);
+    op_struct.pFrom = from;
+    op_struct.fFlags = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
+    result = SHFileOperation(&op_struct);
+#endif
+    if (result != 0)
     {
         running_error("There was a problem when removing multifile temporal directory", 0);
     }
-#else
-  #error Uninmplemented function yet
-#endif
 }
 
 void multifile_extract_extended_info(const char* filename)

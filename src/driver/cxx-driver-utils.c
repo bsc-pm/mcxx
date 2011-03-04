@@ -211,15 +211,28 @@ static temporal_file_t new_temporal_file_unix(void)
             dir, compilation_process.exec_basename);
     template[255] = '\0';
 
+    char* filename = template;
+
+
     // Create the temporal file
-    int file_descriptor = mkstemp(template);
+    int file_descriptor = mkstemp(filename);
 
     if (file_descriptor < 0) 
     {
         return NULL;
     }
 
-    return add_to_list_of_temporal_files(template, /* is_temporary */ 1, /* is_dir */ 0);
+    #if defined(__CYGWIN__)
+        // In Windows files without extension look suspicious
+        // and trigger gcc silly bugs
+        char template2[256];
+        snprintf(template2, 255, "%s.tmp", filename);
+        template2[255] = '\0';
+        filename = template2;
+    #endif
+    
+
+    return add_to_list_of_temporal_files(filename, /* is_temporary */ 1, /* is_dir */ 0);
 }
 #else
 static temporal_file_t new_temporal_file_win32(void)

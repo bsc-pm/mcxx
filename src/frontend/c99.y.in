@@ -34,6 +34,7 @@
    Ask for it at <rferrer@ac.upc.edu>
  */
 
+#include "c99-parser.h"
 #include "cxx-ast.h"
 #include "cxx-lexer.h"
 #include "cxx-utils.h"

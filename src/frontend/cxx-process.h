@@ -34,25 +34,25 @@
 #include <stdlib.h>
 
 #ifdef WIN32_BUILD
-  #ifdef LIBPROCESS_DLL_EXPORT
-     #define LIBPROCESS_EXTERN extern __declspec(dllexport)
+  #ifdef LIBMCXXPROCESS_DLL_EXPORT
+     #define LIBMCXXPROCESS_EXTERN extern __declspec(dllexport)
   #else
-     #define LIBPROCESS_EXTERN extern __declspec(dllimport)
+     #define LIBMCXXPROCESS_EXTERN extern __declspec(dllimport)
   #endif
 #else
-  #define LIBPROCESS_EXTERN extern
+  #define LIBMCXXPROCESS_EXTERN extern
 #endif
 
 MCXX_BEGIN_DECLS
 
-LIBPROCESS_EXTERN compilation_process_t compilation_process;
+LIBMCXXPROCESS_EXTERN compilation_process_t compilation_process;
 
-LIBPROCESS_EXTERN void add_new_file_to_compilation_process(
+LIBMCXXPROCESS_EXTERN void add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);
 
-LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
+LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN;
 
 #define BUG_URL "\nPlease report a bug at " \
                 "http://nanos.ac.upc.edu/projects/mcxx/newticket " \
@@ -66,7 +66,7 @@ LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
     exit(EXIT_FAILURE); \
 }
 
-LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
+LIBMCXXPROCESS_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \
