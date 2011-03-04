@@ -55,5 +55,5 @@ compiler_phase = libtlss2omp.so
 {openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
 {openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
 {openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
 pragma_prefix = css
