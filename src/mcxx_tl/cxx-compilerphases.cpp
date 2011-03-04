@@ -518,7 +518,7 @@ extern "C"
             LocalFree(lpMsgBuf);
 
             fprintf(stderr, "Skipping '%s'\n", library_name);
-            continue;
+            return;
         }
         DEBUG_CODE()
         {
@@ -579,7 +579,7 @@ extern "C"
         }
 
         TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
-        lib_handle_list.push_back(handle);
+        TL::CompilerPhaseRunner::lib_handle_list.push_back(handle);
     }
 #endif
 

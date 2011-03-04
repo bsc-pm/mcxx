@@ -217,13 +217,13 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
 
 #if 0
 typedef
-struct stack_tag
+struct char_stack_tag
 {
     int pos;
     unsigned char elem;
-} stack_t;
+} char_stack_t;
 
-static void print_trie_rec(const char_trie_t* char_trie, int level, stack_t* stack)
+static void print_trie_rec(const char_trie_t* char_trie, int level, char_stack_t* stack)
 {
     int i;
 
@@ -250,7 +250,7 @@ static void print_trie_rec(const char_trie_t* char_trie, int level, stack_t* sta
 
 static void print_trie(const char_trie_t* char_trie)
 {
-    stack_t stack[256];
+    char_stack_t stack[256];
     print_trie_rec(char_trie, 0, stack);
 }
 #endif

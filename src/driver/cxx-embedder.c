@@ -141,6 +141,7 @@ static void tool_initialization(int argc, const char* argv[])
     atexit(cleanup_routine);
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+#if !defined(__CYGWIN__)
     // Define alternate stack
     stack_t alternate_stack;
 
@@ -164,6 +165,7 @@ static void tool_initialization(int argc, const char* argv[])
         running_error("Setting alternate signal stack failed (%s)\n",
 				strerror(errno));
     }
+#endif
 
     // Program signals
     struct sigaction terminating_sigaction;
@@ -171,7 +173,10 @@ static void tool_initialization(int argc, const char* argv[])
 
     terminating_sigaction.sa_handler = terminating_signal_handler;
     // Use alternate stack and we want the signal be reset when it happens
-    terminating_sigaction.sa_flags = SA_RESETHAND | SA_ONSTACK;
+    terminating_sigaction.sa_flags = SA_RESETHAND;
+#if !defined(__CYGWIN__)
+    terminating_sigaction.sa_flags |= SA_ONSTACK;
+#endif
     // Block all blockable signals while handling the termination
     sigfillset(&terminating_sigaction.sa_mask);
 

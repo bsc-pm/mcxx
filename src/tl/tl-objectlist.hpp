@@ -518,7 +518,7 @@ class ObjectList : public std::vector<T>, public TL::Object
  * \note Type _T must implement operator<<(std::ostream&, const T&)
  */
 template <typename _T>
-LIBTL_EXTERN std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
+std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
 {
     std::string result;
     for (typename ObjectList<_T>::const_iterator it = string_list.begin();

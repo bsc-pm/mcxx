@@ -35,34 +35,34 @@ MCXX_BEGIN_DECLS
 
 // Basic creation and destruction
 
-scope_entry_list_t* entry_list_new(scope_entry_t*);
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_new(scope_entry_t*);
 
-scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
-void entry_list_free(scope_entry_list_t* list);
+LIBMCXX_EXTERN void entry_list_free(scope_entry_list_t* list);
 
-scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
 
 // Queries
-unsigned int entry_list_size(const scope_entry_list_t* list);
+LIBMCXX_EXTERN unsigned int entry_list_size(const scope_entry_list_t* list);
 
 // Head, for singleton lists
-scope_entry_t* entry_list_head(const scope_entry_list_t* list);
+LIBMCXX_EXTERN scope_entry_t* entry_list_head(const scope_entry_list_t* list);
 
 // Iterator
-scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list);
+LIBMCXX_EXTERN scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list);
 
-scope_entry_t* entry_list_iterator_current(scope_entry_list_iterator_t* it);
-void entry_list_iterator_next(scope_entry_list_iterator_t* it);
+LIBMCXX_EXTERN scope_entry_t* entry_list_iterator_current(scope_entry_list_iterator_t* it);
+LIBMCXX_EXTERN void entry_list_iterator_next(scope_entry_list_iterator_t* it);
 
-char entry_list_iterator_end(scope_entry_list_iterator_t* it);
+LIBMCXX_EXTERN char entry_list_iterator_end(scope_entry_list_iterator_t* it);
 
-void entry_list_iterator_free(scope_entry_list_iterator_t* it);
+LIBMCXX_EXTERN void entry_list_iterator_free(scope_entry_list_iterator_t* it);
 
 // Other ops
 
-scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1, 
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1, 
         const scope_entry_list_t* list2);
 
 MCXX_END_DECLS
