@@ -59,14 +59,14 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 .get_simple_declaration(_this->_sl.get_scope(ast), "")
                 .c_str();
         }
-        if (TL::DataReference::predicate(ast))
+        if ((_this->_simd_id_exp_list != NULL) && TL::DataReference::predicate(ast))
         {
             DataReference dataref(ast, _this->_sl);
             if (dataref.is_valid())
             {
                 Symbol sym = dataref.get_base_symbol();
 
-                if (_this->_simd_id_exp_list.contains(functor(&IdExpression::get_symbol), sym))
+                if (_this->_simd_id_exp_list->contains(functor(&IdExpression::get_symbol), sym))
                 {
                     std::stringstream result;
 
@@ -196,47 +196,85 @@ TL::Source ReplaceSimdSrc::replace(TL::LangConstruct a) const
     return ReplaceSimdSrc::replace(a.get_ast());
 }
 
-LoopSimdization TL::HLT::simdize_loop(TL::ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size)
+
+
+Simdization* TL::HLT::simdize(LangConstruct& lang_const, 
+        unsigned char& min_stmt_size)
 {
-    return LoopSimdization(for_stmt, simd_id_exp_list, min_stmt_size);
-}
-
-
-LoopSimdization::LoopSimdization(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size) 
-: _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list), _replacement(_for_stmt.get_loop_body().get_scope_link(), simd_id_exp_list), _min_stmt_size(min_stmt_size)
-{
-    is_simdizable = true;
-
-    if ((!_for_stmt.get_iterating_condition().is_binary_operation()) ||
-            (!_for_stmt.is_regular_loop()) ||
-            (!_for_stmt.get_step().is_constant()))
+    if (ForStatement::predicate(lang_const.get_ast()))
     {
-        _ostream
-            << _for_stmt.get_ast().get_locus()
-            << ": warning: is not a regular loop. Simdization will not be applied"
-            << std::endl;
-
-        is_simdizable = false;
+        return new LoopSimdization(dynamic_cast<ForStatement&> (lang_const), min_stmt_size);
     }
+    if (FunctionDefinition::predicate(lang_const.get_ast()))
+    { 
+        return new FunctionSimdization(dynamic_cast<FunctionDefinition&> (lang_const), min_stmt_size);
+    }
+
+    std::cerr 
+        << lang_const.get_ast().get_locus() 
+        << ": warning: unexpected #pragma hlt simd" << std::endl;
+
+    return new Simdization(lang_const, min_stmt_size); 
+}
+
+Simdization* TL::HLT::simdize(LangConstruct& lang_const, 
+        unsigned char& min_stmt_size,
+        const ObjectList<IdExpression>* simd_id_exp_list)
+{
+    if (ForStatement::predicate(lang_const.get_ast()))
+    {
+        printf("Soy FS\n");
+        return new LoopSimdization(dynamic_cast<ForStatement&> (lang_const), min_stmt_size, simd_id_exp_list);
+    }
+    if (FunctionDefinition::predicate(lang_const.get_ast()))
+    { 
+        running_error("%s: error: #pragma hlt simd does not support parameters with FunctionDefinition'\n",
+                lang_const.get_ast().get_locus().c_str());
+    }
+
+    std::cerr 
+        << lang_const.get_ast().get_locus() 
+        << ": warning: unexpected #pragma hlt simd" << std::endl;
+
+    return new Simdization(lang_const, min_stmt_size); 
 }
 
 
-TL::Source LoopSimdization::get_source()
+
+
+void Simdization::compute_min_stmt_size()
 {
+    unsigned char statement_type_size;
+    unsigned char min = 100;
+
+    ObjectList<AST_t> assignment_list = 
+        _ast.depth_subtrees(isExpressionAssignment(_sl));
+
+    for (ObjectList<AST_t>::iterator it = assignment_list.begin();
+            it != assignment_list.end();
+            it++)
+    {
+        Expression exp (*it, _sl);
+        statement_type_size = exp.get_first_operand().get_type().get_size();
+        min = (min <= statement_type_size) ? min : statement_type_size;
+    }
+
+    _min_stmt_size = min;
+}
+
+TL::Source Simdization::get_source()
+{
+    printf("Soy Base: get_source\n");
     return do_simdization();
 }
 
 
-void LoopSimdization::gen_vector_type(IdExpression id){
+void Simdization::gen_vector_type(const IdExpression& id){
 
-    TL::Symbol sym = id.get_computed_symbol();
+    TL::Symbol sym = id.get_symbol();
     TL::Type type = sym.get_type();
     std::string old_sym_name = sym.get_name();
     std::stringstream new_sym_name;
-
-    //Save the smallest type size
-//    if (_min_stmt_size < type.basic_type().get_size())
-//        _min_stmt_size = type.basic_type().get_size();
 
     if (type.is_array())
     {
@@ -278,52 +316,43 @@ void LoopSimdization::gen_vector_type(IdExpression id){
 
 }
 
-bool isExpressionAssignment::do_(const AST_t& ast) const
+
+TL::Source Simdization::do_simdization()
 {
-    if (!ast.is_valid())
-        return false;
-
-    if (Statement::predicate(ast))
-    {
-        Statement stmt(ast, _sl);
-
-        if (stmt.is_expression())
-        {
-            Expression expr = stmt.get_expression();
-
-            if (expr.is_assignment() || expr.is_operation_assignment())
-            {
-                return true;
-            }
-        }
-    }
-    return false;
+    printf("Soy Base: do_simd\n");
+    return _ast.prettyprint();
 }
 
-void LoopSimdization::compute_min_stmt_size()
+
+
+
+LoopSimdization::LoopSimdization(ForStatement& for_stmt, 
+        unsigned char& min_stmt_size, 
+        const ObjectList<IdExpression>* simd_id_exp_list)
+    : Simdization(for_stmt, min_stmt_size, simd_id_exp_list), 
+    _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list) 
 {
-    unsigned char statement_type_size;
-    unsigned char min = 100;
+    is_simdizable = true;
 
-    ObjectList<AST_t> assignment_list = _for_stmt.get_loop_body().
-        get_ast().depth_subtrees(isExpressionAssignment(_for_stmt.get_scope_link()));
-
-    for (ObjectList<AST_t>::iterator it = assignment_list.begin();
-            it != assignment_list.end();
-            it++)
+    if ((!_for_stmt.get_iterating_condition().is_binary_operation()) ||
+            (!_for_stmt.is_regular_loop()) ||
+            (!_for_stmt.get_step().is_constant()))
     {
-        Expression exp ((AST_t)*it, _for_stmt.get_scope_link());
-        statement_type_size = exp.get_first_operand().get_type().get_size();
-        min = (min <= statement_type_size) ? min : statement_type_size;
-    }
+        std::cerr
+            << _for_stmt.get_ast().get_locus()
+            << ": warning: is not a regular loop. Simdization will not be applied"
+            << std::endl;
 
-    _min_stmt_size = min;
+        is_simdizable = false;
+    }
 }
+
 
 TL::Source LoopSimdization::do_simdization()
 {
     if (!is_simdizable)
     {
+        printf("Soy FS!\n");
         return _for_stmt.prettyprint();
     }
 
@@ -331,8 +360,15 @@ TL::Source LoopSimdization::do_simdization()
     compute_min_stmt_size();
 
     //Simd variable initialization & sustitution
-    std::for_each(_simd_id_exp_list.begin(), _simd_id_exp_list.end(), 
-            std::bind1st(std::mem_fun(&LoopSimdization::gen_vector_type), this));
+    if (_simd_id_exp_list != NULL)
+    {
+        for (ObjectList<IdExpression>::const_iterator it = _simd_id_exp_list->begin();
+                it != _simd_id_exp_list->end();
+                it ++)
+        {
+            gen_vector_type(*it);
+        }
+    }
 
     Statement initial_loop_body = _for_stmt.get_loop_body();
     Source replaced_loop_body = _replacement.replace(initial_loop_body);
@@ -340,15 +376,13 @@ TL::Source LoopSimdization::do_simdization()
     bool step_evaluation;
 
     AST_t it_init_ast (_for_stmt.get_iterating_init());
-    Source it_init_source;
+    
+    Source result, loop, epilog, it_init_source;
 
-    _result
+    result
         << "{"
-//        << _induction_var_decl
-//        << _before_loop
-        << _loop
-//        << _after_loop
-        << _epilog
+        << loop
+        << epilog
         << "}"
         ;
 
@@ -392,7 +426,7 @@ TL::Source LoopSimdization::do_simdization()
                 it_init_ast.get_locus().c_str());
     }
 
-    _loop << "for(" 
+    loop << "for(" 
         << it_init_source
         << _for_stmt.get_iterating_condition() << ";"
         << _for_stmt.get_iterating_expression()
@@ -417,7 +451,7 @@ TL::Source LoopSimdization::do_simdization()
 
     //Epilog
 
-    _epilog
+    epilog
         << "for(; " 
         << _for_stmt.get_iterating_condition() 
         << "; " 
@@ -426,6 +460,52 @@ TL::Source LoopSimdization::do_simdization()
         << initial_loop_body
         ;
 
-    return _result;
+    return result;
 }
 
+
+
+
+FunctionSimdization::FunctionSimdization(FunctionDefinition& func_def, 
+        unsigned char& min_stmt_size)
+    : Simdization(func_def, min_stmt_size), _func_def(func_def) 
+{
+    is_simdizable = true;
+}
+
+
+TL::Source FunctionSimdization::do_simdization()
+{
+    printf("FUN\n");
+    if (!is_simdizable)
+    {
+        return _func_def.prettyprint();
+    }
+
+    return _replacement.replace(_func_def.get_function_body());
+}
+
+
+
+
+bool isExpressionAssignment::do_(const AST_t& ast) const
+{
+    if (!ast.is_valid())
+        return false;
+
+    if (Statement::predicate(ast))
+    {
+        Statement stmt(ast, _sl);
+
+        if (stmt.is_expression())
+        {
+            Expression expr = stmt.get_expression();
+
+            if (expr.is_assignment() || expr.is_operation_assignment())
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}

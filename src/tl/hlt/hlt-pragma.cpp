@@ -242,7 +242,7 @@ HLTPragmaPhase::HLTPragmaPhase()
     on_directive_post["task_aggregate"].connect(functor(&HLTPragmaPhase::task_aggregate, *this));
 
     register_construct("simd");
-    on_directive_post["simd"].connect(functor(&HLTPragmaPhase::simdize_loop, *this));
+    on_directive_post["simd"].connect(functor(&HLTPragmaPhase::simdize, *this));
 
     _allow_identity_str = "1";
 
@@ -1051,14 +1051,16 @@ void HLTPragmaPhase::task_aggregate(PragmaCustomConstruct construct)
 }
 
 static void simdize_loop_fun(TL::ForStatement& for_stmt,
-			     const TL::ObjectList<TL::IdExpression>& simd_id_exp_list)
+			     TL::ObjectList<TL::IdExpression>* simd_id_exp_list = NULL)
 {
     unsigned char min_stmt_size;
 
     TL::Expression lower_bound = for_stmt.get_lower_bound();
 
     //simdize_loop returns a Compound Statement!
-    TL::Source simdized_loop_src = TL::HLT::simdize_loop(for_stmt, simd_id_exp_list, min_stmt_size); 
+    Simdization * simdization = TL::HLT::simdize(for_stmt, min_stmt_size, simd_id_exp_list);
+    TL::Source simdized_loop_src = *simdization; 
+    delete(simdization);
 
     TL::AST_t simdized_loop_tree = simdized_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -1081,53 +1083,71 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
         TL::ForStatement& for_stmt_epilog = (TL::ForStatement&) statement_list[1];
 
         // This ForStatement is the unrolled loop (SIMD)
-        for_stmt_simd.get_ast().set_attribute(HLT_SIMD_FOR_INFO, min_stmt_size);
+        for_stmt_simd.get_ast().set_attribute(LANG_HLT_SIMD_FOR_INFO, min_stmt_size);
 
         // This ForStatement is marked as Epilog
         TL::RefPtr<TL::Expression> lower_bound_ref(new TL::Expression(lower_bound));
-        for_stmt_epilog.get_ast().set_attribute(HLT_SIMD_EPILOG, lower_bound_ref);
+        for_stmt_epilog.get_ast().set_attribute(LANG_HLT_SIMD_EPILOG, lower_bound_ref);
     }
     else
     {
-        internal_error("simdize_loop should return a compound statement.\n", 0);
+        DEBUG_CODE()
+        {
+            std::cerr << for_stmt.get_ast().get_locus() 
+                << ": warning: LoopSimdization doesn't return a CompoundStatement." << std::endl;
+        }
     }
-
-
-    //For Statement is marked as HLT 
-    // for_stmt.get_ast().set_attribute(HLT_SIMD_FOR_INFO, min_stmt_size);
 }
 
 
-void HLTPragmaPhase::simdize_loop(PragmaCustomConstruct construct)
+static void simdize_function_fun(TL::FunctionDefinition& func_def)
 {
-    Statement statement = construct.get_statement();
+    func_def.get_function_name().get_symbol().set_attribute(LANG_IS_HLT_SIMD_FUNC, true);
+}
 
-    ObjectList<IdExpression> simd_id_exp_list = construct.get_parameter_id_expressions();
 
-    if (simd_id_exp_list.size() == 0)
+void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
+{
+    //SIMD FUNCTIONS
+    if (construct.is_function_definition())
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: " << std::endl;
+        FunctionDefinition func_def (construct.get_declaration(), construct.get_scope_link());
+        if (construct.is_parameterized())
+        {
+            std::cerr << construct.get_ast().get_locus() 
+                << ": warning: unexpected parameters in #pragma hlt simd" << std::endl;
+        }
+
+        simdize_function_fun(func_def);
+        construct.get_ast().replace(func_def.get_ast());
     }
-
-    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
-
-    if (!_allow_identity
-            && for_statement_list.empty())
+    //SIMD LOOPS
+    else
     {
-        throw HLTException(construct, "not found any suitable construct for this pragma");
-    }
-/*
-    std::for_each(for_statement_list.begin(), for_statement_list.end(),
-            std::bind2nd(std::ptr_fun(simdize_loop_fun), simd_id_exp_list));
-*/
-    for (ObjectList<ForStatement>::iterator it = for_statement_list.begin();
-            it != for_statement_list.end();
-            it++)
-    {
-        simdize_loop_fun((ForStatement&)*it, simd_id_exp_list);
-    }
+        Statement statement = construct.get_statement();
 
-    construct.get_ast().replace(statement.get_ast());
+        if (ForStatement::predicate(statement.get_ast()))
+        {
+            ForStatement for_statement(statement.get_ast(), statement.get_scope_link());
+
+            if (construct.is_parameterized())
+            {
+                ObjectList<IdExpression> simd_id_exp_list = construct.get_parameter_id_expressions();
+                simdize_loop_fun(for_statement, &simd_id_exp_list);
+            }
+            else
+            {
+                std::cerr << "No Parametrizada:\n" << construct.prettyprint();
+                simdize_loop_fun(for_statement);
+            }
+
+            construct.get_ast().replace(for_statement.get_ast());
+        }
+        else
+        {
+           std::cerr << construct.get_ast().get_locus() << ": warning: unexpected #pragma hlt simd" << std::endl;
+        }
+    }
 }
 
 

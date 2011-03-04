@@ -133,7 +133,7 @@ namespace TL
 
                 void set_instrument_hlt(const std::string &str);
 
-                void simdize_loop(PragmaCustomConstruct construct);
+                void simdize(PragmaCustomConstruct construct);
 
                 std::string _enable_hlt_instr_str;
         };

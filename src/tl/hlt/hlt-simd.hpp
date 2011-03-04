@@ -37,14 +37,13 @@ namespace TL
         class ReplaceSimdSrc : public ReplaceSrcIdExpression
         {
             private:
-                ObjectList<IdExpression> _simd_id_exp_list;
+                const ObjectList<IdExpression>* _simd_id_exp_list;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
 
-
             public:
-                ReplaceSimdSrc(ScopeLink sl, ObjectList<IdExpression> simd_id_exp_list) 
+                ReplaceSimdSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list) 
                     : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list){}
 
                 Source replace(AST_t a) const;
@@ -63,40 +62,60 @@ namespace TL
           repeats the body of the loop in the loop itsel, adjusting
           the stride and creating, if necessary an epilog loop.
           */
-
-        class LIBHLT_CLASS LoopSimdization : public BaseTransform
+        class LIBHLT_CLASS Simdization : public BaseTransform
         {
             protected:
-                virtual Source get_source();
-            private:
-                ForStatement& _for_stmt;
-                const ObjectList<IdExpression>& _simd_id_exp_list;
-                ReplaceSimdSrc _replacement;
-                bool is_simdizable;
-
+                AST_t _ast;
+                ScopeLink _sl;
                 unsigned char& _min_stmt_size;
+                bool is_simdizable;
+                ReplaceSimdSrc _replacement;
 
-                Source _result;
-                Source _epilog;
-                Source _loop;
-//                Source _induction_var_decl;
-//                Source _before_loop;
-//                Source _after_loop;
-
-                Source do_simdization();
+                virtual Source get_source();
+                void gen_vector_type(const IdExpression& id);
                 void compute_min_stmt_size();
-                void gen_vector_type(IdExpression id);
+
+                virtual Source do_simdization();
 
             public:
-                //! Creates a LoopSimdization object
+                //! Creates a Simdization object
                 /*!
-
-
                   \param for_stmt Regular loop
                   \param factor Number of times this loop is simdizationed
                  */
-                LoopSimdization(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size);
+                Simdization(LangConstruct& lang_construct, 
+                        unsigned char& min_stmt_size, 
+                        const ObjectList<IdExpression>* simd_id_exp_list = NULL)
+                    : _ast(lang_construct.get_ast()), _sl(lang_construct.get_scope_link()),
+                    _replacement(_sl, simd_id_exp_list), _min_stmt_size(min_stmt_size), is_simdizable(false){}
+        };
 
+        class LIBHLT_CLASS LoopSimdization : public Simdization
+        {
+            private:
+                ForStatement& _for_stmt;
+                const ObjectList<IdExpression> *_simd_id_exp_list;
+
+            protected:
+                virtual Source do_simdization();
+
+            public:
+                LoopSimdization(ForStatement& for_stmt, 
+                        unsigned char& min_stmt_size,
+                        const ObjectList<IdExpression> *simd_id_exp_list = NULL);
+        };
+
+        class LIBHLT_CLASS FunctionSimdization : public Simdization
+        {
+            private:
+                FunctionDefinition& _func_def;
+
+            protected:
+                virtual Source do_simdization();
+
+            public:
+                FunctionSimdization(FunctionDefinition& func_def, 
+                        unsigned char& min_stmt_size);
         };
 
         class isExpressionAssignment : public TL::Predicate<AST_t>
@@ -109,15 +128,17 @@ namespace TL
         };
 
 
-        //! Creates a LoopSimdization object
+        //! Creates a Simdization object
         /*!
-
           \param for_stmt Regular loop
-          \param factor Number of times this loop is simdizationed
          */
-        LIBHLT_EXTERN LoopSimdization simdize_loop(ForStatement& for_stmt, const ObjectList<IdExpression>& simd_id_exp_list, unsigned char& min_stmt_size);
+        LIBHLT_EXTERN Simdization* simdize(LangConstruct& lang_construct, 
+                unsigned char& min_stmt_size);
 
-        //! @}
+        LIBHLT_EXTERN Simdization* simdize(LangConstruct& lang_construct, 
+                unsigned char& min_stmt_size, 
+                const ObjectList<IdExpression>* simd_id_exp_list);
+       //! @}
     }
 }
 

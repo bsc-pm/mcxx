@@ -231,7 +231,7 @@ static void do_smp_ocl_outline_replacements(AST_t body,
     //FIXME: This code could be replicated among devices
     //Statements replication and loop unrolling
     builtin_ast_list =
-        body.depth_subtrees(TL::TraverseASTPredicate(PredicateAttr(HLT_SIMD_FOR_INFO)));
+        body.depth_subtrees(TL::TraverseASTPredicate(PredicateAttr(LANG_HLT_SIMD_FOR_INFO)));
 
     for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
             it != builtin_ast_list.end();
@@ -239,7 +239,7 @@ static void do_smp_ocl_outline_replacements(AST_t body,
     {
         ForStatement for_stmt (*it, scope_link);
         const int min_stmt_size = (Integer)for_stmt.get_ast().
-                get_attribute(HLT_SIMD_FOR_INFO);
+                get_attribute(LANG_HLT_SIMD_FOR_INFO);
 
         //Unrolling
         Expression it_exp = for_stmt.get_iterating_expression();
