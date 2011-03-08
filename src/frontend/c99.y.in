@@ -2102,12 +2102,6 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
 }
-// Mercurium extension (EXPERIMENTAL)
-// (using logical_or_expression avoids some unnecesary conflicts)
-| postfix_expression '[' logical_or_expression ':' logical_or_expression ']'
-{
-    $$ = ASTMake3(AST_ARRAY_SECTION, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
-}
 ;
 
 expression_list : assignment_expression 
