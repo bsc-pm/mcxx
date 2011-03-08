@@ -191,7 +191,8 @@ void DeviceCUDA::create_outline(
 	// Check if the file has already been created (and written)
 	bool new_file = false;
 
-	if (_cudaFilename == "") {
+	if (_cudaFilename == "")
+	{
 		// Set the file name
 		_cudaFilename = "cudacc_";
 		_cudaFilename += CompilationProcess::get_current_file().get_filename(false);
@@ -243,26 +244,38 @@ void DeviceCUDA::create_outline(
 				it != extern_occurrences.end();
 				it++)
 		{
-			Symbol s = (*it).get_symbol();
-			decl_closure.add(s);
+			Symbol s = it->get_symbol();
+			// Check we have not already added the symbol
+			if (_fwdSymbols.count(s.get_name()) == 0)
+			{
+				_fwdSymbols.insert(s.get_name());
+				decl_closure.add(s);
 
-			// TODO: check the symbol is not a global variable
-			extern_symbols.insert(s);
+				// TODO: check the symbol is not a global variable
+				extern_symbols.insert(s);
+			}
 		}
 
-		forward_declaration << decl_closure.closure() << "\n";
+		// Maybe it is not needed --> user-defined structs must be included in GPU kernel's file
+		//forward_declaration << decl_closure.closure() << "\n";
 
 		for (std::set<Symbol>::iterator it = extern_symbols.begin();
 				it != extern_symbols.end(); it++)
 		{
-			forward_declaration << (*it).get_point_of_declaration().prettyprint_external() << "\n";
+			// Check the symbol is not a function definition before adding it to forward declaration (see #529)
+			AST_t a = it->get_point_of_declaration();
+			if (!FunctionDefinition::predicate(a))
+			{
+				forward_declaration << a.prettyprint_external() << "\n";
+			}
 		}
 
 		// Check if the task symbol is actually a function definition or a declaration
 		if (FunctionDefinition::predicate(function_tree))
 		{
 			// Check if we have already printed the function definition in the CUDA file
-			if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0) {
+			if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+			{
 				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
 				// Keep record of which tasks have been printed to the CUDA file

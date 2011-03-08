@@ -43,7 +43,7 @@ no_undefined=
 endif
 
 # Overall process library containing global data
-libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
+libmcxx_process_la_CFLAGS=-DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \

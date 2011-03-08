@@ -43,6 +43,7 @@ namespace TL
                 std::string _cudaFilename;
                 AST_t _root;
                 std::set<std::string> _taskSymbols;
+                std::set<std::string> _fwdSymbols;
             public:
 
                 // This phase does nothing

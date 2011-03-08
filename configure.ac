@@ -80,7 +80,7 @@ dnl --------------------- Check we are not using too old gcc compilers ----
 
 AC_MSG_CHECKING([whether gcc is new enough])
 AC_COMPILE_IFELSE(
-   [[
+   [AC_LANG_SOURCE([[
      #ifdef __GNUC__
       #if __GNUC__ <= 2
        #error "Too old compiler"
@@ -92,7 +92,7 @@ AC_COMPILE_IFELSE(
        #endif
       #endif
      #endif
-   ]],
+   ]])],
    [AC_MSG_RESULT([ok])],
    [AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])]
 )
