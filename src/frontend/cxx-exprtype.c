@@ -2631,7 +2631,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
-    else if (!checking_ambiguity())
+    else 
     {
         if (!checking_ambiguity())
         {
@@ -8565,7 +8565,7 @@ static void check_for_comma_operand(AST expression, decl_context_t decl_context)
         leave_test_expression();
 
         // We will fall-through if no overload exists
-        if (computed_type != NULL)
+        if (!is_error_type(computed_type))
             return;
     }
 
