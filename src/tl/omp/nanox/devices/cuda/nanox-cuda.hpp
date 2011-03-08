@@ -61,6 +61,8 @@ namespace TL
                         Source &copy_setup,
                         ReplaceSrcIdExpression& replace_src,
                         bool &err_declared);
+
+                std::set<std::string> _fwdSymbols;
             public:
 
                 // This phase does nothing

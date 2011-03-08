@@ -9,6 +9,7 @@ preprocessor_options = -E
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
+linker_options = -Wl,--add-needed
 {openmp} compiler_phase = libtlomp-core.so
 {openmp} pragma_prefix = nanos
 {openmp} compiler_phase = libtlnanos-version.so
