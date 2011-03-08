@@ -184,7 +184,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         return true;
     }
-    else if (expr.is_array_section())
+    else if (expr.is_array_section_range())
     {
         Source arr_size, arr_addr;
         bool b = gather_info_data_expr_rec(expr.array_section_item(),
@@ -235,6 +235,55 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         return true;
     }
+    else if (expr.is_array_section_size())
+    {
+        Source arr_size, arr_addr;
+        bool b = gather_info_data_expr_rec(expr.array_section_item(),
+                base_sym,
+                arr_size,
+                arr_addr,
+                type,
+                /* enclosing_is_array */ true);
+        if (!b)
+            return 0;
+
+        size << arr_size << "* ( " << expr.array_section_upper() << ")";
+
+        if (!enclosing_is_array)
+        {
+            addr << "&" << arr_addr << "[" << expr.array_section_lower() << "]";
+        }
+        else
+        {
+            addr << arr_addr << "[" << expr.array_section_lower() << "]";
+        }
+
+        CXX_LANGUAGE()
+        {
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+        }
+
+        if (type.is_pointer())
+        {
+            type = type.points_to();
+        }
+        else if (type.is_array())
+        {
+            type = type.array_element();
+        }
+        else
+        {
+            return false;
+        }
+
+        type = type.get_array_to("(" 
+                + expr.array_section_upper().prettyprint() 
+                + ")");
+        return true;
+    }
     else if (expr.is_unary_operation())
     {
         // Simplify &(*a)
@@ -260,7 +309,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         type,
                         enclosing_is_array);
             }
-            else if (ref_expr.is_array_section())
+            else if (ref_expr.is_array_section_range()
+                    || ref_expr.is_array_section_size())
             {
                 return gather_info_data_expr_rec(ref_expr.array_section_item(),
                         base_sym,

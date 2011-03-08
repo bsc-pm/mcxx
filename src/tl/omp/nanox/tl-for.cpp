@@ -635,7 +635,8 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
-    else if (expr.is_array_section())
+    else if (expr.is_array_section_range()
+            || expr.is_array_section_size())
     {
         fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 

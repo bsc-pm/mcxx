@@ -102,7 +102,8 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
             // want the array but the related pointer
             type = data_ref.get_data_type();
         }
-        else if (data_ref.is_array_section())
+        else if (data_ref.is_array_section_range()
+                || data_ref.is_array_section_size())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290

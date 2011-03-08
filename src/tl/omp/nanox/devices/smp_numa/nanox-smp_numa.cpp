@@ -104,7 +104,8 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
             type = data_ref.get_data_type();
             requires_indirect = false;
         }
-        else if (data_ref.is_array_section())
+        else if (data_ref.is_array_section_range()
+                || data_ref.is_array_section_size())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290

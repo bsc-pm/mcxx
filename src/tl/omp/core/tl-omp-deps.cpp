@@ -55,7 +55,8 @@ namespace TL { namespace OpenMP {
         {
             return get_symbol_of_data_reference(expr.get_subscripted_expression());
         }
-        else if (expr.is_array_section())
+        else if (expr.is_array_section_range()
+                || expr.is_array_section_size())
         {
             return get_symbol_of_data_reference(expr.array_section_item());
         }
