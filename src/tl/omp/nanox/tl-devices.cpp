@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+#include "tl-nanos.hpp"
 #include "tl-devices.hpp"
 
 using namespace TL;
@@ -46,6 +47,15 @@ void DeviceHandler::register_device(const std::string& str, DeviceProvider* nano
     _nanox_devices[str] = nanox_device_provider;
 }
 
+// DEPRECATED
+DeviceProvider::DeviceProvider(bool needs_copies)
+    : _enable_instrumentation(false), 
+    _enable_instrumentation_str(""),
+    _needs_copies(needs_copies)
+{
+    common_constructor_code();
+}
+
 DeviceProvider::DeviceProvider(const std::string& device_name, bool needs_copies)
         : _device_name(device_name),
         _enable_instrumentation(false), 
@@ -54,11 +64,8 @@ DeviceProvider::DeviceProvider(const std::string& device_name, bool needs_copies
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());               
     device_handler.register_device(device_name, this);
-    
-    register_parameter("instrument", 
-                       "Enables instrumentation of the device provider if set to '1'",
-                       _enable_instrumentation_str,
-                       "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+
+    common_constructor_code();
 }
 
 DeviceProvider* DeviceHandler::get_device(const std::string& str)
@@ -69,4 +76,33 @@ DeviceProvider* DeviceHandler::get_device(const std::string& str)
         return NULL;
     else
         return it->second;
+}
+
+bool DeviceProvider::instrumentation_enabled()
+{
+    return _enable_instrumentation;
+}
+
+bool DeviceProvider::do_not_create_translation_function()
+{
+    return !Nanos::Version::interface_is_at_least("master", 5003)
+        || _do_not_create_translation_fun;
+}
+
+bool DeviceProvider::create_translation_function()
+{
+    return !do_not_create_translation_function();
+}
+
+void DeviceProvider::common_constructor_code()
+{
+    register_parameter("instrument", 
+            "Enables instrumentation of the device provider if set to '1'",
+            _enable_instrumentation_str,
+            "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+
+    register_parameter("do_not_create_translation_function",
+            "Even if the runtime interface supports a translation function, it will not be generated", 
+            _do_not_create_translation_str,
+            "0").connect(functor(&DeviceProvider::set_translation_function_flag, *this));
 }

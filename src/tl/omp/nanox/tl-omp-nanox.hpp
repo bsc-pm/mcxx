@@ -76,6 +76,10 @@ namespace Nanox
             std::string _compiler_alignment_str;
             void set_compiler_alignment(const std::string& str);
 
+            std::string _do_not_create_translation_str;
+            bool _do_not_create_translation_fun;
+            void set_translation_function_flag(const std::string& str);
+
             // Data that does not last between files
             ObjectList<Symbol> _converted_vlas;
             std::set<std::string> _lock_names;

@@ -81,10 +81,11 @@ namespace Nanox
     class DeviceProvider : public TL::CompilerPhase
     {
         protected:
-            bool instrumentation_enabled()
-            {
-                return _enable_instrumentation;
-            }
+            bool instrumentation_enabled();
+
+            bool do_not_create_translation_function();
+
+            bool create_translation_function();
         private:
             const std::string _device_name;
             bool _enable_instrumentation;
@@ -98,23 +99,26 @@ namespace Nanox
                         /* Error message */  "Instrumentation disabled");
             }
 
+            bool _do_not_create_translation_fun;
+            std::string _do_not_create_translation_str;
+            void set_translation_function_flag(const std::string& str)
+            {
+                _do_not_create_translation_fun = false;
+                parse_boolean_option("do_not_create_translation_function", 
+                        str, _do_not_create_translation_fun, "Assuming false.");
+            }
+
             bool _needs_copies;
+
+            void common_constructor_code();
+
         public:
             //! Constructor of a DeviceProvider
             /*!
             \param needs_copies Set this parameter to true if this device requires explicit copies. 
             DeviceProvider::needs_copies can be used to retrieve this value
             */
-            DEPRECATED DeviceProvider(bool needs_copies)
-                    : _enable_instrumentation(false), 
-                    _enable_instrumentation_str(""),
-                    _needs_copies(needs_copies)
-            {
-                register_parameter("instrument", 
-                "Enables instrumentation of the device provider if set to '1'",
-                _enable_instrumentation_str,
-                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
-            }
+            DEPRECATED DeviceProvider(bool needs_copies);
             
             //! Constructor of a DeviceProvider
             /*!

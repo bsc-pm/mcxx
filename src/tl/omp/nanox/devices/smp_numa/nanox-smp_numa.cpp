@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+#include "tl-nanos.hpp"
 #include "tl-devices.hpp"
 #include "nanox-smp_numa.hpp"
 
@@ -36,7 +37,7 @@ static std::string smp_outline_name(const std::string &task_name)
     return "_smp_numa_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type, 
+Type DeviceSMP_NUMA::compute_replacement_type_for_vla(Type type, 
         ObjectList<Source>::iterator dim_names_begin,
         ObjectList<Source>::iterator dim_names_end)
 {
@@ -65,45 +66,13 @@ static Type compute_replacement_type_for_vla(Type type,
     return new_type;
 }
 
-static void do_smp_numa_outline_replacements(
-        AST_t body,
-        ScopeLink scope_link,
+void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
+        const Scope& sc,
         const DataEnvironInfo& data_env_info,
-        Source &initial_code,
-        Source &replaced_outline)
+        Source &copy_setup,
+        ReplaceSrcIdExpression& replace_src,
+        bool &err_declared)
 {
-    Source copy_setup;
-    Scope sc = scope_link.get_scope(body);
-
-    initial_code
-        << copy_setup
-        ;
-
-    ReplaceSrcIdExpression replace_src(scope_link);
-
-    replace_src.add_this_replacement("_args->_this");
-
-    bool err_declared = false;
-
-    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-            it != data_env_items.end();
-            it++)
-    {
-        DataEnvironItem& data_env_item(*it);
-
-        Symbol sym = data_env_item.get_symbol();
-        const std::string field_name = data_env_item.get_field_name();
-
-        if (data_env_item.is_private())
-            continue;
-
-        if (data_env_item.is_copy())
-        {
-        	replace_src.add_replacement(sym, "_args->" + field_name);
-        }
-    }
-
     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -158,7 +127,7 @@ static void do_smp_numa_outline_replacements(
         ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
                 "Invalid data for copy symbol", 0);
 
-        std::string field_addr = "_args->" + data_env_item.get_field_name();
+        // std::string field_addr = "_args->" + data_env_item.get_field_name();
 
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
@@ -174,6 +143,64 @@ static void do_smp_numa_outline_replacements(
         {
             replace_src.add_replacement(sym, "(*" + copy_name + ")");
         }
+    }
+}
+
+void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
+        AST_t body,
+        ScopeLink scope_link,
+        const DataEnvironInfo& data_env_info,
+        Source &initial_code,
+        Source &replaced_outline)
+{
+    Source copy_setup;
+    Scope sc = scope_link.get_scope(body);
+
+    initial_code
+        << copy_setup
+        ;
+
+    ReplaceSrcIdExpression replace_src(scope_link);
+
+    replace_src.add_this_replacement("_args->_this");
+
+    bool err_declared = false;
+
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
+
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
+
+        if (data_env_item.is_private())
+            continue;
+
+        if (data_env_item.is_copy()
+                || create_translation_function())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
+
+    if (create_translation_function())
+    {
+        // We already created a function that performs the translation in the runtime
+        copy_setup
+            << comment("Translation is done by the runtime")
+            ;
+    }
+    else
+    {
+        do_smp_numa_inline_get_addresses(
+                sc,
+                data_env_info,
+                copy_setup,
+                replace_src,
+                err_declared);
     }
 
     replaced_outline << replace_src.replace(body);
