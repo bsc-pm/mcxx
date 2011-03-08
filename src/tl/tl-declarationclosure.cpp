@@ -328,6 +328,16 @@ namespace TL
                 }
             }
 
+            // Incomplete types are always implicitly declared
+            if (!check && declared_symbol.is_typename())
+            {
+                Type t = declared_symbol.get_type();
+                if (t.is_incomplete())
+                {
+                    check = true;
+                    remove_symbol(declared_symbol, items, graph);
+                }
+            }
             ERROR_CONDITION(!check, 
                     "Error, symbol '%s' was not actually declarated in the declaration! %s", 
                     declared_symbol.get_name().c_str(),
