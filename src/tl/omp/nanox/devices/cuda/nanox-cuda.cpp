@@ -255,7 +255,11 @@ void DeviceCUDA::create_outline(
 		for (std::set<Symbol>::iterator it = extern_symbols.begin();
 				it != extern_symbols.end(); it++)
 		{
-			forward_declaration << (*it).get_point_of_declaration().prettyprint_external() << "\n";
+			// Check the symbol is not a function definition before adding it to forward declaration
+			AST_t a = it->get_point_of_declaration();
+			if (!FunctionDefinition::predicate(a)) {
+				forward_declaration << a.prettyprint_external() << "\n";
+			}
 		}
 
 		// Check if the task symbol is actually a function definition or a declaration
