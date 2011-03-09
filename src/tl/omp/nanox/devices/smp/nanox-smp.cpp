@@ -488,9 +488,9 @@ void DeviceSMP::create_outline(
                 << uf_location_descr
             	;
             uf_location_descr
-                << "\"Outline created after construct at '"
+                << "\"Outline from '"
                 << reference_tree.get_locus()
-                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
                 ;
         }
     }

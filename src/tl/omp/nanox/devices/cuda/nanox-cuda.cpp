@@ -453,23 +453,23 @@ void DeviceCUDA::create_outline(
 				;
 		}
 		else
-		{
-			uf_name_id
-				<< uf_location_id
-				;
-			uf_location_id
-				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-				;
+        {
+            uf_name_id
+                << uf_location_id
+                ;
+            uf_location_id
+                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+                ;
 
-			uf_name_descr
-				<< uf_location_descr
-				;
-                        uf_location_descr
-                                << "\"Outline created after construct at '"
-                                << reference_tree.get_locus()
-                                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
-                                ;
-		}
+            uf_name_descr
+                << uf_location_descr
+                ;
+            uf_location_descr
+                << "\"Outline from '"
+                << reference_tree.get_locus()
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
+                ;
+        }
 	}
 
 	// arguments_struct_definition
