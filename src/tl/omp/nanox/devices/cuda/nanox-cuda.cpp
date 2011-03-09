@@ -574,7 +574,6 @@ void DeviceCUDA::create_outline(
 
 	cudaFile << "extern \"C\" {\n";
 	cudaFile << forward_declaration.get_source(false) << "\n";
-	//cudaFile << outline_code_tree.prettyprint_external() << "\n";
 	cudaFile << outline_code_tree.prettyprint_external() << "\n";
 	cudaFile << "}\n";
 	cudaFile.close();
