@@ -353,8 +353,8 @@ void DeviceSMP_NUMA::create_outline(
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
             uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
+                << "\"'" << function_symbol.get_qualified_name() << "'"
+                << " invoked at '" << reference_tree.get_locus() << "'\""
                 ;
          }
          else

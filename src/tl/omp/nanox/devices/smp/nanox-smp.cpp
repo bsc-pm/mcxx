@@ -470,10 +470,10 @@ void DeviceSMP::create_outline(
             uf_name_descr
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
-            uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
-                ;
+			uf_location_descr
+				<< "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+				<< " in construct at '" << reference_tree.get_locus() << "'\""
+				;
          }
          else
          {
