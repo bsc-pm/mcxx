@@ -643,9 +643,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 static void build_scope_program_body_module(AST program_body, decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t))
 {
-    AST program_part = ASTSon0(program_body);
-    AST program_unit_stmts = ASTSon0(program_part);
-
+    AST program_unit_stmts = ASTSon0(program_body);
     AST internal_subprograms = ASTSon1(program_body);
 
     if (program_unit_stmts != NULL)
