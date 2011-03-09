@@ -132,6 +132,8 @@ void OMPTransform::run(DTO& dto)
     }
 
     OpenMP::OpenMPPhase::run(dto);
+
+    add_openmp_initializer(dto);
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)
