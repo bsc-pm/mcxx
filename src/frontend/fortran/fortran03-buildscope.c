@@ -132,13 +132,22 @@ static void update_unknown_symbols(decl_context_t decl_context)
 //
 // The difference of this function to query_name_with_locus is that
 // query_name_with_locus always creates a SK_VARIABLE
-static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus, const char* name)
+static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context, 
+        AST locus, const char* name,
+        char no_implicit)
 {
     scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
     if (result == NULL)
     {
         result = new_fortran_symbol(decl_context, name);
-        result->type_information = get_implicit_type_for_symbol(decl_context, result->symbol_name);
+        if (!no_implicit)
+        {
+            result->type_information = get_implicit_type_for_symbol(decl_context, result->symbol_name);
+        }
+        else
+        {
+            result->type_information = get_void_type();
+        }
         result->entity_specs.is_implicit_basic_type = 1;
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
@@ -155,6 +164,16 @@ static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus
     }
 
     return result;
+}
+
+static scope_entry_t* get_symbol_for_name(decl_context_t decl_context, AST locus, const char* name)
+{
+    return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 0);
+}
+
+static scope_entry_t* get_symbol_for_name_untyped(decl_context_t decl_context, AST locus, const char* name)
+{
+    return get_symbol_for_name_(decl_context, locus, name, /* no_implicit */ 1);
 }
 
 static void build_scope_main_program_unit(AST program_unit, decl_context_t
@@ -2935,9 +2954,29 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
         {
             AST interface_specification = ASTSon1(it);
 
-            if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+            if (ASTType(interface_specification) == AST_PROCEDURE)
             {
-                unsupported_statement(interface_specification, "MODULE PROCEDURE");
+                unsupported_statement(interface_specification, "PROCEDURE");
+            }
+            else if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+            {
+                if (decl_context.current_scope->related_entry->kind != SK_MODULE)
+                {
+                    running_error("%s: error: MODULE PROCEDURE statement not valid in this INTERFACE block\n",
+                            ast_location(interface_specification));
+                }
+
+                AST procedure_name_list = ASTSon0(interface_specification);
+                AST it2;
+                for_each_element(procedure_name_list, it2)
+                {
+                    AST procedure_name = ASTSon1(it2);
+
+                    scope_entry_t* entry = get_symbol_for_name_untyped(decl_context, procedure_name,
+                            ASTText(procedure_name_list));
+
+                    entry->kind = SK_FUNCTION;
+                }
             }
             else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
                     || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)

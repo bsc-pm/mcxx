@@ -4617,7 +4617,7 @@ procedure_stmt : labeldef TOK_MODULE TOK_PROCEDURE ':' ':' procedure_name_list e
 }
 | labeldef TOK_PROCEDURE ':' ':' procedure_name_list eos
 {
-    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_PROCEDURE, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_MODULE TOK_PROCEDURE procedure_name_list eos
 {
@@ -4628,7 +4628,7 @@ procedure_stmt : labeldef TOK_MODULE TOK_PROCEDURE ':' ':' procedure_name_list e
 }
 | labeldef TOK_PROCEDURE procedure_name_list eos
 {
-    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_PROCEDURE, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 generic_spec : defined_operator_name
