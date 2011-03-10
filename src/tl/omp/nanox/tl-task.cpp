@@ -103,8 +103,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
-    bool some_device_needs_copies = false;
-
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
@@ -143,9 +141,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
-
-        some_device_needs_copies = some_device_needs_copies
-            || device_provider->needs_copies();
     }
 
     // If this is a function coming from a task try to get its devices with an
@@ -220,9 +215,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
-
-            some_device_needs_copies = some_device_needs_copies
-                    || device_provider->needs_copies();
         }
     }
 
@@ -516,8 +508,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source set_translation_fun;
 
-    if (copy_items.empty()
-            || !some_device_needs_copies)
+    if (copy_items.empty())
     {
         num_copies << "0";
         // Non immediate

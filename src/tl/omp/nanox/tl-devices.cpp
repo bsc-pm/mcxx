@@ -47,20 +47,10 @@ void DeviceHandler::register_device(const std::string& str, DeviceProvider* nano
     _nanox_devices[str] = nanox_device_provider;
 }
 
-// DEPRECATED
-DeviceProvider::DeviceProvider(bool needs_copies)
-    : _enable_instrumentation(false), 
-    _enable_instrumentation_str(""),
-    _needs_copies(needs_copies)
-{
-    common_constructor_code();
-}
-
-DeviceProvider::DeviceProvider(const std::string& device_name, bool needs_copies)
+DeviceProvider::DeviceProvider(const std::string& device_name)
         : _device_name(device_name),
         _enable_instrumentation(false), 
-        _enable_instrumentation_str(""),
-        _needs_copies(needs_copies)
+        _enable_instrumentation_str("")
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());               
     device_handler.register_device(device_name, this);

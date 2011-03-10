@@ -94,15 +94,7 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
             type = type.array_element().get_pointer_to();
         }
 
-        // There are some problems with the typesystem currently
-        // that require these workarounds
-        if (data_ref.is_shaping_expression())
-        {
-            // Shaping expressions ([e] a)  have a type of array but we do not
-            // want the array but the related pointer
-            type = data_ref.get_data_type();
-        }
-        else if (data_ref.is_array_section_range()
+        if (data_ref.is_array_section_range()
                 || data_ref.is_array_section_size())
         {
             // Array sections have a scalar type, but the data type will be array
@@ -198,7 +190,7 @@ void DeviceCUDA::do_gpu_outline_replacements(
 }
 
 DeviceCUDA::DeviceCUDA()
-	: DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
+	: DeviceProvider("cuda"), _cudaFilename("")
 {
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
