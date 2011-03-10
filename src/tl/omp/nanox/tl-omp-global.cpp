@@ -34,16 +34,19 @@ using namespace TL::Nanox;
 
 void OMPTransform::add_openmp_initializer(TL::DTO& dto)
 {
-    AST_t a = dto["translation_unit"];
-    ScopeLink sl = dto["scope_link"];
+    if (Nanos::Version::interface_is_at_least("openmp", 3))
+    {
+        AST_t a = dto["translation_unit"];
+        ScopeLink sl = dto["scope_link"];
 
-    Source src;
+        Source src;
 
-    src 
-        << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-        ;
+        src 
+            << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+            ;
 
-    AST_t tree = src.parse_global(a, sl);
+        AST_t tree = src.parse_global(a, sl);
 
-    a.append_to_translation_unit(tree);
+        a.append_to_translation_unit(tree);
+    }
 }
