@@ -51,8 +51,8 @@ using namespace TL::HLT;
 static bool _allow_identity = true;
 static std::string _allow_identity_str;
 
-static TL::ObjectList<TL::Symbol*> builtin_vr_list;
-static TL::ObjectList<TL::Symbol*> builtin_gf_list;
+static TL::ObjectList<TL::Symbol> builtin_vr_list;
+static TL::ObjectList<TL::Symbol> builtin_gf_list;
 
 static void update_identity_flag(const std::string &str)
 {
@@ -81,10 +81,10 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     for(i=1; i<builtin_vr_list.size(); i++) 
     {
         if (equivalent_types(get_unqualified_type(types[0]),
-                    function_type_get_parameter_type_num(builtin_vr_list[i]->get_type()
+                    function_type_get_parameter_type_num(builtin_vr_list[i].get_type()
                         .get_internal_type(), 0)));
         {
-            return builtin_vr_list[i]->_symbol;
+            return builtin_vr_list[i]._symbol;
         }
     }
 
@@ -99,13 +99,12 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
-    result->decl_context = builtin_vr_list[0]->_symbol->decl_context;
+    result->decl_context = builtin_vr_list.at(0)._symbol->decl_context;
     //BUILTIN + MUTABLE = LTYPE!
     result->entity_specs.is_builtin = 1;
     result->entity_specs.is_mutable = 1;
 
-    TL::Symbol *new_symbol = new TL::Symbol(result);
-    builtin_vr_list.append(new_symbol);
+    builtin_vr_list.append(TL::Symbol(result));
 
     return result;
 }
@@ -124,10 +123,10 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
     for(i=1; i<builtin_gf_list.size(); i++) 
     {
         if (equivalent_types(get_unqualified_type(types[0]),
-                    function_type_get_parameter_type_num(builtin_gf_list[i]->get_type()
+                    function_type_get_parameter_type_num(builtin_gf_list[i].get_type()
                         .get_internal_type(), 0)));
         {
-            return builtin_gf_list[i]->_symbol;
+            return builtin_gf_list[i]._symbol;
         }
     }
 
@@ -145,11 +144,10 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
-    result->decl_context = builtin_gf_list[0]->_symbol->decl_context;
+    result->decl_context = builtin_gf_list.at(0)._symbol->decl_context;
     result->entity_specs.is_builtin = 1;
 
-    TL::Symbol *new_symbol = new TL::Symbol(result);
-    builtin_gf_list.append(new_symbol);
+    builtin_gf_list.append(result);
 
     return result;
 }
@@ -267,6 +265,7 @@ void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
 
 void HLTPragmaPhase::pre_run(TL::DTO& dto)
 {
+
     // get the translation_unit tree
     AST_t translation_unit = dto["translation_unit"];
     // get the scope_link
@@ -281,21 +280,16 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
     builtin_vr_sym._symbol->entity_specs.is_builtin = 1;
     builtin_vr_sym._symbol->entity_specs.is_mutable = 1;
     builtin_vr_sym._symbol->type_information = get_computed_function_type(solve_vector_ref_overload_name);
-
     //Artificial Symbol in list[0]
-    builtin_vr_list.append(&builtin_vr_sym);
+    builtin_vr_list.append(builtin_vr_sym);
 
-
-    //New Artificial Symbol: __builtin_vector_reference
+    //New Artificial Symbol: __builtin_global_function
     Symbol builtin_gf_sym = global_scope.new_artificial_symbol(BUILTIN_GF_NAME);
     builtin_gf_sym._symbol->kind = SK_FUNCTION;
     builtin_gf_sym._symbol->entity_specs.is_builtin = 1;
     builtin_gf_sym._symbol->type_information = get_computed_function_type(solve_generic_func_overload_name);
-
     //Artificial Symbol in list[0]
-    builtin_gf_list.append(&builtin_gf_sym);
-
-
+    builtin_gf_list.append(builtin_gf_sym);
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -1099,10 +1093,27 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     }
 }
 
-
 static void simdize_function_fun(TL::FunctionDefinition& func_def)
 {
+    
+    unsigned char min_stmt_size;
+
+    Simdization * simdization = TL::HLT::simdize(func_def, min_stmt_size);
+    TL::Source simdized_func_src = *simdization;
+    delete(simdization);
+
+    std::cout << simdized_func_src.get_source();
+
+    std::pair<std::string, TL::Symbol> new_func_key (GENERIC_DEVICE, func_def.get_function_symbol());
+    generic_function_map[new_func_key] = simdized_func_src.parse_declaration(
+            func_def.get_ast(), func_def.get_scope_link());
+
     func_def.get_function_name().get_symbol().set_attribute(LANG_IS_HLT_SIMD_FUNC, true);
+
+    //FIX ME: This is workaround of #544. get_parent()
+//    func_def.get_ast().get_parent().get_parent().prepend(simdized_func_tree);
+
+//    TL::FunctionDefinition simdized_func_def (simdized_func_tree, func_def.get_scope_link());
 }
 
 
@@ -1111,6 +1122,7 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
     //SIMD FUNCTIONS
     if (construct.is_function_definition())
     {
+        
         FunctionDefinition func_def (construct.get_declaration(), construct.get_scope_link());
         if (construct.is_parameterized())
         {
@@ -1120,10 +1132,12 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
 
         simdize_function_fun(func_def);
         construct.get_ast().replace(func_def.get_ast());
+        
     }
     //SIMD LOOPS
     else
     {
+        
         Statement statement = construct.get_statement();
 
         if (ForStatement::predicate(statement.get_ast()))
@@ -1137,7 +1151,6 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
             }
             else
             {
-                std::cerr << "No Parametrizada:\n" << construct.prettyprint();
                 simdize_loop_fun(for_statement);
             }
 

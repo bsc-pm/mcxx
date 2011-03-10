@@ -24,6 +24,7 @@
 #include "hlt-simd.hpp"
 #include "tl-generic_vector.hpp"
 #include "tl-datareference.hpp"
+#include "uniquestr.h"
 #include <sstream>
 
 using namespace TL::HLT;
@@ -54,10 +55,10 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 
         if (TL::TypeSpec::predicate(ast))
         {
-            return Type((TypeSpec(ast, _this->_sl)).get_type())
+            return uniquestr(Type((TypeSpec(ast, _this->_sl)).get_type())
                 .get_generic_vector_to()
                 .get_simple_declaration(_this->_sl.get_scope(ast), "")
-                .c_str();
+                .c_str());
         }
         if ((_this->_simd_id_exp_list != NULL) && TL::DataReference::predicate(ast))
         {
@@ -75,7 +76,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                         << DataReference(ast, _this->_sl).prettyprint()
                         << ")";
 
-                    return result.str().c_str();
+                    return uniquestr(result.str().c_str());
                 }
             }
         }
@@ -108,7 +109,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                     << ")"
                     ;
                 
-                return result.str().c_str();
+                return uniquestr(result.str().c_str());
             }
         }
     }       
@@ -223,7 +224,6 @@ Simdization* TL::HLT::simdize(LangConstruct& lang_const,
 {
     if (ForStatement::predicate(lang_const.get_ast()))
     {
-        printf("Soy FS\n");
         return new LoopSimdization(dynamic_cast<ForStatement&> (lang_const), min_stmt_size, simd_id_exp_list);
     }
     if (FunctionDefinition::predicate(lang_const.get_ast()))
@@ -264,7 +264,6 @@ void Simdization::compute_min_stmt_size()
 
 TL::Source Simdization::get_source()
 {
-    printf("Soy Base: get_source\n");
     return do_simdization();
 }
 
@@ -319,7 +318,6 @@ void Simdization::gen_vector_type(const IdExpression& id){
 
 TL::Source Simdization::do_simdization()
 {
-    printf("Soy Base: do_simd\n");
     return _ast.prettyprint();
 }
 
@@ -352,7 +350,6 @@ TL::Source LoopSimdization::do_simdization()
 {
     if (!is_simdizable)
     {
-        printf("Soy FS!\n");
         return _for_stmt.prettyprint();
     }
 
@@ -371,6 +368,9 @@ TL::Source LoopSimdization::do_simdization()
     }
 
     Statement initial_loop_body = _for_stmt.get_loop_body();
+
+    std::cout << initial_loop_body;
+
     Source replaced_loop_body = _replacement.replace(initial_loop_body);
 
     bool step_evaluation;
@@ -476,13 +476,60 @@ FunctionSimdization::FunctionSimdization(FunctionDefinition& func_def,
 
 TL::Source FunctionSimdization::do_simdization()
 {
-    printf("FUN\n");
     if (!is_simdizable)
     {
         return _func_def.prettyprint();
     }
 
-    return _replacement.replace(_func_def.get_function_body());
+    Source result, func_body, func_header, params;
+
+    result
+        << func_header
+        << func_body
+        ;
+    
+    DeclaredEntity decl_ent = _func_def.get_declared_entity();
+
+    if (!decl_ent.is_functional_declaration())
+    {
+           running_error("%s: unexpected DeclaredEntity.'\n",
+                   _func_def.get_ast().get_locus().c_str());
+    }
+
+    ObjectList<ParameterDeclaration> param_list = decl_ent.get_parameter_declarations();
+
+    Symbol func_sym = decl_ent.get_declared_symbol();
+
+    func_header
+        << func_sym.get_type().basic_type().get_generic_vector_to()
+                .get_simple_declaration(func_sym.get_scope(), "_" + func_sym.get_name() + "_")
+        << "("
+        << params
+        << ")"
+        ;
+
+    for (ObjectList<ParameterDeclaration>::iterator it = param_list.begin();
+            it != (param_list.end()-1);
+            it++)
+    {
+        ParameterDeclaration param(*it);
+
+        params 
+            << param.get_type().get_generic_vector_to().get_simple_declaration(
+                    param.get_scope(), param.get_name())
+            << ", "
+            ;
+    }
+
+    ParameterDeclaration param(*(param_list.end()-1));
+    params 
+        << param.get_type().get_generic_vector_to().get_simple_declaration(
+                param.get_scope(), param.get_name())
+        ;
+
+    func_body = _replacement.replace(_func_def.get_function_body());
+
+    return result;
 }
 
 

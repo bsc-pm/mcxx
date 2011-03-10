@@ -34,7 +34,7 @@ using namespace TL;
 using namespace TL::Nanox;
 
 const unsigned int _vector_width = 16;
-std::map< Symbol, Source> generic_function_map;
+const std::string device_name("smp");
 
 
 std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope)
@@ -165,7 +165,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             result << recursive_prettyprint(arg_list[0].get_ast(), data);
 
-            return result.str().c_str();
+            return uniquestr(result.str().c_str());
         }
         else if(FindFunction(_this->_sl, BUILTIN_GF_NAME).do_(ast))
         {
@@ -188,24 +188,41 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 << _vector_width
                 ;
 
-            //Function marked with #pragma hlt simd.
-            //Generating a simdized function from the source code.
-            if (func_sym.has_attribute(LANG_IS_HLT_SIMD_FUNC))
+            //If the function doesn't exists yet, we generate its source code
+            std::pair<std::string,Symbol> func_key(device_name, func_sym);
+            if (generic_function_map.find(func_key) == generic_function_map.end())
+            // if (!generic_function_map[func_key].is_valid())
             {
-                printf("SIMD FUNC!\n");
-            }
-            //Generating a homemade vector function
-            else
-            {
-                //If the function doesn't exists yet, we generate its source code
-                if (generic_function_map[func_sym].empty())
-                {
-                    Source func, func_body;
-                    Type func_ret_type = func_sym
-                        .get_type().basic_type()
-                        .get_vector_to(_vector_width);
+                Source func_src, func_body_src;
+                Type func_ret_type = func_sym
+                    .get_type().basic_type()
+                    .get_vector_to(_vector_width);
 
-                    func
+                //Function marked with #pragma hlt simd.
+                //Generating a simdized function from the source code.
+                if (func_sym.has_attribute(LANG_IS_HLT_SIMD_FUNC))
+                {
+                    std::pair<std::string, TL::Symbol> gen_func_key(GENERIC_DEVICE, func_sym);
+                    AST_t generic_func_ast = generic_function_map[gen_func_key];
+
+                    if (!generic_func_ast.is_valid())
+                    {
+                        internal_error("Expected generic function AST_t from a FunctionDeclaration is missing: %s",
+                                func_sym.get_name().c_str());
+                    }
+
+                        ReplaceSrcIdExpression func_replmnt(_this->_sl);
+                        func_replmnt.add_replacement(func_sym, func_name.str());
+                        Source src = func_replmnt.replace(generic_func_ast);
+
+                        generic_function_map[func_key] = 
+                            src.parse_declaration(generic_func_ast,
+                                    _this->_sl);
+                }
+                //Generating a homemade simdized vector function using the scalar one
+                else
+                {
+                    func_src
                         << func_ret_type.get_simple_declaration(_this->_sl.get_scope(ast), func_name.str())
                         << "("
                         ;
@@ -216,12 +233,12 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                         Type arg_vec_type = arg_list[i].get_type()
                             .basic_type().get_vector_to(_vector_width);
 
-                        func
+                        func_src
                             << arg_vec_type.get_simple_declaration(_this->_sl.get_scope(ast), arg_list[i].prettyprint())
                             << ", "
                             ;
 
-                        func_body
+                        func_body_src
                             << "union {"
                             << arg_vec_type.get_pointer_to()
                             .get_simple_declaration(_this->_sl.get_scope(ast), "v") << ";"
@@ -234,11 +251,11 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                     Type arg_vec_type = arg_list[i].get_type()
                         .basic_type().get_vector_to(_vector_width);
 
-                    func
+                    func_src
                         << arg_vec_type.get_simple_declaration(_this->_sl.get_scope(ast), arg_list[i].prettyprint())
                         << ")"
                         << "{"
-                        << func_body
+                        << func_body_src
                         << "}"
                         ;
 
@@ -248,7 +265,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                     vec_size_src << vec_size;
                     //                std::cerr << "!!!!" << vec_size_src.get_source();
                     //Last union from the arguments + result union
-                    func_body
+                    func_body_src
                         << "union {"
                         << arg_vec_type.get_pointer_to()
                         .get_simple_declaration(_this->_sl.get_scope(ast), "v") << ";"
@@ -268,22 +285,23 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     for (i=0; i<vec_size; i++)
                     {
-                        func_body
+                        func_body_src
                             << "_result.w[" << i << "] = " << func_sym.get_name() 
                             << "("
                             ;
 
                         for (j=1; j<(arg_list.size()-1); j++)
                         {
-                            func_body << "u_" << arg_list[j] << ".w[" << i << "], ";
+                            func_body_src << "u_" << arg_list[j] << ".w[" << i << "], ";
                         }
 
-                        func_body << "u_" <<  arg_list[j] << ".w[" << i << "]);";
+                        func_body_src << "u_" <<  arg_list[j] << ".w[" << i << "]);";
                     }
 
-                    func_body << "return _result.v;";
+                    func_body_src << "return _result.v;";
 
-                    generic_function_map[func_sym] = func;
+                    std::pair<std::string, Symbol> new_func_key(device_name, func_sym);
+                    generic_function_map[new_func_key] = func_src.parse_declaration(ast, _this->_sl);
                 }
 
                 //Call to the new function
@@ -300,7 +318,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 result
                     << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
 
-                return result.str().c_str();
+                return uniquestr(result.str().c_str());
             }
         }
         else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))
@@ -953,11 +971,15 @@ void DeviceSMP::create_outline(
         ;
 
     //generic_functions
-    for (std::map<Symbol, Source>::iterator it = generic_function_map.begin();
+    //FIXME:generic_function_map should be prettyprinted just one time! Not one time per outline!
+    for (std::map<std::pair<std::string, Symbol>, AST_t>::iterator it = generic_function_map.begin();
             it != generic_function_map.end();
             it++)
     {
-            generic_functions << it->second;
+        if ((*it).first.first == device_name)
+        {
+            generic_functions << (*it).second.prettyprint();
+        }
     }
 
     if (instrumentation_enabled())

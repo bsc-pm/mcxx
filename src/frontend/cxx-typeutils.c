@@ -6286,14 +6286,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-		//generic_vector
+                //generic_vector
                 if (type_info->vector->vector_size == 0)
                 {
-                    snprintf(c, 255, "__attribute__((generic_vector))");
+                    snprintf(c, 255, "__attribute__((generic_vector)) ");
                 }
                 else
                 {
-                    snprintf(c, 255, "__attribute__((vector_size(%d)))", 
+                    snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
                              type_info->vector->vector_size);
                 }
                 c[255] = '\0';
