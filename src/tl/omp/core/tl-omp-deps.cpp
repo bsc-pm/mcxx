@@ -104,6 +104,11 @@ namespace TL { namespace OpenMP {
                     }
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
                 }
+                else if (ds_attr == DS_UNDEFINED)
+                {
+                    // Unclear
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                }
             }
 
             data_sharing.add_dependence(dep_item);
