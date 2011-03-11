@@ -29,10 +29,10 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libtlomp-core.la
 
 libtlomp_core_la_CFLAGS = $(tl_cflags)
-libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt
+libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt -I $(srcdir)/../../analysis/cfg
 
 libtlomp_core_la_LDFLAGS = $(tl_ldflags)
-libtlomp_core_la_LIBADD = $(tl_libadd) ../../hlt/libtl-hlt.la
+libtlomp_core_la_LIBADD = $(tl_libadd) ../../hlt/libtl-hlt.la ../../analysis/cfg/libtlcfg.la
 
 END=
 

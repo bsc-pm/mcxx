@@ -33,6 +33,21 @@ namespace TL
     ClausesInfo::ClausesInfo()
     {
     }
+    
+    ClausesInfo::DirectiveClauses& ClausesInfo::lookup_map(AST_t a)
+    {
+        if (_directive_clauses_map.find(a) == _directive_clauses_map.end())
+        {
+            std::cerr 
+               << "ESTEM AFEGINT PER PRIMER COP -> " << std::endl
+               << a.prettyprint() << std::endl 
+               << "------" 
+               << std::endl;
+               
+           std::cerr << "jarl" << std::endl;
+        }
+        return _directive_clauses_map[a];
+    }
 
     void ClausesInfo::set_all_clauses(AST_t directive, ObjectList<std::string> all_clauses)
     {

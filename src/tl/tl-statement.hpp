@@ -150,8 +150,20 @@ namespace TL
             //! Returns the related expression of this expression-statement
             Expression get_expression() const;
 
-			//! It a Statement that breaks the sequential flow of the code
+			//! Returns whether the Statement breaks the sequential flow of the code or not
 			bool breaks_flow();
+            
+            //! Get the line of a pragma both construct or directive
+            Statement get_pragma_line() const;
+            
+            //! It is a pragma construct
+            bool is_pragma_construct() const;
+            
+            //! Get the associated Statement of a pragma custom construct
+            Statement get_pragma_construct_statement() const;
+            
+            //! It is a pragma directive
+            bool is_pragma_directive() const;
     };
     
     //! This LangConstruct wraps a for-statement in the code
@@ -425,8 +437,11 @@ namespace TL
             //! Returns the try protected compound statement
             Statement get_try_protected_block() const;
             
-            //! Returns the list of exceptions of the try block
-            ObjectList<Declaration> get_try_handlers() const;
+            //! Returns the list of exception declarations of the try block
+            ObjectList<Declaration> get_try_handler_declarations() const;
+            
+            //! Returns the list of exception blocks of the try block
+            ObjectList<Statement> get_try_handler_blocks() const;
             
             const static PredicateAttr predicate;
     };
@@ -478,6 +493,17 @@ namespace TL
             
             //! Returns the label of this labeled-statement
             std::string get_label() const;
+            
+            const static PredicateAttr predicate;
+    };
+    
+    //! This class wraps a empty-statement
+    class LIBTL_CLASS EmptyStatement : public Statement
+    {
+        public:
+            EmptyStatement(AST_t ref, ScopeLink sl)
+            : Statement(ref, sl)
+            {}
             
             const static PredicateAttr predicate;
     };

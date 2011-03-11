@@ -422,7 +422,8 @@ namespace TL
             static void destroy_adapter(void* p)
             {
                 _T* t = reinterpret_cast<_T*>(p);
-                t->_T::~_T();
+//                 t->_T::~_T();
+                delete t;
             }
 
         //! Retrieves the data with name str
