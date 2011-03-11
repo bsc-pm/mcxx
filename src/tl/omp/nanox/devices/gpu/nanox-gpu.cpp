@@ -30,7 +30,7 @@
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 #include "cxx-driver-utils.h"
-#include "tl-generic_vector.hpp"
+#include "tl-simd.hpp"
 #include "nanox-find_common.hpp"
 
 #include <iostream>

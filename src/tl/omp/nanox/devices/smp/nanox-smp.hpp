@@ -41,7 +41,7 @@ namespace TL
         {
             public:
 
-                virtual void run(DTO& dto) { }
+                virtual void run(DTO& dto);
 
                 DeviceSMP();
 

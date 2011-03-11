@@ -22,7 +22,7 @@
 --------------------------------------------------------------------*/
 
 #include "hlt-simd.hpp"
-#include "tl-generic_vector.hpp"
+#include "tl-simd.hpp"
 #include "tl-datareference.hpp"
 #include "uniquestr.h"
 #include <sstream>
@@ -368,9 +368,6 @@ TL::Source LoopSimdization::do_simdization()
     }
 
     Statement initial_loop_body = _for_stmt.get_loop_body();
-
-    std::cout << initial_loop_body;
-
     Source replaced_loop_body = _replacement.replace(initial_loop_body);
 
     bool step_evaluation;

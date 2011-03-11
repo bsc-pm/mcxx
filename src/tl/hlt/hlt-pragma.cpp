@@ -41,7 +41,7 @@
 #include "hlt-stripmine.hpp"
 #include "hlt-exception.hpp"
 #include "hlt-simd.hpp"
-#include "tl-generic_vector.hpp"
+#include "tl-simd.hpp"
 
 
 #include <algorithm>
@@ -1102,11 +1102,12 @@ static void simdize_function_fun(TL::FunctionDefinition& func_def)
     TL::Source simdized_func_src = *simdization;
     delete(simdization);
 
-    std::cout << simdized_func_src.get_source();
+    TL::FunctionDefinition generic_func_def(simdized_func_src.parse_declaration(
+            func_def.get_ast(), func_def.get_scope_link()),
+            func_def.get_scope_link());
 
-    std::pair<std::string, TL::Symbol> new_func_key (GENERIC_DEVICE, func_def.get_function_symbol());
-    generic_function_map[new_func_key] = simdized_func_src.parse_declaration(
-            func_def.get_ast(), func_def.get_scope_link());
+    TL::GenericFunctionInfo::GenericFunctionInfo generic_func_info(generic_func_def.get_ast());
+    TL::GenericFunctions::function_map[func_def.get_function_symbol()] = generic_func_info;
 
     func_def.get_function_name().get_symbol().set_attribute(LANG_IS_HLT_SIMD_FUNC, true);
 

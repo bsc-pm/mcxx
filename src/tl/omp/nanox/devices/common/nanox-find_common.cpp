@@ -1,5 +1,5 @@
 #include "nanox-find_common.hpp"
-#include "tl-generic_vector.hpp"
+#include "tl-simd.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;

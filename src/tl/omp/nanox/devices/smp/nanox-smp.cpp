@@ -27,7 +27,7 @@
 
 #include "tl-devices.hpp"
 #include "nanox-smp.hpp"
-#include "tl-generic_vector.hpp"
+#include "tl-simd.hpp"
 #include "nanox-find_common.hpp"
 
 using namespace TL;
@@ -189,9 +189,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 ;
 
             //If the function doesn't exists yet, we generate its source code
-            std::pair<std::string,Symbol> func_key(device_name, func_sym);
-            if (generic_function_map.find(func_key) == generic_function_map.end())
-            // if (!generic_function_map[func_key].is_valid())
+            if (TL::GenericFunctions::function_map.find(func_sym) == TL::GenericFunctions::function_map.end())
             {
                 Source func_src, func_body_src;
                 Type func_ret_type = func_sym
@@ -202,22 +200,11 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 //Generating a simdized function from the source code.
                 if (func_sym.has_attribute(LANG_IS_HLT_SIMD_FUNC))
                 {
-                    std::pair<std::string, TL::Symbol> gen_func_key(GENERIC_DEVICE, func_sym);
-                    AST_t generic_func_ast = generic_function_map[gen_func_key];
-
-                    if (!generic_func_ast.is_valid())
+                    GenericFunctionInfo func_info = TL::GenericFunctions::function_map[func_sym];
+                    if (func_info.is_defined(device_name, _vector_width))
                     {
-                        internal_error("Expected generic function AST_t from a FunctionDeclaration is missing: %s",
-                                func_sym.get_name().c_str());
+                        func_info.define_function(device_name, _vector_width);
                     }
-
-                        ReplaceSrcIdExpression func_replmnt(_this->_sl);
-                        func_replmnt.add_replacement(func_sym, func_name.str());
-                        Source src = func_replmnt.replace(generic_func_ast);
-
-                        generic_function_map[func_key] = 
-                            src.parse_declaration(generic_func_ast,
-                                    _this->_sl);
                 }
                 //Generating a homemade simdized vector function using the scalar one
                 else
@@ -300,8 +287,8 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     func_body_src << "return _result.v;";
 
-                    std::pair<std::string, Symbol> new_func_key(device_name, func_sym);
-                    generic_function_map[new_func_key] = func_src.parse_declaration(ast, _this->_sl);
+                //    std::pair<std::string, Symbol> new_func_key(device_name, func_sym);
+                //    TL::GenericVector::function_map[new_func_key] = func_src.parse_declaration(ast, _this->_sl);
                 }
 
                 //Call to the new function
@@ -857,6 +844,11 @@ DeviceSMP::DeviceSMP()
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
 }
 
+void DeviceSMP::run(DTO& dto) 
+{
+    DeviceProvider::run(dto);
+}
+
 void DeviceSMP::create_outline(
         const std::string& task_name,
         const std::string& struct_typename,
@@ -971,14 +963,26 @@ void DeviceSMP::create_outline(
         ;
 
     //generic_functions
-    //FIXME:generic_function_map should be prettyprinted just one time! Not one time per outline!
-    for (std::map<std::pair<std::string, Symbol>, AST_t>::iterator it = generic_function_map.begin();
-            it != generic_function_map.end();
+    for (std::map<Symbol,GenericFunctionInfo>::iterator it = TL::GenericFunctions::function_map.begin();
+            it != TL::GenericFunctions::function_map.end();
             it++)
     {
-        if ((*it).first.first == device_name)
+        GenericFunctionInfo& func_info = (*it).second;
+        if(func_info.is_prettyprinted())
         {
-            generic_functions << (*it).second.prettyprint();
+            ReplaceSrcSMP replacement(sl);
+            FunctionDefinition func_def (func_info.get_generic_definition(), sl);
+            Symbol func_sym = func_def.get_function_symbol();
+            
+            replacement.add_replacement(func_sym, func_sym.get_name() + "smp_16");
+
+            generic_functions 
+                << replacement.replace(func_info.get_generic_definition())
+               ;
+
+            std::cout << generic_functions.get_source();
+
+            func_info.set_prettyprinted(true);
         }
     }
 
