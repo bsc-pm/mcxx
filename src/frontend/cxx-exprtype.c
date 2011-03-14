@@ -1525,7 +1525,20 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
 
                 if (!expression_is_error(expression))
                 {
-                    ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION_RANGE, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
+                }
+                break;
+            }
+        case AST_ARRAY_SECTION_SIZE :
+            {
+                check_for_array_section_expression(expression, decl_context);
+
+                if (!expression_is_error(expression))
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION_SIZE, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
@@ -2631,7 +2644,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
-    else if (!checking_ambiguity())
+    else 
     {
         if (!checking_ambiguity())
         {
@@ -8565,7 +8578,7 @@ static void check_for_comma_operand(AST expression, decl_context_t decl_context)
         leave_test_expression();
 
         // We will fall-through if no overload exists
-        if (computed_type != NULL)
+        if (!is_error_type(computed_type))
             return;
     }
 

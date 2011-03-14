@@ -951,7 +951,18 @@ namespace TL
     
     bool Expression::is_array_section()
     {
-        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION);
+        return this->is_array_section_range();
+    }
+
+    bool Expression::is_array_section_range()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION_RANGE);
+        return result;
+    }
+
+    bool Expression::is_array_section_size()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION_SIZE);
         return result;
     }
 

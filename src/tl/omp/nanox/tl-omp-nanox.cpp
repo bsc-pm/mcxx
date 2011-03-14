@@ -69,6 +69,11 @@ OMPTransform::OMPTransform()
             _compiler_alignment_str, 
             "1").connect(functor(&OMPTransform::set_compiler_alignment, *this));
 
+    register_parameter("do_not_create_translation_function",
+            "Even if the runtime interface supports a translation function, it will not be generated", 
+            _do_not_create_translation_str,
+            "0").connect(functor(&OMPTransform::set_translation_function_flag, *this));
+
     on_directive_post["critical"].connect(functor(&OMPTransform::critical_postorder, *this));
     on_directive_post["master"].connect(functor(&OMPTransform::master_postorder, *this));
 
@@ -107,6 +112,11 @@ void OMPTransform::set_compiler_alignment(const std::string& str)
     parse_boolean_option("compiler_alignment", str, _compiler_alignment, "Assuming true.");
 }
 
+void OMPTransform::set_translation_function_flag(const std::string& str)
+{
+    parse_boolean_option("do_not_create_translation_function", str, _do_not_create_translation_fun, "Assuming false.");
+}
+
 void OMPTransform::phase_cleanup(DTO& data_flow)
 {
     _lock_names.clear();
@@ -122,6 +132,8 @@ void OMPTransform::run(DTO& dto)
     }
 
     OpenMP::OpenMPPhase::run(dto);
+
+    add_openmp_initializer(dto);
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

@@ -25,28 +25,28 @@
 --------------------------------------------------------------------*/
 
 
-/*
-<testinfo>
-test_generator=config/mercurium-extensions
-</testinfo>
-*/
 
-int a[100];
-int *b;
+#include "tl-omp-nanox.hpp"
+#include "tl-nanos.hpp"
 
-void f(void)
+using namespace TL;
+using namespace TL::Nanox;
+
+void OMPTransform::add_openmp_initializer(TL::DTO& dto)
 {
-    a[0:49] = 1;
-    a[50:99] = 2;
+    if (Nanos::Version::interface_is_at_least("openmp", 3))
+    {
+        AST_t a = dto["translation_unit"];
+        ScopeLink sl = dto["scope_link"];
 
-    a[0;49] = 1;
-    a[50;99] = 2;
+        Source src;
 
-    b = a;
+        src 
+            << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+            ;
 
-    b[0:49] = 2;
-    b[50:99] = 3;
+        AST_t tree = src.parse_global(a, sl);
 
-    b[0;50] = 2;
-    b[50;50] = 3;
+        a.append_to_translation_unit(tree);
+    }
 }

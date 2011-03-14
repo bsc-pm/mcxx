@@ -25,6 +25,7 @@
 --------------------------------------------------------------------*/
 
 
+#include "tl-nanos.hpp"
 #include "tl-devices.hpp"
 #include "nanox-smp_numa.hpp"
 
@@ -36,7 +37,7 @@ static std::string smp_outline_name(const std::string &task_name)
     return "_smp_numa_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type, 
+Type DeviceSMP_NUMA::compute_replacement_type_for_vla(Type type, 
         ObjectList<Source>::iterator dim_names_begin,
         ObjectList<Source>::iterator dim_names_end)
 {
@@ -65,45 +66,13 @@ static Type compute_replacement_type_for_vla(Type type,
     return new_type;
 }
 
-static void do_smp_numa_outline_replacements(
-        AST_t body,
-        ScopeLink scope_link,
+void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
+        const Scope& sc,
         const DataEnvironInfo& data_env_info,
-        Source &initial_code,
-        Source &replaced_outline)
+        Source &copy_setup,
+        ReplaceSrcIdExpression& replace_src,
+        bool &err_declared)
 {
-    Source copy_setup;
-    Scope sc = scope_link.get_scope(body);
-
-    initial_code
-        << copy_setup
-        ;
-
-    ReplaceSrcIdExpression replace_src(scope_link);
-
-    replace_src.add_this_replacement("_args->_this");
-
-    bool err_declared = false;
-
-    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-            it != data_env_items.end();
-            it++)
-    {
-        DataEnvironItem& data_env_item(*it);
-
-        Symbol sym = data_env_item.get_symbol();
-        const std::string field_name = data_env_item.get_field_name();
-
-        if (data_env_item.is_private())
-            continue;
-
-        if (data_env_item.is_copy())
-        {
-        	replace_src.add_replacement(sym, "_args->" + field_name);
-        }
-    }
-
     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -126,16 +95,8 @@ static void do_smp_numa_outline_replacements(
             type = type.get_pointer_to();
         }
 
-        // There are some problems with the typesystem currently
-        // that require these workarounds
-        if (data_ref.is_shaping_expression())
-        {
-            // Shaping expressions ([e] a)  have a type of array but we do not
-            // want the array but the related pointer
-            type = data_ref.get_data_type();
-            requires_indirect = false;
-        }
-        else if (data_ref.is_array_section())
+        if (data_ref.is_array_section_range()
+                || data_ref.is_array_section_size())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
@@ -158,7 +119,7 @@ static void do_smp_numa_outline_replacements(
         ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
                 "Invalid data for copy symbol", 0);
 
-        std::string field_addr = "_args->" + data_env_item.get_field_name();
+        // std::string field_addr = "_args->" + data_env_item.get_field_name();
 
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
@@ -175,12 +136,69 @@ static void do_smp_numa_outline_replacements(
             replace_src.add_replacement(sym, "(*" + copy_name + ")");
         }
     }
+}
+
+void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
+        AST_t body,
+        ScopeLink scope_link,
+        const DataEnvironInfo& data_env_info,
+        Source &initial_code,
+        Source &replaced_outline)
+{
+    Source copy_setup;
+    Scope sc = scope_link.get_scope(body);
+
+    initial_code
+        << copy_setup
+        ;
+
+    ReplaceSrcIdExpression replace_src(scope_link);
+
+    replace_src.add_this_replacement("_args->_this");
+
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
+
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
+
+        if (data_env_item.is_private())
+            continue;
+
+        if (data_env_item.is_copy()
+                || create_translation_function())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
+
+    if (create_translation_function())
+    {
+        // We already created a function that performs the translation in the runtime
+        copy_setup
+            << comment("Translation is done by the runtime")
+            ;
+    }
+    else
+    {
+        bool err_declared = false;
+        do_smp_numa_inline_get_addresses(
+                sc,
+                data_env_info,
+                copy_setup,
+                replace_src,
+                err_declared);
+    }
 
     replaced_outline << replace_src.replace(body);
 }
 
 DeviceSMP_NUMA::DeviceSMP_NUMA()
-    : DeviceProvider("smp_numa", /* needs_copies */ true)
+    : DeviceProvider("smp_numa")
 {
     set_phase_name("Nanox SMP NUMA support");
     set_phase_description("This phase is used by Nanox phases to implement SMP NUMA device support");
@@ -325,8 +343,8 @@ void DeviceSMP_NUMA::create_outline(
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
             uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
+                << "\"'" << function_symbol.get_qualified_name() << "'"
+                << " invoked at '" << reference_tree.get_locus() << "'\""
                 ;
          }
          else
@@ -342,9 +360,9 @@ void DeviceSMP_NUMA::create_outline(
                 << uf_location_descr
                 ;
             uf_location_descr
-                << "\"Outline created after construct at '"
+                << "\"Outline from '"
                 << reference_tree.get_locus()
-                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
                 ;
         }
     }

@@ -560,13 +560,41 @@ namespace TL
              */
             std::string get_operator_str();
 
-            //! States whether the expression is an array section
-            bool is_array_section();
+            //! Alias for is_array_section_range
+            /*
+               \deprecated Do not use. Use is_array_section_range instead
+            */
+            DEPRECATED bool is_array_section();
+
+            //! States if this is a ranged array section
+            /*
+               a[e1 : e2] 
+
+               is a ranged array section denoting elements from a[e1]
+               to a[e2] (this is, the ends are both included). e2 should
+               be larger value than e1
+             */
+            bool is_array_section_range();
+
+            //! States if this is a sized array section
+            /*
+               a[e1 ; s] 
+
+               is a ranged array section denoting elements from a[e1]
+               to a[e1 + s - 1] (where s > 0)
+             */
+            bool is_array_section_size();
+
             //! Returns the sectioned expression in the array section
             Expression array_section_item();
             //! Returns the lower bound of the array section
             Expression array_section_lower();
-            //! Returns the upper bound of the array section
+            //! Returns the upper limit of an array section
+            /*!
+              For a ranged array section this is the upper bound.
+              For sized array sections, this is the size of elements
+              in the array section starting from the lower bound
+              */
             Expression array_section_upper();
 
             //! States whether the expression is a shaping expression

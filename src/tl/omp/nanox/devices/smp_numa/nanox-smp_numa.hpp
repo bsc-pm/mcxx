@@ -71,6 +71,25 @@ namespace TL
                         ScopeLink sl,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
+
+            private:
+                Type compute_replacement_type_for_vla(Type type, 
+                        ObjectList<Source>::iterator dim_names_begin,
+                        ObjectList<Source>::iterator dim_names_end);
+
+                void do_smp_numa_inline_get_addresses(
+                        const Scope& sc,
+                        const DataEnvironInfo& data_env_info,
+                        Source &copy_setup,
+                        ReplaceSrcIdExpression& replace_src,
+                        bool &err_declared);
+
+                void do_smp_numa_outline_replacements(
+                        AST_t body,
+                        ScopeLink scope_link,
+                        const DataEnvironInfo& data_env_info,
+                        Source &initial_code,
+                        Source &replaced_outline);
         };
 
     }
