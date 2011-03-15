@@ -658,6 +658,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
@@ -675,6 +682,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
+        <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -697,7 +705,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                struct_size << ", " 
+        <<                alignment
+        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"

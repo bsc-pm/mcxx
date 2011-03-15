@@ -26,6 +26,7 @@
 
 
 
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 
 using namespace TL;
@@ -91,6 +92,14 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         section_info.placeholder.replace(tree);
     }
 
+    Source alignment, slicer_alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(nanos_compound_wd_data_t),"
+            ;
+        slicer_alignment << "1,";
+    }
+
     Source compound_wd_src;
     compound_wd_src
         << "{"
@@ -119,11 +128,14 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         // FIXME - Devices is hardcoded to SMP!
         <<            "1, compound_device,"
         <<            "sizeof(nanos_compound_wd_data_t) + (" << section_list.size() << ") * sizeof(nanos_wd_t),"
+        <<            alignment
         <<            "(void**)&list_of_wds,"
         <<            "nanos_current_wd(),"
         <<            "compound_slicer,"
         // No data for this WD
-        <<            "0, &dummy,"
+        <<            /* sizeof */ "0,"
+        <<            slicer_alignment
+        <<            "&dummy,"
         <<            "&props,"
         // No copies either
         <<            "0, (nanos_copy_data_t**)0);"
