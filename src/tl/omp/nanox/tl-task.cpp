@@ -636,7 +636,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             // FIXME - Templates
             set_translation_fun 
-                << "nanos_set_translate_function(_xlate_copy_address_" << outline_num << ", wd);"
+                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
                 ;
 
             AST_t xlate_function_def = translation_function.parse_declaration(
