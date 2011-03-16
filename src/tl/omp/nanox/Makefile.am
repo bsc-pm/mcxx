@@ -41,6 +41,7 @@ libtlomp_nanox_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../nanos-common
 libtlomp_nanox_la_SOURCES = \
      tl-omp-nanox.cpp \
      tl-omp-nanox.hpp \
+     tl-omp-global.cpp \
      tl-parallel.cpp \
      tl-parallel-common.hpp \
      tl-parallel-common.cpp \

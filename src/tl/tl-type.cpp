@@ -108,6 +108,16 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_array_to(AST_t lower_bound, AST_t upper_bound, Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+        type_t* array_to = get_array_type_bounds(result_type, lower_bound._ast, upper_bound._ast, decl_context);
+
+        return Type(array_to);
+    }
+
     Type Type::get_array_to()
     {
         type_t* result_type = this->_type_info;

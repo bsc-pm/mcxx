@@ -100,188 +100,120 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         base_sym = sym;
 
-        Type t = sym.get_type();
+        type = sym.get_type();
 
-        if (t.is_reference())
-            t = t.references_to();
+        if (type.is_reference())
+            type = type.references_to();
 
-        type = t;
-
-        if (t.is_array())
+        if (type.is_array()
+                || enclosing_is_array)
         {
-            addr << sym.get_qualified_name();
-
-            Source dim_size;
-
-            if (!enclosing_is_array)
-            {
-                size << dim_size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-            }
-            else
-            {
-                t = t.basic_type();
-                size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-            }
+            addr = sym.get_qualified_name();
         }
-        else if (t.is_pointer() && enclosing_is_array)
+        else
         {
-            addr << sym.get_qualified_name();
-            t = t.points_to();
-            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-
+            addr = "&" + sym.get_qualified_name();
         }
-        else 
-        {
-            addr << "&" << sym.get_qualified_name();
-            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-        }
+        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
 
         return true;
     }
     else if (expr.is_array_subscript())
     {
         Source arr_size, arr_addr;
+        Type arr_type(NULL);
         bool b = gather_info_data_expr_rec(expr.get_subscripted_expression(),
                 base_sym,
                 arr_size,
                 arr_addr,
-                type,
+                arr_type,
                 /* enclosing_is_array */ true);
         if (!b)
-            return 0;
+            return false;
 
-        size << arr_size << " * (" << expr.get_subscript_expression() << ")";
-
-        if (!enclosing_is_array)
+        if (arr_type.is_array())
         {
-            addr << "&" << arr_addr << "[" << expr.get_subscript_expression() << "]";
+            type = arr_type.array_element();
         }
-        else
+        else if (arr_type.is_pointer())
         {
-            addr << arr_addr << "[" << expr.get_subscript_expression() << "]";
-        }
-
-        CXX_LANGUAGE()
-        {
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
-        }
-
-        if (type.is_array())
-        {
-            type = type.array_element();
-        }
-        else if (type.is_pointer())
-        {
-            type = type.points_to();
+            type = arr_type.points_to();
         }
         else
         {
             return false;
+        }
+
+        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        addr = arr_addr << "[" << expr.get_subscript_expression() << "]";
+        if (!enclosing_is_array)
+        {
+            addr = "&(" + addr.get_source() + ")";
         }
 
         return true;
     }
-    else if (expr.is_array_section_range())
+    else if (expr.is_array_section_range()
+            || expr.is_array_section_size())
     {
         Source arr_size, arr_addr;
+        Type arr_type(NULL);
         bool b = gather_info_data_expr_rec(expr.array_section_item(),
                 base_sym,
                 arr_size,
                 arr_addr,
-                type,
+                arr_type,
                 /* enclosing_is_array */ true);
         if (!b)
-            return 0;
+            return false;
 
-        size << arr_size << "* ( (" << expr.array_section_upper() << ")-(" << expr.array_section_lower() << ") + 1 )";
-
-        if (!enclosing_is_array)
+        if (arr_type.is_array())
         {
-            addr << "&" << arr_addr << "[" << expr.array_section_lower() << "]";
+            type = arr_type.array_element();
         }
-        else
+        else if (arr_type.is_pointer())
         {
-            addr << arr_addr << "[" << expr.array_section_lower() << "]";
-        }
-
-        CXX_LANGUAGE()
-        {
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
-        }
-
-        if (type.is_pointer())
-        {
-            type = type.points_to();
-        }
-        else if (type.is_array())
-        {
-            type = type.array_element();
+            type = arr_type.points_to();
         }
         else
         {
             return false;
         }
 
-        type = type.get_array_to("(" 
-                + expr.array_section_upper().prettyprint() 
-                + ")-(" 
-                + expr.array_section_lower().prettyprint() + ") + 1");
+        Source upper_bound;
 
-        return true;
-    }
-    else if (expr.is_array_section_size())
-    {
-        Source arr_size, arr_addr;
-        bool b = gather_info_data_expr_rec(expr.array_section_item(),
-                base_sym,
-                arr_size,
-                arr_addr,
-                type,
-                /* enclosing_is_array */ true);
-        if (!b)
-            return 0;
+        if (expr.is_array_section_size())
+        {
+            upper_bound 
+                << expr.array_section_lower() << " + " << expr.array_section_upper()
+                ;
+        }
+        else // expr.is_array_section_range
+        {
+            upper_bound 
+                << expr.array_section_upper()
+                ;
+        }
 
-        size << arr_size << "* ( " << expr.array_section_upper() << ")";
+        Source base_expr;
 
+        if (expr.array_section_item().is_shaping_expression())
+        {
+            base_expr << expr.array_section_item().shaped_expression();
+        }
+        else
+        {
+            base_expr << expr.array_section_item();
+        }
+        
+        type = type.get_array_to(expr.array_section_lower().get_ast(), expr.array_section_upper().get_ast(), expr.get_scope());
+        addr = arr_addr << "[" << expr.array_section_lower().prettyprint() << "]";
         if (!enclosing_is_array)
         {
-            addr << "&" << arr_addr << "[" << expr.array_section_lower() << "]";
+            addr = "&(" + addr.get_source() + ")";
         }
-        else
-        {
-            addr << arr_addr << "[" << expr.array_section_lower() << "]";
-        }
+        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
 
-        CXX_LANGUAGE()
-        {
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
-        }
-
-        if (type.is_pointer())
-        {
-            type = type.points_to();
-        }
-        else if (type.is_array())
-        {
-            type = type.array_element();
-        }
-        else
-        {
-            return false;
-        }
-
-        type = type.get_array_to("(" 
-                + expr.array_section_upper().prettyprint() 
-                + ")");
         return true;
     }
     else if (expr.is_unary_operation())
@@ -356,8 +288,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                     type = type.array_element();
                 }
 
-                size << "sizeof(" << type.get_declaration(ref_expr.get_scope(), "") << ")";
-                addr << "(" << ref_expr << ")";
+                size = "sizeof(" + type.get_declaration(ref_expr.get_scope(), "") + ")";
+                addr = "(" + ptr_addr.get_source() + ")";
 
                 return true;
             }
@@ -375,6 +307,9 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_size, arr_addr, 
                 type, /* enclosing_is_array */ true);
 
+        if (!b)
+            return false;
+
         CXX_LANGUAGE()
         {
             if (type.is_reference())
@@ -386,36 +321,17 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!type.is_pointer())
             return false;
 
-        if (!b)
-            return false;
+        type = type.points_to();
 
         ObjectList<Expression> shape_list = expr.shape_list();
-
-        if (!enclosing_is_array)
+        for (ObjectList<Expression>::iterator it = shape_list.begin();
+                it != shape_list.end();
+                it++)
         {
-            Source factor;
-
-            for (ObjectList<Expression>::iterator it = shape_list.begin();
-                    it != shape_list.end();
-                    it++)
-            {
-                factor.append_with_separator("(" + it->prettyprint() + ")", "*");
-            }
-            size << "(" << arr_size << ") * " << factor;
+            type = type.get_array_to(it->get_ast(), it->get_scope());
         }
-        else
-        {
-            Type t = type.points_to();
-            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-        }
-
-        Source proper_cast;
-
-        Type cast_type = expr.get_type().array_element().get_pointer_to();
-
-        proper_cast << "(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
-
-        addr << "(" << proper_cast << "(" << arr_addr << "))";
+        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        addr = arr_addr;
 
         return true;
     }
@@ -437,26 +353,19 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!member.is_valid())
             return false;
 
-        Type t = member.get_type();
+        type = member.get_type();
 
         CXX_LANGUAGE()
         {
-            t = t.get_reference_to();
+           type = type.get_reference_to();
         }
 
-        type = t;
-
+        addr = obj_addr << "." << expr.get_accessed_member().prettyprint();
         if (!enclosing_is_array)
         {
-            addr << "&(" << obj_expr << "." << expr.get_accessed_member() << ")";
-            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+            addr = "&(" + addr.get_source() + ")";
         }
-        else
-        {
-            addr << obj_expr << "." << expr.get_accessed_member();
-            t = t.basic_type();
-            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-        }
+        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
 
         return true;
     }

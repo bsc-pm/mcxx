@@ -12,7 +12,7 @@ environments.
 
 * Installation from source tarball
 
-You'll need only a fairly recent version of gcc and g++ (3.3 or newer). Just do the typical
+You'll need only a fairly recent version of gcc and g++ (4.1 or newer). Just do the typical
 
  $ ./configure
  $ make
@@ -35,12 +35,11 @@ Provided you use a Bourne alike shell the following would suffice.
 You will need
 
   flex 2.5.x
-  bison 2.3-rofi (currently available at http://mercurium.pc.ac.upc.edu/~rferrer/mercurium/)
   gperf 3.0.x
   automake-1.9 (or newer)
   autoconf-2.59 (or newer)
   libtool-1.5.22 (or newer)
-  gcc and g++ (3.3 or newer)
+  gcc and g++ (4.1 or newer)
 
 Provided you use a Bourne alike shell you must bootstrap
 

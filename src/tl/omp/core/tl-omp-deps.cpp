@@ -93,14 +93,22 @@ namespace TL { namespace OpenMP {
 
             if ((dep_attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
             {
-                if (((ds_attr & DS_UNDEFINED) != DS_UNDEFINED)
-                        && ((ds_attr & DS_IMPLICIT) != DS_IMPLICIT)
-                        && ((ds_attr & DS_SHARED) != DS_SHARED))
+                if (expr.is_id_expression())
                 {
-                    std::cerr << expr.get_ast().get_locus()
-                        << ": warning: symbol '" << sym.get_qualified_name() << "' has a non-shared data sharing, overwriting to shared" << std::endl;
+                    if (((ds_attr & DS_UNDEFINED) != DS_UNDEFINED)
+                            && ((ds_attr & DS_IMPLICIT) != DS_IMPLICIT)
+                            && ((ds_attr & DS_SHARED) != DS_SHARED))
+                    {
+                        std::cerr << expr.get_ast().get_locus()
+                            << ": warning: symbol '" << sym.get_qualified_name() << "' has a non-shared data sharing, overwriting to shared" << std::endl;
+                    }
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
                 }
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                else if (ds_attr == DS_UNDEFINED)
+                {
+                    // Unclear
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                }
             }
 
             data_sharing.add_dependence(dep_item);

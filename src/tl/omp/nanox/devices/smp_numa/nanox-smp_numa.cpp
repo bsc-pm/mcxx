@@ -95,16 +95,7 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
             type = type.get_pointer_to();
         }
 
-        // There are some problems with the typesystem currently
-        // that require these workarounds
-        if (data_ref.is_shaping_expression())
-        {
-            // Shaping expressions ([e] a)  have a type of array but we do not
-            // want the array but the related pointer
-            type = data_ref.get_data_type();
-            requires_indirect = false;
-        }
-        else if (data_ref.is_array_section_range()
+        if (data_ref.is_array_section_range()
                 || data_ref.is_array_section_size())
         {
             // Array sections have a scalar type, but the data type will be array
@@ -165,8 +156,6 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
 
     replace_src.add_this_replacement("_args->_this");
 
-    bool err_declared = false;
-
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();
@@ -196,6 +185,7 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
     }
     else
     {
+        bool err_declared = false;
         do_smp_numa_inline_get_addresses(
                 sc,
                 data_env_info,
@@ -208,7 +198,7 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
 }
 
 DeviceSMP_NUMA::DeviceSMP_NUMA()
-    : DeviceProvider("smp_numa", /* needs_copies */ true)
+    : DeviceProvider("smp_numa")
 {
     set_phase_name("Nanox SMP NUMA support");
     set_phase_description("This phase is used by Nanox phases to implement SMP NUMA device support");
@@ -353,8 +343,8 @@ void DeviceSMP_NUMA::create_outline(
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
             uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
+                << "\"'" << function_symbol.get_qualified_name() << "'"
+                << " invoked at '" << reference_tree.get_locus() << "'\""
                 ;
          }
          else
@@ -370,9 +360,9 @@ void DeviceSMP_NUMA::create_outline(
                 << uf_location_descr
                 ;
             uf_location_descr
-                << "\"Outline created after construct at '"
+                << "\"Outline from '"
                 << reference_tree.get_locus()
-                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
                 ;
         }
     }

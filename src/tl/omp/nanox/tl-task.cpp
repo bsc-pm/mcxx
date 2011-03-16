@@ -103,8 +103,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
-    bool some_device_needs_copies = false;
-
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
@@ -143,9 +141,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
-
-        some_device_needs_copies = some_device_needs_copies
-            || device_provider->needs_copies();
     }
 
     // If this is a function coming from a task try to get its devices with an
@@ -220,9 +215,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
-
-            some_device_needs_copies = some_device_needs_copies
-                    || device_provider->needs_copies();
         }
     }
 
@@ -516,8 +508,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source set_translation_fun;
 
-    if (copy_items.empty()
-            || !some_device_needs_copies)
+    if (copy_items.empty())
     {
         num_copies << "0";
         // Non immediate
@@ -645,7 +636,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             // FIXME - Templates
             set_translation_fun 
-                << "nanos_set_translate_function(_xlate_copy_address_" << outline_num << ", wd);"
+                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
                 ;
 
             AST_t xlate_function_def = translation_function.parse_declaration(
@@ -667,6 +658,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
@@ -684,6 +682,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
+        <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -706,7 +705,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                struct_size << ", " 
+        <<                alignment
+        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"

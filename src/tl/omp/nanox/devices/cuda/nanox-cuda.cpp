@@ -217,7 +217,11 @@ void DeviceCUDA::do_gpu_outline_replacements(
 }
 
 DeviceCUDA::DeviceCUDA()
+<<<<<<< HEAD
 : DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
+=======
+	: DeviceProvider("cuda"), _cudaFilename("")
+>>>>>>> master
 {
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -466,20 +470,21 @@ void DeviceCUDA::create_outline(
 			uf_name_descr
 				<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
 				;
-			uf_location_descr
-				<< "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-				<< " in construct at '" << reference_tree.get_locus() << "'\""
-				;
+            uf_location_descr
+                << "\"'" << function_symbol.get_qualified_name() << "'"
+                << " invoked at '" << reference_tree.get_locus() << "'\""
+                ;
 		}
 		else
-		{
-			uf_name_id
-				<< uf_location_id
-				;
-			uf_location_id
-				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-				;
+        {
+            uf_name_id
+                << uf_location_id
+                ;
+            uf_location_id
+                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+                ;
 
+<<<<<<< HEAD
 			uf_name_descr
 				<< uf_location_descr
 				;
@@ -489,6 +494,17 @@ void DeviceCUDA::create_outline(
 				<< "' found in function '" << function_symbol.get_qualified_name() << "'\""
 				;
 		}
+=======
+            uf_name_descr
+                << uf_location_descr
+                ;
+            uf_location_descr
+                << "\"Outline from '"
+                << reference_tree.get_locus()
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
+                ;
+        }
+>>>>>>> master
 	}
 
 	// arguments_struct_definition

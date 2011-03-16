@@ -108,36 +108,23 @@ namespace Nanox
                         str, _do_not_create_translation_fun, "Assuming false.");
             }
 
-            bool _needs_copies;
-
             void common_constructor_code();
 
         public:
             //! Constructor of a DeviceProvider
             /*!
-            \param needs_copies Set this parameter to true if this device requires explicit copies. 
-            DeviceProvider::needs_copies can be used to retrieve this value
-            */
-            DEPRECATED DeviceProvider(bool needs_copies);
-            
-            //! Constructor of a DeviceProvider
-            /*!
               \param device_name Device's identifier name
-              \param needs_copies Set this parameter to true if this device requires explicit copies. 
               DeviceProvider::needs_copies can be used to retrieve this value
              */
-            DeviceProvider(const std::string& device_name, bool needs_copies);
+            DeviceProvider(const std::string& device_name);
 
             //! States if this device needs copies
             /*!
-              Some device providers do not need runtime copies to work. If the implemented
-              device needs those, this function returns true.
-              The constructor of DeviceProvider receives a parameter stating whether this particular
-              device needs copies or not
+              Obsolete function. It always returns true
               */
-            bool needs_copies() const
+            DEPRECATED bool needs_copies() const
             {
-                return _needs_copies;
+                return true;
             }
 
             std::string get_name() const

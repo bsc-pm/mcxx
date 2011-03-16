@@ -71,7 +71,79 @@ static bool is_nonstatic_member_symbol(Symbol s)
         && !s.is_static();
 }
 
-static void do_smp_outline_replacements(AST_t body,
+void DeviceSMP::do_smp_inline_get_addresses(
+        const Scope& sc,
+        const DataEnvironInfo& data_env_info,
+        Source &copy_setup,
+        ReplaceSrcIdExpression& replace_src,
+        bool &err_declared)
+{
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+    unsigned int j = 0;
+    for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+            it != copies.end();
+            it++, j++)
+    {
+        DataReference data_ref = it->get_copy_expression();
+        Symbol sym = data_ref.get_base_symbol();
+        Type type = sym.get_type();
+
+        bool requires_indirect = false;
+
+        if (type.is_array())
+        {
+            type = type.array_element().get_pointer_to();
+        }
+        else
+        {
+            requires_indirect = true;
+            type = type.get_pointer_to();
+        }
+
+        if (data_ref.is_array_section_range()
+                || data_ref.is_array_section_size())
+        {
+            // Array sections have a scalar type, but the data type will be array
+            // See ticket #290
+            type = data_ref.get_data_type().array_element().get_pointer_to();
+            requires_indirect = false;
+        }
+
+        std::string copy_name = "_cp_" + sym.get_name();
+
+        if (!err_declared)
+        {
+            copy_setup
+                << "nanos_err_t cp_err;"
+                ;
+            err_declared = true;
+        }
+
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+        // std::string field_addr = "_args->" + data_env_item.get_field_name();
+
+        copy_setup
+            << type.get_declaration(sc, copy_name) << ";"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+            ;
+
+        if (!requires_indirect)
+        {
+            replace_src.add_replacement(sym, copy_name);
+        }
+        else
+        {
+            replace_src.add_replacement(sym, "(*" + copy_name + ")");
+        }
+    }
+}
+
+void DeviceSMP::do_smp_outline_replacements(AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
         Source &initial_code,
@@ -82,6 +154,10 @@ static void do_smp_outline_replacements(AST_t body,
     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
     
     replace_src.add_this_replacement("_args->_this");
+
+    Source copy_setup;
+    initial_code
+        << copy_setup;
 
     // First set up all replacements and needed castings
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
@@ -283,12 +359,32 @@ static void do_smp_outline_replacements(AST_t body,
         }
     }
 
+    // Copies
+    if (create_translation_function())
+    {
+        // We already created a function that performs the translation in the runtime
+        copy_setup
+            << comment("Translation is done by the runtime")
+            ;
+    }
+    else
+    {
+        Scope sc = scope_link.get_scope(body);
+
+        bool err_declared = false;
+        do_smp_inline_get_addresses(
+                sc,
+                data_env_info,
+                copy_setup,
+                replace_src,
+                err_declared);
+    }
+
     replaced_outline << replace_src.replace(body);
-    
 }
 
 DeviceSMP::DeviceSMP()
-    : DeviceProvider(/* device_name */ "smp", /* needs_copies */ true)
+    : DeviceProvider(/* device_name */ std::string("smp"))
 {
     set_phase_name("Nanox SMP support");
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
@@ -419,7 +515,7 @@ void DeviceSMP::create_outline(
             << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
             << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
             << "if (nanos_funct_id_init == 0)"
-	    << "{"
+            << "{"
             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\", "
@@ -433,14 +529,14 @@ void DeviceSMP::create_outline(
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "nanos_funct_id_init = 1;"
             << "}"
-	    << "nanos_event_t events_before[2];"
+            << "nanos_event_t events_before[2];"
             << "events_before[0].type = NANOS_BURST_START;"
             << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
             << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
             << "events_before[1].type = NANOS_BURST_START;"
             << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
             << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-	    << "nanos_instrument_events(2, events_before);"
+            << "nanos_instrument_events(2, events_before);"
             // << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
             // << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
             ;
@@ -470,10 +566,10 @@ void DeviceSMP::create_outline(
             uf_name_descr
                 << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
                 ;
-            uf_location_descr
-                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-                << " in construct at '" << reference_tree.get_locus() << "'\""
-                ;
+			uf_location_descr
+				<< "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+				<< " in construct at '" << reference_tree.get_locus() << "'\""
+				;
          }
          else
          {
@@ -488,9 +584,9 @@ void DeviceSMP::create_outline(
                 << uf_location_descr
             	;
             uf_location_descr
-                << "\"Outline created after construct at '"
+                << "\"Outline from '"
                 << reference_tree.get_locus()
-                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
                 ;
         }
     }
