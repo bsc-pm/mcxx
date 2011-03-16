@@ -217,11 +217,7 @@ void DeviceCUDA::do_gpu_outline_replacements(
 }
 
 DeviceCUDA::DeviceCUDA()
-<<<<<<< HEAD
-: DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
-=======
-	: DeviceProvider("cuda"), _cudaFilename("")
->>>>>>> master
+: DeviceProvider("cuda"), _cudaFilename("")
 {
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -484,17 +480,6 @@ void DeviceCUDA::create_outline(
                 << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
                 ;
 
-<<<<<<< HEAD
-			uf_name_descr
-				<< uf_location_descr
-				;
-			uf_location_descr
-				<< "\"Outline created after construct at '"
-				<< reference_tree.get_locus()
-				<< "' found in function '" << function_symbol.get_qualified_name() << "'\""
-				;
-		}
-=======
             uf_name_descr
                 << uf_location_descr
                 ;
@@ -504,7 +489,6 @@ void DeviceCUDA::create_outline(
                 << "' in '" << function_symbol.get_qualified_name() << "'\""
                 ;
         }
->>>>>>> master
 	}
 
 	// arguments_struct_definition
