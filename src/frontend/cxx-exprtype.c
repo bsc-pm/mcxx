@@ -4776,6 +4776,11 @@ static type_t* compute_operator_plus_type(AST expression,
                 *val = const_value_plus(expression_get_constant(op));
             }
         }
+        else if (is_vector_type(no_ref(op_type)))
+        {
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
+        }
         else
             return get_error_type();
 
@@ -4873,7 +4878,11 @@ static type_t* compute_operator_minus_type(AST expression,
             {
                 *val = const_value_neg(expression_get_constant(op));
             }
-#warning unary operators MINUS and PLUS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        }
+        else if (is_vector_type(no_ref(op_type)))
+        {
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else
             return get_error_type();
