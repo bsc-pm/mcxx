@@ -105,7 +105,8 @@ void Nanos::add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, Sc
                 && it->is_defined())
         {
             AST_t def = it->get_point_of_definition();
-            if (def.is_valid())
+            if (def.is_valid()
+                    && def != it->get_point_of_declaration())
             {
                 add_thread_to_declarations_in_tree(symbol_list, Declaration(def, sl));
             }
