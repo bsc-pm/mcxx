@@ -399,7 +399,14 @@ namespace TL
                     || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
             {
                 std::cerr << construct.get_ast().get_locus()
-                    << ": warning: '#pragma omp task' applied to a function with no parameters, skipping" << std::endl;
+                    << ": warning: '#pragma omp task' applied to a function with no parameters" << std::endl;
+
+                // Now gather task information
+                if (!_target_context.empty())
+                {
+                    TargetContext& target_context = _target_context.top();
+                    target_info.set_device_list(target_context.device_list);
+                }
             }
             else
             {
