@@ -30,6 +30,7 @@
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
+#include "tl-simd.hpp"
 
 namespace TL
 {
@@ -75,15 +76,24 @@ namespace TL
                 virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
         };
 
-        class ReplaceSrcSMP : public ReplaceSrcIdExpression
+        class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
         {
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
 
             public:
-                ReplaceSrcSMP(ScopeLink sl) : ReplaceSrcIdExpression(sl){};
+                ReplaceSrcSMP(ScopeLink sl, int width) 
+                    : ReplaceSrcGenericFunction(sl, "smp", width){}
+
+                void add_replacement(Symbol sym, const std::string& str);
+                void add_this_replacement(const std::string& str);
                 Source replace(AST_t a) const;
+                std::string get_replaced_func_name(
+                        std::string orig_name, 
+                        int width);
+                Source replace_naive_function(Symbol func_sym, ScopeLink);
+                Source replace_simd_function(Symbol func_sym, ScopeLink);
         };
     }
 }

@@ -4873,6 +4873,7 @@ static type_t* compute_operator_minus_type(AST expression,
             {
                 *val = const_value_neg(expression_get_constant(op));
             }
+#warning unary operators MINUS and PLUS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
         else
             return get_error_type();

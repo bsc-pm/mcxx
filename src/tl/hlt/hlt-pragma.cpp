@@ -62,6 +62,7 @@ static void update_identity_flag(const std::string &str)
             "Option 'disable_identity' is a boolean flag");
 }
 
+//__builtin_vector_reference overload
 static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
@@ -110,6 +111,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
 }
 
 
+//__builtin_generic_function overload
 static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
@@ -140,7 +142,8 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_GF_NAME;
     result->kind = SK_FUNCTION;
-    result->type_information = ((TL::Type)types[0])
+    result->type_information = TL::Type(types[0])
+        .returns()
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
@@ -1095,6 +1098,8 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
 
 static void simdize_function_fun(TL::FunctionDefinition& func_def)
 {
+    using namespace TL;
+    using namespace TL::SIMD;
     
     unsigned char min_stmt_size;
 
@@ -1102,19 +1107,12 @@ static void simdize_function_fun(TL::FunctionDefinition& func_def)
     TL::Source simdized_func_src = *simdization;
     delete(simdization);
 
-    TL::FunctionDefinition generic_func_def(simdized_func_src.parse_declaration(
+    FunctionDefinition generic_func_def(simdized_func_src.parse_declaration(
             func_def.get_ast(), func_def.get_scope_link()),
             func_def.get_scope_link());
 
-    TL::GenericFunctionInfo::GenericFunctionInfo generic_func_info(generic_func_def.get_ast());
-    TL::GenericFunctions::function_map[func_def.get_function_symbol()] = generic_func_info;
-
-    func_def.get_function_name().get_symbol().set_attribute(LANG_IS_HLT_SIMD_FUNC, true);
-
-    //FIX ME: This is workaround of #544. get_parent()
-//    func_def.get_ast().get_parent().get_parent().prepend(simdized_func_tree);
-
-//    TL::FunctionDefinition simdized_func_def (simdized_func_tree, func_def.get_scope_link());
+    generic_functions.add_simd(func_def.get_function_symbol(), 
+            generic_func_def.get_function_symbol());
 }
 
 

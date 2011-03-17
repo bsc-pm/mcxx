@@ -1396,6 +1396,11 @@ namespace TL
         _repl_map[sym] = str;
     }
 
+    ScopeLink ReplaceSrcIdExpression::get_scope_link() const
+    {
+        return _sl;
+    }
+
     Source ReplaceSrcIdExpression::replace(AST_t a) const
     {
         Source result;

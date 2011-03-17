@@ -1132,6 +1132,10 @@ namespace TL
             void set_replace_declarators(bool b);
 
             void set_ignore_pragma(bool b);
+
+            ScopeLink get_scope_link() const;
+
+            virtual ~ReplaceSrcIdExpression() { }
     };
 
     //! \addtogroup Functors
