@@ -52,7 +52,7 @@ void foo3(int *a)
     a[4] = a[4] * 12;
 }
 
-#pragma omp task inout(([10] a)[3;4])
+#pragma omp task inout(([10] a)[3;1])
 void foo4(int *a)
 {
     a[3] = a[3] + 10;
