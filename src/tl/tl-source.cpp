@@ -48,7 +48,7 @@ namespace TL
 {
     std::string SourceRef::get_source() const
     {
-        return _src->get_source();
+        return _src->get_source(false);
     }
 
     void Source::append_text_chunk(const std::string& str)
@@ -112,7 +112,7 @@ namespace TL
 
     Source::operator std::string()
     {
-        return this->get_source(true);
+        return this->get_source(false);
     }
 
     std::string Source::get_source(bool with_newlines) const
@@ -132,11 +132,9 @@ namespace TL
 
         std::string result;
         // Eases debugging
-        bool beginning_of_line = true;
         bool preprocessor_line = false;
         bool inside_string = false;
         char current_string_delimiter = ' ';
-        int nesting_level = 0;
 
         for (unsigned int i = 0; i < temp_result.size(); i++)
         {
@@ -171,16 +169,11 @@ namespace TL
                                 inside_string = false;
                             }
                         }
-                        beginning_of_line = false;
                         break;
                     }
                 case '#':
                     {
-                        if (beginning_of_line)
-                        {
-                            preprocessor_line = true;
-                            beginning_of_line = false;
-                        }
+                        preprocessor_line = true;
                         break;
                     }
                 case ';':
@@ -193,7 +186,6 @@ namespace TL
                         {
                             add_new_line = true;
                         }
-                        beginning_of_line = false;
                         break;
                     }
                 case '\n':
@@ -202,7 +194,6 @@ namespace TL
                         if (i == 0
                                 || temp_result[i-1] != '\\')
                         {
-                            beginning_of_line = true;
                             preprocessor_line = false;
                         }
 
@@ -210,7 +201,6 @@ namespace TL
                     }
                 default:
                     {
-                        beginning_of_line = false;
                         break;
                     }
             }
