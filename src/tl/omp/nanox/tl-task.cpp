@@ -143,6 +143,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 device_description_line);
     }
 
+    int total_devices = current_targets.size();
+
     // If this is a function coming from a task try to get its devices with an
     // implementation already given
     if (function_clause.is_defined())
@@ -163,6 +165,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             = function_task_set->get_function_task(task_symbol);
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
+
+        total_devices += implementation_list.size();
 
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
@@ -218,7 +222,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    num_devices << current_targets.size();
+    num_devices << total_devices;
 
     Source spawn_code;
     Source fill_outline_arguments, fill_immediate_arguments, 
@@ -636,7 +640,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             // FIXME - Templates
             set_translation_fun 
-                << "nanos_set_translate_function(_xlate_copy_address_" << outline_num << ", wd);"
+                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
                 ;
 
             AST_t xlate_function_def = translation_function.parse_declaration(
@@ -658,6 +662,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
@@ -675,6 +686,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
+        <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -697,7 +709,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                struct_size << ", " 
+        <<                alignment
+        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"

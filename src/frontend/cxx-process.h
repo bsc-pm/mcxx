@@ -55,7 +55,7 @@ LIBMCXXPROCESS_EXTERN void add_new_file_to_compilation_process(
 LIBMCXXPROCESS_EXTERN void running_error(const char* message, ...) NORETURN;
 
 #define BUG_URL "\nPlease report a bug at " \
-                "http://nanos.ac.upc.edu/projects/mcxx/newticket " \
+                "http://pm.bsc.es/projects/mcxx/newticket " \
                 "with preprocessed source if possible\n"
 
 #define internal_error(message, ...) \

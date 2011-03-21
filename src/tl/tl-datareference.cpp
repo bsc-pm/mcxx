@@ -205,8 +205,11 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             base_expr << expr.array_section_item();
         }
+
+        AST_t upper_bound_tree = upper_bound.parse_expression(expr.get_ast(),
+                expr.get_scope_link());
         
-        type = type.get_array_to(expr.array_section_lower().get_ast(), expr.array_section_upper().get_ast(), expr.get_scope());
+        type = type.get_array_to(expr.array_section_lower().get_ast(), upper_bound_tree, expr.get_scope());
         addr = arr_addr << "[" << expr.array_section_lower().prettyprint() << "]";
         if (!enclosing_is_array)
         {

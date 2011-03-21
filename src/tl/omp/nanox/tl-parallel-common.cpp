@@ -26,6 +26,7 @@
 
 
 
+#include "tl-nanos.hpp"
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
 
@@ -164,6 +165,13 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
             ;
     }
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
     Source num_copies, copy_data, imm_copy_data;
     num_copies << "0";
@@ -197,6 +205,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
         <<                    device_descriptor << ", "
         <<                    struct_size << ","
+        <<                    alignment
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
         <<                    "&props, " << num_copies << "," << copy_data << ");"
@@ -210,7 +219,9 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   fill_immediate_arguments
         <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
-        <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                              struct_size << ", " 
+        <<                              alignment
+        <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
         <<                              "&props, " << num_copies << "," << imm_copy_data << ");"

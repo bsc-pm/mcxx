@@ -48,7 +48,7 @@ namespace TL
 {
     std::string SourceRef::get_source() const
     {
-        return _src->get_source();
+        return _src->get_source(false);
     }
 
     void Source::append_text_chunk(const std::string& str)
@@ -112,7 +112,7 @@ namespace TL
 
     Source::operator std::string()
     {
-        return this->get_source(true);
+        return this->get_source(false);
     }
 
     std::string Source::get_source(bool with_newlines) const
@@ -124,52 +124,92 @@ namespace TL
         {
             temp_result += (*it)->get_source();
         }
-        std::string result;
 
         if (!with_newlines)
         {
-            result = temp_result;
+            return temp_result;
         }
-        else
+
+        std::string result;
+        // Eases debugging
+        bool preprocessor_line = false;
+        bool inside_string = false;
+        char current_string_delimiter = ' ';
+
+        for (unsigned int i = 0; i < temp_result.size(); i++)
         {
-            // Eases debugging
-            bool inside_string = false;
-            char current_string = ' ';
-            for (unsigned int i = 0; i < temp_result.size(); i++)
+            char c = temp_result[i];
+
+            bool add_new_line = false;
+
+            switch (c)
             {
-                char c = temp_result[i];
-
-                if (!inside_string)
-                {
-                    if (c == '\'' 
-                            || c == '"')
+                case '\t':
+                case ' ':
                     {
-                        inside_string = true;
-                        current_string = c;
+                        break;
                     }
-                }
-                else
-                {
-                    if (c == current_string
-                            && ((i == 1 && temp_result[i-1] != '\\')
-                                || (i > 1 && 
-                                    (temp_result[i-1] != '\\'
-                                     || temp_result[i-2] == '\\')))
-                       )
+                case '\'':
+                case '"':
                     {
-                        inside_string = false;
+                        if (!inside_string)
+                        {
+                            inside_string = true;
+                            current_string_delimiter = c;
+                        }
+                        else
+                        {
+                            if (c == current_string_delimiter
+                                    && ((i == 1 && temp_result[i-1] != '\\')
+                                        || (i > 1 && 
+                                            (temp_result[i-1] != '\\'
+                                             || temp_result[i-2] == '\\')))
+                               )
+                            {
+                                inside_string = false;
+                            }
+                        }
+                        break;
                     }
-                }
+                case '#':
+                    {
+                        preprocessor_line = true;
+                        break;
+                    }
+                case ';':
+                case '{':
+                case '}':
+                    {
+                        if (!inside_string
+                                && !preprocessor_line
+                                && !IS_FORTRAN_LANGUAGE)
+                        {
+                            add_new_line = true;
+                        }
+                        break;
+                    }
+                case '\n':
+                    {
+                        // Maybe it's being continuated
+                        if (i == 0
+                                || temp_result[i-1] != '\\')
+                        {
+                            preprocessor_line = false;
+                        }
 
-                result += c;
-                // Do not split if we are inside a string!
-                if (!inside_string
-                        && (c == ';' 
-                            || (!IS_FORTRAN_LANGUAGE
-                                && (c == '{' || c == '}'))))
-                {
-                    result += '\n';
-                }
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
+            }
+
+            result += c;
+
+            if (add_new_line)
+            {
+                result += '\n';
             }
         }
 
