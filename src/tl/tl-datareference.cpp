@@ -391,8 +391,9 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
     {
         AST_t size = type.array_get_size();
 
-        if (Expression(size, ScopeLink()).is_constant()
+        if ((Expression(size, ScopeLink()).is_constant()
                 || IS_C_LANGUAGE)
+                && !type.basic_type().is_void())
         {
             result << "sizeof(" << type.get_declaration(sc, "") << ")"
                 ;
