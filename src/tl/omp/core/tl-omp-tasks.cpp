@@ -282,10 +282,28 @@ namespace TL
                 }
         };
 
-        static void dependence_list_check(const ObjectList<FunctionTaskDependency>& function_task_param_list)
+        static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            // More things could be checked
-            for (ObjectList<FunctionTaskDependency>::const_iterator it = function_task_param_list.begin();
+            Expression expr(function_dep.get_expression());
+            if (expr.is_id_expression())
+            {
+                Symbol sym = expr.get_id_expression().get_computed_symbol();
+                if (sym.is_parameter()
+                        && !sym.get_type().is_reference())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        static void dependence_list_check(ObjectList<FunctionTaskDependency>& function_task_param_list)
+        {
+            ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
+                    function_task_param_list.end(),
+                    is_useless_dependence);
+            
+            for (ObjectList<FunctionTaskDependency>::iterator it = begin_remove;
                     it != function_task_param_list.end();
                     it++)
             {
@@ -299,13 +317,28 @@ namespace TL
                             && !sym.get_type().is_reference())
                     {
                         // Copy semantics of values in C/C++ lead to this fact
-                        running_error("%s: error: dependence expression '%s' "
-                                "only names a parameter, which by itself never defines a dependence\n",
-                                expr.get_ast().get_locus().c_str(),
-                                expr.prettyprint().c_str());
+                        // If the dependence is output (or inout) this should
+                        // be regarded as an error
+                        if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
+                        {
+                            running_error("%s: error: output dependence '%s' "
+                                    "only names a parameter, which by itself never defines a dependence\n",
+                                    expr.get_ast().get_locus().c_str(),
+                                    expr.prettyprint().c_str());
+                        }
+                        else
+                        {
+                            std::cerr << expr.get_ast().get_locus() << ": warning: "
+                                "skipping useless dependence '"<< expr.prettyprint() << "' as it only names a parameter "
+                                "which by itself never defines a dependence" 
+                                << std::endl;
+                        }
                     }
                 }
             }
+
+            // Remove useless expressions
+            function_task_param_list.erase(begin_remove, function_task_param_list.end());
         }
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)

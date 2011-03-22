@@ -114,7 +114,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             addr = "&" + sym.get_qualified_name();
         }
-        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        size = safe_expression_size(type, expr.get_scope());
 
         return true;
     }
@@ -144,7 +144,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             return false;
         }
 
-        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        size = safe_expression_size(type, expr.get_scope());
         addr = arr_addr << "[" << expr.get_subscript_expression() << "]";
         if (!enclosing_is_array)
         {
@@ -205,14 +205,17 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             base_expr << expr.array_section_item();
         }
+
+        AST_t upper_bound_tree = upper_bound.parse_expression(expr.get_ast(),
+                expr.get_scope_link());
         
-        type = type.get_array_to(expr.array_section_lower().get_ast(), expr.array_section_upper().get_ast(), expr.get_scope());
+        type = type.get_array_to(expr.array_section_lower().get_ast(), upper_bound_tree, expr.get_scope());
         addr = arr_addr << "[" << expr.array_section_lower().prettyprint() << "]";
         if (!enclosing_is_array)
         {
             addr = "&(" + addr.get_source() + ")";
         }
-        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        size = safe_expression_size(type, expr.get_scope());
 
         return true;
     }
@@ -288,7 +291,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                     type = type.array_element();
                 }
 
-                size = "sizeof(" + type.get_declaration(ref_expr.get_scope(), "") + ")";
+                size = safe_expression_size(type, expr.get_scope());
                 addr = "(" + ptr_addr.get_source() + ")";
 
                 return true;
@@ -330,7 +333,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             type = type.get_array_to(it->get_ast(), it->get_scope());
         }
-        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        size = safe_expression_size(type, expr.get_scope());
         addr = arr_addr;
 
         return true;
@@ -365,7 +368,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             addr = "&(" + addr.get_source() + ")";
         }
-        size = "sizeof(" + type.get_declaration(expr.get_scope(), "") + ")";
+        size = safe_expression_size(type, expr.get_scope());
 
         return true;
     }
@@ -376,4 +379,43 @@ bool DataReference::gather_info_data_expr(Expression &expr, Symbol& base_sym,
         Source &size, Source &addr, Type &type)
 {
     return gather_info_data_expr_rec(expr, base_sym, size, addr, type, /* enclosing_is_array */ false);
+}
+
+Source TL::DataReference::safe_expression_size(Type type, Scope sc)
+{
+    Source result;
+    if (type.is_reference())
+        type = type.references_to();
+
+    if (type.is_array())
+    {
+        AST_t size = type.array_get_size();
+
+        if ((Expression(size, ScopeLink()).is_constant()
+                || IS_C_LANGUAGE)
+                && !type.basic_type().is_void())
+        {
+            result << "sizeof(" << type.get_declaration(sc, "") << ")"
+                ;
+        }
+        else
+        {
+            result
+                << "((" << size.prettyprint() << ") * " << safe_expression_size(type.array_element(), sc) << ")";
+        }
+    }
+    // Simplify pointers to arrays
+    else if (type.is_pointer()
+            && type.points_to().is_array())
+    {
+        result << safe_expression_size(type.points_to().array_element().get_pointer_to(), sc)
+            ;
+    }
+    else
+    {
+        result << "sizeof(" << type.get_declaration(sc, "") << ")"
+            ;
+    }
+
+    return result;
 }

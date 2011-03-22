@@ -75,6 +75,8 @@ namespace TL
                     Source &size, 
                     Source &addr,
                     Type &type);
+
+            static Source safe_expression_size(Type type, Scope sc);
         public:
             DataReference(AST_t ast, ScopeLink scope_link);
             //! Constructors of a DataReference

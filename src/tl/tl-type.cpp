@@ -420,6 +420,11 @@ namespace TL
         return Type(::get_signed_int_type());
     }
 
+    Type Type::get_char_type(void)
+    {
+        return Type(::get_char_type());
+    }
+
     Type Type::get_void_type(void)
     {
         return Type(::get_void_type());

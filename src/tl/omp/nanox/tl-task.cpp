@@ -144,6 +144,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 device_description_line);
     }
 
+    int total_devices = current_targets.size();
+
     // If this is a function coming from a task try to get its devices with an
     // implementation already given
     if (function_clause.is_defined())
@@ -164,6 +166,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             = function_task_set->get_function_task(task_symbol);
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
+
+        total_devices += implementation_list.size();
 
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
@@ -219,7 +223,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
-    num_devices << current_targets.size();
+    num_devices << total_devices;
 
     Source spawn_code;
     Source fill_outline_arguments, fill_immediate_arguments, 
