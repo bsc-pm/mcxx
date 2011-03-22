@@ -1975,6 +1975,7 @@ static void register_default_initializers(void)
 static void print_version(void)
 {
     fprintf(stdout, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
+    fprintf(stdout, "Configured with: %s\n", MCXX_CONFIGURE_ARGS);
 }
 
 static void load_configuration_file(const char *filename)
