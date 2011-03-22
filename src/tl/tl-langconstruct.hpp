@@ -563,7 +563,10 @@ namespace TL
             std::string get_operator_str();
 
             //! Alias for is_array_section_range
-            bool is_array_section();
+            /*
+               \deprecated Do not use. Use is_array_section_range instead
+            */
+            DEPRECATED bool is_array_section();
 
             //! States if this is a ranged array section
             /*

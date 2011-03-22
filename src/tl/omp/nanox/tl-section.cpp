@@ -26,6 +26,7 @@
 
 
 
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
@@ -170,6 +171,13 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             /* is_pointer */ true,
             fill_outline_arguments);
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     spawn_source
         << "{"
         <<    "nanos_err_t err;"
@@ -182,6 +190,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
         <<    "err = nanos_create_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
         <<          "sizeof(" << struct_arg_type_name << "),"
+        <<          alignment
         <<          "(void**)&section_data,"
         <<          "nanos_current_wd(),"
         // FIXME: No copies at the moment

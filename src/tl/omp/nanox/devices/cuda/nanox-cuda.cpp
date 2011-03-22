@@ -43,7 +43,7 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type,
+Type DeviceCUDA::compute_replacement_type_for_vla(Type type,
 		ObjectList<Source>::iterator dim_names_begin,
 		ObjectList<Source>::iterator dim_names_end)
 {
@@ -72,7 +72,88 @@ static Type compute_replacement_type_for_vla(Type type,
 	return new_type;
 }
 
-static void do_gpu_outline_replacements(
+void DeviceCUDA::do_cuda_inline_get_addresses(
+		const Scope& sc,
+		const DataEnvironInfo& data_env_info,
+		Source &copy_setup,
+		ReplaceSrcIdExpression& replace_src,
+		bool &err_declared)
+{
+	ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+	unsigned int j = 0;
+	for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+			it != copies.end();
+			it++, j++)
+	{
+		DataReference data_ref = it->get_copy_expression();
+		Symbol sym = data_ref.get_base_symbol();
+		Type type = sym.get_type();
+
+		bool requires_indirect = false;
+
+		if (type.is_array())
+		{
+			type = type.array_element().get_pointer_to();
+		}
+		else
+		{
+			requires_indirect = true;
+			type = type.get_pointer_to();
+		}
+
+		// There are some problems with the typesystem currently
+		// that require these workarounds
+		if (data_ref.is_shaping_expression())
+		{
+			// Shaping expressions ([e] a)  have a type of array but we do not
+			// want the array but the related pointer
+			type = data_ref.get_data_type();
+			requires_indirect = false;
+		}
+		else if (data_ref.is_array_section_range()
+				|| data_ref.is_array_section_size())
+		{
+			// Array sections have a scalar type, but the data type will be array
+			// See ticket #290
+			type = data_ref.get_data_type().array_element().get_pointer_to();
+			requires_indirect = false;
+		}
+
+		std::string copy_name = "_cp_" + sym.get_name();
+
+		if (!err_declared)
+		{
+			copy_setup
+				<< "nanos_err_t cp_err;"
+				;
+			err_declared = true;
+		}
+
+		DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+				"Invalid data for copy symbol", 0);
+
+		// std::string field_addr = "_args->" + data_env_item.get_field_name();
+
+		copy_setup
+			<< type.get_declaration(sc, copy_name) << ";"
+			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+			;
+
+		if (!requires_indirect)
+		{
+			replace_src.add_replacement(sym, copy_name);
+		}
+		else
+		{
+			replace_src.add_replacement(sym, "(*" + copy_name + ")");
+		}
+	}
+}
+
+void DeviceCUDA::do_gpu_outline_replacements(
 		AST_t body,
 		ScopeLink scope_link,
 		const DataEnvironInfo& data_env_info,
@@ -80,97 +161,63 @@ static void do_gpu_outline_replacements(
 		Source &replaced_outline)
 {
 
-    Source copy_setup;
-    Scope sc = scope_link.get_scope(body);
+	Source copy_setup;
+	Scope sc = scope_link.get_scope(body);
 
-    initial_code
-        << copy_setup
-        ;
+	initial_code
+		<< copy_setup
+		;
 
-    ReplaceSrcIdExpression replace_src(scope_link);
+	ReplaceSrcIdExpression replace_src(scope_link);
 
-    bool err_declared = false;
+	bool err_declared = false;
 
-    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-            it != data_env_items.end();
-            it++)
-    {
-        DataEnvironItem& data_env_item(*it);
+	ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+	for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+			it != data_env_items.end();
+			it++)
+	{
+		DataEnvironItem& data_env_item(*it);
 
-        Symbol sym = data_env_item.get_symbol();
-        const std::string field_name = data_env_item.get_field_name();
+		Symbol sym = data_env_item.get_symbol();
+		const std::string field_name = data_env_item.get_field_name();
 
-        if (data_env_item.is_private())
-            continue;
+		if (data_env_item.is_private())
+			continue;
 
-        if (data_env_item.is_copy())
-        {
-        	replace_src.add_replacement(sym, "_args->" + field_name);
-        }
-    }
+		if (data_env_item.is_copy())
+		{
+			replace_src.add_replacement(sym, "_args->" + field_name);
+		}
+		else
+		{
+			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+		}
+	}
 
-    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
-    unsigned int j = 0;
-    for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
-            it != copies.end();
-            it++, j++)
-    {
-        DataReference data_ref = it->get_copy_expression();
-        Symbol sym = data_ref.get_base_symbol();
-        Type type = sym.get_type();
 
-        if (type.is_array())
-        {
-            type = type.array_element().get_pointer_to();
-        }
+	if (create_translation_function())
+	{
+		// We already created a function that performs the translation in the runtime
+		copy_setup
+			<< comment("Translation is done by the runtime")
+			;
+	}
+	else
+	{
+		do_cuda_inline_get_addresses(
+				sc,
+				data_env_info,
+				copy_setup,
+				replace_src,
+				err_declared);
+	}
 
-        // There are some problems with the typesystem currently
-        // that require these workarounds
-        if (data_ref.is_shaping_expression())
-        {
-            // Shaping expressions ([e] a)  have a type of array but we do not
-            // want the array but the related pointer
-            type = data_ref.get_data_type();
-        }
-        else if (data_ref.is_array_section())
-        {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.get_data_type().array_element().get_pointer_to();
-        }
-
-        std::string copy_name = "_cp_" + sym.get_name();
-
-        if (!err_declared)
-        {
-            copy_setup
-                << "nanos_err_t cp_err;"
-                ;
-            err_declared = true;
-        }
-
-        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
-
-        std::string field_addr = "_args->" + data_env_item.get_field_name();
-
-        copy_setup
-            << type.get_declaration(sc, copy_name) << ";"
-            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
-            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-            ;
-
-	replace_src.add_replacement(sym, copy_name);
-    }
-
-    replaced_outline << replace_src.replace(body);
+	replaced_outline << replace_src.replace(body);
 }
 
 DeviceCUDA::DeviceCUDA()
-	: DeviceProvider("cuda", /* needs_copies */ true), _cudaFilename("")
+: DeviceProvider("cuda"), _cudaFilename("")
 {
 	set_phase_name("Nanox CUDA support");
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
@@ -292,23 +339,23 @@ void DeviceCUDA::create_outline(
 			// Create a filter to search for the definition
 			struct FilterFunctionDef : Predicate<AST_t>
 			{
-				private:
-					Symbol _sym;
-					ScopeLink _sl;
-				public:
-					FilterFunctionDef(Symbol sym, ScopeLink sl)
-					: _sym(sym), _sl(sl) { }
+			private:
+				Symbol _sym;
+				ScopeLink _sl;
+			public:
+				FilterFunctionDef(Symbol sym, ScopeLink sl)
+				: _sym(sym), _sl(sl) { }
 
-					virtual bool do_(const AST_t& a) const
-					{
-						if (!FunctionDefinition::predicate(a))
-							return false;
+				virtual bool do_(const AST_t& a) const
+				{
+					if (!FunctionDefinition::predicate(a))
+						return false;
 
-						FunctionDefinition funct_def(a, _sl);
+					FunctionDefinition funct_def(a, _sl);
 
-						Symbol sym = funct_def.get_function_symbol();
-						return _sym == sym;
-					}
+					Symbol sym = funct_def.get_function_symbol();
+					return _sym == sym;
+				}
 			};
 
 			// Search for the function definition
@@ -376,7 +423,7 @@ void DeviceCUDA::create_outline(
 			<< "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
 			<< "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
 			<< "if (nanos_funct_id_init == 0)"
-		<< "{"
+			<< "{"
 			<<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
 			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
 			<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
@@ -390,14 +437,14 @@ void DeviceCUDA::create_outline(
 			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
 			<<    "nanos_funct_id_init = 1;"
 			<< "}"
-		<< "nanos_event_t events_before[2];"
+			<< "nanos_event_t events_before[2];"
 			<< "events_before[0].type = NANOS_BURST_START;"
 			<< "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
 			<< "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
 			<< "events_before[1].type = NANOS_BURST_START;"
 			<< "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
 			<< "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
-		<< "nanos_instrument_events(2, events_before);"
+			<< "nanos_instrument_events(2, events_before);"
 			// << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
 			// << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
 			;
@@ -419,29 +466,29 @@ void DeviceCUDA::create_outline(
 			uf_name_descr
 				<< "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
 				;
-			uf_location_descr
-				<< "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
-				<< " in construct at '" << reference_tree.get_locus() << "'\""
-				;
+            uf_location_descr
+                << "\"'" << function_symbol.get_qualified_name() << "'"
+                << " invoked at '" << reference_tree.get_locus() << "'\""
+                ;
 		}
 		else
-		{
-			uf_name_id
-				<< uf_location_id
-				;
-			uf_location_id
-				<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
-				;
+        {
+            uf_name_id
+                << uf_location_id
+                ;
+            uf_location_id
+                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+                ;
 
-			uf_name_descr
-				<< uf_location_descr
-				;
-                        uf_location_descr
-                                << "\"Outline created after construct at '"
-                                << reference_tree.get_locus()
-                                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
-                                ;
-		}
+            uf_name_descr
+                << uf_location_descr
+                ;
+            uf_location_descr
+                << "\"Outline from '"
+                << reference_tree.get_locus()
+                << "' in '" << function_symbol.get_qualified_name() << "'\""
+                ;
+        }
 	}
 
 	// arguments_struct_definition
@@ -484,34 +531,34 @@ void DeviceCUDA::create_outline(
 			it++)
 	{
 		if (it->is_private())
-        {
-            Symbol sym = it->get_symbol();
-            Type type = sym.get_type();
+		{
+			Symbol sym = it->get_symbol();
+			Type type = sym.get_type();
 
-            private_vars
-                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-                ;
-        }
-        else if (it->is_raw_buffer())
-        {
-            Symbol sym = it->get_symbol();
-            Type type = sym.get_type();
-            std::string field_name = it->get_field_name();
+			private_vars
+				<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+				;
+		}
+		else if (it->is_raw_buffer())
+		{
+			Symbol sym = it->get_symbol();
+			Type type = sym.get_type();
+			std::string field_name = it->get_field_name();
 
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
+			if (type.is_reference())
+			{
+				type = type.references_to();
+			}
 
-            if (!type.is_named_class())
-            {
-                internal_error("invalid class type in field of raw buffer", 0);
-            }
+			if (!type.is_named_class())
+			{
+				internal_error("invalid class type in field of raw buffer", 0);
+			}
 
-            final_code
-                << field_name << ".~" << type.get_symbol().get_name() << "();"
-                ;
-        }
+			final_code
+				<< field_name << ".~" << type.get_symbol().get_name() << "();"
+				;
+		}
 	}
 
 	// final_code
@@ -546,8 +593,7 @@ void DeviceCUDA::create_outline(
 
 	cudaFile << "extern \"C\" {\n";
 	cudaFile << forward_declaration.get_source(false) << "\n";
-	//cudaFile << outline_code_tree.prettyprint_external() << "\n";
-	cudaFile << outline_code_tree.prettyprint() << "\n";
+	cudaFile << outline_code_tree.prettyprint_external() << "\n";
 	cudaFile << "}\n";
 	cudaFile.close();
 
@@ -609,19 +655,19 @@ void DeviceCUDA::create_outline(
 }
 
 void DeviceCUDA::get_device_descriptor(const std::string& task_name,
-        DataEnvironInfo &data_environ,
-        const OutlineFlags& outline_flags,
-        AST_t reference_tree,
-        ScopeLink sl,
-        Source &ancillary_device_description,
-        Source &device_descriptor)
+		DataEnvironInfo &data_environ,
+		const OutlineFlags& outline_flags,
+		AST_t reference_tree,
+		ScopeLink sl,
+		Source &ancillary_device_description,
+		Source &device_descriptor)
 {
 	Source outline_name;
 	if (!outline_flags.implemented_outline)
 	{
 		outline_name
 			<< gpu_outline_name(task_name)
-		;
+			;
 	}
 	else
 	{

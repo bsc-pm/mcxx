@@ -85,7 +85,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
                     function_type_get_parameter_type_num(builtin_vr_list[i].get_type()
                         .get_internal_type(), 0)));
         {
-            return builtin_vr_list[i]._symbol;
+            return builtin_vr_list[i].get_internal_symbol();
         }
     }
 
@@ -100,7 +100,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
-    result->decl_context = builtin_vr_list.at(0)._symbol->decl_context;
+    result->decl_context = builtin_vr_list.at(0).get_internal_symbol()->decl_context;
     //BUILTIN + MUTABLE = LTYPE!
     result->entity_specs.is_builtin = 1;
     result->entity_specs.is_mutable = 1;
@@ -128,7 +128,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
                     function_type_get_parameter_type_num(builtin_gf_list[i].get_type()
                         .get_internal_type(), 0)));
         {
-            return builtin_gf_list[i]._symbol;
+            return builtin_gf_list[i].get_internal_symbol();
         }
     }
 
@@ -147,7 +147,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
         .get_generic_vector_to()
         .get_function_returning(params_list)
         .get_internal_type();
-    result->decl_context = builtin_gf_list.at(0)._symbol->decl_context;
+    result->decl_context = builtin_gf_list.at(0).get_internal_symbol()->decl_context;
     result->entity_specs.is_builtin = 1;
 
     builtin_gf_list.append(result);
@@ -278,19 +278,21 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
 
     //New Artificial Symbol: __builtin_vector_reference
     Symbol builtin_vr_sym = global_scope.new_artificial_symbol(BUILTIN_VR_NAME);
-    builtin_vr_sym._symbol->kind = SK_FUNCTION;
+    scope_entry_t* builtin_vr_se = builtin_vr_sym.get_internal_symbol();
+    builtin_vr_se->kind = SK_FUNCTION;
     //BUILTIN + MUTABLE = LTYPE
-    builtin_vr_sym._symbol->entity_specs.is_builtin = 1;
-    builtin_vr_sym._symbol->entity_specs.is_mutable = 1;
-    builtin_vr_sym._symbol->type_information = get_computed_function_type(solve_vector_ref_overload_name);
+    builtin_vr_se->entity_specs.is_builtin = 1;
+    builtin_vr_se->entity_specs.is_mutable = 1;
+    builtin_vr_se->type_information = get_computed_function_type(solve_vector_ref_overload_name);
     //Artificial Symbol in list[0]
     builtin_vr_list.append(builtin_vr_sym);
 
     //New Artificial Symbol: __builtin_global_function
     Symbol builtin_gf_sym = global_scope.new_artificial_symbol(BUILTIN_GF_NAME);
-    builtin_gf_sym._symbol->kind = SK_FUNCTION;
-    builtin_gf_sym._symbol->entity_specs.is_builtin = 1;
-    builtin_gf_sym._symbol->type_information = get_computed_function_type(solve_generic_func_overload_name);
+    scope_entry_t* builtin_gf_se = builtin_gf_sym.get_internal_symbol();
+    builtin_gf_se->kind = SK_FUNCTION;
+    builtin_gf_se->entity_specs.is_builtin = 1;
+    builtin_gf_se->type_information = get_computed_function_type(solve_generic_func_overload_name);
     //Artificial Symbol in list[0]
     builtin_gf_list.append(builtin_gf_sym);
 }

@@ -74,6 +74,20 @@ namespace TL
                         
                 virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
                 virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
+
+            private:
+                void do_smp_inline_get_addresses(
+                        const Scope& sc,
+                        const DataEnvironInfo& data_env_info,
+                        Source &copy_setup,
+                        ReplaceSrcIdExpression& replace_src,
+                        bool &err_declared);
+
+                void do_smp_outline_replacements(AST_t body,
+                        ScopeLink scope_link,
+                        const DataEnvironInfo& data_env_info,
+                        Source &initial_code,
+                        Source &replaced_outline);
         };
 
         class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction

@@ -104,8 +104,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
-    bool some_device_needs_copies = false;
-
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
@@ -144,9 +142,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
-
-        some_device_needs_copies = some_device_needs_copies
-            || device_provider->needs_copies();
     }
 
     // If this is a function coming from a task try to get its devices with an
@@ -221,9 +216,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
-
-            some_device_needs_copies = some_device_needs_copies
-                    || device_provider->needs_copies();
         }
     }
 
@@ -289,24 +281,24 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             {
                 if (Nanos::Version::interface_is_at_least("master", 5001))
                 {
-			reduction_flag << "0";
+                    reduction_flag << "0";
                 }
 
                 if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                 {
-                        dependency_flags << "1,"; 
+                    dependency_flags << "1,"; 
                 }
                 else
                 {
-                        dependency_flags << "0,"; 
+                    dependency_flags << "0,"; 
                 }
                 if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
                 {
-                        dependency_flags << "1,"; 
+                    dependency_flags << "1,"; 
                 }
                 else
                 {
-                        dependency_flags << "0,"; 
+                    dependency_flags << "0,"; 
                 }
             }
             else 
@@ -515,8 +507,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
 
-    if (copy_items.empty()
-            || !some_device_needs_copies)
+    Source set_translation_fun;
+
+    if (copy_items.empty())
     {
         num_copies << "0";
         // Non immediate
@@ -538,36 +531,56 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
         copy_imm_data << "imm_copy_data";
 
+        Source translation_function, translation_statements;
+        translation_function
+            << "static void _xlate_copy_address_" << outline_num << "(void* data)"
+            << "{"
+            <<   "nanos_err_t cp_err;"
+            <<   struct_arg_type_name << "* _args = (" << struct_arg_type_name << "*)data;"
+            <<   translation_statements
+            << "}"
+            ;
+
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
                 it != copy_items.end();
                 it++)
         {
+            OpenMP::CopyItem& copy_item(*it);
+            DataReference copy_expr = copy_item.get_copy_expression();
+
+            // Fill the translation_function
+            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
+            translation_statements
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << "));"
+                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                ;
+
             Source copy_direction_in, copy_direction_out;
 
-            if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            if (copy_item.get_kind() == OpenMP::COPY_DIR_IN)
             {
                 copy_direction_in << 1;
                 copy_direction_out << 0;
             }
-            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+            else if (copy_item.get_kind() == OpenMP::COPY_DIR_OUT)
             {
                 copy_direction_in << 0;
                 copy_direction_out << 1;
             }
-            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            else if (copy_item.get_kind() == OpenMP::COPY_DIR_INOUT)
             {
                 copy_direction_in << 1;
                 copy_direction_out << 1;
             }
 
-            DataReference data_ref = it->get_copy_expression();
+            DataReference data_ref = copy_item.get_copy_expression();
             OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
             Source copy_sharing;
-            if (it->is_shared())
+            if (copy_item.is_shared())
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -598,15 +611,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                DataReference copy_expr = it->get_copy_expression();
-
-                if (it->is_shared())
+                if (copy_item.is_shared())
                 {
                     expression_address << copy_expr.get_address();
                 }
                 else
                 {
-                    DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
                     // We have to use the value of the argument structure if it
                     // is private
                     expression_address 
@@ -621,6 +631,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             i++;
         }
+
+        if (Nanos::Version::interface_is_at_least("master", 5003)
+                && !_do_not_create_translation_fun)
+        {
+            // FIXME - Templates
+            set_translation_fun 
+                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
+                ;
+
+            AST_t xlate_function_def = translation_function.parse_declaration(
+                    ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
+                    ctr.get_scope_link());
+
+            ctr.get_ast().prepend_sibling_function(xlate_function_def);
+        }
     }
 
     // Disallow GPU tasks to be executed at the time they are created
@@ -631,6 +656,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if ( current_targets.contains( "cuda" ) )
     {
         creation << "props.mandatory_creation = 1;"
+            ;
+    }
+
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
 
@@ -651,6 +683,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
+        <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -660,6 +693,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_outline_arguments
         <<        fill_dependences_outline
         <<        copy_setup
+        <<        set_translation_fun
         <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
@@ -669,9 +703,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
         <<        copy_immediate_setup
+        <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                struct_size << ", " 
+        <<                alignment
+        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -695,7 +732,8 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
-    else if (expr.is_array_section())
+    else if (expr.is_array_section_range()
+            || expr.is_array_section_size())
     {
         fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 

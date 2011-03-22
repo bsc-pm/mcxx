@@ -385,7 +385,7 @@ static void do_gpu_outline_replacements(
             // want the array but the related pointer
             type = data_ref.get_data_type();
         }
-        else if (data_ref.is_array_section())
+        else if (data_ref.is_array_section_range())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
@@ -435,7 +435,7 @@ static void do_gpu_outline_replacements(
 }
 
 DeviceGPU::DeviceGPU()
-    : DeviceProvider("gpu", /* needs_copies */ true)
+    : DeviceProvider("gpu")
 {
     set_phase_name("Nanox GPU support");
     set_phase_description("This phase is used by Nanox phases to implement GPU device support");

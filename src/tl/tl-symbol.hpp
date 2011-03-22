@@ -50,9 +50,6 @@ namespace TL
     class LIBTL_CLASS Symbol : public Object
     {
         public:
-            scope_entry_t* _symbol;
-
-        public:
             //! Returns an invalid symbol
             static const Symbol invalid();
 
@@ -391,6 +388,9 @@ namespace TL
               This function is only meaningful in Fortran. In C/C++ it always returns false
               */
             bool is_generic_specifier() const;
+
+        private:
+            scope_entry_t* _symbol;
     };
     
     //! @}

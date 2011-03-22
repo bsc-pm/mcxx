@@ -206,6 +206,17 @@ namespace TL
               */
             Type get_array_to(const std::string& str);
 
+            //! Returns a ranged array to the current type
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to(AST_t lower_bound, AST_t upper_bound, Scope scope);
+
+            //! Gets a reference (C++) to the current type
+            Type get_reference_to();
+
             //! Returns a function to the current list of parameter types 
             /*! 
              * \param type_list List of parameter types of the function.
@@ -213,8 +224,6 @@ namespace TL
              */
             Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
 
-            //! Gets a reference (C++) to the current type
-            Type get_reference_to();
 
             int get_alignment_of();
 

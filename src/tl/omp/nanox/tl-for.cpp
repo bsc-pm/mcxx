@@ -567,6 +567,15 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             << "ol_args->rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
     }
 
+    Source alignment, slicer_alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+        slicer_alignment <<  "__alignof__(nanos_slicer_data_for_t),"
+            ;
+    }
+
     spawn_source
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
@@ -595,10 +604,12 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<        "err = nanos_create_sliced_wd(&wd, "
         <<              /* num_devices */ "1, " << device_descriptor << ", "
         <<              "sizeof(" << struct_arg_type_name << "),"
+        <<              alignment
         <<              "(void**)&ol_args,"
         <<              "nanos_current_wd(),"
         <<              current_slicer << ","
         <<              "sizeof(nanos_slicer_data_for_t),"
+        <<              slicer_alignment
         <<              "(nanos_slicer_t*) &slicer_data_for,"
         <<              "&props," << num_copies1 << "," << copy_data1 << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error(err);"
@@ -635,7 +646,8 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
-    else if (expr.is_array_section())
+    else if (expr.is_array_section_range()
+            || expr.is_array_section_size())
     {
         fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 
