@@ -221,13 +221,13 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
     }
     else if (expr.is_unary_operation())
     {
-        // Simplify &(*a)
         if (expr.get_operation_kind() == Expression::REFERENCE)
         {
             Expression ref_expr = expr.get_unary_operand();
             if (ref_expr.is_unary_operation()
                     && ref_expr.get_operation_kind() == Expression::DERREFERENCE)
             {
+                // Case &(*a)
                 return gather_info_data_expr_rec(ref_expr.get_unary_operand(),
                         base_sym,
                         size, 
@@ -237,6 +237,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
             else if (ref_expr.is_array_subscript())
             {
+                // Case &(a[0])
                 return gather_info_data_expr_rec(ref_expr.get_subscripted_expression(),
                         base_sym,
                         size,
@@ -247,6 +248,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             else if (ref_expr.is_array_section_range()
                     || ref_expr.is_array_section_size())
             {
+                // Case &(a[0:4])  
+                // Case &(a[0;5])
                 return gather_info_data_expr_rec(ref_expr.array_section_item(),
                         base_sym,
                         size,
@@ -255,13 +258,13 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         enclosing_is_array);
             }
         }
-        // Simplify *(&a)
         else if (expr.get_operation_kind() == Expression::DERREFERENCE)
         {
             Expression ref_expr = expr.get_unary_operand();
             if (ref_expr.is_unary_operation()
                     && ref_expr.get_operation_kind() == Expression::REFERENCE)
             {
+                // Case *(&a)
                 return gather_info_data_expr_rec(ref_expr.get_unary_operand(),
                         base_sym,
                         size, 
@@ -271,6 +274,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
             else
             {
+                // Case *a
                 Source ptr_size, ptr_addr;
                 bool b = gather_info_data_expr_rec(ref_expr,
                         base_sym,
@@ -292,7 +296,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 }
 
                 size = safe_expression_size(type, expr.get_scope());
-                addr = "(" + ptr_addr.get_source() + ")";
+                addr = "(" + ref_expr.prettyprint() + ")";
 
                 return true;
             }
