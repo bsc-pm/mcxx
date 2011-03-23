@@ -519,6 +519,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_data << "(nanos_copy_data_t**)0";
         // Immediate
         copy_imm_data << "(nanos_copy_data_t*)0";
+
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            translation_fun_arg_name << ", (void*) 0"
+                ;
+        }
     }
     else
     {
