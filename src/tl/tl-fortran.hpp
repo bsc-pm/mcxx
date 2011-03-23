@@ -41,47 +41,52 @@ namespace TL { namespace Fortran {
       */
     class LIBTL_CLASS ProgramUnit : public LangConstruct
     {
-        ProgramUnit(AST_t a, ScopeLink sl)
-            : LangConstruct(a, sl) { }
+        public:
+            ProgramUnit(AST_t a, ScopeLink sl)
+                : LangConstruct(a, sl) { }
 
-        Symbol get_related_symbol();
+            Symbol get_related_symbol();
 
-        ObjectList<Statement> get_statements();
-        ObjectList<ProgramUnit> get_internal_program_units();
+            ObjectList<Statement> get_statements();
+            ObjectList<ProgramUnit> get_internal_program_units();
 
-        static const PredicateAttr predicate;
+            static const PredicateAttr predicate;
     };
 
     class LIBTL_CLASS Function : public ProgramUnit
     {
-        Function(AST_t a, ScopeLink sl) 
-            : ProgramUnit(a, sl) { }
+        public:
+            Function(AST_t a, ScopeLink sl) 
+                : ProgramUnit(a, sl) { }
 
-        static const PredicateAttr predicate;
+            static const PredicateAttr predicate;
     };
 
     class LIBTL_CLASS Subroutine : public ProgramUnit
     {
-        Subroutine(AST_t a, ScopeLink sl) 
-            : ProgramUnit(a, sl) { }
+        public:
+            Subroutine(AST_t a, ScopeLink sl) 
+                : ProgramUnit(a, sl) { }
 
-        static const PredicateAttr predicate;
+            static const PredicateAttr predicate;
     };
 
     class LIBTL_CLASS BlockData : public ProgramUnit
     {
-        BlockData(AST_t a, ScopeLink sl) 
-            : ProgramUnit(a, sl) { }
+        public:
+            BlockData(AST_t a, ScopeLink sl) 
+                : ProgramUnit(a, sl) { }
 
-        static const PredicateAttr predicate;
+            static const PredicateAttr predicate;
     };
 
     class LIBTL_CLASS Module : public ProgramUnit
     {
-        Module(AST_t a, ScopeLink sl) 
-            : ProgramUnit(a, sl) { }
+        public:
+            Module(AST_t a, ScopeLink sl) 
+                : ProgramUnit(a, sl) { }
 
-        static const PredicateAttr predicate;
+            static const PredicateAttr predicate;
     };
 } }
 
