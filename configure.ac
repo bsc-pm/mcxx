@@ -1234,8 +1234,6 @@ AC_CONFIG_FILES([Makefile
            src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 
            src/tl/Makefile
-           src/tl/analysis/Makefile
-           src/tl/analysis/cfg/Makefile
            src/tl/hlt/Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
