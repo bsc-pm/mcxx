@@ -534,9 +534,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
         copy_imm_data << "imm_copy_data";
 
+        Source wd_param, wd_arg;
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            wd_param
+                << ", nanos_wd_t wd"
+                ;
+            wd_arg
+                << ", wd"
+                ;
+        }
+
         Source translation_function, translation_statements;
         translation_function
-            << "static void _xlate_copy_address_" << outline_num << "(void* data)"
+            << "static void _xlate_copy_address_" << outline_num << "(void* data" << wd_param <<")"
             << "{"
             <<   "nanos_err_t cp_err;"
             <<   struct_arg_type_name << "* _args = (" << struct_arg_type_name << "*)data;"
@@ -555,7 +566,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             // Fill the translation_function
             DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
             translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << "));"
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << wd_arg << "));"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
                 ;
 

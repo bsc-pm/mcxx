@@ -73,6 +73,17 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         ReplaceSrcIdExpression& replace_src,
         bool &err_declared)
 {
+    Source current_wd_param;
+    if (Nanos::Version::interface_is_at_least("master", 5005))
+    {
+        copy_setup
+            << "nanos_wd_t current_wd = nanos_current_wd();"
+            ;
+        current_wd_param
+            << ", current_wd"
+            ;
+    }
+
     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -123,7 +134,7 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
 
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
-            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
