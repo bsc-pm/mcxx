@@ -390,6 +390,12 @@ namespace TL
                 void *data;
                 //! The destructor function
                 void (*destructor)(void*);
+                
+                static void do_nothing(void*) { }
+                
+                data_info()
+                        : data(NULL), destructor(data_info::do_nothing)
+                {}
             };
             // This is a pointer so this class can be copied
             std::map<std::string, data_info> *_data_list;
@@ -426,15 +432,15 @@ namespace TL
                 delete t;
             }
 
-        //! Retrieves the data with name str
-        /*!
-         * \param str The name of the data. If it was not retrieved never
-         * before, a default construction will happen.
-         *
-         * The requested type must be default constructible. Calling
-         * this function with a same name and different types with same (or
-         * shared) LinkData objects will fail miserably.
-         */
+            //! Retrieves the data with name str
+            /*!
+            * \param str The name of the data. If it was not retrieved never
+            * before, a default construction will happen.
+            *
+            * The requested type must be default constructible. Calling
+            * this function with a same name and different types with same (or
+            * shared) LinkData objects will fail miserably.
+            */
         template <typename _T>
             _T& get_data(const std::string& str)
             {
@@ -456,14 +462,36 @@ namespace TL
                 return *result;
             }
 
-        LinkData& operator=(const LinkData&);
+            //! Retrieves the data with name str
+            /*!
+            * \param str The name of the data. If it was not retrieved never
+            * before, a default construction will happen.
+            * \param data The data to be set.
+            *
+            * The requested type must be default constructible. Calling
+            * this function with a same name and different types with same (or
+            * shared) LinkData objects will fail miserably.
+            */
+        template <typename _T>
+            void set_data(const std::string& str, const _T& data)
+            {
+                data_info &d = (*_data_list)[str];
+                d.destructor(d.data);
+                    
+                d.data = new _T(data);
+                d.destructor = destroy_adapter<_T>;
+            }
 
-        //! Destroy object
-        /*!
-         * This destructor decreases the number of copies counter.
-         * If it reaches zero, all data information is properly freed.
-         */
-        ~LinkData();
+            LinkData& operator=(const LinkData&);
+
+            bool has_key(std::string str);
+            
+            //! Destroy object
+            /*!
+            * This destructor decreases the number of copies counter.
+            * If it reaches zero, all data information is properly freed.
+            */
+            ~LinkData();
     };
 }
 
