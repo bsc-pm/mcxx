@@ -32,8 +32,6 @@
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 
-#include "tl-cfg.hpp"
-
 #include <algorithm>
 
 namespace TL
@@ -141,25 +139,8 @@ namespace TL
             {
                 initialize_builtin_udr_reductions(global_scope);
             }
-			
-			PragmaCustomCompilerPhase::run(dto);
-            
-			// Perform analysis of the code
-			ObjectList<AST_t> func_def_trees
-                    = translation_unit.depth_subtrees(FunctionDefinition::predicate);
-			CFG cfg(scope_link); int i = 0;
-            //for (ObjectList<AST_t>::iterator it = func_def_trees.begin(); 
-            //        it != func_def_trees.end(); it++, i++)
-            //{ 
-            // std::cout << "AST " << i << "\n" << func_def_trees[func_def_trees.size()-1].prettyprint() << std::endl;
-                FunctionDefinition func_def(func_def_trees[func_def_trees.size()-1], scope_link);
-                //Statement stmt(tu_asts[tu_asts.size()], scope_link);
-                std::string file_name = func_def_trees[func_def_trees.size()-1].get_file();
-                cfg = cfg.build_CFG(func_def.get_function_body(), 
-                                    file_name.substr(0, file_name.find_last_of(".")) 
-                                                     + "_" + func_def.get_function_name().prettyprint());
-                cfg.print_graph_to_dot();
-            //}
+
+            PragmaCustomCompilerPhase::run(dto);
         }
 
         void Core::register_omp_constructs()
@@ -407,9 +388,9 @@ namespace TL
                                         var_type = var_type.get_enum_underlying_type();
                                     }
                                 }
-                                
+
                                 udr2.set_builtin_operator(reductor_name);
-                                
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -431,7 +412,6 @@ namespace TL
                             {
                                 ReductionSymbol red_sym(var_sym, udr2);
                                 sym_list.append(red_sym);
-                                // FIX-ME: this message appears two times if nanox phase is executed
                                 if (!udr2.is_builtin_operator() && construct.get_show_warnings())
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
