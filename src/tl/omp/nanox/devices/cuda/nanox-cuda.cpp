@@ -89,14 +89,23 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		Symbol sym = data_ref.get_base_symbol();
 		Type type = sym.get_type();
 
-		if (type.is_array())
-		{
-			type = type.array_element().get_pointer_to();
-		}
-		else
-		{
-			type = type.get_pointer_to();
-		}
+        if (type.is_reference())
+            type = type.references_to();
+
+        // Remove all arrays as we cannot reliable reconstruct the type here
+        if (type.is_array())
+        {
+            while (type.is_array())
+            {
+                type = type.array_element();
+            }
+            type = type.get_pointer_to();
+        }
+
+        if (!type.is_pointer())
+        {
+            type = type.get_pointer_to();
+        }
 
 		// There are some problems with the typesystem currently
 		// that require these workarounds
@@ -104,15 +113,24 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		{
 			// Shaping expressions ([e] a)  have a type of array but we do not
 			// want the array but the related pointer
-			type = data_ref.get_data_type();
+			type = data_ref.shaped_expression().get_type();
 		}
 		else if (data_ref.is_array_section_range()
 				|| data_ref.is_array_section_size())
-		{
-			// Array sections have a scalar type, but the data type will be array
-			// See ticket #290
-			type = data_ref.get_data_type().array_element().get_pointer_to();
-		}
+        {
+            // Array sections have a scalar type, but the data type will be array
+            // See ticket #290
+            type = data_ref.array_section_item().get_type();
+            // Remove all arrays as we cannot reliable reconstruct the type here
+            if (type.is_array())
+            {
+                while (type.is_array())
+                {
+                    type = type.array_element();
+                }
+                type = type.get_pointer_to();
+            }
+        }
 
 		std::string copy_name = "_cp_" + sym.get_name();
 
