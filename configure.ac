@@ -1,6 +1,8 @@
 dnl Package definition: name, version, mail
 AC_INIT([mcxx],[1.3.5.7],[rferrer@ac.upc.edu])
 
+configure_orig_arguments="$@"
+
 dnl Where are we ?
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
@@ -1212,6 +1214,9 @@ then
      AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
+
+mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
+AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], $mcxx_config_args, [Configure line])
 
 AC_SUBST([TL_EXTENSIONS])
 AC_SUBST([TL_OMP_EXTENSIONS])

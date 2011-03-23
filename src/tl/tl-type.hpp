@@ -588,6 +588,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'char'
+            static Type get_char_type(void);
 
     };
     

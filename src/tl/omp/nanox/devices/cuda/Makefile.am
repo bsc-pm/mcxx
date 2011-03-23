@@ -31,7 +31,9 @@ END=
 
 phases_LTLIBRARIES=libtlnanox-cuda.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+             -I$(srcdir)/../../../core \
+             -I$(srcdir)/../../../nanos-common
 
 libtlnanox_cuda_la_CFLAGS = $(device_flags)
 libtlnanox_cuda_la_CXXFLAGS = $(device_flags)

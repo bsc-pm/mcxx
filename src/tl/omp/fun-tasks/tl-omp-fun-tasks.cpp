@@ -375,6 +375,14 @@ namespace OpenMP
                     derref << "*";
                 }
 
+                // If the argument type is a void* use the adjusted type of the
+                // function, for compatibility with superscalar
+                if (real_type.is_pointer()
+                        && real_type.points_to().is_void())
+                {
+                    real_type = parameter_types[i];
+                }
+
                 if (real_type.is_reference())
                 {
                     real_type = real_type.references_to();

@@ -126,6 +126,8 @@ namespace TL
             {
                 Type base_type = parameters[i];
 
+                Source array_factor; 
+
                 if (base_type.is_pointer())
                 {
                     base_type = base_type.points_to();
@@ -138,8 +140,17 @@ namespace TL
                 {
                     while (base_type.is_array())
                     {
+                        Source expr;
+                        expr << "(" << base_type.array_get_size().prettyprint() << ")";
+                        array_factor << "*" << expr;
+
                         base_type = base_type.array_element();
                     }
+                }
+
+                DEBUG_CODE()
+                {
+                    std::cerr << "SS-VALGRIND: base_type: " << base_type.get_declaration(function_call.get_scope(), "") << std::endl;
                 }
 
                 for (ObjectList<Region>::iterator reg_it = region_list_it->begin();
@@ -186,11 +197,12 @@ namespace TL
                     {
                         // Two cases: a scalar or a pointer if it is a scalar there is
                         // no need to state anything
-                        if (parameters[i].is_pointer())
+                        if (parameters[i].is_pointer()
+                                || parameters[i].is_array())
                         {
                             addr << arguments[i];
                             base_type_size
-                                << "sizeof(" << base_type.get_declaration(sc, "") << ")";
+                                << "sizeof(" << base_type.get_declaration(sc, "") << ")" << array_factor;
                         }
                         else if (parameters[i].is_reference())
                         {
@@ -221,13 +233,12 @@ namespace TL
                             DEBUG_CODE()
                             {
                                 std::cerr
-                                    << "Region: #" << j << std::endl
-                                    << " dimension_start: "  << dim_spec.get_dimension_start() << std::endl
-                                    << " accessed_length: "  << dim_spec.get_accessed_length() << std::endl
-                                    << " dimension_length: " << dim_spec.get_dimension_length() << std::endl;
+                                    << "SS-VALGRIND: Region: #" << j << std::endl
+                                    << "SS-VALGRIND:  dimension_start: "  << dim_spec.get_dimension_start() << std::endl
+                                    << "SS-VALGRIND:  accessed_length: "  << dim_spec.get_accessed_length() << std::endl
+                                    << "SS-VALGRIND:  dimension_length: " << dim_spec.get_dimension_length() << std::endl;
                             }
 
-                            // FIXME - A replace is due here
                             dim_spec_src << "[" << replace_parameters.replace(dim_spec.get_dimension_start()) << "]";
                             span.append_with_separator(
                                     replace_parameters.replace(dim_spec.get_accessed_length()),

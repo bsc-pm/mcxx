@@ -280,7 +280,7 @@ namespace TL
 
 	AST_t Scope::wrap_symbol_name(const std::string& str)
     {
-		AST a = ASTLeaf(AST_SYMBOL, 0, NULL, str.c_str());
+		AST a = ASTLeaf(AST_SYMBOL, NULL, 0, str.c_str());
 		return a;
     }
 }
