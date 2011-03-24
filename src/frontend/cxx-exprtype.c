@@ -3273,15 +3273,6 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
         {
             computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
         }
-        // Vector case
-        else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = lhs_type;
-        }
-        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
-        }
         else
         {
             return get_error_type();
@@ -3575,9 +3566,56 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
                 computed_type = get_bool_type();
             }
         }
-        else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type))
+        else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type)
+                || one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
         {
-            computed_type = lhs_type;
+            // computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+            type_t* common_vec_type = NULL;
+            if (one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
+            {
+                common_vec_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+            }
+            else
+            {
+                if (vector_type_get_vector_size(lhs_type) == 0)
+                {
+                    common_vec_type = rhs_type;
+                }
+                else if (vector_type_get_vector_size(rhs_type) == 0)
+                {
+                    common_vec_type = lhs_type;
+                }
+                else if (vector_type_get_vector_size(rhs_type) 
+                        != vector_type_get_vector_size(rhs_type))
+                {
+                    // Vectors do not match their size
+                    return get_error_type();
+                }
+                else
+                {
+                    common_vec_type = lhs_type;
+                }
+
+                type_t* elem_lhs_type = vector_type_get_element_type(lhs_type);
+                type_t* elem_rhs_type = vector_type_get_element_type(rhs_type);
+                if (!both_operands_are_arithmetic(elem_lhs_type, elem_rhs_type))
+                {
+                    // We cannot do a binary relational op on them
+                    return get_error_type();
+                }
+            }
+
+
+            type_t* ret_bool_type = NULL;
+            C_LANGUAGE()
+            {
+                ret_bool_type = get_signed_int_type();
+            }
+            CXX_LANGUAGE()
+            {
+                ret_bool_type = get_bool_type();
+            }
+            computed_type = get_vector_type(ret_bool_type, vector_type_get_vector_size(common_vec_type));
         }
         else
         {
@@ -6180,7 +6218,14 @@ static void check_for_conditional_expression_impl(AST expression,
     type_t* converted_type = NULL;
     C_LANGUAGE()
     {
-        converted_type = get_signed_int_type();
+        if (!is_vector_type(first_type))
+        {
+            converted_type = get_signed_int_type();
+        }
+        else
+        {
+            converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(first_type));
+        }
 
         standard_conversion_t sc;
         if (!standard_conversion_between_types(&sc, first_type, converted_type))

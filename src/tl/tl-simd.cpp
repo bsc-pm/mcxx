@@ -37,10 +37,33 @@ std::string ReplaceSrcGenericFunction::get_device_name()
     return _device_name;
 }
 
+std::string ReplaceSrcGenericFunction::get_replaced_func_name(
+        std::string orig_name,
+        int width)
+{
+    std::stringstream func_name;
+
+    func_name
+        << "_"
+        << orig_name
+        << "_" << _device_name << "_"
+        << width
+        ;
+
+    return func_name.str();
+}
+
 void ReplaceSrcGenericFunction::set_width(int width)
 {
     _width = width;
 }
+
+int ReplaceSrcGenericFunction::get_width()
+{
+    return _width;
+}
+
+
 
 
 Source GenericFunctions::get_pending_specific_functions(
@@ -54,6 +77,22 @@ Source GenericFunctions::get_pending_specific_functions(
     {
         result 
             << it->second->get_all_pend_spec_func_def(replace);
+    }
+
+    return result;
+}
+
+Source GenericFunctions::get_pending_specific_declarations(
+        ReplaceSrcGenericFunction& replace)
+{
+    Source result;
+
+    for (function_map_t::iterator it = _function_map.begin();
+            it != _function_map.end();
+            it ++)
+    {
+        result 
+            << it->second->get_all_pend_spec_func_decl(replace);
     }
 
     return result;
@@ -188,6 +227,69 @@ Source GenericFunctionInfo::get_all_pend_spec_func_def(
     }
 
     return result;
+}
+
+Source GenericFunctionInfo::get_all_pend_spec_func_decl(
+        ReplaceSrcGenericFunction& replace)
+{
+    Source result;
+
+    for (specific_functions_t::iterator it = _specific_functions.find(replace.get_device_name());
+            it != _specific_functions.end();
+            it++)
+    {
+        SpecificFunctionInfo& spec_fun = it->second;
+        if (!spec_fun.is_prettyprinted())
+        {
+            result << this->get_specific_function_declaration(spec_fun, replace);    
+        }
+    }
+
+    return result;
+}
+
+Source GenericFunctionInfo::get_specific_function_declaration(
+        SpecificFunctionInfo& spec_func,
+        ReplaceSrcGenericFunction& replace)
+{
+    Source func_decl_src, parameter_decl_list;
+
+    Type func_type = _func_sym.get_type();
+
+    if (!func_type.is_function())
+    {
+        running_error("Expected function Symbol");
+    }
+
+    ObjectList<Type> type_param_list = func_type.parameters();
+
+    Type func_ret_type = func_type.returns()
+        .basic_type()
+        .get_vector_to(replace.get_width());
+
+    func_decl_src
+        << func_ret_type.get_simple_declaration(
+                _func_sym.get_scope(), replace.get_replaced_func_name(
+                    _func_sym.get_name(), replace.get_width()))
+        << "(" << parameter_decl_list << ");"
+        ;
+
+    //Function arguments and Unions
+    ObjectList<Type>::iterator it;
+    for (it = type_param_list.begin();
+            it != type_param_list.end();
+            it++)
+    {
+        Type param_vec_type = it->basic_type()
+            .get_vector_to(replace.get_width());
+
+        parameter_decl_list.append_with_separator(
+                param_vec_type.get_simple_declaration(
+                    _func_sym.get_scope(), ""),
+                ",");
+    }               
+
+    return func_decl_src;
 }
 
 

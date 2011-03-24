@@ -68,23 +68,6 @@ const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
 
-std::string ReplaceSrcSMP::get_replaced_func_name(
-        std::string orig_name, 
-        int width)
-{
-    std::stringstream func_name;
-
-    func_name
-        << "_"
-        << orig_name
-        << "_" << _device_name << "_"
-        << width
-        ;
-
-    return func_name.str();
-}
-
-
 Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
 {
     Scope scope = func_sym.get_scope();
@@ -124,7 +107,7 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
         param_name << "a" << i
             ;
 
-        Type param_vec_type = type_param_list[i].basic_type()
+        Type param_vec_type = it->basic_type()
             .get_vector_to(_width);
 
         parameter_decl_list.append_with_separator(
@@ -1007,7 +990,7 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions_src;
+    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions_src, generic_declarations_src;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -1098,6 +1081,7 @@ void DeviceSMP::create_outline(
         << forward_declaration
         << template_header
         << static_specifier
+        << generic_declarations_src
         << generic_functions_src
         << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
@@ -1109,8 +1093,19 @@ void DeviceSMP::create_outline(
 
     //generic_functions
     ReplaceSrcSMP function_replacement(sl, _vector_width);
-    generic_functions_src
-        << generic_functions.get_pending_specific_functions(function_replacement);
+
+    std::string generic_declaration_str;
+
+    while(!(generic_declaration_str 
+                = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
+    {
+        generic_declarations_src
+            << generic_declaration_str;
+ 
+        generic_functions_src
+            << generic_functions.get_pending_specific_functions(function_replacement).get_source();
+    } 
+
 
     if (instrumentation_enabled())
     {

@@ -53,6 +53,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 
         AST_t ast(a);
 
+        //int -> __attribute_((generic_vector))
         if (TL::TypeSpec::predicate(ast))
         {
             return uniquestr(Type((TypeSpec(ast, _this->_sl)).get_type())
@@ -60,6 +61,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 .get_simple_declaration(_this->_sl.get_scope(ast), "")
                 .c_str());
         }
+        //The ast is in the list of the user's expressions
         if ((_this->_simd_id_exp_list != NULL) && TL::DataReference::predicate(ast))
         {
             DataReference dataref(ast, _this->_sl);
@@ -84,6 +86,7 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
         {
             Expression exp(ast, _this->_sl);
 
+            //It's a function call
             if (exp.is_function_call())
             {
                 std::stringstream result;
@@ -110,6 +113,11 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                     ;
                 
                 return uniquestr(result.str().c_str());
+            }
+            //It's a "a ? b : c" expression
+            else if (exp.is_conditional())
+            {
+                printf("CONDITIONAL DETECTED!\n");
             }
         }
     }       

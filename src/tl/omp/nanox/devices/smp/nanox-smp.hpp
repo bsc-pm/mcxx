@@ -103,9 +103,6 @@ namespace TL
                 void add_replacement(Symbol sym, const std::string& str);
                 void add_this_replacement(const std::string& str);
                 Source replace(AST_t a) const;
-                std::string get_replaced_func_name(
-                        std::string orig_name, 
-                        int width);
                 Source replace_naive_function(Symbol func_sym, ScopeLink);
                 Source replace_simd_function(Symbol func_sym, ScopeLink);
         };

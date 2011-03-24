@@ -37,13 +37,14 @@ namespace TL
                 virtual void add_replacement(Symbol sym, const std::string& str);
                 virtual void add_this_replacement(const std::string& str);
                 virtual Source replace(AST_t a) const;
-                virtual std::string get_replaced_func_name(
+                std::string get_replaced_func_name(
                         std::string orig_name,
-                        int width)=0;
+                        int width);
                 virtual Source replace_naive_function(Symbol func_sym, ScopeLink sl)=0;
                 virtual Source replace_simd_function(Symbol func_sym, ScopeLink sl)=0;
                 std::string get_device_name();
                 void set_width(int width);
+                int get_width();
         };
 
         class SpecificFunctionInfo
@@ -70,10 +71,18 @@ namespace TL
                 virtual Source get_specific_function_definition(
                         SpecificFunctionInfo& spec_func,
                         ReplaceSrcGenericFunction& replace)=0;
+                Source get_specific_function_declaration(
+                        SpecificFunctionInfo& spec_func,
+                        ReplaceSrcGenericFunction& replace);
+                Source get_all_pend_spec_func_def(
+                        SpecificFunctionInfo& spec_func,
+                        ReplaceSrcGenericFunction& replace);
             public:
                 GenericFunctionInfo(Symbol func_sym);
                 bool has_specific_definition(std::string device_name, int width);
                 Source get_all_pend_spec_func_def(
+                        ReplaceSrcGenericFunction& replace);
+                Source get_all_pend_spec_func_decl(
                         ReplaceSrcGenericFunction& replace);
                 void add_specific_function_definition(
                         std::string device_name, 
@@ -116,6 +125,7 @@ namespace TL
             public:
                 GenericFunctions() : _function_map(){}
                 Source get_pending_specific_functions(ReplaceSrcGenericFunction& replace);
+                Source get_pending_specific_declarations(ReplaceSrcGenericFunction& replace);
                 void add_simd(Symbol scalar_func_sym, Symbol generic_func_sym);
                 void add_naive(Symbol func_sym);
                 void add_specific_definition(

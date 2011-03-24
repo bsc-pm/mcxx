@@ -7209,7 +7209,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
 
     //Vector types
     //scalar -->__attribute_((vector_size(X)))  
-    if(is_vector_type(no_ref(dest)) && is_scalar_type(no_ref(orig)))
+    if(is_vector_type(no_ref(dest)) 
+            && is_scalar_type(no_ref(orig)))
     {
         DEBUG_CODE()
         {
@@ -8007,7 +8008,8 @@ char is_scalar_type(type_t* t)
             && !is_array_type(t)
             && !is_lvalue_reference_type(t)
             && !is_rvalue_reference_type(t)
-            && !is_function_type(t));
+            && !is_function_type(t)
+            && !is_vector_type(t));
 }
 
 
