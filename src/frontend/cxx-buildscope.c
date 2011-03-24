@@ -4394,7 +4394,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
  */
 static void set_array_type(type_t** declarator_type, 
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
-        AST cv_qualifier_seq,
+        AST cv_qualifier_seq UNUSED_PARAMETER,
         decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
@@ -4421,14 +4421,6 @@ static void set_array_type(type_t** declarator_type,
     }
 
     *declarator_type = get_array_type(element_type, constant_expr, decl_context);
-
-    C_LANGUAGE()
-    {
-        /* C99 static qualifier for arrays is ignored */
-        /* C99 cv_qualifier_seq */
-        *declarator_type = get_cv_qualified_type(*declarator_type, 
-                compute_cv_qualifier(cv_qualifier_seq));
-    }
 }
 
 /*

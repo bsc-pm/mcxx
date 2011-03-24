@@ -139,8 +139,8 @@ namespace TL
             {
                 initialize_builtin_udr_reductions(global_scope);
             }
-			
-			PragmaCustomCompilerPhase::run(dto);
+
+            PragmaCustomCompilerPhase::run(dto);
         }
 
         void Core::register_omp_constructs()
@@ -388,9 +388,9 @@ namespace TL
                                         var_type = var_type.get_enum_underlying_type();
                                     }
                                 }
-                                
+
                                 udr2.set_builtin_operator(reductor_name);
-                                
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -412,7 +412,6 @@ namespace TL
                             {
                                 ReductionSymbol red_sym(var_sym, udr2);
                                 sym_list.append(red_sym);
-                                // FIX-ME: this message appears two times if nanox phase is executed
                                 if (!udr2.is_builtin_operator() && construct.get_show_warnings())
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
