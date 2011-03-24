@@ -3419,6 +3419,8 @@ static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
     {
         fortran_check_expression(stop_code, decl_context);
     }
+    
+    ASTAttrSetValueType(a, LANG_IS_FORTRAN_STOP_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_pause_stmt(AST a, decl_context_t decl_context)
