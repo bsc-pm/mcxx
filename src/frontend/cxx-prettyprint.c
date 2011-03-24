@@ -645,7 +645,7 @@ const char* prettyprint_in_buffer(AST a)
     }
     else if (IS_FORTRAN_LANGUAGE)
     {
-        return cxx_prettyprint_in_buffer(a);
+        return fortran_prettyprint_in_buffer(a);
     }
     else
     {

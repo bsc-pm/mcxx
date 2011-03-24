@@ -100,6 +100,14 @@ namespace TL { namespace Fortran {
                 : Statement(a, sl) { }
             static const PredicateAttr predicate;
     };
+    
+    class LIBTL_CLASS StopStatement : public Statement
+    {
+        public:
+            StopStatement(AST_t a, ScopeLink sl) 
+                : Statement(a, sl) { }
+            static const PredicateAttr predicate;
+    };
 } }
 
 #endif

@@ -39,7 +39,9 @@ namespace TL { namespace Fortran {
     const PredicateAttr Module::predicate(LANG_IS_FORTRAN_MODULE);
 
     const PredicateAttr SpecificationStatement::predicate(LANG_IS_FORTRAN_SPECIFICATION_STATEMENT);
-
+    
+    const PredicateAttr StopStatement::predicate(LANG_IS_FORTRAN_STOP_STATEMENT);
+    
     ObjectList<Statement> ProgramUnit::get_statements()
     {
         ObjectList<Statement> result;
@@ -85,6 +87,10 @@ namespace TL { namespace Fortran {
         return result;
     }
 
+    Symbol ProgramUnit::get_related_symbol()
+    {
+        return this->get_scope().get_related_symbol();
+    }
 } }
 
 #endif
