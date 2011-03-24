@@ -25,12 +25,16 @@
 --------------------------------------------------------------------*/
 
 
-
-#ifdef FORTRAN_SUPPORT
-
 #ifndef TL_FORTRAN
 #define TL_FORTRAN
 
+#ifdef HAVE_CONFIG_H
+ #include "config.h"
+#endif
+
+#ifdef FORTRAN_SUPPORT
+
+#include "tl-common.hpp"
 #include "tl-langconstruct.hpp"
 
 namespace TL { namespace Fortran {
@@ -86,6 +90,14 @@ namespace TL { namespace Fortran {
             Module(AST_t a, ScopeLink sl) 
                 : ProgramUnit(a, sl) { }
 
+            static const PredicateAttr predicate;
+    };
+
+    class LIBTL_CLASS SpecificationStatement : public Statement
+    {
+        public:
+            SpecificationStatement(AST_t a, ScopeLink sl) 
+                : Statement(a, sl) { }
             static const PredicateAttr predicate;
     };
 } }
