@@ -101,6 +101,9 @@ namespace TL { namespace Fortran {
             static const PredicateAttr predicate;
     };
     
+    
+    // Special Fortran Statements
+    
     class LIBTL_CLASS StopStatement : public Statement
     {
         public:
