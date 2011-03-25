@@ -106,7 +106,7 @@ void DeviceSMP::do_smp_inline_get_addresses(
         {
             type = type.array_element().get_pointer_to();
         }
-        else
+        else if (!type.is_pointer())
         {
             requires_indirect = true;
             type = type.get_pointer_to();
