@@ -75,7 +75,13 @@ namespace TL
 	
 	void TL::TaskAnalysis::process_task(PragmaCustomConstruct construct)
 	{
-		if (construct.is_function_definition())
+        if (Statement::predicate(construct.get_ast()))
+        {
+            std::cerr << construct.get_ast().get_locus() << " Error: #pragma css task is not valid before a statement" << std::endl;
+            TaskAnalysis::fail();
+            return;
+        }
+        else if (construct.is_function_definition())
 		{
 			FunctionDefinition task_definition(construct.get_declaration(), construct.get_scope_link());
 			AST_t context_ast = task_definition.get_function_body().get_ast();
