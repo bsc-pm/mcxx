@@ -31,6 +31,8 @@ test_generator=config/mercurium-ss2omp
 </testinfo>
 */
 
+#include <stdlib.h>
+
 typedef
 struct A_tag
 {
@@ -56,4 +58,15 @@ void g()
     }
 
     f(a);
+#pragma omp taskwait
+    for (i = 0; i < 10 ; i++)
+    {
+        if (a[i].a != (i+1)) abort();
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    g();
+    return 0;
 }

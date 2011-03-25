@@ -32,5 +32,12 @@ test_compile_fail=yes
 </testinfo>
 */
 
+#include <stdlib.h>
+
 #pragma omp task inout(a)
 void f(int a);
+
+int main(int argc, char *argv[])
+{
+    return 0;
+}

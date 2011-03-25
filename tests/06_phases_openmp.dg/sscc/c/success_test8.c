@@ -33,48 +33,46 @@ test_generator=config/mercurium-ss2omp
 
 #include <stdlib.h>
 
-#pragma css task input(n) inout(m)
-void f(int n, float m[n][n])
+#define F1_VAL 111111
+#define F2_VAL 222222
+#define F3_VAL 333333
+
+#pragma css task inout(a) target device(smp)
+void f1(int *a)
 {
-    int i, j;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            m[i][j]++;
-        }
-    }
+    *a = F1_VAL;
 }
 
-void g(void)
+#pragma css task inout(a[1]) target device(smp)
+void f2(int *a)
 {
-    float a[20][20];
-    int n;
+    *a = F2_VAL;
+}
 
-    int i, j;
-    for (i = 0; i < 20; i++)
-    {
-        for (j = 0; j < 20; j++)
-        {
-            a[i][j] = i + j;
-        }
-    }
+#pragma css task inout(a) target device(smp)
+void f3(int a[1])
+{
+    *a = F3_VAL;
+}
 
-    // Horrible style that must be supported
-    f(n, (void*)&a[0][0]);
+int k;
+
+int main(int argc, char* argv[])
+{
+    int *m = &k;
+
+    *m = 0;
+    f1(m);
 #pragma omp taskwait
+    if (*m != F1_VAL) abort();
+    
+    f2(m);
+#pragma omp taskwait
+    if (*m != F2_VAL) abort();
 
-    for (i = 0; i < 20; i++)
-    {
-        for (j = 0; j < 20; j++)
-        {
-            if (a[i][j] != (i + j + 1)) abort();
-        }
-    }
-}
+    f3(m);
+#pragma omp taskwait
+    if (*m != F3_VAL) abort();
 
-int main(int argc, char *argv[])
-{
-    g();
     return 0;
 }

@@ -32,13 +32,51 @@ test_nolink=yes
 </testinfo>
 */
 
+#include <stdlib.h>
+
 #pragma css task inout(a[10][20])
-void f(float *a)
+void f(int *a)
 {
+    int (*p)[20] = (int (*)[20]) a;
+    int i, j;
+    for (i = 0; i < 10; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            p[i][j]++;
+        }
+    }
 }
 
-void g(void)
+void g(int *b[2][3])
 {
-  float *a[10][20];
-  f(a[1][2]);
+  f(b[1][2]);
+}
+
+int main(int argc, char *argv[])
+{
+    int _m1[10][20];
+
+    int i, j;
+    for (i = 0; i < 10; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            _m1[i][j] = i + j;
+        }
+    }
+
+    int *c[2][3];
+    c[1][2] = &_m1[0][0];
+    g(c);
+#pragma omp taskwait
+    for (i = 0; i < 10; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            if (_m1[i][j] != (i + j + 1)) abort();
+        }
+    }
+
+    return 0;
 }

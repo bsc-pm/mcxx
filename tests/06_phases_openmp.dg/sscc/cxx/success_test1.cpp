@@ -30,10 +30,13 @@
 test_generator=config/mercurium-ss2omp
 </testinfo>
 */
+
+#include <stdlib.h>
+
 struct A
 {
     int a;
-    A() : a(0) { }
+    A(int n) : a(n) { }
 };
 
 #pragma css task inout(a)
@@ -44,6 +47,15 @@ void f(A* a)
 
 void g()
 {
-    A* a = new A;
+    A* a = new A(3);
     f(a);
+#pragma omp taskwait
+
+    if (a->a != 4) abort();
+}
+
+int main(int argc, char *argv[])
+{
+    g();
+    return 0;
 }

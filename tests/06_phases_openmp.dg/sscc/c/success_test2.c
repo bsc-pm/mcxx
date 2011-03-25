@@ -47,9 +47,25 @@ void f(A* a)
     }
 }
 
-void g()
+void g(void)
 {
     A *a;
     a = malloc(sizeof(*a) * 10);
+    int i;
+    for (i = 0; i < 10 ; i++)
+    {
+        a[i].a = i;
+    }
     f(a);
+#pragma omp taskwait
+    for (i = 0; i < 10 ; i++)
+    {
+        if (a[i].a != (i+1)) abort();
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    g();
+    return 0;
 }
