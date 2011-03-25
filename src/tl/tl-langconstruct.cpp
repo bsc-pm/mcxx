@@ -688,30 +688,14 @@ namespace TL
 
     Expression Expression::get_first_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_second_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_unary_operand()
