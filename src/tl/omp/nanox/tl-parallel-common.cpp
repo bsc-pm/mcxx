@@ -182,8 +182,16 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
 
     if (Nanos::Version::interface_is_at_least("master", 5005))
     {
-        xlate_arg << ", (void*)0"
-            ;
+        C_LANGUAGE()
+        {
+            xlate_arg << ", (void*)0"
+                ;
+        }
+        CXX_LANGUAGE()
+        {
+            xlate_arg << ", 0"
+                ;
+        }
     }
 
     result

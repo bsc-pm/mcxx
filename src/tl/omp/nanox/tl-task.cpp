@@ -522,8 +522,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         if (Nanos::Version::interface_is_at_least("master", 5005))
         {
-            translation_fun_arg_name << ", (void*) 0"
-                ;
+            C_LANGUAGE()
+            {
+                translation_fun_arg_name << ", (void*) 0"
+                    ;
+            }
+            CXX_LANGUAGE()
+            {
+                translation_fun_arg_name << ", 0"
+                    ;
+            }
         }
     }
     else

@@ -93,10 +93,16 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         }
 
         if (!sym.is_valid())
+        {
+            std::cerr << expr.get_ast().get_locus() << ": warning: unknown symbol in data-reference '" << expr.prettyprint() << "'" << std::endl;
             return false;
+        }
 
         if (!sym.is_variable())
+        {
+            std::cerr << expr.get_ast().get_locus() << ": warning: symbol in data-reference '" << expr.prettyprint() << "' is not a variable" << std::endl;
             return false;
+        }
 
         base_sym = sym;
 
@@ -129,7 +135,9 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_type,
                 /* enclosing_is_array */ true);
         if (!b)
+        {
             return false;
+        }
 
         if (arr_type.is_array())
         {
@@ -141,6 +149,10 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         }
         else
         {
+            std::cerr << expr.get_ast().get_locus() 
+                << ": warning: array subscript in data-reference '" 
+                << expr.prettyprint() 
+                << "' is not a variable" << std::endl;
             return false;
         }
 
@@ -156,9 +168,60 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
     else if (expr.is_array_section_range()
             || expr.is_array_section_size())
     {
+        ObjectList<Expression> range_set;
+
+        Expression current_expr = expr;
+        while (current_expr.is_array_section_range()
+                || current_expr.is_array_section_size())
+        {
+            range_set.append(current_expr);
+            current_expr = current_expr.array_section_item();
+        }
+
+        // Now check that everything makes sense.
+        // - We allow a pointer or an array at the first dimension
+        // - Every other dimension must be an array
+        Type current_type = current_expr.get_type();
+        for (ObjectList<Expression>::iterator it = range_set.begin();
+                it != range_set.end();
+                it++)
+        {
+            if (!(current_type.is_array()
+                    || (current_type.is_pointer()
+                        && it == range_set.begin())))
+            {
+                // Not valid
+                if (!current_type.is_array()
+                        && !current_type.is_pointer())
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: array section in data-reference '" 
+                        << expr.prettyprint() 
+                        << "' is not a pointer or array type" << std::endl;
+                }
+                else if (current_type.is_pointer())
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: array section in data-reference '" 
+                        << expr.prettyprint() 
+                        << "' is a pointer type but it is not the first section" << std::endl;
+                }
+                return false;
+            }
+
+            if (current_type.is_array())
+            {
+                current_type = current_type.array_element();
+            }
+            else
+            {
+                current_type = current_type.points_to();
+            }
+        }
+
         Source arr_size, arr_addr;
         Type arr_type(NULL);
-        bool b = gather_info_data_expr_rec(expr.array_section_item(),
+        bool b = gather_info_data_expr_rec(current_expr,
                 base_sym,
                 arr_size,
                 arr_addr,
@@ -167,56 +230,42 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!b)
             return false;
 
-        if (arr_type.is_array())
+        // Now rebuild the type
+        Type rebuilt_type = current_type;
+        for (ObjectList<Expression>::iterator it = range_set.begin();
+                it != range_set.end();
+                it++)
         {
-            type = arr_type.array_element();
-        }
-        else if (arr_type.is_pointer())
-        {
-            type = arr_type.points_to();
-        }
-        else
-        {
-            return false;
-        }
+            Expression& section(*it);
 
-        Source upper_bound;
+            Source upper_bound;
+            if (section.is_array_section_size())
+            {
+                upper_bound 
+                    << section.array_section_lower() << " + " << section.array_section_upper()
+                    ;
+            }
+            else if (section.is_array_section_range())
+            {
+                upper_bound 
+                    << section.array_section_upper()
+                    ;
+            }
+            AST_t upper_bound_tree = upper_bound.parse_expression(section.get_ast(),
+                    section.get_scope_link());
+            rebuilt_type = rebuilt_type.get_array_to(section.array_section_lower().get_ast(), upper_bound_tree, section.get_scope());
 
-        if (expr.is_array_section_size())
-        {
-            upper_bound 
-                << expr.array_section_lower() << " + " << expr.array_section_upper()
+            arr_addr << "[" << section.array_section_lower() << "]"
                 ;
         }
-        else // expr.is_array_section_range
-        {
-            upper_bound 
-                << expr.array_section_upper()
-                ;
-        }
 
-        Source base_expr;
-
-        if (expr.array_section_item().is_shaping_expression())
-        {
-            base_expr << expr.array_section_item().shaped_expression();
-        }
-        else
-        {
-            base_expr << expr.array_section_item();
-        }
-
-        AST_t upper_bound_tree = upper_bound.parse_expression(expr.get_ast(),
-                expr.get_scope_link());
-        
-        type = type.get_array_to(expr.array_section_lower().get_ast(), upper_bound_tree, expr.get_scope());
-        addr = arr_addr << "[" << expr.array_section_lower().prettyprint() << "]";
+        addr = arr_addr;
+        type = rebuilt_type;
         if (!enclosing_is_array)
         {
             addr = "&(" + addr.get_source() + ")";
         }
         size = safe_expression_size(type, expr.get_scope());
-
         return true;
     }
     else if (expr.is_unary_operation())
@@ -302,6 +351,10 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
         }
 
+        std::cerr << expr.get_ast().get_locus() 
+            << ": warning: expression '" 
+            << expr.prettyprint() 
+            << "' is not a valid data-reference" << std::endl;
         return false;
     }
     else if (expr.is_shaping_expression())
@@ -326,19 +379,28 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         }
 
         if (!type.is_pointer())
+        {
+            std::cerr << expr.get_ast().get_locus() 
+                << ": warning: in data reference '" 
+                << expr.prettyprint() 
+                << "' shaped expression does not have pointer type" << std::endl;
             return false;
+        }
 
         type = type.points_to();
 
         ObjectList<Expression> shape_list = expr.shape_list();
-        for (ObjectList<Expression>::iterator it = shape_list.begin();
-                it != shape_list.end();
+        for (ObjectList<Expression>::reverse_iterator it = shape_list.rbegin();
+                it != shape_list.rend();
                 it++)
         {
             type = type.get_array_to(it->get_ast(), it->get_scope());
         }
         size = safe_expression_size(type, expr.get_scope());
-        addr = arr_addr;
+
+        Type cast_type = type.array_element().get_pointer_to();
+
+        addr << "((" << cast_type.get_declaration(expr.get_scope(), "") << ")" << arr_addr << ")";
 
         return true;
     }
@@ -357,8 +419,15 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             return false;
 
         Symbol member = expr.get_accessed_member().get_computed_symbol();
-        if (!member.is_valid())
+        if (!member.is_valid()
+                || !member.is_variable())
+        {
+            std::cerr << expr.get_ast().get_locus() 
+                << ": warning: in data reference '" 
+                << expr.prettyprint() 
+                << "' member is invalid" << std::endl;
             return false;
+        }
 
         type = member.get_type();
 
@@ -376,6 +445,10 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         return true;
     }
+    std::cerr << expr.get_ast().get_locus() 
+        << ": warning: data reference '" 
+        << expr.prettyprint() 
+        << "' is invalid" << std::endl;
     return false;
 }
 
