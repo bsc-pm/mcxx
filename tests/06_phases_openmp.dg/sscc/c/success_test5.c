@@ -49,7 +49,7 @@ void f(int n, float m[n][n])
 void g(void)
 {
     float a[20][20];
-    int n;
+    int n = 20;
 
     int i, j;
     for (i = 0; i < 20; i++)

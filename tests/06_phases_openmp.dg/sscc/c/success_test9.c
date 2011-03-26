@@ -78,6 +78,8 @@ int main(int argc, char* argv[])
     f2(m);
     f3(m);
 
+#pragma omp taskwait
+
     if (*m != F3_VAL) abort();
 
     return 0;
