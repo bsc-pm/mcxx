@@ -660,30 +660,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             i++;
         }
 
-        if (Nanos::Version::interface_is_at_least("master", 5003)
-                && !_do_not_create_translation_fun)
+        if (_do_not_create_translation_fun)
         {
-            Source translation_fun_name;
-            translation_fun_name << "_xlate_copy_address_" << outline_num
-                ;
-            // FIXME - Templates
-            set_translation_fun 
-                << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
-                ;
-
             if (Nanos::Version::interface_is_at_least("master", 5005))
             {
-                translation_fun_arg_name
-                    // Note this starting comma
-                    << ", _xlate_copy_address_" << outline_num
-                    ;
+                C_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", (void*) 0"
+                        ;
+                }
+                CXX_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", 0"
+                        ;
+                }
             }
+        }
+        else
+        {
+            if (Nanos::Version::interface_is_at_least("master", 5003))
+            {
+                Source translation_fun_name;
+                translation_fun_name << "_xlate_copy_address_" << outline_num
+                    ;
+                // FIXME - Templates
+                set_translation_fun 
+                    << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
+                    ;
 
-            AST_t xlate_function_def = translation_function.parse_declaration(
-                    ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
-                    ctr.get_scope_link());
+                if (Nanos::Version::interface_is_at_least("master", 5005))
+                {
+                    translation_fun_arg_name
+                        // Note this starting comma
+                        << ", _xlate_copy_address_" << outline_num
+                        ;
+                }
 
-            ctr.get_ast().prepend_sibling_function(xlate_function_def);
+                AST_t xlate_function_def = translation_function.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
+                        ctr.get_scope_link());
+
+                ctr.get_ast().prepend_sibling_function(xlate_function_def);
+            }
         }
     }
 
