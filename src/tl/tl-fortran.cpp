@@ -25,45 +25,49 @@
 --------------------------------------------------------------------*/
 
 
-#ifdef FORTRAN_SUPPORT
-
 #include "tl-fortran.hpp"
+
+#ifdef FORTRAN_SUPPORT
 
 namespace TL { namespace Fortran {
 
-    PredicateAttr ProgramUnit::predicate(LANG_IS_FORTRAN_PROGRAM_UNIT);
+    const PredicateAttr ProgramUnit::predicate(LANG_IS_FORTRAN_PROGRAM_UNIT);
 
-    PredicateAttr Function::predicate(LANG_IS_FORTRAN_FUNCTION);
-    PredicateAttr Subroutine::predicate(LANG_IS_FORTRAN_SUBROUTINE);
-    PredicateAttr BlockData::predicate(LANG_IS_FORTRAN_BLOCKDATA);
-    PredicateAttr Module::predicate(LANG_IS_FORTRAN_MODULE);
+    const PredicateAttr Function::predicate(LANG_IS_FORTRAN_FUNCTION);
+    const PredicateAttr Subroutine::predicate(LANG_IS_FORTRAN_SUBROUTINE);
+    const PredicateAttr BlockData::predicate(LANG_IS_FORTRAN_BLOCK_DATA);
+    const PredicateAttr Module::predicate(LANG_IS_FORTRAN_MODULE);
 
-    PredicateAttr SpecificationStatement::predicate(LANG_IS_FORTRAN_SPECIFICATION_STATEMENT);
-
+    const PredicateAttr SpecificationStatement::predicate(LANG_IS_FORTRAN_SPECIFICATION_STATEMENT);
+    
+    const PredicateAttr StopStatement::predicate(LANG_IS_FORTRAN_STOP_STATEMENT);
+    
     ObjectList<Statement> ProgramUnit::get_statements()
     {
         ObjectList<Statement> result;
         AST_t program_unit_body = _ref.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_BODY);
-
+        
         if (!program_unit_body.is_valid())
             return result;
 
         AST_t statements = program_unit_body.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS);
-
+        
         if (!statements.is_valid())
             return result;
 
         if (!statements.is_list())
         {
-            std::cerr << "Warning: expecting a list here -- " << statement.get_locus() << std::endl;
+            std::cerr << "Warning: expecting a list here -- " << statements.get_locus() << std::endl;
             return result;
         }
 
-        ASTIterator it = statements.get_list_iterator();
-        while (!it.end())
+        ASTIterator ast_it = statements.get_list_iterator();
+        ast_it.rewind();
+        
+        while (!ast_it.end())
         {
-            result.push_back(Statement(it.item(), _sl));
-            it.next();
+            result.push_back(Statement(ast_it.item(), _scope_link));
+            ast_it.next();
         }
 
         return result;
@@ -73,16 +77,22 @@ namespace TL { namespace Fortran {
     {
         ObjectList<ProgramUnit> result;
 
-        AST_t internal = program_unit_body.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS);
+        AST_t internal = _ref.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS);
 
         ASTIterator it = internal.get_list_iterator();
         while (!it.end())
         {
-            result.push_back(ProgramUnit(it.item(), _sl));
+            result.push_back(ProgramUnit(it.item(), _scope_link));
             it.next();
         }
+
+        return result;
     }
 
+    Symbol ProgramUnit::get_related_symbol()
+    {
+        return this->get_scope().get_related_symbol();
+    }
 } }
 
 #endif

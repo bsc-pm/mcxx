@@ -36,7 +36,7 @@ namespace TL
         static Expression compute_bounds_of_sectioned_expression(Expression expr, 
                 ObjectList<Expression>& lower_bounds, ObjectList<Expression>& upper_bounds)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression result 
                     = compute_bounds_of_sectioned_expression(expr.array_section_item(), lower_bounds, upper_bounds);
@@ -241,7 +241,7 @@ namespace TL
                                 << ");"
                                 ;
                         }
-                        else if (trigger_expr.is_array_section())
+                        else if (trigger_expr.is_array_section_range())
                         {
                             ObjectList<Expression> lower_bounds;
                             ObjectList<Expression> upper_bounds;

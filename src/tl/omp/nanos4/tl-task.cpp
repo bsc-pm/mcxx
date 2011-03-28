@@ -1041,7 +1041,7 @@ namespace TL
         Symbol OpenMPTransform::handle_dep_expr(Expression expr)
         {
             // scalar_dep_expr '[' expr : expr ']'
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression item = expr.array_section_item();
                 return handle_scalar_dep_expr(item);
@@ -1121,7 +1121,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1168,7 +1168,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1215,7 +1215,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1240,7 +1240,7 @@ namespace TL
 
         static std::string get_representative_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 // Expression array_section_upper = expr.array_section_upper();
@@ -1267,7 +1267,7 @@ namespace TL
 
         static std::string get_size_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 Expression array_section_upper = expr.array_section_upper();
@@ -1301,7 +1301,7 @@ namespace TL
 
         static std::string get_align_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Symbol sym = OpenMPTransform::handle_dep_expr(expr);
                 Expression array_section_lower = expr.array_section_lower();

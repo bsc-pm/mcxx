@@ -28,52 +28,53 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ss2omp
+test_nolink=yes
 </testinfo>
 */
 
 #include <stdlib.h>
 
-#pragma css task input(n) inout(m)
-void f(int n, int m[n][n])
+#pragma css task inout(a[10][20])
+void f(int *a)
 {
+    int (*p)[20] = (int (*)[20]) a;
     int i, j;
-    for (i = 0; i < n; i++)
+    for (i = 0; i < 10; i++)
     {
-        for (j = 0; j < n; j++)
+        for (j = 0; j < 20; j++)
         {
-            m[i][j]++;
+            p[i][j]++;
         }
     }
 }
 
-void g(int m, int a[m][m])
+void g(int *b[2][3])
 {
-    f(m, a);
+  f(b[1][2]);
 }
 
 int main(int argc, char *argv[])
 {
-    int k = 10;
-
-    int a[k][k];
+    int _m1[10][20];
 
     int i, j;
-    for (i = 0; i < k; i++)
+    for (i = 0; i < 10; i++)
     {
-        for (j = 0; j < k; j++)
+        for (j = 0; j < 20; j++)
         {
-            a[i][j] = i + j;
+            _m1[i][j] = i + j;
         }
     }
 
-    g(k, a);
+    int *c[2][3];
+    c[1][2] = &_m1[0][0];
+    g(c);
 #pragma omp taskwait
-
-    for (i = 0; i < k; i++)
+    for (i = 0; i < 10; i++)
     {
-        for (j = 0; j < k; j++)
+        for (j = 0; j < 20; j++)
         {
-            if (a[i][j] != (i + j + 1)) abort();
+            if (_m1[i][j] != (i + j + 1)) abort();
         }
     }
 

@@ -39,6 +39,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-macros.h"
 #include <iostream>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -603,6 +604,11 @@ namespace TL
             //! Returns the shape list
             ObjectList<Expression> shape_list();
 
+            //! States whether the expression is a 'throw' expression
+            bool is_throw_expression();
+            //! Returns the expression called by the throw expression
+            Expression get_throw_expression();
+            
             static const PredicateAttr predicate;
 
             /*! Returns the enclosing expression that is meaningful */
@@ -807,6 +813,9 @@ namespace TL
              */
             AST_t get_point_of_declaration() const;
 
+            //! States whether this declaration is empty or not
+            bool is_empty_declaration() const;
+            
             // Fix the predicate
             static const PredicateAttr predicate;
     };

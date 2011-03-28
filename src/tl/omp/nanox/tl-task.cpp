@@ -510,7 +510,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
 
-    Source set_translation_fun;
+    Source set_translation_fun, translation_fun_arg_name;
 
     if (copy_items.empty())
     {
@@ -519,6 +519,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_data << "(nanos_copy_data_t**)0";
         // Immediate
         copy_imm_data << "(nanos_copy_data_t*)0";
+
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            C_LANGUAGE()
+            {
+                translation_fun_arg_name << ", (void*) 0"
+                    ;
+            }
+            CXX_LANGUAGE()
+            {
+                translation_fun_arg_name << ", 0"
+                    ;
+            }
+        }
     }
     else
     {
@@ -566,7 +580,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             // Fill the translation_function
             DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
             translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << wd_arg << "));"
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
                 ;
 
@@ -649,10 +663,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if (Nanos::Version::interface_is_at_least("master", 5003)
                 && !_do_not_create_translation_fun)
         {
+            Source translation_fun_name;
+            translation_fun_name << "_xlate_copy_address_" << outline_num
+                ;
             // FIXME - Templates
             set_translation_fun 
-                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
+                << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
                 ;
+
+            if (Nanos::Version::interface_is_at_least("master", 5005))
+            {
+                translation_fun_arg_name
+                    // Note this starting comma
+                    << ", _xlate_copy_address_" << outline_num
+                    ;
+            }
 
             AST_t xlate_function_def = translation_function.parse_declaration(
                     ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
@@ -717,14 +742,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
         <<        copy_immediate_setup
-        <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
         <<                struct_size << ", " 
         <<                alignment
         <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_imm_data << ");"
+        <<                num_copies << "," << copy_imm_data 
+        <<                translation_fun_arg_name << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"

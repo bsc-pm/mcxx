@@ -64,4 +64,5 @@ int main(int argc, char *argv[])
     }
 
     delete k;
+    return 0;
 }

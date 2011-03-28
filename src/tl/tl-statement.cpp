@@ -44,6 +44,7 @@ namespace TL
     const PredicateAttr ReturnStatement::predicate(LANG_IS_RETURN_STATEMENT);
     const PredicateAttr GotoStatement::predicate(LANG_IS_GOTO_STATEMENT);
     const PredicateAttr LabeledStatement::predicate(LANG_IS_LABELED_STATEMENT);
+    const PredicateAttr EmptyStatement::predicate(LANG_IS_EMPTY_STATEMENT);
 
 	// Falta try_block
 
@@ -109,6 +110,32 @@ namespace TL
         return result;
     }
 
+    Statement Statement::get_pragma_line() const
+    {
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        Statement st(pragma_line, _scope_link);
+        return st;
+    }
+
+    bool Statement::is_pragma_construct() const
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
+        return b;
+    }
+
+    Statement Statement::get_pragma_construct_statement() const
+    {
+        AST_t pragma_statement = _ref.get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+        Statement st(pragma_statement, _scope_link);
+        return st;
+    }
+
+    bool Statement::is_pragma_directive() const
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
+        return b;
+    }
+
 	bool Statement::breaks_flow()
 	{
 		if ( (TL::Bool) this->_ref.get_attribute(LANG_IS_FOR_STATEMENT) ||
@@ -120,9 +147,12 @@ namespace TL
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_DEFAULT_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_BREAK_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_CONTINUE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_TRY_BLOCK) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_RETURN_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_GOTO_STATEMENT) ||
-				(TL::Bool) this->_ref.get_attribute(LANG_IS_LABELED_STATEMENT)
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_LABELED_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE)
 			)
 		{
 			return true;
@@ -696,6 +726,49 @@ namespace TL
         }
         
         return result;
+    }
+
+    Statement TryStatement::get_try_protected_block() const
+    {
+        TL::AST_t try_block_tree = _ref.get_attribute(LANG_TRY_BLOCK_BODY);
+        Statement try_statement(try_block_tree, _scope_link);
+        return try_statement;
+    }
+
+    ObjectList<Declaration> TryStatement::get_try_handler_declarations() const
+    {
+        ObjectList<Declaration> handler_decls;
+        
+        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
+                
+        handlers_iterator.rewind();
+        while(!handlers_iterator.end())
+        {
+            Declaration decl(handlers_iterator.item().children()[0], _scope_link);
+            handler_decls.append(decl);
+            handlers_iterator.next();
+        }
+        
+        return handler_decls;
+    }
+
+    ObjectList<Statement> TryStatement::get_try_handler_blocks() const
+    {
+        ObjectList<Statement> handler_blocks;
+        
+        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
+        
+        handlers_iterator.rewind();
+        while(!handlers_iterator.end())
+        {
+            Statement block(handlers_iterator.item().children()[1], _scope_link);
+            handler_blocks.append(block);
+            handlers_iterator.next();
+        }
+        
+        return handler_blocks;
     }
 
     bool ReturnStatement::has_return_expression() const

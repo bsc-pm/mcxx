@@ -33,49 +33,46 @@ test_generator=config/mercurium-ss2omp
 
 #include <stdlib.h>
 
-#pragma css task input(n) inout(m)
-void f(int n, int m[n][n])
+#define F1_VAL 111111
+#define F2_VAL 222222
+#define F3_VAL 333333
+
+#pragma css task inout(a) target device(smp)
+void f1(int *a)
 {
-    int i, j;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            m[i][j]++;
-        }
-    }
+    *a = F1_VAL;
 }
 
-void g(int m, int a[m][m])
+#pragma css task inout(a[1]) target device(smp)
+void f2(int *a)
 {
-    f(m, a);
+    *a = F2_VAL;
 }
 
-int main(int argc, char *argv[])
+#pragma css task inout(a) target device(smp)
+void f3(int a[1])
 {
-    int k = 10;
+    *a = F3_VAL;
+}
 
-    int a[k][k];
+int k;
 
-    int i, j;
-    for (i = 0; i < k; i++)
-    {
-        for (j = 0; j < k; j++)
-        {
-            a[i][j] = i + j;
-        }
-    }
+int main(int argc, char* argv[])
+{
+    int *m = &k;
 
-    g(k, a);
+    *m = 0;
+    f1(m);
 #pragma omp taskwait
+    if (*m != F1_VAL) abort();
+    
+    f2(m);
+#pragma omp taskwait
+    if (*m != F2_VAL) abort();
 
-    for (i = 0; i < k; i++)
-    {
-        for (j = 0; j < k; j++)
-        {
-            if (a[i][j] != (i + j + 1)) abort();
-        }
-    }
+    f3(m);
+#pragma omp taskwait
+    if (*m != F3_VAL) abort();
 
     return 0;
 }

@@ -27,55 +27,11 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ss2omp
+test_generator=config/mercurium
 </testinfo>
 */
 
-#include <stdlib.h>
-
-#pragma css task input(n) inout(m)
-void f(int n, int m[n][n])
+void f(const int c[]);
+void f(const int *c)
 {
-    int i, j;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            m[i][j]++;
-        }
-    }
-}
-
-void g(int m, int a[m][m])
-{
-    f(m, a);
-}
-
-int main(int argc, char *argv[])
-{
-    int k = 10;
-
-    int a[k][k];
-
-    int i, j;
-    for (i = 0; i < k; i++)
-    {
-        for (j = 0; j < k; j++)
-        {
-            a[i][j] = i + j;
-        }
-    }
-
-    g(k, a);
-#pragma omp taskwait
-
-    for (i = 0; i < k; i++)
-    {
-        for (j = 0; j < k; j++)
-        {
-            if (a[i][j] != (i + j + 1)) abort();
-        }
-    }
-
-    return 0;
 }

@@ -31,6 +31,8 @@ test_generator=config/mercurium-ss2omp
 </testinfo>
 */
 
+#include <stdlib.h>
+
 #pragma css task input(n) inout(m)
 void f(int n, float m[n][n])
 {
@@ -47,8 +49,32 @@ void f(int n, float m[n][n])
 void g(void)
 {
     float a[20][20];
-    int n;
+    int n = 20;
+
+    int i, j;
+    for (i = 0; i < 20; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            a[i][j] = i + j;
+        }
+    }
 
     // Horrible style that must be supported
     f(n, (void*)&a[0][0]);
+#pragma omp taskwait
+
+    for (i = 0; i < 20; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            if (a[i][j] != (i + j + 1)) abort();
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    g();
+    return 0;
 }

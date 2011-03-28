@@ -53,7 +53,9 @@ namespace TL
 
             //! Keys of clauses for each directive
 			std::map<AST_t, DirectiveClauses> _directive_clauses_map;
-		    
+            
+            DirectiveClauses& lookup_map(AST_t a);
+            
 		public:
             //! Default constructor
             ClausesInfo();

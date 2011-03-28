@@ -278,9 +278,14 @@ namespace TL
         return result;
     }
 
-	AST_t Scope::wrap_symbol_name(const std::string& str)
+    AST_t Scope::wrap_symbol_name(const std::string& str)
     {
-		AST a = ASTLeaf(AST_SYMBOL, NULL, 0, str.c_str());
-		return a;
+        AST a = ASTLeaf(AST_SYMBOL, NULL, 0, str.c_str());
+        return a;
+    }
+
+    Symbol Scope::get_related_symbol() const
+    {
+        return _decl_context.current_scope->related_entry;
     }
 }
