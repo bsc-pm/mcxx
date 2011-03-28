@@ -150,6 +150,8 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   cxx-nodecl.h \
   cxx-nodecl.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
   libmcxx-common.h \
   $(END)
 
