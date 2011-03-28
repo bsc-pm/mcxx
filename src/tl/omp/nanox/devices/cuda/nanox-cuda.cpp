@@ -80,16 +80,16 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		ReplaceSrcIdExpression& replace_src,
 		bool &err_declared)
 {
-    Source current_wd_param;
-    if (Nanos::Version::interface_is_at_least("master", 5005))
-    {
-        copy_setup
-            << "nanos_wd_t current_wd = nanos_current_wd();"
-            ;
-        current_wd_param
-            << ", current_wd"
-            ;
-    }
+	Source current_wd_param;
+	if (Nanos::Version::interface_is_at_least("master", 5005))
+	{
+		copy_setup
+			<< "nanos_wd_t current_wd = nanos_current_wd();"
+			;
+		current_wd_param
+			<< ", current_wd"
+			;
+	}
 
 	ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
 	unsigned int j = 0;
@@ -101,23 +101,23 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		Symbol sym = data_ref.get_base_symbol();
 		Type type = sym.get_type();
 
-        if (type.is_reference())
-            type = type.references_to();
+		if (type.is_reference())
+			type = type.references_to();
 
-        // Remove all arrays as we cannot reliable reconstruct the type here
-        if (type.is_array())
-        {
-            while (type.is_array())
-            {
-                type = type.array_element();
-            }
-            type = type.get_pointer_to();
-        }
+		// Remove all arrays as we cannot reliable reconstruct the type here
+		if (type.is_array())
+		{
+			while (type.is_array())
+			{
+				type = type.array_element();
+			}
+			type = type.get_pointer_to();
+		}
 
-        if (!type.is_pointer())
-        {
-            type = type.get_pointer_to();
-        }
+		if (!type.is_pointer())
+		{
+			type = type.get_pointer_to();
+		}
 
 		// There are some problems with the typesystem currently
 		// that require these workarounds
@@ -129,20 +129,20 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		}
 		else if (data_ref.is_array_section_range()
 				|| data_ref.is_array_section_size())
-        {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.array_section_item().get_type();
-            // Remove all arrays as we cannot reliable reconstruct the type here
-            if (type.is_array())
-            {
-                while (type.is_array())
-                {
-                    type = type.array_element();
-                }
-                type = type.get_pointer_to();
-            }
-        }
+		{
+			// Array sections have a scalar type, but the data type will be array
+			// See ticket #290
+			type = data_ref.array_section_item().get_type();
+			// Remove all arrays as we cannot reliable reconstruct the type here
+			if (type.is_array())
+			{
+				while (type.is_array())
+				{
+					type = type.array_element();
+				}
+				type = type.get_pointer_to();
+			}
+		}
 
 		std::string copy_name = "_cp_" + sym.get_name();
 
@@ -167,7 +167,7 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
 			;
 
-        replace_src.add_replacement(sym, copy_name);
+		replace_src.add_replacement(sym, copy_name);
 	}
 }
 
