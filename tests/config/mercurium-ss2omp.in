@@ -22,10 +22,16 @@ if [ ! -z "@NANOX_INCLUDES@" ];
 then
 
 cat <<EOF
-compile_versions="\${compile_versions} sscc_plain"
+compile_versions="\${compile_versions} sscc_plain sscc_no_xlate"
 
 test_CC_sscc_plain="\${MCC}"
 test_CXX_sscc_plain="\${MCXX}"
+
+test_CC_sscc_no_xlate="\${MCC}"
+test_CXX_sscc_no_xlate="\${MCXX}"
+
+test_CFLAGS_sscc_no_xlate="--variable=do_not_create_translation_function:1"
+test_CXXFLAGS_sscc_no_xlate="--variable=do_not_create_translation_function:1"
 EOF
 
 fi

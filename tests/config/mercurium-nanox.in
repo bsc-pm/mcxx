@@ -22,13 +22,23 @@ if [ ! -z "@NANOX_INCLUDES@" ];
 then
 
 cat <<EOF
-compile_versions="\${compile_versions} nanox_plain"
+compile_versions="\${compile_versions} nanox_plain nanox_no_xlate"
 
+#plain
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
 test_CFLAGS_nanox_plain="--nanox -std=gnu99"
 test_CXXFLAGS_nanox_plain="--nanox"
+
+#no_xlate
+
+test_CC_nanox_no_xlate="\${MCC}"
+test_CXX_nanox_no_xlate="\${MCXX}"
+
+test_CFLAGS_nanox_no_xlate="--nanox -std=gnu99 --variable=do_not_create_translation_function:1"
+test_CXXFLAGS_nanox_no_xlate="--nanox --variable=do_not_create_translation_function:1"
+
 EOF
 
 if [ ! -z "@NANOX_INSTRUMENTATION@" ];
