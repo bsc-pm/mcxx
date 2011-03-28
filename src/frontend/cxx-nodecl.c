@@ -82,8 +82,8 @@ static void c_simplify_tree_function_def(AST a, AST *out)
     c_simplify_tree_stmt(statement, &new_stmt);
 
     *out = ASTListLeaf(
-            ASTMake2(AST_FUNCTION_CODE, 
-                declarator_name, new_stmt, 
+            ASTMake3(AST_FUNCTION_CODE, 
+                declarator_name, new_stmt, NULL,
                 ASTFileName(a), ASTLine(a), NULL)
             );
 }
