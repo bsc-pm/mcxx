@@ -105,7 +105,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         {
             char *quoted = quote_protect(ASTText(a));
 
-            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
+            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
                     current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
             free(quoted);

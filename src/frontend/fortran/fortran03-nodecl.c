@@ -52,6 +52,27 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                         new_block = ASTList(new_block, new_stmt);
                     }
                 }
+                *out = ASTMake1(AST_COMPOUND_STATEMENT, new_block, ASTFileName(a), ASTLine(a), NULL);
+                break;
+            }
+        case AST_COMPOUND_STATEMENT:
+            {
+                AST list = ASTSon0(a);
+                AST new_list = NULL;
+                AST it;
+                for_each_element(list, it)
+                {
+                    AST stmt = ASTSon1(it);
+                    AST new_stmt = NULL;
+
+                    fortran_simplify_tree_stmt(stmt, &new_stmt);
+
+                    if (new_stmt != NULL)
+                    {
+                        new_list = ASTList(new_list, new_stmt);
+                    }
+                }
+                *out = ASTMake1(AST_COMPOUND_STATEMENT, new_list, ASTFileName(a), ASTLine(a), NULL);
                 break;
             }
         case AST_LABELED_STATEMENT:
@@ -176,7 +197,6 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
         case AST_BIND_STATEMENT:
         case AST_CODIMENSION_STATEMENT:
         case AST_COMMON_STATEMENT:
-        case AST_COMPOUND_STATEMENT:
         case AST_DATA_STATEMENT:
         case AST_DECLARATION_STATEMENT:
         case AST_DERIVED_TYPE_DEF:
@@ -324,7 +344,7 @@ static void fortran_simplify_tree_program_unit(AST a, AST *out)
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
                 AST subroutine_stmt = ASTSon0(a);
-                AST name = ASTSon2(subroutine_stmt);
+                AST name = ASTSon1(subroutine_stmt);
                 AST program_body = ASTSon1(a);
 
                 fortran_simplify_tree_body_program_unit(program_body, name, out);

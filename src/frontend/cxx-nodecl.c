@@ -1,6 +1,8 @@
 #include "cxx-nodecl.h"
 #include "cxx-utils.h"
 #include "cxx-buildscope.h"
+#include "cxx-attrnames.h"
+#include "cxx-tltype.h"
 
 static void c_simplify_tree_decl(AST a, AST *out);
 static void c_simplify_tree_stmt(AST a, AST *out);
@@ -23,8 +25,20 @@ static void c_simplify_tree_simple_decl(AST a, AST *out)
     AST class_member_decl_list = NULL;
     if (ASTType(type_specifier) == AST_CLASS_SPECIFIER)
     {
-        AST member_spec = ASTSon1(type_specifier);
-        c_simplify_tree_decl(member_spec, &class_member_decl_list);
+        AST member_spec_list = ASTSon1(type_specifier);
+        AST it;
+        for_each_element(member_spec_list, it)
+        {
+            AST member_spec = ASTSon1(it);
+            AST new_member_spec = NULL;
+
+            c_simplify_tree_decl(member_spec, &new_member_spec);
+
+            if (new_member_spec != NULL)
+            {
+                member_spec_list = ASTList(member_spec_list, new_member_spec);
+            }
+        }
     }
 
     AST new_init_declarator_list = NULL;
@@ -42,6 +56,16 @@ static void c_simplify_tree_simple_decl(AST a, AST *out)
                     scope_link_get_decl_context(CURRENT_COMPILED_FILE->scope_link, declarator));
 
             ERROR_CONDITION((declarator_name == NULL), "Invalid declarator name\n", 0);
+
+            tl_type_t* tl_data = ASTAttrValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t);
+
+            ERROR_CONDITION (tl_data == NULL 
+                    || tl_data->kind != TL_SYMBOL
+                    || tl_data->data._entry == NULL, 
+                    "Invalid declarator", 0);
+
+            if (tl_data->data._entry->kind != SK_VARIABLE)
+                continue;
 
             AST new_initializer = NULL;
             c_simplify_tree_init_decl(initializer, &new_initializer);
@@ -66,8 +90,7 @@ static void c_simplify_tree_namespace_def(AST a, AST *out)
 
 static void c_simplify_tree_function_def(AST a, AST *out)
 {
-    AST function_def_header = ASTSon0(a);
-    AST function_declarator = ASTSon1(function_def_header);
+    AST function_declarator = ASTSon1(a);
 
     AST declarator_name = get_declarator_name(function_declarator,
             scope_link_get_decl_context(CURRENT_COMPILED_FILE->scope_link, function_declarator));
@@ -110,7 +133,7 @@ static void c_simplify_tree_stmt(AST a, AST *out)
         case AST_EXPRESSION_STATEMENT:
             {
                 AST new_expr = NULL;
-                c_simplify_tree_expr(ASTSon0(new_expr), &new_expr);
+                c_simplify_tree_expr(ASTSon0(a), &new_expr);
                 *out = ASTMake1(AST_EXPRESSION_STATEMENT, new_expr, ASTFileName(a), ASTLine(a), NULL);
                 break;
             }
@@ -338,6 +361,10 @@ static void c_simplify_tree_decl(AST a, AST *out)
         case AST_FUNCTION_DEFINITION :
             {
                 c_simplify_tree_function_def(a, out);
+                break;
+            }
+        case AST_MEMBER_DECLARATION :
+            {
                 break;
             }
         case AST_LINKAGE_SPEC :

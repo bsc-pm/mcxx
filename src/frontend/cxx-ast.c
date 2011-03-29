@@ -675,6 +675,7 @@ AST ast_copy_for_instantiation(const_AST a)
 
 AST ast_list_leaf(AST a)
 {
+    ERROR_CONDITION(a == NULL, "Invalid tree", 0);
     AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
             ast_get_filename(a), ast_get_line(a), ast_get_text(a));
 
@@ -683,8 +684,19 @@ AST ast_list_leaf(AST a)
 
 AST ast_list(AST list, AST last_elem)
 {
+    ERROR_CONDITION(last_elem == NULL, "Invalid tree", 0);
+    const char* filename = NULL;
+    if (list != NULL)
+    {
+        filename = ast_get_filename(list);
+    }
+    else
+    {
+        filename = ast_get_filename(last_elem);
+    }
+
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            ast_get_filename(list), ast_get_line(last_elem), ast_get_text(last_elem));
+            filename, ast_get_line(last_elem), ast_get_text(last_elem));
 
     return a;
 }
