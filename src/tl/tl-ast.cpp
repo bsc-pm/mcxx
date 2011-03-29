@@ -40,9 +40,6 @@
 
 namespace TL
 {
-    // Definition of static member TL::AST_t::schema
-    Schema AST_t::schema(&::ast_extensible_schema);
-
     bool AST_t::operator<(AST_t n) const
     {
         return this->_ast < n._ast;
@@ -67,7 +64,6 @@ namespace TL
     tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
     {
         return default_get_extended_attribute(
-                &ast_extensible_schema,
                 ast_get_extensible_struct(this->_ast),
                 name);
     }
@@ -75,8 +71,7 @@ namespace TL
     bool AST_t::set_extended_attribute(const std::string &str, const tl_type_t &data)
     {
         return default_set_extended_attribute(
-                &ast_extensible_schema,
-                ast_get_extensible_struct(this->_ast),
+                ast_get_initalized_extensible_struct(this->_ast),
                 str,
                 data);
     }

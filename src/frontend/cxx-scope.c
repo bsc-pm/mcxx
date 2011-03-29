@@ -50,8 +50,6 @@
 
 static unsigned long long _bytes_used_scopes = 0;
 
-extensible_schema_t scope_entry_extensible_schema = EMPTY_EXTENSIBLE_SCHEMA;
-
 unsigned long long scope_used_memory(void)
 {
     return _bytes_used_scopes;
@@ -433,7 +431,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     result->decl_context = decl_context;
 
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
-    extensible_struct_init(result->extended_data, &scope_entry_extensible_schema);
+    extensible_struct_init(&result->extended_data);
 
     insert_alias(sc, result, result->symbol_name);
 
@@ -3952,12 +3950,6 @@ const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
     char is_dependent = 0;
 
     return get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_qualif_level);
-}
-
-void scope_entry_dynamic_initializer(void)
-{
-    // Initialize the schema of scope entries
-    extensible_schema_init(&scope_entry_extensible_schema);
 }
 
 decl_context_t decl_context_empty()

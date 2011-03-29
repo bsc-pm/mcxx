@@ -1026,13 +1026,26 @@ static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
     return result;
 }
 
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
 static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
     static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
 
     if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        _user_defined_types_arr[!!indirect] = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _user_defined_types_arr[!!indirect] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
@@ -1991,7 +2004,7 @@ type_t* get_complex_type(type_t* t)
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _complex_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* result = rb_tree_query_type(_complex_hash, t);
@@ -2034,7 +2047,7 @@ static void init_qualification_hash(void)
                 i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
                 i++)
         {
-            _qualification[i] = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _qualification[i] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
         _qualif_hash_initialized = 1;
     }
@@ -2153,7 +2166,7 @@ type_t* get_pointer_type(type_t* t)
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _pointer_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
@@ -2221,7 +2234,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
     if ((*reference_types) == NULL)
     {
-        (*reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        (*reference_types) = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* referenced_type = rb_tree_query_type((*reference_types), t);
@@ -2268,7 +2281,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (_class_types == NULL)
     {
-        _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _class_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     // First lookup using the class symbol
@@ -2281,7 +2294,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
         rb_tree_add(_class_types, class_entry, class_type_hash);
     }
@@ -2344,7 +2357,7 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
     array_sized_hash_elem->whole_size = whole_size;
     array_sized_hash_elem->lower_bound = lower_bound;
     array_sized_hash_elem->upper_bound = upper_bound;
-    array_sized_hash_elem->element_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+    array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -2554,7 +2567,7 @@ static type_t* _get_array_type(type_t* element_type,
 
         if (_undefined_array_types == NULL)
         {
-            _undefined_array_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _undefined_array_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
@@ -6821,11 +6834,18 @@ const char* print_declarator(type_t* printed_declarator)
                     snprintf(c, 255, "<computed function type>");
                     c[255] = '\0';
                     printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
                     break;
                 }
             default :
-                internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
-                break;
+                {
+                    char c[256];
+                    snprintf(c, 255, "<unknown type kind %d>", printed_declarator->kind);
+                    c[255] = '\0';
+                    printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
+                    break;
+                }
         }
     } while (printed_declarator != NULL);
 

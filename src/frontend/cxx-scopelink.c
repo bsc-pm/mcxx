@@ -55,11 +55,24 @@ typedef struct scope_link_entry_tag
 
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
 
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
 scope_link_t* scope_link_new(decl_context_t global_decl_context)
 {
     scope_link_t* result = counted_calloc(1, sizeof(*result), &_bytes_scopelink);
 
-    result->h = rb_tree_create(integer_comp, null_dtor, null_dtor);
+    result->h = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     result->global_decl_context = global_decl_context;
 
     return result;

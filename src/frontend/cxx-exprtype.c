@@ -82,7 +82,13 @@ unsigned long long expression_info_sizeof(void)
 
 static expression_info_t* expression_get_expression_info(AST expr)
 {
-    return ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
+    expression_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
+    if (p == NULL)
+    {
+        p = counted_calloc(1, sizeof(*p), &_bytes_used_expr_check);
+        ast_set_field(expr, LANG_EXPRESSION_INFO, p);
+    }
+    return p;
 }
 
 type_t* expression_get_type(AST expr)

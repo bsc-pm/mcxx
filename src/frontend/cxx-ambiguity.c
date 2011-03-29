@@ -1010,7 +1010,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        char do_failure = true;
+        char do_failure = 1;
 
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)

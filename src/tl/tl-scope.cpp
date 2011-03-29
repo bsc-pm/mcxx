@@ -31,7 +31,6 @@
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
-#include "hash_iterator.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
 

@@ -54,7 +54,6 @@
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
-#include "hash_iterator.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -206,12 +205,6 @@ static unsigned long long _bytes_used_buildscope = 0;
 unsigned long long int buildscope_used_memory(void)
 {
     return _bytes_used_buildscope;
-}
-
-void build_scope_dynamic_initializer(void)
-{
-    // Defined in cxx-attrnames.c
-    register_ast_extended_attributes();
 }
 
 void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context)
@@ -7526,7 +7519,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
 
-    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
+    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(a));
 }
 

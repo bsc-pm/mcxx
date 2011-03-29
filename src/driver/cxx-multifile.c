@@ -53,7 +53,7 @@ char multifile_dir_exists(void)
 
     if (stat(MULTIFILE_DIRECTORY, &buf) != 0)
     {
-        return false;
+        return 0;
     }
     else
     {

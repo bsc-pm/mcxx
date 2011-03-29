@@ -405,8 +405,6 @@ static void enable_debug_flag(const char* flag);
 
 static void load_compiler_phases(compilation_configuration_t* config);
 
-static void register_default_initializers(void);
-
 static void help_message(void);
 
 static void print_memory_report(void);
@@ -430,9 +428,6 @@ int main(int argc, char* argv[])
 
     // Default values
     initialize_default_values();
-
-    // Register default initializers
-    register_default_initializers();
 
     // Load configuration files and the profiles defined there Here we get all
     // the implicit parameters defined in configuration files and we switch to
@@ -1977,12 +1972,6 @@ static void initialize_default_values(void)
             new_parameter_flag);
 }
 
-static void register_default_initializers(void)
-{
-    register_dynamic_initializer(build_scope_dynamic_initializer);
-    register_dynamic_initializer(scope_entry_dynamic_initializer);
-}
-
 static void print_version(void)
 {
     fprintf(stdout, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
@@ -2467,12 +2456,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
+                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
             }
             else
             {
                 // Do not parse
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
+                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
         }
 
@@ -3944,10 +3933,6 @@ static void print_memory_report(void)
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
     fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += hash_used_memory();
-    print_human(c, hash_used_memory());
-    fprintf(stderr, " - Memory usage due to hash tables: %s\n", c);
 
     accounted_memory += typeunif_used_memory();
     print_human(c, typeunif_used_memory());
