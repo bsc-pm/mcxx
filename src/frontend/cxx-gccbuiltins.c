@@ -998,16 +998,16 @@ DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
    variant.
 
    TYPE indicates the type of the function.  The symbols correspond to
-   enumerals from builtin-types.def.  If BOTH_P is true, then LIBTYPE
+   enumerals from builtin-types.def.  If BOTH_P is 1, then LIBTYPE
    is the type of the non-`__builtin_' variant.  Otherwise, LIBTYPE
    should be ignored.
 
-   If FALLBACK_P is true then, if for some reason, the compiler cannot
+   If FALLBACK_P is 1 then, if for some reason, the compiler cannot
    expand the builtin function directly, it will call the
    corresponding library function (which does not have the
    `__builtin_' prefix.
 
-   If NONANSI_P is true, then the non-`__builtin_' variant is not an
+   If NONANSI_P is 1, then the non-`__builtin_' variant is not an
    ANSI/ISO library function, and so we should pretend it does not
    exist when compiling in ANSI conformant mode.
 
@@ -1021,7 +1021,7 @@ DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
    simplifying floor((double)float) since the runtime need not implement
    it.  
  
-   The builtins is registered only if COND is true. */
+   The builtins is registered only if COND is 1. */
 
 // DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
 DEF_FUNCTION_TYPE_0(0, BT_VOID)
@@ -1063,13 +1063,13 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #undef DEF_GCC_BUILTIN
 #define DEF_GCC_BUILTIN(ENUM, NAME, TYPE, ATTRS)        \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,  \
-               false, false, false, ATTRS, true, true)
+               0, 0, 0, ATTRS, 1, 1)
 
 /* Like DEF_GCC_BUILTIN, except we don't prepend "__builtin_".  */
 #undef DEF_SYNC_BUILTIN
 #define DEF_SYNC_BUILTIN(ENUM, NAME, TYPE, ATTRS)       \
   DEF_BUILTIN(ENUM, NAME, BUILT_IN_NORMAL, TYPE, BT_LAST,   \
-               false, false, false, ATTRS, true, true)
+               0, 0, 0, ATTRS, 1, 1)
 
 /* A library builtin(like __builtin_strchr) is a builtin equivalent
    of an ANSI/ISO standard library function.  In addition to the
@@ -1080,7 +1080,7 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #undef DEF_LIB_BUILTIN                  
 #define DEF_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)    \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
-           true, true, false, ATTRS, true, true)
+           1, 1, 0, ATTRS, 1, 1)
 
 /* Like DEF_LIB_BUILTIN, except that the function is not one that is
    specified by ANSI/ISO C.  So, when we're being fully conformant we
@@ -1089,21 +1089,21 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #undef DEF_EXT_LIB_BUILTIN              
 #define DEF_EXT_LIB_BUILTIN(ENUM, NAME, TYPE, ATTRS)    \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
-           true, true, true, ATTRS, false, true)
+           1, 1, 1, ATTRS, 0, 1)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C94 or above.  */
 #undef DEF_C94_BUILTIN                  
 #define DEF_C94_BUILTIN(ENUM, NAME, TYPE, ATTRS)    \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
-           true, true, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, true)
+           1, 1, !flag_isoc94, ATTRS, TARGET_C99_FUNCTIONS, 1)
 
 /* Like DEF_LIB_BUILTIN, except that the function is only a part of
    the standard in C99 or above.  */
 #undef DEF_C99_BUILTIN                  
 #define DEF_C99_BUILTIN(ENUM, NAME, TYPE, ATTRS)    \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
-           true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+           1, 1, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, 1)
 
 /* Builtin that is specified by C99 and C90 reserve the name for future use.
    We can still recognize the builtin in C90 mode but we can't produce it
@@ -1111,28 +1111,28 @@ static default_argument_info_t** empty_default_argument_info(int num_parameters)
 #undef DEF_C99_C90RES_BUILTIN                   
 #define DEF_C99_C90RES_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
-           true, true, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, true)
+           1, 1, !flag_isoc99, ATTRS, TARGET_C99_FUNCTIONS, 1)
 
 /* Builtin that C99 reserve the name for future use. We can still recognize
    the builtin in C99 mode but we can't produce it implicitly.  */
 #undef DEF_EXT_C99RES_BUILTIN
 #define DEF_EXT_C99RES_BUILTIN(ENUM, NAME, TYPE, ATTRS)        \
   DEF_BUILTIN(ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,   \
-              true, true, true, ATTRS, false, true)
+              1, 1, 1, ATTRS, 0, 1)
 
 /* Allocate the enum and the name for a builtin, but do not actually
    define it here at all.  */
 #undef DEF_BUILTIN_STUB
 #define DEF_BUILTIN_STUB(ENUM, NAME) \
-  DEF_BUILTIN(ENUM, NAME, BUILT_IN_NORMAL, 0, 0, false, false, \
-           false, 0, false, false)
+  DEF_BUILTIN(ENUM, NAME, BUILT_IN_NORMAL, 0, 0, 0, 0, \
+           0, 0, 0, 0)
 
 /* Builtin used by the implementation of GNU OpenMP.  None of these are
    actually implemented in the compiler; they're all in libgomp.  */
 #undef DEF_GOMP_BUILTIN
 #define DEF_GOMP_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
-               false, true, true, ATTRS, false, \
+               0, 1, 1, ATTRS, 0, \
           !CURRENT_CONFIGURATION->disable_openmp)
 	       // (flag_openmp || flag_tree_parallelize_loops))
 
@@ -1751,12 +1751,12 @@ DEF_BUILTIN_STUB (BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit")
 // DEF_BUILTIN (BUILT_IN_EMUTLS_GET_ADDRESS, targetm.emutls.get_address,
 // 	     BUILT_IN_NORMAL,
 // 	     BT_FN_PTR_PTR,  BT_FN_PTR_PTR,
-// 	     true, true, true, ATTR_CONST_NOTHROW_NONNULL_LEAF, false,
+// 	     1, 1, 1, ATTR_CONST_NOTHROW_NONNULL_LEAF, 0,
 // 	     !targetm.have_tls)
 // DEF_BUILTIN (BUILT_IN_EMUTLS_REGISTER_COMMON,
 // 	     targetm.emutls.register_common, BUILT_IN_NORMAL,
 // 	     BT_FN_VOID_PTR_WORD_WORD_PTR, BT_FN_VOID_PTR_WORD_WORD_PTR,
-// 	     true, true, true, ATTR_NOTHROW_LEAF_LIST, false,
+// 	     1, 1, 1, ATTR_NOTHROW_LEAF_LIST, 0,
 // 	     !targetm.have_tls)
 
 /* Exception support.  */

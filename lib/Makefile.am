@@ -58,20 +58,6 @@ END=
 
 libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
 libmcxx_utils_la_SOURCES = \
-                          iterator.c \
-                          iterator.h \
-                          list.c \
-                          list.h \
-                          list_iterator.c \
-                          list_iterator.h \
-                          mem_ctl.h \
-                          mem_ctl.c \
-                          s_types.h \
-                          hash.c \
-                          hash.h \
-                          hash_iterator.h \
-                          hash_iterator.c \
-                          stack.h \
 						  mcxx_refcount.c \
 						  mcxx_refcount.h \
 						  uniquestr.h \

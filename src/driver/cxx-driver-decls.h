@@ -366,6 +366,9 @@ typedef struct compilation_configuration_tag
     // Enable C++1x
     char enable_cxx1x;
 
+    // Enable nodecl
+    char enable_nodecl;
+
     // Target options
     int num_target_option_maps;
     target_options_map_t** target_options_maps;

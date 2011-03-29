@@ -30,7 +30,7 @@
 #define EXTSTRUCT_H
 
 #include <stdlib.h>
-#include "hash.h"
+#include "red_black_tree.h"
 
 #ifdef WIN32_BUILD
   #ifdef LIBEXTSTRUCT_DLL_EXPORT
@@ -46,86 +46,25 @@
 extern "C" {
 #endif
 
-/*
- * This is the extensible_schema_t
- * it stores a list of field_names and a list
- * of field_sizes.
- *
- * Every field_name is a char* and every field_size
- * is a size_t*
- */
-
-struct extensible_schema_item_tag
-{
-    // We need that for some retrievals
-    const char *field_name;
-    size_t size;
-    int field_order;
-};
-
-typedef struct extensible_schema_item_tag extensible_schema_item_t;
-
-struct extensible_schema_tag
-{
-    Hash *hash;
-    int num_fields;
-};
-
-#define EMPTY_EXTENSIBLE_SCHEMA {.hash = 0, .num_fields = 0}
-
-typedef struct extensible_schema_tag extensible_schema_t;
-
-struct extensible_data_item_tag
-{
-    // Index of the field in the schema
-    int schema_index;
-
-    // The data
-    char* data;
-};
-
-typedef struct extensible_data_item_tag extensible_data_item_t;
-
 struct extensible_struct_tag
 {
-    // The related schema of this extensible_struct_t
-    extensible_schema_t *schema;
-
-    int num_items;
-    extensible_data_item_t *items;
+    rb_red_blk_tree* hash;
 };
 
 typedef struct extensible_struct_tag extensible_struct_t;
 
-// Schema operations
-LIBEXTSTRUCT_EXTERN void extensible_schema_init(extensible_schema_t* schema);
-LIBEXTSTRUCT_EXTERN int extensible_schema_add_field(extensible_schema_t* schema, 
-        const char* field_name, 
-        size_t field_size);
-LIBEXTSTRUCT_EXTERN int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
-        const char *field_name,
-        size_t field_size);
-LIBEXTSTRUCT_EXTERN char extensible_schema_extended_field_exists(extensible_schema_t *schema,
-        const char *field_name);
-
 // Extensible struct operations
-LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
-LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
+LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t** extensible_struct);
+LIBEXTSTRUCT_EXTERN void extensible_struct_set_field(extensible_struct_t* extensible_struct, 
+        const char* field_name, void *data);
+
+LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field(extensible_struct_t* extensible_struct, 
         const char* field_name);
-LIBEXTSTRUCT_EXTERN void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        const char* field_name,
-        char* is_found);
 
-// Returns the number of fields stored in the extended struct, not all available in the schema
-LIBEXTSTRUCT_EXTERN int extensible_struct_get_num_fields(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct);
-
-// Number of field is related to the number of fields returned by extensible_struct_get_num_fields
-LIBEXTSTRUCT_EXTERN const char* extensible_struct_get_field_num(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int num);
+LIBEXTSTRUCT_EXTERN void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
+        int *num_fields,
+        const char ***keys,
+        const void ***data);
 
 #ifdef __cplusplus
 }

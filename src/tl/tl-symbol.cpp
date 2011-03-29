@@ -31,14 +31,11 @@
 
 namespace TL
 {
-    Schema Symbol::schema(&::scope_entry_extensible_schema);
-
     tl_type_t* Symbol::get_extended_attribute(const std::string& name) const
     {
         if (this->_symbol->extended_data != NULL)
         {
             return default_get_extended_attribute(
-                    &scope_entry_extensible_schema,
                     this->_symbol->extended_data,
                     name);
         }
@@ -50,7 +47,6 @@ namespace TL
         if (this->_symbol->extended_data != NULL)
         {
             return default_set_extended_attribute(
-                    &scope_entry_extensible_schema,
                     this->_symbol->extended_data,
                     str,
                     data);

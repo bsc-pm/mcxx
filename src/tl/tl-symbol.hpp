@@ -59,9 +59,6 @@ namespace TL
             //! States whether this is a valid symbol
             bool is_valid() const;
 
-            //! Schema of this extensible object
-            static Schema schema;
-
             Symbol()
                 : _symbol(NULL)
             {

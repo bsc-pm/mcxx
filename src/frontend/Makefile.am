@@ -148,6 +148,10 @@ libmcxx_la_SOURCES = \
   cxx-overload.c \
   cxx-overload-decls.h \
   cxx-overload.h \
+  cxx-nodecl.h \
+  cxx-nodecl.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
   libmcxx-common.h \
   $(END)
 
@@ -305,7 +309,6 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
     echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
 	$(SED) -e "s/^\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
-	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h; \
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
     )
@@ -321,12 +324,6 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
     echo "char LANG_EXPRESSION_INFO[] = \"LANG_EXPRESSION_INFO\";" >> cxx-attrnames.c; \
 	$(SED) -e "s/^\([^[:blank:]]*\)/char \1[] = \"\1\";/" < $< >> cxx-attrnames.c; \
 	echo "/* AST attributes */" >> cxx-attrnames.c; \
-	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c; \
-	echo "{" >> cxx-attrnames.c; \
-	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c; \
-    echo "    extensible_schema_add_field(&ast_extensible_schema, LANG_EXPRESSION_INFO, expression_info_sizeof());" >> cxx-attrnames.c; \
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c; \
-	echo "}" >> cxx-attrnames.c; \
 	)
 
 if FLEX_BUILDING
