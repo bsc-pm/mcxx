@@ -43,6 +43,7 @@ namespace TL
             public:
 
                 virtual void run(DTO& dto);
+                virtual void pre_run(DTO& dto);
 
                 DeviceSMP();
 
@@ -95,6 +96,8 @@ namespace TL
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
+                static std::string get_integer_casting(Type type1, Type type2);
+                static std::string scalar_expansion(Expression exp);
 
             public:
                 ReplaceSrcSMP(ScopeLink sl, int width) 

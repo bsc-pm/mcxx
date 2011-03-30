@@ -36,29 +36,29 @@ using namespace TL::SIMD;
 
 const unsigned int _vector_width = 16;
 
-std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope)
+std::string ReplaceSrcSMP::scalar_expansion(Expression exp)
 {
-    std::stringstream output;
+    std::stringstream result;
     unsigned char num_elements, i;
 
-    output  << " (("
-            << vector_type.basic_type().get_simple_declaration(scope, "")
-            << " __attribute__((vector_size(" << _vector_width << "))) "
-            << ") "
-            << "{"
-            ;
+    TL::Type vector_type = exp.get_type().get_vector_to(_vector_width);
 
-     num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
-     for (i=0; i<num_elements; i++)
-     {
-        output << exp.prettyprint()
-               << ",";
-     }
+    result << "(("
+        << vector_type.get_simple_declaration(exp.get_scope(), "")
+        << "){"
+        ;
 
-     output << exp.prettyprint()
-            << "})";
+    num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
+    for (i=0; i<num_elements; i++)
+    {
+        result << exp.prettyprint()
+            << ",";
+    }
 
-     return output.str();
+    result << exp.prettyprint()
+        << "})";
+
+    return result.str();
 }
 
 
@@ -182,6 +182,47 @@ Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
 }
 
 
+std::string ReplaceSrcSMP::get_integer_casting(Type type1, Type type2)
+{
+#warning 
+/*    
+    if (type1 != type2)
+    {
+        running_error("True expression and false expression types have to be the same in a conditional operation");
+    }
+*/
+    std::stringstream result;
+    std::string basic_type;
+
+    switch(type1.get_size())
+    {
+        case 1:
+            basic_type = "char";
+            break;
+        case 2:
+            basic_type = "short int";
+            break;
+        case 4:
+            basic_type = "int";
+            break;
+        case 8:
+            basic_type = "long long";
+            break;
+        default:
+            running_error("Type not supported in conditional operation");
+    }
+
+    result
+        << "("
+        << basic_type
+        << " __attribute__((vector_size(" << _vector_width << "))))"
+        ;
+
+    return result.str();
+}
+
+
+
 const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 {
     ObjectList<Expression> arg_list;
@@ -202,6 +243,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
         {
             DeclaredEntity decl_ent(ast, _this->_sl);
 
+            //Vector expansion in DeclaredEntity
             if (decl_ent.has_initializer())
             {
                 Symbol sym (decl_ent.get_declared_symbol());
@@ -213,7 +255,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                     result
                         << recursive_prettyprint(decl_ent.get_declarator_tree(), data)
                         << " = "
-                        << scalar_op_to_vector_op(decl_ent.get_initializer(), sym_type, (_this->_sl).get_scope(ast));
+                        << scalar_expansion(decl_ent.get_initializer());
 
                     return uniquestr(result.str().c_str());
                 }
@@ -224,42 +266,69 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression expr(ast, _this->_sl);
 
             //Don't skip ';'
-            if ((expr.original_tree() == expr.get_ast()) && expr.is_binary_operation())
+            if ((expr.original_tree() == expr.get_ast()))
             {
-                Expression first_op(expr.get_first_operand());
-                Expression second_op(expr.get_second_operand());
-
-                Type first_type(first_op.get_type());
-                Type second_type(second_op.get_type());
-
-                if (first_type.is_vector() && 
-                        (!second_type.is_vector())) 
+                //Conditional Expression
+                if (expr.is_conditional())
                 {
-                    result << recursive_prettyprint(first_op.get_ast().get_internal_ast(), data)
-                        << expr.get_operator_str();
+                    Expression cond_exp(expr.get_condition_expression());
+                    Expression true_exp(expr.get_true_expression());
+                    Expression false_exp(expr.get_false_expression());
 
-                    if (expr.is_operation_assignment())
-                        result << "=";
+                    if (true_exp.get_type().is_vector() && false_exp.get_type().is_vector())
+                    {
+                        std::string integer_casting = get_integer_casting(true_exp.get_type(), false_exp.get_type());
 
-                    result << scalar_op_to_vector_op(second_op, first_type, (_this->_sl).get_scope(ast));
-
+                        result 
+                            << "(" << true_exp.get_type().basic_type().get_vector_to(_vector_width)
+                            .get_simple_declaration(_this->_sl.get_scope(ast), "") << ")"
+                            << "("
+                            << "(((" << integer_casting << "(" << recursive_prettyprint(true_exp.get_ast(), data) << "))"
+                            << "^"
+                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << ")))"
+                            << "&"
+                            << recursive_prettyprint(cond_exp.get_ast(), data) << ")" 
+                            << "^"
+                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << "))"
+                            << ")"
+                            ;
+                    }
                     return uniquestr(result.str().c_str());
                 }
-                else if ((!first_type.is_vector()) && 
-                        second_type.is_vector())
+                else if (expr.is_binary_operation())
                 {
-                    result << scalar_op_to_vector_op(first_op, second_type, (_this->_sl).get_scope(ast))
-                        << expr.get_operator_str();
+                    Expression first_op(expr.get_first_operand());
+                    Expression second_op(expr.get_second_operand());
 
-                    if (expr.is_operation_assignment())
-                        result << "=";
+                    Type first_type(first_op.get_type());
+                    Type second_type(second_op.get_type());
 
-                    result << recursive_prettyprint(second_op.get_ast(), data);
+                    Source first_op_src;
+                    Source second_op_src;
 
-                    return uniquestr(result.str().c_str());
+                    if (first_type.is_generic_vector() && second_type.is_generic_vector())
+                    {
+                        //Relational Operators (<, >, <=, ...)
+                        if (expr.get_operation_kind() == Expression::LOWER_THAN
+                           )
+                        {
+                            //if x86 architecture
+
+                            result 
+                                << "__builtin_ia32_cmpltps("
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << ", "
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                << ")"
+                                ;
+
+                            return uniquestr(result.str().c_str());
+                        }
+                    }
                 }
             }
         }
+
         // rofi was here
         // if (FindAttribute(_this->_sl, LANG_HLT_SIMD_FOR_INFO).do_(ast))
         // {
@@ -276,11 +345,27 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
 
-           if (arg_list.size() != 1){
+            if (arg_list.size() != 1){
                 internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
             }
 
             result << recursive_prettyprint(arg_list[0].get_ast(), data);
+
+            return uniquestr(result.str().c_str());
+        }
+        else if (FindFunction(_this->_sl, BUILTIN_VE_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1)
+            {
+                internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
+            }
+
+            result 
+                << scalar_expansion(arg_list[0])
+                ;
 
             return uniquestr(result.str().c_str());
         }
@@ -300,14 +385,12 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             //If the generic function does not exist = New Naive
             if(!generic_functions.contains_generic_definition(func_sym))
             {
-                printf("Defining New Naive Func\n");
                 generic_functions.add_naive(func_sym);
                 generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
             }
             //If generic function exists
             else if (!generic_functions.contains_specific_definition(func_sym, _this->_device_name, _this->_width))
             {
-                printf("Definic Spec Def\n");
                 generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
             }
 
@@ -970,6 +1053,25 @@ DeviceSMP::DeviceSMP()
 {
     set_phase_name("Nanox SMP support");
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
+}
+
+void DeviceSMP::pre_run(DTO& dto)
+{
+    // get the translation_unit tree
+    AST_t translation_unit = dto["translation_unit"];
+    // get the scope_link
+    ScopeLink scope_link = dto["scope_link"];
+
+
+    Source intel_builtins;
+#warning
+    intel_builtins
+        << "typedef int __attribute__((vector_size(16))) v4si;\n"
+        << "typedef float __attribute__((vector_size(16))) v4sf;\n"
+        << "v4si __builtin_ia32_cmpltps (v4sf, v4sf);\n"
+        ;
+
+    intel_builtins.parse_global(translation_unit, scope_link);
 }
 
 void DeviceSMP::run(DTO& dto) 

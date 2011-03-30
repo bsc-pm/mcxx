@@ -39,8 +39,11 @@ namespace TL
             private:
                 const ObjectList<IdExpression>* _simd_id_exp_list;
             protected:
-                static const char* prettyprint_callback (AST a, void* data);
-                static const char* recursive_prettyprint (AST_t a, void* data);
+                static const char* prettyprint_callback_with_generic_variables (AST a, void* data);
+                static const char* prettyprint_callback_with_generic_constants (AST a, void* data);
+                static const char* recursive_prettyprint(AST_t a, void* data);
+                static const char* recursive_prettyprint_with_variables (AST_t a, void* data);
+                static const char* recursive_prettyprint_with_constants (AST_t a, void* data);
 
             public:
                 ReplaceSimdSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list) 
@@ -48,6 +51,10 @@ namespace TL
 
                 Source replace(AST_t a) const;
                 Source replace(LangConstruct a) const;
+                Source replace_with_generic_variables(AST_t a) const;
+                Source replace_with_generic_variables(LangConstruct a) const;
+                Source replace_with_generic_constants(AST_t a) const;
+                Source replace_with_generic_constants(LangConstruct a) const;
         };
 
 

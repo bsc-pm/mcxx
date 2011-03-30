@@ -31,25 +31,33 @@ using namespace TL::HLT;
 
 static TL::ObjectList<TL::Symbol*> _list;
 
-
 const char* ReplaceSimdSrc::recursive_prettyprint(AST_t a, void* data)
 {
     return prettyprint_in_buffer_callback(a.get_internal_ast(),
-            &ReplaceSimdSrc::prettyprint_callback, data);
+            &ReplaceSrcIdExpression::prettyprint_callback, data);
 }
 
+const char* ReplaceSimdSrc::recursive_prettyprint_with_variables(AST_t a, void* data)
+{
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSimdSrc::prettyprint_callback_with_generic_variables, data);
+}
 
-const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
+const char* ReplaceSimdSrc::recursive_prettyprint_with_constants(AST_t a, void* data)
+{
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSimdSrc::prettyprint_callback_with_generic_constants, data);
+}
+
+const char* ReplaceSimdSrc::prettyprint_callback_with_generic_variables(AST a, void* data)
 {
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
 
-    ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
-
-    //scalar declarations to __attribute__((generic_vector))
     if(c == NULL)
     {
         ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
+        std::stringstream result;
 
         AST_t ast(a);
 
@@ -71,14 +79,22 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
 
                 if (_this->_simd_id_exp_list->contains(functor(&IdExpression::get_symbol), sym))
                 {
-                    std::stringstream result;
+                    if (dataref.is_array_subscript())
+                    {
+                        result << BUILTIN_VR_NAME 
+                            << "("
+                            << recursive_prettyprint(dataref.get_subscripted_expression().get_ast(), data)
+                            << "["
+                            << recursive_prettyprint_with_variables(dataref.get_subscript_expression().get_ast(), data)
+                            << "]"
+                            << ")";
 
-                    result << BUILTIN_VR_NAME 
-                        << "("
-                        << DataReference(ast, _this->_sl).prettyprint()
-                        << ")";
-
-                    return uniquestr(result.str().c_str());
+                        return uniquestr(result.str().c_str());
+                    }
+                    else
+                    {
+                        running_error("Only array subscripts are supported in the hlt simd list\n");
+                    }
                 }
             }
         }
@@ -89,11 +105,9 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
             //It's a function call
             if (exp.is_function_call())
             {
-                std::stringstream result;
-
                 result << BUILTIN_GF_NAME
                     << "("
-                    << recursive_prettyprint(exp.get_called_expression().get_ast(), data)
+                    << recursive_prettyprint_with_variables(exp.get_called_expression().get_ast(), data)
                     << ", "
                     ;
 
@@ -103,82 +117,74 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 for (i=0; i<(arg_list.size()-1); i++)
                 {
                     result
-                        << recursive_prettyprint(arg_list[i].get_ast(), data)
+                        << recursive_prettyprint_with_variables(arg_list[i].get_ast(), data)
                         << ", "
                         ;
                 }
                 result
-                    << recursive_prettyprint(arg_list[i].get_ast(), data)
+                    << recursive_prettyprint_with_variables(arg_list[i].get_ast(), data)
                     << ")"
                     ;
                 
                 return uniquestr(result.str().c_str());
             }
-            //It's a "a ? b : c" expression
-            else if (exp.is_conditional())
+            //Constant Evaluation
+            else if (exp.is_constant())
             {
-                printf("CONDITIONAL DETECTED!\n");
+                bool valid_evaluation;
+                int eval_result = exp.evaluate_constant_int_expression(valid_evaluation);
+
+                if (valid_evaluation)
+                {
+                    result 
+                        << eval_result
+                        ;
+
+                    return uniquestr(result.str().c_str());
+                }
             }
         }
     }       
 
     return c; 
+}
 
-#if 0   
-    //builtin_vector_expansion
+
+const char* ReplaceSimdSrc::prettyprint_callback_with_generic_constants(AST a, void* data)
+{
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
 
     if(c == NULL)
     {
         ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
+        std::stringstream result;
 
         AST_t ast(a);
 
+        //__builtin_vector_expansion 0.0f -> {0.0f, 0.0f, 0.0f, 0.0f}
         if (Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
 
-            if (expr.is_assignment())
+            //Constants and unnanotated variables from outside of the loop
+            if (expr.is_literal() || expr.is_unary_operation())
             {
-                Expression left_expr(expr.get_first_operand());
-
-                if (left_expr.is_array_subscript())
+                if (!expr.get_type().is_generic_vector())
                 {
-                    Expression array_sub_expr(left_expr.get_subscripted_expression());
-                    if (array_sub_expr.is_id_expression())
-                    {
-                        Symbol sym = array_sub_expr.get_id_expression().get_symbol();
-                        if (_this->_repl_map.find(sym) != _this->_repl_map.end())
-                        {
-                            Expression right_expr(expr.get_second_operand());
-                            if (right_expr.is_constant())
-                            {
-                                (*_this->is_generic_vector) = true;
-                            }
-                        }       
-                    }
+                    result << BUILTIN_VE_NAME
+                        << "("
+                        << expr.prettyprint() 
+                        << ")"
+                        ;
+
+                    return uniquestr(result.str().c_str());
                 }
             }
-            else if (expr.is_constant() && (*_this->is_generic_vector))
-            {
-                (*_this->is_generic_vector) = false;
-                std::stringstream output;
-
-                output << BUILTIN_VE_NAME << "("
-                    << expr.prettyprint() 
-                    << ")"
-                    ;
-
-                return output.str().c_str();
-            }
-
-            return NULL;
         }
     }
 
     return c;
-#endif
 }
 
 TL::Source ReplaceSimdSrc::replace(AST_t a) const
@@ -186,7 +192,7 @@ TL::Source ReplaceSimdSrc::replace(AST_t a) const
     Source result;
 
     const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
-            &ReplaceSimdSrc::prettyprint_callback, (void*)this);
+            &ReplaceSrcIdExpression::prettyprint_callback, (void*)this);
 
     // Not sure whether this could happen or not
     if (c != NULL)
@@ -205,6 +211,52 @@ TL::Source ReplaceSimdSrc::replace(TL::LangConstruct a) const
     return ReplaceSimdSrc::replace(a.get_ast());
 }
 
+TL::Source ReplaceSimdSrc::replace_with_generic_variables(AST_t a) const
+{
+    Source result;
+
+    const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSimdSrc::prettyprint_callback_with_generic_variables, (void*)this);
+
+    // Not sure whether this could happen or not
+    if (c != NULL)
+    {
+        result << std::string(c);
+    }
+
+    // The returned pointer came from C code, so 'free' it
+    free((void*)c);
+
+    return result;
+}
+
+TL::Source ReplaceSimdSrc::replace_with_generic_variables(TL::LangConstruct a) const
+{
+    return ReplaceSimdSrc::replace_with_generic_variables(a.get_ast());
+}
+
+TL::Source ReplaceSimdSrc::replace_with_generic_constants(AST_t a) const
+{
+    Source result;
+    const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSimdSrc::prettyprint_callback_with_generic_constants, (void*)this);
+
+    // Not sure whether this could happen or not
+    if (c != NULL)
+    {
+        result << std::string(c);
+    }
+
+    // The returned pointer came from C code, so 'free' it
+    free((void*)c);
+
+    return result;
+}
+
+TL::Source ReplaceSimdSrc::replace_with_generic_constants(TL::LangConstruct a) const
+{
+    return ReplaceSimdSrc::replace_with_generic_constants(a.get_ast());
+}
 
 
 Simdization* TL::HLT::simdize(LangConstruct& lang_const, 
@@ -248,8 +300,6 @@ Simdization* TL::HLT::simdize(LangConstruct& lang_const,
 }
 
 
-
-
 void Simdization::compute_min_stmt_size()
 {
     unsigned char statement_type_size;
@@ -275,7 +325,7 @@ TL::Source Simdization::get_source()
     return do_simdization();
 }
 
-
+/*
 void Simdization::gen_vector_type(const IdExpression& id){
 
     TL::Symbol sym = id.get_symbol();
@@ -297,6 +347,7 @@ void Simdization::gen_vector_type(const IdExpression& id){
                 id.get_ast().get_locus().c_str(),
                 old_sym_name.c_str());
     }
+*/
     /*
        new_sym_name << "*((__attribute__((" << ATTR_GEN_VEC_NAME << ")) " 
        << type.get_declaration(sym.get_scope(), "") 
@@ -319,17 +370,14 @@ void Simdization::gen_vector_type(const IdExpression& id){
           << ";"
           ;
      */
-    _replacement.add_replacement(sym, new_sym_name.str());
-
-}
+    //_replacement.add_replacement(sym, new_sym_name.str());
+//}
 
 
 TL::Source Simdization::do_simdization()
 {
     return _ast.prettyprint();
 }
-
-
 
 
 LoopSimdization::LoopSimdization(ForStatement& for_stmt, 
@@ -365,6 +413,7 @@ TL::Source LoopSimdization::do_simdization()
     compute_min_stmt_size();
 
     //Simd variable initialization & sustitution
+    /*
     if (_simd_id_exp_list != NULL)
     {
         for (ObjectList<IdExpression>::const_iterator it = _simd_id_exp_list->begin();
@@ -374,9 +423,13 @@ TL::Source LoopSimdization::do_simdization()
             gen_vector_type(*it);
         }
     }
-
+    */
     Statement initial_loop_body = _for_stmt.get_loop_body();
-    Source replaced_loop_body = _replacement.replace(initial_loop_body);
+
+    Source interm_loop_body_src = _replacement.replace_with_generic_variables(initial_loop_body);
+    AST_t interm_loop_body_ast = interm_loop_body_src.parse_statement(_for_stmt.get_ast(), _for_stmt.get_scope_link());
+
+    Source replaced_loop_body_src = _replacement.replace_with_generic_constants(interm_loop_body_ast);
 
     bool step_evaluation;
 
@@ -436,7 +489,7 @@ TL::Source LoopSimdization::do_simdization()
         << _for_stmt.get_iterating_condition() << ";"
         << _for_stmt.get_iterating_expression()
         << ")"
-        << replaced_loop_body
+        << replaced_loop_body_src
         ;
 /*    
     _loop << "for(" 
@@ -469,8 +522,6 @@ TL::Source LoopSimdization::do_simdization()
 }
 
 
-
-
 FunctionSimdization::FunctionSimdization(FunctionDefinition& func_def, 
         unsigned char& min_stmt_size)
     : Simdization(func_def, min_stmt_size), _func_def(func_def) 
@@ -486,13 +537,8 @@ TL::Source FunctionSimdization::do_simdization()
         return _func_def.prettyprint();
     }
 
-    Source result, func_body, func_header, params;
+    Source result, func_header, params;
 
-    result
-        << func_header
-        << func_body
-        ;
-    
     DeclaredEntity decl_ent = _func_def.get_declared_entity();
 
     if (!decl_ent.is_functional_declaration())
@@ -507,7 +553,7 @@ TL::Source FunctionSimdization::do_simdization()
 
     func_header
         << func_sym.get_type().basic_type().get_generic_vector_to()
-                .get_simple_declaration(func_sym.get_scope(), "_" + func_sym.get_name() + "_")
+                .get_simple_declaration(func_sym.get_scope(), "_" + func_sym.get_name() + "_intermediate")
         << "("
         << params
         << ")"
@@ -532,12 +578,22 @@ TL::Source FunctionSimdization::do_simdization()
                 param.get_scope(), param.get_name())
         ;
 
-    func_body = _replacement.replace(_func_def.get_function_body());
+    Source interm_func_src;
+
+    interm_func_src 
+        << func_header
+        << _replacement.replace_with_generic_variables(_func_def.get_function_body());
+
+    AST_t interm_func_ast = interm_func_src.parse_declaration(_func_def.get_ast(), _func_def.get_scope_link());
+    FunctionDefinition func_def(interm_func_ast, _func_def.get_scope_link());
+
+    _replacement.add_replacement(func_def.get_function_symbol(),
+            "_" + func_sym.get_name() + "_");
+
+    result = _replacement.replace_with_generic_constants(interm_func_ast);
 
     return result;
 }
-
-
 
 
 bool isExpressionAssignment::do_(const AST_t& ast) const
@@ -561,3 +617,4 @@ bool isExpressionAssignment::do_(const AST_t& ast) const
     }
     return false;
 }
+
