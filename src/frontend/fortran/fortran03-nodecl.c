@@ -3,6 +3,14 @@
 
 static void fortran_simplify_tree_program_unit(AST a, AST *out);
 
+#if 0
+static void fortran_simplify_tree_expression(AST a, AST* out)
+{
+    // Nothing to simplify in Fortran
+    *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+}
+#endif
+
 static void fortran_simplify_tree_stmt(AST a, AST *out)
 {
     // FIXME: Think ways of improving this

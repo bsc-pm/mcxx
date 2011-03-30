@@ -113,7 +113,21 @@ static void c_simplify_tree_function_def(AST a, AST *out)
 
 static void c_simplify_tree_expr(AST a, AST *out)
 {
-    *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+    switch (ASTType(a))
+    {
+        case AST_EXPRESSION :
+        case AST_CONSTANT_EXPRESSION :
+        case AST_PARENTHESIZED_EXPRESSION :
+            // GCC extensions
+        case AST_GCC_EXTENSION_EXPR : 
+            {
+                c_simplify_tree_expr(ASTSon0(a), out);
+            }
+        default:
+            {
+                *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+            }
+    }
 }
 
 static void c_simplify_tree_condition(AST a UNUSED_PARAMETER, AST *out UNUSED_PARAMETER)
