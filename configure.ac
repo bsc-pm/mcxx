@@ -57,9 +57,9 @@ dnl Check LN_S
 AC_PROG_LN_S
 
 dnl Check GNU Bash.
-AC_PATH_PROG([BASH], [bash], [not-found])
+AC_PATH_PROG([BASH], [bash], [])
 
-if test "x$BASH" = "xnot-found"; then
+if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.
   AC_MSG_WARN([GNU Bash not found, falling back to `$SHELL'])
@@ -341,27 +341,25 @@ AC_ARG_ENABLE([nanox-gpu-device],
 AC_ARG_WITH([cuda],
 AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 	[
-		CUDA="${withval}"
+		CUDADIR="${withval}"
 	],
 	[
-		CUDA="/usr/local/cuda"
+		CUDADIR="/usr/local/cuda"
 	])
 
 if test x$gpu_disabled = xno ; then
-    if test -d "$CUDA" ; 
+    if test -d "$CUDADIR" ; 
     then
-        AC_ARG_VAR([NVCC],[CUDA compiler])
-        NVCC="nvcc"
-        AC_CHECK_PROG( [NVCC], ["CUDA compiler"], nvcc, no)
-        if test x$NVCC = xno ; then
+        AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
+        if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             gpu_valid=no
         else
-            CUDA_INC="$CUDA/include"
-            CUDA_LIB="$CUDA/lib"
-            if test -d "$CUDA/lib64" ; 
+            CUDA_INC="$CUDADIR/include"
+            CUDA_LIB="$CUDADIR/lib"
+            if test -d "$CUDADIR/lib64" ; 
             then
-                CUDA_LIB="$CUDA/lib64"
+                CUDA_LIB="$CUDADIR/lib64"
             fi
 
             AC_SUBST([CUDA_INC])
@@ -370,8 +368,8 @@ if test x$gpu_disabled = xno ; then
             gpu_valid=yes
         fi
     else
-         AC_MSG_WARN([Directory "$CUDA" does not exist. Disabling GPU Support])
-	 gpu_valid=no
+         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling GPU Support])
+	     gpu_valid=no
     fi
 fi
 
@@ -481,6 +479,10 @@ AC_ARG_ENABLE([tl-openmp-profile],
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
     fi
+  ],
+  [
+    AC_MSG_RESULT([no])
+    is_enabled_tl_omp_profile="no"
   ]
 )
 
@@ -498,6 +500,35 @@ if test x$is_enabled_tl_omp_nanos4 = xyes \
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
+
+   dnl Check Intel Compiler C
+   AC_PATH_PROG([ICC], [icc], [])
+   if test x$ICC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} imcc"
+   fi
+
+   dnl Check Intel Compiler C++
+   AC_PATH_PROG([ICPC], [icpc], [])
+   if test x$ICPC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+   fi
+
+   dnl XL (gcc driver)
+   AC_PATH_PROG([GXLC], [gxlc], [])
+   if test x$GXLC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+   fi
+
+   dnl XL (g++ driver)
+   AC_PATH_PROG([GXLCXX], [gxlc++], [])
+   if test x$GXLCXX != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+   fi
+
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -891,9 +922,15 @@ AC_ARG_ENABLE([file-regeneration],
 )
 
 # Make these variables precious
-AC_ARG_VAR([FLEX], [GNU Flex command])
-AC_ARG_VAR([BISON], [bison command])
-AC_ARG_VAR([GPERF], [GNU gperf command])
+AC_ARG_VAR([FLEX], [GNU Flex])
+AC_ARG_VAR([BISON], [GNU Bison])
+AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
+AC_ARG_VAR([ICC], [Intel C compiler])
+AC_ARG_VAR([ICPC], [Intel C++ compiler])
+AC_ARG_VAR([GXLC], [IBM XL C compiler])
+AC_ARG_VAR([GXLCXX], [IBM XL C++ compiler])
+AC_ARG_VAR([GPERF], [GNU gperf])
+AC_ARG_VAR([GIT], [git content tracker])
 
 force_flex=no
 flex_good=no
@@ -1191,32 +1228,32 @@ dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
-   AC_PATH_PROG([gitpath], [git], [])
+   AC_PATH_PROG([GIT], [git], [])
    AC_MSG_CHECKING([revision of git repository])
    run_git=""
-   if test x"$gitpath" != x;
+   if test x"$GIT" != x;
    then
-      echo "$gitpath" "$srcdir" >& AS_MESSAGE_LOG_FD
-      run_gitversion=`"$gitpath" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
+      echo "$GIT" "$srcdir" >& AS_MESSAGE_LOG_FD
+      run_gitversion=`"$GIT" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
       build_version="\"git $run_gitversion developer version\""
    fi
 
-   if test x"$gitpath" = x -o x"$run_gitversion" = x;
+   if test x"$GIT" = x -o x"$run_gitversion" = x;
    then
        build_version="\"unknown git commit\""
    fi
-   AC_MSG_RESULT($build_version)
+   AC_MSG_RESULT([$build_version])
 elif test -e $srcdir/DIST_REVISION;
 then
      AC_MSG_CHECKING([revision of distributed release])
      run_gitversion=`cat $srcdir/DIST_REVISION`
-      build_version="\"$run_gitversion\""
-     AC_MSG_RESULT($build_version)
+     build_version="\"$run_gitversion\""
+     AC_MSG_RESULT([$build_version])
 fi
-AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
+AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
 
 mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
-AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], $mcxx_config_args, [Configure line])
+AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
 AC_SUBST([TL_EXTENSIONS])
 AC_SUBST([TL_OMP_EXTENSIONS])
