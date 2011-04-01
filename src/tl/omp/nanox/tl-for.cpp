@@ -93,7 +93,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ;
         else
             final_barrier
-                << "nanos_wg_wait_completion(nanos_current_wd());"
+                << get_wait_completion(Source("nanos_current_wd()"), false)
                 << "nanos_team_barrier();"
             ;
     }

@@ -39,7 +39,7 @@ void OMPTransform::barrier_postorder(PragmaCustomConstruct barrier_construct)
 
     new_code
         << "{"
-        <<     "nanos_wg_wait_completion(nanos_current_wd());"
+        <<     get_wait_completion(Source("nanos_current_wd()"), false)
         <<     "nanos_err_t err = nanos_team_barrier();"
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"

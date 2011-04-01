@@ -100,6 +100,8 @@ namespace Nanox
             virtual void run(TL::DTO& dto);
 
             void add_openmp_initializer(TL::DTO& dto);
+
+            static Source get_wait_completion(Source arg, bool do_flush);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

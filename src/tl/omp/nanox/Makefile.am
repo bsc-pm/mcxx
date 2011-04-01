@@ -62,5 +62,6 @@ libtlomp_nanox_la_SOURCES = \
      tl-target.cpp \
      tl-devices.hpp \
      tl-devices.cpp \
+     tl-omp-common.cpp \
      $(END)
 
