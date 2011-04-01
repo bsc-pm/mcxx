@@ -378,6 +378,12 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
         }
 
+        // Array to pointer
+        if (type.is_array())
+        {
+            type = type.array_element().get_pointer_to();
+        }
+
         if (!type.is_pointer())
         {
             std::cerr << expr.get_ast().get_locus() 

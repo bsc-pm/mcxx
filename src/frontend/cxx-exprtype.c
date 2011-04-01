@@ -11862,6 +11862,12 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
     // Now check the shape makes sense
     type_t* shaped_expr_type = expression_get_type(shaped_expr);
 
+    // Array to pointer conversion
+    if (is_array_type(no_ref(shaped_expr_type)))
+    {
+        shaped_expr_type = get_pointer_type(array_type_get_element_type(no_ref(shaped_expr_type)));
+    }
+
     if (!is_pointer_type(no_ref(shaped_expr_type)))
     {
         if (!checking_ambiguity())
