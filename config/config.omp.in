@@ -51,26 +51,28 @@ compiler_name = g++
 linker_name = g++
 
 [imcc : mcc]
-preprocessor_name = icc
-compiler_name = icc
-linker_name = icc
+preprocessor_name = @ICC@
+compiler_name = @ICC@
+linker_name = @ICC@
+options = --variable=weaks_as_statics:1
 
 [imcxx : mcxx]
-preprocessor_name = icpc
-compiler_name = icpc
-linker_name = icpc
+preprocessor_name = @ICPC@
+compiler_name = @ICPC@
+linker_name = @ICPC@
+options = --variable=weaks_as_statics:1
 
 [xlmcc : mcc]
-preprocessor_name = gxlc
+preprocessor_name = @GXLC@
 preprocessor_uses_stdout = yes
-compiler_name = gxlc
-linker_name = gxlc
+compiler_name = @GXLC@
+linker_name = @GXLC@
 
 [xlmcxx : mcxx]
-preprocessor_name = gxlc++
+preprocessor_name = @GXLCXX@
 preprocessor_uses_stdout = yes
-compiler_name = gxlc++
-linker_name = gxlc++
+compiler_name = @GXLCXX@
+linker_name = @GXLCXX@
 
 # Profile mode
 [omp-prof-common]
