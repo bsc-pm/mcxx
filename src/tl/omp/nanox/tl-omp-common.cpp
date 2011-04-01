@@ -3,12 +3,12 @@
 
 namespace TL { namespace Nanox {
 
-    Source OMPTransform::get_wait_completion(Source arg, bool do_flush)
+    Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush)
     {
         Source src;
         if (Nanos::Version::interface_is_at_least("master", 5006))
         {
-            src << "nanos_wg_wait_completion(" << arg << "," << (do_flush ? "1" : "0") << ");"
+            src << "nanos_wg_wait_completion(" << arg << "," << (avoid_flush ? "1" : "0") << ");"
                 ;
         }
         else
