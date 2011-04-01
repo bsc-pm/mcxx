@@ -41,12 +41,21 @@ void OMPTransform::add_openmp_initializer(TL::DTO& dto)
 
         Source src;
 
-        src 
-            << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
-            ;
+        if (!_static_weak_symbols)
+        {
+            src 
+                << "__attribute__((weak, section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
+        else
+        {
+            // Some compilers (like ICC) require this
+            src 
+                << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __section__nanos_init = { nanos_omp_set_interface, (void*)0 };"
+                ;
+        }
 
         AST_t tree = src.parse_global(a, sl);
-
         a.append_to_translation_unit(tree);
     }
 }

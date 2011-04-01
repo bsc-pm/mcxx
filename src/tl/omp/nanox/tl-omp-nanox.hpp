@@ -102,6 +102,10 @@ namespace Nanox
             void add_openmp_initializer(TL::DTO& dto);
 
             static Source get_wait_completion(Source arg, bool do_flush);
+
+            std::string _static_weak_symbols_str;
+            bool _static_weak_symbols;
+            void set_weaks_as_statics(const std::string& str);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
