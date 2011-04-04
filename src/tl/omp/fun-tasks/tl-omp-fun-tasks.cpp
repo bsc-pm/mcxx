@@ -505,7 +505,6 @@ namespace OpenMP
                     if (copy_items.empty())
                         continue;
 
-                    Source clause;
                     Source &clause_args(*(replace_copies[i].clause_args));
 
                     for (ObjectList<CopyItem>::iterator it = copy_items.begin();
