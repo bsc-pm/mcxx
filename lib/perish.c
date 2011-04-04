@@ -23,6 +23,6 @@ __attribute__((constructor)) static void perish_init(void)
 
     sigaction(SIGALRM, &terminating_sigaction, /* old_sigaction */ NULL);
 
-    // Set a timer for half an hour
-    alarm(1800);
+    // Set a timer for 10 minutes
+    alarm(600);
 }
