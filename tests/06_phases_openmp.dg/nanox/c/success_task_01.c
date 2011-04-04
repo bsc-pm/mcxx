@@ -31,13 +31,35 @@ test_generator=config/mercurium-nanox
 test_nolink=yes
 </testinfo>
 */
-void f(void)
+
+#include <stdlib.h>
+#include <stdio.h>
+
+int main(int argc, char *argv[])
 {
   int a[8] = {0,0,0,0,0,0,0,0};
   int num_threads = 8;
 
   #pragma omp task output([num_threads]a)
   {
-      a;
+      int i;
+      for (i = 0; i < num_threads; i++)
+      {
+          a[i] = i+1;
+      }
   }
+
+#pragma omp taskwait
+
+  int i;
+  for (i = 0; i < num_threads; i++)
+  {
+      if (a[i] != (i+1))
+      {
+          fprintf(stderr, "a[%d] == %d != %d\n", i, a[i], i+1);
+          abort();
+      }
+  }
+
+  return 0;
 }

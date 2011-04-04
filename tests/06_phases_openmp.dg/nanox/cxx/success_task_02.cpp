@@ -31,6 +31,8 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
+#include <cstdlib>
+
 template <typename T>
 struct A
 {
@@ -42,11 +44,16 @@ struct B
     int d;
 };
 
-void f(void)
+int main(int argc, char* argv[])
 {
     A<B> c;
 #pragma omp task
     {
         c.e.d = 3;
+    }
+
+    if (c.e.d != 3)
+    {
+        abort();
     }
 }

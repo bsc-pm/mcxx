@@ -31,15 +31,33 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-void f(void)
+#include <stdlib.h>
+#include <stdio.h>
+
+int main(int argc, char *argv[])
 {
-int my_global;
-int cpinout;
-  #pragma omp target device(smp_numa)
-  #pragma omp task shared(my_global,cpinout)
-  {
-    my_global;
-	cpinout;
-  }
+    int my_global = 1;
+    int cpinout = 9;
+#pragma omp target device(smp_numa)
+#pragma omp task shared(my_global,cpinout)
+    {
+        my_global++;
+        cpinout++;
+    }
+
+#pragma omp taskwait
+
+    if (my_global != 2)
+    {
+        fprintf(stderr, "my_global != 2\n");
+        abort();
+    }
+    if (cpinout != 10)
+    {
+        fprintf(stderr, "cpinout != 10\n");
+        abort();
+    }
+
+    return 0;
 }
 
