@@ -37,19 +37,19 @@ test_generator=config/mercurium-ss2omp
 #define F2_VAL 222222
 #define F3_VAL 333333
 
-#pragma css task inout(a) target device(smp)
+#pragma css task inout(a) target device(smp_numa)
 void f1(int *a)
 {
     *a = F1_VAL;
 }
 
-#pragma css task inout(a[1]) target device(smp)
+#pragma css task inout(a[1]) target device(smp_numa)
 void f2(int *a)
 {
     *a = F2_VAL;
 }
 
-#pragma css task inout(a) target device(smp)
+#pragma css task inout(a) target device(smp_numa)
 void f3(int a[1])
 {
     *a = F3_VAL;
@@ -64,15 +64,27 @@ int main(int argc, char* argv[])
     *m = 0;
     f1(m);
 #pragma omp taskwait
-    if (*m != F1_VAL) abort();
+    if (*m != F1_VAL) 
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F1_VAL);
+        abort();
+    }
     
     f2(m);
 #pragma omp taskwait
-    if (*m != F2_VAL) abort();
+    if (*m != F2_VAL)
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F2_VAL);
+        abort();
+    }
 
     f3(m);
 #pragma omp taskwait
-    if (*m != F3_VAL) abort();
+    if (*m != F3_VAL)
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F3_VAL);
+        abort();
+    }
 
     return 0;
 }

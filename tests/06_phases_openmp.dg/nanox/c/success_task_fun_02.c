@@ -64,16 +64,19 @@ int main(int argc, char *argv[])
     int a[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     foo1(a);
+#pragma omp taskwait
     if (a[0] != 3)
         abort();
     a[0] = 0;
 
     foo2(a);
+#pragma omp taskwait
     if (a[0] != 3)
         abort();
     a[0] = 0;
 
     foo3(a);
+#pragma omp taskwait
     if (a[3] != 13
             || a[4] != 48)
         abort();
@@ -81,6 +84,7 @@ int main(int argc, char *argv[])
     a[4] = 4;
 
     foo4(a);
+#pragma omp taskwait
     if (a[3] != 13
             || a[4] != 48)
         abort();

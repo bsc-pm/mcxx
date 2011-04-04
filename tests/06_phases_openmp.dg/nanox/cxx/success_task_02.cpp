@@ -47,13 +47,16 @@ struct B
 int main(int argc, char* argv[])
 {
     A<B> c;
-#pragma omp task
+#pragma omp task shared(c)
     {
         c.e.d = 3;
     }
 
+#pragma omp taskwait
     if (c.e.d != 3)
     {
         abort();
     }
+
+    return 0;
 }

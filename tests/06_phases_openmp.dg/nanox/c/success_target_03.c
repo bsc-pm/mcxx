@@ -52,7 +52,7 @@ int main (int argc, char *argv[])
     }
 
 #pragma omp target device(smp_numa) copy_in(a[0:M-1])
-#pragma omp task shared(a)
+#pragma omp task firstprivate(stderr) firstprivate(M)
     {
         int k;
         for (k = 0; k < M; k++)

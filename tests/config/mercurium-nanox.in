@@ -57,7 +57,3 @@ EOF
 fi
 
 fi
-
-cat <<EOF
-test_nolink=yes
-EOF
