@@ -577,12 +577,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::CopyItem& copy_item(*it);
             DataReference copy_expr = copy_item.get_copy_expression();
 
-            // Fill the translation_function
             DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
-            translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
-                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                ;
 
             Source copy_direction_in, copy_direction_out;
 
@@ -607,8 +602,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+
             Source copy_sharing;
-            if (copy_item.is_shared())
+            if (has_shared_data_sharing)
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -617,13 +614,68 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 copy_sharing << "NANOS_PRIVATE";
             }
 
+            // Fill the translation_function
+            if (has_shared_data_sharing)
+            {
+                translation_statements
+                    << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                    ;
+            }
+            else
+            {
+                Type copy_type = copy_expr.get_base_symbol().get_type();
+                Type orig_copy_type = copy_type;
+                if (copy_type.is_reference())
+                {
+                    copy_type = copy_type.references_to();
+                }
+
+                if (copy_type.is_array())
+                {
+                    copy_type = copy_type.array_element().get_pointer_to();
+                }
+                else
+                {
+                    copy_type = copy_type.get_pointer_to();
+                }
+
+                translation_statements
+                    // This is dubious for VLAs
+                    << copy_type.get_declaration(copy_expr.get_scope(), data_env_item.get_field_name()) << ";"
+                    << "cp_err = nanos_get_addr(" << i << ", (void**)&" << data_env_item.get_field_name() << wd_arg << ");"
+                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                    ;
+
+                if (!orig_copy_type.is_array())
+                {
+                    translation_statements
+                        << "_args->" << data_env_item.get_field_name() << " = *" << data_env_item.get_field_name() << ";"
+                        ;
+                }
+                else
+                {
+                    CXX_LANGUAGE()
+                    {
+                        // FIXME - With proper constructors
+                        std::cerr << copy_expr.get_ast().get_locus() << ": warning: copies of arrays do not fulfill C++ semantics" << std::endl;
+                    }
+                    translation_statements
+                        << "__builtin_memcpy(_args->" << data_env_item.get_field_name() << ", "
+                        <<    data_env_item.get_field_name() << ", " 
+                        <<    "sizeof(_args->" << data_env_item.get_field_name() << "));"
+                        ;
+                }
+            }
+
             struct {
                 Source *source;
                 const char* array;
-                const char* struct_name;
+                const char* struct_access;
+                const char* struct_addr;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "ol_args->" },
-                { &copy_immediate_setup, "imm_copy_data", "imm_args." },
+                { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
+                { &copy_immediate_setup, "imm_copy_data", "imm_args.", "&imm_args" },
                 { NULL, "" },
             };
 
@@ -639,7 +691,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                if (copy_item.is_shared())
+                if (has_shared_data_sharing)
                 {
                     expression_address << copy_expr.get_address();
                 }
@@ -649,7 +701,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     // is private
                     expression_address 
                         << "&("
-                        << fill_copy_data_info[j].struct_name 
+                        << fill_copy_data_info[j].struct_access
                         << data_env_item.get_field_name()
                         << ")"
                         ;

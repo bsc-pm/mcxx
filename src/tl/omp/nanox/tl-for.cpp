@@ -376,8 +376,10 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+
             Source copy_sharing;
-            if (it->is_shared())
+            if (has_shared_data_sharing)
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -409,7 +411,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                if (it->is_shared())
+                if (has_shared_data_sharing)
                 {
                     expression_address << copy_expr.get_address();
                 }

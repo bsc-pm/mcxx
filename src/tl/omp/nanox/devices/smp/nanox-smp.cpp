@@ -98,6 +98,12 @@ void DeviceSMP::do_smp_inline_get_addresses(
     {
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
+
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
+        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
+
         Type type = sym.get_type();
 
         bool requires_indirect = false;
@@ -106,14 +112,16 @@ void DeviceSMP::do_smp_inline_get_addresses(
         {
             type = type.array_element().get_pointer_to();
         }
-        else if (!type.is_pointer())
+        if (is_private
+                || !type.is_pointer())
         {
             requires_indirect = true;
             type = type.get_pointer_to();
         }
 
-        if (data_ref.is_array_section_range()
-                || data_ref.is_array_section_size())
+        if (!is_private
+                && (data_ref.is_array_section_range()
+                    || data_ref.is_array_section_size()))
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290

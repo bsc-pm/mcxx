@@ -194,13 +194,29 @@ namespace TL
                 {
                     return item.get_symbol().is_valid();
                 }
+
+                OpenMP::DataSharingEnvironment* _data_sharing;
             public:
-                DataEnvironInfo() { }
+                DataEnvironInfo()
+                    : _data_env_items(),
+                    _copy_items(),
+                    _reduction_symbols(),
+                    _data_sharing(NULL) { }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
                 {
                     _data_env_items.append(item);
+                }
+
+                void set_data_sharing(OpenMP::DataSharingEnvironment& data_sharing)
+                {
+                    _data_sharing = &data_sharing;
+                }
+
+                OpenMP::DataSharingEnvironment& get_data_sharing() const
+                {
+                    return *_data_sharing;
                 }
 
                 //! Returns the data environment items

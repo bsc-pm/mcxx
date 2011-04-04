@@ -388,6 +388,7 @@ namespace TL
         ObjectList<Symbol> shared;
         ObjectList<Symbol> value;
         ObjectList<Symbol> private_symbols;
+        data_env_info.set_data_sharing(data_sharing);
         get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
