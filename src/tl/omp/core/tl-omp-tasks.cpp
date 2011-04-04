@@ -322,15 +322,16 @@ namespace TL
                         if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
                         {
                             running_error("%s: error: output dependence '%s' "
-                                    "only names a parameter, which by itself never defines a dependence\n",
+                                    "only names a parameter. The value of a parameter is never copied out of a function "
+                                    "so it cannot generate an output dependence",
                                     expr.get_ast().get_locus().c_str(),
                                     expr.prettyprint().c_str());
                         }
                         else
                         {
                             std::cerr << expr.get_ast().get_locus() << ": warning: "
-                                "skipping useless dependence '"<< expr.prettyprint() << "' as it only names a parameter "
-                                "which by itself never defines a dependence" 
+                                "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
+                                "is always copied and cannot define an input dependence" 
                                 << std::endl;
                         }
                     }
