@@ -461,6 +461,13 @@ typedef struct entity_specifiers_tag
 
     // Builtin is a subroutine
     char is_builtin_subroutine:1;
+
+    // Function that has been explicitly stated in an interface
+    // as a module procedure
+    char is_module_procedure:1;
+
+    // C binding
+    char bind_c:1;
 #endif
 
     // -- End of bits, move all bits before this point

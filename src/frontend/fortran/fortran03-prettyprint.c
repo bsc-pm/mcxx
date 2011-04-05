@@ -2003,7 +2003,7 @@ static void mask_elsewhere_part_handler(FILE* f, AST a, prettyprint_context_t* p
 static void module_procedure_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "MODULE PROCEDURE :: ");
+    token_fprintf(f, a, pt_ctx, "MODULE PROCEDURE ");
     list_handler(f, ASTSon0(a), pt_ctx);
     end_of_statement_handler(f, a, pt_ctx);
 }

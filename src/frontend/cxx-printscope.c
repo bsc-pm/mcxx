@@ -108,13 +108,26 @@ struct print_context_data_tag
     int global_indent;
     int num_scopes;
     scope_t* scope_set[MAX_SCOPES_DEPTH];
+    rb_red_blk_tree *symbol_set;
 } print_context_data_t;
 
 static print_context_data_t print_context_data;
 
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+static int comp_vptr(const void* v1, const void *v2)
+{
+    if (v1 < v2)
+        return -1;
+    else if (v1 > v2)
+        return 1;
+    else 
+        return 0;
+}
+
 void print_scope(decl_context_t decl_context)
 {
     memset(&print_context_data, 0, sizeof(print_context_data));
+    print_context_data.symbol_set = rb_tree_create(comp_vptr, null_dtor, null_dtor);
     print_scope_full_context(decl_context, 0);
 }
 
@@ -204,6 +217,14 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_names[entry->kind]);
     }
+
+    if (rb_tree_query(print_context_data.symbol_set, entry) != NULL)
+    {
+        PRINT_INDENTED_LINE(stderr, 0, " <<<Symbol already printed>>>\n");
+        return;
+    }
+
+    rb_tree_insert(print_context_data.symbol_set, entry, entry);
 
     if (entry->defined)
     {
@@ -441,13 +462,20 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
     }
-    PRINT_INDENTED_LINE(stderr, global_indent+1, "Related symbols of this symbol\n");
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    if (entry->entity_specs.num_related_symbols != 0)
     {
-        scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
-                i, related_entry->symbol_name, related_entry->file, related_entry->line);
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Related symbols of this symbol\n");
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
+                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+        }
+    }
+    else
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "No related symbols\n");
     }
 #endif
 }
