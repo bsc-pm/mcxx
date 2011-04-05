@@ -124,7 +124,15 @@ namespace TL
             }
             else
             {
-                src << "nanos_wg_wait_completion(nanos_current_wd());"
+                bool avoid_flush = false;
+
+                PragmaCustomClause noflush = ctr.get_clause("noflush");
+                if (noflush.is_defined())
+                {
+                    avoid_flush = true;
+                }
+
+                src << get_wait_completion(Source("nanos_current_wd()"), avoid_flush, ctr.get_ast())
                     ;
             }
 

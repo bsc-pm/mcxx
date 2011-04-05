@@ -25,86 +25,35 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-nanox
+</testinfo>
+*/
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "iterator.h"
-#include "mem_ctl.h"
-
-void iterator_init(Iterator * i, IteratorOps * ops)
+#pragma omp target device(smp_numa) copy_in(*a) copy_out(*b)
+#pragma omp task
+void f(int *a, int *b)
 {
-    i->ops = ops;
+    *b = *a + 1;
 }
 
-void iterator_end(Iterator * i)
+int main(int argc, char *argv[])
 {
-    if (!i)
-        return;
+    int t_b = 1;
+    int t_a = 10;
 
-    if (i->ops->end)
-        i->ops->end(i);
-}
+    f(&t_a, &t_b);
 
-void iterator_destroy(Iterator * i)
-{
-    if (!i)
-        return;
+#pragma omp taskwait
 
-    iterator_end(i);
-    if (i->ops->free)
+    if (t_b != 11)
     {
-        i->ops->free(i);
+        fprintf(stderr, "t_b == %d != 11\n", t_b);
+        abort();
     }
-    else
-    {
-        FREE(i);
-    }
+
+    return 0;
 }
-
-void iterator_first(Iterator * i)
-{
-    if (!i || !i->ops->first)
-        return;
-
-    i->ops->first(i);
-}
-
-bool_type iterator_finished(Iterator * i)
-{
-    if (!i || !i->ops->finished)
-        return false;
-
-    return i->ops->finished(i);
-}
-
-void iterator_next(Iterator * i)
-{
-    if (!i || !i->ops->next)
-        return;
-
-    i->ops->next(i);
-}
-
-void *iterator_item(Iterator * i)
-{
-    if (!i || !i->ops->item)
-        return NULL;
-
-    return i->ops->item(i);
-}
-
-void iterator_remove(Iterator * i)
-{
-    if (!i || !i->ops->remove)
-        return;
-
-    i->ops->remove(i);
-}
-
-#if 1                           /* JAIRO */
-int iterator_items(Iterator * i)
-{
-    if (!i || !i->ops->items)
-        return -1;
-
-    return (i->ops->items(i));
-}
-#endif

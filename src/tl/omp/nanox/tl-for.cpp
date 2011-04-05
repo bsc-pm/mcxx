@@ -93,7 +93,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ;
         else
             final_barrier
-                << "nanos_wg_wait_completion(nanos_current_wd());"
+                << get_wait_completion(Source("nanos_current_wd()"), false, ctr.get_ast())
                 << "nanos_team_barrier();"
             ;
     }
@@ -151,7 +151,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<    replaced_body
             << "}"
             ;
-            
+
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -376,8 +376,10 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+
             Source copy_sharing;
-            if (it->is_shared())
+            if (has_shared_data_sharing)
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -409,7 +411,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                if (it->is_shared())
+                if (has_shared_data_sharing)
                 {
                     expression_address << copy_expr.get_address();
                 }
@@ -474,6 +476,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         reduction_join_arr_decls 
         << "int _nth_team = omp_get_num_threads();"
         ;
+
+
     if (!reduction_symbols.empty())
         reduction_join_arr_decls << "int rs_i;" ;
     for(ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
@@ -483,6 +487,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         Symbol rs = it->get_symbol();
         OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
         Source auxiliar_initializer, auxiliar_initialization;
+
         
         if (rs.get_type().is_class())
         {

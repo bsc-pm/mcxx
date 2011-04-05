@@ -73,10 +73,6 @@ namespace TL
                         Source &device_descriptor);
 
             private:
-                Type compute_replacement_type_for_vla(Type type, 
-                        ObjectList<Source>::iterator dim_names_begin,
-                        ObjectList<Source>::iterator dim_names_end);
-
                 void do_smp_numa_inline_get_addresses(
                         const Scope& sc,
                         const DataEnvironInfo& data_env_info,

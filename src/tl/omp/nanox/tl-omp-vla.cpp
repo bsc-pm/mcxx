@@ -25,35 +25,41 @@
 --------------------------------------------------------------------*/
 
 
-/*
-<testinfo>
-test_generator=config/mercurium-ss2omp
-</testinfo>
-*/
 
-typedef
-struct A_tag
-{
-    int a;
-} A;
+#include "tl-omp-nanox.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-type.hpp"
+#include "tl-source.hpp"
 
-#pragma css task inout(a[10])
-void f(A* a)
+namespace TL {
+
+Type Nanox::compute_replacement_type_for_vla(Type type, 
+        ObjectList<Source>::iterator dim_names_begin,
+        ObjectList<Source>::iterator dim_names_end)
 {
-    for (int i = 0; i < 10; i++)
+    Type new_type(NULL);
+    if (type.is_array())
     {
-        a[i].a = a[i].a + 1;
+        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
+
+        if (dim_names_begin == dim_names_end)
+        {
+            internal_error("Invalid dimension list", 0);
+        }
+
+        new_type = new_type.get_array_to(*dim_names_begin);
     }
+    else if (type.is_pointer())
+    {
+        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
+        new_type = new_type.get_pointer_to();
+    }
+    else
+    {
+        new_type = type;
+    }
+
+    return new_type;
 }
 
-void g()
-{
-    A a[10];
-    int i;
-    for (i = 0; i < 10; i++)
-    {
-        a[i].a = i;
-    }
-
-    f(a);
 }

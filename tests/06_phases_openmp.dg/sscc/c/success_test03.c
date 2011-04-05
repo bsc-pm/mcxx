@@ -30,20 +30,43 @@
 test_generator=config/mercurium-ss2omp
 </testinfo>
 */
-struct A
+
+#include <stdlib.h>
+
+typedef
+struct A_tag
 {
     int a;
-    A() : a(0) { }
-};
+} A;
 
-#pragma css task inout(a)
+#pragma css task target device(smp) inout(a[10])
 void f(A* a)
 {
-    a->a = a->a + 1;
+    for (int i = 0; i < 10; i++)
+    {
+        a[i].a = a[i].a + 1;
+    }
 }
 
 void g()
 {
-    A* a = new A;
+    A a[10];
+    int i;
+    for (i = 0; i < 10; i++)
+    {
+        a[i].a = i;
+    }
+
     f(a);
+#pragma omp taskwait
+    for (i = 0; i < 10 ; i++)
+    {
+        if (a[i].a != (i+1)) abort();
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    g();
+    return 0;
 }

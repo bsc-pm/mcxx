@@ -25,36 +25,47 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ss2omp
+</testinfo>
+*/
 
-#ifndef LIST_ITERATOR_H
-#define LIST_ITERATOR_H
+#include <stdlib.h>
 
-#include "libutils-common.h"
-#include "s_types.h"
-#include "list.h"
-#include "iterator.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct _list_iterator ListIterator;
-
-struct _list_iterator
+struct A
 {
-    Iterator iterator;
-    ListNode *act;
-    List *list;
+    int a;
+    A() : a(0) { }
 };
 
-LIBUTILS_EXTERN void list_iterator_init(ListIterator * i, List * l);
-LIBUTILS_EXTERN ListIterator *list_iterator_create(List * l);
-
-LIBUTILS_EXTERN void list_riterator_init(ListIterator * i, List * l);
-LIBUTILS_EXTERN ListIterator *list_riterator_create(List * l);
-
-#ifdef __cplusplus
+#pragma css task inout(a[10])
+void f(A* a)
+{
+    for (int i = 0; i < 10; i++)
+    {
+        a[i].a = a[i].a + 1;
+    }
 }
-#endif
 
-#endif
+void g()
+{
+    A *a = new A[10];
+    for (int i = 0; i < 10; i++)
+    {
+        a[i].a = i;
+    }
+    f(a);
+#pragma omp taskwait
+    for (int i = 0; i < 10; i++)
+    {
+        if (a[i].a != (i+1))
+            abort();
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    g();
+    return 0;
+}

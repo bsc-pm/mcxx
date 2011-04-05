@@ -27,28 +27,14 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ss2omp
+test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#pragma css task input(n) inout(m)
-void f(int n, float m[n][n])
+
+int main (int argc, char *argv[])
 {
-    int i, j;
-    for (i = 0; i < n; i++)
-    {
-        for (j = 0; j < n; j++)
-        {
-            m[i][j]++;
-        }
-    }
+#pragma omp taskwait noflush
+  return 0;
 }
 
-void g(void)
-{
-    float a[20][20];
-    int n;
-
-    // Horrible style that must be supported
-    f(n, (void*)&a[0][0]);
-}

@@ -86,24 +86,6 @@
 
 namespace TL
 {
-    class LIBTL_CLASS Schema
-    {
-        private:
-            extensible_schema_t *_schema;
-
-            Schema(const Schema&) { }
-        public:
-            Schema(extensible_schema_t* schema)
-                : _schema(schema)
-            {
-            }
-
-            void add_attribute(const std::string &str)
-            {
-                extensible_schema_add_field_if_needed(_schema, str.c_str(), sizeof(tl_type_t));
-            }
-    };
-
     //! Base class for objects that wrap compiler structures.
     /*!
      * This class is used for all classes that wrap internal compiler structures.
@@ -254,13 +236,11 @@ namespace TL
 
     //! Function used by TL::Objects that have an extensible struct
     LIBTL_EXTERN tl_type_t* default_get_extended_attribute(
-            extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string& name);
     
     //! Function used by TL::Objects that have an extensible struct
     LIBTL_EXTERN bool default_set_extended_attribute(
-            extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string &str, const tl_type_t &data);
 }

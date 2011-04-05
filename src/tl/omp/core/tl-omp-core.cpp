@@ -389,6 +389,8 @@ namespace TL
                                     }
                                 }
 
+                                udr2.set_builtin_operator(reductor_name);
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -410,7 +412,7 @@ namespace TL
                             {
                                 ReductionSymbol red_sym(var_sym, udr2);
                                 sym_list.append(red_sym);
-                                if (!udr2.is_builtin_operator())
+                                if (!udr2.is_builtin_operator() && construct.get_show_warnings())
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 

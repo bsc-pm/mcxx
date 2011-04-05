@@ -297,8 +297,6 @@ struct default_argument_info_tag
     decl_context_t context;
 } default_argument_info_t;
 
-LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
-
 #ifdef FORTRAN_SUPPORT
 typedef
 enum intent_kind_tag

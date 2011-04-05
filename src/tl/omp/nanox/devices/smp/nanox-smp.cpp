@@ -26,6 +26,8 @@
 
 
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
+#include "tl-omp-nanox.hpp"
 #include "nanox-smp.hpp"
 #include "tl-simd.hpp"
 #include "nanox-find_common.hpp"
@@ -292,8 +294,9 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                             << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << "))"
                             << ")"
                             ;
+
+                            return uniquestr(result.str().c_str());
                     }
-                    return uniquestr(result.str().c_str());
                 }
                 else if (expr.is_binary_operation())
                 {
@@ -482,35 +485,6 @@ static std::string smp_outline_name(const std::string &task_name)
     return "_smp_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type, 
-        ObjectList<Source>::iterator dim_names_begin,
-        ObjectList<Source>::iterator dim_names_end)
-{
-    Type new_type(NULL);
-    if (type.is_array())
-    {
-        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-        if (dim_names_begin == dim_names_end)
-        {
-            internal_error("Invalid dimension list", 0);
-        }
-
-        new_type = new_type.get_array_to(*dim_names_begin);
-    }
-    else if (type.is_pointer())
-    {
-        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-        new_type = new_type.get_pointer_to();
-    }
-    else
-    {
-        new_type = type;
-    }
-
-    return new_type;
-}
-
 static bool is_nonstatic_member_symbol(Symbol s)
 {
     return s.is_member()
@@ -524,6 +498,17 @@ void DeviceSMP::do_smp_inline_get_addresses(
         ReplaceSrcIdExpression& replace_src,
         bool &err_declared)
 {
+    Source current_wd_param;
+    if (Nanos::Version::interface_is_at_least("master", 5005))
+    {
+        copy_setup
+            << "nanos_wd_t current_wd = nanos_current_wd();"
+            ;
+        current_wd_param
+            << ", current_wd"
+            ;
+    }
+
     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -532,7 +517,35 @@ void DeviceSMP::do_smp_inline_get_addresses(
     {
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
+
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
         Type type = sym.get_type();
+
+        if (data_env_item.is_vla_type())
+        {
+            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+            ObjectList<Source> arg_vla_dims;
+            for (ObjectList<Source>::iterator it = vla_dims.begin();
+                    it != vla_dims.end();
+                    it++)
+            {
+                Source new_dim;
+                new_dim << "_args->" << *it;
+
+                arg_vla_dims.append(new_dim);
+            }
+
+            type = compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                    arg_vla_dims.begin(), arg_vla_dims.end());
+        }
+
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
+        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
+
 
         bool requires_indirect = false;
 
@@ -540,14 +553,16 @@ void DeviceSMP::do_smp_inline_get_addresses(
         {
             type = type.array_element().get_pointer_to();
         }
-        else
+        if (is_private
+                || !type.is_pointer())
         {
             requires_indirect = true;
             type = type.get_pointer_to();
         }
 
-        if (data_ref.is_array_section_range()
-                || data_ref.is_array_section_size())
+        if (!is_private
+                && (data_ref.is_array_section_range()
+                    || data_ref.is_array_section_size()))
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
@@ -565,8 +580,6 @@ void DeviceSMP::do_smp_inline_get_addresses(
             err_declared = true;
         }
 
-        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
         ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
                 "Invalid data for copy symbol", 0);
 
@@ -574,7 +587,7 @@ void DeviceSMP::do_smp_inline_get_addresses(
 
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
-            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
@@ -949,7 +962,8 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                 //USUAL CASE
                 else
                 {
-                    if (data_env_info.has_local_copies() && data_env_item.get_type().is_pointer())
+                    if (data_env_info.has_local_copies() && 
+                            (data_env_item.get_type().is_pointer() || data_env_item.get_type().is_scalar_type()))
                     {
                         replace_src.add_replacement(sym, "(_" + field_name + ")");
                     }
@@ -1398,7 +1412,7 @@ void DeviceSMP::create_outline(
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
-                if (type.is_pointer())
+                if (type.is_pointer() || type.is_scalar_type())
                 {
                     local_copies
                         << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())

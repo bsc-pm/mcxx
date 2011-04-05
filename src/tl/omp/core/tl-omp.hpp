@@ -120,23 +120,11 @@ namespace TL
             private:
                 DataReference _copy_expr;
                 CopyDirection _kind;
-
-                bool _shared;
             public:
                 CopyItem(DataReference data_reference, CopyDirection direction);
 
                 CopyDirection get_kind() const;
                 DataReference get_copy_expression() const;
-
-                bool is_shared() const
-                {
-                    return _shared;
-                }
-
-                void set_is_shared(bool b)
-                {
-                    _shared = b;
-                }
 
                 // Convenience operator
                 bool operator==(const CopyItem& c) const

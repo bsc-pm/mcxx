@@ -189,6 +189,9 @@ namespace TL
              */
             void printscope();
 
+            //! Get the symbol associated to this scope
+            Symbol get_related_symbol() const;
+
             //! Get a list of symbols in this scope with name \a str
             /*!
              * \param str The unqualified name looked up

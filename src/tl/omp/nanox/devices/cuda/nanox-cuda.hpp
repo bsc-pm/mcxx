@@ -44,10 +44,6 @@ namespace TL
                 AST_t _root;
                 std::set<std::string> _taskSymbols;
 
-                Type compute_replacement_type_for_vla(Type type,
-                        ObjectList<Source>::iterator dim_names_begin,
-                        ObjectList<Source>::iterator dim_names_end);
-
                 void do_gpu_outline_replacements(
                         AST_t body,
                         ScopeLink scope_link,

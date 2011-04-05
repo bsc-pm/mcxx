@@ -37,35 +37,6 @@ static std::string smp_outline_name(const std::string &task_name)
     return "_smp_numa_" + task_name;
 }
 
-Type DeviceSMP_NUMA::compute_replacement_type_for_vla(Type type, 
-        ObjectList<Source>::iterator dim_names_begin,
-        ObjectList<Source>::iterator dim_names_end)
-{
-    Type new_type(NULL);
-    if (type.is_array())
-    {
-        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-        if (dim_names_begin == dim_names_end)
-        {
-            internal_error("Invalid dimension list", 0);
-        }
-
-        new_type = new_type.get_array_to(*dim_names_begin);
-    }
-    else if (type.is_pointer())
-    {
-        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-        new_type = new_type.get_pointer_to();
-    }
-    else
-    {
-        new_type = type;
-    }
-
-    return new_type;
-}
-
 void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         const Scope& sc,
         const DataEnvironInfo& data_env_info,
@@ -73,6 +44,17 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         ReplaceSrcIdExpression& replace_src,
         bool &err_declared)
 {
+    Source current_wd_param;
+    if (Nanos::Version::interface_is_at_least("master", 5005))
+    {
+        copy_setup
+            << "nanos_wd_t current_wd = nanos_current_wd();"
+            ;
+        current_wd_param
+            << ", current_wd"
+            ;
+    }
+
     ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -81,6 +63,12 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
     {
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
+
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
+        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
+
         Type type = sym.get_type();
 
         bool requires_indirect = false;
@@ -89,14 +77,16 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         {
             type = type.array_element().get_pointer_to();
         }
-        else
+        if (is_private
+                || !type.is_pointer())
         {
             requires_indirect = true;
             type = type.get_pointer_to();
         }
 
-        if (data_ref.is_array_section_range()
-                || data_ref.is_array_section_size())
+        if (!is_private
+                && (data_ref.is_array_section_range()
+                    || data_ref.is_array_section_size()))
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
@@ -123,7 +113,7 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
 
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
-            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
@@ -156,6 +146,8 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
 
     replace_src.add_this_replacement("_args->_this");
 
+    OpenMP::DataSharingEnvironment& data_sharing_env = data_env_info.get_data_sharing();
+
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();
@@ -164,6 +156,7 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
         DataEnvironItem& data_env_item(*it);
 
         Symbol sym = data_env_item.get_symbol();
+
         const std::string field_name = data_env_item.get_field_name();
 
         if (data_env_item.is_private())
@@ -172,7 +165,17 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
         if (data_env_item.is_copy()
                 || create_translation_function())
         {
-        	replace_src.add_replacement(sym, "_args->" + field_name);
+            OpenMP::DataSharingAttribute data_sharing_attr = data_sharing_env.get_data_sharing(sym);
+
+            bool copy_is_shared = (data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+            if (copy_is_shared)
+            {
+                replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+            }
+            else
+            {
+                replace_src.add_replacement(sym, "_args->" + field_name);
+            }
         }
     }
 

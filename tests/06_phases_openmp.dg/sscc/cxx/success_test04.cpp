@@ -31,28 +31,38 @@ test_generator=config/mercurium-ss2omp
 </testinfo>
 */
 
-struct A
-{
-    int a;
-    A() : a(0) { }
-};
+#include <cstdlib>
+#include <cstdio>
 
-#pragma css task inout(a[10])
-void f(A* a)
+#pragma omp task inout([n]a)
+void f(int *a, int n)
 {
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < n; i++)
     {
-        a[i].a = a[i].a + 1;
+        a[i] = i;
     }
 }
 
-void g()
+int k_m = 10;
+
+int main(int argc, char *argv[])
 {
-    A a[10];
-    for (int i = 0; i < 10; i++)
+    int m = k_m;
+    int *k = new int[k_m];
+
+    f(k, m);
+
+#pragma omp taskwait
+
+    for (int j = 0; j < m; j++)
     {
-        a[i].a = i;
+        if (k[j] != j)
+        {
+            printf("k[%d] == %d != %d\n", j, k[j], j);
+            abort();
+        }
     }
 
-    f(a);
+    delete k;
+    return 0;
 }

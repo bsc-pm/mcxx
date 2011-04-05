@@ -26,6 +26,7 @@
 
 
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 #include "nanox-cuda.hpp"
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
@@ -43,35 +44,6 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
-Type DeviceCUDA::compute_replacement_type_for_vla(Type type,
-		ObjectList<Source>::iterator dim_names_begin,
-		ObjectList<Source>::iterator dim_names_end)
-{
-	Type new_type(NULL);
-	if (type.is_array())
-	{
-		new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-		if (dim_names_begin == dim_names_end)
-		{
-			internal_error("Invalid dimension list", 0);
-		}
-
-		new_type = new_type.get_array_to(*dim_names_begin);
-	}
-	else if (type.is_pointer())
-	{
-		new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-		new_type = new_type.get_pointer_to();
-	}
-	else
-	{
-		new_type = type;
-	}
-
-	return new_type;
-}
-
 void DeviceCUDA::do_cuda_inline_get_addresses(
 		const Scope& sc,
 		const DataEnvironInfo& data_env_info,
@@ -79,6 +51,17 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		ReplaceSrcIdExpression& replace_src,
 		bool &err_declared)
 {
+	Source current_wd_param;
+	if (Nanos::Version::interface_is_at_least("master", 5005))
+	{
+		copy_setup
+			<< "nanos_wd_t current_wd = nanos_current_wd();"
+			;
+		current_wd_param
+			<< ", current_wd"
+			;
+	}
+
 	ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
 	unsigned int j = 0;
 	for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
@@ -89,15 +72,21 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		Symbol sym = data_ref.get_base_symbol();
 		Type type = sym.get_type();
 
-		bool requires_indirect = false;
+		if (type.is_reference())
+			type = type.references_to();
 
+		// Remove all arrays as we cannot reliable reconstruct the type here
 		if (type.is_array())
 		{
-			type = type.array_element().get_pointer_to();
+			while (type.is_array())
+			{
+				type = type.array_element();
+			}
+			type = type.get_pointer_to();
 		}
-		else
+
+		if (!type.is_pointer())
 		{
-			requires_indirect = true;
 			type = type.get_pointer_to();
 		}
 
@@ -107,16 +96,23 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		{
 			// Shaping expressions ([e] a)  have a type of array but we do not
 			// want the array but the related pointer
-			type = data_ref.get_data_type();
-			requires_indirect = false;
+			type = data_ref.shaped_expression().get_type();
 		}
 		else if (data_ref.is_array_section_range()
 				|| data_ref.is_array_section_size())
 		{
 			// Array sections have a scalar type, but the data type will be array
 			// See ticket #290
-			type = data_ref.get_data_type().array_element().get_pointer_to();
-			requires_indirect = false;
+			type = data_ref.array_section_item().get_type();
+			// Remove all arrays as we cannot reliable reconstruct the type here
+			if (type.is_array())
+			{
+				while (type.is_array())
+				{
+					type = type.array_element();
+				}
+				type = type.get_pointer_to();
+			}
 		}
 
 		std::string copy_name = "_cp_" + sym.get_name();
@@ -138,18 +134,11 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 
 		copy_setup
 			<< type.get_declaration(sc, copy_name) << ";"
-			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
 			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
 			;
 
-		if (!requires_indirect)
-		{
-			replace_src.add_replacement(sym, copy_name);
-		}
-		else
-		{
-			replace_src.add_replacement(sym, "(*" + copy_name + ")");
-		}
+		replace_src.add_replacement(sym, copy_name);
 	}
 }
 

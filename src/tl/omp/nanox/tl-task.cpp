@@ -511,7 +511,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
 
-    Source set_translation_fun;
+    Source set_translation_fun, translation_fun_arg_name;
 
     if (copy_items.empty())
     {
@@ -520,6 +520,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_data << "(nanos_copy_data_t**)0";
         // Immediate
         copy_imm_data << "(nanos_copy_data_t*)0";
+
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            C_LANGUAGE()
+            {
+                translation_fun_arg_name << ", (void*) 0"
+                    ;
+            }
+            CXX_LANGUAGE()
+            {
+                translation_fun_arg_name << ", 0"
+                    ;
+            }
+        }
     }
     else
     {
@@ -535,9 +549,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
         copy_imm_data << "imm_copy_data";
 
+        Source wd_param, wd_arg;
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            wd_param
+                << ", nanos_wd_t wd"
+                ;
+            wd_arg
+                << ", wd"
+                ;
+        }
+
         Source translation_function, translation_statements;
         translation_function
-            << "static void _xlate_copy_address_" << outline_num << "(void* data)"
+            << "static void _xlate_copy_address_" << outline_num << "(void* data" << wd_param <<")"
             << "{"
             <<   "nanos_err_t cp_err;"
             <<   struct_arg_type_name << "* _args = (" << struct_arg_type_name << "*)data;"
@@ -553,12 +578,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::CopyItem& copy_item(*it);
             DataReference copy_expr = copy_item.get_copy_expression();
 
-            // Fill the translation_function
             DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
-            translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << "));"
-                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                ;
 
             Source copy_direction_in, copy_direction_out;
 
@@ -583,8 +603,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+
             Source copy_sharing;
-            if (copy_item.is_shared())
+            if (has_shared_data_sharing)
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -593,13 +615,91 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 copy_sharing << "NANOS_PRIVATE";
             }
 
+            // Fill the translation_function
+            if (has_shared_data_sharing)
+            {
+                translation_statements
+                    << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                    ;
+            }
+            else
+            {
+                Type copy_type = copy_expr.get_base_symbol().get_type();
+                if (data_env_item.is_vla_type())
+                {
+                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+                    ObjectList<Source> arg_vla_dims;
+                    for (ObjectList<Source>::iterator it = vla_dims.begin();
+                            it != vla_dims.end();
+                            it++)
+                    {
+                        Source new_dim;
+                        new_dim << "_args->" << *it;
+
+                        arg_vla_dims.append(new_dim);
+                    }
+
+                    // Now compute a replacement type which we will use to declare the proper type
+                    copy_type =
+                        compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                                arg_vla_dims.begin(), arg_vla_dims.end());
+                }
+
+                Type orig_copy_type = copy_type;
+                if (copy_type.is_reference())
+                {
+                    copy_type = copy_type.references_to();
+                }
+
+                if (copy_type.is_array())
+                {
+                    copy_type = copy_type.array_element().get_pointer_to();
+                }
+                else
+                {
+                    copy_type = copy_type.get_pointer_to();
+                }
+
+
+                translation_statements
+                    << copy_type.get_declaration(copy_expr.get_scope(), data_env_item.get_field_name()) << ";"
+                    << "cp_err = nanos_get_addr(" << i << ", (void**)&" << data_env_item.get_field_name() << wd_arg << ");"
+                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                    ;
+
+                if (!orig_copy_type.is_array())
+                {
+                    translation_statements
+                        << "_args->" << data_env_item.get_field_name() << " = *" << data_env_item.get_field_name() << ";"
+                        ;
+                }
+                else
+                {
+                    CXX_LANGUAGE()
+                    {
+                        // FIXME - With proper constructors
+                        std::cerr << copy_expr.get_ast().get_locus() << ": warning: copies of arrays do not fulfill C++ semantics" << std::endl;
+                    }
+                    translation_statements
+                        << "__builtin_memcpy(_args->" << data_env_item.get_field_name() << ", "
+                        <<    data_env_item.get_field_name() << ", " 
+                        <<    "sizeof(" << orig_copy_type.get_declaration(copy_expr.get_scope(), "") << "));"
+                        ;
+                }
+            }
+
             struct {
                 Source *source;
                 const char* array;
-                const char* struct_name;
+                const char* struct_access;
+                const char* struct_addr;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "ol_args->" },
-                { &copy_immediate_setup, "imm_copy_data", "imm_args." },
+                { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
+                { &copy_immediate_setup, "imm_copy_data", 
+                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                    immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
 
@@ -615,7 +715,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                if (copy_item.is_shared())
+                if (has_shared_data_sharing)
                 {
                     expression_address << copy_expr.get_address();
                 }
@@ -625,7 +725,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     // is private
                     expression_address 
                         << "&("
-                        << fill_copy_data_info[j].struct_name 
+                        << fill_copy_data_info[j].struct_access
                         << data_env_item.get_field_name()
                         << ")"
                         ;
@@ -636,19 +736,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             i++;
         }
 
-        if (Nanos::Version::interface_is_at_least("master", 5003)
-                && !_do_not_create_translation_fun)
+        if (_do_not_create_translation_fun)
         {
-            // FIXME - Templates
-            set_translation_fun 
-                << "nanos_set_translate_function(wd, _xlate_copy_address_" << outline_num << ");"
-                ;
+            if (Nanos::Version::interface_is_at_least("master", 5005))
+            {
+                C_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", (void*) 0"
+                        ;
+                }
+                CXX_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", 0"
+                        ;
+                }
+            }
+        }
+        else
+        {
+            if (Nanos::Version::interface_is_at_least("master", 5003))
+            {
+                Source translation_fun_name;
+                translation_fun_name << "_xlate_copy_address_" << outline_num
+                    ;
+                // FIXME - Templates
+                set_translation_fun 
+                    << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
+                    ;
 
-            AST_t xlate_function_def = translation_function.parse_declaration(
-                    ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
-                    ctr.get_scope_link());
+                if (Nanos::Version::interface_is_at_least("master", 5005))
+                {
+                    translation_fun_arg_name
+                        // Note this starting comma
+                        << ", _xlate_copy_address_" << outline_num
+                        ;
+                }
 
-            ctr.get_ast().prepend_sibling_function(xlate_function_def);
+                AST_t xlate_function_def = translation_function.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
+                        ctr.get_scope_link());
+
+                ctr.get_ast().prepend_sibling_function(xlate_function_def);
+            }
         }
     }
 
@@ -707,14 +836,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
         <<        copy_immediate_setup
-        <<        set_translation_fun
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
         <<                struct_size << ", " 
         <<                alignment
         <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_imm_data << ");"
+        <<                num_copies << "," << copy_imm_data 
+        <<                translation_fun_arg_name << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"

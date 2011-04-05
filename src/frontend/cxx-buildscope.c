@@ -54,7 +54,6 @@
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
-#include "hash_iterator.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -104,7 +103,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
         decl_context_t declarator_context);
-static void build_scope_declarator_rec(AST top_declarator, 
+static void build_scope_declarator_rec(
         AST a, type_t** declarator_type, 
         gather_decl_spec_t* gather_info,
         decl_context_t declarator_context,
@@ -206,12 +205,6 @@ static unsigned long long _bytes_used_buildscope = 0;
 unsigned long long int buildscope_used_memory(void)
 {
     return _bytes_used_buildscope;
-}
-
-void build_scope_dynamic_initializer(void)
-{
-    // Defined in cxx-attrnames.c
-    register_ast_extended_attributes();
 }
 
 void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context)
@@ -4255,7 +4248,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
 
         // Second traversal, here we build the type
-        build_scope_declarator_rec(a, a, declarator_type, 
+        build_scope_declarator_rec(a, declarator_type, 
                 gather_info, decl_context, entity_context, prototype_context);
 
         if (declarator_name != NULL)
@@ -4422,7 +4415,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
  */
 static void set_array_type(type_t** declarator_type, 
         AST constant_expr, AST static_qualifier UNUSED_PARAMETER, 
-        AST cv_qualifier_seq,
+        AST cv_qualifier_seq UNUSED_PARAMETER,
         decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
@@ -4449,14 +4442,6 @@ static void set_array_type(type_t** declarator_type,
     }
 
     *declarator_type = get_array_type(element_type, constant_expr, decl_context);
-
-    C_LANGUAGE()
-    {
-        /* C99 static qualifier for arrays is ignored */
-        /* C99 cv_qualifier_seq */
-        *declarator_type = get_cv_qualified_type(*declarator_type, 
-                compute_cv_qualifier(cv_qualifier_seq));
-    }
 }
 
 /*
@@ -4820,7 +4805,8 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
 static void build_scope_declarator_rec(
-        AST top_declarator, AST a, 
+        AST a, 
+        // AST top_declarator, AST a, 
         type_t** declarator_type, 
         gather_decl_spec_t* gather_info, 
         // This one contains the context of the occurring declarator
@@ -4842,14 +4828,14 @@ static void build_scope_declarator_rec(
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
                 set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
-                build_scope_declarator_rec(top_declarator, ASTSon1(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4860,17 +4846,42 @@ static void build_scope_declarator_rec(
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
                         entity_context);
-                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                ASTAttrSetValueType(top_declarator, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                // This is a bit awkward. For compatibility reasons we must get
+                // the enclosing declarator or the enclosing init_declarator
+                // (the latter if it exists, the former otherwise)
+                AST enclosing_init_decl = ASTParent(a);
+                while (enclosing_init_decl != NULL
+                        && ASTType(enclosing_init_decl) != AST_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_DECLARATOR)
+                {
+                    enclosing_init_decl = ASTParent(enclosing_init_decl);
+                }
+                AST enclosing_decl = enclosing_init_decl;
+                while (enclosing_init_decl != NULL
+                        && ASTType(enclosing_init_decl) != AST_INIT_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_INIT_DECLARATOR)
+                {
+                    enclosing_init_decl = ASTParent(enclosing_init_decl);
+                }
+                if (enclosing_init_decl != NULL)
+                {
+                    ASTAttrSetValueType(enclosing_init_decl, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                }
+                else
+                {
+                    ASTAttrSetValueType(enclosing_decl, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                }
+
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
 
-                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4884,7 +4895,7 @@ static void build_scope_declarator_rec(
         case AST_GCC_DECLARATOR :
             {
                 ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
-                build_scope_declarator_rec(top_declarator, ASTSon1(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
             }
@@ -4894,14 +4905,14 @@ static void build_scope_declarator_rec(
             {
                 ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
-                build_scope_declarator_rec(top_declarator, ASTSon2(a), declarator_type, 
+                build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
             // functional-declarator attribute
         case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
-                build_scope_declarator_rec(top_declarator, ASTSon0(a), declarator_type,
+                build_scope_declarator_rec(ASTSon0(a), declarator_type,
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -4909,7 +4920,7 @@ static void build_scope_declarator_rec(
             {
                 solve_ambiguous_declarator(a, declarator_context);
                 // Restart function
-                build_scope_declarator_rec(top_declarator, a, declarator_type, 
+                build_scope_declarator_rec(a, declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;
             }
@@ -7566,7 +7577,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
 
-    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
+    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(a));
 }
 

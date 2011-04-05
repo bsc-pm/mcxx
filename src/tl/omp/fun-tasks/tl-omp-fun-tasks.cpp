@@ -505,14 +505,40 @@ namespace OpenMP
                     if (copy_items.empty())
                         continue;
 
-                    Source clause;
                     Source &clause_args(*(replace_copies[i].clause_args));
+
+                    ReplaceSrcIdExpression replace_copies(replace);
 
                     for (ObjectList<CopyItem>::iterator it = copy_items.begin();
                             it != copy_items.end();
                             it++)
                     {
-                        clause_args.append_with_separator(replace.replace(it->get_copy_expression()), ",");
+                        DataReference data_ref(it->get_copy_expression());
+
+                        if (!data_ref.is_valid())
+                        {
+                            std::cerr << expr.get_ast().get_locus() 
+                                << ": warning: ignoring invalid data reference '" 
+                                << expr.prettyprint() 
+                                << "'" << std::endl;
+                        }
+
+                        Symbol sym = data_ref.get_base_symbol();
+
+                        if (sym.is_parameter())
+                        {
+                            Source src;
+                            src << "__tmp_" << sym.get_parameter_position();
+
+                            replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
+                        }
+                    }
+
+                    for (ObjectList<CopyItem>::iterator it = copy_items.begin();
+                            it != copy_items.end();
+                            it++)
+                    {
+                        clause_args.append_with_separator(replace_copies.replace(it->get_copy_expression()), ",");
                     }
                 }
 

@@ -25,14 +25,13 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 
-#include "mem_ctl.h"
-
-#ifdef __GNUC__
-  #define UNUSED_PARAM __attribute__((unused))
-#endif
-
-void noop_free(void* v UNUSED_PARAM)
+void f(const int c[]);
+void f(const int *c)
 {
 }
-

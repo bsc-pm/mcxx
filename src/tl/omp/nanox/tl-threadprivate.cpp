@@ -48,8 +48,6 @@ void OMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_d
 
     // Now get the list of symbols of this clause
 
-    std::cerr << "HOLA MON" << std::endl;
-
     ObjectList<Expression> parameter_expr = threadprivate_directive.get_parameter_expressions();
 
     ObjectList<IdExpression> threadprivate_references;

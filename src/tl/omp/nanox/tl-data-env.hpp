@@ -195,19 +195,37 @@ namespace TL
                 ObjectList<DataEnvironItem> _data_env_items;
                 ObjectList<OpenMP::CopyItem> _copy_items;
                 ObjectList<OpenMP::ReductionSymbol> _reduction_symbols;
+                OpenMP::DataSharingEnvironment* _data_sharing;
                 bool _has_local_copies;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
                     return item.get_symbol().is_valid();
                 }
+
             public:
-                DataEnvironInfo() { _has_local_copies = false; }
+
+                DataEnvironInfo()
+                    : _data_env_items(),
+                    _copy_items(),
+                    _reduction_symbols(),
+                    _data_sharing(NULL),
+                    _has_local_copies(false) { }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
                 {
                     _data_env_items.append(item);
+                }
+
+                void set_data_sharing(OpenMP::DataSharingEnvironment& data_sharing)
+                {
+                    _data_sharing = &data_sharing;
+                }
+
+                OpenMP::DataSharingEnvironment& get_data_sharing() const
+                {
+                    return *_data_sharing;
                 }
 
                 //! Returns the data environment items

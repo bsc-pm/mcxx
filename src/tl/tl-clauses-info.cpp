@@ -33,6 +33,11 @@ namespace TL
     ClausesInfo::ClausesInfo()
     {
     }
+    
+    ClausesInfo::DirectiveClauses& ClausesInfo::lookup_map(AST_t a)
+    {
+        return _directive_clauses_map[a];
+    }
 
     void ClausesInfo::set_all_clauses(AST_t directive, ObjectList<std::string> all_clauses)
     {

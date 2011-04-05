@@ -25,35 +25,62 @@
 --------------------------------------------------------------------*/
 
 
-
-#ifndef S_TYPES
-#define S_TYPES
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifndef __cplusplus
-typedef enum
-{ false, true }
-bool_type;
-#else
-typedef bool bool_type;
-#endif
-
 /*
- *
- *    Prototipo de funcion destructora de un objeto
- *    Object es el objeto a borrar.La función no debe hacer el free si no k 
- *    lo deja listo para que se pueda hacer el free del objeto.
- *     
- */
+<testinfo>
+test_generator=config/mercurium-ss2omp
+</testinfo>
+*/
 
-typedef void delete_func (const void *object);
+#include <stdlib.h>
 
-#ifdef __cplusplus
+#define F1_VAL 111111
+#define F2_VAL 222222
+#define F3_VAL 333333
+
+#pragma css task inout(a) target device(smp)
+void f1(int *a)
+{
+    if (*a != 0)
+    {
+        abort();
+    }
+    *a = F1_VAL;
 }
-#endif
 
+#pragma css task inout(a[1]) target device(smp)
+void f2(int *a)
+{
+    if (*a != F1_VAL)
+    {
+        abort();
+    }
+    *a = F2_VAL;
+}
 
-#endif
+#pragma css task inout(a) target device(smp)
+void f3(int a[1])
+{
+    if (*a != F2_VAL)
+    {
+        abort();
+    }
+    *a = F3_VAL;
+}
+
+int k;
+
+int main(int argc, char* argv[])
+{
+    int *m = &k;
+
+    *m = 0;
+    f1(m);
+    f2(m);
+    f3(m);
+
+#pragma omp taskwait
+
+    if (*m != F3_VAL) abort();
+
+    return 0;
+}

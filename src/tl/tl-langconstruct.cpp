@@ -336,6 +336,12 @@ namespace TL
         }
     }
 
+    bool Declaration::is_empty_declaration() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_EMPTY_DECLARATION);
+        return result;
+    }
+
     // Returns a flattened version of this id-expression
     std::string IdExpression::mangle_id_expression() const
     {
@@ -684,30 +690,14 @@ namespace TL
 
     Expression Expression::get_first_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_second_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_unary_operand()
@@ -1012,6 +1002,19 @@ namespace TL
         }
 
         return result;
+    }
+
+    bool Expression::is_throw_expression()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_THROW_EXPRESSION);
+        return b;
+    }
+    
+    Expression Expression::get_throw_expression()
+    {
+        AST_t throw_ast = _ref.get_attribute(LANG_THROW_EXPRESSION);
+        Expression throw_expression(throw_ast, _scope_link);
+        return throw_expression;
     }
 
     Expression Expression::get_enclosing_expression()

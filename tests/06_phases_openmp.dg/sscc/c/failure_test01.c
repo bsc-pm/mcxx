@@ -25,33 +25,20 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ss2omp
+test_compile_fail=yes
+test_nolink=yes
+</testinfo>
+*/
 
+#include <stdlib.h>
 
-#ifndef HASH_ITERATOR_H
-#define HASH_ITERATOR_H
+#pragma omp task inout(a)
+void f(int a);
 
-#include "libutils-common.h"
-#include "hash.h"
-#include "iterator.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct
+int main(int argc, char *argv[])
 {
-  Iterator iterator;
-  HashNode *act;
-  Hash *hash;
-  int table;
+    return 0;
 }
-HashIterator;
-
-LIBUTILS_EXTERN void hash_iterator_init (HashIterator * i, Hash * h);
-LIBUTILS_EXTERN HashIterator *hash_iterator_create (Hash * h);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif

@@ -25,55 +25,56 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ss2omp
+</testinfo>
+*/
 
-#ifndef ITERATOR_H
-#define ITERATOR_H
+#include <stdlib.h>
 
-#include "libutils-common.h"
-#include "s_types.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef struct _iterator Iterator;
-typedef struct _iterator_ops IteratorOps;
-
-#define ITERATOR(it) ((Iterator *)it)
-
-/**
- *  @internal
- */
-
-struct _iterator_ops
+#pragma css task target device(smp) input(n) inout(m)
+void f(int n, float m[n][n])
 {
-    void (*first) (Iterator *);
-      bool_type(*finished) (Iterator *);
-    void *(*item) (Iterator *);
-    void (*next) (Iterator *);
-    void (*remove) (Iterator *);
-    void (*end) (Iterator *);
-    void (*free) (Iterator *);
-    int (*items) (Iterator *);
-};
-
-struct _iterator
-{
-    IteratorOps *ops;
-};
-
-LIBUTILS_EXTERN void iterator_init(Iterator * i, IteratorOps * ops);
-LIBUTILS_EXTERN void iterator_end(Iterator * i);
-LIBUTILS_EXTERN void iterator_destroy(Iterator * i);
-LIBUTILS_EXTERN void iterator_first(Iterator * i);
-LIBUTILS_EXTERN bool_type iterator_finished(Iterator * i);
-LIBUTILS_EXTERN void iterator_next(Iterator * i);
-LIBUTILS_EXTERN void *iterator_item(Iterator * i);
-LIBUTILS_EXTERN void iterator_remove(Iterator * i);
-LIBUTILS_EXTERN int iterator_items(Iterator * i);
-
-#ifdef __cplusplus
+    int i, j;
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            m[i][j]++;
+        }
+    }
 }
-#endif
 
-#endif
+void g(void)
+{
+    float a[20][20];
+    int n = 20;
+
+    int i, j;
+    for (i = 0; i < 20; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            a[i][j] = i + j;
+        }
+    }
+
+    // Horrible style that must be supported
+    f(n, (void*)&a[0][0]);
+#pragma omp taskwait
+
+    for (i = 0; i < 20; i++)
+    {
+        for (j = 0; j < 20; j++)
+        {
+            if (a[i][j] != (i + j + 1)) abort();
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    g();
+    return 0;
+}

@@ -25,31 +25,57 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ss2omp
+</testinfo>
+*/
 
-#ifndef STACK_H
-#define STACK_H
+#include <stdlib.h>
 
-#include "libutils-common.h"
-#include "list.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef List Stack;
-
-#define stack_create() list_create()
-#define stack_init(stack) list_init(stack)
-#define stack_set(stack,op,value) list_set(stack,op,value);
-#define stack_dump(stack) list_dump(stack);
-#define stack_destroy(stack) list_destroy(stack);
-#define stack_push(stack,item) list_append(stack,item)
-#define stack_pop(stack) list_delete(stack,list_last(stack))
-#define stack_top(stack) node_data(list_last(stack))
-#define stack_empty(stack) (list_num_items(stack) == 0)
-
-#ifdef __cplusplus
+#pragma css task target device(smp) input(n) inout(m)
+void f(int n, int m[n][n])
+{
+    int i, j;
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            m[i][j]++;
+        }
+    }
 }
-#endif
 
-#endif
+void g(int m, int a[m][m])
+{
+    f(m, a);
+}
+
+int main(int argc, char *argv[])
+{
+    int k = 10;
+
+    int a[k][k];
+
+    int i, j;
+    for (i = 0; i < k; i++)
+    {
+        for (j = 0; j < k; j++)
+        {
+            a[i][j] = i + j;
+        }
+    }
+
+    g(k, a);
+#pragma omp taskwait
+
+    for (i = 0; i < k; i++)
+    {
+        for (j = 0; j < k; j++)
+        {
+            if (a[i][j] != (i + j + 1)) abort();
+        }
+    }
+
+    return 0;
+}

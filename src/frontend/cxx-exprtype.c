@@ -82,7 +82,13 @@ unsigned long long expression_info_sizeof(void)
 
 static expression_info_t* expression_get_expression_info(AST expr)
 {
-    return ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
+    expression_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
+    if (p == NULL)
+    {
+        p = counted_calloc(1, sizeof(*p), &_bytes_used_expr_check);
+        ast_set_field(expr, LANG_EXPRESSION_INFO, p);
+    }
+    return p;
 }
 
 type_t* expression_get_type(AST expr)
@@ -1237,8 +1243,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_LHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_RHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression))
@@ -11978,6 +11984,12 @@ static void check_for_shaping_expression(AST expression, decl_context_t decl_con
 
     // Now check the shape makes sense
     type_t* shaped_expr_type = expression_get_type(shaped_expr);
+
+    // Array to pointer conversion
+    if (is_array_type(no_ref(shaped_expr_type)))
+    {
+        shaped_expr_type = get_pointer_type(array_type_get_element_type(no_ref(shaped_expr_type)));
+    }
 
     if (!is_pointer_type(no_ref(shaped_expr_type)))
     {

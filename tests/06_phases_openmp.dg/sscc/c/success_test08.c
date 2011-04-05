@@ -31,23 +31,60 @@ test_generator=config/mercurium-ss2omp
 </testinfo>
 */
 
-struct A
-{
-    int a;
-    A() : a(0) { }
-};
+#include <stdlib.h>
 
-#pragma css task inout(a[10])
-void f(A* a)
+#define F1_VAL 111111
+#define F2_VAL 222222
+#define F3_VAL 333333
+
+#pragma css task inout(a) target device(smp_numa)
+void f1(int *a)
 {
-    for (int i = 0; i < 10; i++)
-    {
-        a[i].a = a[i].a + 1;
-    }
+    *a = F1_VAL;
 }
 
-void g()
+#pragma css task inout(a[1]) target device(smp_numa)
+void f2(int *a)
 {
-    A *a = new A[10];
-    f(a);
+    *a = F2_VAL;
+}
+
+#pragma css task inout(a) target device(smp_numa)
+void f3(int a[1])
+{
+    *a = F3_VAL;
+}
+
+int k;
+
+int main(int argc, char* argv[])
+{
+    int *m = &k;
+
+    *m = 0;
+    f1(m);
+#pragma omp taskwait
+    if (*m != F1_VAL) 
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F1_VAL);
+        abort();
+    }
+    
+    f2(m);
+#pragma omp taskwait
+    if (*m != F2_VAL)
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F2_VAL);
+        abort();
+    }
+
+    f3(m);
+#pragma omp taskwait
+    if (*m != F3_VAL)
+    {
+        fprintf(stderr, "*m == %d != %d\n", *m, F3_VAL);
+        abort();
+    }
+
+    return 0;
 }

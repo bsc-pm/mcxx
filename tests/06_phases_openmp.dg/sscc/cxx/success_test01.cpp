@@ -25,25 +25,37 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-ss2omp
+</testinfo>
+*/
 
-#ifndef MEM_CTL_H
-#define MEM_CTL_H
-
-#include "libutils-common.h"
 #include <stdlib.h>
 
-#define NEW(type)               (type *) malloc(sizeof(type))
-#define NEW_ARRAY(type,size)    (type *)calloc(size, sizeof(type))
-#define FREE(ptr)               
+struct A
+{
+    int a;
+    A(int n) : a(n) { }
+};
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-LIBUTILS_EXTERN void noop_free(void* v);
-
-#ifdef __cplusplus
+#pragma css task inout(a)
+void f(A* a)
+{
+    a->a = a->a + 1;
 }
-#endif
 
-#endif
+void g()
+{
+    A* a = new A(3);
+    f(a);
+#pragma omp taskwait
+
+    if (a->a != 4) abort();
+}
+
+int main(int argc, char *argv[])
+{
+    g();
+    return 0;
+}
