@@ -44,35 +44,6 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
-Type DeviceCUDA::compute_replacement_type_for_vla(Type type,
-		ObjectList<Source>::iterator dim_names_begin,
-		ObjectList<Source>::iterator dim_names_end)
-{
-	Type new_type(NULL);
-	if (type.is_array())
-	{
-		new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-		if (dim_names_begin == dim_names_end)
-		{
-			internal_error("Invalid dimension list", 0);
-		}
-
-		new_type = new_type.get_array_to(*dim_names_begin);
-	}
-	else if (type.is_pointer())
-	{
-		new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-		new_type = new_type.get_pointer_to();
-	}
-	else
-	{
-		new_type = type;
-	}
-
-	return new_type;
-}
-
 void DeviceCUDA::do_cuda_inline_get_addresses(
 		const Scope& sc,
 		const DataEnvironInfo& data_env_info,

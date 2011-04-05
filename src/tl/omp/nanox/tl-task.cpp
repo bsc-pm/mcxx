@@ -625,6 +625,27 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             else
             {
                 Type copy_type = copy_expr.get_base_symbol().get_type();
+                if (data_env_item.is_vla_type())
+                {
+                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+                    ObjectList<Source> arg_vla_dims;
+                    for (ObjectList<Source>::iterator it = vla_dims.begin();
+                            it != vla_dims.end();
+                            it++)
+                    {
+                        Source new_dim;
+                        new_dim << "_args->" << *it;
+
+                        arg_vla_dims.append(new_dim);
+                    }
+
+                    // Now compute a replacement type which we will use to declare the proper type
+                    copy_type =
+                        compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                                arg_vla_dims.begin(), arg_vla_dims.end());
+                }
+
                 Type orig_copy_type = copy_type;
                 if (copy_type.is_reference())
                 {
@@ -640,8 +661,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     copy_type = copy_type.get_pointer_to();
                 }
 
+
                 translation_statements
-                    // This is dubious for VLAs
                     << copy_type.get_declaration(copy_expr.get_scope(), data_env_item.get_field_name()) << ";"
                     << "cp_err = nanos_get_addr(" << i << ", (void**)&" << data_env_item.get_field_name() << wd_arg << ");"
                     << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
@@ -663,7 +684,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     translation_statements
                         << "__builtin_memcpy(_args->" << data_env_item.get_field_name() << ", "
                         <<    data_env_item.get_field_name() << ", " 
-                        <<    "sizeof(_args->" << data_env_item.get_field_name() << "));"
+                        <<    "sizeof(" << orig_copy_type.get_declaration(copy_expr.get_scope(), "") << "));"
                         ;
                 }
             }
@@ -675,7 +696,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 const char* struct_addr;
             } fill_copy_data_info[] = {
                 { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
-                { &copy_immediate_setup, "imm_copy_data", "imm_args.", "&imm_args" },
+                { &copy_immediate_setup, "imm_copy_data", 
+                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                    immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
 

@@ -109,6 +109,10 @@ namespace Nanox
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
+
+    Type compute_replacement_type_for_vla(Type type, 
+            ObjectList<Source>::iterator dim_names_begin,
+            ObjectList<Source>::iterator dim_names_end);
 }
 }
 

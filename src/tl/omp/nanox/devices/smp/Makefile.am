@@ -40,6 +40,8 @@ libtlnanox_smp_la_CXXFLAGS = $(device_flags)
 
 libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
 
+libtlnanox_smp_la_LIBADD = $(builddir)/../../libtlomp-nanox.la
+
 libtlnanox_smp_la_SOURCES = \
        smp-reduction.cpp \
        nanox-smp.hpp \
