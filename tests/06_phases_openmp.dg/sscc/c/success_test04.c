@@ -33,7 +33,7 @@ test_generator=config/mercurium-ss2omp
 
 #include <stdlib.h>
 
-#pragma css task input(n) inout(m)
+#pragma css task target device(smp) input(n) inout(m)
 void f(int n, int m[n][n])
 {
     int i, j;

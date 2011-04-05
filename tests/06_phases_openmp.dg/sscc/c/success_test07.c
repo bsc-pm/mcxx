@@ -34,7 +34,7 @@ test_nolink=yes
 
 #include <stdlib.h>
 
-#pragma css task inout(a[10][20])
+#pragma css task target device(smp) inout(a[10][20])
 void f(int *a)
 {
     int (*p)[20] = (int (*)[20]) a;

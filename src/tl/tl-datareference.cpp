@@ -242,7 +242,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             if (section.is_array_section_size())
             {
                 upper_bound 
-                    << section.array_section_lower() << " + " << section.array_section_upper()
+                    << "((" << section.array_section_lower() << ") + (" << section.array_section_upper() << ") - 1)"
                     ;
             }
             else if (section.is_array_section_range())

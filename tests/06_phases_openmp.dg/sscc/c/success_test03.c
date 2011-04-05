@@ -39,7 +39,7 @@ struct A_tag
     int a;
 } A;
 
-#pragma css task inout(a[10])
+#pragma css task target device(smp) inout(a[10])
 void f(A* a)
 {
     for (int i = 0; i < 10; i++)
