@@ -101,7 +101,7 @@ namespace Nanox
 
             void add_openmp_initializer(TL::DTO& dto);
 
-            static Source get_wait_completion(Source arg, bool do_flush);
+            static Source get_wait_completion(Source arg, bool do_flush, AST_t ref_tree);
 
             std::string _static_weak_symbols_str;
             bool _static_weak_symbols;

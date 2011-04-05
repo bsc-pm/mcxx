@@ -3,7 +3,7 @@
 
 namespace TL { namespace Nanox {
 
-    Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush)
+    Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush, AST_t ref_tree)
     {
         Source src;
         if (Nanos::Version::interface_is_at_least("master", 5006))
@@ -13,6 +13,10 @@ namespace TL { namespace Nanox {
         }
         else
         {
+            if (avoid_flush)
+            {
+                std::cerr << ref_tree.get_locus() << ": warning: avoiding flush in wait is not supported in this runtime interface" << std::endl;
+            }
             src << "nanos_wg_wait_completion(" << arg << ");"
                 ;
         }

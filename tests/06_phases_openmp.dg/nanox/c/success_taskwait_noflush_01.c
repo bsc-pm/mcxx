@@ -25,26 +25,16 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-nanox
+</testinfo>
+*/
 
-#include "tl-omp-nanox.hpp"
 
-using namespace TL;
-using namespace TL::Nanox;
-
-void OMPTransform::barrier_postorder(PragmaCustomConstruct barrier_construct)
+int main (int argc, char *argv[])
 {
-    std::cerr << barrier_construct.get_ast().get_locus() << ": warning: OpenMP barrier is not properly supported at this time" << std::endl;
-
-    Source new_code;
-
-    new_code
-        << "{"
-        <<     get_wait_completion(Source("nanos_current_wd()"), false, barrier_construct.get_ast())
-        <<     "nanos_err_t err = nanos_team_barrier();"
-        <<     "if (err != NANOS_OK) nanos_handle_error(err);"
-        << "}"
-        ;
-
-    AST_t tree = new_code.parse_statement(barrier_construct.get_ast(), barrier_construct.get_scope_link());
-    barrier_construct.get_ast().replace(tree);
+#pragma omp taskwait noflush
+  return 0;
 }
+
