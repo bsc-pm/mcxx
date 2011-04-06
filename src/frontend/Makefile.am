@@ -264,11 +264,11 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
-endif
 
 PYTHON_verbose = $(PYTHON_verbose_$(V))
 PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
 PYTHON_verbose_0 = @echo "  PYTHON" $@;
+endif
 
 CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def
