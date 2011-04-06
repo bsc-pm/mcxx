@@ -402,6 +402,7 @@ namespace TL
 
             if (!decl_entity.is_functional_declaration())
             {
+                std::cerr << "LAla -> " << decl_entity.get_ast().prettyprint() << decl_entity.get_ast().internal_ast_type() << std::endl;
                 std::cerr << construct.get_ast().get_locus() 
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;

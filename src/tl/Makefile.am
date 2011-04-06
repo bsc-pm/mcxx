@@ -129,6 +129,8 @@ libtl_la_SOURCES = \
     tl-setdto-phase.cpp \
     tl-fortran.hpp \
     tl-fortran.cpp \
+    tl-simd.hpp \
+    tl-simd.cpp \
 	$(END)
 
 if WINDOWS_BUILD

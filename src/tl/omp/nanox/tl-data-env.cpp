@@ -525,7 +525,7 @@ namespace TL
                 t = t.references_to();
 
             Source alignment;
-
+//AQUI
             struct_fields
                 << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) 
                 << alignment

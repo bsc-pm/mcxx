@@ -29,6 +29,7 @@
 <testinfo>
 test_generator=config/mercurium-ss2omp
 test_compile_fail=yes
+test_nolink=yes
 </testinfo>
 */
 

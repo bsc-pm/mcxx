@@ -88,6 +88,7 @@ namespace Nanox
             bool create_translation_function();
         private:
             const std::string _device_name;
+        private:
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
             void set_instrumentation(const std::string& str)
@@ -132,6 +133,7 @@ namespace Nanox
                 return _device_name;
             }
 
+            virtual void pre_run(DTO& dto){};
             virtual void run(DTO& dto) { }
 
             /*!

@@ -47,6 +47,8 @@ namespace TL
     const PredicateAttr DeclaredEntity::predicate(LANG_IS_DECLARED_NAME);
     const PredicateAttr Declaration::predicate(LANG_IS_DECLARATION);
     const PredicateAttr GCCAttributeSpecifier::predicate(LANG_IS_GCC_ATTRIBUTE);
+    const PredicateAttr TypeSpec::predicate(LANG_IS_TYPE_SPECIFIER);
+
 
     std::string LangConstruct::prettyprint() const
     {
@@ -825,6 +827,8 @@ namespace TL
                 return BITWISE_XOR;
             else if (TL::Bool(_ref.get_attribute(LANG_IS_MOD_ASSIGNMENT)))
                 return MODULUS;
+            else if (TL::Bool(_ref.get_attribute(LANG_IS_ASSIGNMENT)))
+                return ASSIGNMENT;
         }
 
         return UNKNOWN;
@@ -885,6 +889,8 @@ namespace TL
                 return "&&";
             case  LOGICAL_OR :
                 return "||";
+            case  ASSIGNMENT :
+                return "=";
             default:
                 return "??";
         }
@@ -1170,6 +1176,12 @@ namespace TL
         return sym;
     }
 
+    Type TypeSpec::get_type() const
+    {
+        TL::Type t = _ref.get_attribute(LANG_TYPE_SPECIFIER_TYPE);
+        return t;
+    }
+
     bool DeclaredEntity::has_initializer() const
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
@@ -1180,6 +1192,12 @@ namespace TL
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
         return Expression(initializer, this->_scope_link);
+    }
+
+    AST_t DeclaredEntity::get_declarator_tree() const
+    {
+        AST_t declarator = _ref.get_attribute(LANG_DECLARATOR);
+        return declarator;
     }
 
     ObjectList<DeclaredEntity> Declaration::get_declared_entities() const
@@ -1378,6 +1396,11 @@ namespace TL
     void ReplaceSrcIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
+    }
+
+    ScopeLink ReplaceSrcIdExpression::get_scope_link() const
+    {
+        return _sl;
     }
 
     Source ReplaceSrcIdExpression::replace(AST_t a) const

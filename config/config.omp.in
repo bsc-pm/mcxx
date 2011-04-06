@@ -38,7 +38,10 @@ linker_options = -Wl,--add-needed
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-nanox.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_ocl.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
+
 
 [mcc : omp-base]
 language = C

@@ -596,8 +596,20 @@ namespace TL
             {
                 if (!ast.is_valid())
                     return false;
-                TL::Bool attr = ast.get_attribute(_ATTR);
-                return attr;
+                
+                RefPtr<Object> obj = ast.get_attribute(_ATTR);
+                if(typeid(*(obj.get_pointer())) == typeid(Undefined))
+                {
+                    return false;
+                }
+                else if (obj->is_bool())
+                {
+                    return (TL::Bool)obj;
+                }
+                else
+                {
+                    return true;                  
+                }
             }
 
             DEPRECATED PredicateAST()
@@ -628,7 +640,20 @@ namespace TL
             {
                 if (!ast.is_valid())
                     return false;
-                return TL::Bool(ast.get_attribute(_attr_name));
+
+                RefPtr<Object> obj = ast.get_attribute(_attr_name);
+                if(typeid(*(obj.get_pointer())) == typeid(Undefined))
+                {
+                    return false;
+                }
+                else if (obj->is_bool())
+                {
+                    return (TL::Bool)obj;
+                }
+                else
+                {
+                    return true;
+                }
             }
     };
 

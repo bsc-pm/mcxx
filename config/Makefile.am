@@ -38,6 +38,8 @@ CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
        config.cuda \
+       config.gpu \
+       config.ocl \
        config.omp \
        config.sscc \
        config.plain \

@@ -24,27 +24,22 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-
 include ../../../../Makefile.phases
 
 END=
 
-phases_LTLIBRARIES=libtlnanox-smp.la
+phases_LTLIBRARIES=libtlnanox-devices_common.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. \
-             -I$(srcdir)/../../../core \
-             -I$(srcdir)/../common \
-             -I$(srcdir)/../../../nanos-common
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
 
-libtlnanox_smp_la_CFLAGS = $(device_flags)
-libtlnanox_smp_la_CXXFLAGS = $(device_flags)
+libtlnanox_devices_common_la_CFLAGS = $(device_flags)
+libtlnanox_devices_common_la_CXXFLAGS = $(device_flags)
 
-libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
-libtlnanox_smp_la_LIBADD = $(builddir)/../common/libtlnanox-devices_common.la \
-                          $(builddir)/../../libtlomp-nanox.la
+libtlnanox_devices_common_la_LDFLAGS = $(tl_ldflags)
 
-libtlnanox_smp_la_SOURCES = \
-       smp-reduction.cpp \
-       nanox-smp.hpp \
-       nanox-smp.cpp \
-       $(END)
+libtlnanox_devices_common_la_SOURCES = \
+                 nanox-find_common.hpp \
+                 nanox-find_common.cpp \
+                                $(END)
+
+

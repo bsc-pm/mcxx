@@ -26,7 +26,7 @@
 
 
 #ifndef NANOX_SMP_HPP
-#define NANOX_SMP_CPP
+#define NANOX_SMP_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"

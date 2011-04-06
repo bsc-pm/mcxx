@@ -151,7 +151,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<    replaced_body
             << "}"
             ;
-            
+
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -476,6 +476,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         reduction_join_arr_decls 
         << "int _nth_team = omp_get_num_threads();"
         ;
+
+
     if (!reduction_symbols.empty())
         reduction_join_arr_decls << "int rs_i;" ;
     for(ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
@@ -485,6 +487,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         Symbol rs = it->get_symbol();
         OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
         Source auxiliar_initializer, auxiliar_initialization;
+
         
         if (rs.get_type().is_class())
         {

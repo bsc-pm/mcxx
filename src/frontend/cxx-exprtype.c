@@ -2221,6 +2221,17 @@ static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
         && equivalent_types(get_unqualified_type(lhs_type), get_unqualified_type(rhs_type));
 }
 
+static char one_scalar_operand_and_one_vector_operand(type_t* lhs_type, type_t* rhs_type)
+{
+    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type))
+           || (is_scalar_type(lhs_type) && is_vector_type(rhs_type));
+}
+
+static char left_operand_is_vector_and_right_operand_is_scalar(type_t* lhs_type, type_t* rhs_type)
+{
+    return (is_vector_type(lhs_type) && is_scalar_type(rhs_type));
+}    
+
 static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
 {
     if (is_array_type(lhs_type))
@@ -2475,6 +2486,14 @@ static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_typ
     }
 
     return return_type;
+}
+
+static type_t * compute_scalar_vector_type(type_t* lhs_type, type_t* rhs_type)
+{
+    if (is_vector_type(lhs_type))
+        return lhs_type;
+    else
+        return rhs_type;
 }
 
 static char filter_only_nonmembers(scope_entry_t* e)
@@ -2863,6 +2882,10 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
         {
             computed_type = lhs_type;
         }
+        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+        }
         else
         {
             return get_error_type();
@@ -2953,9 +2976,14 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
         {
             computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
         }
+        // Vector case
         else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = lhs_type;
+        }
+        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
         }
         else
         {
@@ -3003,7 +3031,7 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)),
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -3099,6 +3127,15 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
         if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+        }
+        // Vector case
+        else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = lhs_type;
+        }
+        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
         }
         else
         {
@@ -3233,9 +3270,14 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
             // FIXME, this should the type related to ptrdiff_t (usually int)
             computed_type = get_signed_int_type();
         }
+        // Vector case
         else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = lhs_type;
+        }
+        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
         }
         else
         {
@@ -3331,6 +3373,10 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
         {
             // Always the left one in this case
             computed_type = no_ref(lhs_type);
+        }
+        else if(left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+        {
+            computed_type = vector_type_get_element_type(lhs_type);
         }
 
         expression_set_type(expr, computed_type);
@@ -3526,9 +3572,56 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
                 computed_type = get_bool_type();
             }
         }
-        else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type))
+        else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type)
+                || one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
         {
-            computed_type = lhs_type;
+            // computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+            type_t* common_vec_type = NULL;
+            if (one_scalar_operand_and_one_vector_operand(no_ref_lhs_type, no_ref_rhs_type))
+            {
+                common_vec_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
+            }
+            else
+            {
+                if (vector_type_get_vector_size(lhs_type) == 0)
+                {
+                    common_vec_type = rhs_type;
+                }
+                else if (vector_type_get_vector_size(rhs_type) == 0)
+                {
+                    common_vec_type = lhs_type;
+                }
+                else if (vector_type_get_vector_size(rhs_type) 
+                        != vector_type_get_vector_size(rhs_type))
+                {
+                    // Vectors do not match their size
+                    return get_error_type();
+                }
+                else
+                {
+                    common_vec_type = lhs_type;
+                }
+
+                type_t* elem_lhs_type = vector_type_get_element_type(lhs_type);
+                type_t* elem_rhs_type = vector_type_get_element_type(rhs_type);
+                if (!both_operands_are_arithmetic(elem_lhs_type, elem_rhs_type))
+                {
+                    // We cannot do a binary relational op on them
+                    return get_error_type();
+                }
+            }
+
+
+            type_t* ret_bool_type = NULL;
+            C_LANGUAGE()
+            {
+                ret_bool_type = get_signed_int_type();
+            }
+            CXX_LANGUAGE()
+            {
+                ret_bool_type = get_bool_type();
+            }
+            computed_type = get_vector_type(ret_bool_type, vector_type_get_vector_size(common_vec_type));
         }
         else
         {
@@ -3968,14 +4061,21 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
                 return get_error_type();
         }
 
-        if (!both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
+        if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
         {
-            return get_error_type();
+            expression_set_type(expr, lhs_type);
+            expression_set_is_lvalue(expr, 1);
+            return lhs_type;
+        }
+        else if(left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+        { 
+            expression_set_type(expr, lhs_type);
+            expression_set_is_lvalue(expr, 1);
+            return vector_type_get_element_type(no_ref(lhs_type));
         }
 
-        expression_set_type(expr, lhs_type);
-        expression_set_is_lvalue(expr, 1);
-        return lhs_type;
+        return get_error_type();
+
     }
 
     builtin_operators_set_t builtin_set; 
@@ -4062,7 +4162,8 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
         if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
                 || is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
                 || both_operands_are_vector_types(no_ref(lhs_type), 
-                    no_ref(rhs_type)))
+                    no_ref(rhs_type))
+                || left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
         {
             expression_set_type(expr, lhs_type);
             expression_set_is_lvalue(expr, 1);
@@ -4719,6 +4820,11 @@ static type_t* compute_operator_plus_type(AST expression,
                 *val = const_value_plus(expression_get_constant(op));
             }
         }
+        else if (is_vector_type(no_ref(op_type)))
+        {
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
+        }
         else
             return get_error_type();
 
@@ -4816,6 +4922,11 @@ static type_t* compute_operator_minus_type(AST expression,
             {
                 *val = const_value_neg(expression_get_constant(op));
             }
+        }
+        else if (is_vector_type(no_ref(op_type)))
+        {
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else
             return get_error_type();
@@ -6113,7 +6224,14 @@ static void check_for_conditional_expression_impl(AST expression,
     type_t* converted_type = NULL;
     C_LANGUAGE()
     {
-        converted_type = get_signed_int_type();
+        if (!is_vector_type(first_type))
+        {
+            converted_type = get_signed_int_type();
+        }
+        else
+        {
+            converted_type = get_vector_type(get_signed_int_type(), vector_type_get_vector_size(first_type));
+        }
 
         standard_conversion_t sc;
         if (!standard_conversion_between_types(&sc, first_type, converted_type))
@@ -7629,6 +7747,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             if (solved_function != NULL)
             {
                 expression_set_type(called_expression, solved_function->type_information);
+                expression_set_symbol(called_expression,solved_function);
             }
             else
             {
@@ -8446,6 +8565,10 @@ static void check_for_function_call(AST expr, decl_context_t decl_context)
         }
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
+
+    scope_entry_t *builtin_sym = expression_get_symbol(called_expression);
+    if (builtin_sym != NULL && builtin_sym->entity_specs.is_builtin && builtin_sym->entity_specs.is_mutable)
+        expression_set_is_lvalue(expr,1);
 }
 
 static void check_for_cast_expr(AST expr, AST type_id, AST casted_expression, decl_context_t decl_context)

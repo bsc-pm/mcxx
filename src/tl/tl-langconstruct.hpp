@@ -30,6 +30,7 @@
 #define TL_LANGCONSTRUCT_HPP
 
 #include "tl-common.hpp"
+#include "tl-object.hpp"
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
@@ -60,7 +61,7 @@ namespace TL
      * This is the base class for all classes wrapping distinguished
      * language constructs.
      */
-    class LIBTL_CLASS LangConstruct
+    class LIBTL_CLASS LangConstruct : public TL::Object
     {
         protected:
             //! Wrapped tree
@@ -425,7 +426,9 @@ namespace TL
                 //! Postdecrement a--
                 POSTDECREMENT,
                 //! Conditional expression a ? b : c
-                CONDITIONAL
+                CONDITIONAL,
+                //! Assignment operator =
+                ASSIGNMENT
             };
 
             //! Computes the type of the expression
@@ -703,6 +706,9 @@ namespace TL
             //! Returns an expression with the initializer itself
             Expression get_initializer() const;
 
+            //! Returns the tree of the declarator
+            AST_t get_declarator_tree() const;
+
             //! States whether this declaration is a functional one
             bool is_functional_declaration() const;
             //! Returns all the parameter declarations
@@ -741,6 +747,12 @@ namespace TL
             bool is_enum_specifier() const;
             //! Returns the enym symbol defined in the enum-specifier
             Symbol get_enum_symbol() const;
+
+            //! Returns the Type of this type-specifier
+            Type get_type() const;
+
+            // Fix the predicate
+            static const PredicateAttr predicate;
     };
 
     //! This class wraps a declaration-specifier sequence
@@ -1132,6 +1144,10 @@ namespace TL
             void set_replace_declarators(bool b);
 
             void set_ignore_pragma(bool b);
+
+            ScopeLink get_scope_link() const;
+
+            virtual ~ReplaceSrcIdExpression() { }
     };
 
     //! \addtogroup Functors

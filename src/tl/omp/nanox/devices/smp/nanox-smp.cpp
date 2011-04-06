@@ -29,9 +29,456 @@
 #include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 #include "nanox-smp.hpp"
+#include "tl-simd.hpp"
+#include "nanox-find_common.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
+using namespace TL::SIMD;
+
+const unsigned int _vector_width = 16;
+
+std::string ReplaceSrcSMP::scalar_expansion(Expression exp)
+{
+    std::stringstream result;
+    unsigned char num_elements, i;
+
+    TL::Type vector_type = exp.get_type().get_vector_to(_vector_width);
+
+    result << "(("
+        << vector_type.get_simple_declaration(exp.get_scope(), "")
+        << "){"
+        ;
+
+    num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
+    for (i=0; i<num_elements; i++)
+    {
+        result << exp.prettyprint()
+            << ",";
+    }
+
+    result << exp.prettyprint()
+        << "})";
+
+    return result.str();
+}
+
+
+const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
+{
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSrcSMP::prettyprint_callback, data);
+}
+
+Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
+{
+    Scope scope = func_sym.get_scope();
+    int i, j;
+
+    Type func_type = func_sym.get_type();
+
+    if (!func_type.is_function())
+    {
+        running_error("Expected function Symbol");
+    }        
+            
+    ObjectList<Type> type_param_list = func_type.parameters();
+
+    Type func_ret_type = func_type.returns()
+        .basic_type()
+        .get_vector_to(_width);
+
+    Source func_src, func_body_src, parameter_decl_list;
+    func_src
+        << func_ret_type.get_simple_declaration(
+                scope, get_replaced_func_name(
+                    func_sym.get_name(), _width))
+        << "(" << parameter_decl_list << ")"
+        << "{"
+        << func_body_src
+        << "}"
+        ;
+
+    //Function arguments and Unions
+    ObjectList<Type>::iterator it;
+    for (i = 0, it = type_param_list.begin();
+            it != type_param_list.end();
+            i++, it++)
+    {
+        std::stringstream param_name;
+        param_name << "a" << i
+            ;
+
+        Type param_vec_type = it->basic_type()
+            .get_vector_to(_width);
+
+        parameter_decl_list.append_with_separator(
+            param_vec_type.get_simple_declaration(
+                    scope, param_name.str()),
+            ",");
+
+        func_body_src
+            << "union {"
+            << param_vec_type.get_pointer_to()
+            .get_simple_declaration(scope, "v") << ";"
+            << param_vec_type.basic_type().get_pointer_to()
+            .get_simple_declaration(scope, "w") << ";"
+            << "} u_" << param_name.str() << " = { &" << param_name.str() << " };"
+            ;
+    }
+
+    Source vec_size_src;
+    int vec_size = _width/func_ret_type.basic_type().get_size();
+    vec_size_src << vec_size;
+
+    //Last union from the arguments + result union
+    func_body_src
+        << "union u_return{"
+        << func_ret_type.get_simple_declaration(scope, "v") << ";"
+        << func_ret_type.basic_type().get_array_to(
+                vec_size_src.parse_expression(
+                    func_sym.get_point_of_declaration(), sl), scope)
+           .get_simple_declaration(scope, "w") << ";"
+        << "};"
+
+        << "union u_return _result;"
+        ;
+
+    for (i=0; i<vec_size; i++)
+    {
+        Source scalar_ops;
+        
+        func_body_src
+            << "_result.w[" << i << "] = " << func_sym.get_name() 
+            << "("
+            << scalar_ops
+            << ");"
+            ;
+
+        for (j = 0, it = type_param_list.begin();
+                it != type_param_list.end();
+                j++, it++)
+        {
+            std::stringstream param_name, scalar_op;
+
+            param_name << "a" << j;
+            scalar_op << "u_" << param_name.str() << ".w[" << i << "]";
+
+            scalar_ops.append_with_separator(scalar_op.str(),",");
+        }
+    }
+
+    func_body_src << "return _result.v;";
+
+    return func_src;
+}
+
+Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
+{
+    if (!func_sym.is_function())
+    {
+        running_error("Expected function Symbol");
+    }        
+
+    return this->replace(func_sym.get_point_of_definition());
+}
+
+
+std::string ReplaceSrcSMP::get_integer_casting(Type type1, Type type2)
+{
+#warning 
+/*    
+    if (type1 != type2)
+    {
+        running_error("True expression and false expression types have to be the same in a conditional operation");
+    }
+*/
+    std::stringstream result;
+    std::string basic_type;
+
+    switch(type1.get_size())
+    {
+        case 1:
+            basic_type = "char";
+            break;
+        case 2:
+            basic_type = "short int";
+            break;
+        case 4:
+            basic_type = "int";
+            break;
+        case 8:
+            basic_type = "long long";
+            break;
+        default:
+            running_error("Type not supported in conditional operation");
+    }
+
+    result
+        << "("
+        << basic_type
+        << " __attribute__((vector_size(" << _vector_width << "))))"
+        ;
+
+    return result.str();
+}
+
+
+
+const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
+{
+    ObjectList<Expression> arg_list;
+    std::stringstream result;
+    unsigned char i, counter;
+
+    //Standar prettyprint_callback
+    const char *c = ReplaceSrcGenericFunction::prettyprint_callback(a, data);
+
+    //__attribute__((generic_vector)) replacement
+    if (c == NULL)
+    {
+        ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
+
+        AST_t ast(a);
+
+        if (DeclaredEntity::predicate(ast))
+        {
+            DeclaredEntity decl_ent(ast, _this->_sl);
+
+            //Vector expansion in DeclaredEntity
+            if (decl_ent.has_initializer())
+            {
+                Symbol sym (decl_ent.get_declared_symbol());
+                Type sym_type = sym.get_type();
+
+                if (sym_type.is_vector() &&
+                        (!decl_ent.get_initializer().get_type().is_vector()))
+                {
+                    result
+                        << recursive_prettyprint(decl_ent.get_declarator_tree(), data)
+                        << " = "
+                        << scalar_expansion(decl_ent.get_initializer());
+
+                    return uniquestr(result.str().c_str());
+                }
+            }    
+        }
+        if (Expression::predicate(ast))
+        {
+            Expression expr(ast, _this->_sl);
+
+            //Don't skip ';'
+            if ((expr.original_tree() == expr.get_ast()))
+            {
+                //Conditional Expression
+                if (expr.is_conditional())
+                {
+                    Expression cond_exp(expr.get_condition_expression());
+                    Expression true_exp(expr.get_true_expression());
+                    Expression false_exp(expr.get_false_expression());
+
+                    if (true_exp.get_type().is_vector() && false_exp.get_type().is_vector())
+                    {
+                        std::string integer_casting = get_integer_casting(true_exp.get_type(), false_exp.get_type());
+
+                        result 
+                            << "(" << true_exp.get_type().basic_type().get_vector_to(_vector_width)
+                            .get_simple_declaration(_this->_sl.get_scope(ast), "") << ")"
+                            << "("
+                            << "(((" << integer_casting << "(" << recursive_prettyprint(true_exp.get_ast(), data) << "))"
+                            << "^"
+                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << ")))"
+                            << "&"
+                            << recursive_prettyprint(cond_exp.get_ast(), data) << ")" 
+                            << "^"
+                            << "(" << integer_casting << "(" << recursive_prettyprint(false_exp.get_ast(), data) << "))"
+                            << ")"
+                            ;
+
+                            return uniquestr(result.str().c_str());
+                    }
+                }
+                else if (expr.is_binary_operation())
+                {
+                    Expression first_op(expr.get_first_operand());
+                    Expression second_op(expr.get_second_operand());
+
+                    Type first_type(first_op.get_type());
+                    Type second_type(second_op.get_type());
+
+                    Source first_op_src;
+                    Source second_op_src;
+
+                    if (first_type.is_generic_vector() && second_type.is_generic_vector())
+                    {
+                        //Relational Operators (<, >, <=, ...)
+                        if (expr.get_operation_kind() == Expression::LOWER_THAN
+                           )
+                        {
+                            //if x86 architecture
+
+                            result 
+                                << "__builtin_ia32_cmpltps("
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << ", "
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                << ")"
+                                ;
+
+                            return uniquestr(result.str().c_str());
+                        }
+                    }
+                }
+            }
+        }
+
+        // rofi was here
+        // if (FindAttribute(_this->_sl, LANG_HLT_SIMD_FOR_INFO).do_(ast))
+        // {
+        //     // this->set_width(obtener_width_del_atributo); 
+        // }
+        if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
+        {
+            result << "__attribute__((vector_size(" << _this->_width << "))) ";
+
+            return uniquestr(result.str().c_str());
+        }
+        else if(FindFunction(_this->_sl, BUILTIN_IV_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1){
+                internal_error("Wrong number of arguments in %s", BUILTIN_IV_NAME);
+            }
+
+            result << recursive_prettyprint(arg_list[0].get_ast(), data);
+
+            return uniquestr(result.str().c_str());
+        }
+        else if (FindFunction(_this->_sl, BUILTIN_VE_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 1)
+            {
+                internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
+            }
+
+            result 
+                << scalar_expansion(arg_list[0])
+                ;
+
+            return uniquestr(result.str().c_str());
+        }
+        else if(FindFunction(_this->_sl, BUILTIN_GF_NAME).do_(ast))
+        {
+            int i, j;
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (!arg_list[0].is_id_expression())
+            {
+                internal_error("Wrong arguments in %s", BUILTIN_GF_NAME);
+            }
+
+            Symbol func_sym = arg_list[0].get_id_expression().get_symbol(); 
+
+            //If the generic function does not exist = New Naive
+            if(!generic_functions.contains_generic_definition(func_sym))
+            {
+                generic_functions.add_naive(func_sym);
+                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
+            }
+            //If generic function exists
+            else if (!generic_functions.contains_specific_definition(func_sym, _this->_device_name, _this->_width))
+            {
+                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
+            }
+
+            //Call to the new function
+            result 
+                << _this->get_replaced_func_name(
+                        func_sym.get_name(), _this->_width)
+                << "("
+                ;
+
+            for (i=1; i<(arg_list.size()-1); i++)
+            {
+                result
+                    << recursive_prettyprint(arg_list[i].get_ast(), data) << ", ";
+            }
+            result
+                << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
+
+            return uniquestr(result.str().c_str());
+        }
+        else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))
+        {
+            ForStatement for_stmt(ast, _this->_sl);
+
+            Expression lower_exp = *((Expression *)ast.get_attribute(LANG_HLT_SIMD_EPILOG).get_pointer());
+            Expression upper_exp = for_stmt.get_upper_bound();
+            Expression step_exp = for_stmt.get_step();
+
+            if (upper_exp.is_constant() && lower_exp.is_constant() && step_exp.is_constant())
+            {
+                bool valid_upper, valid_lower, valid_step;
+
+                int upper_i = upper_exp.evaluate_constant_int_expression(valid_upper);
+                int lower_i = lower_exp.evaluate_constant_int_expression(valid_lower);
+                int step_i = step_exp.evaluate_constant_int_expression(valid_step);
+
+                if (valid_upper && valid_lower && valid_step)
+                {
+                    if (((upper_i - lower_i)%step_i) == 0)
+                    {
+                        return "";
+                    }
+                }
+            }
+            //Replacements don't have to applied
+            return ReplaceSrcGenericFunction::prettyprint_callback(a, data);
+        }
+
+        return NULL;
+    }
+
+    return c;
+}
+
+
+void ReplaceSrcSMP::add_replacement(Symbol sym, const std::string& str)
+{
+    ReplaceSrcGenericFunction::add_replacement(sym, str);
+}
+
+
+void ReplaceSrcSMP::add_this_replacement(const std::string& str)
+{
+    ReplaceSrcGenericFunction::add_this_replacement(str);
+}
+
+
+Source ReplaceSrcSMP::replace(AST_t a) const
+{
+    Source result;
+
+    const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSrcSMP::prettyprint_callback, (void*)this);
+
+    // Not sure whether this could happen or not
+    if (c != NULL)
+    {
+        result << std::string(c);
+    }
+
+    // The returned pointer came from C code, so 'free' it
+    free((void*)c);
+
+    return result;
+}
 
 static std::string smp_outline_name(const std::string &task_name)
 {
@@ -161,12 +608,223 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         Source &initial_code,
         Source &replaced_outline)
 {   
-    ReplaceSrcIdExpression replace_src(scope_link);
+    int i, counter;
+    bool constant_evaluation;
+    AST_t ast;
+
+    ObjectList<AST_t> builtin_ast_list;
+    ObjectList<Expression> arg_list;
+
+    ReplaceSrcSMP replace_src(scope_link, _vector_width);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
     
     replace_src.add_this_replacement("_args->_this");
 
+    //FIXME: This code could be replicated among devices
+    //Statements replication and loop unrolling
+    builtin_ast_list =
+        body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ForStatement for_stmt (*it, scope_link);
+        const int min_stmt_size = (Integer)for_stmt.get_ast().
+                get_attribute(LANG_HLT_SIMD_FOR_INFO);
+
+        //Unrolling
+        Expression it_exp = for_stmt.get_iterating_expression();
+        AST_t it_exp_ast = it_exp.get_ast();
+        Source it_exp_source;
+
+        if (it_exp.is_unary_operation())
+        {
+            it_exp_source
+                << it_exp.get_unary_operand();
+        } 
+        else if (it_exp.is_binary_operation())
+        {
+            it_exp_source
+                << it_exp.get_first_operand();
+        }
+        else
+        {
+            internal_error("Wrong Expression in ForStatement iterating Expression", 0);
+        }
+
+        it_exp_source
+            << " += "
+            << (for_stmt.get_step().evaluate_constant_int_expression(constant_evaluation)
+                    * (_vector_width / min_stmt_size))
+            ;
+
+        it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+
+        //Statements Replication
+        Statement stmt = for_stmt.get_loop_body();
+    
+        if (stmt.is_compound_statement())
+        {
+            ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+
+            for (ObjectList<Statement>::iterator it = stmt_list.begin();
+                    it != stmt_list.end();
+                    it++)
+            {
+                Statement& statement = (Statement&)*it;
+
+                if (statement.is_expression())
+                {
+                    Expression exp = statement.get_expression();
+                    if (exp.is_assignment() || exp.is_operation_assignment())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
+                        {
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
+
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
+                            {
+                                Source new_stmt_src;
+
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
+                                    ;
+
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
+
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
+                            }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //__builtin_vector_loop AST replacement
+    /*
+    builtin_ast_list = 
+        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ast = (AST_t)*it ;
+        Expression expr(ast, scope_link);
+
+        arg_list = expr.get_argument_list();
+        if (arg_list.size() != 3){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VL_NAME);
+        }
+
+        Source builtin_vl_replacement;
+
+        builtin_vl_replacement << arg_list[0].get_id_expression()
+            << "+="
+            << (arg_list[1].evaluate_constant_int_expression(constant_evaluation) 
+            * (_vector_width / arg_list[2].evaluate_constant_int_expression(constant_evaluation)))
+            ;
+
+//        builtin_vl_replacement << "((" << arg_list[0].get_id_expression().get_unqualified_part()
+//            << ")/(" << _vector_width << "/" << arg_list[1].get_id_expression().get_unqualified_part() << "))";
+
+        ast.replace(builtin_vl_replacement.parse_expression(ast, scope_link));
+    }
+*/
+    //__builtin_vector_reference AST replacement
+    builtin_ast_list =
+        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ast = (AST_t)*it;
+        Expression expr(ast, scope_link);
+
+        ObjectList<Expression> arg_list = expr.get_argument_list();
+        if (arg_list.size() != 1){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
+        }
+
+        Source builtin_vr_replacement;
+
+        builtin_vr_replacement << "*((" 
+            << arg_list[0].get_type()
+                .get_generic_vector_to()
+                .get_pointer_to()
+                .get_simple_declaration(scope_link.get_scope(ast),"")
+            << ") &("
+            << arg_list[0]
+            << "))"
+            ;
+
+        ast.replace(builtin_vr_replacement.parse_expression(ast, scope_link));
+    }
+
+    //__builtin_vector_expansion AST replacement
+/*  ObjectList<AST_t> builtin_ve_ast_list =
+             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VE_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ve_ast_list.begin();
+            it != builtin_ve_ast_list.end();
+            it++)
+    {
+        AST_t ast((AST_t)*it) ;
+        Expression expr(ast, scope_link);
+
+        ObjectList<Expression> arg_list = expr.get_argument_list();
+        if (arg_list.size() != 1){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
+        }
+
+        Source builtin_ve_replacement;
+
+        Expression expand_exp = arg_list[0];
+        Type expand_exp_type = expand_exp.get_type();
+
+        builtin_ve_replacement << "(" << expand_exp_type.get_simple_declaration(scope_link.get_scope(body), "") 
+            << " __attribute__((vector_size(" << _vector_width << ")))) "
+            << "{";
+
+        counter = (_vector_width/expand_exp_type.get_size())-1;
+        for (i=0; i<counter; i++)
+        {
+            builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
+                << ",";
+        }
+        
+        builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
+            << "}";
+
+        ast.replace(builtin_ve_replacement.parse_expression(ast, scope_link));
+    }
+*/
     Source copy_setup;
     initial_code
         << copy_setup;
@@ -209,7 +867,6 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                         arg_vla_dims.begin(), arg_vla_dims.end());
 
             // Adjust the type if it is an array
-
             if (repl_type.is_array())
             {
                 repl_type = repl_type.array_element().get_pointer_to();
@@ -302,9 +959,18 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                         replace_src.add_replacement(sym, field_name);
                     }
                 }
+                //USUAL CASE
                 else
                 {
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    if (data_env_info.has_local_copies() && 
+                            (data_env_item.get_type().is_pointer() || data_env_item.get_type().is_scalar_type()))
+                    {
+                        replace_src.add_replacement(sym, "(_" + field_name + ")");
+                    }
+                    else
+                    {
+                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    }
                 }
             }
         }
@@ -319,6 +985,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             it != nonstatic_members.end();
             it++)
     {
+//        replace_src.add_replacement(*it, "(_" + it->get_name() + ")");
         replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
     }
 
@@ -402,6 +1069,30 @@ DeviceSMP::DeviceSMP()
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
 }
 
+void DeviceSMP::pre_run(DTO& dto)
+{
+    // get the translation_unit tree
+    AST_t translation_unit = dto["translation_unit"];
+    // get the scope_link
+    ScopeLink scope_link = dto["scope_link"];
+
+
+    Source intel_builtins;
+#warning
+    intel_builtins
+        << "typedef int __attribute__((vector_size(16))) v4si;\n"
+        << "typedef float __attribute__((vector_size(16))) v4sf;\n"
+        << "v4si __builtin_ia32_cmpltps (v4sf, v4sf);\n"
+        ;
+
+    intel_builtins.parse_global(translation_unit, scope_link);
+}
+
+void DeviceSMP::run(DTO& dto) 
+{
+    DeviceProvider::run(dto);
+}
+
 void DeviceSMP::create_outline(
         const std::string& task_name,
         const std::string& struct_typename,
@@ -415,7 +1106,7 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list;
+    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions_src, generic_declarations_src;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -506,6 +1197,8 @@ void DeviceSMP::create_outline(
         << forward_declaration
         << template_header
         << static_specifier
+        << generic_declarations_src
+        << generic_functions_src
         << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
@@ -513,6 +1206,22 @@ void DeviceSMP::create_outline(
         << instrument_after
         << "}"
         ;
+
+    //generic_functions
+    ReplaceSrcSMP function_replacement(sl, _vector_width);
+
+    std::string generic_declaration_str;
+
+    while(!(generic_declaration_str 
+                = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
+    {
+        generic_declarations_src
+            << generic_declaration_str;
+ 
+        generic_functions_src
+            << generic_functions.get_pending_specific_functions(function_replacement).get_source();
+    } 
+
 
     if (instrumentation_enabled())
     {
@@ -604,7 +1313,7 @@ void DeviceSMP::create_outline(
     }
 
     parameter_list
-        << struct_typename << "* const _args"
+        << struct_typename << "* const __restrict__ _args"
         ;
 
     outline_name
@@ -618,11 +1327,44 @@ void DeviceSMP::create_outline(
     Source private_vars, final_code;
 
     body
+        << local_copies
         << private_vars
         << initial_setup
         << outline_body
         << final_code
         ;
+
+    // Local Copies
+    /*
+    Scope sc = sl.get_scope(reference_tree);
+    Symbol struct_sym = sc.get_symbol_from_name(struct_typename);
+
+    if (struct_sym.is_valid())
+    {
+        Type struct_typename_type = struct_sym.get_type();
+        ObjectList<Symbol> data_member_list(struct_typename_type.get_nonstatic_data_members());
+        int i;
+
+        for (ObjectList<Symbol>::iterator it = data_member_list.begin();
+                it != data_member_list.end();
+                it ++)
+        {
+            const Symbol& sym = (Symbol)*it;
+            const Type& sym_type = sym.get_type();
+
+//            if (sym_type.is_scalar_type() || sym_type.is_pointer())
+            if (sym_type.is_pointer())
+            {
+                local_copies
+                    << sym_type.get_simple_declaration(sc, "_" + sym.get_name())
+                    << " = "
+                    << "_args->" << sym.get_name() 
+                    << ";\n"
+                    ;
+            }
+        }
+    }
+    */
 
     ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
 
@@ -634,11 +1376,6 @@ void DeviceSMP::create_outline(
         {
             Symbol sym = it->get_symbol();
             Type type = sym.get_type();
-
-            if (type.is_reference())
-            {
-                type = type.references_to();
-            }
 
             private_vars
                 << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
@@ -663,6 +1400,28 @@ void DeviceSMP::create_outline(
             final_code
                 << field_name << ".~" << type.get_symbol().get_name() << "();"
                 ;
+        }
+        else if (it->is_firstprivate()
+                // VLA types are handled specially and their declaration has
+                // been generated earlier in this file
+                && !it->is_vla_type())
+        {
+            //Local Copies
+            if (data_environ.has_local_copies())
+            {
+                Symbol sym = it->get_symbol();
+                Type type = sym.get_type();
+
+                if (type.is_pointer() || type.is_scalar_type())
+                {
+                    local_copies
+                        << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())
+                        << " = "
+                        << "_args->" << it->get_field_name() 
+                        << ";\n"
+                        ;
+                }
+            }
         }
     }
 
@@ -704,7 +1463,8 @@ void DeviceSMP::create_outline(
 
             Type t = Source(struct_typename).parse_type(reference_tree, sl);
 
-            member_parameter_list << t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "args");
+            member_parameter_list << 
+                t.get_pointer_to().get_declaration(sl.get_scope(decl_point), " const __restrict__ args");
 
             AST_t member_decl_tree = 
                 member_declaration.parse_member(decl_point,

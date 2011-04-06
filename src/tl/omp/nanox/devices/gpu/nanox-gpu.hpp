@@ -1,36 +1,35 @@
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2011 Barcelona Supercomputing Center 
-                          Centro Nacional de Supercomputacion
-  
+  Centro Nacional de Supercomputacion
+
   This file is part of Mercurium C/C++ source-to-source compiler.
-  
+
   See AUTHORS file in the top level directory for information 
   regarding developers and contributors.
-  
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-  
+
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-  
+
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
---------------------------------------------------------------------*/
+  --------------------------------------------------------------------*/
 
 
-#ifndef NANOX_SMP_HPP
-#define NANOX_SMP_HPP
+#ifndef NANOX_GPU_HPP
+#define NANOX_GPU_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
-#include "tl-simd.hpp"
 
 namespace TL
 {
@@ -38,16 +37,20 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceSMP : public DeviceProvider
+        class DeviceGPU : public DeviceProvider
         {
+            private:
+                std::string _gpuFilename;
+                AST_t _root;
+                std::set<std::string> _taskSymbols;
+
             public:
-
-                virtual void run(DTO& dto);
                 virtual void pre_run(DTO& dto);
+                virtual void run(DTO& dto) { }
 
-                DeviceSMP();
+                DeviceGPU();
 
-                virtual ~DeviceSMP() { }
+                virtual ~DeviceGPU() { }
 
                 virtual void create_outline(
                         const std::string& task_name,
@@ -72,44 +75,32 @@ namespace TL
                         ScopeLink sl,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
-                        
-                virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
-                virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
-
-            private:
-                void do_smp_inline_get_addresses(
-                        const Scope& sc,
-                        const DataEnvironInfo& data_env_info,
-                        Source &copy_setup,
-                        ReplaceSrcIdExpression& replace_src,
-                        bool &err_declared);
-
-                void do_smp_outline_replacements(AST_t body,
-                        ScopeLink scope_link,
-                        const DataEnvironInfo& data_env_info,
-                        Source &initial_code,
-                        Source &replaced_outline);
         };
 
-        class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
+        class ReplaceSrcGPU : public ReplaceSrcIdExpression
         {
+            private:
+                unsigned char * num_generic_vectors;
+
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
-                static const char* recursive_prettyprint (AST_t a, void* data);
-                static std::string get_integer_casting(Type type1, Type type2);
-                static std::string scalar_expansion(Expression exp);
+                static const char* recursive_prettyprint(AST_t a, void* data);
 
             public:
-                ReplaceSrcSMP(ScopeLink sl, int width) 
-                    : ReplaceSrcGenericFunction(sl, "smp", width){}
+                ReplaceSrcGPU(ScopeLink sl) : ReplaceSrcIdExpression(sl)
+                {
+                    num_generic_vectors = new unsigned char(0);
+                }
 
-                void add_replacement(Symbol sym, const std::string& str);
-                void add_this_replacement(const std::string& str);
+                ~ReplaceSrcGPU()
+                {
+                    delete(num_generic_vectors);
+                }
+
                 Source replace(AST_t a) const;
-                Source replace_naive_function(Symbol func_sym, ScopeLink);
-                Source replace_simd_function(Symbol func_sym, ScopeLink);
         };
     }
+
 }
 
-#endif // NANOX_SMP_HPP
+#endif // NANOX_GPU_HPP

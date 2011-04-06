@@ -166,6 +166,9 @@ LIBMCXX_EXTERN type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 
 LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector_size);
 
+LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
+
+LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
@@ -275,6 +278,8 @@ LIBMCXX_EXTERN char is_lvalue_reference_type(type_t* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_type(type_t* t1);
 
 LIBMCXX_EXTERN char is_vector_type(type_t* t);
+
+LIBMCXX_EXTERN char is_generic_vector_type(type_t* t);
 
 LIBMCXX_EXTERN char is_class_type(type_t* possible_class);
 LIBMCXX_EXTERN char is_unnamed_class_type(type_t* possible_class);

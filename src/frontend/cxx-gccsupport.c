@@ -161,6 +161,17 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     ast_location(expression_list));
         }
     }
+    else if (strcmp(attribute_name, "generic_vector") == 0)
+    {
+        if (expression_list != NULL)
+        {
+            running_error("%s: error: attribute 'generic_vector' does not allow arguments",
+                    ast_location(expression_list));
+        }
+
+        gather_info->vector_size = 0;
+        gather_info->is_vector = 1;
+    }
     else if (strcmp(attribute_name, "spu_vector") == 0)
     {
         // Hardcoded to what a SPU can do
