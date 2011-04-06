@@ -62,6 +62,8 @@ libmf03_la_SOURCES = \
                      fortran03-intrinsics.c \
                      fortran03-nodecl.c \
                      fortran03-nodecl.h \
+                     fortran03-modules.h \
+                     fortran03-modules.c \
                      libmf03-common.h \
                      $(END)
 
