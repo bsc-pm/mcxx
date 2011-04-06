@@ -2509,7 +2509,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
     char fields_are_private = 0;
     if (private_or_sequence_seq != NULL)
     {
-        AST it;
         for_each_element(private_or_sequence_seq, it)
         {
             AST private_or_sequence = ASTSon1(it);
@@ -2573,7 +2572,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
 
             type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
 
-            attr_spec_t attr_spec;
             memset(&attr_spec, 0, sizeof(attr_spec));
 
             if (component_attr_spec_list != NULL)
