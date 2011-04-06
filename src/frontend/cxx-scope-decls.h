@@ -37,6 +37,7 @@
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
+#include "cxx-type-decls.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
@@ -309,6 +310,11 @@ enum intent_kind_tag
 
 #endif
 
+// Looking for struct entity_specifiers_tag?
+// Now it is declared in cxx-entity-specs.h in the builddir
+#include "cxx-entity-specs.h"
+
+#if 0
 typedef struct entity_specifiers_tag
 {
     // States if this a static variable
@@ -545,6 +551,7 @@ typedef struct entity_specifiers_tag
     // For functions and classes
     AST definition_tree;
 } entity_specifiers_t;
+#endif
 
 // This is an entry in the scope
 struct scope_entry_tag

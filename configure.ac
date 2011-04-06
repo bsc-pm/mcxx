@@ -59,10 +59,13 @@ AC_PROG_LN_S
 dnl Check GNU Bash.
 AC_PATH_PROG([BASH], [bash], [])
 
+dnl Check python 2.4
+AM_PATH_PYTHON([2.4],, [:])
+
 if test x$BASH = x; then
   # If GNU Bash isn't available, use the current shell and hope for
   # the best.
-  AC_MSG_WARN([GNU Bash not found, falling back to `$SHELL'])
+  AC_MSG_WARN([GNU Bash not found, falling back to $SHELL])
   BASH="$SHELL"
 fi
 

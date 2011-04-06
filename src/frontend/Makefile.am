@@ -245,6 +245,10 @@ BUILT_SOURCES += cxx03.y
 BUILT_SOURCES += cxx-parser.h
 BUILT_SOURCES += c99-parser.h
 
+EXTRA_DIST += gen-symbol-attrs.py
+EXTRA_DIST += cxx-entity-specs.def
+BUILT_SOURCES += cxx-entity-specs.h
+
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
 # Silent rules
@@ -261,6 +265,10 @@ TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
 endif
+
+PYTHON_verbose = $(PYTHON_verbose_$(V))
+PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
+PYTHON_verbose_0 = @echo "  PYTHON" $@;
 
 CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def
@@ -403,3 +411,8 @@ endif
 # breaks parallel compilations since bison gets invoked twice.
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
+
+PYTHON = python
+CLEANFILES += cxx-entity-specs.h
+cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h

@@ -31,7 +31,6 @@
 
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
-#include "cxx-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
