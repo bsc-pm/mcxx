@@ -186,13 +186,12 @@ Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
 
 std::string ReplaceSrcSMP::get_integer_casting(Type type1, Type type2)
 {
-#warning 
-/*    
-    if (type1 != type2)
+    
+    if (type1.is_same_type(type2))
     {
         running_error("True expression and false expression types have to be the same in a conditional operation");
     }
-*/
+
     std::stringstream result;
     std::string basic_type;
 
@@ -1078,7 +1077,6 @@ void DeviceSMP::pre_run(DTO& dto)
 
 
     Source intel_builtins;
-#warning
     intel_builtins
         << "typedef int __attribute__((vector_size(16))) v4si;\n"
         << "typedef float __attribute__((vector_size(16))) v4sf;\n"
