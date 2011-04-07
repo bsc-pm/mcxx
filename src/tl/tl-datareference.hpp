@@ -31,6 +31,7 @@
 #include "tl-langconstruct.hpp"
 #include "tl-source.hpp"
 #include "tl-type.hpp"
+#include <sstream>
 
 namespace TL
 {
@@ -62,19 +63,22 @@ namespace TL
             Type _type;
             Source _size;
             Source _addr;
+            std::stringstream _warnlog;
 
             static bool gather_info_data_expr_rec(Expression expr, 
                     Symbol &base_sym, 
                     Source &size, 
                     Source &addr, 
                     Type& type,
-                    bool enclosing_is_array);
+                    bool enclosing_is_array,
+                    std::stringstream& warnlog);
 
             static bool gather_info_data_expr(Expression &expr, 
                     Symbol &base_sym, 
                     Source &size, 
                     Source &addr,
-                    Type &type);
+                    Type &type,
+                    std::stringstream& warnlog);
 
             static Source safe_expression_size(Type type, Scope sc);
         public:
@@ -86,12 +90,31 @@ namespace TL
              */
             DataReference(Expression expr);
 
+            //! Copy constructor
+            DataReference(const DataReference& data_ref);
+
+            //! Copy assignment operator
+            DataReference& operator=(const DataReference& data_ref);
+
             //! States whether this expression is a data reference
             /*!
               Not all expressions are data references, as defined by this class,
               use this function to check it
               */
             bool is_valid() const;
+
+            //! States whether this expression is a data reference
+            /*!
+              Not all expressions are data references, as defined by this class,
+              use this function to check it
+              */
+            bool is_valid(std::string& reason) const;
+
+            //! Returns the warning log
+            /*!
+              This is the same message as is_valid(std::string&) stores in its first parameter
+              */
+            std::string get_warning_log() const;
 
             //! Gets the base symbol
             /*!

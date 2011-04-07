@@ -194,9 +194,11 @@ namespace TL
                 {
                     DataReference data_ref(*it);
 
-                    if (!data_ref.is_valid()
+                    std::string warning;
+                    if (!data_ref.is_valid(warning)
                             || (!allow_extended_references && !it->is_id_expression()))
                     {
+                        std::cerr << warning;
                         std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
                             << "' is not a valid name for data sharing" << std::endl;
                     }

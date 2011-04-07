@@ -271,8 +271,10 @@ namespace TL
 
                 DataReference expr(ast, construct.get_scope_link());
 
-                if (!expr.is_valid())
+                std::string warning;
+                if (!expr.is_valid(warning))
                 {
+                    std::cerr << warning;
                     std::cerr << construct.get_ast().get_locus() 
                         << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;

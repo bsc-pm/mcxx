@@ -36,19 +36,32 @@ DataReference::DataReference(AST_t ast, ScopeLink scope_link)
     : Expression(ast, scope_link),
     _valid(), _base_symbol(NULL), _type(NULL), _size(), _addr()
 {
-    _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr, _type);
+    _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr, _type, _warnlog);
 }
 
 DataReference::DataReference(Expression expr)
     : Expression(expr.get_ast(), expr.get_scope_link()), 
     _valid(), _base_symbol(NULL), _type(NULL), _size(), _addr()
 {
-    _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr, _type);
+    _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr, _type, _warnlog);
 }
 
 bool DataReference::is_valid() const
 {
+    std::string dummy;
+
+    return is_valid(dummy);
+}
+
+bool DataReference::is_valid(std::string& reason) const
+{
+    reason = _warnlog.str();
     return _valid;
+}
+
+std::string DataReference::get_warning_log() const
+{
+    return _warnlog.str();
 }
 
 Symbol DataReference::get_base_symbol() const
@@ -76,7 +89,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         Source &size, 
         Source &addr, 
         Type &type,
-        bool enclosing_is_array)
+        bool enclosing_is_array,
+        std::stringstream& warnlog)
 {
     if (expr.is_id_expression()
             || expr.is_this_variable())
@@ -94,13 +108,13 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         if (!sym.is_valid())
         {
-            std::cerr << expr.get_ast().get_locus() << ": warning: unknown symbol in data-reference '" << expr.prettyprint() << "'" << std::endl;
+            warnlog << expr.get_ast().get_locus() << ": warning: unknown symbol in data-reference '" << expr.prettyprint() << "'" << std::endl;
             return false;
         }
 
         if (!sym.is_variable())
         {
-            std::cerr << expr.get_ast().get_locus() << ": warning: symbol in data-reference '" << expr.prettyprint() << "' is not a variable" << std::endl;
+            warnlog << expr.get_ast().get_locus() << ": warning: symbol in data-reference '" << expr.prettyprint() << "' is not a variable" << std::endl;
             return false;
         }
 
@@ -133,7 +147,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_size,
                 arr_addr,
                 arr_type,
-                /* enclosing_is_array */ true);
+                /* enclosing_is_array */ true,
+                warnlog);
         if (!b)
         {
             return false;
@@ -149,7 +164,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         }
         else
         {
-            std::cerr << expr.get_ast().get_locus() 
+            warnlog << expr.get_ast().get_locus() 
                 << ": warning: array subscript in data-reference '" 
                 << expr.prettyprint() 
                 << "' is not a variable" << std::endl;
@@ -194,14 +209,14 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 if (!current_type.is_array()
                         && !current_type.is_pointer())
                 {
-                    std::cerr << expr.get_ast().get_locus() 
+                    warnlog << expr.get_ast().get_locus() 
                         << ": warning: array section in data-reference '" 
                         << expr.prettyprint() 
                         << "' is not a pointer or array type" << std::endl;
                 }
                 else if (current_type.is_pointer())
                 {
-                    std::cerr << expr.get_ast().get_locus() 
+                    warnlog << expr.get_ast().get_locus() 
                         << ": warning: array section in data-reference '" 
                         << expr.prettyprint() 
                         << "' is a pointer type but it is not the first section" << std::endl;
@@ -226,7 +241,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_size,
                 arr_addr,
                 arr_type,
-                /* enclosing_is_array */ true);
+                /* enclosing_is_array */ true,
+                warnlog);
         if (!b)
             return false;
 
@@ -282,7 +298,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         size, 
                         addr, 
                         type,
-                        enclosing_is_array);
+                        enclosing_is_array, 
+                        warnlog);
             }
             else if (ref_expr.is_array_subscript())
             {
@@ -292,7 +309,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         size,
                         addr,
                         type,
-                        enclosing_is_array);
+                        enclosing_is_array, 
+                        warnlog);
             }
             else if (ref_expr.is_array_section_range()
                     || ref_expr.is_array_section_size())
@@ -304,7 +322,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         size,
                         addr,
                         type,
-                        enclosing_is_array);
+                        enclosing_is_array,
+                        warnlog);
             }
         }
         else if (expr.get_operation_kind() == Expression::DERREFERENCE)
@@ -319,7 +338,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         size, 
                         addr, 
                         type,
-                        enclosing_is_array);
+                        enclosing_is_array,
+                        warnlog);
             }
             else
             {
@@ -330,7 +350,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         ptr_size, 
                         ptr_addr, 
                         type,
-                        enclosing_is_array);
+                        enclosing_is_array,
+                        warnlog);
 
                 if (!b)
                     return false;
@@ -351,7 +372,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
         }
 
-        std::cerr << expr.get_ast().get_locus() 
+        warnlog << expr.get_ast().get_locus() 
             << ": warning: expression '" 
             << expr.prettyprint() 
             << "' is not a valid data-reference" << std::endl;
@@ -365,7 +386,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         bool b = gather_info_data_expr_rec(shaped_expr, base_sym, 
                 arr_size, arr_addr, 
-                type, /* enclosing_is_array */ true);
+                type, /* enclosing_is_array */ true, warnlog);
 
         if (!b)
             return false;
@@ -386,7 +407,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         if (!type.is_pointer())
         {
-            std::cerr << expr.get_ast().get_locus() 
+            warnlog << expr.get_ast().get_locus() 
                 << ": warning: in data reference '" 
                 << expr.prettyprint() 
                 << "' shaped expression does not have pointer type" << std::endl;
@@ -419,7 +440,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         bool b = gather_info_data_expr_rec(obj_expr, base_sym, 
                 obj_size, obj_addr, 
                 type,
-                /* enclosing_is_array */ false);
+                /* enclosing_is_array */ false, warnlog);
 
         if (!b)
             return false;
@@ -428,7 +449,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!member.is_valid()
                 || !member.is_variable())
         {
-            std::cerr << expr.get_ast().get_locus() 
+            warnlog << expr.get_ast().get_locus() 
                 << ": warning: in data reference '" 
                 << expr.prettyprint() 
                 << "' member is invalid" << std::endl;
@@ -451,7 +472,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         return true;
     }
-    std::cerr << expr.get_ast().get_locus() 
+    warnlog << expr.get_ast().get_locus() 
         << ": warning: data reference '" 
         << expr.prettyprint() 
         << "' is invalid" << std::endl;
@@ -459,9 +480,11 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 }
 
 bool DataReference::gather_info_data_expr(Expression &expr, Symbol& base_sym,
-        Source &size, Source &addr, Type &type)
+        Source &size, Source &addr, 
+        Type &type,
+        std::stringstream& warnlog)
 {
-    return gather_info_data_expr_rec(expr, base_sym, size, addr, type, /* enclosing_is_array */ false);
+    return gather_info_data_expr_rec(expr, base_sym, size, addr, type, /* enclosing_is_array */ false, warnlog);
 }
 
 Source TL::DataReference::safe_expression_size(Type type, Scope sc)
@@ -501,4 +524,31 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
     }
 
     return result;
+}
+
+
+TL::DataReference& TL::DataReference::operator=(const DataReference& data_ref)
+{
+    if (this == &data_ref)
+    {
+        this->_valid = data_ref._valid;
+        this->_base_symbol = data_ref._base_symbol;
+        this->_type = data_ref._type;
+        this->_size = data_ref._size;
+        this->_addr = data_ref._addr;
+        this->_warnlog << data_ref._warnlog.str();
+    }
+    return *this;
+}
+
+TL::DataReference::DataReference(const DataReference& data_ref)
+    : Expression(data_ref),
+    _valid(data_ref._valid),
+    _base_symbol(data_ref._base_symbol),
+    _type(data_ref._type),
+    _size(data_ref._size),
+    _addr(data_ref._addr),
+    _warnlog()
+{
+    this->_warnlog << data_ref._warnlog.str();
 }

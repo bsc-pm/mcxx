@@ -515,8 +515,10 @@ namespace OpenMP
                     {
                         DataReference data_ref(it->get_copy_expression());
 
-                        if (!data_ref.is_valid())
+                        std::string warning;
+                        if (!data_ref.is_valid(warning))
                         {
+                            std::cerr << warning;
                             std::cerr << expr.get_ast().get_locus() 
                                 << ": warning: ignoring invalid data reference '" 
                                 << expr.prettyprint() 
@@ -579,8 +581,10 @@ namespace OpenMP
 
                         DataReference data_ref(expr);
 
-                        if (!data_ref.is_valid())
+                        std::string warning;
+                        if (!data_ref.is_valid(warning))
                         {
+                            std::cerr << warning;
                             std::cerr << expr.get_ast().get_locus() 
                                 << ": warning: ignoring invalid data reference '" 
                                 << expr.prettyprint() 
