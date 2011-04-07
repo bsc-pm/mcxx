@@ -71,6 +71,7 @@ libmf03_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
 					$(top_builddir)/lib/libmcxx-extstruct.la \
                     $(top_builddir)/src/frontend/libmcxx-process.la \
+                    $(sqlite3_LIBS) \
 					$(END)
 
 libmf03_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
@@ -84,7 +85,10 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_builddir)/src/frontend \
 				    -I$(top_srcdir)/src/driver \
                     -fexceptions \
-				    -DPKGDATADIR=\"$(pkgdatadir)\"
+				    -DPKGDATADIR=\"$(pkgdatadir)\" \
+                    $(sqlite3_CFLAGS) \
+                    $(END)
+
 
 # Prescanner
 libmf03_prescanner_la_SOURCES = \
