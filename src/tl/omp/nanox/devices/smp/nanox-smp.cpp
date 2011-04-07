@@ -184,12 +184,12 @@ Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
 }
 
 
-std::string ReplaceSrcSMP::get_integer_casting(Type type1, Type type2)
+std::string ReplaceSrcSMP::get_integer_casting(AST_t ast, Type type1, Type type2)
 {
-    
-    if (type1.is_same_type(type2))
+    if (!type1.is_same_type(type2))
     {
-        running_error("True expression and false expression types have to be the same in a conditional operation");
+        running_error("%s: error: true expression and false expression types have to be the same in a conditional operation",
+                ast.get_locus().c_str());
     }
 
     std::stringstream result;
@@ -278,7 +278,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     if (true_exp.get_type().is_vector() && false_exp.get_type().is_vector())
                     {
-                        std::string integer_casting = get_integer_casting(true_exp.get_type(), false_exp.get_type());
+                        std::string integer_casting = get_integer_casting(true_exp.get_ast(), true_exp.get_type(), false_exp.get_type());
 
                         result 
                             << "(" << true_exp.get_type().basic_type().get_vector_to(_vector_width)
