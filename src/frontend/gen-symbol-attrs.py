@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+import string
 
 f = open(sys.argv[1])
 
@@ -24,11 +25,11 @@ def check_file(lines):
   for l in lines:
       fields = l.split("|");
       if len(fields) != 4:
-        raise BaseException, "Invalid number of fields"
+        raise Exception, "Invalid number of fields"
 
 def get_up_to_matching_paren(s):
     if (s[0] != '('):
-        raise BaseException, "String must start with ("
+        raise Exception, "String must start with ("
     level = 1
     for i in range(1, len(s)):
         c = s[i]
@@ -40,7 +41,7 @@ def get_up_to_matching_paren(s):
                 return s[1:i]
         else:
             pass
-    raise BaseException, "No matching left parent"
+    raise Exception, "No matching left parent"
 
 
 def print_type_and_name(_type, name):
@@ -76,7 +77,7 @@ def print_type_and_name(_type, name):
             num_name = field_names[0]
             list_name = field_names[1]
         else:
-            raise BaseException("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+            raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
         return print_type_and_name("integer", num_name) + print_type_and_name("pointer(" + type_name + ")", list_name) 
     elif (_type.startswith("static_array")):
         (type_name, size) = get_up_to_matching_paren(_type[len("static_array"):]).split(",")
@@ -88,13 +89,13 @@ def print_type_and_name(_type, name):
             num_name = field_names[0]
             list_name = field_names[1]
         else:
-            raise BaseException("Invalid number of fields in static_array name. Only 1 or 2 comma-separated are allowed")
+            raise Exception("Invalid number of fields in static_array name. Only 1 or 2 comma-separated are allowed")
         type_name = type_name.strip(" \n")
         size = size.strip(" \n")                                                                          
         (t, n, s) = print_type_and_name(type_name, list_name)[0]
         return print_type_and_name("integer", num_name) + [(t, n, s + "[" + size + "]")] 
     else:
-        raise BaseException("Invalid type %s" % (_type))
+        raise Exception("Invalid type %s" % (_type))
 
 def print_entity_specifiers(lines):
     print """
@@ -116,7 +117,7 @@ typedef struct entity_specifiers_tag\n{"""
           elif (current_language == "fortran" and language == "all"):
               print "#endif // FORTRAN_SUPPORT"
           else: 
-              raise BaseException("Invalid sequence of languages from %s -> %s" % (current_language, language))
+              raise Exception("Invalid sequence of languages from %s -> %s" % (current_language, language))
           current_language = language
       descr = description.strip(" \n")
       if (descr):
@@ -129,10 +130,48 @@ typedef struct entity_specifiers_tag\n{"""
     print ""
     print "#endif"
 
+def print_fortran_modules_functions(lines):
+    attr_names = []
+    _format = []
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      if (_type == "bool"):
+          attr_names.append(name)
+          _format.append("%d")
+      elif (_type == "integer"):
+          attr_names.append(name)
+          _format.append("%d")
+      elif (_type == "AST"):
+          attr_names.append(name)
+          _format.append("%d")
+      elif (_type == "type"):
+          attr_names.append(name)
+          _format.append("%d")
+      elif (_type == "string"):
+          attr_names.append(name)
+          _format.append("%Q")
+      else:
+          pass
+    print "#ifndef FORTRAN03_MODULES_BITS_H"
+    print "#define FORTRAN03_MODULES_BITS_H"
+    print ""
+    print "static const char * attr_field_names = \"" + string.join(attr_names, ", ") + "\";";
+    print "static char * symbol_get_attribute_values(scope_entry_t* sym)"
+    print "{"
+    print "    const char *format = \"" + string.join(_format, ", ") + "\";"
+    print "    char * result = sqlite3_mprintf(format, " + string.join(map(lambda x : "sym->entity_specs." + x, attr_names), ", ") + ");"
+    print "    return result;"
+    print "}"
+    print "#endif // FORTRAN03_MODULES_BITS_H"
+
+
 lines = loadlines(f)
 check_file(lines)
 
 if op == "entity_specifiers":
     print_entity_specifiers(lines)
+elif op == "fortran_modules":
+    print_fortran_modules_functions(lines)
 else:
-    raise BaseException("Invalid operation %s" % (op))
+    raise Exception("Invalid operation %s" % (op))
