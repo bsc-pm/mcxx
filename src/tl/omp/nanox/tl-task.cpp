@@ -603,7 +603,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
-            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+            // bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+            bool has_shared_data_sharing = true;
 
             Source copy_sharing;
             if (has_shared_data_sharing)

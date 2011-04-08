@@ -178,10 +178,6 @@ void DeviceCUDA::do_gpu_outline_replacements(
 		{
 			replace_src.add_replacement(sym, "_args->" + field_name);
 		}
-		else
-		{
-			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
-		}
 	}
 
 
