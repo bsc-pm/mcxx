@@ -304,6 +304,11 @@ typedef struct compilation_configuration_tag
     int column_width;
 
     char disable_intrinsics;
+
+    int num_module_dirs;
+    const char** module_dirs;
+
+    const char* module_out_dir;
 #endif
     source_kind_t force_source_kind;
 
