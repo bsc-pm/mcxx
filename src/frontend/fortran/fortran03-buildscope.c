@@ -3,6 +3,8 @@
 #include "fortran03-exprtype.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-intrinsics.h"
+#include "fortran03-modules.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
@@ -14,7 +16,6 @@
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
-#include "fortran03-intrinsics.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -431,6 +432,9 @@ static void build_scope_module_program_unit(AST program_unit,
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(module_body));
+
+    // Store the module in a file
+    dump_module_info(new_entry);
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,

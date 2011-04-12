@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 
+
 static void create_storage(sqlite3**, const char*);
 static void init_storage(sqlite3*);
 static void dispose_storage(sqlite3*);
@@ -23,14 +24,86 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t);
 
 static type_t* load_type(sqlite3* handle, sqlite3_int64 oid);
 static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_int64 oid);
+static AST load_ast(sqlite3* handle, sqlite3_int64 oid);
 
 static const char *get_path_of_module(const char* module_name, char is_creation);
 
 static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3_int64 module_symbol);
 
+static sqlite3_int64 insert_ast(sqlite3* handle, AST a);
+static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value);
+static void insert_extra_attr_symbol(sqlite3* handle, scope_entry_t* symbol, const char* name, scope_entry_t* ref);
+static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const char* name, type_t* ref);
+static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr);
+static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const char* name, void* data,
+        sqlite3_int64 (*fun)(sqlite3* handle, void* data));
+static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
+static char query_contains_field(int ncols, char** names, const char* field_name, int *result);
+
+typedef
+struct extra_syms_tag
+{
+    sqlite3* handle;
+    int num_syms;
+    scope_entry_t** syms;
+} extra_syms_t;
+
+typedef
+struct extra_types_tag
+{
+    sqlite3* handle;
+    int num_types;
+    type_t** types;
+} extra_types_t;
+
+typedef
+struct 
+{
+    sqlite3* handle;
+    scope_entry_t* symbol;
+} extra_gcc_attrs_t;
+
+static void get_extended_attribute(sqlite3* handle, sqlite3_int64 oid, const char* attr_name,
+        void *extra_info,
+        int (*get_extra_info_fun)(void *datum, int ncols, char **values, char **names));
+
+static int get_extra_syms(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+static int get_extra_types(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+typedef 
+struct
+{
+    sqlite3* handle;
+    scope_entry_t* symbol;
+} extra_default_argument_info_t;
+
+static int get_extra_default_argument_info(void *datum,
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+static int get_extra_gcc_attrs(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+#include "fortran03-modules-bits.h"
+
 void dump_module_info(scope_entry_t* module)
 {
-    ERROR_CONDITION(module->kind = SK_MODULE, "Invalid symbol!", 0);
+    ERROR_CONDITION(module->kind != SK_MODULE, "Invalid symbol!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "[MODULES] Dumping module '%s'\n", module->symbol_name);
+    }
 
     sqlite3* handle = NULL;
     create_storage(&handle, module->symbol_name);
@@ -42,6 +115,11 @@ void dump_module_info(scope_entry_t* module)
     finish_module_file(handle, module->symbol_name, module_oid);
 
     dispose_storage(handle);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "[MODULES] Finished with dumping of module '%s'\n", module->symbol_name);
+    }
 }
 
 static void load_storage(sqlite3** handle, const char* filename)
@@ -71,8 +149,14 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 static void create_storage(sqlite3** handle, const char* module_name)
 {
     const char* filename = get_path_of_module(module_name, /* is_creation */ 1);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "[MODULES] File used will be '%s'\n", filename);
+    }
+
     // Make sure the file has been removed
-    if (access(filename, F_OK))
+    if (access(filename, F_OK) == 0)
     {
         if (remove(filename) != 0)
         {
@@ -101,8 +185,6 @@ static void run_query(sqlite3* handle, const char* query)
     sqlite3_free(errmsg);
 }
 
-const char* internal_attribute_list = "";
-
 static void init_storage(sqlite3* handle)
 {
     {
@@ -111,7 +193,7 @@ static void init_storage(sqlite3* handle)
     }
 
     {
-        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(name, kind, type, file, line, %s);", internal_attribute_list);
+        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(name, kind, type, file, line, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
@@ -133,7 +215,7 @@ static void init_storage(sqlite3* handle)
     }
 
     {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY_KEY(oid, ptr));";
+        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid, ptr));";
         run_query(handle, create_temp_mapping);
     }
 }
@@ -464,7 +546,7 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
 
 static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value)
 {
-    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%p, %Q, %d);",
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%p, %Q, %lld);",
            symbol, name, value); 
     run_query(handle, insert_extra_attr);
     sqlite3_free(insert_extra_attr);
@@ -474,9 +556,22 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
         sqlite3_int64 (*fun)(sqlite3* handle, void* data))
 {
     sqlite3_int64 m = fun(handle, data);
-    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%p, %Q, %d);",
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%p, %Q, %lld);",
            symbol, name, m); 
     run_query(handle, insert_extra_attr);
+    sqlite3_free(insert_extra_attr);
+}
+
+static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr)
+{
+    insert_ast(handle, gcc_attr->expression_list);
+    char *name_and_tree = sqlite3_mprintf("%s|%p", 
+            gcc_attr->attribute_name,
+            gcc_attr->expression_list);
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%p, %Q, %Q);",
+           symbol, name, name_and_tree); 
+    run_query(handle, insert_extra_attr);
+    sqlite3_free(name_and_tree);
     sqlite3_free(insert_extra_attr);
 }
 
@@ -501,13 +596,6 @@ UNUSED_PARAMETER static void insert_extra_attr_ast(sqlite3* handle, scope_entry_
             (sqlite3_int64(*)(sqlite3*, void*))(insert_ast));
 }
 
-static sqlite3_int64 insert_gathered_gcc_attribute(sqlite3* handle, void *p)
-{
-    // We cannot currently store the decl_context_t
-    gather_gcc_attribute_t* g = (gather_gcc_attribute_t*)p;
-    return insert_ast(handle, g->expression_list);
-}
-
 static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p)
 {
     // We cannot currently store the decl_context_t
@@ -515,7 +603,112 @@ static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p)
     return insert_ast(handle, d->argument);
 }
 
-#include "fortran03-modules-bits.h"
+static char query_contains_field(int ncols, char** names, const char* field_name, int *result)
+{
+    int i; 
+    for (i = 0; i < ncols; i++)
+    {
+        if ((strlen(names[i]) == strlen(field_name))
+                && (sqlite3_strnicmp(names[i], field_name, strlen(names[i])) == 0))
+        {
+            *result = i;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+
+static int get_extra_syms(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_syms_t* p = (extra_syms_t*)datum;
+
+    char *attr_value = values[0];
+
+    P_LIST_ADD(p->syms, p->num_syms, load_symbol(p->handle, atoll(attr_value)));
+
+    return 0;
+}
+
+static int get_extra_types(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_types_t* p = (extra_types_t*)datum;
+
+    char *attr_value = values[0];
+
+    P_LIST_ADD(p->types, p->num_types, load_type(p->handle, atoll(attr_value)));
+
+    return 0;
+}
+
+static int get_extra_gcc_attrs(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_gcc_attrs_t* p = (extra_gcc_attrs_t*)datum;
+
+    char *attr_value = strdup(values[0]);
+
+    char *q = strchr(attr_value, '|');
+    ERROR_CONDITION(p == NULL, "Wrong field!", 0);
+    *q = '\0';
+
+    const char* attr_name = attr_value;
+    const char* tree = q+1;
+
+    p->symbol->entity_specs.num_gcc_attributes++;
+    ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
+            "Too many gcc attributes", 0);
+    p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
+    p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
+        load_ast(p->handle, atoll(tree));
+
+    free(attr_value);
+
+    return 0;
+}
+
+static int get_extra_default_argument_info(void *datum,
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_default_argument_info_t* p = (extra_default_argument_info_t*)datum;
+
+    default_argument_info_t* d = calloc(1, sizeof(*d));
+    // We are not storing the context yet
+    d->context = CURRENT_COMPILED_FILE->global_decl_context;
+    d->argument = load_ast(p->handle, atoll(values[0]));
+
+    P_LIST_ADD(p->symbol->entity_specs.default_argument_info, p->symbol->entity_specs.num_parameters, d);
+
+    return 0;
+}
+
+static void get_extended_attribute(sqlite3* handle, sqlite3_int64 oid, const char* attr_name,
+        void *extra_info,
+        int (*get_extra_info_fun)(void *datum, int ncols, char **values, char **names))
+{
+    char * query = sqlite3_mprintf("SELECT value FROM attributes WHERE symbol = %lld AND name = %Q;",
+         oid, attr_name);
+
+    char * errmsg = NULL;
+    if (sqlite3_exec(handle, query, get_extra_info_fun, extra_info, &errmsg) != SQLITE_OK)
+    {
+        running_error("Error while running query: %s\n", errmsg);
+    }
+
+    sqlite3_free(query);
+}
+
 
 static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 {
@@ -549,9 +742,11 @@ typedef struct
     scope_entry_t* symbol;
 } symbol_handle_t;
 
-static int get_symbol(void *datum, int ncols UNUSED_PARAMETER, 
+
+static int get_symbol(void *datum, 
+        int ncols,
         char **values, 
-        char **names UNUSED_PARAMETER)
+        char **names)
 {
     symbol_handle_t* symbol_handle = (symbol_handle_t*)datum;
 
@@ -573,6 +768,8 @@ static int get_symbol(void *datum, int ncols UNUSED_PARAMETER,
     (*result)->file = filename;
     (*result)->line = line;
     (*result)->type_information = load_type(handle, type_oid);
+
+    get_extra_attributes(handle, ncols, values, names, oid, *result);
 
     return 0;
 }
@@ -873,3 +1070,4 @@ static type_t* load_type(sqlite3* handle, sqlite3_int64 oid)
 
     return type_handle.type;
 }
+
