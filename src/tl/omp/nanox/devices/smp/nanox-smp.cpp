@@ -1078,23 +1078,32 @@ void DeviceSMP::pre_run(DTO& dto)
 
     scalar_functions 
         << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
+        << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
         ;
 
+    //SSE2
     intel_builtins
-        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));\n \
-            float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));\n"
+        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
+        //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
+        //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
         ;
 
     //Global parsing
     scalar_functions.parse_global(translation_unit, scope_link);
     intel_builtins.parse_global(translation_unit, scope_link);
 
-
-    //Predefined functions
     Scope scope = scope_link.get_scope(translation_unit);
 
+    //Default functions
     int width = 16;
+    //Float
     generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtps"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
+    //Double
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtpd"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
 
 }
 
