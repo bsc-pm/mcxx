@@ -91,6 +91,10 @@ typedef struct translation_unit_tag
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
 
+#ifdef FORTRAN_SUPPORT
+    rb_red_blk_tree *module_cache;
+#endif // FORTRAN_SUPPORT
+
     // Opaque pointer used when running compiler phases
     void *dto;
 } translation_unit_t;

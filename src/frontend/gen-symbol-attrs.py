@@ -158,7 +158,7 @@ def insert_extra_attr_code(_type, name, suffix):
             list_name = field_names[1]
         else:
             raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
-        _insert_code.append(insert_extra_attr_code("integer", num_name, "")[0])
+        # _insert_code.append(insert_extra_attr_code("integer", num_name, "")[0])
         _insert_code.append("{ int i; for (i = 0; i < sym->entity_specs." + num_name + "; i++) {");
         _insert_code = _insert_code + insert_extra_attr_code(type_name, list_name, "[i]");
         _insert_code.append("} }");
@@ -305,11 +305,11 @@ def print_fortran_modules_functions(lines):
           _format.append("%d")
       elif (_type == "AST"):
           attr_names.append(name)
-          _format.append("%p")
+          _format.append("%lld")
           _insert_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
       elif (_type == "type"):
           attr_names.append(name)
-          _format.append("%p")
+          _format.append("%lld")
           _insert_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
       elif (_type == "string"):
           attr_names.append(name)

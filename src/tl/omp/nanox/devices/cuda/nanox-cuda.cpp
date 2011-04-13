@@ -72,6 +72,11 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 		Symbol sym = data_ref.get_base_symbol();
 		Type type = sym.get_type();
 
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+				"Invalid data for copy symbol", 0);
+
 		if (type.is_reference())
 			type = type.references_to();
 
@@ -125,13 +130,6 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 			err_declared = true;
 		}
 
-		DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
-		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-				"Invalid data for copy symbol", 0);
-
-		// std::string field_addr = "_args->" + data_env_item.get_field_name();
-
 		copy_setup
 			<< type.get_declaration(sc, copy_name) << ";"
 			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
@@ -172,18 +170,24 @@ void DeviceCUDA::do_gpu_outline_replacements(
 		const std::string field_name = data_env_item.get_field_name();
 
 		if (data_env_item.is_private())
-			continue;
-
-		if (data_env_item.is_copy())
+        {
+            // Do nothing as they are private, we create a variable with the
+            // same original name
+        }
+        else if (data_env_item.is_firstprivate())
 		{
 			replace_src.add_replacement(sym, "_args->" + field_name);
 		}
-		else
+		else if (data_env_item.is_shared())
 		{
+            std::cerr << "--SHARED--" << std::endl;
 			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
 		}
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
 	}
-
 
 	if (create_translation_function())
 	{

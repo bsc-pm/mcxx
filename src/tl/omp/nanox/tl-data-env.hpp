@@ -46,7 +46,7 @@ namespace TL
                 Symbol _sym;
                 Type _type;
                 std::string _field_name;
-                bool _is_copy;
+                bool _is_firstprivate;
                 bool _is_raw_buffer;
                 bool _is_vla_type;
                 bool _is_private;
@@ -58,7 +58,7 @@ namespace TL
                     : _sym(NULL), 
                     _type(NULL),
                     _field_name(""), 
-                    _is_copy(false),
+                    _is_firstprivate(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
@@ -77,7 +77,7 @@ namespace TL
                     : _sym(sym), 
                     _type(type),
                     _field_name(field_name),
-                    _is_copy(false),
+                    _is_firstprivate(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
@@ -104,22 +104,23 @@ namespace TL
                     return _field_name;
                 }
 
-                //! States if this item is to be copied
-                bool is_copy() const
-                {
-                    return _is_copy;
-                }
-
-                //! States if this item is firstprivate (to be copied)
+                //! States if this item is firstprivate (its value to be copied in)
                 bool is_firstprivate() const
                 {
-                    return _is_copy;
+                    return _is_firstprivate;
+                }
+
+                //! States if this item is shared (not firstprivate nor private)
+                bool is_shared() const
+                {
+                    return !is_firstprivate()
+                        && !is_private();
                 }
 
                 //! Sets this item to be copied
-                DataEnvironItem& set_is_copy(bool b)
+                DataEnvironItem& set_is_firstprivate(bool b)
                 {
-                    _is_copy = b;
+                    _is_firstprivate = b;
                     return *this;
                 }
 

@@ -454,7 +454,7 @@ static void do_smp_ocl_outline_replacements(AST_t body,
         else
         {
             // If this is not a copy this corresponds to a SHARED entity
-            if (!data_env_item.is_copy())
+            if (!data_env_item.is_firstprivate())
             {
                 if (type.is_array())
                 {

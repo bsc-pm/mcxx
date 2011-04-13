@@ -517,9 +517,18 @@ void DeviceSMP::do_smp_inline_get_addresses(
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
 
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
         DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+        bool is_shared = data_env_item.is_shared();
+
         Type type = sym.get_type();
+
 
         if (data_env_item.is_vla_type())
         {
@@ -540,33 +549,14 @@ void DeviceSMP::do_smp_inline_get_addresses(
                     arg_vla_dims.begin(), arg_vla_dims.end());
         }
 
-        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
-        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
-
-        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
-
-
-        bool requires_indirect = false;
-
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
         }
-        if (is_private
-                || !type.is_pointer())
-        {
-            requires_indirect = true;
-            type = type.get_pointer_to();
-        }
 
-        if (!is_private
-                && (data_ref.is_array_section_range()
-                    || data_ref.is_array_section_size()))
+        if (is_shared)
         {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.get_data_type().array_element().get_pointer_to();
-            requires_indirect = false;
+            type = type.get_pointer_to();
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -579,18 +569,13 @@ void DeviceSMP::do_smp_inline_get_addresses(
             err_declared = true;
         }
 
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
-
-        // std::string field_addr = "_args->" + data_env_item.get_field_name();
-
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
             << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        if (!requires_indirect)
+        if (!is_shared)
         {
             replace_src.add_replacement(sym, copy_name);
         }
@@ -842,48 +827,10 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         Type type = sym.get_type();
         const std::string field_name = data_env_item.get_field_name();
 
-        if (data_env_item.is_vla_type())
-        {
-            // These do not require replacement because we define a
-            // local variable for them
-
-            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
-
-            ObjectList<Source> arg_vla_dims;
-            for (ObjectList<Source>::iterator it = vla_dims.begin();
-                    it != vla_dims.end();
-                    it++)
-            {
-                Source new_dim;
-                new_dim << "_args->" << *it;
-
-                arg_vla_dims.append(new_dim);
-            }
-
-            // Now compute a replacement type which we will use to declare the proper type
-            Type repl_type = 
-                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
-                        arg_vla_dims.begin(), arg_vla_dims.end());
-
-            // Adjust the type if it is an array
-            if (repl_type.is_array())
-            {
-                repl_type = repl_type.array_element().get_pointer_to();
-            }
-
-            initial_code
-                << repl_type.get_declaration(sym.get_scope(), sym.get_name())
-                << "="
-                << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
-                << "("
-                << "_args->" << field_name
-                << ");"
-                ;
-        }
-        else
+        if (!data_env_item.is_vla_type())
         {
             // If this is not a copy this corresponds to a SHARED entity
-            if (!data_env_item.is_copy())
+            if (data_env_item.is_shared())
             {
                 if (type.is_array())
                 {
@@ -912,10 +859,25 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                     replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
             }
-            // This is a copy, so it corresponds to a FIRSTPRIVATE entity (or something to be copied)
-            else
+            // Firstprivate entity (or something to be copied)
+            else if (data_env_item.is_firstprivate())
             {
-                if (data_env_item.is_raw_buffer())
+                // This is the usual path for firstprivates
+                if (!data_env_item.is_raw_buffer())
+                {
+                    if (data_env_info.has_local_copies() && 
+                            (data_env_item.get_type().is_pointer() 
+                             || data_env_item.get_type().is_scalar_type()))
+                    {
+                        replace_src.add_replacement(sym, "(_" + field_name + ")");
+                    }
+                    else
+                    {
+                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    }
+                }
+                // Raw buffers char[sizeof(ClassName]) are handled here
+                else if (data_env_item.is_raw_buffer())
                 {
                     C_LANGUAGE()
                     {
@@ -958,20 +920,57 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                         replace_src.add_replacement(sym, field_name);
                     }
                 }
-                //USUAL CASE
                 else
                 {
-                    if (data_env_info.has_local_copies() && 
-                            (data_env_item.get_type().is_pointer() || data_env_item.get_type().is_scalar_type()))
-                    {
-                        replace_src.add_replacement(sym, "(_" + field_name + ")");
-                    }
-                    else
-                    {
-                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                    }
+                    running_error("Code unreachable", 0);
                 }
             }
+            else
+            {
+                running_error("Code unreachable", 0);
+            }
+        }
+        // This is a bit redundant but makes thing a lot easier
+        else if (data_env_item.is_vla_type())
+        {
+            // These do not require replacement because we define a
+            // local variable for them
+            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+            ObjectList<Source> arg_vla_dims;
+            for (ObjectList<Source>::iterator it = vla_dims.begin();
+                    it != vla_dims.end();
+                    it++)
+            {
+                Source new_dim;
+                new_dim << "_args->" << *it;
+
+                arg_vla_dims.append(new_dim);
+            }
+
+            // Now compute a replacement type which we will use to declare the proper type
+            Type repl_type = 
+                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                        arg_vla_dims.begin(), arg_vla_dims.end());
+
+            // Adjust the type if it is an array
+            if (repl_type.is_array())
+            {
+                repl_type = repl_type.array_element().get_pointer_to();
+            }
+
+            initial_code
+                << repl_type.get_declaration(sym.get_scope(), sym.get_name())
+                << "="
+                << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
+                << "("
+                << "_args->" << field_name
+                << ");"
+                ;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
     }
 
@@ -1104,7 +1103,8 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions_src, generic_declarations_src;
+    Source result, body, outline_name, full_outline_name, parameter_list,
+           local_copies, generic_functions_src, generic_declarations_src;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -1398,19 +1398,21 @@ void DeviceSMP::create_outline(
             final_code
                 << field_name << ".~" << type.get_symbol().get_name() << "();"
                 ;
-        }
-        else if (it->is_firstprivate()
-                // VLA types are handled specially and their declaration has
-                // been generated earlier in this file
+        } 
+        // VLA types are handled specially and their declaration has
+        // been generated earlier in this file
+        else if (it->is_firstprivate() 
                 && !it->is_vla_type())
         {
-            //Local Copies
+            // Local Copies
             if (data_environ.has_local_copies())
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
-                if (type.is_pointer() || type.is_scalar_type())
+                // Only pointers or scalars are cached locally
+                if (type.is_pointer() 
+                        || type.is_scalar_type())
                 {
                     local_copies
                         << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())

@@ -67,31 +67,23 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
         OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
-        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+        bool is_shared = data_env_item.is_shared();
 
         Type type = sym.get_type();
-
-        bool requires_indirect = false;
 
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
         }
-        if (is_private
-                || !type.is_pointer())
-        {
-            requires_indirect = true;
-            type = type.get_pointer_to();
-        }
 
-        if (!is_private
-                && (data_ref.is_array_section_range()
-                    || data_ref.is_array_section_size()))
+        if (is_shared)
         {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.get_data_type().array_element().get_pointer_to();
-            requires_indirect = false;
+            type = type.get_pointer_to();
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -104,20 +96,13 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
             err_declared = true;
         }
 
-        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
-
-        // std::string field_addr = "_args->" + data_env_item.get_field_name();
-
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
             << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        if (!requires_indirect)
+        if (!is_shared)
         {
             replace_src.add_replacement(sym, copy_name);
         }
@@ -162,7 +147,7 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
         if (data_env_item.is_private())
             continue;
 
-        if (data_env_item.is_copy()
+        if (data_env_item.is_firstprivate()
                 || create_translation_function())
         {
             OpenMP::DataSharingAttribute data_sharing_attr = data_sharing_env.get_data_sharing(sym);
