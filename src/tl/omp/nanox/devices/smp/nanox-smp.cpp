@@ -70,7 +70,7 @@ const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
 
-Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name, const ScopeLink sl)
 {
     Scope scope = func_sym.get_scope();
     int i, j;
@@ -91,8 +91,7 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
     Source func_src, func_body_src, parameter_decl_list;
     func_src
         << func_ret_type.get_simple_declaration(
-                scope, get_replaced_func_name(
-                    func_sym.get_name(), _width))
+                scope, naive_func_name)
         << "(" << parameter_decl_list << ")"
         << "{"
         << func_body_src
@@ -173,13 +172,14 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
     return func_src;
 }
 
-Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name, const ScopeLink sl)
 {
     if (!func_sym.is_function())
     {
         running_error("Expected function Symbol");
     }        
 
+    this->add_replacement(func_sym, simd_func_name);
     return this->replace(func_sym.get_point_of_definition());
 }
 
@@ -387,29 +387,27 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             //If the generic function does not exist = New Naive
             if(!generic_functions.contains_generic_definition(func_sym))
             {
-                generic_functions.add_naive(func_sym);
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
+                generic_functions.add_generic_function(func_sym);
             }
-            //If generic function exists
-            else if (!generic_functions.contains_specific_definition(func_sym, _this->_device_name, _this->_width))
-            {
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
-            }
+
+            generic_functions.add_specific_definition(
+                    func_sym, TL::SIMD::AUTO, _this->_device_name, _this->_width, true);
 
             //Call to the new function
-            result 
-                << _this->get_replaced_func_name(
-                        func_sym.get_name(), _this->_width)
+            result << generic_functions.get_specific_func_name(func_sym, _this->_device_name, _this->_width)
                 << "("
                 ;
+            
+            Source args;
 
-            for (i=1; i<(arg_list.size()-1); i++)
+            for (i=1; i<(arg_list.size()); i++)
             {
-                result
-                    << recursive_prettyprint(arg_list[i].get_ast(), data) << ", ";
+                args.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
             }
-            result
-                << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
+
+            result << args.get_source()
+                << ")"
+                ;
 
             return uniquestr(result.str().c_str());
         }
@@ -1076,14 +1074,28 @@ void DeviceSMP::pre_run(DTO& dto)
     ScopeLink scope_link = dto["scope_link"];
 
 
-    Source intel_builtins;
-    intel_builtins
-        << "typedef int __attribute__((vector_size(16))) v4si;\n"
-        << "typedef float __attribute__((vector_size(16))) v4sf;\n"
-        << "v4si __builtin_ia32_cmpltps (v4sf, v4sf);\n"
+    Source intel_builtins, scalar_functions;
+
+    scalar_functions 
+        << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
         ;
 
+    intel_builtins
+        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));\n \
+            float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));\n"
+        ;
+
+    //Global parsing
+    scalar_functions.parse_global(translation_unit, scope_link);
     intel_builtins.parse_global(translation_unit, scope_link);
+
+
+    //Predefined functions
+    Scope scope = scope_link.get_scope(translation_unit);
+
+    int width = 16;
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtps"));
+
 }
 
 void DeviceSMP::run(DTO& dto) 

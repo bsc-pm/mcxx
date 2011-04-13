@@ -1127,7 +1127,7 @@ static void simdize_function_fun(TL::FunctionDefinition& func_def)
             func_def.get_ast(), func_def.get_scope_link()),
             func_def.get_scope_link());
 
-    generic_functions.add_simd(func_def.get_function_symbol(), 
+    generic_functions.add_generic_function(func_def.get_function_symbol(), 
             generic_func_def.get_function_symbol());
 }
 
