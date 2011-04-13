@@ -36,6 +36,7 @@ BUILT_SOURCES += fortran03-parser.c
 BUILT_SOURCES += fortran03-parser-internal.h
 BUILT_SOURCES += fortran03.y
 BUILT_SOURCES += prescanner-scanner.h
+BUILT_SOURCES += fortran03-modules-bits.h
 
 # Mercurium C/C++ compiler runtime library
 libmf03_la_SOURCES = \
@@ -63,6 +64,7 @@ libmf03_la_SOURCES = \
                      fortran03-nodecl.c \
                      fortran03-nodecl.h \
                      fortran03-modules.h \
+                     fortran03-modules-bits.h \
                      fortran03-modules.c \
                      libmf03-common.h \
                      $(END)
@@ -135,6 +137,10 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
+
+PYTHON_verbose = $(PYTHON_verbose_$(V))
+PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
+PYTHON_verbose_0 = @echo "  PYTHON" $@;
 endif
 
 EXTRA_DIST += fortran03.y
@@ -190,3 +196,6 @@ else
 	@exit 1
 endif
 
+CLEANFILES += fortran03-modules-bits.h
+fortran03-modules-bits.h : $(srcdir)/../gen-symbol-attrs.py $(srcdir)/../cxx-entity-specs.def
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../gen-symbol-attrs.py $(srcdir)/../cxx-entity-specs.def fortran_modules > $@
