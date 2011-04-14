@@ -87,15 +87,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
     {
-        if (Nanos::Version::interface_is_at_least("openmp", 2))
-            final_barrier
-                << "nanos_omp_barrier();"
-            ;
-        else
-            final_barrier
-                << get_wait_completion(Source("nanos_current_wd()"), false, ctr.get_ast())
-                << "nanos_team_barrier();"
-            ;
+        final_barrier << get_barrier_code(ctr.get_ast());
     }
 
     Source induction_var_name = for_statement.get_induction_variable().prettyprint();

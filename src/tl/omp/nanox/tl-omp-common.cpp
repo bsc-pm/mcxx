@@ -26,5 +26,24 @@ namespace TL { namespace Nanox {
     }
 
     // TODO : Barrier
+    Source OMPTransform::get_barrier_code(AST_t ref_tree)
+    {
+        Source barrier_src;
+        if (Nanos::Version::interface_is_at_least("openmp", 2))
+        {
+            barrier_src
+                << "nanos_omp_barrier();"
+            ;
+        }
+        else
+        {
+            std::cerr << ref_tree.get_locus() << ": warning: OpenMP barrier is not properly honoured in this runtime version" << std::endl;
+            barrier_src
+                << get_wait_completion(Source("nanos_current_wd()"), false, ref_tree)
+                << "nanos_team_barrier();"
+            ;
+        }
+        return barrier_src;
+    }
 
 } }
