@@ -3,6 +3,7 @@
 
 namespace TL { namespace Nanox {
 
+    // Taskwait
     Source OMPTransform::get_wait_completion(Source arg, bool avoid_flush, AST_t ref_tree)
     {
         Source src;
@@ -23,5 +24,7 @@ namespace TL { namespace Nanox {
 
         return src;
     }
+
+    // TODO : Barrier
 
 } }

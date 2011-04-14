@@ -67,77 +67,57 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
 	for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
 			it != copies.end();
 			it++, j++)
-	{
-		DataReference data_ref = it->get_copy_expression();
-		Symbol sym = data_ref.get_base_symbol();
-		Type type = sym.get_type();
+    {
+        DataReference data_ref = it->get_copy_expression();
+        Symbol sym = data_ref.get_base_symbol();
+
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
         DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
-		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-				"Invalid data for copy symbol", 0);
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
 
-		if (type.is_reference())
-			type = type.references_to();
+        bool is_shared = data_env_item.is_shared();
 
-		// Remove all arrays as we cannot reliable reconstruct the type here
-		if (type.is_array())
-		{
-			while (type.is_array())
-			{
-				type = type.array_element();
-			}
-			type = type.get_pointer_to();
-		}
+        Type type = sym.get_type();
 
-		if (!type.is_pointer())
-		{
-			type = type.get_pointer_to();
-		}
+        if (type.is_array())
+        {
+            type = type.array_element().get_pointer_to();
+            is_shared = false;
+        }
+        else if (is_shared)
+        {
+            type = type.get_pointer_to();
+        }
 
-		// There are some problems with the typesystem currently
-		// that require these workarounds
-		if (data_ref.is_shaping_expression())
-		{
-			// Shaping expressions ([e] a)  have a type of array but we do not
-			// want the array but the related pointer
-			type = data_ref.shaped_expression().get_type();
-		}
-		else if (data_ref.is_array_section_range()
-				|| data_ref.is_array_section_size())
-		{
-			// Array sections have a scalar type, but the data type will be array
-			// See ticket #290
-			type = data_ref.array_section_item().get_type();
-			// Remove all arrays as we cannot reliable reconstruct the type here
-			if (type.is_array())
-			{
-				while (type.is_array())
-				{
-					type = type.array_element();
-				}
-				type = type.get_pointer_to();
-			}
-		}
+        std::string copy_name = "_cp_" + sym.get_name();
 
-		std::string copy_name = "_cp_" + sym.get_name();
+        if (!err_declared)
+        {
+            copy_setup
+                << "nanos_err_t cp_err;"
+                ;
+            err_declared = true;
+        }
 
-		if (!err_declared)
-		{
-			copy_setup
-				<< "nanos_err_t cp_err;"
-				;
-			err_declared = true;
-		}
+        copy_setup
+            << type.get_declaration(sc, copy_name) << ";"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
+            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+            ;
 
-		copy_setup
-			<< type.get_declaration(sc, copy_name) << ";"
-			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
-			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-			;
-
-		replace_src.add_replacement(sym, copy_name);
-	}
+        if (!is_shared)
+        {
+            replace_src.add_replacement(sym, copy_name);
+        }
+        else
+        {
+            replace_src.add_replacement(sym, "(*" + copy_name + ")");
+        }
+    }
 }
 
 void DeviceCUDA::do_gpu_outline_replacements(

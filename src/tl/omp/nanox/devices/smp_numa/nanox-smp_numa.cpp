@@ -79,9 +79,9 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
+            is_shared = false;
         }
-
-        if (is_shared)
+        else if (is_shared)
         {
             type = type.get_pointer_to();
         }

@@ -552,9 +552,9 @@ void DeviceSMP::do_smp_inline_get_addresses(
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
-        }
-
-        if (is_shared)
+            is_shared = false;
+        } 
+        else if (is_shared)
         {
             type = type.get_pointer_to();
         }
