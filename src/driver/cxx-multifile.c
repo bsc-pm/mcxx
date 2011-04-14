@@ -39,9 +39,11 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include <unistd.h>
+
 #ifdef WIN32_BUILD
-#include <windows.h>
-#include <shellapi.h>
+  #include <windows.h>
+  #include <shellapi.h>
 #endif
 
 // int stat(const char *restrict path, struct stat *restrict buf);
@@ -99,15 +101,15 @@ void multifile_remove_dir(void)
     }
 }
 
-void multifile_extract_extended_info(const char* filename)
+static void multifile_extract_extended_info_single_object(const char* filename)
 {
     char only_section[256] = { 0 };
     snprintf(only_section, 255, "--only-section=%s", MULTIFILE_SECTION);
     only_section[255] = '\0';
 
-    char output_filename[256] = { 0 };
-    snprintf(output_filename, 255, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, MULTIFILE_TAR_FILE);
-    only_section[255] = '\0';
+    char output_filename[1024] = { 0 };
+    snprintf(output_filename, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, MULTIFILE_TAR_FILE);
+    only_section[1023] = '\0';
 
     const char* arguments_objcopy[] = {
         "-Obinary",
@@ -147,6 +149,78 @@ void multifile_extract_extended_info(const char* filename)
     }
 }
 
+void multifile_extract_extended_info(const char* filename)
+{
+    // Maybe we should detect the file instead of relying on the extension?
+    const char* extension = get_extension_filename(filename);
+    if (extension != NULL
+            && strcmp(extension, ".a") == 0)
+    {
+        // Note we rely on the POSIX 2008 behaviour, maybe we need a check in
+        // configure?
+        char *full_path = realpath(filename, NULL);
+
+        char current_directory[1024] = { 0 };
+        getcwd(current_directory, 1023);
+        current_directory[1023] = '\0';
+
+        // Change to temporal directory
+        temporal_file_t temporal_dir = new_temporal_dir();
+        chdir(temporal_dir->name);
+
+        const char* list_arguments[] = {
+            "x",
+            full_path,
+            NULL,
+        };
+
+        if (execute_program("ar", list_arguments) != 0)
+        {
+            running_error("Error while extracting members of archive", 0);
+        }
+        free(full_path);
+
+        // Go back to previous directory
+        chdir(current_directory);
+
+        DIR* archive_dir = opendir(temporal_dir->name);
+        // Now scan the temporary directory where we unpacked the archive
+        struct dirent *dir_entry;
+
+        dir_entry = readdir(archive_dir);
+        while (dir_entry != NULL)
+        {
+            struct stat buf;
+            memset(&buf, 0, sizeof(buf));
+
+            char full_path[1024] = { 0 };
+
+            snprintf(full_path, 1023, "%s%s%s", temporal_dir->name, DIR_SEPARATOR, dir_entry->d_name);
+            full_path[1023] = '\0';
+
+            // Recursively extract the info from this object (or maybe nested .a file, is this possible?)
+            if (stat(full_path, &buf) == 0)
+            {
+                if (!S_ISDIR(buf.st_mode))
+                {
+                    if (multifile_object_has_extended_info(full_path))
+                    {
+                        multifile_extract_extended_info(full_path);
+                    }
+                }
+            }
+            dir_entry = readdir(archive_dir);
+        }
+
+        closedir(archive_dir);
+    }
+    else
+    {
+        multifile_extract_extended_info_single_object(filename);
+    }
+}
+
+// This routine works both for .a and for .o thanks to objdump
 char multifile_object_has_extended_info(const char* filename)
 {
     temporal_file_t temp = new_temporal_file();
