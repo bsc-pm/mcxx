@@ -65,6 +65,7 @@ namespace TL
                 std::string _spec_func_name;
                 specific_function_kind_t _spec_func_kind;
                 int _width;
+                bool _needs_prettyprint;
                 bool _needs_definition;
                 bool _needs_declaration;
 
@@ -73,18 +74,20 @@ namespace TL
                         const std::string& spec_func_name, 
                         const specific_function_kind_t spec_func_kind, 
                         const int width, 
-                        const bool prettyprinted);
+                        const bool prettyprint);
 
                 std::string get_name() const;
                 int get_width() const;
                 bool is_width(const int width) const;
                 bool is_kind(const specific_function_kind_t func_kind) const;
 
+                bool needs_prettyprint() const;
                 bool needs_definition() const;
                 bool needs_declaration() const;
 
-                void set_definition(const bool need_definition);
-                void set_declaration(const bool need_declaration);
+                void set_prettyprint(const bool needs_prettyprint);
+                void set_definition(const bool needs_definition);
+                void set_declaration(const bool needs_declaration);
 
                 Source get_definition(
                         const Symbol& scalar_func_sym,
@@ -92,8 +95,7 @@ namespace TL
                         ReplaceSrcGenericFunction& replace) const;
                 Source get_declaration(
                         const Symbol& scalar_func_sym,
-                        const Symbol& generic_func_sym,
-                        ReplaceSrcGenericFunction& replace) const;
+                        const Symbol& generic_func_sym) const;
 
                 bool operator< (const SpecificFunctionInfo& spec_func_info) const;
         };
@@ -106,14 +108,18 @@ namespace TL
             protected:
                 Symbol _scalar_func_sym;
                 Symbol _hlt_simd_func_sym;
+                bool _needs_prettyprint;
 
                 device_specific_map_t _specific_functions;
 
             public:
-                GenericFunctionInfo(const Symbol& scalar_func_sym);
+                GenericFunctionInfo(const Symbol& scalar_func_sym,
+                        const bool needs_prettyprint);
                 GenericFunctionInfo(const Symbol& scalar_func_sym, 
-                        const Symbol& hlt_simd_func_sym);
+                        const Symbol& hlt_simd_func_sym,
+                        const bool needs_prettyprint);
 
+                void set_prettyprint(const bool needs_prettyprint);
                 bool has_specific_definition(
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
