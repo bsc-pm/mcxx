@@ -277,20 +277,6 @@ typedef enum access_specifier_t
 } access_specifier_t;
 
 
-// Dependent entity means it depends somehow on a template parameter
-typedef 
-enum dependency_info_tag
-{
-    DI_UNKNOWN = 0,
-    DI_NOT_DEPENDENT, // This entity is not dependent
-    DI_DEPENDENT, // The entity is dependent
-    DI_BUSY // This means it is being calculated now. This happens in enums where
-        // we have to check every enumerator in order to realize if the whole
-        // enum is or not dependent. In this case, infinite recursion could happen
-        // if no care is taken
-} dependency_info_t;
-
-
 typedef
 struct default_argument_info_tag
 {
@@ -364,15 +350,6 @@ struct scope_entry_tag
     // function_definition holding this one. Even if defined is true, it might
     // be NULL since builtins do not have any related AST
     struct AST_tag* point_of_definition;
-
-    // Dependency info. It states if this symbol has a template-dependent nature
-    // A value of DI_UNKNOWN means this has not been already computed
-    //
-    // At the moment, this is used only for variables and enumerators.  It is
-    // intended to avoid an infinite recursion when computing whether an enum
-    // or enumerator is dependent.  An enum will check every of its
-    // enumerators, and an enumerator will check its enum type
-    dependency_info_t dependency_info;
 
     // Extensible information of a symbol
     extensible_struct_t* extended_data;

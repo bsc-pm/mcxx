@@ -68,26 +68,26 @@ namespace TL
         {
             DS_UNDEFINED = 0,
             //! Shared data sharing
-            DS_SHARED = BITMAP(1),
+            DS_SHARED = BITMAP(0),
             //! Private data sharing
-            DS_PRIVATE = BITMAP(2),
+            DS_PRIVATE = BITMAP(1),
             //! Firstprivate data sharing
-            DS_FIRSTPRIVATE = BITMAP(3) | DS_PRIVATE,
+            DS_FIRSTPRIVATE = BITMAP(2) | DS_PRIVATE,
             //! Lastprivate data sharing
-            DS_LASTPRIVATE = BITMAP(4) | DS_PRIVATE,
+            DS_LASTPRIVATE = BITMAP(3) | DS_PRIVATE,
             //! Both lastprivate and firstprivate
             DS_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
             //! Reduction data-sharing 
-            DS_REDUCTION = BITMAP(5),
+            DS_REDUCTION = BITMAP(4),
             //! Threadprivate data-sharing
-            DS_THREADPRIVATE = BITMAP(6),
+            DS_THREADPRIVATE = BITMAP(5),
             //! Copy in data-sharing
-            DS_COPYIN = BITMAP(7),
+            DS_COPYIN = BITMAP(6),
             //! Copy private data-sharing
-            DS_COPYPRIVATE = BITMAP(8),
+            DS_COPYPRIVATE = BITMAP(7),
 
             //! Special to state no data sharing
-            DS_NONE = BITMAP(9),
+            DS_NONE = BITMAP(8),
 
             //! States that the data sharing is implicit. Special attribute that makes no difference
             DS_IMPLICIT = BITMAP(15)

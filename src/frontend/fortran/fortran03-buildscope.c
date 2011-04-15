@@ -3,6 +3,8 @@
 #include "fortran03-exprtype.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-intrinsics.h"
+#include "fortran03-modules.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
@@ -14,18 +16,22 @@
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
-#include "fortran03-intrinsics.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include "red_black_tree.h"
 
 static void unsupported_construct(AST a, const char* name);
 static void unsupported_statement(AST a, const char* name);
+
+static void null_dtor(const void* p UNUSED_PARAMETER) { }
 
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
     initialize_translation_unit_scope(translation_unit, &decl_context);
+
+    translation_unit->module_cache = rb_tree_create((int (*)(const void*, const void*))strcasecmp, null_dtor, null_dtor);
 
     fortran_init_intrisics(decl_context);
 }
@@ -431,6 +437,12 @@ static void build_scope_module_program_unit(AST program_unit,
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(module_body));
+
+    // Keep the module in the file's module cache
+    rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
+
+    // Store the module in a file
+    dump_module_info(new_entry);
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
@@ -854,6 +866,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_DECLARATION_STATEMENT,        build_scope_type_declaration_stmt, kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_UNLOCK_STATEMENT,             build_scope_unlock_stmt,           kind_executable_0    ) \
  STATEMENT_HANDLER(AST_USE_STATEMENT,                build_scope_use_stmt,              kind_executable_0    ) \
+ STATEMENT_HANDLER(AST_USE_ONLY_STATEMENT,           build_scope_use_stmt,              kind_executable_0    ) \
  STATEMENT_HANDLER(AST_VALUE_STATEMENT,              build_scope_value_stmt,            kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_VOLATILE_STATEMENT,           build_scope_volatile_stmt,         kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_WAIT_STATEMENT,               build_scope_wait_stmt,             kind_executable_0    ) \
@@ -3873,9 +3886,57 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
     unsupported_statement(a, "UNLOCK");
 }
 
-static void build_scope_use_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_use_stmt(AST a, decl_context_t decl_context)
 {
-    unsupported_statement(a, "USE");
+    AST module_nature = NULL;
+    AST module_name = NULL;
+    AST rename_list = NULL;
+    AST only_list = NULL;
+
+    char is_only = 0;
+
+    if (ASTType(a) == AST_USE_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        rename_list = ASTSon2(a);
+    }
+    else if (ASTType(a) == AST_USE_ONLY_STATEMENT)
+    {
+        module_nature = ASTSon0(a);
+        module_name = ASTSon1(a);
+        only_list = ASTSon2(a);
+        is_only = 1;
+    }
+    else
+    {
+        internal_error("Unexpected node %s", ast_print_node_type(ASTType(a)));
+    }
+
+    if (module_nature != NULL)
+    {
+        running_error("%s: error: specifying the nature of the module is not supported\n",
+                ast_location(a));
+    }
+
+    const char* module_name_str = strtolower(ASTText(module_name));
+
+    scope_entry_t* module_symbol = NULL;
+
+    // Query first in the module cache
+    rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, module_name_str);
+    if (query != NULL)
+    {
+        module_symbol = (scope_entry_t*)rb_node_get_info(query);
+    }
+    else
+    {
+        // Load the file
+        load_module_info(strtolower(ASTText(module_name)), &module_symbol);
+        // And add it to the cache of opened modules
+        ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
+    }
 }
 
 static void build_scope_value_stmt(AST a, decl_context_t decl_context)

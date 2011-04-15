@@ -158,27 +158,142 @@ def insert_extra_attr_code(_type, name, suffix):
             list_name = field_names[1]
         else:
             raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
-        _insert_code.append(insert_extra_attr_code("integer", num_name, "")[0])
+        # _insert_code.append(insert_extra_attr_code("integer", num_name, "")[0])
         _insert_code.append("{ int i; for (i = 0; i < sym->entity_specs." + num_name + "; i++) {");
         _insert_code = _insert_code + insert_extra_attr_code(type_name, list_name, "[i]");
         _insert_code.append("} }");
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
         if type_name == "gather_gcc_attribute_t" :
-            pass
+            _insert_code.append("insert_extra_gcc_attr(handle, sym, \"" + name + "\", &(sym->entity_specs." + name + suffix + "));")
         elif type_name == "default_argument_info_t*" :
-            pass
+            _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
+                    "insert_default_argument_info_ptr);");
         else:
             sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
     else:
         pass
     return _insert_code
 
+def get_extra_load_code(_type, num_name, list_name):
+    result = []
+    if (_type == "symbol"):
+        result.append("{")
+        result.append("extra_syms_t extra_syms;")
+        result.append("memset(&extra_syms, 0, sizeof(extra_syms));")
+        result.append("extra_syms.handle = handle;");
+        result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_syms, get_extra_syms);")
+        result.append("sym->entity_specs." + num_name + " = extra_syms.num_syms;")
+        result.append("sym->entity_specs." + list_name + " = extra_syms.syms;")
+        result.append("}")
+    elif (_type == "type"):
+        result.append("{")
+        result.append("extra_types_t extra_types;")
+        result.append("memset(&extra_types, 0, sizeof(extra_types));")
+        result.append("extra_types.handle = handle;");
+        result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_types, get_extra_types);")
+        result.append("sym->entity_specs." + num_name + " = extra_types.num_types;")
+        result.append("sym->entity_specs." + list_name + " = extra_types.types;")
+        result.append("}")
+    elif (_type.startswith("typeof")):
+        type_name = get_up_to_matching_paren(_type[len("typeof"):])
+        if type_name == "gather_gcc_attribute_t" :
+            result.append("extra_gcc_attrs_t extra_gcc_attrs;");
+            result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
+            result.append("extra_gcc_attrs.handle = handle;");
+            result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_gcc_attrs, get_extra_gcc_attrs);");
+            # No need to copy back to the symbol
+            pass
+        elif type_name == "default_argument_info_t*" :
+            result.append("extra_default_argument_info_t extra_default_argument_info;")
+            result.append("memset(&extra_default_argument_info, 0, sizeof(extra_default_argument_info_t));")
+            result.append("extra_default_argument_info.handle = handle;");
+            result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_default_argument_info, \
+                    get_extra_default_argument_info);")
+            pass
+    else:
+        sys.stderr.write("%s: warning: unknown array type '%s'\n" % (sys.argv[0], _type))
+    return string.join(result, "\n");
+
+def get_load_code(_type, name):
+    result = []
+    result.append("{");
+    if (_type == "integer" or _type == "bool") :
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = atoll(values[i]);")
+        result.append("}")
+    elif (_type == "string"):
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = uniquestr(values[i]);")
+        result.append("}")
+    elif (_type == "AST"):
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = load_ast(handle, atoll(values[i]));")
+        result.append("}")
+    elif (_type == "type"):
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = load_type(handle, atoll(values[i]));")
+        result.append("}")
+    elif (_type == "symbol"):
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = load_symbol(handle, atoll(values[i]));")
+        result.append("}")
+    elif (_type.startswith("array") or _type.startswith("static_array")):
+        if _type.startswith("array"):
+            type_name = get_up_to_matching_paren(_type[len("array"):])
+        elif _type.startswith("static_array"):
+            type_name = get_up_to_matching_paren(_type[len("static_array"):])
+        field_names = name.split(",")
+        if (len(field_names) == 1):
+           num_name = "num_" + name
+           list_name = name
+        elif (len(field_names) == 2):
+            num_name = field_names[0]
+            list_name = field_names[1]
+        else:
+            raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
+
+        result.append("int i;");
+        result.append("int j;");
+        result.append("if (query_contains_field(ncols, names, \"" + num_name + "\", &i) && query_contains_field(ncols, names, \"" + list_name + "\", &j))");
+        result.append("{")
+        result.append(get_extra_load_code(type_name, num_name, list_name))
+        result.append("}")
+    elif (_type.startswith("typeof")):
+        type_name = get_up_to_matching_paren(_type[len("typeof"):])
+        if type_name == "intent_kind_t" or type_name == "access_specifier_t" or type_name == "_size_t":
+            result.append("int i;");
+            result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+            result.append("{")
+            result.append("   sym->entity_specs." + name + " = atoll(values[i]);")
+            result.append("}")
+        else:
+            sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+        pass
+    elif (_type == "scope"):
+        result.append("// Scope is not stored (yet)");
+        result.append("sym->entity_specs." + name + " = CURRENT_COMPILED_FILE->global_decl_context;")
+    else :
+        sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+        pass
+    result.append("}");
+    return string.join(result, "\n");
+
 
 def print_fortran_modules_functions(lines):
     attr_names = []
     _format = []
-    _insertion_code = [];
+    _insert_code = [];
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
@@ -190,12 +305,12 @@ def print_fortran_modules_functions(lines):
           _format.append("%d")
       elif (_type == "AST"):
           attr_names.append(name)
-          _format.append("%p")
-          _insertion_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
+          _format.append("%lld")
+          _insert_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
       elif (_type == "type"):
           attr_names.append(name)
-          _format.append("%p")
-          _insertion_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
+          _format.append("%lld")
+          _insert_code.append("    insert_type(handle, sym->entity_specs." + name + ");");
       elif (_type == "string"):
           attr_names.append(name)
           _format.append("%Q")
@@ -215,11 +330,11 @@ def print_fortran_modules_functions(lines):
     print "#define FORTRAN03_MODULES_BITS_H"
     print ""
     print "static const char * attr_field_names = \"" + string.join(attr_names, ", ") + "\";";
-    print "static char * symbol_get_attribute_values(storage_handle_t handle, scope_entry_t* sym)"
+    print "static char * symbol_get_attribute_values(sqlite3* handle, scope_entry_t* sym)"
     print "{"
     print "    const char *format = \"" + string.join(_format, ", ") + "\";"
     print ""
-    print string.join(_insertion_code, "\n");
+    print string.join(_insert_code, "\n");
     print ""
     print "    char * result = sqlite3_mprintf(format, " + string.join(map(lambda x : "sym->entity_specs." + x, attr_names), ", ") + ");"
     print "    return result;"
@@ -228,21 +343,31 @@ def print_fortran_modules_functions(lines):
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
-      if (_type.startswith("array")):
+      if (_type.startswith("array") or _type.startswith("static_array")):
           _extra_attr_code = _extra_attr_code + insert_extra_attr_code(_type, name, "")
       else:
            pass
-    print "static void insert_extended_attributes(storage_handle_t handle, scope_entry_t* sym)"
+    print "static void insert_extended_attributes(sqlite3* handle, scope_entry_t* sym)"
     print "{"
     print string.join(_extra_attr_code, "\n");
     print "}"
     print ""
+    print "static void get_extra_attributes(sqlite3* handle, int ncols, char **values, char **names, sqlite3_int64 sym_oid, scope_entry_t* sym)"
+    print "{"
+    for l in lines:
+      fields = l.split("|");
+      (_type,language,name,description) = fields
+      print get_load_code(_type, name)
+    print "}"
     print "#endif // FORTRAN03_MODULES_BITS_H"
 
 
 
 lines = loadlines(f)
 check_file(lines)
+
+print "/* This file has been generated by gen-symbols-attrs.py. */" 
+print "/* Do not modify it or you'll get what you deserve */"
 
 if op == "entity_specifiers":
     print_entity_specifiers(lines)
