@@ -941,13 +941,13 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             if (construct.get_clause("collapse").is_defined())
             {
                 // This function _modifies_ construct to reflect the new reality!
                 collapse_loop_first(construct);
             }
-
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
 
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
