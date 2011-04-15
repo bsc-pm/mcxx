@@ -109,7 +109,7 @@ static void multifile_extract_extended_info_single_object(const char* filename)
 
     char output_filename[1024] = { 0 };
     snprintf(output_filename, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, MULTIFILE_TAR_FILE);
-    only_section[1023] = '\0';
+    output_filename[1023] = '\0';
 
     const char* arguments_objcopy[] = {
         "-Obinary",
