@@ -70,7 +70,7 @@ const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
 
-Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name, const ScopeLink sl)
 {
     Scope scope = func_sym.get_scope();
     int i, j;
@@ -88,11 +88,23 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
         .basic_type()
         .get_vector_to(_width);
 
+    Source static_inline_spec;
+
+    if (func_sym.is_static())
+    {
+        static_inline_spec << "static ";
+    }
+
+    if (func_sym.is_inline())
+    {
+        static_inline_spec << "inline ";
+    }
+
     Source func_src, func_body_src, parameter_decl_list;
     func_src
+        << static_inline_spec
         << func_ret_type.get_simple_declaration(
-                scope, get_replaced_func_name(
-                    func_sym.get_name(), _width))
+                scope, naive_func_name)
         << "(" << parameter_decl_list << ")"
         << "{"
         << func_body_src
@@ -173,14 +185,16 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
     return func_src;
 }
 
-Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name, const ScopeLink sl)
 {
     if (!func_sym.is_function())
     {
         running_error("Expected function Symbol");
     }        
 
-    return this->replace(func_sym.get_point_of_definition());
+    this->add_replacement(func_sym, simd_func_name);
+    Source result = this->replace(func_sym.get_point_of_definition());
+    return result;
 }
 
 
@@ -330,12 +344,6 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
             }
         }
-
-        // rofi was here
-        // if (FindAttribute(_this->_sl, LANG_HLT_SIMD_FOR_INFO).do_(ast))
-        // {
-        //     // this->set_width(obtener_width_del_atributo); 
-        // }
         if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
         {
             result << "__attribute__((vector_size(" << _this->_width << "))) ";
@@ -384,32 +392,26 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             Symbol func_sym = arg_list[0].get_id_expression().get_symbol(); 
 
-            //If the generic function does not exist = New Naive
-            if(!generic_functions.contains_generic_definition(func_sym))
-            {
-                generic_functions.add_naive(func_sym);
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
-            }
-            //If generic function exists
-            else if (!generic_functions.contains_specific_definition(func_sym, _this->_device_name, _this->_width))
-            {
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
-            }
+            //If a generic function have not been added yet, it is a Naive function
+            generic_functions.add_generic_function(func_sym);
+            generic_functions.add_specific_definition(
+                    func_sym, TL::SIMD::AUTO, _this->_device_name, _this->_width, true);
 
             //Call to the new function
-            result 
-                << _this->get_replaced_func_name(
-                        func_sym.get_name(), _this->_width)
+            result << generic_functions.get_specific_func_name(func_sym, _this->_device_name, _this->_width)
                 << "("
                 ;
+            
+            Source args;
 
-            for (i=1; i<(arg_list.size()-1); i++)
+            for (i=1; i<(arg_list.size()); i++)
             {
-                result
-                    << recursive_prettyprint(arg_list[i].get_ast(), data) << ", ";
+                args.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
             }
-            result
-                << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
+
+            result << args.get_source()
+                << ")"
+                ;
 
             return uniquestr(result.str().c_str());
         }
@@ -1069,20 +1071,69 @@ DeviceSMP::DeviceSMP()
 
 void DeviceSMP::pre_run(DTO& dto)
 {
+    /*
     // get the translation_unit tree
     AST_t translation_unit = dto["translation_unit"];
     // get the scope_link
     ScopeLink scope_link = dto["scope_link"];
 
 
-    Source intel_builtins;
-    intel_builtins
-        << "typedef int __attribute__((vector_size(16))) v4si;\n"
-        << "typedef float __attribute__((vector_size(16))) v4sf;\n"
-        << "v4si __builtin_ia32_cmpltps (v4sf, v4sf);\n"
+    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src;
+
+    scalar_functions_src
+        << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
+        << "extern float fabsf (float __x) __attribute__ ((__nothrow__));"
+        << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
+        << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
         ;
 
-    intel_builtins.parse_global(translation_unit, scope_link);
+    default_generic_functions_src
+        << "static float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)\
+            {\
+                return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFF));\
+            }"
+        << "static double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)\
+            {\
+                return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));\
+            }"
+        ;
+
+    //SSE2
+    intel_builtins_src
+        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
+        //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
+        //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
+        ;
+
+    //Global parsing
+    scalar_functions_src.parse_global(translation_unit, scope_link);
+    default_generic_functions_src.parse_global(translation_unit, scope_link);
+    intel_builtins_src.parse_global(translation_unit, scope_link);
+
+    Scope scope = scope_link.get_scope(translation_unit);
+
+    //Default functions
+    int width = 16;
+    //Int
+
+    //Float
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtps"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, _device_name, width, true);
+
+
+    //Double
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtpd"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, _device_name, width, true);
+    */
+
 }
 
 void DeviceSMP::run(DTO& dto) 
@@ -1155,7 +1206,7 @@ void DeviceSMP::create_outline(
             << ";";
 
         static_specifier
-            << " static "
+            << "static "
             ;
     }
     else
@@ -1192,11 +1243,11 @@ void DeviceSMP::create_outline(
     Source instrument_before, instrument_after;
 
     result
+        << generic_declarations_src
+        << generic_functions_src
         << forward_declaration
         << template_header
         << static_specifier
-        << generic_declarations_src
-        << generic_functions_src
         << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before

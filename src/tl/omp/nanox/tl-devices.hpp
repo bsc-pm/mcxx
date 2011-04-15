@@ -86,7 +86,7 @@ namespace Nanox
             bool do_not_create_translation_function();
 
             bool create_translation_function();
-        private:
+
             const std::string _device_name;
         private:
             bool _enable_instrumentation;
