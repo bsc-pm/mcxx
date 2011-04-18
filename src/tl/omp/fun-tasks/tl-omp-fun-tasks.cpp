@@ -586,9 +586,10 @@ namespace OpenMP
                         {
                             std::cerr << warning;
                             std::cerr << expr.get_ast().get_locus() 
-                                << ": warning: ignoring invalid data reference '" 
+                                << ": warning: skipping invalid data reference '" 
                                 << expr.prettyprint() 
                                 << "'" << std::endl;
+                            continue;
                         }
 
                         Symbol sym = data_ref.get_base_symbol();
