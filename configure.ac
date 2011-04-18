@@ -325,18 +325,28 @@ dnl --------------------- End of Support for OpenMP Nanox ----------------------
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
 # Check if it has nVidia GPUs / CUDA is installed
 gpu_valid=no
-gpu_disabled=no
+gpu_enabled=yes
 CUDA=""
 
 AC_MSG_CHECKING([if the use of GPU devices was disabled])
 AC_ARG_ENABLE([nanox-gpu-device],
   AS_HELP_STRING([--disable-nanox-gpu-device], [Disables the use of GPU devices]),
   [
-    gpu_valid="no"
-    gpu_disabled="yes"
-    AC_MSG_RESULT([yes])
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        gpu_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            gpu_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
   ],
   [
+    gpu_enabled="yes"
     AC_MSG_RESULT([no])
   ]
 )
@@ -350,7 +360,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$gpu_disabled = xno ; then
+if test x$gpu_enabled = xyes ; then
     if test -d "$CUDADIR" ; 
     then
         AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])

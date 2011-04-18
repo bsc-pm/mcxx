@@ -150,23 +150,22 @@ void DeviceCUDA::do_gpu_outline_replacements(
 		const std::string field_name = data_env_item.get_field_name();
 
 		if (data_env_item.is_private())
-        {
-            // Do nothing as they are private, we create a variable with the
-            // same original name
-        }
-        else if (data_env_item.is_firstprivate())
+		{
+			// Do nothing as they are private, we create a variable with the
+			// same original name
+		}
+		else if (data_env_item.is_firstprivate())
 		{
 			replace_src.add_replacement(sym, "_args->" + field_name);
 		}
 		else if (data_env_item.is_shared())
 		{
-            std::cerr << "--SHARED--" << std::endl;
 			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
 		}
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
+		else
+		{
+			internal_error("Code unreachable", 0);
+		}
 	}
 
 	if (create_translation_function())
