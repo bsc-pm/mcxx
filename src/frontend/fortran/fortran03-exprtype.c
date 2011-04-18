@@ -1024,6 +1024,27 @@ static void check_called_symbol(
     actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
     memset(temp_argument_types, 0, sizeof(temp_argument_types));
 
+    // Gather arguments (syntactic checking has happened before)
+    if (actual_arguments != NULL)
+    {
+        int i = 0;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            AST actual_arg_spec = actual_arguments[i];
+            AST keyword = ASTSon0(actual_arg_spec);
+            AST actual_arg = ASTSon1(actual_arg_spec);
+
+            if (ASTType(actual_arg) == AST_ALTERNATE_RESULT_SPEC)
+                continue;
+
+            if (keyword != NULL)
+            {
+                temp_argument_types[i].keyword = ASTText(keyword);
+            }
+            temp_argument_types[i].type = expression_get_type(actual_arg);
+        }
+    }
+
     type_t* return_type = NULL; 
     // This is a generic procedure reference
     if (symbol->entity_specs.is_builtin
@@ -1134,7 +1155,7 @@ static void check_called_symbol(
                 {
                     fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
                             ast_location(location),
-                            symbol->symbol_name);
+                            fortran_prettyprint_in_buffer(procedure_designator));
                 }
 
                 *result_type = get_error_type();
@@ -1783,7 +1804,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
         return;
     }
 
-    AST rhs = ASTSon1(expr);
+    AST rhs = ASTSon2(expr);
     AST rhs_expr = ASTSon1(rhs);
 
     fortran_check_expression_impl_(rhs_expr, decl_context);
