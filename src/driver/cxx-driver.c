@@ -3406,15 +3406,15 @@ static void link_files(const char** file_list, int num_files,
         i++;
     }
 
-    for (j = 0; j < num_files; j++)
-    {
-        linker_args[i] = file_list[j];
-        i++;
-    }
-
     for (j = 0; j < num_additional_files; j++)
     {
         linker_args[i] = additional_files[j];
+        i++;
+    }
+
+    for (j = 0; j < num_files; j++)
+    {
+        linker_args[i] = file_list[j];
         i++;
     }
 
