@@ -603,93 +603,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
-            // bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
-            bool has_shared_data_sharing = true;
-
+            // There used to be NANOS_PRIVATE but nobody knows what it meant
             Source copy_sharing;
-            if (has_shared_data_sharing)
-            {
-                copy_sharing << "NANOS_SHARED";
-            }
-            else
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
+            copy_sharing << "NANOS_SHARED";
 
-            // Fill the translation_function
-            if (has_shared_data_sharing)
-            {
-                translation_statements
-                    << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
-                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                    ;
-            }
-            else
-            {
-                Type copy_type = copy_expr.get_base_symbol().get_type();
-                if (data_env_item.is_vla_type())
-                {
-                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
-
-                    ObjectList<Source> arg_vla_dims;
-                    for (ObjectList<Source>::iterator it = vla_dims.begin();
-                            it != vla_dims.end();
-                            it++)
-                    {
-                        Source new_dim;
-                        new_dim << "_args->" << *it;
-
-                        arg_vla_dims.append(new_dim);
-                    }
-
-                    // Now compute a replacement type which we will use to declare the proper type
-                    copy_type =
-                        compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
-                                arg_vla_dims.begin(), arg_vla_dims.end());
-                }
-
-                Type orig_copy_type = copy_type;
-                if (copy_type.is_reference())
-                {
-                    copy_type = copy_type.references_to();
-                }
-
-                if (copy_type.is_array())
-                {
-                    copy_type = copy_type.array_element().get_pointer_to();
-                }
-                else
-                {
-                    copy_type = copy_type.get_pointer_to();
-                }
-
-
-                translation_statements
-                    << copy_type.get_declaration(copy_expr.get_scope(), data_env_item.get_field_name()) << ";"
-                    << "cp_err = nanos_get_addr(" << i << ", (void**)&" << data_env_item.get_field_name() << wd_arg << ");"
-                    << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                    ;
-
-                if (!orig_copy_type.is_array())
-                {
-                    translation_statements
-                        << "_args->" << data_env_item.get_field_name() << " = *" << data_env_item.get_field_name() << ";"
-                        ;
-                }
-                else
-                {
-                    CXX_LANGUAGE()
-                    {
-                        // FIXME - With proper constructors
-                        std::cerr << copy_expr.get_ast().get_locus() << ": warning: copies of arrays do not fulfill C++ semantics" << std::endl;
-                    }
-                    translation_statements
-                        << "__builtin_memcpy(_args->" << data_env_item.get_field_name() << ", "
-                        <<    data_env_item.get_field_name() << ", " 
-                        <<    "sizeof(" << orig_copy_type.get_declaration(copy_expr.get_scope(), "") << "));"
-                        ;
-                }
-            }
+            translation_statements
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                ;
 
             struct {
                 Source *source;
@@ -716,21 +637,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                if (has_shared_data_sharing)
-                {
-                    expression_address << copy_expr.get_address();
-                }
-                else
-                {
-                    // We have to use the value of the argument structure if it
-                    // is private
-                    expression_address 
-                        << "&("
-                        << fill_copy_data_info[j].struct_access
-                        << data_env_item.get_field_name()
-                        << ")"
-                        ;
-                }
+                expression_address << copy_expr.get_address();
                 expression_size << copy_expr.get_sizeof();
             }
 

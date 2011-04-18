@@ -70,7 +70,7 @@ const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
 
-Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name, const ScopeLink sl)
 {
     Scope scope = func_sym.get_scope();
     int i, j;
@@ -88,11 +88,23 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
         .basic_type()
         .get_vector_to(_width);
 
+    Source static_inline_spec;
+
+    if (func_sym.is_static())
+    {
+        static_inline_spec << "static ";
+    }
+
+    if (func_sym.is_inline())
+    {
+        static_inline_spec << "inline ";
+    }
+
     Source func_src, func_body_src, parameter_decl_list;
     func_src
+        << static_inline_spec
         << func_ret_type.get_simple_declaration(
-                scope, get_replaced_func_name(
-                    func_sym.get_name(), _width))
+                scope, naive_func_name)
         << "(" << parameter_decl_list << ")"
         << "{"
         << func_body_src
@@ -173,14 +185,16 @@ Source ReplaceSrcSMP::replace_naive_function(Symbol func_sym, ScopeLink sl)
     return func_src;
 }
 
-Source ReplaceSrcSMP::replace_simd_function(Symbol func_sym, ScopeLink sl)
+Source ReplaceSrcSMP::replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name, const ScopeLink sl)
 {
     if (!func_sym.is_function())
     {
         running_error("Expected function Symbol");
     }        
 
-    return this->replace(func_sym.get_point_of_definition());
+    this->add_replacement(func_sym, simd_func_name);
+    Source result = this->replace(func_sym.get_point_of_definition());
+    return result;
 }
 
 
@@ -330,12 +344,6 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
             }
         }
-
-        // rofi was here
-        // if (FindAttribute(_this->_sl, LANG_HLT_SIMD_FOR_INFO).do_(ast))
-        // {
-        //     // this->set_width(obtener_width_del_atributo); 
-        // }
         if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
         {
             result << "__attribute__((vector_size(" << _this->_width << "))) ";
@@ -384,32 +392,26 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             Symbol func_sym = arg_list[0].get_id_expression().get_symbol(); 
 
-            //If the generic function does not exist = New Naive
-            if(!generic_functions.contains_generic_definition(func_sym))
-            {
-                generic_functions.add_naive(func_sym);
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
-            }
-            //If generic function exists
-            else if (!generic_functions.contains_specific_definition(func_sym, _this->_device_name, _this->_width))
-            {
-                generic_functions.add_specific_definition(func_sym, _this->_device_name, _this->_width, false);
-            }
+            //If a generic function have not been added yet, it is a Naive function
+            generic_functions.add_generic_function(func_sym);
+            generic_functions.add_specific_definition(
+                    func_sym, TL::SIMD::AUTO, _this->_device_name, _this->_width, true);
 
             //Call to the new function
-            result 
-                << _this->get_replaced_func_name(
-                        func_sym.get_name(), _this->_width)
+            result << generic_functions.get_specific_func_name(func_sym, _this->_device_name, _this->_width)
                 << "("
                 ;
+            
+            Source args;
 
-            for (i=1; i<(arg_list.size()-1); i++)
+            for (i=1; i<(arg_list.size()); i++)
             {
-                result
-                    << recursive_prettyprint(arg_list[i].get_ast(), data) << ", ";
+                args.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
             }
-            result
-                << recursive_prettyprint(arg_list[i].get_ast(), data) << ")";
+
+            result << args.get_source()
+                << ")"
+                ;
 
             return uniquestr(result.str().c_str());
         }
@@ -517,9 +519,18 @@ void DeviceSMP::do_smp_inline_get_addresses(
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
 
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
         DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+        bool is_shared = data_env_item.is_shared();
+
         Type type = sym.get_type();
+
 
         if (data_env_item.is_vla_type())
         {
@@ -540,33 +551,14 @@ void DeviceSMP::do_smp_inline_get_addresses(
                     arg_vla_dims.begin(), arg_vla_dims.end());
         }
 
-        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
-        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
-
-        bool is_private = !((data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED);
-
-
-        bool requires_indirect = false;
-
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
-        }
-        if (is_private
-                || !type.is_pointer())
+            is_shared = false;
+        } 
+        else if (is_shared)
         {
-            requires_indirect = true;
             type = type.get_pointer_to();
-        }
-
-        if (!is_private
-                && (data_ref.is_array_section_range()
-                    || data_ref.is_array_section_size()))
-        {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.get_data_type().array_element().get_pointer_to();
-            requires_indirect = false;
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -579,18 +571,13 @@ void DeviceSMP::do_smp_inline_get_addresses(
             err_declared = true;
         }
 
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
-
-        // std::string field_addr = "_args->" + data_env_item.get_field_name();
-
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
             << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        if (!requires_indirect)
+        if (!is_shared)
         {
             replace_src.add_replacement(sym, copy_name);
         }
@@ -842,48 +829,10 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         Type type = sym.get_type();
         const std::string field_name = data_env_item.get_field_name();
 
-        if (data_env_item.is_vla_type())
-        {
-            // These do not require replacement because we define a
-            // local variable for them
-
-            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
-
-            ObjectList<Source> arg_vla_dims;
-            for (ObjectList<Source>::iterator it = vla_dims.begin();
-                    it != vla_dims.end();
-                    it++)
-            {
-                Source new_dim;
-                new_dim << "_args->" << *it;
-
-                arg_vla_dims.append(new_dim);
-            }
-
-            // Now compute a replacement type which we will use to declare the proper type
-            Type repl_type = 
-                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
-                        arg_vla_dims.begin(), arg_vla_dims.end());
-
-            // Adjust the type if it is an array
-            if (repl_type.is_array())
-            {
-                repl_type = repl_type.array_element().get_pointer_to();
-            }
-
-            initial_code
-                << repl_type.get_declaration(sym.get_scope(), sym.get_name())
-                << "="
-                << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
-                << "("
-                << "_args->" << field_name
-                << ");"
-                ;
-        }
-        else
+        if (!data_env_item.is_vla_type())
         {
             // If this is not a copy this corresponds to a SHARED entity
-            if (!data_env_item.is_copy())
+            if (data_env_item.is_shared())
             {
                 if (type.is_array())
                 {
@@ -912,10 +861,25 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                     replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
             }
-            // This is a copy, so it corresponds to a FIRSTPRIVATE entity (or something to be copied)
-            else
+            // Firstprivate entity (or something to be copied)
+            else if (data_env_item.is_firstprivate())
             {
-                if (data_env_item.is_raw_buffer())
+                // This is the usual path for firstprivates
+                if (!data_env_item.is_raw_buffer())
+                {
+                    if (data_env_info.has_local_copies() && 
+                            (data_env_item.get_type().is_pointer() 
+                             || data_env_item.get_type().is_scalar_type()))
+                    {
+                        replace_src.add_replacement(sym, "(_" + field_name + ")");
+                    }
+                    else
+                    {
+                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    }
+                }
+                // Raw buffers char[sizeof(ClassName]) are handled here
+                else if (data_env_item.is_raw_buffer())
                 {
                     C_LANGUAGE()
                     {
@@ -958,20 +922,57 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                         replace_src.add_replacement(sym, field_name);
                     }
                 }
-                //USUAL CASE
                 else
                 {
-                    if (data_env_info.has_local_copies() && 
-                            (data_env_item.get_type().is_pointer() || data_env_item.get_type().is_scalar_type()))
-                    {
-                        replace_src.add_replacement(sym, "(_" + field_name + ")");
-                    }
-                    else
-                    {
-                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                    }
+                    running_error("Code unreachable", 0);
                 }
             }
+            else
+            {
+                running_error("Code unreachable", 0);
+            }
+        }
+        // This is a bit redundant but makes thing a lot easier
+        else if (data_env_item.is_vla_type())
+        {
+            // These do not require replacement because we define a
+            // local variable for them
+            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+            ObjectList<Source> arg_vla_dims;
+            for (ObjectList<Source>::iterator it = vla_dims.begin();
+                    it != vla_dims.end();
+                    it++)
+            {
+                Source new_dim;
+                new_dim << "_args->" << *it;
+
+                arg_vla_dims.append(new_dim);
+            }
+
+            // Now compute a replacement type which we will use to declare the proper type
+            Type repl_type = 
+                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                        arg_vla_dims.begin(), arg_vla_dims.end());
+
+            // Adjust the type if it is an array
+            if (repl_type.is_array())
+            {
+                repl_type = repl_type.array_element().get_pointer_to();
+            }
+
+            initial_code
+                << repl_type.get_declaration(sym.get_scope(), sym.get_name())
+                << "="
+                << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
+                << "("
+                << "_args->" << field_name
+                << ");"
+                ;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
         }
     }
 
@@ -1070,20 +1071,69 @@ DeviceSMP::DeviceSMP()
 
 void DeviceSMP::pre_run(DTO& dto)
 {
+    /*
     // get the translation_unit tree
     AST_t translation_unit = dto["translation_unit"];
     // get the scope_link
     ScopeLink scope_link = dto["scope_link"];
 
 
-    Source intel_builtins;
-    intel_builtins
-        << "typedef int __attribute__((vector_size(16))) v4si;\n"
-        << "typedef float __attribute__((vector_size(16))) v4sf;\n"
-        << "v4si __builtin_ia32_cmpltps (v4sf, v4sf);\n"
+    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src;
+
+    scalar_functions_src
+        << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
+        << "extern float fabsf (float __x) __attribute__ ((__nothrow__));"
+        << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
+        << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
         ;
 
-    intel_builtins.parse_global(translation_unit, scope_link);
+    default_generic_functions_src
+        << "static float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)\
+            {\
+                return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFF));\
+            }"
+        << "static double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)\
+            {\
+                return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));\
+            }"
+        ;
+
+    //SSE2
+    intel_builtins_src
+        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
+        //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
+        //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
+        ;
+
+    //Global parsing
+    scalar_functions_src.parse_global(translation_unit, scope_link);
+    default_generic_functions_src.parse_global(translation_unit, scope_link);
+    intel_builtins_src.parse_global(translation_unit, scope_link);
+
+    Scope scope = scope_link.get_scope(translation_unit);
+
+    //Default functions
+    int width = 16;
+    //Int
+
+    //Float
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtps"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, _device_name, width, true);
+
+
+    //Double
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtpd"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, _device_name, width, true);
+    */
+
 }
 
 void DeviceSMP::run(DTO& dto) 
@@ -1104,7 +1154,8 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, full_outline_name, parameter_list, local_copies, generic_functions_src, generic_declarations_src;
+    Source result, body, outline_name, full_outline_name, parameter_list,
+           local_copies, generic_functions_src, generic_declarations_src;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
@@ -1155,7 +1206,7 @@ void DeviceSMP::create_outline(
             << ";";
 
         static_specifier
-            << " static "
+            << "static "
             ;
     }
     else
@@ -1192,11 +1243,11 @@ void DeviceSMP::create_outline(
     Source instrument_before, instrument_after;
 
     result
+        << generic_declarations_src
+        << generic_functions_src
         << forward_declaration
         << template_header
         << static_specifier
-        << generic_declarations_src
-        << generic_functions_src
         << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
@@ -1398,19 +1449,21 @@ void DeviceSMP::create_outline(
             final_code
                 << field_name << ".~" << type.get_symbol().get_name() << "();"
                 ;
-        }
-        else if (it->is_firstprivate()
-                // VLA types are handled specially and their declaration has
-                // been generated earlier in this file
+        } 
+        // VLA types are handled specially and their declaration has
+        // been generated earlier in this file
+        else if (it->is_firstprivate() 
                 && !it->is_vla_type())
         {
-            //Local Copies
+            // Local Copies
             if (data_environ.has_local_copies())
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
-                if (type.is_pointer() || type.is_scalar_type())
+                // Only pointers or scalars are cached locally
+                if (type.is_pointer() 
+                        || type.is_scalar_type())
                 {
                     local_copies
                         << type.get_simple_declaration(sym.get_scope(), "_" + it->get_field_name())

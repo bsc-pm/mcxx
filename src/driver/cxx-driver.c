@@ -207,6 +207,8 @@
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
+"  -J <dir>                 Sets <dir> as the output module directory\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "  --nodecl                 Nodecl processing (EXPERIMENTAL)\n" \
 "\n" \
 "gcc compatibility flags:\n" \
@@ -296,7 +298,7 @@ typedef enum
 
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -895,6 +897,25 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-I%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+#ifdef FORTRAN_SUPPORT
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+#endif
+                        break;
+                    }
+                case 'J':
+                    {
+#ifdef FORTRAN_SUPPORT
+                        if (CURRENT_CONFIGURATION->module_out_dir != NULL)
+                        {
+                            fprintf(stderr, "warning: -J flag passed more than once. This will overwrite the first directory\n");
+                        }
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        CURRENT_CONFIGURATION->module_out_dir = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option -J is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 case 'L' :
@@ -3371,15 +3392,15 @@ static void link_files(const char** file_list, int num_files,
         i++;
     }
 
-    for (j = 0; j < num_files; j++)
-    {
-        linker_args[i] = file_list[j];
-        i++;
-    }
-
     for (j = 0; j < num_additional_files; j++)
     {
         linker_args[i] = additional_files[j];
+        i++;
+    }
+
+    for (j = 0; j < num_files; j++)
+    {
+        linker_args[i] = file_list[j];
         i++;
     }
 

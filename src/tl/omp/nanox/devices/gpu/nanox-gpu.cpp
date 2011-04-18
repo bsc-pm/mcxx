@@ -274,7 +274,7 @@ static void do_gpu_outline_replacements(
         else
         {
             // If this is not a copy this corresponds to a SHARED entity
-            if (!data_env_item.is_copy())
+            if (!data_env_item.is_firstprivate())
             {
                 if (type.is_array())
                 {

@@ -256,7 +256,7 @@ namespace TL
                 data_env_item.set_is_raw_buffer(is_raw_buffer);
             }
 
-            data_env_item.set_is_copy(true);
+            data_env_item.set_is_firstprivate(true);
 
             data_env_info.add_item(data_env_item);
         }
@@ -620,7 +620,7 @@ namespace TL
                 }
             }
 
-            if (!data_env_item.is_copy())
+            if (!data_env_item.is_firstprivate())
             {
                 if (type.is_array())
                 {

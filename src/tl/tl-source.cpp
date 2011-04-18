@@ -310,6 +310,10 @@ namespace TL
                 // expressions if they could not be properly checked
                 decl_context.decl_flags = (decl_flags_t)(decl_context.decl_flags | DF_AMBIGUITY_FALLBACK_TO_EXPR);
             }
+            if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
+            {
+                decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
+            }
             build_scope_statement_seq_with_scope_link(a, decl_context, scope_link);
             if (do_not_check_expression)
             {

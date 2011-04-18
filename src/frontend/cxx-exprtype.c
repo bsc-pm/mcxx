@@ -10310,7 +10310,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                             {
                                 if (!checking_ambiguity())
                                 {
-                                    fprintf(stderr, "%s: warning: initializer initializer '%s' has type '%s' not convertible to '%s'\n",
+                                    fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
                                             ast_location(initializer),
                                             prettyprint_in_buffer(initializer),
                                             print_decl_type_str(initializer_expr_type, decl_context, ""),

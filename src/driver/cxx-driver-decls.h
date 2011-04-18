@@ -91,6 +91,10 @@ typedef struct translation_unit_tag
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
 
+#ifdef FORTRAN_SUPPORT
+    rb_red_blk_tree *module_cache;
+#endif // FORTRAN_SUPPORT
+
     // Opaque pointer used when running compiler phases
     void *dto;
 } translation_unit_t;
@@ -304,6 +308,11 @@ typedef struct compilation_configuration_tag
     int column_width;
 
     char disable_intrinsics;
+
+    int num_module_dirs;
+    const char** module_dirs;
+
+    const char* module_out_dir;
 #endif
     source_kind_t force_source_kind;
 

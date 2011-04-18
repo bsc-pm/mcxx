@@ -47,6 +47,7 @@
 #include <algorithm>
 
 using namespace TL::HLT;
+using namespace TL::SIMD;
 
 static bool _allow_identity = true;
 static std::string _allow_identity_str;
@@ -84,7 +85,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     {
         if (equivalent_types(get_unqualified_type(types[0]),
                     function_type_get_parameter_type_num(builtin_vr_list[i].get_type()
-                        .get_internal_type(), 0)));
+                        .get_internal_type(), 0)))
         {
             return builtin_vr_list[i].get_internal_symbol();
         }
@@ -127,7 +128,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
     {
         if (equivalent_types(get_unqualified_type(types[0]),
                     function_type_get_parameter_type_num(builtin_gf_list[i].get_type()
-                        .get_internal_type(), 0)));
+                        .get_internal_type(), 0)))
         {
             return builtin_gf_list[i].get_internal_symbol();
         }
@@ -175,9 +176,9 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
 
     for(i=1; i<builtin_ve_list.size(); i++) 
     {
-        if (equivalent_types(get_unqualified_type(types[0]),
-                             function_type_get_parameter_type_num(builtin_ve_list[i].get_type()
-                                                                                    .get_internal_type(), 0)));
+        type_t* first_param_type = function_type_get_parameter_type_num(builtin_ve_list[i].get_type().get_internal_type(), 0);
+
+        if (equivalent_types(get_unqualified_type(types[0]), first_param_type))
         {
             return builtin_ve_list[i].get_internal_symbol();
         }
@@ -307,6 +308,67 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
     builtin_gf_se->type_information = get_computed_function_type(solve_generic_func_overload_name);
     //artificial symbol in list[0]
     builtin_gf_list.append(builtin_gf_sym);
+
+    
+    //MOVED FROM SMP PRE_RUN
+
+    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src;
+
+    scalar_functions_src
+        << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
+        << "extern float fabsf (float __x) __attribute__ ((__nothrow__));"
+        << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
+        << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
+        ;
+
+    default_generic_functions_src
+        << "static float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)\
+            {\
+                return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFF));\
+            }"
+        << "static double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)\
+            {\
+                return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &\
+                    __builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));\
+            }"
+        ;
+
+    //SSE2
+    intel_builtins_src
+        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
+        //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
+        //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
+        ;
+
+    //Global parsing
+    scalar_functions_src.parse_global(translation_unit, scope_link);
+    default_generic_functions_src.parse_global(translation_unit, scope_link);
+    intel_builtins_src.parse_global(translation_unit, scope_link);
+
+    Scope scope = scope_link.get_scope(translation_unit);
+
+    //Default functions
+    std::string device_name = "smp";
+    int width = 16;
+    //Int
+
+    //Float
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_sqrtps"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, device_name, width, true);
+
+
+    //Double
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_sqrtpd"));
+    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
+    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, device_name, width, true);
+
+
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -1127,7 +1189,7 @@ static void simdize_function_fun(TL::FunctionDefinition& func_def)
             func_def.get_ast(), func_def.get_scope_link()),
             func_def.get_scope_link());
 
-    generic_functions.add_simd(func_def.get_function_symbol(), 
+    generic_functions.add_generic_function(func_def.get_function_symbol(), 
             generic_func_def.get_function_symbol());
 }
 
