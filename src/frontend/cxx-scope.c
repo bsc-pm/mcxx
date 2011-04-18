@@ -87,7 +87,6 @@ static scope_entry_list_t* query_qualified_name(decl_context_t decl_context,
         AST unqualified_name);
 
 // Scope creation functions
-static scope_t* new_scope(void);
 static scope_t* new_namespace_scope(scope_t* st, scope_entry_t* related_entry);
 static scope_t* new_prototype_scope(scope_t* st);
 static scope_t* new_block_scope(scope_t* enclosing_scope);
@@ -109,7 +108,7 @@ static int strcmp_vptr(const void* v1, const void *v2)
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 // Any new scope should be created using this one
-static scope_t* new_scope(void)
+scope_t* _new_scope(void)
 {
     scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
@@ -123,7 +122,7 @@ static scope_t* new_scope(void)
 // related_entry->symbol_name. Global scope has st == NULL and qualification_name == NULL
 static scope_t* new_namespace_scope(scope_t* st, scope_entry_t* related_entry)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
 
     result->kind = NAMESPACE_SCOPE;
     result->contained_in = st;
@@ -142,7 +141,7 @@ static scope_t* new_namespace_scope(scope_t* st, scope_entry_t* related_entry)
 // definitions where parameters go in a block scope
 static scope_t* new_prototype_scope(scope_t* enclosing_scope)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
 
     result->kind = PROTOTYPE_SCOPE;
     result->contained_in = enclosing_scope;
@@ -160,7 +159,7 @@ static scope_t* new_prototype_scope(scope_t* enclosing_scope)
 // statement
 static scope_t* new_block_scope(scope_t* enclosing_scope)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
 
     result->kind = BLOCK_SCOPE;
     result->contained_in = enclosing_scope;
@@ -177,7 +176,7 @@ static scope_t* new_block_scope(scope_t* enclosing_scope)
 // Should not be used too much :)
 static scope_t* new_function_scope(void)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
     
     result->kind = FUNCTION_SCOPE;
 
@@ -192,7 +191,7 @@ static scope_t* new_function_scope(void)
 // Creates a new class scope and optionally it is given a qualification name
 static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_entry)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
 
     result->kind = CLASS_SCOPE;
     result->contained_in = enclosing_scope;
@@ -217,7 +216,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_e
 // of decl_context_t)
 static scope_t* new_template_scope(scope_t* enclosing_scope)
 {
-    scope_t* result = new_scope();
+    scope_t* result = _new_scope();
     result->kind = TEMPLATE_SCOPE;
     result->contained_in = enclosing_scope;
 

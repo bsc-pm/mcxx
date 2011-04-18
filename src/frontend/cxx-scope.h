@@ -158,6 +158,9 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
 
+// Internal use only
+LIBMCXX_EXTERN scope_t* _new_scope(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
