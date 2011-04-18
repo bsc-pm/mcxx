@@ -3973,6 +3973,8 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
     }
 
+    insert_entry(decl_context.current_scope, module_symbol);
+
     if (!is_only)
     {
 #define MAX_RENAMED_SYMBOLS 256
