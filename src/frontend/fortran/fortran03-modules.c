@@ -28,6 +28,10 @@ static AST load_ast(sqlite3* handle, sqlite3_int64 oid);
 
 static const char *get_path_of_module(const char* module_name, char is_creation);
 
+typedef
+struct module_info_tag module_info_t;
+
+static void get_module_info(sqlite3* handle, module_info_t* minfo);
 static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3_int64 module_symbol);
 
 static sqlite3_int64 insert_ast(sqlite3* handle, AST a);
@@ -39,6 +43,16 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
         sqlite3_int64 (*fun)(sqlite3* handle, void* data));
 static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
 static char query_contains_field(int ncols, char** names, const char* field_name, int *result);
+static void run_query(sqlite3* handle, const char* query);
+
+struct module_info_tag
+{
+    const char* module_name;
+    const char* date;
+    const char* version;
+    const char* build;
+    sqlite3_int64 module_oid;
+};
 
 typedef
 struct extra_syms_tag
@@ -94,6 +108,34 @@ static int get_extra_gcc_attrs(void *datum,
         char **values, 
         char **names UNUSED_PARAMETER);
 
+static sqlite3_int64 safe_atoll(const char *c)
+{
+    if (c != NULL)
+    {
+        return atoll(c);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static int safe_atoi(const char *c)
+{
+    if (c != NULL)
+    {
+        return atoi(c);
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+// Do not use these herein anymore
+#pragma GCC poison atoi
+#pragma GCC poison atoll
+
 #include "fortran03-modules-bits.h"
 
 void dump_module_info(scope_entry_t* module)
@@ -102,7 +144,7 @@ void dump_module_info(scope_entry_t* module)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "[MODULES] Dumping module '%s'\n", module->symbol_name);
+        fprintf(stderr, "MODULES: Dumping module '%s'\n", module->symbol_name);
     }
 
     sqlite3* handle = NULL;
@@ -118,7 +160,7 @@ void dump_module_info(scope_entry_t* module)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "[MODULES] Finished with dumping of module '%s'\n", module->symbol_name);
+        fprintf(stderr, "MODULES: Finished with dumping of module '%s'\n", module->symbol_name);
     }
 }
 
@@ -130,20 +172,54 @@ static void load_storage(sqlite3** handle, const char* filename)
     {
         running_error("Error while opening module database '%s' (%s)\n", filename, sqlite3_errmsg(*handle));
     }
+
+    {
+        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid, ptr));";
+        run_query(*handle, create_temp_mapping);
+    }
 }
 
 void load_module_info(const char* module_name, scope_entry_t** module)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "MODULES: Loading module '%s'\n", module_name);
+    }
+
     ERROR_CONDITION(module == NULL, "Invalid parameter", 0);
     *module = NULL;
     const char* filename = get_path_of_module(module_name, /* is_creation */ 0);
 
+
     if (filename == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "MODULES: No appropriate file was found for module '%s'\n", 
+                    module_name);
+        }
         return;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "MODULES: Using filename '%s' for module '%s'\n", 
+                filename,
+                module_name);
+    }
 
     sqlite3* handle = NULL;
 
     load_storage(&handle, filename);
+
+    module_info_t minfo;
+    memset(&minfo, 0, sizeof(minfo));
+
+    get_module_info(handle, &minfo);
+
+    *module = load_symbol(handle, minfo.module_oid);
+
+    dispose_storage(handle);
 }
 
 static void create_storage(sqlite3** handle, const char* module_name)
@@ -152,7 +228,7 @@ static void create_storage(sqlite3** handle, const char* module_name)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "[MODULES] File used will be '%s'\n", filename);
+        fprintf(stderr, "MODULES: File used will be '%s'\n", filename);
     }
 
     // Make sure the file has been removed
@@ -188,7 +264,7 @@ static void run_query(sqlite3* handle, const char* query)
 static void init_storage(sqlite3* handle)
 {
     {
-        const char * create_info = "CREATE TABLE info (module, date, version, build, root_symbol);";
+        const char * create_info = "CREATE TABLE info(module, date, version, build, root_symbol);";
         run_query(handle, create_info);
     }
 
@@ -213,10 +289,31 @@ static void init_storage(sqlite3* handle)
             "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent);";
         run_query(handle, create_ast);
     }
+}
 
+static int get_module_info_(void *datum, 
+        int ncols UNUSED_PARAMETER, 
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    module_info_t* p = (module_info_t*)datum;
+    p->module_name = values[0];
+    p->date = values[1];
+    p->version = values[2];
+    p->build = values[3];
+    p->module_oid = safe_atoll(values[4]);
+
+    return 0;
+}
+
+static void get_module_info(sqlite3* handle, module_info_t* minfo)
+{
+    const char * module_info_query = "SELECT module, date, version, build, root_symbol FROM info LIMIT 1;";
+
+    char* errmsg = NULL;
+    if (sqlite3_exec(handle, module_info_query, get_module_info_, minfo, &errmsg) != SQLITE_OK)
     {
-        const char * create_temp_mapping = "CREATE TEMP TABLE oid_ptr_map(oid, ptr, PRIMARY KEY(oid, ptr));";
-        run_query(handle, create_temp_mapping);
+        running_error("Error during query: %s\nQuery was: %s\n", errmsg, module_info_query);
     }
 }
 
@@ -241,14 +338,14 @@ static int get_ptr_of_oid_(void* datum,
     // ptr - values[1]
 
     // Ugly
-    *p = (void*)atoll(values[1]);
+    *p = (void*)safe_atoll(values[1]);
 
     return 0;
 }
 
 static void* get_ptr_of_oid(sqlite3* handle, sqlite3_int64 oid)
 {
-    char * select_oid = sqlite3_mprintf("SELECT oid, ptr FROMs WHERE oid_ptr_map WHERE oid = %lld;", oid);
+    char * select_oid = sqlite3_mprintf("SELECT oid, ptr FROM oid_ptr_map WHERE oid = %lld;", oid);
     char* errmsg = NULL;
     void* result = NULL;
 
@@ -544,7 +641,7 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
     return result;
 }
 
-static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value)
+UNUSED_PARAMETER static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value)
 {
     char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, %Q, %lld);",
            symbol, name, value); 
@@ -629,7 +726,7 @@ static int get_extra_syms(void *datum,
 
     char *attr_value = values[0];
 
-    P_LIST_ADD(p->syms, p->num_syms, load_symbol(p->handle, atoll(attr_value)));
+    P_LIST_ADD(p->syms, p->num_syms, load_symbol(p->handle, safe_atoll(attr_value)));
 
     return 0;
 }
@@ -643,7 +740,7 @@ static int get_extra_types(void *datum,
 
     char *attr_value = values[0];
 
-    P_LIST_ADD(p->types, p->num_types, load_type(p->handle, atoll(attr_value)));
+    P_LIST_ADD(p->types, p->num_types, load_type(p->handle, safe_atoll(attr_value)));
 
     return 0;
 }
@@ -669,7 +766,7 @@ static int get_extra_gcc_attrs(void *datum,
             "Too many gcc attributes", 0);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
-        load_ast(p->handle, atoll(tree));
+        load_ast(p->handle, safe_atoll(tree));
 
     free(attr_value);
 
@@ -686,7 +783,7 @@ static int get_extra_default_argument_info(void *datum,
     default_argument_info_t* d = calloc(1, sizeof(*d));
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
-    d->argument = load_ast(p->handle, atoll(values[0]));
+    d->argument = load_ast(p->handle, safe_atoll(values[0]));
 
     P_LIST_ADD(p->symbol->entity_specs.default_argument_info, p->symbol->entity_specs.num_parameters, d);
 
@@ -747,7 +844,6 @@ typedef struct
     scope_entry_t* symbol;
 } symbol_handle_t;
 
-
 static int get_symbol(void *datum, 
         int ncols,
         char **values, 
@@ -758,12 +854,12 @@ static int get_symbol(void *datum,
     sqlite3* handle = symbol_handle->handle;
     scope_entry_t** result = &(symbol_handle->symbol);
 
-    sqlite3_int64 oid = atoll(values[0]);
+    sqlite3_int64 oid = safe_atoll(values[0]);
     const char* name = values[1];
-    int symbol_kind = atoi(values[2]);
-    sqlite3_int64 type_oid = atoll(values[3]);
+    int symbol_kind = safe_atoi(values[2]);
+    sqlite3_int64 type_oid = safe_atoll(values[3]);
     const char* filename = uniquestr(values[4]);
-    int line = atoi(values[5]);
+    int line = safe_atoi(values[5]);
 
     (*result) = calloc(1, sizeof(**result));
     insert_map_ptr(handle, oid, *result);
@@ -832,10 +928,17 @@ static const char *get_path_of_module(const char* module_name, char is_creation)
                 strappend(CURRENT_CONFIGURATION->module_dirs[i], "/"),
                 filename);
 
-        if (access(path, F_OK))
+        if (access(path, F_OK) == 0)
         {
             return path;
         }
+    }
+
+    // Try current directory
+    const char* path = strappend("./", filename);
+    if (access(path, F_OK) == 0)
+    {
+        return path;
     }
 
     return NULL;
@@ -858,18 +961,18 @@ static int get_ast(void *datum,
     AST_query_handle_t *p = (AST_query_handle_t*)datum;
     sqlite3* handle = p->handle;
 
-    sqlite3_int64 oid = atoll(values[0]);
-    node_t node_kind = atoll(values[1]);
+    sqlite3_int64 oid = safe_atoll(values[0]);
+    node_t node_kind = safe_atoll(values[1]);
     const char *filename = values[2];
-    int line = atoll(values[3]);
+    int line = safe_atoll(values[3]);
     const char* text = values[4];
     // Children: 5  + 0 -> 5 + MAX_AST_CHILDREN 
-    sqlite3_int64 type_oid = atoll(values[5 + MAX_AST_CHILDREN + 1]);
-    sqlite3_int64 sym_oid = atoll(values[5 + MAX_AST_CHILDREN + 2]);
-    char is_lvalue = atoll(values[5 + MAX_AST_CHILDREN + 3]);
-    char is_const_val = atoll(values[5 + MAX_AST_CHILDREN + 4]);
-    sqlite3_int64 const_val = atoll(values[5 + MAX_AST_CHILDREN + 5]);
-    char is_value_dependent = atoll(values[5 + MAX_AST_CHILDREN + 6]);
+    sqlite3_int64 type_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + 1]);
+    sqlite3_int64 sym_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + 2]);
+    char is_lvalue = safe_atoll(values[5 + MAX_AST_CHILDREN + 3]);
+    char is_const_val = safe_atoll(values[5 + MAX_AST_CHILDREN + 4]);
+    sqlite3_int64 const_val = safe_atoll(values[5 + MAX_AST_CHILDREN + 5]);
+    char is_value_dependent = safe_atoll(values[5 + MAX_AST_CHILDREN + 6]);
 
     p->a = ASTLeaf(node_kind, filename, line, text);
     AST a = p->a;
@@ -879,7 +982,7 @@ static int get_ast(void *datum,
     int i;
     for (i = 0; i < MAX_AST_CHILDREN; i++)
     {
-        sqlite3_int64 child_oid = atoll(values[5 + MAX_AST_CHILDREN + i]);
+        sqlite3_int64 child_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + i]);
         AST child_tree = load_ast(handle, child_oid);
 
         ast_set_child(a, i, child_tree);
@@ -950,12 +1053,12 @@ static int get_type(void *datum,
     sqlite3* handle = ((type_handle_t*)datum)->handle;
     type_t** pt = &((type_handle_t*)datum)->type;
 
-    sqlite3_int64 current_oid = atoll(values[0]);
+    sqlite3_int64 current_oid = safe_atoll(values[0]);
     const char* kind = values[1];
-    int kind_size = atoi(values[2]);
-    int ast0 = atoi(values[3]);
-    int ast1 = atoi(values[4]);
-    sqlite3_int64 ref = atoll(values[5]);
+    int kind_size = safe_atoi(values[2]);
+    int ast0 = safe_atoi(values[3]);
+    int ast1 = safe_atoi(values[4]);
+    sqlite3_int64 ref = safe_atoll(values[5]);
     const char* types = values[6];
     const char* symbols = values[7];
 
@@ -1007,7 +1110,7 @@ static int get_type(void *datum,
         char *field = strtok(copy, ",");
         while (field != NULL)
         {
-            scope_entry_t* member = load_symbol(handle, atoll(field));
+            scope_entry_t* member = load_symbol(handle, safe_atoll(field));
 
             class_type_add_nonstatic_data_member(*pt, member);
 
@@ -1029,7 +1132,7 @@ static int get_type(void *datum,
         {
             ERROR_CONDITION(num_parameters == MAX_PARAMETERS, "Too many parameters %d", num_parameters);
 
-            parameter_info[num_parameters].type_info = load_type(handle, atoll(field));
+            parameter_info[num_parameters].type_info = load_type(handle, safe_atoll(field));
 
             num_parameters++;
             field = strtok(NULL, ",");
