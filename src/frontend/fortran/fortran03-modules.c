@@ -360,7 +360,7 @@ static int get_ptr_of_oid_(void* datum,
     // ptr - values[1]
 
     // Ugly
-    *p = (void*)safe_atoll(values[1]);
+    *p = (void*)(intptr_t)safe_atoll(values[1]);
 
     return 0;
 }
@@ -418,7 +418,7 @@ static sqlite3_int64 insert_type_simple(sqlite3* handle, type_t* t, const char* 
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_int64)t;
+        return (sqlite3_int64)(intptr_t)t;
 
     char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, kind_size) VALUES (%lld, %Q, %lld);", t, name, kind_size);
     run_query(handle, insert_type_query);
@@ -431,7 +431,7 @@ static sqlite3_int64 insert_type_ref_to(sqlite3* handle, type_t* t, const char* 
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_int64)t;
+        return (sqlite3_int64)(intptr_t)t;
 
     char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type) VALUES(%lld, %Q, '%d');", t, name, ref_type);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
@@ -448,7 +448,7 @@ static sqlite3_int64 insert_type_ref_to_list_types(sqlite3* handle,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_int64)t;
+        return (sqlite3_int64)(intptr_t)t;
 
     char *list = sqlite3_mprintf("");
     int i;
@@ -483,7 +483,7 @@ static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle,
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
-        return (sqlite3_int64)t;
+        return (sqlite3_int64)(intptr_t)t;
 
     char *insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES (%lld, %Q, %d, %d, %d);",
             t, name, ref_type, ast0, ast1);
@@ -498,7 +498,7 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
         return 0;
 
     if (oid_already_inserted(handle, "ast", a))
-        return (sqlite3_int64)a;
+        return (sqlite3_int64)(intptr_t)a;
 
     sqlite3_int64 children[MAX_AST_CHILDREN];
     memset(children, 0, sizeof(children));
@@ -734,7 +734,7 @@ static char query_contains_field(int ncols, char** names, const char* field_name
     for (i = 0; i < ncols; i++)
     {
         if ((strlen(names[i]) == strlen(field_name))
-                && (sqlite3_strnicmp(names[i], field_name, strlen(names[i])) == 0))
+                && (strncasecmp(names[i], field_name, strlen(names[i])) == 0))
         {
             *result = i;
             return 1;
@@ -840,7 +840,7 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
         return 0;
 
     if (oid_already_inserted(handle, "scope", scope))
-        return (sqlite3_int64)scope;
+        return (sqlite3_int64)(intptr_t)scope;
 
     insert_symbol(handle, scope->related_entry);
 
@@ -879,7 +879,7 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
         return 0;
 
     if (oid_already_inserted(handle, "symbol", symbol))
-        return (sqlite3_int64)symbol;
+        return (sqlite3_int64)(intptr_t)symbol;
 
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
 
