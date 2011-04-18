@@ -1373,7 +1373,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                 if (handler == NULL 
                         || handler->handler == NULL)
                 {
-                    internal_error("Unhandled handler of '%s'\n", ASTText(attr_spec_item));
+                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTType(attr_spec_item)));
                 }
 
                 (handler->handler)(attr_spec_item, decl_context, attr_spec);
@@ -3674,14 +3674,15 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
         else
         {
-            entry->file = ASTFileName(declaration);
-            entry->line = ASTLine(declaration);
+            // It was not so much defined actually...
+            entry->defined = 0;
         }
 
         if (entry->defined)
         {
             running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
                     ast_location(declaration),
+                    entry->symbol_name,
                     entry->file,
                     entry->line);
         }
@@ -3689,6 +3690,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
         entry->defined = 1;
+        entry->file = ASTFileName(declaration);
+        entry->line = ASTLine(declaration);
 
         AST char_length = NULL;
         AST initialization = NULL;
