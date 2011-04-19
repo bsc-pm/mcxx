@@ -14,6 +14,21 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef Q
+ #error Q cannot be defined here
+#endif
+
+// Uncomment the next line to let you GCC help in wrong types in formats of sqlite3_mprintf
+// #define DEBUG_SQLITE3_MPRINTF 1
+
+#if defined(DEBUG_SQLITE3_MPRINTF)
+  extern char* sqlite3_mprintf(const char *, ...) 
+      __attribute__((format(gnu_printf, 1, 2)));
+  // We do this to avoid bogus warnings due to an unknown %Q, %s will do the right thing
+  #define Q "%s"
+#else
+  #define Q "%Q"
+#endif
 
 static void create_storage(sqlite3**, const char*);
 static void init_storage(sqlite3*);
@@ -45,6 +60,8 @@ static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p);
 static char query_contains_field(int ncols, char** names, const char* field_name, int *result);
 static void run_query(sqlite3* handle, const char* query);
 static decl_context_t load_decl_context(sqlite3* handle, sqlite3_int64 oid);
+
+#define P2LL(x) (long long)(intptr_t)(x)
 
 #define DECL_CONTEXT_FIELDS \
     "flags, " \
@@ -342,8 +359,8 @@ static void get_module_info(sqlite3* handle, module_info_t* minfo)
 static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3_int64 module_symbol)
 {
     char* insert_info = sqlite3_mprintf("INSERT INTO info(module, date, version, build, root_symbol) "
-            "VALUES(%Q, DATE(), %Q, %Q, %lld);", module_name, VERSION, MCXX_BUILD_VERSION, 
-            module_symbol);
+            "VALUES(" Q ", DATE(), " Q ", " Q ", %lld);", module_name, VERSION, MCXX_BUILD_VERSION, 
+            (long long int)module_symbol);
     run_query(handle, insert_info);
     sqlite3_free(insert_info);
 }
@@ -385,7 +402,7 @@ static void* get_ptr_of_oid(sqlite3* handle, sqlite3_int64 oid)
 static void insert_map_ptr(sqlite3* handle, sqlite3_int64 oid, void *ptr)
 {
     char* insert_oid_map = sqlite3_mprintf("INSERT INTO oid_ptr_map(oid, ptr) VALUES(%lld, %lld);",
-            oid, ptr);
+            P2LL(oid), P2LL(ptr));
     run_query(handle, insert_oid_map);
     sqlite3_free(insert_oid_map);
 }
@@ -405,7 +422,7 @@ static sqlite3_int64 oid_already_inserted(sqlite3* handle, const char *table, vo
     if (ptr == NULL)
         return (sqlite3_int64)0;
 
-    char * select_oid = sqlite3_mprintf("SELECT oid FROM %s WHERE oid = %lld;", table, ptr);
+    char * select_oid = sqlite3_mprintf("SELECT oid FROM %s WHERE oid = %lld;", table, P2LL(ptr));
     char* errmsg = NULL;
     int num_rows = 0;
     if (sqlite3_exec(handle, select_oid, count_rows, &num_rows, &errmsg) != SQLITE_OK)
@@ -423,7 +440,7 @@ static sqlite3_int64 insert_type_simple(sqlite3* handle, type_t* t, const char* 
     if (oid_already_inserted(handle, "type", t))
         return (sqlite3_int64)(intptr_t)t;
 
-    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, kind_size) VALUES (%lld, %Q, %lld);", t, name, kind_size);
+    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, kind_size) VALUES (%lld, " Q ", %lld);", P2LL(t), name, kind_size);
     run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
@@ -436,7 +453,7 @@ static sqlite3_int64 insert_type_ref_to(sqlite3* handle, type_t* t, const char* 
     if (oid_already_inserted(handle, "type", t))
         return (sqlite3_int64)(intptr_t)t;
 
-    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type) VALUES(%lld, %Q, '%d');", t, name, ref_type);
+    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type) VALUES(%lld, " Q ", %lld);", P2LL(t), name, ref_type);
     run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
@@ -454,24 +471,24 @@ static sqlite3_int64 insert_type_ref_to_list_types(sqlite3* handle,
     if (oid_already_inserted(handle, "type", t))
         return (sqlite3_int64)(intptr_t)t;
 
-    char *list = sqlite3_mprintf("");
+    char *list = sqlite3_mprintf("%s", "");
     int i;
     for (i = 0; i < num_parameters; i++)
     {
         if (i != 0)
         {
             char *old_list = list;
-            list = sqlite3_mprintf("%s,%d", old_list, parameter_types[i]);
+            list = sqlite3_mprintf("%s,%lld", old_list, parameter_types[i]);
             sqlite3_free(old_list);
         }
         else
         {
-            list = sqlite3_mprintf("%d", parameter_types[i]);
+            list = sqlite3_mprintf("%lld", parameter_types[i]);
         }
     }
 
-    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, types) VALUES(%lld, %Q, '%d', %Q);", 
-            t, name, ref_type, list);
+    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, types) VALUES(%lld, " Q ", %lld, " Q ");", 
+            P2LL(t), name, ref_type, list);
     run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
@@ -490,8 +507,8 @@ static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle,
     if (oid_already_inserted(handle, "type", t))
         return (sqlite3_int64)(intptr_t)t;
 
-    char *insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES (%lld, %Q, %d, %d, %d);",
-            t, name, ref_type, ast0, ast1);
+    char *insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES (%lld, " Q ", %lld, %lld, %lld);",
+            P2LL(t), name, ref_type, ast0, ast1);
     run_query(handle, insert_type_query);
     int result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
@@ -526,7 +543,7 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
     }
     else
     {
-        text = sqlite3_mprintf("%Q", ast_get_text(a));
+        text = sqlite3_mprintf("" Q "", ast_get_text(a));
     }
 
     type_t* type = expression_get_type(a);
@@ -553,12 +570,12 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
             "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent) "
             "VALUES ("
             // 1
-            "%lld, %d, %q, %d, %s, %d, %d, %d, %d, "
+            "%lld, %d, " Q ", %d, %s, %lld, %lld, %lld, %lld, "
             // 2
             "%lld, %lld, %d, %d, %lld, %d"
             ");",
             // 1
-            a,
+            P2LL(a),
             ast_get_type(a),
             ast_get_filename(a),
             ast_get_line(a),
@@ -568,8 +585,8 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
             children[2],
             children[3],
             // 2
-            type,
-            sym,
+            P2LL(type),
+            P2LL(sym),
             is_lvalue,
             is_const_val,
             const_val,
@@ -681,8 +698,8 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
 
 UNUSED_PARAMETER static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value)
 {
-    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, %Q, %lld);",
-           symbol, name, value); 
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, " Q ", %lld);",
+           P2LL(symbol), name, value);
     run_query(handle, insert_extra_attr);
     sqlite3_free(insert_extra_attr);
 }
@@ -691,8 +708,8 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
         sqlite3_int64 (*fun)(sqlite3* handle, void* data))
 {
     sqlite3_int64 m = fun(handle, data);
-    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, %Q, %lld);",
-           symbol, name, m); 
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, " Q ", %lld);",
+           P2LL(symbol), name, m); 
     run_query(handle, insert_extra_attr);
     sqlite3_free(insert_extra_attr);
 }
@@ -702,9 +719,9 @@ static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const 
     insert_ast(handle, gcc_attr->expression_list);
     char *name_and_tree = sqlite3_mprintf("%s|%lld", 
             gcc_attr->attribute_name,
-            gcc_attr->expression_list);
-    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, %Q, %Q);",
-           symbol, name, name_and_tree); 
+            P2LL(gcc_attr->expression_list));
+    char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, " Q ", " Q ");",
+           P2LL(symbol), name, name_and_tree); 
     run_query(handle, insert_extra_attr);
     sqlite3_free(name_and_tree);
     sqlite3_free(insert_extra_attr);
@@ -832,7 +849,7 @@ static void get_extended_attribute(sqlite3* handle, sqlite3_int64 oid, const cha
         void *extra_info,
         int (*get_extra_info_fun)(void *datum, int ncols, char **values, char **names))
 {
-    char * query = sqlite3_mprintf("SELECT value FROM attributes WHERE symbol = %lld AND name = %Q;",
+    char * query = sqlite3_mprintf("SELECT value FROM attributes WHERE symbol = %lld AND name = " Q ";",
          oid, attr_name);
 
     char * errmsg = NULL;
@@ -854,11 +871,11 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
         return (sqlite3_int64)(intptr_t)scope;
     }
 
-    char * insert_scope_query = sqlite3_mprintf("INSERT INTO scope(oid, kind, contained_in, related_entry) VALUES (%lld, %lld, %lld, %lld);",
-            scope,
+    char * insert_scope_query = sqlite3_mprintf("INSERT INTO scope(oid, kind, contained_in, related_entry) VALUES (%lld, %d, %lld, %lld);",
+            P2LL(scope),
             scope->kind,
-            scope->contained_in,
-            scope->related_entry);
+            P2LL(scope->contained_in),
+            P2LL(scope->related_entry));
     run_query(handle, insert_scope_query);
     sqlite3_free(insert_scope_query);
 
@@ -872,8 +889,8 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
 static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_context_t decl_context)
 {
     char *insert_decl_context_query = sqlite3_mprintf("INSERT INTO decl_context (oid, " DECL_CONTEXT_FIELDS ") "
-            "VALUES (%lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld);",
-            symbol,
+            "VALUES (%lld, %d, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld);",
+            P2LL(symbol),
             decl_context.decl_flags,
             insert_scope(handle, decl_context.namespace_scope),
             insert_scope(handle, decl_context.global_scope),
@@ -899,9 +916,9 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
 
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid, name, kind, type, file, line, %s) "
-            "VALUES (%lld, %Q, %d, %lld, %Q, %d, %s);",
+            "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %s);",
             attr_field_names,
-            symbol, // oid
+            P2LL(symbol), // oid
             symbol->symbol_name, // name
             symbol->kind, // kind
             type_id, // type
@@ -1380,3 +1397,6 @@ static type_t* load_type(sqlite3* handle, sqlite3_int64 oid)
     return type_handle.type;
 }
 
+#ifdef DEBUG_SQLITE3_MPRINTF
+ #error Disable DEBUG_SQLITE3_MPRINTF macro once no warnings for sqlite3_mprintf calls are signaled by gcc
+#endif
