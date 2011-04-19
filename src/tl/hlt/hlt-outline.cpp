@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "hlt-outline.hpp"
 #include "hlt-exception.hpp"
@@ -185,6 +190,7 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
     }
 
     _is_templated = _function_def->is_templated();
+    _has_linkage_specifier = _function_def->has_linkage_specifier();
     if (_is_templated)
     {
         _template_header = _function_def->get_template_header();
@@ -213,6 +219,11 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
                 template_headers_fwd << template_headers;
             }
         }
+    }
+    else if (_has_linkage_specifier)
+    {
+        ObjectList<LinkageSpecifier> linkage_specifiers = _function_def->get_linkage_specifier();
+        template_headers_fwd << concat_strings(linkage_specifiers, " ");
     }
 
     if (!_overriden_outline_name)

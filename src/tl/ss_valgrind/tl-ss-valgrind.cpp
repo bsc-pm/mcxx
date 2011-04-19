@@ -1,3 +1,30 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 #include "tl-ss-valgrind.hpp"
 #include "tl-augmented-symbol.hpp"
 #include "cxx-utils.h"
@@ -43,7 +70,12 @@ namespace TL
 
             Scope sc = sl.get_scope(*it);
 
-            AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_symbol();
+            AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_computed_symbol();
+
+            // This is a CSS task
+            if (!symbol.is_valid() 
+                    || !symbol.is_task())
+                continue;
 
             AST_t decl_tree = symbol.get_point_of_declaration();
 
@@ -71,15 +103,12 @@ namespace TL
                         "(" + arguments[i].prettyprint() + ")");
             }
 
-            // This is a CSS task
-            if (!symbol.is_task())
-                continue;
-
             Source new_code, data_info;
 
             new_code
                 << "{"
-                << "start_task_valgrind(\"" << symbol.get_name() << "\");"
+                << "int temp_sp_ssvalgrind;"
+                << "start_task_valgrind(&temp_sp_ssvalgrind, \"" << symbol.get_name() << "\");"
                 << data_info
                 << function_call.prettyprint() << ";"
                 << "end_task_valgrind();"
@@ -89,12 +118,15 @@ namespace TL
             ObjectList<Type> parameters = symbol.get_type().nonadjusted_parameters();
             RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
 
+            ObjectList<ParameterDeclaration>::iterator param_decl_it2 = parameter_decls.begin();
             i = 0;
             for (ObjectList<RegionList>::iterator region_list_it = parameter_region_list->begin();
                     region_list_it != parameter_region_list->end();
-                    region_list_it++, i++)
+                    region_list_it++, i++, param_decl_it2++)
             {
                 Type base_type = parameters[i];
+
+                Source array_factor; 
 
                 if (base_type.is_pointer())
                 {
@@ -108,8 +140,17 @@ namespace TL
                 {
                     while (base_type.is_array())
                     {
+                        Source expr;
+                        expr << "(" << base_type.array_get_size().prettyprint() << ")";
+                        array_factor << "*" << expr;
+
                         base_type = base_type.array_element();
                     }
+                }
+
+                DEBUG_CODE()
+                {
+                    std::cerr << "SS-VALGRIND: base_type: " << base_type.get_declaration(function_call.get_scope(), "") << std::endl;
                 }
 
                 for (ObjectList<Region>::iterator reg_it = region_list_it->begin();
@@ -117,11 +158,12 @@ namespace TL
                         reg_it++)
                 {
                     Region &region(*reg_it);
-                    Source register_data, addr, base_type_size, span, called_function;
+                    Source register_data, addr, base_type_size, span, called_function, decl_name;
 
                     register_data
-                        << called_function << "(" << addr << ", " << base_type_size << "," << span << ");" 
+                        << called_function << "(\n" << decl_name << "\n," << addr << ", " << base_type_size << "," << span << ");"
                         ;
+                    decl_name << "\"" << param_decl_it2->get_name() << "\"";
 
                     switch ((int)reg_it->get_direction())
                     {
@@ -140,6 +182,11 @@ namespace TL
                                 called_function << "task_inout_valgrind";
                                 break;
                             }
+                        case Region::UNSPECIFIED_DIR:
+                            {
+                                called_function << "task_unspecified_dir_valgrind";
+                                break;
+                            }
                         case Region::UNKNOWN_DIR:
                             {
                                 internal_error("Invalid directionality", 0);
@@ -150,24 +197,25 @@ namespace TL
                     {
                         // Two cases: a scalar or a pointer if it is a scalar there is
                         // no need to state anything
-                        if (parameters[i].is_pointer())
+                        if (parameters[i].is_pointer()
+                                || parameters[i].is_array())
                         {
                             addr << arguments[i];
-                            base_type_size 
-                                << "sizeof(" << base_type.get_declaration(sc, "") << ")";
+                            base_type_size
+                                << "sizeof(" << base_type.get_declaration(sc, "") << ")" << array_factor;
                         }
                         else if (parameters[i].is_reference())
                         {
                             addr << "&" << arguments[i];
-                            base_type_size 
+                            base_type_size
                                 << "sizeof(" << base_type.get_declaration(sc, "") << ")";
                         }
                         else
                         {
                             // This is an awkward case
                             called_function = Source("task_input_value_valgrind");
-                            addr << arguments[i];
-                            base_type_size 
+                            addr << "0";
+                            base_type_size
                                 << "sizeof(" << base_type.get_declaration(sc, "") << ")";
                         }
                         span << 1;
@@ -184,22 +232,21 @@ namespace TL
 
                             DEBUG_CODE()
                             {
-                                std::cerr 
-                                    << "Region: #" << j << std::endl
-                                    << " dimension_start: "  << dim_spec.get_dimension_start() << std::endl
-                                    << " accessed_length: "  << dim_spec.get_accessed_length() << std::endl
-                                    << " dimension_length: " << dim_spec.get_dimension_length() << std::endl;
+                                std::cerr
+                                    << "SS-VALGRIND: Region: #" << j << std::endl
+                                    << "SS-VALGRIND:  dimension_start: "  << dim_spec.get_dimension_start() << std::endl
+                                    << "SS-VALGRIND:  accessed_length: "  << dim_spec.get_accessed_length() << std::endl
+                                    << "SS-VALGRIND:  dimension_length: " << dim_spec.get_dimension_length() << std::endl;
                             }
 
-                            // FIXME - A replace is due here
                             dim_spec_src << "[" << replace_parameters.replace(dim_spec.get_dimension_start()) << "]";
                             span.append_with_separator(
                                     replace_parameters.replace(dim_spec.get_accessed_length()),
                                     "*");
                         }
-                        base_type_size 
+                        base_type_size
                             << "sizeof(" << base_type.get_declaration(sc, "") << ")";
-                        addr << "&(" << arguments[i] << dim_spec_src << ")";
+                        addr << "&((" << arguments[i] << ")" << dim_spec_src << ")";
                     }
 
                     data_info

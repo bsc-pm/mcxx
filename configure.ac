@@ -1,5 +1,7 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5.6],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.7],[rferrer@ac.upc.edu])
+
+configure_orig_arguments="$@"
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -54,6 +56,18 @@ AC_PROG_SED
 dnl Check LN_S
 AC_PROG_LN_S
 
+dnl Check GNU Bash.
+AC_PATH_PROG([BASH], [bash], [])
+
+dnl Check python 2.4
+AM_PATH_PYTHON([2.4],, [:])
+
+if test x$BASH = x; then
+  # If GNU Bash isn't available, use the current shell and hope for
+  # the best.
+  AC_MSG_WARN([GNU Bash not found, falling back to $SHELL])
+  BASH="$SHELL"
+fi
 
 dnl --------------------- Basic toolchain setup -----------------
 CC_FOR_BUILD=$CC
@@ -71,7 +85,7 @@ dnl --------------------- Check we are not using too old gcc compilers ----
 
 AC_MSG_CHECKING([whether gcc is new enough])
 AC_COMPILE_IFELSE(
-   [[
+   [AC_LANG_SOURCE([[
      #ifdef __GNUC__
       #if __GNUC__ <= 2
        #error "Too old compiler"
@@ -83,23 +97,103 @@ AC_COMPILE_IFELSE(
        #endif
       #endif
      #endif
-   ]],
+   ]])],
    [AC_MSG_RESULT([ok])],
    [AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])]
 )
 
 dnl --------------------- end check of old gcc ---
+
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
 
-dnl --------------------- Support for OpenMPT ------------------------------------------
+dnl ----- Fortran support ----
+
+FRONTEND_EXTENSIONS=""
+
+is_enabled_fortran="no"
+AC_MSG_CHECKING([if enabled Fortran support in the compiler])
+AC_ARG_ENABLE([fortran],
+    AS_HELP_STRING([--enable-fortran], [Enables Fortran support. This is EXPERIMENTAL]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_fortran="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_fortran="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+if test x$is_enabled_fortran = xyes;
+then
+    FRONTEND_EXTENSIONS=" fortran"
+    AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
+    COMPILER_NAMES="${COMPILER_NAMES} plainf95 plainfc"
+fi
+
+AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
+AC_SUBST([FRONTEND_EXTENSIONS])
+
+dnl ----- End of Fortran support ----
+
+dnl ----- SQLITE - Required only for fortran ---
+
+PKG_PROG_PKG_CONFIG
+
+if test x$is_enabled_fortran = xyes;
+then
+    PKG_CHECK_MODULES([sqlite3], [sqlite3 >= 3.6.16],
+            [], 
+            AC_MSG_WARN([Fortran support requires sqlite 3.6.16]))
+fi
+
+AC_SUBST([sqlite3_CFLAGS])
+AC_SUBST([sqlite3_LIBS])
+
+dnl ----- End Sqlite ---------------------------
+
+dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
+dnl Legacy name of openmpt
 AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
 AC_ARG_ENABLE([openmpt],
-    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE)]),
+    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE). This is an alias for --enable-ompss]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_openmpt="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_openmpt="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+AC_MSG_CHECKING([if enabled OpenMPSs (ENCORE) support in the compiler])
+AC_ARG_ENABLE([ompss],
+    AS_HELP_STRING([--enable-ompss], [Enables support of OpenMPSs (ENCORE)]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
@@ -198,30 +292,61 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+
+   if test x$is_enabled_fortran = xyes;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} mf95"
+   fi
    
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda config.ocl config.gpu"
+fi
+
+NANOX_INSTRUMENTATION=""
+AC_MSG_CHECKING([whether used installation of Nanos++ has instrumentation support])
+if test -e "${nanox_lib}/instrumentation" -a -d "${nanox_lib}/instrumentation";
+then
+  NANOX_INSTRUMENTATION="yes"
+  AC_MSG_RESULT([yes])
+else
+ if test -e "${nanox_lib}";
+ then
+  AC_MSG_RESULT([no])
+ else
+  AC_MSG_RESULT([no, Nanos++ library directori does not exist])
+ fi
 fi
 
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_INSTRUMENTATION])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
 # Check if it has nVidia GPUs / CUDA is installed
 gpu_valid=no
-gpu_disabled=no
+gpu_enabled=yes
 CUDA=""
 
 AC_MSG_CHECKING([if the use of GPU devices was disabled])
 AC_ARG_ENABLE([nanox-gpu-device],
   AS_HELP_STRING([--disable-nanox-gpu-device], [Disables the use of GPU devices]),
   [
-    gpu_valid="no"
-    gpu_disabled="yes"
-    AC_MSG_RESULT([yes])
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        gpu_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            gpu_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
   ],
   [
+    gpu_enabled="yes"
     AC_MSG_RESULT([no])
   ]
 )
@@ -229,27 +354,25 @@ AC_ARG_ENABLE([nanox-gpu-device],
 AC_ARG_WITH([cuda],
 AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 	[
-		CUDA="${withval}"
+		CUDADIR="${withval}"
 	],
 	[
-		CUDA="/usr/local/cuda"
+		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$gpu_disabled = xno ; then
-    if test -d "$CUDA" ; 
+if test x$gpu_enabled = xyes ; then
+    if test -d "$CUDADIR" ; 
     then
-        AC_ARG_VAR([NVCC],[CUDA compiler])
-        NVCC="nvcc"
-        AC_CHECK_PROG( [NVCC], ["CUDA compiler"], nvcc, no)
-        if test x$NVCC = xno ; then
+        AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
+        if test x$NVCC = x ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             gpu_valid=no
         else
-            CUDA_INC="$CUDA/include"
-            CUDA_LIB="$CUDA/lib"
-            if test -d "$CUDA/lib64" ; 
+            CUDA_INC="$CUDADIR/include"
+            CUDA_LIB="$CUDADIR/lib"
+            if test -d "$CUDADIR/lib64" ; 
             then
-                CUDA_LIB="$CUDA/lib64"
+                CUDA_LIB="$CUDADIR/lib64"
             fi
 
             AC_SUBST([CUDA_INC])
@@ -258,8 +381,8 @@ if test x$gpu_disabled = xno ; then
             gpu_valid=yes
         fi
     else
-         AC_MSG_WARN([Directory "$CUDA" does not exist. Disabling GPU Support])
-	 gpu_valid=no
+         AC_MSG_WARN([Directory "$CUDADIR" does not exist. Disabling GPU Support])
+	     gpu_valid=no
     fi
 fi
 
@@ -369,6 +492,10 @@ AC_ARG_ENABLE([tl-openmp-profile],
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
     fi
+  ],
+  [
+    AC_MSG_RESULT([no])
+    is_enabled_tl_omp_profile="no"
   ]
 )
 
@@ -381,10 +508,40 @@ fi
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes \
       -o x$is_enabled_tl_omp_nanox = xyes \
-      -o x$is_enabled_tl_omp_profile = xyes ;
+      -o x$is_enabled_tl_omp_profile = xyes \
+      -o x$is_enabled_fortran = xyes ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
+
+   dnl Check Intel Compiler C
+   AC_PATH_PROG([ICC], [icc], [])
+   if test x$ICC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} imcc"
+   fi
+
+   dnl Check Intel Compiler C++
+   AC_PATH_PROG([ICPC], [icpc], [])
+   if test x$ICPC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} imcxx"
+   fi
+
+   dnl XL (gcc driver)
+   AC_PATH_PROG([GXLC], [gxlc], [])
+   if test x$GXLC != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcc"
+   fi
+
+   dnl XL (g++ driver)
+   AC_PATH_PROG([GXLCXX], [gxlc++], [])
+   if test x$GXLCXX != x;
+   then
+      COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+   fi
+
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -639,7 +796,7 @@ then
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
-   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
@@ -778,9 +935,15 @@ AC_ARG_ENABLE([file-regeneration],
 )
 
 # Make these variables precious
-AC_ARG_VAR([FLEX], [GNU Flex command])
-AC_ARG_VAR([BISON], [bison command])
-AC_ARG_VAR([GPERF], [GNU gperf command])
+AC_ARG_VAR([FLEX], [GNU Flex])
+AC_ARG_VAR([BISON], [GNU Bison])
+AC_ARG_VAR([NVCC], [nVidia CUDA compiler])
+AC_ARG_VAR([ICC], [Intel C compiler])
+AC_ARG_VAR([ICPC], [Intel C++ compiler])
+AC_ARG_VAR([GXLC], [IBM XL C compiler])
+AC_ARG_VAR([GXLCXX], [IBM XL C++ compiler])
+AC_ARG_VAR([GPERF], [GNU gperf])
+AC_ARG_VAR([GIT], [git content tracker])
 
 force_flex=no
 flex_good=no
@@ -1078,29 +1241,32 @@ dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
-   AC_PATH_PROG([gitpath], [git], [])
+   AC_PATH_PROG([GIT], [git], [])
    AC_MSG_CHECKING([revision of git repository])
    run_git=""
-   if test x"$gitpath" != x;
+   if test x"$GIT" != x;
    then
-      echo "$gitpath" "$srcdir" >& AS_MESSAGE_LOG_FD
-      run_gitversion=`"$gitpath" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
+      echo "$GIT" "$srcdir" >& AS_MESSAGE_LOG_FD
+      run_gitversion=`"$GIT" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
       build_version="\"git $run_gitversion developer version\""
    fi
 
-   if test x"$gitpath" = x -o x"$run_gitversion" = x;
+   if test x"$GIT" = x -o x"$run_gitversion" = x;
    then
        build_version="\"unknown git commit\""
    fi
-   AC_MSG_RESULT($build_version)
+   AC_MSG_RESULT([$build_version])
 elif test -e $srcdir/DIST_REVISION;
 then
      AC_MSG_CHECKING([revision of distributed release])
      run_gitversion=`cat $srcdir/DIST_REVISION`
-      build_version="\"$run_gitversion\""
-     AC_MSG_RESULT($build_version)
+     build_version="\"$run_gitversion\""
+     AC_MSG_RESULT([$build_version])
 fi
-AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
+AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], [$build_version], [Build version])
+
+mcxx_config_args='"'$(echo "$0 $configure_orig_arguments" | $SED -e 's/"/\"/g')'"'
+AC_DEFINE_UNQUOTED([MCXX_CONFIGURE_ARGS], [$mcxx_config_args], [Configure line])
 
 AC_SUBST([TL_EXTENSIONS])
 AC_SUBST([TL_OMP_EXTENSIONS])
@@ -1113,21 +1279,26 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
+           src/driver/fortran/Makefile 
            src/frontend/Makefile 
+           src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 
-           src/tl/Makefile 
+           src/tl/Makefile
            src/tl/hlt/Makefile
            src/tl/omp/Makefile 
-           src/tl/omp/core/Makefile 
+           src/tl/omp/core/Makefile
            src/tl/omp/fun-tasks/Makefile 
            src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanos-common/Makefile 
            src/tl/omp/nanox/Makefile 
            src/tl/omp/nanox/devices/Makefile 
-           src/tl/omp/nanox/devices/smp/Makefile 
-           src/tl/omp/nanox/devices/smp_numa/Makefile 
-           src/tl/omp/nanox/devices/gpu/Makefile 
+           src/tl/omp/nanox/devices/common/Makefile    
+           src/tl/omp/nanox/devices/smp/Makefile    
+           src/tl/omp/nanox/devices/smp_numa/Makefile
+           src/tl/omp/nanox/devices/smp_ocl/Makefile
+           src/tl/omp/nanox/devices/cuda/Makefile 
+           src/tl/omp/nanox/devices/gpu/Makefile
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -1146,6 +1317,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
            tests/config/mercurium-nanox
@@ -1154,6 +1326,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-ss
            tests/config/mercurium-ss2omp
            tests/config/mercurium-stm
+           tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
            tests/06_phases_hlt.dg/mercurium
@@ -1169,6 +1342,13 @@ echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
 echo ""
+echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
+if test x$is_enabled_fortran = xyes;
+then
+   echo "   SQLite 3 cflags: " $sqlite3_CFLAGS
+   echo "   SQLite 3 libs: " $sqlite3_LIBS
+fi
+echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
@@ -1176,7 +1356,13 @@ if test x$is_enabled_tl_omp_nanox = xyes;
 then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
+
+  if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
+  then
+     AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
+  fi
 fi
+
 echo "   GPU testing enabled:" $gpu_valid
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-typeenviron.h"
@@ -28,6 +33,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-utils.h"
+#include "cxx-entrylist.h"
 
 #ifdef MAX
   #warning MAX already defined here! Overriding
@@ -635,11 +641,18 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     {
         if (current_offset->offset == offset)
         {
-            scope_entry_list_t* new_entry_list
-                = counted_calloc(1, sizeof(*new_entry_list), &_bytes_due_to_type_environment);
+            scope_entry_list_t* new_entry_list = entry_list_new(entry);
 
-            new_entry_list->entry = entry;
-            new_entry_list->next = current_offset->subobjects;
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(current_offset->subobjects);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                new_entry_list = entry_list_add(new_entry_list, 
+                        entry_list_iterator_current(it));
+            }
+            entry_list_iterator_free(it);
+
             current_offset->subobjects = new_entry_list;
 
             // Do nothing else
@@ -662,11 +675,9 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
             sizeof(*new_offset_info), &_bytes_due_to_type_environment);
     new_offset_info->offset = offset;
 
-    scope_entry_list_t* new_entry_list
-        = counted_calloc(1, sizeof(*new_entry_list), &_bytes_due_to_type_environment);
-    new_entry_list->entry = entry;
-    new_offset_info->subobjects = new_entry_list;
+    scope_entry_list_t* new_entry_list = entry_list_new(entry);
 
+    new_offset_info->subobjects = new_entry_list;
     new_offset_info->next = current_offset;
 
     if (previous_offset == NULL)
@@ -686,19 +697,18 @@ static void cxx_abi_print_layout(layout_info_t* layout_info)
     offset_info_t* current_offset = layout_info->offsets;
     while (current_offset != NULL)
     {
-        scope_entry_list_t* subobjects = current_offset->subobjects;
-
-
-        while (subobjects != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(current_offset->subobjects);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = subobjects->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             fprintf(stderr, "@%04zu:", current_offset->offset);
             fprintf(stderr, " %s\n", get_qualified_symbol_name(entry, 
                         entry->decl_context));
-
-            subobjects = subobjects->next;
         }
+        entry_list_iterator_free(it);
 
         current_offset = current_offset->next;
     }
@@ -782,10 +792,13 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
         {
             // Check all elements linked to this offset (there can be more than
             // one if these are empty bases)
-            scope_entry_list_t* current_subobject = current_offset->subobjects;
-            while (current_subobject != NULL)
+
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(current_offset->subobjects);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
-                scope_entry_t* subobject_entry = current_subobject->entry;
+                scope_entry_t* subobject_entry = entry_list_iterator_current(it);
 
                 if (equivalent_types(subobject_entry->type_information,
                             member->type_information))
@@ -798,9 +811,8 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
                     }
                     return 1;
                 }
-
-                current_subobject = current_subobject->next;
             }
+            entry_list_iterator_free(it);
         }
         current_offset = current_offset->next;
     }
@@ -1510,9 +1522,8 @@ static type_environment_t type_environment_linux_ia32_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1590,9 +1601,8 @@ static type_environment_t type_environment_linux_ia64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1668,9 +1678,8 @@ static type_environment_t type_environment_linux_ppc32_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1745,9 +1754,8 @@ static type_environment_t type_environment_linux_ppc64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1823,9 +1831,8 @@ static type_environment_t type_environment_linux_amd64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1901,9 +1908,8 @@ static type_environment_t type_environment_linux_spu_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1976,9 +1982,8 @@ static type_environment_t type_environment_solaris_sparcv9_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -2059,8 +2064,6 @@ static type_environment_t type_environment_linux_arm_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // According to CodeSourcery info, 
-    // a wchar_t is the same as an unsigned int
     .sizeof_wchar_t = 4,
     .alignof_wchar_t = 4,
 

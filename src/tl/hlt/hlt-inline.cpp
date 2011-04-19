@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "hlt-inline.hpp"
 #include "cxx-utils.h"
@@ -156,7 +161,7 @@ Source FunctionCallInline::get_source()
 
     FunctionDefinition funct_def(definition_tree, _function_call.get_scope_link());
 
-    char *c = prettyprint_in_buffer_callback(funct_def.get_function_body().get_ast().get_internal_ast(), 
+    const char *c = prettyprint_in_buffer_callback(funct_def.get_function_body().get_ast().get_internal_ast(), 
             &FunctionCallInline::inline_prettyprint_callback, (void*)this);
 
     if (c != NULL)
@@ -165,7 +170,7 @@ Source FunctionCallInline::get_source()
     }
 
     // The returned pointer came from C code, so 'free' it
-    free(c);
+    free((void*)c);
 
     result
         << "({"

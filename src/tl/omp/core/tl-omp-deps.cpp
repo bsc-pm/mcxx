@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-core.hpp"
 #include "tl-omp-deps.hpp"
@@ -50,7 +55,8 @@ namespace TL { namespace OpenMP {
         {
             return get_symbol_of_data_reference(expr.get_subscripted_expression());
         }
-        else if (expr.is_array_section())
+        else if (expr.is_array_section_range()
+                || expr.is_array_section_size())
         {
             return get_symbol_of_data_reference(expr.array_section_item());
         }
@@ -73,8 +79,10 @@ namespace TL { namespace OpenMP {
                 it++)
         {
             DataReference expr(*it);
-            if (!expr.is_valid())
+            std::string warning;
+            if (!expr.is_valid(warning))
             {
+                std::cerr << warning;
                 std::cerr << expr.get_ast().get_locus() 
                     << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
@@ -85,10 +93,49 @@ namespace TL { namespace OpenMP {
             Symbol sym = expr.get_base_symbol();
             DataSharingAttribute ds_attr = data_sharing.get_data_sharing(sym);
 
-            if ((dep_attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
+            if (expr.is_id_expression())
             {
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                Type data_type = expr.get_data_type();
+
+                // Arguable if we have T (&)[10] (a reference to array)
+                if (data_type.is_reference())
+                {
+                    data_type = data_type.references_to();
+                }
+
+                // if (data_type.is_array())
+                // {
+                //     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                // }
+                // else
+                // {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                // }
             }
+            else
+            {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+            }
+
+            // if ((dep_attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
+            // {
+            //     if (expr.is_id_expression())
+            //     {
+            //         if (((ds_attr & DS_UNDEFINED) != DS_UNDEFINED)
+            //                 && ((ds_attr & DS_IMPLICIT) != DS_IMPLICIT)
+            //                 && ((ds_attr & DS_SHARED) != DS_SHARED))
+            //         {
+            //             std::cerr << expr.get_ast().get_locus()
+            //                 << ": warning: symbol '" << sym.get_qualified_name() << "' has a non-shared data sharing, overwriting to shared" << std::endl;
+            //         }
+            //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+            //     }
+            //     else if (ds_attr == DS_UNDEFINED)
+            //     {
+            //         // Unclear
+            //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+            //     }
+            // }
 
             data_sharing.add_dependence(dep_item);
         }
@@ -116,6 +163,10 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
         get_dependences_info_clause(fp_inout_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_DIR_INOUT | DEP_FIRSTPRIVATE));
+
+        PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
+        get_dependences_info_clause(fp_reduction_clause, data_sharing, 
+                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,

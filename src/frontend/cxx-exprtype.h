@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_EXPRTYPE_H
 #define CXX_EXPRTYPE_H
@@ -48,6 +53,8 @@ LIBMCXX_EXTERN char check_for_expression(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN char check_for_expression_list(AST expression_list, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
+
+// Used in some TL phases, do not remove
 LIBMCXX_EXTERN char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
 LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator);
@@ -73,6 +80,10 @@ LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
 
 LIBMCXX_EXTERN char expression_is_constant(AST expr);
 
+LIBMCXX_EXTERN void expression_set_error(AST expr);
+
+LIBMCXX_EXTERN char expression_is_error(AST expr);
+
 LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);
@@ -88,6 +99,8 @@ LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_depen
 LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
 
 LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
+
+LIBMCXX_EXTERN void expression_clear_computed_info(AST expr);
 
 LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 

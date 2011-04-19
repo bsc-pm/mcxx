@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_AST_H
 #define CXX_AST_H
@@ -39,10 +44,6 @@
 MCXX_BEGIN_DECLS
 
 #define MAX_AST_CHILDREN (4)
-#define MAX_AST_AMBIGUITIES (15)
-
-// The extensible schema of AST's
-LIBMCXX_EXTERN extensible_schema_t ast_extensible_schema;
 
 // Returns the parent node or NULL if none
 LIBMCXX_EXTERN AST ast_get_parent(const_AST a);
@@ -50,6 +51,9 @@ LIBMCXX_EXTERN AST ast_get_parent(const_AST a);
 // Sets the parent (but does not update the parent
 // to point 'a')
 LIBMCXX_EXTERN void ast_set_parent(AST a, AST parent);
+
+// Updates the line
+LIBMCXX_EXTERN void ast_set_line(AST a, int line);
 
 // Returns the line of the node
 LIBMCXX_EXTERN unsigned int ast_get_line(const_AST a);
@@ -109,11 +113,14 @@ LIBMCXX_EXTERN AST ast_list_head(AST list);
 // Concatenates two lists
 LIBMCXX_EXTERN AST ast_list_concat(AST before, AST after);
 
-// Returns the extensible struct of this AST
-LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
+// Splits a list in two parts, head (a list containing only the first element)
+// and tail (a list of the remainder elements)
+LIBMCXX_EXTERN void ast_list_split_head_tail(AST list, AST *head, AST* tail);
 
 // States if this portion of the tree is properly linked
 LIBMCXX_EXTERN char ast_check(const_AST a);
+
+LIBMCXX_EXTERN void ast_free(AST a);
 
 // Gives a copy of all the tree but extended data is the same as original trees
 LIBMCXX_EXTERN AST ast_copy(const_AST a);
@@ -169,6 +176,17 @@ LIBMCXX_EXTERN void ast_replace_with_ambiguity(AST a, int num);
 // ScopeLink function
 LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 
+// Extensible struct
+LIBMCXX_EXTERN void ast_set_field(AST a, const char* name, void *data);
+LIBMCXX_EXTERN void* ast_get_field(AST a, const char* name);
+
+// Returns the extensible struct of this AST
+LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
+
+// The same as ast_get_extensible_struct but ensures that the extended struct
+// is initialized
+LIBMCXX_EXTERN extensible_struct_t* ast_get_initalized_extensible_struct(AST a);
+
 /*
  * Macros
  *
@@ -210,17 +228,20 @@ LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 
 // Extensible structure function
 #define ASTAttrValue(_a, _name) \
-    ( extensible_struct_get_field_pointer_lazy(&ast_extensible_schema, ast_get_extensible_struct(_a), (_name), NULL) )
-
-#define ASTAttrGetAlwaysValue(_a, _name) \
-    ( extensible_struct_get_field_pointer(&ast_extensible_schema, ast_get_extensible_struct(_a), (_name)) )
+    ast_get_field((_a), (_name))
 
 #define ASTAttrValueType(_a, _name, _type) \
-    ( ((_type*)(ASTAttrGetAlwaysValue((_a), (_name)))))
+    (_type*)ast_get_field((_a), (_name))
 
 #define ASTAttrSetValueType(_a, _name, _type, _value) \
-    ( *(ASTAttrValueType((_a), (_name), _type)) = _value )
-
+    do { _type *_t = ast_get_field(_a, _name); \
+        if (_t == NULL) \
+        { \
+            _t = calloc(1, sizeof(*_t)); \
+            ast_set_field(_a, _name, _t); \
+        } \
+        *_t = _value; \
+    } while (0)
 
 #define ASTCheck ast_check
 

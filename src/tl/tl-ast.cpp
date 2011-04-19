@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
@@ -35,9 +40,6 @@
 
 namespace TL
 {
-    // Definition of static member TL::AST_t::schema
-    Schema AST_t::schema(&::ast_extensible_schema);
-
     bool AST_t::operator<(AST_t n) const
     {
         return this->_ast < n._ast;
@@ -62,7 +64,6 @@ namespace TL
     tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
     {
         return default_get_extended_attribute(
-                &ast_extensible_schema,
                 ast_get_extensible_struct(this->_ast),
                 name);
     }
@@ -70,8 +71,7 @@ namespace TL
     bool AST_t::set_extended_attribute(const std::string &str, const tl_type_t &data)
     {
         return default_set_extended_attribute(
-                &ast_extensible_schema,
-                ast_get_extensible_struct(this->_ast),
+                ast_get_initalized_extensible_struct(this->_ast),
                 str,
                 data);
     }
@@ -80,7 +80,7 @@ namespace TL
     {
         // This is always internal
         prettyprint_set_internal_output();
-        char *c = NULL;
+        const char *c = NULL;
         if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
         {
             c = list_handler_in_buffer(this->_ast);
@@ -92,7 +92,7 @@ namespace TL
 
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free(c);
+            free((void*)c);
         return result;
     }
 
@@ -106,10 +106,10 @@ namespace TL
         // This is always external
         prettyprint_set_not_internal_output();
 
-        char* c = prettyprint_in_buffer(this->_ast);
+        const char* c = prettyprint_in_buffer(this->_ast);
         std::string result(c == NULL ? "" : c);
         if (c != NULL)
-            free(c);
+            free((void*)c);
         return result;
     }
 
@@ -599,8 +599,8 @@ namespace TL
 
     AST_t AST_t::get_enclosing_function_definition_declaration() const
     {
-        AST_t result = get_enclosing_function_definition( /* jump_templates = */ true).get_parent();
-        return result;
+        return get_enclosing_function_definition(/* jump_templates = */ true, 
+                /* jump_external_decl = */ true);
     }
 
     AST_t AST_t::get_enclosing_class_specifier(bool jump_templates) const
@@ -609,6 +609,12 @@ namespace TL
 
         while (node != NULL
                 && ASTType(node) != AST_CLASS_SPECIFIER)
+        {
+            node = ASTParent(node);
+        }
+
+        while (node != NULL
+                && ASTType(node) != AST_SIMPLE_DECLARATION)
         {
             node = ASTParent(node);
         }
@@ -655,7 +661,7 @@ namespace TL
         return a;
     }
 
-    AST_t AST_t::get_enclosing_function_definition(bool jump_templates) const
+    AST_t AST_t::get_enclosing_function_definition(bool jump_templates, bool jump_external_decl) const
     {
         AST node = _ast;
 
@@ -672,6 +678,17 @@ namespace TL
             while (node != NULL 
                     && ASTParent(node) != NULL
                     && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
+            {
+                node = ASTParent(node);
+            }
+        }
+
+        // Extern declarations pose a problem, let's jump them as well
+        if (jump_external_decl)
+        {
+            while (node != NULL
+                    && ASTParent(node) != NULL
+                    && ASTType(ASTParent(node)) == AST_LINKAGE_SPEC_DECL)
             {
                 node = ASTParent(node);
             }
@@ -783,7 +800,9 @@ namespace TL
             return;
         }
 
-        AST_t enclosing_function = this->get_enclosing_function_definition(/*jump_templates*/true);
+        AST_t enclosing_function = this->
+            get_enclosing_function_definition(/*jump_templates*/true, 
+                    /*jump_external_decl*/true);
 
         AST list = ASTParent(enclosing_function._ast);
         AST prepended_list = get_list_of_extensible_block(t._ast);
@@ -798,7 +817,9 @@ namespace TL
     AST_t AST_t::get_enclosing_global_tree_(AST_t t)
     {
         AST_t enclosing_global_tree = t;
-        AST_t enclosing_function = enclosing_global_tree.get_enclosing_function_definition(/*jump_templates*/true);
+        AST_t enclosing_function = enclosing_global_tree
+            .get_enclosing_function_definition(/*jump_templates*/true, 
+                    /*jump_external_decl*/true);
 
         if (enclosing_function.is_valid())
         {
@@ -1103,11 +1124,11 @@ namespace TL
     std::string AST_t::prettyprint_with_callback(const Functor<callback_result, AST_t> &functor)
     {
         // This const cast is fine
-        char *c = prettyprint_in_buffer_callback(_ast,
+        const char *c = prettyprint_in_buffer_callback(_ast,
                 auxiliar_handler_prettprint, const_cast<Functor<callback_result, AST_t>*>(&functor));
 
         std::string result(c);
-        free(c);
+        free((void*)c);
         return result;
     } 
 }

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
@@ -31,6 +36,12 @@
 #include "cxx-buildscope-decls.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
+#include "cxx-entrylist-decls.h"
+#include "cxx-type-decls.h"
+
+#ifdef FORTRAN_SUPPORT
+#include "fortran/fortran03-scope-decls.h"
+#endif 
 
 // Extensible schema
 #include "extstruct.h"
@@ -51,6 +62,7 @@ MCXX_BEGIN_DECLS
  *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
+typedef struct scope_entry_tag scope_entry_t;
 
 #define BITMAP(x) (1 << (x))
 
@@ -133,6 +145,13 @@ typedef struct decl_context_tag
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
 
+#ifdef FORTRAN_SUPPORT
+    implicit_info_t* implicit_info;
+
+    int num_unknown_symbols;
+    scope_entry_t** unknown_symbols;
+#endif 
+
     // Scope of the declaration,
     // should never be null
     struct scope_tag* current_scope;
@@ -160,7 +179,14 @@ enum cxx_symbol_kind
     SK_DEPENDENT_ENTITY, // [14]
     // Other symbols whose use is defined elsewhere
     // These symbols should not be language-accessible
-    SK_OTHER // [15]
+    SK_OTHER, // [15]
+#ifdef FORTRAN_SUPPORT
+    SK_COMMON, // [16]
+    SK_NAMELIST, // [17]
+    SK_MODULE, // [18]
+    SK_PROGRAM, // [19]
+    SK_BLOCKDATA, // [20]
+#endif
 };
 
 #define BITMAP(x) (1 << x)
@@ -229,7 +255,7 @@ typedef struct template_parameter_tag
 
     // The related symbol associated to this parameter it may be faked if the
     // symbol did not have name, we are mainly interested in their type
-    struct scope_entry_tag* entry;
+    scope_entry_t* entry;
 
     char has_default_argument;
     template_argument_t* default_template_argument;
@@ -251,22 +277,6 @@ typedef enum access_specifier_t
 } access_specifier_t;
 
 
-// Dependent entity means it depends somehow on a template parameter
-typedef 
-enum dependency_info_tag
-{
-    DI_UNKNOWN = 0,
-    DI_NOT_DEPENDENT, // This entity is not dependent
-    DI_DEPENDENT, // The entity is dependent
-    DI_BUSY // This means it is being calculated now. This happens in enums where
-        // we have to check every enumerator in order to realize if the whole
-        // enum is or not dependent. In this case, infinite recursion could happen
-        // if no care is taken
-} dependency_info_t;
-
-struct scope_entry_tag;
-
-
 typedef
 struct default_argument_info_tag
 {
@@ -274,184 +284,30 @@ struct default_argument_info_tag
     decl_context_t context;
 } default_argument_info_t;
 
-LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
-
-typedef struct entity_specifiers_tag
+#ifdef FORTRAN_SUPPORT
+typedef
+enum intent_kind_tag
 {
-    // States if this a static variable
-    char is_static:1;
+    INTENT_INVALID = 0,
+    INTENT_IN = 1,
+    INTENT_OUT = 2,
+    INTENT_INOUT = INTENT_IN | INTENT_OUT,
+} intent_kind_t;
 
-    // Register variable
-    char is_register:1;
+#endif
 
-    // States if it is an extern declaration (explicitly given)
-    char is_extern:1;
-
-    // States if it is a mutable entity of a class
-    char is_mutable:1;
-
-    // States is a exported template (unused at all)
-    char is_export:1;
-
-    // Inlined function
-    char is_inline:1;
-
-    // Virtual function
-    char is_virtual:1;
-
-    // Pure function
-    char is_pure:1;
-
-    // Visibility attributes
-    char is_public:1;
-    char is_private:1;
-    char is_protected:1;
-
-    // Builtin symbol
-    char is_builtin:1;
-
-    // Is deleted
-    char is_deleted:1;
-
-    // Is defaulted
-    char is_defaulted:1;
-
-    // Is a conversion function
-    char is_conversion:1;
-
-    // Is trivial special member
-    // Qualifies several special members trivializing it
-    char is_trivial:1;
-
-    // Is a constructor
-    char is_constructor:1;
-    char is_default_constructor:1;
-    // Is a copy constructor
-    char is_copy_constructor:1;
-    // Is a move constructor
-    char is_move_constructor:1;
-    // Is a conversor one
-    char is_conversor_constructor:1;
-
-    // Is a copy assignment operator
-    char is_copy_assignment_operator:1;
-
-    // Is a copy assignment operator
-    char is_move_assignment_operator:1;
-
-    // Is destructor
-    char is_destructor:1;
-
-    // Is an explicit constructor
-    char is_explicit:1;
-
-    // Is a surrogate fake symbol
-    char is_surrogate_function:1;
-
-    // Is an anonymous entity
-    char is_anonymous:1;
-
-    // Template argument, we need this to properly evaluate nontype template
-    // arguments
-    char is_template_argument:1;
-
-    // The entity has really been declared by the code. Only template-names
-    // and constructors have this flag enabled (at the moment)
-    char is_user_declared:1;
-
-    // Some bits have been moved here, they are repeated in comments below next
-    // to their protecting fields
-    char is_template_parameter:1;
-    char is_parameter:1;
-    char is_member:1;
-    char is_bitfield:1;
-    char is_unnamed_bitfield:1;
-    char any_exception:1;
-    char is_injected_class_name:1;
-    char is_nested_unnamed_struct:1;
-
-    // This symbol has been created because of a typedef
-    // of an unnamed struct/class/enum/union type
-    //
-    // typedef struct { } A;
-    //
-    // A will be signed in as 'SK_CLASS'
-    //
-    // (
-    // like if in C++ we had done
-    //
-    // struct A { };
-    // )
-    //
-    // And sometimes we need to distinguish whether is
-    // 'struct A { }' or 'typedef struct { } A';
-    char after_typedef:1;
-
-    // -- End of bits, move all bits before this point
-
-    // Accessibility: public, private, protected
-    access_specifier_t access : 2;
-    
-    // States if the symbol is a template parameter name and its nesting and
-    // position
-    // --> char is_template_parameter:1;
-    int template_parameter_nesting;
-    int template_parameter_position;
-
-    // States if the variable is parameter of a function (kind == SK_VARIABLE)
-    // and its position
-    // --> char is_parameter:1;
-    int parameter_position;
-    
-    // Is a member entity (function or data)
-    // --> char is_member:1;
-    // and its class 
-    struct type_tag* class_type;
-
-    // States if this is the injected class name of every class
-    // --> char is_injected_class_name:1;
-    // and its real symbol class
-    struct scope_entry_tag* injected_class_referred_symbol;
-    
-    // Linkage specifier ("C" or "C++")
-    // Unused field
-    const char* linkage_spec;
-    
-    // Exception specifier for functions
-    // --> char any_exception:1; // States that any exception can be thrown
-    int num_exceptions;
-    struct type_tag** exceptions;
-
-    // Default arguments for functions
-    int num_parameters;
-    default_argument_info_t **default_argument_info;
-
-    // Bitfields
-    // char is_bitfield:1;
-    // char is_unnamed_bitfield:1;
-    struct AST_tag* bitfield_expr;
-    decl_context_t bitfield_expr_context;
-
-    // Only for fields that are not bitfields, their offsetof value
-    _size_t field_offset;
-
-    // GCC attributes synthesized for this symbol coming from the syntax
-    int num_gcc_attributes;
-    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
-
-    // For functions and classes
-    AST definition_tree;
-} entity_specifiers_t;
+// Looking for struct entity_specifiers_tag?
+// Now it is declared in cxx-entity-specs.h in builddir
+#include "cxx-entity-specs.h"
 
 // This is an entry in the scope
-typedef 
 struct scope_entry_tag
 {
     // Kind of this symbol
     enum cxx_symbol_kind kind;
     
     // Decl context when the symbol was declared it contains the scope where
-    // the symbol was declared
+    // the symbol was registered
     decl_context_t decl_context;
 
     // The symbol name
@@ -463,9 +319,9 @@ struct scope_entry_tag
     // Type information of this symbol
     struct type_tag* type_information;
 
-    // Related decl_context of a namespace. This is the declarative region
-    // created by a namespace
-    decl_context_t namespace_decl_context;
+    // Related decl_context of this symbol. Namespaces in C++ and all program
+    // units in Fortran use this field
+    decl_context_t related_decl_context;
     
     // Initializations of several kind are saved here
     //  - initialization of const objects
@@ -495,28 +351,9 @@ struct scope_entry_tag
     // be NULL since builtins do not have any related AST
     struct AST_tag* point_of_definition;
 
-    // Dependency info. It states if this symbol has a template-dependent nature
-    // A value of DI_UNKNOWN means this has not been already computed
-    //
-    // At the moment, this is used only for variables and enumerators.  It is
-    // intended to avoid an infinite recursion when computing whether an enum
-    // or enumerator is dependent.  An enum will check every of its
-    // enumerators, and an enumerator will check its enum type
-    dependency_info_t dependency_info;
-
     // Extensible information of a symbol
     extensible_struct_t* extended_data;
-} scope_entry_t;
-
-// This is what the scope returns a list of symbols due to function overloading
-// and template class specialization
-typedef struct scope_entry_list_tag
-{
-    // The current entry
-    struct scope_entry_tag* entry;
-    // Next entry under this name (NULL if last)
-    struct scope_entry_list_tag* next;
-} scope_entry_list_t;
+}; 
 
 // Scope kind
 enum scope_kind
@@ -549,7 +386,7 @@ struct scope_tag
     // using namespace statements (using directives) will fill this
     // Only valid for BLOCK_SCOPE, CLASS_SCOPE and NAMESPACE_SCOPE
     int num_used_namespaces;
-    struct scope_entry_tag** use_namespace;
+    scope_entry_t** use_namespace;
 
     // Only valid for NAMESPACE_SCOPE, CLASS_SCOPE and BLOCK_SCOPE
     // they contain the namespace symbol (if any), the class symbol

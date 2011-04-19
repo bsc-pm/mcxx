@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +39,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
 #include "cxx-instantiation.h"
+#include "cxx-entrylist.h"
 
 static type_t* determine_most_specialized_template_class(type_t* template_type, 
         type_t** matching_specializations, int num_specializations,
@@ -131,15 +137,20 @@ type_t* solve_class_template(decl_context_t decl_context,
             fprintf(stderr, "%s:%d: note: template specialization candidate list\n", filename, line);
 
             scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
-            while (entry_list != NULL)
-            {
-                fprintf(stderr, "%s:%d: note:   %s\n",
-                        entry_list->entry->file,
-                        entry_list->entry->line,
-                        print_type_str(get_user_defined_type(entry_list->entry), decl_context));
 
-                entry_list = entry_list->next;
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
+            {
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                fprintf(stderr, "%s:%d: note:   %s\n",
+                        entry->file,
+                        entry->line,
+                        print_type_str(get_user_defined_type(entry), decl_context));
             }
+            entry_list_iterator_free(it);
+            entry_list_free(entry_list);
 
             running_error("%s:%d: error: ambiguous template type for '%s'\n", filename, line,
                     print_type_str(specialized_type, decl_context));
@@ -253,10 +264,9 @@ static type_t* determine_most_specialized_template_class(
             }
             
             // Return the ambiguity as a list
-            scope_entry_list_t* ambiguous_result = calloc(sizeof(*ambiguous_result), 2);
-            ambiguous_result->next = &ambiguous_result[1];
-            ambiguous_result->entry = named_type_get_symbol(current_most_specialized);
-            ambiguous_result[1].entry = named_type_get_symbol(matching_specializations[i]);
+            scope_entry_list_t* ambiguous_result = 
+                entry_list_new(named_type_get_symbol(current_most_specialized));
+            ambiguous_result = entry_list_add(ambiguous_result, named_type_get_symbol(matching_specializations[i]));
 
             return get_unresolved_overloaded_type(ambiguous_result, NULL);
         }
@@ -388,10 +398,8 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             }
 
             // Return the ambiguity as a list
-            scope_entry_list_t* ambiguous_result = calloc(sizeof(*ambiguous_result), 2);
-            ambiguous_result->next = &ambiguous_result[1];
-            ambiguous_result->entry = named_type_get_symbol(most_specialized);
-            ambiguous_result[1].entry = named_type_get_symbol(feasible_templates[i]);
+            scope_entry_list_t* ambiguous_result = entry_list_new(named_type_get_symbol(most_specialized));
+            ambiguous_result = entry_list_add(ambiguous_result, named_type_get_symbol(feasible_templates[i]));
 
             return get_unresolved_overloaded_type(ambiguous_result, NULL);
         }
@@ -470,7 +478,6 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         type_t* function_type, decl_context_t decl_context,
         const char *filename, int line)
 {
-    scope_entry_list_t *it = template_set;
 
 #define MAX_FEASIBLE_SPECIALIZATIONS (256)
     type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
@@ -479,13 +486,15 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
 
     type_t* extended_function_type = extend_function_with_return_type(function_type);
 
-    while (it != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(template_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
         if (entry->kind != SK_TEMPLATE)
         {
             // Skip nontemplates
-            it = it->next;
             continue;
         }
 
@@ -511,9 +520,8 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
             feasible_deductions[num_feasible_templates] = feasible_deduction;
             num_feasible_templates++;
         }
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     type_t* result = determine_most_specialized_template_function(num_feasible_templates,
             feasible_templates, decl_context, filename, line);
@@ -521,28 +529,32 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     if (result == NULL)
         return NULL;
 
+    scope_entry_t* entry = entry_list_head(template_set);
     if (is_unresolved_overloaded_type(result))
     {
         const char* full_name = get_qualified_symbol_name(
-                template_set->entry,
-                decl_context);
+                entry, decl_context);
 
         scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(result);
 
         fprintf(stderr, "%s:%d: note: ambiguous template functions list\n", filename, line);
-        while (entry_list != NULL)
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            fprintf(stderr, "%s:%d: note:   %s\n",
-                    entry_list->entry->file,
-                    entry_list->entry->line,
-                    print_decl_type_str(entry_list->entry->type_information, decl_context, full_name));
+            scope_entry_t* current_entry = entry_list_iterator_current(it);
 
-            entry_list = entry_list->next;
+            fprintf(stderr, "%s:%d: note:   %s\n",
+                    current_entry->file,
+                    current_entry->line,
+                    print_decl_type_str(current_entry->type_information, decl_context, full_name));
         }
+        entry_list_iterator_free(it);
+        entry_list_free(entry_list);
 
         running_error("%s:%d: error: ambiguous template specialization '%s' for '%s'\n",
                 filename, line,
-                template_set->entry->symbol_name,
+                entry->symbol_name,
                 print_decl_type_str(function_type, decl_context, full_name));
     }
 

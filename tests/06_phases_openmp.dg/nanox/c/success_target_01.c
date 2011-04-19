@@ -1,21 +1,80 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 /*
 <testinfo>
 test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#define N 10
+#include <stdio.h>
+#include <stdlib.h>
 
-void hi (int i);
+const int N = 10;
+
+void hi (int M, int *a)
+{
+    int k;
+    for (k = 0; k < M; k++)
+    {
+        a[k] = k;
+    }
+}
 
 int main (int argc, char *argv[])
 {
   int i;
+  int a[N];
 
-  for (i = 0; i < N; i++) {
-#pragma omp target device(smp_numa) copy_deps
-#pragma omp task
-    hi(i);
+  for (i = 0; i < N; i++) 
+  {
+      a[i] = -(i + 1);
   }
+
+  for (i = 0; i < N; i++) 
+  {
+#pragma omp target device(smp)
+#pragma omp task firstprivate(N) inout(a)
+      {
+          hi(N, a);
+      }
+  }
+
+#pragma omp taskwait
+
+  for (i = 0; i < N; i++)
+  {
+      if (a[i] != i)
+      {
+          fprintf(stderr, "a[%d] == %d != %d\n", i, a[i], i);
+          abort();
+      }
+  }
+
+  return 0;
 }
 

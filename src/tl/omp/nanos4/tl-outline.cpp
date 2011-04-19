@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omptransform.hpp"
 
@@ -81,7 +86,7 @@ namespace TL
                 init
                     << "{"
                     << "int _i" << n << ";"
-                    << "for (_i" << n << " = 0; _i" << n << " < (" << type.array_dimension().prettyprint() << "); _i" << n << "++)"
+                    << "for (_i" << n << " = 0; _i" << n << " < (" << type.array_get_size().prettyprint() << "); _i" << n << "++)"
                     << "{"
                     <<     inner_init
                     << "}"
@@ -109,6 +114,7 @@ namespace TL
             Source formal_parameters, 
                 static_qualifier, 
                 forward_declaration, 
+                linkage_specifiers,
                 inline_attribute, 
                 template_header;
 
@@ -166,6 +172,10 @@ namespace TL
                     template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
+            else if (function_definition.has_linkage_specifier())
+            {
+                linkage_specifiers << concat_strings(function_definition.get_linkage_specifier(), " ");
+            }
 
             // If the function is a member and is not qualified we need an additional
             // static here
@@ -190,6 +200,7 @@ namespace TL
                 DeclaredEntity declared_entity = *(declared_entities.begin());
 
                 forward_declaration 
+                    << linkage_specifiers
                     << template_header
                     << decl_specs.prettyprint()
                     << " "
@@ -373,7 +384,7 @@ namespace TL
 		            OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
 
 		            private_declarations
-		                << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+		                << comment("Reduction private entity : '" + name + "'")
 		                << type_declaration
 		                << static_initializer << ";"
                     ;
@@ -521,7 +532,7 @@ namespace TL
 
 		                        for (int i = 0; i < udr.get_num_dimensions(); i++)
 		                        {
-		                            Expression expr(array_type.array_dimension(),
+		                            Expression expr(array_type.array_get_size(),
 		                                    construct.get_scope_link());
 		                            bool valid;
 		                            dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
@@ -871,7 +882,7 @@ namespace TL
 
 		                        for (int i = 0; i < udr.get_num_dimensions(); i++)
 		                        {
-		                            Expression expr(array_type.array_dimension(),
+		                            Expression expr(array_type.array_get_size(),
 		                                    construct.get_scope_link());
 		                            bool valid;
 		                            dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
@@ -1364,7 +1375,6 @@ namespace TL
                     team_parameter);
 
             AST_t result;
-
             result = outline_parallel.parse_declaration(function_definition.get_point_of_declaration(), 
                     function_definition.get_scope_link());
 

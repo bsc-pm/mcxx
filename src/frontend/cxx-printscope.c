@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +34,7 @@
 #include "cxx-driver.h"
 #include "cxx-prettyprint.h"
 #include "cxx-printscope.h"
+#include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
 
 /*
@@ -36,8 +42,8 @@
  */
 static void print_scope_full_context(decl_context_t decl_context, int global_indent);
 static void print_scope_full(scope_t* scope, int global_indent);
-static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent);
-static void print_scope_entry(scope_entry_t* entry, int global_indent);
+static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_list, int global_indent);
+static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent);
 
 static void indent_at_level(FILE* f, int n)
 {
@@ -73,7 +79,14 @@ static char* symbol_kind_names[] =
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
     [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
     // Artificial symbols
-    [SK_OTHER] = "SK_OTHER"
+    [SK_OTHER] = "SK_OTHER",
+#ifdef FORTRAN_SUPPORT
+    [SK_COMMON] = "SK_COMMON",
+    [SK_NAMELIST] = "SK_NAMELIST",
+    [SK_MODULE] = "SK_MODULE",
+    [SK_PROGRAM] = "SK_PROGRAM",
+    [SK_BLOCKDATA] = "SK_BLOCKDATA",
+#endif
 };
 
 // static char* scope_names[] =
@@ -87,10 +100,37 @@ static char* symbol_kind_names[] =
 //     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 // };
 
+#define MAX_SCOPES_DEPTH 128
+
+typedef
+struct print_context_data_tag
+{
+    int global_indent;
+    int num_scopes;
+    scope_t* scope_set[MAX_SCOPES_DEPTH];
+    rb_red_blk_tree *symbol_set;
+} print_context_data_t;
+
+static print_context_data_t print_context_data;
+
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+static int comp_vptr(const void* v1, const void *v2)
+{
+    if (v1 < v2)
+        return -1;
+    else if (v1 > v2)
+        return 1;
+    else 
+        return 0;
+}
+
 void print_scope(decl_context_t decl_context)
 {
+    memset(&print_context_data, 0, sizeof(print_context_data));
+    print_context_data.symbol_set = rb_tree_create(comp_vptr, null_dtor, null_dtor);
     print_scope_full_context(decl_context, 0);
 }
+
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
@@ -124,35 +164,67 @@ static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, v
 {
     scope_entry_list_t* entry_list = (scope_entry_list_t*)info;
 
-    print_scope_entry_list(entry_list, *(int*)data);
+    print_scope_entry_list((const char*)key, entry_list, *(int*)data);
 }
 
 static void print_scope_full(scope_t* st, int global_indent)
 {
+    int i;
+    for (i = 0; i < print_context_data.num_scopes; i++)
+    {
+        if (print_context_data.scope_set[i] == st)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent, "<<Recursive scope not printed>>\n");
+            return;
+        }
+    }
+
+    print_context_data.scope_set[print_context_data.num_scopes] = st;
+    print_context_data.num_scopes++;
+
     rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
+
+    print_context_data.num_scopes--;
+    print_context_data.scope_set[print_context_data.num_scopes] = NULL;
 }
 
-static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)
+static void print_scope_entry_list(const char* key, scope_entry_list_t* entry_list, int global_indent)
 {
-    while (entry_list != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        if (entry_list->entry->do_not_print)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry->do_not_print)
         {
-            entry_list = entry_list->next;
             continue;
         }
-        scope_entry_t* entry = entry_list->entry;
-        print_scope_entry(entry, global_indent);
-
-        entry_list = entry_list->next;
+        print_scope_entry(key, entry, global_indent);
     }
+    entry_list_iterator_free(it);
 }
 
 
 
-static void print_scope_entry(scope_entry_t* entry, int global_indent)
+static void print_scope_entry(const char* key, scope_entry_t* entry, int global_indent)
 {
-    PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+    if (strcmp(key, entry->symbol_name) == 0)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+    }
+    else
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_names[entry->kind]);
+    }
+
+    if (rb_tree_query(print_context_data.symbol_set, entry) != NULL)
+    {
+        PRINT_INDENTED_LINE(stderr, 0, " <<<Symbol already printed>>>\n");
+        return;
+    }
+
+    rb_tree_insert(print_context_data.symbol_set, entry, entry);
 
     if (entry->defined)
     {
@@ -163,6 +235,14 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in %s:%d\n", entry->file, entry->line);
 
+    if (entry->kind == SK_UNDEFINED)
+    {
+        if (entry->type_information != NULL)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
+                    print_declarator(entry->type_information));
+        }
+    }
     if (entry->kind == SK_VARIABLE)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
@@ -198,7 +278,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Specialization: [%d] %p\n", i, specialization->type_information);
 
-            print_scope_entry(specialization, global_indent + 1);
+            print_scope_entry(specialization->symbol_name, specialization, global_indent + 1);
         }
 
     }
@@ -211,7 +291,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->kind == SK_NAMESPACE)
     {
-        print_scope_full_context(entry->namespace_decl_context, global_indent + 1);
+        print_scope_full_context(entry->related_decl_context, global_indent + 1);
     }
 
     if (entry->type_information != NULL 
@@ -315,7 +395,6 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         {
             PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                     print_declarator(entry->type_information));
-            // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
             C_LANGUAGE()
             {
                 if (function_type_get_lacking_prototype(entry->type_information))
@@ -364,8 +443,39 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
                 print_declarator(entry->entity_specs.class_type));
     }
 
+    if (entry->entity_specs.is_static)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is static\n");
+    }
     if (entry->entity_specs.is_conversion)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
+#ifdef FORTRAN_SUPPORT
+    if (entry->kind == SK_PROGRAM
+            || entry->kind == SK_FUNCTION
+            || entry->kind == SK_MODULE)
+    {
+        print_scope_full_context(entry->related_decl_context, global_indent + 1);
+    }
+    if (entry->entity_specs.is_generic_spec)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
+    }
+    if (entry->entity_specs.num_related_symbols != 0)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Related symbols of this symbol\n");
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
+                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+        }
+    }
+    else
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "No related symbols\n");
+    }
+#endif
 }

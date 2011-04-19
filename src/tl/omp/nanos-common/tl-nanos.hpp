@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,9 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef TL_NANOS_HPP
 #define TL_NANOS_HPP
 
+#include <map>
 #include <string>
 
 #include "tl-pragmasupport.hpp"
@@ -34,27 +40,39 @@ namespace TL
     {
         class Version
         {
+            private:
+                static std::map<std::string, int> _interfaces;
             public:
                 const static int DEFAULT_VERSION;
                 const static char* DEFAULT_FAMILY;
 
-                static int version;
-                static std::string family;
+                static bool interface_has_family(const std::string &family);
+                static bool interface_has_version(int version);
 
-                static bool is_family(const std::string &family);
-                static bool is_version(int version);
-                static bool is_interface(const std::string &family, int version);
+                static bool interface_is(const std::string &family, int version);
+                static bool interface_is_at_least(const std::string &family, int version);
+                static bool interface_is_range(const std::string &family, int lower, int upper);
+
+                static int version_of_interface(const std::string& family);
+
+                friend class Interface;
         };
         
         class Interface : public PragmaCustomCompilerPhase
         {
+            private:
+                int _n_loads;
+
+                void reset_version_info();
+                
             public:
                 Interface();
                 void interface_preorder(PragmaCustomConstruct);
                 void interface_postorder(PragmaCustomConstruct);
 
                 virtual void run(TL::DTO& dto);
-
+                virtual void phase_cleanup(DTO& dto);
+                
                 ~Interface() { }
         };
     }

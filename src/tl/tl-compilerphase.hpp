@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_COMPILER_PHASE_HPP
 #define TL_COMPILER_PHASE_HPP
@@ -103,20 +108,24 @@ namespace TL
                 //! Something failed and compiler pipeline must stop after this one
                 PHASE_STATUS_ERROR
             };
-        private :
+
+        protected:
             //! The name of the phase
             std::string _phase_name;
             //! Description of the phase
             std::string _phase_description;
-            //! Status result of the phase
-            PhaseStatus _phase_status;
-            //! List of phase parameters
-            std::vector<CompilerPhaseParameter*> _parameters;
-        protected:
+
             virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
+
+        private :
+            //! Status result of the phase
+            PhaseStatus _phase_status;
+            //! List of phase parameters
+            std::vector<CompilerPhaseParameter*> _parameters;
+
         public:
             //! Constructor of the phase
             /*!

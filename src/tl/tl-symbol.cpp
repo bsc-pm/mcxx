@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,28 +24,37 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 
 namespace TL
 {
-    Schema Symbol::schema(&::scope_entry_extensible_schema);
-
     tl_type_t* Symbol::get_extended_attribute(const std::string& name) const
     {
-        return default_get_extended_attribute(
-                &scope_entry_extensible_schema,
-                this->_symbol->extended_data,
-                name);
+        if (this->_symbol->extended_data != NULL)
+        {
+            return default_get_extended_attribute(
+                    this->_symbol->extended_data,
+                    name);
+        }
+        return NULL;
     }
 
     bool Symbol::set_extended_attribute(const std::string &str, const tl_type_t &data)
     {
-        return default_set_extended_attribute(
-                &scope_entry_extensible_schema,
-                this->_symbol->extended_data,
-                str,
-                data);
+        if (this->_symbol->extended_data != NULL)
+        {
+            return default_set_extended_attribute(
+                    this->_symbol->extended_data,
+                    str,
+                    data);
+        }
+        else
+        {
+            return false;
+        }
     }
 
     Type Symbol::get_type() const
@@ -387,5 +399,105 @@ namespace TL
     int Symbol::get_line() const
     {
         return _symbol->line;
+    }
+
+
+    bool Symbol::is_common() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->kind == SK_COMMON;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_allocatable() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_allocatable;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_in_common() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_in_common;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_in_namelist() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_in_namelist;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_optional() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_optional;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_target() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_target;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_value() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_value;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_elemental() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_elemental;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_recursive() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_recursive;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_result() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_result;
+#else
+        return false;
+#endif
+    }
+
+    bool Symbol::is_generic_specifier() const
+    {
+#ifdef FORTRAN_SUPPORT
+        return _symbol->entity_specs.is_builtin_subroutine;
+#else
+        return false;
+#endif
     }
 }

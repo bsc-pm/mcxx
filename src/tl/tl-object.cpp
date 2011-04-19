@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-builtin.hpp"
 #include "tl-object.hpp"
@@ -124,86 +129,48 @@ void Object::set_attribute(const std::string &name, int i)
 
 void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
 {
+    // Mark another reference
+    obj->obj_reference();
+
+    tl_type_t* tl_ptr_value = this->get_extended_attribute(name);
+    if (tl_ptr_value != NULL)
+    {
+        if (tl_ptr_value->kind == TL_OTHER)
+        {
+            // Unreference the existing one
+            ((Object*)(tl_ptr_value->data._data))->obj_unreference();
+        }
+    }
+
     tl_type_t value;
     memset(&value, 0, sizeof(value));
 
     value.kind = TL_OTHER;
     value.data._data = obj.get_pointer();
 
-    // This will increase the counter if needed
     this->set_extended_attribute(name, value);
 }
 
-static tl_type_t found_but_not_set;
 tl_type_t* default_get_extended_attribute(
-        extensible_schema_t* extensible_schema, 
         extensible_struct_t* extensible_struct, 
         const std::string& name)
 {
-    //  First get the extended attribute
-    char found = 0;
-    void* p = extensible_struct_get_field_pointer_lazy(extensible_schema,
-            extensible_struct,
-            name.c_str(),
-            &found);
-
-    if (found)
+    tl_type_t* p = NULL;
+    if (extensible_struct != NULL)
     {
-        if (p == NULL)
-        {
-            // It was found but nobody wrote on this attribute
-            // Clear the static return type
-            memset(&found_but_not_set, 0, sizeof(found_but_not_set));
-            return &found_but_not_set;
-        }
-        else
-        {
-            return (tl_type_t*)p;
-        }
+        p = (tl_type_t*)extensible_struct_get_field(extensible_struct, name.c_str());
     }
-    else 
-    {
-        return NULL;
-    }
+    return p;
 }
 
 bool default_set_extended_attribute(
-        extensible_schema_t* extensible_schema, 
         extensible_struct_t* extensible_struct, 
-        const std::string &str, const tl_type_t &data)
+        const std::string &field_name, const tl_type_t &data)
 {
-    extensible_schema_add_field_if_needed(extensible_schema,
-            str.c_str(), sizeof(data));
+    tl_type_t* new_tl_data = new tl_type_t(data);
+    extensible_struct_set_field(extensible_struct,
+            field_name.c_str(), new_tl_data);
 
-    void *p = extensible_struct_get_field_pointer(extensible_schema,
-            extensible_struct,
-            str.c_str());
-    
-    // Something happened
-    if (p == NULL)
-        return false;
-
-    tl_type_t* tl_value = reinterpret_cast<tl_type_t*>(p);
-    
-    if (tl_value->kind == TL_OTHER
-            && tl_value->data._data != NULL)
-    {
-        // Decrease the reference if there was an Object
-        reinterpret_cast<Object*>(tl_value->data._data)->obj_unreference();
-    }
-
-    // Write
-    *tl_value = data;
-
-    if (data.kind == TL_OTHER
-            // What an unfortunate name
-            && data.data._data != NULL)
-    {
-        // Increase the reference if it is an Object
-        reinterpret_cast<Object*>(data.data._data)->obj_reference();
-    }
-
-    // Data was written
     return true;
 }
 

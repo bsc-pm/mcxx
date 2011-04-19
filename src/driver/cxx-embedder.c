@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,6 +56,7 @@
 
 enum {
     OPTION_EMBED_VERSION = 1024,
+    OPTION_EMBED_VERBOSE,
     OPTION_EMBED_PROFILE,
     OPTION_EMBED_COMPILER_PROFILE,
 };
@@ -65,7 +71,7 @@ struct command_line_long_options command_line_long_options[] =
     {"output",      CLP_REQUIRED_ARGUMENT, 'o' },
     {"profile",     CLP_REQUIRED_ARGUMENT, OPTION_EMBED_PROFILE },
     {"compiler-profile", CLP_REQUIRED_ARGUMENT, OPTION_EMBED_COMPILER_PROFILE },
-    {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE },
+    {"verbose",     CLP_NO_ARGUMENT, OPTION_EMBED_VERBOSE },
 };
 
 #define MAX_EMBED_FILES 64
@@ -135,6 +141,7 @@ static void tool_initialization(int argc, const char* argv[])
     atexit(cleanup_routine);
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+#if !defined(__CYGWIN__)
     // Define alternate stack
     stack_t alternate_stack;
 
@@ -158,6 +165,7 @@ static void tool_initialization(int argc, const char* argv[])
         running_error("Setting alternate signal stack failed (%s)\n",
 				strerror(errno));
     }
+#endif
 
     // Program signals
     struct sigaction terminating_sigaction;
@@ -165,7 +173,10 @@ static void tool_initialization(int argc, const char* argv[])
 
     terminating_sigaction.sa_handler = terminating_signal_handler;
     // Use alternate stack and we want the signal be reset when it happens
-    terminating_sigaction.sa_flags = SA_RESETHAND | SA_ONSTACK;
+    terminating_sigaction.sa_flags = SA_RESETHAND;
+#if !defined(__CYGWIN__)
+    terminating_sigaction.sa_flags |= SA_ONSTACK;
+#endif
     // Block all blockable signals while handling the termination
     sigfillset(&terminating_sigaction.sa_mask);
 
@@ -270,7 +281,7 @@ int main(int argc, char *argv[])
                         current_profile = strdup(parameter_info.argument);
                         break;
                     }
-                case OPTION_VERBOSE:
+                case OPTION_EMBED_VERBOSE:
                     {
                         CURRENT_CONFIGURATION->verbose = 1;
                         break;

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-statement.hpp"
 
 namespace TL
@@ -31,8 +36,17 @@ namespace TL
     const PredicateAttr IfStatement::predicate(LANG_IS_IF_STATEMENT);
     const PredicateAttr DoWhileStatement::predicate(LANG_IS_DO_STATEMENT);
     const PredicateAttr SwitchStatement::predicate(LANG_IS_SWITCH_STATEMENT);
+    const PredicateAttr CaseStatement::predicate(LANG_IS_CASE_STATEMENT);
+    const PredicateAttr DefaultStatement::predicate(LANG_IS_DEFAULT_STATEMENT);
+    const PredicateAttr BreakStatement::predicate(LANG_IS_BREAK_STATEMENT);
+    const PredicateAttr ContinueStatement::predicate(LANG_IS_CONTINUE_STATEMENT);
+    const PredicateAttr TryStatement::predicate(LANG_IS_TRY_BLOCK);
     const PredicateAttr ReturnStatement::predicate(LANG_IS_RETURN_STATEMENT);
     const PredicateAttr GotoStatement::predicate(LANG_IS_GOTO_STATEMENT);
+    const PredicateAttr LabeledStatement::predicate(LANG_IS_LABELED_STATEMENT);
+    const PredicateAttr EmptyStatement::predicate(LANG_IS_EMPTY_STATEMENT);
+
+	// Falta try_block
 
     bool Condition::is_expression() const
     {
@@ -95,6 +109,59 @@ namespace TL
 
         return result;
     }
+
+    Statement Statement::get_pragma_line() const
+    {
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        Statement st(pragma_line, _scope_link);
+        return st;
+    }
+
+    bool Statement::is_pragma_construct() const
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
+        return b;
+    }
+
+    Statement Statement::get_pragma_construct_statement() const
+    {
+        AST_t pragma_statement = _ref.get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+        Statement st(pragma_statement, _scope_link);
+        return st;
+    }
+
+    bool Statement::is_pragma_directive() const
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
+        return b;
+    }
+
+	bool Statement::breaks_flow()
+	{
+		if ( (TL::Bool) this->_ref.get_attribute(LANG_IS_FOR_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_WHILE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_IF_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_DO_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_SWITCH_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_CASE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_DEFAULT_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_BREAK_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_CONTINUE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_TRY_BLOCK) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_RETURN_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_GOTO_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_LABELED_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE)
+			)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 
     bool ForStatement::check_statement()
     {
@@ -400,24 +467,24 @@ namespace TL
         return Expression(_ref, _scope_link);
     }
 
-    bool Statement::is_labeled() const
-    {
-        TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
-        return b;
-    }
-
-    std::string Statement::get_label() const
-    {
-        std::string result = "";
-
-        TL::AST_t ast = _ref.get_attribute(LANG_STATEMENT_LABEL);
-        if (ast.is_valid())
-        {
-            result = ast.prettyprint();
-        }
-
-        return result;
-    }
+//     bool Statement::is_labeled() const
+//     {
+//         TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
+//         return b;
+//     }
+// 
+//     std::string Statement::get_label() const
+//     {
+//         std::string result = "";
+// 
+//         TL::AST_t ast = _ref.get_attribute(LANG_STATEMENT_LABEL);
+//         if (ast.is_valid())
+//         {
+//             result = ast.prettyprint();
+//         }
+// 
+//         return result;
+//     }
 
     bool Statement::is_in_compound_statement() const
     {
@@ -526,6 +593,12 @@ namespace TL
         return Condition(condition_tree, _scope_link);
     }
 
+    Statement SwitchStatement::get_switch_body() const
+    {
+        TL::AST_t switch_body_tree = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        return Statement(switch_body_tree, _scope_link);
+    }
+
     Expression CaseStatement::get_case_expression() const
     {
         TL::AST_t case_expression = _ref.get_attribute(LANG_CASE_EXPRESSION);
@@ -536,6 +609,12 @@ namespace TL
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
         return Statement(case_statement_body, _scope_link);
+    }
+
+    Statement DefaultStatement::get_statement() const
+    {
+        TL::AST_t default_statement_body = _ref.get_attribute(LANG_DEFAULT_STATEMENT_BODY);
+        return Statement(default_statement_body, _scope_link);
     }
 
     void Statement::prepend(Statement st)
@@ -594,8 +673,9 @@ namespace TL
 
     ObjectList<CaseStatement> SwitchStatement::get_cases() const
     {
-        TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
-
+        /*TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
+        std::cout << "CASE STATEMENT BODY '" << case_statement_body.prettyprint() << "'" << std::endl;
+        
         ObjectList<AST_t> case_tree_list = case_statement_body.depth_subtrees(
                 PredicateAttr(LANG_IS_CASE_STATEMENT), 
                 // We do not want inner case statements coming from nested switch statements
@@ -608,9 +688,87 @@ namespace TL
         {
             CaseStatement case_statement(*it, _scope_link);
             result.append(case_statement);
-        }
+        }*/
+
+        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+
+        ObjectList<AST_t> case_tree_list = switch_statement_body.depth_subtrees(
+                PredicateAttr(LANG_IS_CASE_STATEMENT), 
+                // We do not want inner case statements coming from nested switch statements
+                AST_t::NON_RECURSIVE);
+        ObjectList<CaseStatement> result;
+        for (ObjectList<AST_t>::iterator itc = case_tree_list.begin();
+            itc != case_tree_list.end();
+                itc++)
+        {
+            CaseStatement case_statement(*itc, _scope_link);
+            result.append(case_statement);
+        }    
 
         return result;
+    }
+
+    ObjectList<DefaultStatement> SwitchStatement::get_defaults() const
+    {
+        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        
+        ObjectList<AST_t> default_tree_list = switch_statement_body.depth_subtrees(
+                PredicateAttr(LANG_IS_DEFAULT_STATEMENT), 
+                // We do not want inner case statements coming from nested switch statements
+                AST_t::NON_RECURSIVE);
+        ObjectList<DefaultStatement> result;
+        for (ObjectList<AST_t>::iterator itd = default_tree_list.begin();
+                itd != default_tree_list.end();
+                itd++)
+        {
+            DefaultStatement default_statement(*itd, _scope_link);
+            result.append(default_statement);
+        }
+        
+        return result;
+    }
+
+    Statement TryStatement::get_try_protected_block() const
+    {
+        TL::AST_t try_block_tree = _ref.get_attribute(LANG_TRY_BLOCK_BODY);
+        Statement try_statement(try_block_tree, _scope_link);
+        return try_statement;
+    }
+
+    ObjectList<Declaration> TryStatement::get_try_handler_declarations() const
+    {
+        ObjectList<Declaration> handler_decls;
+        
+        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
+                
+        handlers_iterator.rewind();
+        while(!handlers_iterator.end())
+        {
+            Declaration decl(handlers_iterator.item().children()[0], _scope_link);
+            handler_decls.append(decl);
+            handlers_iterator.next();
+        }
+        
+        return handler_decls;
+    }
+
+    ObjectList<Statement> TryStatement::get_try_handler_blocks() const
+    {
+        ObjectList<Statement> handler_blocks;
+        
+        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
+        
+        handlers_iterator.rewind();
+        while(!handlers_iterator.end())
+        {
+            Statement block(handlers_iterator.item().children()[1], _scope_link);
+            handler_blocks.append(block);
+            handlers_iterator.next();
+        }
+        
+        return handler_blocks;
     }
 
     bool ReturnStatement::has_return_expression() const
@@ -629,5 +787,17 @@ namespace TL
     {
         AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
         return tree.prettyprint();
+    }
+    
+    std::string LabeledStatement::get_label() const
+    {
+        AST_t tree = _ref.get_attribute(LANG_STATEMENT_LABEL);
+        return tree.prettyprint();
+    }
+    
+    Statement LabeledStatement::get_labeled_statement() const
+    {
+        AST_t tree = _ref.get_attribute(LANG_LABELED_STATEMENT);
+        return Statement(tree, _scope_link);
     }
 }

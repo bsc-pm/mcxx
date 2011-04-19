@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -22,10 +25,13 @@
 --------------------------------------------------------------------*/
 
 
+
+
 #ifndef TL_SOURCE_BITS_HPP
 #define TL_SOURCE_BITS_HPP
 
 
+#include "tl-augmented-symbol.hpp"
 #include "tl-symbol.hpp"
 #include "tl-source.hpp"
 
@@ -39,8 +45,13 @@ namespace TL
                     ScopeLink scope_link, 
                     std::string const &declarator_string, 
                     Region::Direction direction,
-                    Region::Reduction reduction, Symbol &original_symbol);
+                    Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &original_symbol);
 
+			static Expression handle_superscalar_expression(AST_t ref_tree, 
+				ScopeLink scope_link,
+				std::string const &expression_string,
+				Region &region);
+			
 #if 0
             static ObjectList<Region> handle_superscalar_declarator_list(AST_t ref_tree, 
                     ScopeLink scope_link, 

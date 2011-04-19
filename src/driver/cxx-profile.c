@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
 #include "cxx-profile.h"
@@ -38,6 +43,10 @@ compilation_configuration_t* new_compilation_configuration(
 
     result->configuration_name = uniquestr(name);
     result->base_configuration = base;
+
+#ifdef FORTRAN_SUPPORT
+    result->column_width = 132;
+#endif
 
     return result;
 }
@@ -88,9 +97,9 @@ static element_type** _fun_name(element_type** orig, int num_elems) \
     return result; \
 }
 
-DEF_COPY_ARRAY(copy_const_char_array, const char)
 DEF_COPY_ARRAY(copy_external_vars, external_var_t)
 DEF_COPY_ARRAY(copy_pragma_directive_set, pragma_directive_set_t)
+DEF_COPY_ARRAY(copy_compiler_phase_loader, compiler_phase_loader_t)
 
 static void initialize_with_base_config(compilation_configuration_t* dst, 
         compilation_configuration_t const * base)
@@ -110,13 +119,16 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
     dst->configuration_lines = configuration_lines;
 
     // Copy those fields requiring special copies
+#ifdef FORTRAN_SUPPORT
+    dst->prescanner_options = copy_null_ended_const_char_array(base->prescanner_options);
+#endif
     dst->preprocessor_options = copy_null_ended_const_char_array(base->preprocessor_options);
     dst->native_compiler_options = copy_null_ended_const_char_array(base->native_compiler_options);
     dst->linker_options = copy_null_ended_const_char_array(base->linker_options);
 
     // Note, fields with the length of the arrays have been copied in the
     // bitwise copy so there is no need to set them again
-    dst->compiler_phases = copy_const_char_array(base->compiler_phases, 
+    dst->phase_loader = copy_compiler_phase_loader(base->phase_loader, 
             base->num_compiler_phases);
     dst->external_vars = copy_external_vars(base->external_vars, 
             base->num_external_vars);

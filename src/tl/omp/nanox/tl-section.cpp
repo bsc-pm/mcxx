@@ -1,26 +1,32 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
-  Centro Nacional de Supercomputacion
-
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-
+  
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
-  --------------------------------------------------------------------*/
+--------------------------------------------------------------------*/
 
+
+
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
@@ -63,30 +69,16 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             data_environ_info,
             _converted_vlas);
 
-    Source struct_fields;
 
-    Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(
-            ctr.get_scope(),
-            data_environ_info,
-            struct_arg_type_decl_src,
-            struct_fields,
-            struct_arg_type_name, 
-            ObjectList<OpenMP::DependencyItem>(),  // empty dependences
-            _compiler_alignment);
 
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_decl_src
-        ;
+    define_arguments_structure(ctr,
+            struct_arg_type_name,
+            data_environ_info,
+            ObjectList<OpenMP::DependencyItem>(),
+            Source());
     
     FunctionDefinition funct_def = ctr.get_enclosing_function();
-
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
-
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
@@ -100,9 +92,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     if (!ctr.get_clause("nowait").is_defined())
     {
-        final_barrier
-            << "nanos_wg_wait_completion(nanos_current_wd());"
-            << "nanos_team_barrier();"
+        final_barrier << get_barrier_code(ctr.get_ast())
             ;
     }
 
@@ -179,6 +169,13 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             /* is_pointer */ true,
             fill_outline_arguments);
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     spawn_source
         << "{"
         <<    "nanos_err_t err;"
@@ -191,6 +188,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
         <<    "err = nanos_create_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
         <<          "sizeof(" << struct_arg_type_name << "),"
+        <<          alignment
         <<          "(void**)&section_data,"
         <<          "nanos_current_wd(),"
         // FIXME: No copies at the moment

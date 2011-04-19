@@ -6,19 +6,22 @@
 #include "cxx-utils.h"
 #include "cxx-ambiguity.h"
 #include "cxx-prettyprint.h"
+#include "cxx-entrylist.h"
 
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
     scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
     ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
 
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     if (entry->kind != SK_CLASS
             && entry->kind != SK_TYPEDEF)
     {
         ERROR_CONDITION(entry_list == NULL, "'%s' is not a valid typename", name);
     }
+
 
     return get_user_defined_type(entry);
 }
@@ -102,7 +105,7 @@ void cuda_kernel_symbols_for_function_body(
     }
 }
 
-char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
+void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 {
     AST postfix_expr = ASTSon0(expression);
     AST cuda_kernel_args = ASTSon1(expression);
@@ -110,21 +113,33 @@ char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     AST arg_0 = ASTSon0(cuda_kernel_args);
     if (!check_for_expression(arg_0, decl_context))
-        return 0;
+    {
+        expression_set_error(expression);
+        return;
+    }
 
     AST arg_1 = ASTSon1(cuda_kernel_args);
     if (!check_for_expression(arg_1, decl_context))
-        return 0;
+    {
+        expression_set_error(expression);
+        return;
+    }
 
     AST arg_2 = ASTSon2(cuda_kernel_args);
     if (arg_2 != NULL
             && !check_for_expression(arg_2, decl_context))
-        return 0;
+    {
+        expression_set_error(expression);
+        return;
+    }
 
     AST arg_3 = ASTSon3(cuda_kernel_args);
     if (arg_3 != NULL
             && !check_for_expression(arg_3, decl_context))
-        return 0;
+    {
+        expression_set_error(expression);
+        return;
+    }
 
     type_t* dim3_type = cuda_get_dim3_type(decl_context);
     type_t* cudaStream_t_type = cuda_get_cudaStream_t_type(decl_context);
@@ -180,7 +195,8 @@ char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
                         prettyprint_in_buffer(tree),
                         print_type_str(dest_type, decl_context));
             }
-            return 0;
+            expression_set_error(expression);
+            return;
         }
         i++;
     }
@@ -196,11 +212,10 @@ char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     if (!_check_for_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
     {
-        return 0;
+        expression_set_error(expression);
+        return;
     }
 
     // A CUDA kernel should return void
     expression_set_type(expression, get_void_type());
-
-    return 1;
 }

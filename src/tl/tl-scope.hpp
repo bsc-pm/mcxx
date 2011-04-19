@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_SCOPE_HPP
 #define TL_SCOPE_HPP
@@ -55,7 +60,6 @@ namespace TL
         private:
             bool _valid;
             decl_context_t _decl_context;
-            static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
             static void get_head(const ObjectList<Symbol>& in, Symbol& out);
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
@@ -185,6 +189,9 @@ namespace TL
              */
             void printscope();
 
+            //! Get the symbol associated to this scope
+            Symbol get_related_symbol() const;
+
             //! Get a list of symbols in this scope with name \a str
             /*!
              * \param str The unqualified name looked up
@@ -292,6 +299,9 @@ namespace TL
 				used for lookups.
 			*/
 			static AST_t wrap_symbol_name(const std::string& str);
+
+            //! Convenience function
+            static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
 
             Scope& operator=(Scope sc);
             bool operator<(Scope sc) const;

@@ -1,25 +1,30 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
-  Centro Nacional de Supercomputacion
-
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-
+  
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
-  --------------------------------------------------------------------*/
+--------------------------------------------------------------------*/
+
+
 
 #include "tl-nanos-threadprivate.hpp"
 #include "cxx-utils.h"
@@ -48,16 +53,7 @@ static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_
             remade_declaration << " __thread";
         }
 
-        remade_declaration << " " << it->prettyprint();
-
-        if (it->has_initializer())
-        {
-            // This .original_tree is to work around a quirk of TL::Expression
-            // (as it skips the '=' in an initializer of the form '= e')
-            remade_declaration << it->get_initializer().original_tree().prettyprint();
-        }
-
-        remade_declaration << ";\n";
+        remade_declaration << " " << it->prettyprint() << ";\n";
     }
 
     AST_t tree(NULL);
@@ -100,7 +96,8 @@ void Nanos::add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, Sc
                 && it->is_defined())
         {
             AST_t def = it->get_point_of_definition();
-            if (def.is_valid())
+            if (def.is_valid()
+                    && def != it->get_point_of_declaration())
             {
                 add_thread_to_declarations_in_tree(symbol_list, Declaration(def, sl));
             }

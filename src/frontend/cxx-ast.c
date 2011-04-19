@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 /** 
   Abstract Syntax Tree
@@ -46,9 +51,11 @@ struct AST_tag
     // Node type (1024 different node types)
     node_t node_type:10; 
 
-    unsigned int num_ambig:4;
     // This is a bitmap for the sons
     unsigned int bitmap_sons:MAX_AST_CHILDREN;
+
+    // Number of ambiguities of this node
+    int num_ambig;
 
     // Parent node
     struct AST_tag* parent; 
@@ -72,9 +79,6 @@ struct AST_tag
     // Extensible information (created lazily)
     extensible_struct_t* extended_data;
 };
-
-// Define the extensible schema of AST's
-extensible_schema_t ast_extensible_schema = EMPTY_EXTENSIBLE_SCHEMA;
 
 static int count_bitmap(unsigned int bitmap)
 {
@@ -168,6 +172,11 @@ AST ast_get_parent(const_AST a)
 unsigned int ast_get_line(const_AST a)
 {
     return a->line;
+}
+
+void ast_set_line(AST a, int line)
+{
+    a->line = line;
 }
 
 const char* ast_get_text(const_AST a)
@@ -470,26 +479,25 @@ static void ast_copy_extended_data(AST new, const_AST orig)
         return;
     }
 
-    new->extended_data = counted_calloc(1, sizeof(*(new->extended_data)), &_bytes_due_to_astmake);
-    extensible_struct_init(new->extended_data, &ast_extensible_schema);
+    extensible_struct_init(&(new->extended_data));
 
-    int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
-            orig->extended_data);
+    int num_fields = 0;
+    const char ** keys = NULL;
+    const void ** values = NULL;
+
+    extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
+
     int i;
     for (i = 0; i < num_fields; i++)
     {
-        const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
-                orig->extended_data, i);
+        const char *field_name = keys[i];
 
-        char is_found = 0;
-        void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
-                orig->extended_data, field_name, &is_found);
-        if (data != NULL)
-        {
-            tl_type_t* tl_data = (tl_type_t*)data;
-            ASTAttrSetValueType(new, field_name, tl_type_t, (*tl_data));
-        }
+        tl_type_t* tl_data = (tl_type_t*)values[i];;
+        ASTAttrSetValueType(new, field_name, tl_type_t, (*tl_data));
     }
+
+    free(keys);
+    free(values);
 }
 
 // Use this to fix extended data pointing to other ASTs
@@ -499,11 +507,13 @@ static void ast_fix_extended_data(AST new, const_AST orig)
         return;
 
     // First get all TL_AST in 'orig' that point to its childrens
-    int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
-            orig->extended_data);
+    int num_fields = 0;
+    const char ** keys = NULL;
+    const void ** values = NULL;
 
-    typedef
-    struct tl_data_index_tag
+    extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
+
+    typedef struct tl_data_index_tag
     {
         const char* field_name;
         AST ast;
@@ -516,16 +526,10 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     int i;
     for (i = 0; i < num_fields; i++)
     {
-        const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
-                orig->extended_data, i);
+        const char* field_name = keys[i];
+        tl_type_t* tl_data = (tl_type_t*)values[i];
 
-        char is_found = 0;
-        void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
-                orig->extended_data, field_name, &is_found);
-        tl_type_t* tl_data = (tl_type_t*)data;
-
-        if (data != NULL
-                && tl_data->kind == TL_AST
+        if (tl_data->kind == TL_AST
                 && tl_data->data._ast != NULL)
         {
             if (ast_is_parent(/* potential parent */ orig, /* node */ tl_data->data._ast))
@@ -533,7 +537,6 @@ static void ast_fix_extended_data(AST new, const_AST orig)
                 tl_data_index[num_ast_fields].field_name = field_name;
                 tl_data_index[num_ast_fields].ast = tl_data->data._ast;
                 num_ast_fields++;
-
             }
         }
     }
@@ -543,6 +546,9 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     {
         ast_fix_one_ast_field(new, orig, tl_data_index[i].field_name, tl_data_index[i].ast);
     }
+
+    free(keys);
+    free(values);
 }
 
 AST ast_copy(const_AST a)
@@ -663,6 +669,7 @@ AST ast_copy_for_instantiation(const_AST a)
 
 AST ast_list_leaf(AST a)
 {
+    ERROR_CONDITION(a == NULL, "Invalid tree", 0);
     AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
             ast_get_filename(a), ast_get_line(a), ast_get_text(a));
 
@@ -671,8 +678,19 @@ AST ast_list_leaf(AST a)
 
 AST ast_list(AST list, AST last_elem)
 {
+    ERROR_CONDITION(last_elem == NULL, "Invalid tree", 0);
+    const char* filename = NULL;
+    if (list != NULL)
+    {
+        filename = ast_get_filename(list);
+    }
+    else
+    {
+        filename = ast_get_filename(last_elem);
+    }
+
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            ast_get_filename(list), ast_get_line(last_elem), ast_get_text(last_elem));
+            filename, ast_get_line(last_elem), ast_get_text(last_elem));
 
     return a;
 }
@@ -709,6 +727,31 @@ AST ast_list_concat(AST before, AST after)
 
     ast_set_child(head_after, 0, before);
     return after;
+}
+
+void ast_list_split_head_tail(AST list, AST *head, AST* tail)
+{
+    if (list == NULL)
+    {
+        *head = NULL;
+        *tail = NULL;
+        return;
+    }
+
+    AST first = ast_list_head(list);
+    if (first == list)
+    {
+        *tail = NULL;
+    }
+    else
+    {
+        AST p = ASTParent(first);
+        ast_set_child(p, 0, NULL);
+        ast_set_parent(first, NULL);
+
+        *tail = list;
+    }
+    *head = first;
 }
 
 const char* ast_node_type_name(node_t n)
@@ -799,12 +842,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
         {
             int original_son0 = son0->num_ambig;
 
-            if ((son0->num_ambig + son1->num_ambig) > MAX_AST_AMBIGUITIES)
-            {
-                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                        son0->num_ambig + son1->num_ambig, MAX_AST_AMBIGUITIES);
-            }
-
             son0->num_ambig += son1->num_ambig;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 
@@ -818,12 +855,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
         }
         else
         {
-            if (son0->num_ambig == MAX_AST_AMBIGUITIES)
-            {
-                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                        son0->num_ambig, MAX_AST_AMBIGUITIES);
-            }
-
             son0->num_ambig++;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = ast_copy(son1);
@@ -833,12 +864,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
     }
     else if (ASTType(son1) == AST_AMBIGUITY)
     {
-        if (son1->num_ambig == MAX_AST_AMBIGUITIES)
-        {
-            internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                    son1->num_ambig, MAX_AST_AMBIGUITIES);
-        }
-
         son1->num_ambig++;
         son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = ast_copy(son0);
@@ -880,10 +905,16 @@ void ast_replace(AST dest, const_AST src)
     *dest = *src;
 }
 
-static void ast_free(AST a)
+void ast_free(AST a)
 {
     if (a != NULL)
     {
+        if (CURRENT_COMPILED_FILE != NULL
+                && CURRENT_COMPILED_FILE->scope_link != NULL)
+        {
+            scope_link_unset(CURRENT_COMPILED_FILE->scope_link, a);
+        }
+
         if (ast_get_type(a) == AST_AMBIGUITY)
         {
             int i;
@@ -984,16 +1015,6 @@ void ast_set_filename(AST a, const char* str)
     a->filename = str;
 }
 
-extensible_struct_t* ast_get_extensible_struct(AST a)
-{
-    if (a->extended_data == NULL)
-    {
-        a->extended_data = counted_calloc(1, sizeof(*(a->extended_data)), &_bytes_due_to_astmake);
-        extensible_struct_init(a->extended_data, &ast_extensible_schema);
-    }
-    return a->extended_data;
-}
-
 /*
  * This functions give an additional support to scopelink
  *
@@ -1050,3 +1071,36 @@ int ast_node_size(void)
     return sizeof(struct AST_tag);
 }
 
+static void ast_init_extensible_struct(AST a)
+{
+    if (a->extended_data == NULL)
+    {
+        extensible_struct_init(&(a->extended_data));
+    }
+}
+
+void ast_set_field(AST a, const char* name, void *data)
+{
+    ast_init_extensible_struct(a);
+    extensible_struct_set_field(a->extended_data, name, data);
+}
+
+void* ast_get_field(AST a, const char* name)
+{
+    if (a->extended_data == NULL)
+        return NULL;
+
+    void *p = extensible_struct_get_field(a->extended_data, name);
+    return p;
+}
+
+extensible_struct_t* ast_get_extensible_struct(AST a)
+{
+    return a->extended_data;
+}
+
+extensible_struct_t* ast_get_initalized_extensible_struct(AST a)
+{
+    ast_init_extensible_struct(a);
+    return a->extended_data;
+}

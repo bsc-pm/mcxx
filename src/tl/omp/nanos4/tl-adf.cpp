@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-omptransform.hpp"
 #include "tl-transaction-expression.hpp"
 
@@ -31,7 +36,7 @@ namespace TL
         static Expression compute_bounds_of_sectioned_expression(Expression expr, 
                 ObjectList<Expression>& lower_bounds, ObjectList<Expression>& upper_bounds)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression result 
                     = compute_bounds_of_sectioned_expression(expr.array_section_item(), lower_bounds, upper_bounds);
@@ -51,13 +56,13 @@ namespace TL
             {
                 ObjectList<AST_t> previous_dim = compute_array_dimensions_of_type(t.array_element());
 
-                if (!t.explicit_array_dimension())
+                if (!t.array_has_size())
                 {
                     return result;
                 }
 
                 result = previous_dim;
-                result.append(t.array_dimension());
+                result.append(t.array_get_size());
             }
 
             return result;
@@ -236,7 +241,7 @@ namespace TL
                                 << ");"
                                 ;
                         }
-                        else if (trigger_expr.is_array_section())
+                        else if (trigger_expr.is_array_section_range())
                         {
                             ObjectList<Expression> lower_bounds;
                             ObjectList<Expression> upper_bounds;

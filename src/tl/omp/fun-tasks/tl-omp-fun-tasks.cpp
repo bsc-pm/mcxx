@@ -1,3 +1,30 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 #include "tl-omp-core.hpp"
 #include "tl-omp-fun-tasks.hpp"
 
@@ -110,10 +137,11 @@ namespace OpenMP
                     // We want a function call
                     if (expr.is_top_level_expression()
                             && expr.is_function_call()
-                            // To an entity
-                            && expr.get_called_expression().is_id_expression())
+                            // To a known entity
+                            && expr.get_called_expression().has_symbol())
                     {
-                        Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+                        Expression callee = expr.get_called_expression();
+                        Symbol sym = callee.get_symbol();
 
                         if (sym.is_valid()
                                 && sym.is_function()
@@ -136,7 +164,7 @@ namespace OpenMP
                 it++)
         {
             Expression expr(*it, scope_link);
-            Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+            Symbol sym = expr.get_called_expression().get_symbol();
 
             FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
@@ -166,8 +194,8 @@ namespace OpenMP
             ObjectList<FunctionTaskDependency> task_params = task_info.get_parameter_info();
 
             // Create new call
-            Source new_arguments;
-            new_call << expr.get_called_expression() << "(" << new_arguments << ")"
+            Source new_arguments, new_callee;
+            new_call << new_callee << "(" << new_arguments << ")"
                 ;
 
             ReplaceSrcIdExpression replace(scope_link);
@@ -214,7 +242,6 @@ namespace OpenMP
                         running_error("Invalid argument position %d >= %d",
                                 current_sym.get_parameter_position(),
                                 argument_list.size());
-
                     }
                 }
             }
@@ -223,6 +250,7 @@ namespace OpenMP
             Source input_args;
             Source output_args;
             Source inout_args;
+	    Source reduction_args;
 
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
@@ -246,6 +274,12 @@ namespace OpenMP
                             args = &inout_args;
                             break;
                         }
+                    case DEP_REDUCTION :
+                        {
+                            args = &reduction_args;
+                            break;
+                        }
+
                     default:
                         {
                             internal_error("Code unreachable", 0);
@@ -257,38 +291,74 @@ namespace OpenMP
                         ",");
             }
 
-            // Now check parameters that do not appear in dependences since
-            // they must appear in firstprivate
-            Source firstprivate_args;
-            for (unsigned int i = 0; i < argument_list.size(); i++)
+            Expression callee = expr.get_called_expression();
+            if (sym.is_member()
+                    && !sym.is_static())
             {
-                if (!parameters_as_dependences.contains(i))
+                Type called_object_type(NULL);
+
+                Source init_this;
+
+                if (callee.is_member_access())
                 {
-                    firstprivate_args.append_with_separator(
-                            Source("__tmp_") << i,
-                            ",");
+                    called_object_type = callee.get_accessed_entity().get_type();
+
+                    new_callee << "__tmp_this." << callee.get_accessed_member();
+
+                    init_this << callee.get_accessed_entity();
                 }
-            }
+                else if (callee.is_pointer_member_access())
+                {
+                    called_object_type = callee.get_accessed_entity().get_type();
 
-            if (!firstprivate_args.empty())
-            {
-                arg_clauses << " firstprivate(" << firstprivate_args << ")";
-            }
-            if (!input_args.empty())
-            {
-                arg_clauses << " __fp_input(" << input_args << ")";
-            }
-            if (!output_args.empty())
-            {
-                arg_clauses << " __fp_output(" << output_args << ")";
-            }
-            if (!inout_args.empty())
-            {
-                arg_clauses << " __fp_inout(" << inout_args << ")";
-            }
+                    if (called_object_type.is_reference())
+                        called_object_type = called_object_type.references_to();
 
-            // Add the task symbol name to the clause
-            arg_clauses << " __symbol(" << sym.get_name() << ")";
+                    called_object_type = called_object_type.points_to().get_reference_to();
+
+                    new_callee << "__tmp_this." << callee.get_accessed_member();
+
+                    init_this << "*" << callee.get_accessed_entity();
+                }
+                else if (callee.is_id_expression())
+                {
+                    Symbol this_sym = expr.get_scope().get_symbol_from_name("this");
+                    if (this_sym.is_invalid())
+                    {
+                        running_error("%s: error: invalid nonstatic member call\n",
+                                expr.get_ast().get_locus().c_str());
+                    }
+                    called_object_type = this_sym.get_type().points_to().get_reference_to();
+
+                    new_callee << "__tmp_this." << callee
+                        ;
+
+                    init_this << "*this";
+                }
+                else
+                {
+                    running_error("%s: error: invalid nonstatic member call\n",
+                            expr.get_ast().get_locus().c_str());
+                }
+
+                if (sym.get_type().is_const())
+                {
+                    input_args.append_with_separator("__tmp_this", ",");
+                }
+                else
+                {
+                    inout_args.append_with_separator("__tmp_this", ",");
+                }
+
+                additional_decls
+                    << "#line " << expr.get_ast().get_line() << " \"" << expr.get_ast().get_file() << "\"\n" 
+                    << called_object_type.get_declaration(callee.get_scope(), "__tmp_this") << "(" << init_this << ");"
+                    ;
+            }
+            else
+            {
+                new_callee << callee;
+            }
 
             int i = 0;
             for (ObjectList<Expression>::iterator it2 = argument_list.begin();
@@ -303,6 +373,14 @@ namespace OpenMP
                     real_type = real_type.references_to().get_pointer_to();
                     addr << "&";
                     derref << "*";
+                }
+
+                // If the argument type is a void* use the adjusted type of the
+                // function, for compatibility with superscalar
+                if (real_type.is_pointer()
+                        && real_type.points_to().is_void())
+                {
+                    real_type = parameter_types[i];
                 }
 
                 if (real_type.is_reference())
@@ -335,15 +413,54 @@ namespace OpenMP
                 i++;
             }
 
-            ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
-
-            for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it2 = implemented_tasks.begin();
-                    it2 != implemented_tasks.end();
-                    it2++)
+            // Now check parameters that do not appear in dependences since
+            // they must appear in firstprivate
+            Source firstprivate_args;
+            for (unsigned int i = 0; i < argument_list.size(); i++)
             {
-                arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
-                    ;
+                if (!parameters_as_dependences.contains(i))
+                {
+                    firstprivate_args.append_with_separator(
+                            Source("__tmp_") << i,
+                            ",");
+                }
             }
+
+            if (!firstprivate_args.empty())
+            {
+                arg_clauses << " firstprivate(" << firstprivate_args << ")";
+            }
+            if (!input_args.empty())
+            {
+                arg_clauses << " __fp_input(" << input_args << ")";
+            }
+            if (!output_args.empty())
+            {
+                arg_clauses << " __fp_output(" << output_args << ")";
+            }
+            if (!inout_args.empty())
+            {
+                arg_clauses << " __fp_inout(" << inout_args << ")";
+            }
+           if (!reduction_args.empty())
+            {
+                arg_clauses << " __fp_reduction(" << reduction_args << ")";
+            }
+
+
+
+            // Add the task symbol name to the clause
+            arg_clauses << " __symbol(" << sym.get_qualified_name(expr.get_scope()) << ")";
+
+            // ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
+
+            // for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it2 = implemented_tasks.begin();
+            //         it2 != implemented_tasks.end();
+            //         it2++)
+            // {
+            //     arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
+            //         ;
+            // }
 
             FunctionTaskTargetInfo target_info = task_info.get_target_info();
 
@@ -388,14 +505,42 @@ namespace OpenMP
                     if (copy_items.empty())
                         continue;
 
-                    Source clause;
                     Source &clause_args(*(replace_copies[i].clause_args));
+
+                    ReplaceSrcIdExpression replace_copies(replace);
 
                     for (ObjectList<CopyItem>::iterator it = copy_items.begin();
                             it != copy_items.end();
                             it++)
                     {
-                        clause_args.append_with_separator(replace.replace(it->get_copy_expression()), ",");
+                        DataReference data_ref(it->get_copy_expression());
+
+                        std::string warning;
+                        if (!data_ref.is_valid(warning))
+                        {
+                            std::cerr << warning;
+                            std::cerr << expr.get_ast().get_locus() 
+                                << ": warning: ignoring invalid data reference '" 
+                                << expr.prettyprint() 
+                                << "'" << std::endl;
+                        }
+
+                        Symbol sym = data_ref.get_base_symbol();
+
+                        if (sym.is_parameter())
+                        {
+                            Source src;
+                            src << "__tmp_" << sym.get_parameter_position();
+
+                            replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
+                        }
+                    }
+
+                    for (ObjectList<CopyItem>::iterator it = copy_items.begin();
+                            it != copy_items.end();
+                            it++)
+                    {
+                        clause_args.append_with_separator(replace_copies.replace(it->get_copy_expression()), ",");
                     }
                 }
 
@@ -436,12 +581,15 @@ namespace OpenMP
 
                         DataReference data_ref(expr);
 
-                        if (!data_ref.is_valid())
+                        std::string warning;
+                        if (!data_ref.is_valid(warning))
                         {
+                            std::cerr << warning;
                             std::cerr << expr.get_ast().get_locus() 
-                                << ": warning: ignoring invalid data reference '" 
+                                << ": warning: skipping invalid data reference '" 
                                 << expr.prettyprint() 
                                 << "'" << std::endl;
+                            continue;
                         }
 
                         Symbol sym = data_ref.get_base_symbol();

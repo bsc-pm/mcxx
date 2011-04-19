@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,9 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-overload.hpp"
 #include "cxx-overload.h"
 #include "cxx-exprtype.h"
+#include "cxx-entrylist.h"
 #include "uniquestr.h"
 
 namespace TL
@@ -31,20 +37,7 @@ namespace TL
 
     static void free_scope_entry_list(scope_entry_list_t* entry)
     {
-        if (entry != NULL)
-        {
-            free_scope_entry_list(entry->next);
-            delete entry;
-        }
-    }
-
-    static void c_free_scope_entry_list(scope_entry_list_t* entry)
-    {
-        if (entry != NULL)
-        {
-            c_free_scope_entry_list(entry->next);
-            free(entry);
-        }
+        entry_list_free(entry);
     }
 
     Symbol Overload::solve(
@@ -73,12 +66,7 @@ namespace TL
                 it++)
         {
             Symbol sym(*it);
-
-            scope_entry_list_t* new_item = new scope_entry_list_t;
-            new_item->entry = sym.get_internal_symbol();
-            new_item->next = first_candidate_list;
-
-            first_candidate_list = new_item;
+            first_candidate_list = entry_list_add(first_candidate_list, sym.get_internal_symbol());
         }
 
         // Build the type array
@@ -104,36 +92,35 @@ namespace TL
                 NULL /* explicit template arguments */);
 
         {
-            scope_entry_list_t* iter = candidate_list;
-            while (iter != NULL)
-            {
-                viable_functions.append(iter->entry);
-                iter = iter->next;
-            }
+            ObjectList<Symbol> list;
+            Scope::convert_to_vector(candidate_list, list);
+            viable_functions.append(list);
         }
 
         candidate_t* candidate_set = NULL;
 
-        scope_entry_list_t* it = candidate_list;
-        while (it != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(candidate_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            if (it->entry->entity_specs.is_member)
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry->entity_specs.is_member)
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        it->entry,
+                        entry,
                         argument_types.size() + 1,
                         argument_types_array);
             }
             else
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        it->entry,
+                        entry,
                         argument_types.size(),
                         argument_types_array + 1);
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
 
         // We also need a scope_entry_t** for holding the conversor argument
         scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size() + 1];
@@ -163,8 +150,7 @@ namespace TL
         delete[] argument_types_array;
 
         // Free the scope entry list
-        // This one was allocated in C
-        c_free_scope_entry_list(candidate_list);
+        free_scope_entry_list(candidate_list);
 
         // This one has been allocated above
         free_scope_entry_list(first_candidate_list);

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
@@ -64,7 +69,7 @@ namespace TL
                 vla_counter++;
 
                 dim_names.append(dim_name);
-                dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_dimension().prettyprint());
+                dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_get_size().prettyprint());
 
                 dimensional_replacements_of_variable_type_aux(type.array_element(), sym, dim_names, dim_decls);
             }
@@ -72,35 +77,6 @@ namespace TL
             {
                 dimensional_replacements_of_variable_type_aux(type.points_to(), sym, dim_names, dim_decls);
             }
-        }
-
-        static Type compute_replacement_type_for_vla(Type type, 
-                ObjectList<Source>::iterator dim_names_begin,
-                ObjectList<Source>::iterator dim_names_end)
-        {
-            Type new_type(NULL);
-            if (type.is_array())
-            {
-                new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-                if (dim_names_begin == dim_names_end)
-                {
-                    internal_error("Invalid dimension list", 0);
-                }
-
-                new_type = new_type.get_array_to(*dim_names_begin);
-            }
-            else if (type.is_pointer())
-            {
-                new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-                new_type = new_type.get_pointer_to();
-            }
-            else
-            {
-                new_type = type;
-            }
-
-            return new_type;
         }
 
         static void convert_vla(Symbol sym, ObjectList<Symbol>& converted_vlas, ScopeLink sl)
@@ -245,7 +221,7 @@ namespace TL
                     Source src;
                     src
                         << "char [(" 
-                        << type.array_dimension().prettyprint() 
+                        << type.array_get_size().prettyprint() 
                         << ") * sizeof(" 
                         << element_type.get_declaration(sym.get_scope(), "") 
                         << ")]"
@@ -280,7 +256,7 @@ namespace TL
                 data_env_item.set_is_raw_buffer(is_raw_buffer);
             }
 
-            data_env_item.set_is_copy(true);
+            data_env_item.set_is_firstprivate(true);
 
             data_env_info.add_item(data_env_item);
         }
@@ -383,6 +359,7 @@ namespace TL
         ObjectList<Symbol> shared;
         ObjectList<Symbol> value;
         ObjectList<Symbol> private_symbols;
+        data_env_info.set_data_sharing(data_sharing);
         get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
@@ -454,18 +431,38 @@ namespace TL
             //         << std::endl;
             // }
         }
+        
+        // Get info about the reduction clauses
+        ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
+        data_sharing.get_all_reduction_symbols(reduction_symbols);
+        data_env_info.set_reduction_symbols(reduction_symbols);
+    }
+
+    namespace Nanox
+    {
+        void fill_data_environment_structure(
+                Scope sc,
+                DataEnvironInfo &data_env_info,
+                Source &struct_decl,
+                Source &struct_def,
+                Source &struct_name_qualifier,
+                Source &struct_fields,
+                std::string& struct_name,
+                ObjectList<OpenMP::DependencyItem> dependencies,
+                bool compiler_alignment);
     }
 
     void Nanox::fill_data_environment_structure(
             Scope sc,
             DataEnvironInfo &data_env_info,
             Source &struct_decl,
+            Source &struct_def,
+            Source &struct_name_qualifier,
             Source &struct_fields,
             std::string& struct_name,
             ObjectList<OpenMP::DependencyItem> dependencies,
             bool compiler_alignment)
     {
-
         std::stringstream ss;
 
         int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
@@ -476,7 +473,7 @@ namespace TL
 
         C_LANGUAGE()
         {
-            struct_decl
+            struct_def
                 << "typedef "
                 << "struct " << struct_name << "_tag {"
                 << struct_fields
@@ -487,7 +484,10 @@ namespace TL
         CXX_LANGUAGE()
         {
             struct_decl
-                << "struct " << struct_name << " {"
+                << "struct " << struct_name << ";"
+                ;
+            struct_def
+                << "struct " << struct_name_qualifier << struct_name << " {"
                 << struct_fields
                 << "};"
                 ;
@@ -525,7 +525,7 @@ namespace TL
                 t = t.references_to();
 
             Source alignment;
-
+//AQUI
             struct_fields
                 << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) 
                 << alignment
@@ -543,6 +543,19 @@ namespace TL
 		            alignment << " __attribute__((aligned(" << data_env_item.get_alignment().get_alignment_of() << ")))";
 		        }
             }
+        }
+        
+        // Adding omp reduction's variables
+        ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+                it != reduction_symbols.end();
+                it++)
+        {
+            Symbol rs = it->get_symbol();
+            Type rs_type = rs.get_type();
+            struct_fields 
+                << rs_type.get_declaration(rs.get_scope(), "") << " *rdv_" << rs.get_name() << ";"
+            ;
         }
     }
 
@@ -607,7 +620,7 @@ namespace TL
                 }
             }
 
-            if (!data_env_item.is_copy())
+            if (!data_env_item.is_firstprivate())
             {
                 if (type.is_array())
                 {
@@ -661,7 +674,7 @@ namespace TL
                         Source type_decl;
                         type_decl << type.get_declaration(sym.get_scope(), "") 
                             ;
-                        result << "for (int _i = 0; _i < (" << type.array_dimension().prettyprint() << "); _i++)"
+                        result << "for (int _i = 0; _i < (" << type.array_get_size().prettyprint() << "); _i++)"
                             << "{"
                             << "new ( &((" << ptr_type_decl << ")" << field_name << ")[_i])"
                             << type_decl << "(" << sym.get_qualified_name() << "[_i]);"
@@ -685,6 +698,210 @@ namespace TL
                     }
                 }
             }
+        }
+    }
+
+    void Nanox::define_arguments_structure(
+            const LangConstruct& ctr,
+            std::string& struct_arg_type_name,
+            DataEnvironInfo& data_environ_info,
+            const ObjectList<OpenMP::DependencyItem>& dependences,
+            Source additional_fields
+            )
+    {
+        FunctionDefinition funct_def = ctr.get_enclosing_function();
+        Symbol function_symbol = funct_def.get_function_symbol();
+
+        Scope scope_of_struct = ctr.get_scope();
+        if (function_symbol.is_member())
+        {
+            // Fix the scope because it will end inside the class
+            // FIXME !!! -> this is the right thing // scope_of_struct = function_symbol.get_class_type().get_scope();
+            scope_of_struct = function_symbol.get_scope();
+        }
+
+        Source struct_arg_type_decl, struct_arg_type_def, struct_arg_type_qualif, struct_fields;
+
+        struct_fields
+            << additional_fields;
+
+        fill_data_environment_structure(
+                scope_of_struct,
+                data_environ_info,
+                struct_arg_type_decl,
+                struct_arg_type_def,
+                struct_arg_type_qualif,
+                struct_fields,
+                struct_arg_type_name, 
+                dependences,
+                // FIXME
+                /* _compiler_alignment */ true);
+
+        Source template_header;
+        if (funct_def.is_templated()
+                && function_symbol.get_type().is_template_specialized_type())
+        {
+            Source template_params;
+            template_header
+                << "template <" << template_params << ">"
+                ;
+            Source template_args;
+            ObjectList<TemplateHeader> template_header_list;
+
+            if (!function_symbol.is_member())
+            {
+                template_header_list = funct_def.get_template_header();
+            }
+            else
+            {
+                template_header_list = 
+                    Declaration(function_symbol.get_point_of_declaration(), ctr.get_scope_link()).get_template_header();
+            }
+
+            ObjectList<TemplateParameterConstruct> tpl_params = template_header_list.back().get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_params.append_with_separator(it2->prettyprint(), ",");
+            }
+
+            template_header_list = funct_def.get_template_header();
+            tpl_params = template_header_list.back().get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {   
+                template_args.append_with_separator(it2->get_name(), ",");
+            }
+
+            struct_arg_type_name += "< " + std::string(template_args) + ">";
+        }
+
+        Source newly_generated_code;
+        newly_generated_code
+            << template_header
+            << struct_arg_type_def
+            ;
+
+        if (function_symbol.is_member())
+        {
+            if (!function_symbol.is_static())
+            {
+                Type this_pointer = function_symbol.get_class_type();
+
+                if (function_symbol.get_type().is_const())
+                {
+                    this_pointer = this_pointer.get_const_type();
+                }
+
+                this_pointer = this_pointer.get_pointer_to();
+
+                struct_fields
+                    << this_pointer.get_declaration(scope_of_struct, "_this") << ";"
+                    ;
+            }
+
+            AST_t decl_point = function_symbol.get_point_of_declaration();
+
+            AST_t ref_tree;
+            if (FunctionDefinition::predicate(decl_point))
+            {
+                FunctionDefinition funct_def(decl_point, ctr.get_scope_link());
+                ref_tree = funct_def.get_point_of_declaration();
+            }
+            else 
+            {
+                Declaration decl(decl_point, ctr.get_scope_link());
+                ref_tree = decl.get_point_of_declaration();
+            }
+
+            // This is a bit crude but allows knowing if the function is defined
+            // inside the class or not
+            bool is_inline_member_function = ctr.get_ast().get_enclosing_class_specifier().is_valid();
+
+            if (!is_inline_member_function)
+            {
+                Source in_class_declaration;
+                Source template_header_class;
+                in_class_declaration 
+                    << template_header
+                    << struct_arg_type_decl;
+
+                Declaration class_decl(function_symbol
+                        .get_point_of_declaration()
+                        .get_enclosing_class_specifier(),
+                        ctr.get_scope_link());
+                if (class_decl.is_templated())
+                {
+                    ObjectList<TemplateHeader> template_header_list = class_decl.get_template_header();
+
+                    for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                            it != template_header_list.end();
+                            it++)
+                    {
+                        Source template_params;
+                        template_header_class << "template<" << template_params << ">";
+                        ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+                        for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                                it2 != tpl_params.end();
+                                it2++)
+                        {
+                            template_params.append_with_separator(it2->prettyprint(), ",");
+                        }
+                    }
+                }
+
+                AST_t in_class_declaration_tree
+                    = in_class_declaration.parse_member(
+                            decl_point,
+                            ctr.get_scope_link(),
+                            function_symbol.get_class_type().get_symbol());
+                decl_point.prepend(in_class_declaration_tree);
+
+                std::string globally_qualified 
+                    = function_symbol.get_class_type().get_declaration(ctr.get_scope_link().get_scope(decl_point), "") + "::";
+                // It is not valid to write 'struct ::A::B { }' but it is OK to do 'struct A::B { }'
+
+                std::string::iterator it = globally_qualified.begin();
+                // Skip blanks if any (there should not be any, lest there were)
+                while (it != globally_qualified.end() && *it == ' ') it++; 
+                // Skip first colon
+                if (it != globally_qualified.end() && *it == ':') it++;
+                // Skip second colon
+                if (it != globally_qualified.end() && *it == ':') it++;
+
+                struct_arg_type_qualif << std::string(it, globally_qualified.end());
+
+                Source fixed_newly_generated_code;
+                fixed_newly_generated_code
+                    << template_header_class
+                    << newly_generated_code
+                    ;
+
+                AST_t outline_code_tree
+                    = fixed_newly_generated_code.parse_declaration(
+                            ctr.get_ast().get_enclosing_function_definition_declaration(),
+                            ctr.get_scope_link());
+                ctr.get_ast().prepend_sibling_function(outline_code_tree);
+            }
+            else
+            {
+                AST_t outline_code_tree
+                    = newly_generated_code.parse_member(
+                            ctr.get_ast().get_enclosing_function_definition_declaration(),
+                            ctr.get_scope_link(),
+                            function_symbol.get_class_type().get_symbol());
+                ctr.get_ast().prepend_sibling_function(outline_code_tree);
+            }
+        }
+        else
+        {
+            AST_t outline_code_tree
+                = newly_generated_code.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration(),
+                        ctr.get_scope_link());
+            ctr.get_ast().prepend_sibling_function(outline_code_tree);
         }
     }
 }

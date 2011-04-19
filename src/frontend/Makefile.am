@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -23,6 +26,10 @@
 
 lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
+SUBDIRS=. @FRONTEND_EXTENSIONS@
+
+DIST_SUBDIRS=fortran
+
 END=
 
 EXTRA_DIST =
@@ -36,7 +43,7 @@ no_undefined=
 endif
 
 # Overall process library containing global data
-libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
+libmcxx_process_la_CFLAGS=-DLIBMCXXPROCESS_DLL_EXPORT \
                           -I$(top_srcdir)/lib \
                           -I$(top_srcdir)/src/driver \
                           -I$(top_srcdir)/src/frontend \
@@ -46,6 +53,7 @@ libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
                           -I$(top_builddir)/src/frontend \
                           -I$(top_builddir)/src/mcxx_tl \
                           $(END)
+
 libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_process_la_LIBADD=$(top_builddir)/lib/libmcxx-utils.la
 libmcxx_process_la_SOURCES = \
@@ -76,10 +84,14 @@ libmcxx_la_SOURCES = \
   cxx-html.c \
   cxx-prettyprint.c \
   cxx-prettyprint.h \
+  cxx-prettyprint-internal.h \
   cxx-utils.c \
   cxx-utils.h \
   cxx-scope.c \
   cxx-scope.h \
+  cxx-entrylist-decls.h \
+  cxx-entrylist.c \
+  cxx-entrylist.h \
   cxx-scope-decls.h \
   cxx-attrnames.h \
   cxx-attrnames.c \
@@ -138,6 +150,10 @@ libmcxx_la_SOURCES = \
   cxx-overload.c \
   cxx-overload-decls.h \
   cxx-overload.h \
+  cxx-nodecl.h \
+  cxx-nodecl.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
   libmcxx-common.h \
   $(END)
 
@@ -167,6 +183,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 
+
 EXTRA_DIST += cxx-lexer.l
 
 # AST node types
@@ -181,6 +198,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
+AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
 
@@ -231,8 +249,9 @@ BUILT_SOURCES += cxx03.y
 BUILT_SOURCES += cxx-parser.h
 BUILT_SOURCES += c99-parser.h
 
-# Manual targets
-cxx-ast.h : cxx-asttype.h
+EXTRA_DIST += gen-symbol-attrs.py
+EXTRA_DIST += cxx-entity-specs.def
+BUILT_SOURCES += cxx-entity-specs.h
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -249,6 +268,10 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
+
+PYTHON_verbose = $(PYTHON_verbose_$(V))
+PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
+PYTHON_verbose_0 = @echo "  PYTHON" $@;
 endif
 
 CLEANFILES += cxx-asttype.h
@@ -297,8 +320,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h; \
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
     echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
-	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h; \
+	$(SED) -e "s/^\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
     )
@@ -311,15 +333,9 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c; \
 	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c; \
 	echo "#include \"cxx-exprtype.h\"" >> cxx-attrnames.c; \
-    echo "char LANG_EXPRESSION_INFO[] = \"lang.expression_info\";" >> cxx-attrnames.c; \
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c; \
+    echo "char LANG_EXPRESSION_INFO[] = \"LANG_EXPRESSION_INFO\";" >> cxx-attrnames.c; \
+	$(SED) -e "s/^\([^[:blank:]]*\)/char \1[] = \"\1\";/" < $< >> cxx-attrnames.c; \
 	echo "/* AST attributes */" >> cxx-attrnames.c; \
-	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c; \
-	echo "{" >> cxx-attrnames.c; \
-	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c; \
-    echo "    extensible_schema_add_field(&ast_extensible_schema, LANG_EXPRESSION_INFO, expression_info_sizeof());" >> cxx-attrnames.c; \
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c; \
-	echo "}" >> cxx-attrnames.c; \
 	)
 
 if FLEX_BUILDING
@@ -336,7 +352,7 @@ else
 endif
 
 cxx03.l : $(srcdir)/cxx-lexer.l 
-	$(TPP_verbose)$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)(rm -f cxx03.l && $(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l && chmod -w cxx03.l)
 
 if BISON_BUILDING
 CLEANFILES += cxx-parser.c
@@ -346,13 +362,13 @@ CLEANFILES += cxx03.y
 endif
 
 cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
+	$(TPP_verbose)(rm -f cxx03.y && $(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in && chmod -w cxx03.y)
 
 cxx-parser.c : cxx03.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=cxx-parser-internal.h --report=all --output=cxx-parser.c cxx03.y
 else
-	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
+	@echo "*** ERROR: file cxx03.y was modified but no suitable bison was found during configure ***"
 	@exit 1
 endif
 
@@ -375,7 +391,7 @@ else
 endif
 
 c99.l : $(srcdir)/cxx-lexer.l
-	$(TPP_verbose)$(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)(rm -f c99.l && $(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l && chmod -w c99.l)
 
 if BISON_BUILDING
 CLEANFILES += c99-parser.c
@@ -385,13 +401,13 @@ CLEANFILES += c99.y
 endif
 
 c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
+	$(TPP_verbose)(rm -f c99.y && $(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in)
 
 c99-parser.c : c99.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=c99-parser-internal.h --report=all --output=c99-parser.c c99.y
 else
-	@echo "*** ERROR: file c99.y was modified but no suitable bison-rofi was found during configure ***"
+	@echo "*** ERROR: file c99.y was modified but no suitable bison was found during configure ***"
 	@exit 1
 endif
 
@@ -399,3 +415,8 @@ endif
 # breaks parallel compilations since bison gets invoked twice.
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
+
+PYTHON = python
+CLEANFILES += cxx-entity-specs.h
+cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h

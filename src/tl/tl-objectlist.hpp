@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_OBJECTLIST_HPP
 #define TL_OBJECTLIST_HPP
@@ -192,6 +197,17 @@ class ObjectList : public std::vector<T>, public TL::Object
             {
                 this->append(*it);
             }
+            return *this;
+        }
+
+        //! Prepends an element onto the list
+        /*!
+         * \param t Adds a copy of t at the beginning of the list
+         * \bug The implementation of this function is inefficient
+         */
+        ObjectList<T>& prepend(const T& t)
+        {
+            this->std::vector<T>::insert(this->begin(), t);
             return *this;
         }
 
@@ -502,7 +518,7 @@ class ObjectList : public std::vector<T>, public TL::Object
  * \note Type _T must implement operator<<(std::ostream&, const T&)
  */
 template <typename _T>
-LIBTL_EXTERN std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
+std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
 {
     std::string result;
     for (typename ObjectList<_T>::const_iterator it = string_list.begin();

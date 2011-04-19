@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
+#ifndef CXX_PRETTYPRINT_C
+  #define CXX_PRETTYPRINT_C
+#endif
+
 #ifdef HAVE_CONFIG_H
   #include "config.h"
 #endif
@@ -35,43 +44,11 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
+#include "cxx-prettyprint-internal.h"
 
-typedef struct prettyprint_context_tag
-{
-    int level;
-    const char *indent_str;
-    char internal_output;
-    prettyprint_callback_t callback;
-    void *callback_data;
-
-    // Angular brackets are so troublesome in C++
-    char last_is_left_angle;
-    char last_is_right_angle;
-} prettyprint_context_t;
-
-typedef
-struct prettyprint_behaviour_tag
-{
-    // States if the output is meant to be internal
-    // i.e.: comments and preprocessor tokens will be output with special
-    // keeping marks or will be converted to standard syntax
-    char internal_output;
-} prettyprint_behaviour_t;
-
-
-typedef void (*prettyprint_handler_t)(FILE* f, AST a, prettyprint_context_t* pt_ctx);
-
-typedef struct {
-    char* handler_name;
-    prettyprint_handler_t handler;
-    char* parameter;
-} prettyprint_entry_t;
-
-#define HANDLER_PROTOTYPE(name) \
- static void name(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-
-#define NODE_HANDLER(type, handler, parameter) \
-  [type] = {#handler, handler, parameter}
+#ifdef FORTRAN_SUPPORT
+#include "fortran/fortran03-prettyprint.h"
+#endif
 
 HANDLER_PROTOTYPE(ambiguity_handler);
 HANDLER_PROTOTYPE(sequence_handler);
@@ -158,7 +135,7 @@ HANDLER_PROTOTYPE(operator_function_id_handler);
 HANDLER_PROTOTYPE(asm_definition_handler);
 HANDLER_PROTOTYPE(bitfield_declarator_handler);
 HANDLER_PROTOTYPE(enum_specifier_handler);
-HANDLER_PROTOTYPE(enum_def_handler);
+HANDLER_PROTOTYPE(enumerator_def_handler);
 HANDLER_PROTOTYPE(explicit_instantiation_handler);
 HANDLER_PROTOTYPE(explicit_specialization_handler);
 HANDLER_PROTOTYPE(linkage_specification_handler);
@@ -264,7 +241,7 @@ HANDLER_PROTOTYPE(upc_synch_statement);
 HANDLER_PROTOTYPE(cuda_kernel_call_handler);
 HANDLER_PROTOTYPE(cuda_kernel_arguments_handler);
 
-prettyprint_entry_t handlers_list[] =
+static prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
     NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),
@@ -358,6 +335,9 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
     NODE_HANDLER(AST_MOD_OP, binary_operator_handler, "%"),
     NODE_HANDLER(AST_MULT_OP, binary_operator_handler, "*"),
+#ifdef FORTRAN_SUPPORT
+    NODE_HANDLER(AST_POWER_OP, binary_operator_handler, "^^"),
+#endif
     NODE_HANDLER(AST_POINTER_TO_MEMBER, binary_operator_handler, ".*"),
     NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, binary_operator_handler, "->*"),
     NODE_HANDLER(AST_CAST_EXPRESSION, cast_expression_handler, NULL),
@@ -507,7 +487,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_THREAD_SPEC, simple_parameter_handler, "__thread"),
     NODE_HANDLER(AST_BITFIELD_DECLARATOR, bitfield_declarator_handler, NULL),
     NODE_HANDLER(AST_ENUM_SPECIFIER, enum_specifier_handler, NULL),
-    NODE_HANDLER(AST_ENUM_DEF, enum_def_handler, NULL),
+    NODE_HANDLER(AST_ENUMERATOR_DEF, enumerator_def_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_INSTANTIATION, explicit_instantiation_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_SPECIALIZATION, explicit_specialization_handler, NULL),
     NODE_HANDLER(AST_LINKAGE_SPEC, linkage_specification_handler, NULL),
@@ -595,7 +575,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
     NODE_HANDLER(AST_GXX_TYPE_TRAITS, gxx_type_traits, NULL),
     // Mercurium extensions
-    NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, NULL),
+    NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, ":"),
+    NODE_HANDLER(AST_ARRAY_SECTION_SIZE, array_section_handler, ";"),
     NODE_HANDLER(AST_SHAPING_EXPRESSION, shaping_expression_handler, NULL),
     // UPC 1.2
     NODE_HANDLER(AST_UPC_LOCALSIZEOF, upc_sizeof_expr, "local"),
@@ -628,101 +609,36 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
 };
 
-// Initial behaviour
-static prettyprint_behaviour_t prettyprint_behaviour = 
-{ 
-    /* .internal_output = */ 1 
-};
-
-void prettyprint_set_not_internal_output(void)
-{
-    prettyprint_behaviour.internal_output = 0;
-}
-
-void prettyprint_set_internal_output(void)
-{
-    prettyprint_behaviour.internal_output = 1;
-}
-
-static void prettyprint_context_init(prettyprint_context_t* pt_ctx)
-{
-    memset(pt_ctx, 0, sizeof(*pt_ctx));
-    // This will be configurable one day
-    pt_ctx->indent_str = "    ";
-    pt_ctx->level = 0;
-    pt_ctx->internal_output = prettyprint_behaviour.internal_output;
-}
-
-static void prettyprint_context_copy(prettyprint_context_t* dest,
-        const prettyprint_context_t* src)
-{
-    // Nothing else must be done
-    memcpy(dest, src, sizeof(*dest));
-}
-
-
-#define NEW_PT_CONTEXT(_name, _init_fun) \
-    prettyprint_context_t _v_##_name; \
-    prettyprint_context_t *_name = &_v_##_name; \
-    prettyprint_context_copy(_name, pt_ctx); \
-    _init_fun(_name)
-
-#define NEW_PT_CONTEXT_ARG(_name, _init_fun, _arg) \
-    prettyprint_context_t _v_##_name; \
-    prettyprint_context_t *_name = &_v_##_name; \
-    prettyprint_context_copy(_name, pt_ctx); \
-    _init_fun(_name, _arg)
-
 static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx);
 
-#define HELPER_PARAMETER \
-    (handlers_list[ASTType(a)].parameter)
-
-#define HELPER_PARAMETER_STRING \
-    ((handlers_list[ASTType(a)].parameter != NULL) ? (handlers_list[ASTType(a)].parameter) : "")
-
-void prettyprint(FILE* f, AST a)
+void cxx_prettyprint(FILE* f, AST a)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
     prettyprint_level(f, a, &pt_ctx);
 }
 
-static char* prettyprint_in_buffer_common(AST a, 
-        void (*pretty_func)(FILE*, AST, prettyprint_context_t* pt_ctx), 
-        prettyprint_context_t *pt_ctx)
+void prettyprint(FILE* f, AST a)
 {
-    char *result = NULL;
-#ifdef HAVE_OPEN_MEMSTREAM
-    size_t size = 0;
-
-    FILE* temporal_stream = open_memstream(&result, &size);
-    pretty_func(temporal_stream, a, pt_ctx);
-    fclose(temporal_stream);
-#else
-    FILE* temporal_file = tmpfile();
-
-    pretty_func(temporal_file, a, pt_ctx);
-
-    int bytes_file = ftell(temporal_file) + 20;
-    rewind(temporal_file);
-
-    result = calloc(bytes_file, sizeof(char));
-    fread(result, bytes_file, sizeof(char), temporal_file);
-    fclose(temporal_file);
-#endif
-    int c = strlen(result) - 1;
-
-    while (result[c] == '\n')
+#ifdef FORTRAN_SUPPORT
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-        result[c] = '\0';
-        c--;
+#endif
+    cxx_prettyprint(f, a);
+#ifdef FORTRAN_SUPPORT
     }
-
-    return result;
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        fortran_prettyprint(f, a);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+#endif
 }
 
-char* prettyprint_in_buffer(AST a)
+const char* cxx_prettyprint_in_buffer(AST a)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
@@ -730,7 +646,27 @@ char* prettyprint_in_buffer(AST a)
     return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
-char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
+const char* prettyprint_in_buffer(AST a)
+{
+#ifdef FORTRAN_SUPPORT
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+#endif
+    return cxx_prettyprint_in_buffer(a);
+#ifdef FORTRAN_SUPPORT
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        return fortran_prettyprint_in_buffer(a);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+#endif
+}
+
+const char* cxx_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
@@ -741,7 +677,27 @@ char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, voi
     return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
-char* list_handler_in_buffer(AST a)
+const char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
+{
+#ifdef FORTRAN_SUPPORT
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+#endif
+    return cxx_prettyprint_in_buffer_callback(a, callback, data);
+#ifdef FORTRAN_SUPPORT
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        return fortran_prettyprint_in_buffer_callback(a, callback, data);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+#endif
+}
+
+const char* cxx_list_handler_in_buffer(AST a)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
@@ -749,38 +705,24 @@ char* list_handler_in_buffer(AST a)
     return prettyprint_in_buffer_common(a, list_handler, &pt_ctx);
 }
 
-static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx, const char* format, va_list args)
+const char* list_handler_in_buffer(AST a)
 {
-    int result;
-    int size = 512;
-    char* c = calloc(size, sizeof(char));
-    va_list va;
-
-    va_copy(va, args);
-    result = vsnprintf(c, size, format, va);
-    va_end(va);
-
-    while (result < 0 || result >= size)
+#ifdef FORTRAN_SUPPORT
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
     {
-        va_copy(va, args);
-        size *= 2;
-        free(c);
-        c = calloc(size, sizeof(char));
-        result = vsnprintf(c, size, format, va);
-        va_end(va);
+#endif
+    return cxx_list_handler_in_buffer(a);
+#ifdef FORTRAN_SUPPORT
     }
-
-    fprintf(stream, "%s", c);
-
-    if (result > 0)
+    else if (IS_FORTRAN_LANGUAGE)
     {
-        pt_ctx->last_is_left_angle = (c[result - 1] == '<');
-        pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+        return fortran_list_handler_in_buffer(a);
     }
-
-    free(c);
-
-    return result;
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+#endif
 }
 
 static void increase_level(prettyprint_context_t *pt_ctx)
@@ -802,18 +744,6 @@ static void increase_level_if_not_compound( prettyprint_context_t* pt_ctx, AST a
 {
     if (ASTType(a) != AST_COMPOUND_STATEMENT)
         pt_ctx->level++;
-}
-
-static int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, prettyprint_context_t* pt_ctx, const char *format, ...)
-{
-    int result = 0;
-    va_list args;
-
-    va_start(args, format);
-    result = character_level_vfprintf(stream, pt_ctx, format, args);
-    va_end(args);
-
-    return result;
 }
 
 static void double_colon_handler(FILE* f, AST node, prettyprint_context_t* pt_ctx)
@@ -1766,32 +1696,34 @@ static void for_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "for (");
 
+    AST loop_control = ASTSon0(a);
+
     NEW_PT_CONTEXT(zero_ctx, zero_level);
 
-    if (ASTSon0(a) != NULL)
+    if (ASTSon0(loop_control) != NULL)
     {
-        prettyprint_level(f, ASTSon0(a), zero_ctx);
+        prettyprint_level(f, ASTSon0(loop_control), zero_ctx);
     }
 
     NEW_PT_CONTEXT(new_pt_ctx_0, increase_level);
-    indent_at_level(f, a, new_pt_ctx_0);
-    if (ASTSon1(a) != NULL)
+    indent_at_level(f, loop_control, new_pt_ctx_0);
+    if (ASTSon1(loop_control) != NULL)
     {
-        prettyprint_level(f, ASTSon1(a), zero_ctx);
+        prettyprint_level(f, ASTSon1(loop_control), zero_ctx);
     }
     
-    token_fprintf(f, a, pt_ctx, ";\n");
+    token_fprintf(f, loop_control, pt_ctx, ";\n");
 
-    if (ASTSon2(a) != NULL)
+    indent_at_level(f, loop_control, new_pt_ctx_0);
+    if (ASTSon2(loop_control) != NULL)
     {
-        indent_at_level(f, a, new_pt_ctx_0);
-        prettyprint_level(f, ASTSon2(a), zero_ctx);
+        prettyprint_level(f, ASTSon2(loop_control), zero_ctx);
     }
 
-    token_fprintf(f, a, pt_ctx, ")\n");
+    token_fprintf(f, loop_control, pt_ctx, ")\n");
 
-    NEW_PT_CONTEXT_ARG(new_pt_ctx_1, increase_level_if_not_compound, ASTSon3(a));
-    prettyprint_level(f, ASTSon3(a), new_pt_ctx_1);
+    NEW_PT_CONTEXT_ARG(new_pt_ctx_1, increase_level_if_not_compound, ASTSon1(a));
+    prettyprint_level(f, ASTSon1(a), new_pt_ctx_1);
 }
 
 static void return_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -2015,7 +1947,7 @@ static void gcc_enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "}");
 }
 
-static void enum_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void enumerator_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "\n");
     indent_at_level(f, a, pt_ctx);
@@ -2065,8 +1997,6 @@ static void linkage_specification_decl_handler(FILE* f, AST a, prettyprint_conte
 
     token_fprintf(f, a, pt_ctx, "\n");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "\n");
 }
 
 static void namespace_alias_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -2847,7 +2777,7 @@ static void array_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, "[");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ":");
+    token_fprintf(f, a, pt_ctx, HELPER_PARAMETER_STRING);
     prettyprint_level(f, ASTSon2(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, "]");
 }

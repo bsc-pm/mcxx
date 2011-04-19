@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,12 +24,14 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "extstruct.h"
 #include "uniquestr.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "hash_iterator.h"
+#include "red_black_tree.h"
 
 #define warning_message(...) \
 { \
@@ -35,207 +40,74 @@
   fprintf(stderr, "\n"); \
 }
 
-#define HASH_SIZE (23)
-
-void extensible_schema_init(extensible_schema_t* schema)
+static int strcmp_vptr(const void* v1, const void *v2)
 {
-    memset(schema, 0, sizeof(*schema));
-    schema->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+    return strcmp((const char*)v1, (const char*)v2);
 }
 
-// Adds a new field into the schema
-int extensible_schema_add_field(extensible_schema_t* schema, 
-        const char* field_name, 
-        size_t field_size)
+static void null_dtor_func(const void *v) { }
+
+void extensible_struct_init(extensible_struct_t** extensible_struct)
 {
-    extensible_schema_item_t* schema_item = calloc(1, sizeof(*schema_item));
-
-    schema_item->size = field_size;
-    schema_item->field_name = field_name;
-    schema_item->field_order = schema->num_fields;
-
-    const char* c = uniquestr(field_name);
-    hash_put(schema->hash, c, schema_item);
-
-    schema->num_fields++;
-
-    return schema->num_fields;
+    (*extensible_struct) = calloc(1, sizeof((*extensible_struct)));
+    (*extensible_struct)->hash = rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
 }
 
-char extensible_schema_extended_field_exists(extensible_schema_t *schema,
-        const char *field_name)
+void extensible_struct_set_field(extensible_struct_t* extensible_struct, 
+        const char* field_name,
+        void *data)
 {
-    extensible_schema_item_t* schema_item = 
-        (extensible_schema_item_t*)hash_get(schema->hash, field_name);
-
-    return (schema_item != NULL);
+    rb_tree_insert(extensible_struct->hash, uniquestr(field_name), data);
 }
 
-// Adds a new field if it did not exist already
-int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
-        const char *field_name,
-        size_t field_size)
+void* extensible_struct_get_field(extensible_struct_t* extensible_struct, 
+        const char* field_name)
 {
-    extensible_schema_item_t* schema_item = 
-        (extensible_schema_item_t*)hash_get(schema->hash, field_name);
+    if (extensible_struct->hash == NULL)
+        return NULL;
 
-    int result = schema->num_fields;
-    if (schema_item == NULL)
+    rb_red_blk_node* n = rb_tree_query(extensible_struct->hash, uniquestr(field_name));
+    if (n != NULL)
     {
-        result = extensible_schema_add_field(schema, field_name, field_size);
+        return rb_node_get_info(n);
     }
     else
     {
-        if (schema_item->size != field_size)
-        {
-            fprintf(stderr, "Warning: Field '%s', size of existing field %zd does not match the requested one %zd. Ignoring new size.\n",
-                    field_name,
-                    schema_item->size, 
-                    field_size);
-        }
-    }
-
-    return result;
-}
-
-static
-extensible_schema_item_t* extensible_schema_get_field_order(extensible_schema_t* schema,
-        const char* field_name)
-{
-    extensible_schema_item_t* schema_item = NULL;
-    schema_item = (extensible_schema_item_t*)hash_get(schema->hash, /* safe */(char*)field_name);
-
-    return schema_item;
-}
-
-void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema)
-{
-    memset(extensible_struct, 0, sizeof(*extensible_struct));
-    extensible_struct->schema = schema;
-}
-
-void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        const char* field_name,
-        char* is_found)
-{
-    if (is_found != NULL)
-        *is_found = 0;
-
-    if (schema == NULL || schema->hash == NULL)
-    {
-        warning_message("Schema is NULL\n");
         return NULL;
     }
-
-    if (extensible_struct == NULL)
-    {
-        warning_message("Extensible struct is NULL\n");
-        return NULL;
-    }
-
-    extensible_schema_item_t *schema_item = extensible_schema_get_field_order(schema, field_name);
-
-    if (schema_item == NULL)
-    {
-        return NULL;
-    }
-
-    int schema_field_order = schema_item->field_order;
-    // size_t schema_field_size = schema_item->size;
-
-    if (is_found != NULL)
-        *is_found = 1;
-    
-    int i;
-    for (i = 0; i < extensible_struct->num_items; i++)
-    {
-        if (extensible_struct->items[i].schema_index == schema_field_order)
-        {
-            return extensible_struct->items[i].data;
-        }
-    }
-
-    // If it does not exist, do not allocate it
-    return NULL;
 }
 
-
-void *extensible_struct_get_field_pointer(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        const char* field_name)
+typedef
+struct data_tag
 {
-    if (schema == NULL || schema->hash == NULL)
-    {
-        warning_message("Schema is NULL\n");
-        return NULL;
-    }
+    int num_fields;
+    const char **keys;
+    const void **data;
+} data_t;
 
-    if (extensible_struct == NULL)
-    {
-        warning_message("Extensible struct is NULL\n");
-        return NULL;
-    }
-
-    // First get the order within the schema of this field
-    extensible_schema_item_t *schema_item = extensible_schema_get_field_order(schema, field_name);
-
-    if (schema_item == NULL)
-    {
-        warning_message("Field '%s' not found in the schema", field_name);
-        return NULL;
-    }
-
-    int schema_field_order = schema_item->field_order;
-    size_t schema_field_size = schema_item->size;
-
-    int i;
-    for (i = 0; i < extensible_struct->num_items; i++)
-    {
-        if (extensible_struct->items[i].schema_index == schema_field_order)
-        {
-            return extensible_struct->items[i].data;
-        }
-    }
-
-    // Allocate the field
-    extensible_struct->num_items++;
-    extensible_struct->items = realloc(extensible_struct->items, 
-            extensible_struct->num_items * sizeof(*extensible_struct->items));
-
-    extensible_data_item_t * new_data = &(extensible_struct->items[extensible_struct->num_items - 1]);
-
-    new_data->schema_index = schema_field_order;
-    new_data->data = calloc(1, schema_field_size);
-
-    return new_data->data;
-}
-
-int extensible_struct_get_num_fields(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct)
+static void walk_func(const void* key, void* value, void* p)
 {
-    return extensible_struct->num_items;
+    data_t* d = (data_t*)p;
+
+    d->num_fields++;
+
+    d->keys = realloc(d->keys, d->num_fields * sizeof(*d->keys));
+    d->keys[d->num_fields - 1] = (const char*)key;
+    d->data = realloc(d->data, d->num_fields * sizeof(*d->data));
+    d->data[d->num_fields - 1] = value;
 }
 
-const char* extensible_struct_get_field_num(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int num)
+void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
+        int *num_fields,
+        const char ***keys,
+        const void ***data)
 {
-    // FIXME - This is so inefficient, having to traverse all the schema fields
-    // just to know its field index and then get the field_name!
-    Iterator *it = (Iterator*)hash_iterator_create(schema->hash);
+    data_t d;
+    memset(&d, 0, sizeof(d));
 
-    for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-    {
-        extensible_schema_item_t* schema_item = NULL;
-        schema_item = (extensible_schema_item_t*)iterator_item(it);
+    rb_tree_walk(extensible_struct->hash, walk_func, &d);
 
-        if (extensible_struct->items[num].schema_index == schema_item->field_order)
-        {
-            return schema_item->field_name;
-        }
-    }
-
-    return NULL;
+    *num_fields = d.num_fields;
+    *keys = d.keys;
+    *data = d.data;
 }
-

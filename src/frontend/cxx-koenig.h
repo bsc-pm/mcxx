@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_KOENIG_H
 #define CXX_KOENIG_H
 
@@ -31,7 +36,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN struct scope_entry_list_tag* koenig_lookup(
+LIBMCXX_EXTERN scope_entry_list_t* koenig_lookup(
         int num_arguments,
         struct type_tag** argument_type_list,
         decl_context_t normal_decl_context,

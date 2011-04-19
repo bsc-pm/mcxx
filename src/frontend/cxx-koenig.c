@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-utils.h"
@@ -29,6 +34,7 @@
 #include "cxx-koenig.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
+#include "cxx-entrylist.h"
 
 #define MAX_ASSOCIATED_SCOPES (256)
 
@@ -36,7 +42,7 @@ typedef
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t* associated_scopes[256];
+    scope_t* associated_scopes[MAX_ASSOCIATED_SCOPES];
 } associated_scopes_t;
 
 static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
@@ -97,37 +103,12 @@ scope_entry_list_t* koenig_lookup(
             fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
         }
 
-        scope_entry_list_t* current_result = copy_entry_list(query_in_scope(current_context, id_expression));
+        scope_entry_list_t* current_result = query_in_scope(current_context, id_expression);
 
-        scope_entry_list_t* it = current_result;
-        while (it != NULL)
-        {
-            char found = 0;
-            // This is very inefficient
-            scope_entry_list_t* it2 = result;
-            while ((it2 != NULL) && (!found))
-            {
-                if (it2->entry == it->entry)
-                {
-                    found = 1;
-                }
-                it2 = it2->next;
-            }
-
-            if (!found)
-            {
-                scope_entry_list_t* current = it;
-                it = it->next;
-
-                // Add to the result
-                current->next = result;
-                result = current;
-            }
-            else
-            {
-                it = it->next;
-            }
-        }
+        scope_entry_list_t* old_result = result;
+        result = entry_list_merge(old_result, current_result);
+        entry_list_free(old_result);
+        entry_list_free(current_result);
     }
 
     DEBUG_CODE()

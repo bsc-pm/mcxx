@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_CONFIGFILE_PARSER_H
 #define CXX_CONFIGFILE_PARSER_H
 
@@ -38,16 +43,18 @@ typedef struct profile_option_name_tag
     const char* option_index;
 } profile_option_name_t;
 
-#define MAX_FLAGS 16
-
-typedef struct profile_flaglist_tag
+enum flag_op
 {
-    int num_flags;
-    const char* flags[MAX_FLAGS];
-} profile_flaglist_t;
+    FLAG_OP_INVALID = 0,
+    FLAG_OP_OR,
+    FLAG_OP_AND,
+    FLAG_OP_NOT,
+    FLAG_OP_NAME,
+};
+
+
 
 typedef struct compilation_configuration_line* p_compilation_configuration_line;
-
 
 typedef struct option_list_tag
 {

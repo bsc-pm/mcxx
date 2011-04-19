@@ -1,26 +1,32 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
-  Centro Nacional de Supercomputacion
-
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-
+  
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
-  --------------------------------------------------------------------*/
+--------------------------------------------------------------------*/
 
+
+
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 
 using namespace TL;
@@ -53,9 +59,7 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
     Source final_barrier;
     if (!ctr.get_clause("nowait").is_defined())
     {
-        final_barrier
-            << "nanos_wg_wait_completion(nanos_current_wd());"
-            << "nanos_team_barrier();"
+        final_barrier << get_barrier_code(ctr.get_ast())
             ;
     }
 
@@ -86,6 +90,14 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         section_info.placeholder.replace(tree);
     }
 
+    Source alignment, slicer_alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(nanos_compound_wd_data_t),"
+            ;
+        slicer_alignment << "1,";
+    }
+
     Source compound_wd_src;
     compound_wd_src
         << "{"
@@ -114,11 +126,14 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
         // FIXME - Devices is hardcoded to SMP!
         <<            "1, compound_device,"
         <<            "sizeof(nanos_compound_wd_data_t) + (" << section_list.size() << ") * sizeof(nanos_wd_t),"
+        <<            alignment
         <<            "(void**)&list_of_wds,"
         <<            "nanos_current_wd(),"
         <<            "compound_slicer,"
         // No data for this WD
-        <<            "0, &dummy,"
+        <<            /* sizeof */ "0,"
+        <<            slicer_alignment
+        <<            "&dummy,"
         <<            "&props,"
         // No copies either
         <<            "0, (nanos_copy_data_t**)0);"

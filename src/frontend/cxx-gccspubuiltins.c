@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,12 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <string.h>
 #include "cxx-gccspubuiltins.h"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
 
 // Bits of this code come from GCC
 //
@@ -258,7 +264,10 @@ static type_t* main_variant(type_t* t)
 }
 #endif
 
-static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
+static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types, 
+        AST *arguments UNUSED_PARAMETER, 
+        int num_arguments)
 {
     // Why people insists on having overload in C?
     char name[256];
@@ -271,14 +280,14 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "SPU-BUILTIN: Trying to figure out the exact version of '%s' given the following %d arguments\n",
+        fprintf(stderr, "SPU-BUILTIN: Trying to figure out the exact version of '%s' given the following %d types\n",
                 overloaded_function->symbol_name,
                 num_arguments);
         int j;
         for (j = 0; j < num_arguments; j++)
         {
             fprintf(stderr, "SPU-BUILTIN:     [%d] %s\n", j,
-                    print_declarator(arguments[j]));
+                    print_declarator(types[j]));
         }
     }
 
@@ -295,7 +304,8 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
             break;
         }
 
-        scope_entry_t* current_entry = entry_list->entry;
+        scope_entry_t* current_entry = entry_list_head(entry_list);
+        entry_list_free(entry_list);
 
         type_t* current_function_type = current_entry->type_information;
 
@@ -321,7 +331,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
         char all_arguments_matched = 1;
         for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
         {
-            type_t* argument_type = arguments[j];
+            type_t* argument_type = types[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
             // Fix the parameter

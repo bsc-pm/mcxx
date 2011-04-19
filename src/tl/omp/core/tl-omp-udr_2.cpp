@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-core.hpp"
 #include "tl-omp-udr_2.hpp"
@@ -156,6 +161,7 @@ namespace TL
                         ref_tree_of_clause,
                         scope_of_clause);
 
+                std::string udr_sp = builtin_operators[i].udr_specifier;
 		        // Declare a new UDR for each type
 		        for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
 		                it != parsed_info_list.end();
@@ -168,6 +174,8 @@ namespace TL
 		            builtin_udr.set_type((*it).type);
 		            builtin_udr.set_combine_expr((*it).combine_expression);
                     builtin_udr.set_is_builtin_operator(true);
+                    
+                    builtin_udr.set_builtin_operator(udr_sp.substr(0, udr_sp.find(':')));
 		            builtin_udr.set_in_symbol((*it).in_symbol);
 		            builtin_udr.set_out_symbol((*it).out_symbol);
                     AST_t identity_expr(NULL);
@@ -668,7 +676,7 @@ namespace TL
                     {
 		                if (ctr.get_ast().get_enclosing_function_definition().is_valid())
 		                {
-							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
 			                pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
 			                ref_tree.prepend(pragma_functions_tree);
                         }
@@ -698,7 +706,7 @@ namespace TL
 		                            pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
 							                ctr.get_scope_link());
 		                        }
-                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
                                 ref_tree.prepend(pragma_functions_tree);
                             }
                             else
@@ -743,6 +751,7 @@ namespace TL
             _in_symbol(NULL),
             _out_symbol(NULL),
             _is_builtin(false),
+            _builtin_op(""),
             _has_identity(false),
             _identity(NULL),
             _function_definition_symbol(NULL)
@@ -1031,6 +1040,16 @@ namespace TL
         void UDRInfoItem2::set_is_builtin_operator(bool is_builtin)
         {
             _is_builtin = is_builtin;
+        }
+
+        std::string UDRInfoItem2::get_builtin_operator() const
+        {
+            return _builtin_op;
+        }
+        
+        void UDRInfoItem2::set_builtin_operator(const std::string builtin_op)
+        {
+            _builtin_op = builtin_op;
         }
 
         bool UDRInfoItem2::get_is_constructor() const

@@ -1,13 +1,11 @@
-/*
-<testinfo>
-test_generator=config/mercurium-extensions
-</testinfo>
-*/
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -26,6 +24,13 @@ test_generator=config/mercurium-extensions
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+/*
+<testinfo>
+test_generator=config/mercurium-extensions
+</testinfo>
+*/
+
 int a[100];
 int *b;
 
@@ -34,8 +39,14 @@ void f(void)
     a[0:49] = 1;
     a[50:99] = 2;
 
+    a[0;49] = 1;
+    a[50;99] = 2;
+
     b = a;
 
     b[0:49] = 2;
     b[50:99] = 3;
+
+    b[0;50] = 2;
+    b[50;50] = 3;
 }

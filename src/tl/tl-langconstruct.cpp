@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-langconstruct.hpp"
 #include "tl-predicateutils.hpp"
@@ -42,6 +47,8 @@ namespace TL
     const PredicateAttr DeclaredEntity::predicate(LANG_IS_DECLARED_NAME);
     const PredicateAttr Declaration::predicate(LANG_IS_DECLARATION);
     const PredicateAttr GCCAttributeSpecifier::predicate(LANG_IS_GCC_ATTRIBUTE);
+    const PredicateAttr TypeSpec::predicate(LANG_IS_TYPE_SPECIFIER);
+
 
     std::string LangConstruct::prettyprint() const
     {
@@ -200,18 +207,46 @@ namespace TL
 
     ObjectList<TemplateHeader> FunctionDefinition::get_template_header() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
 
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
+        ObjectList<TemplateHeader> result;
+
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
+        {
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
+        }
+
+        return result;
+    }
+
+    bool FunctionDefinition::has_linkage_specifier() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_HAS_LINKAGE_SPECIFIER);
+        return result;
+    }
+
+    std::string LinkageSpecifier::prettyprint() const
+    {
+        return "extern " + _ref.prettyprint();
+    }
+
+    ObjectList<LinkageSpecifier> FunctionDefinition::get_linkage_specifier() const
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+
+        PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
 
         ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
-        ObjectList<TemplateHeader> result;
+        ObjectList<LinkageSpecifier> result;
 
         for (ObjectList<AST_t>::iterator it = trees.begin();
                 it != trees.end();
                 it++)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(LinkageSpecifier(*it, _scope_link));
         }
 
         return result;
@@ -219,7 +254,7 @@ namespace TL
 
     AST_t FunctionDefinition::get_point_of_declaration() const
     {
-        return _ref.get_enclosing_function_definition_declaration();
+        return _ref.get_enclosing_function_definition_declaration().get_parent();
     }
 
     DeclaredEntity FunctionDefinition::get_declared_entity() const
@@ -234,19 +269,43 @@ namespace TL
         return result;
     }
 
-    ObjectList<TemplateHeader> Declaration::get_template_header() const
+    bool Declaration::has_linkage_specifier() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
+        TL::Bool result = _ref.get_attribute(LANG_HAS_LINKAGE_SPECIFIER);
+        return result;
+    }
+
+    ObjectList<LinkageSpecifier> Declaration::get_linkage_specifier() const
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+
+        PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
 
         ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
-        ObjectList<TemplateHeader> result;
+        ObjectList<LinkageSpecifier> result;
 
         for (ObjectList<AST_t>::iterator it = trees.begin();
                 it != trees.end();
                 it++)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(LinkageSpecifier(*it, _scope_link));
+        }
+
+        return result;
+    }
+
+    ObjectList<TemplateHeader> Declaration::get_template_header() const
+    {
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
+
+        ObjectList<TemplateHeader> result;
+
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
+        {
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
         }
 
         return result;
@@ -261,11 +320,26 @@ namespace TL
             AST inner_tree = start.get_internal_ast();
             return ASTParent(inner_tree);
         }
+        else if (has_linkage_specifier())
+        {
+            AST_t tree = _ref;
+            while (TL::Bool b = tree.get_attribute(LANG_HAS_LINKAGE_SPECIFIER))
+            {
+                tree = tree.get_parent();
+            }
+            return tree;
+        }
         else
         {
             // Otherwise this is fine
             return _ref;
         }
+    }
+
+    bool Declaration::is_empty_declaration() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_EMPTY_DECLARATION);
+        return result;
     }
 
     // Returns a flattened version of this id-expression
@@ -394,7 +468,22 @@ namespace TL
         return result;
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
+    }
+
+    void ReplaceIdExpression::add_this_replacement(Source src)
+    {
+        add_this_replacement(src.get_source());
+    }
+
+    void ReplaceIdExpression::add_this_replacement(AST_t ast)
+    {
+        add_this_replacement(ast.prettyprint());
+    }
+
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
     }
@@ -409,7 +498,7 @@ namespace TL
         add_replacement(sym, ast.prettyprint());
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link)
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str, AST_t ref_tree, ScopeLink scope_link)
     {
         add_replacement(sym, str);
     }
@@ -601,30 +690,14 @@ namespace TL
 
     Expression Expression::get_first_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_second_operand()
     {
-        if (this->is_assignment() || this->is_operation_assignment())
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_ASSIGNMENT);
-            return Expression(result, this->_scope_link);
-        }
-        else
-        {
-            AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
-            return Expression(result, this->_scope_link);
-        }
+        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+        return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_unary_operand()
@@ -638,6 +711,17 @@ namespace TL
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_MEMBER_ACCESS);
         return b;
+    }
+
+    bool Expression::is_this_variable()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_THIS_VARIABLE);
+        return b;
+    }
+
+    Symbol Expression::get_this_symbol()
+    {
+        return this->get_symbol();
     }
 
     bool Expression::is_pointer_member_access()
@@ -743,6 +827,8 @@ namespace TL
                 return BITWISE_XOR;
             else if (TL::Bool(_ref.get_attribute(LANG_IS_MOD_ASSIGNMENT)))
                 return MODULUS;
+            else if (TL::Bool(_ref.get_attribute(LANG_IS_ASSIGNMENT)))
+                return ASSIGNMENT;
         }
 
         return UNKNOWN;
@@ -803,6 +889,8 @@ namespace TL
                 return "&&";
             case  LOGICAL_OR :
                 return "||";
+            case  ASSIGNMENT :
+                return "=";
             default:
                 return "??";
         }
@@ -853,7 +941,18 @@ namespace TL
     
     bool Expression::is_array_section()
     {
-        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION);
+        return this->is_array_section_range();
+    }
+
+    bool Expression::is_array_section_range()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION_RANGE);
+        return result;
+    }
+
+    bool Expression::is_array_section_size()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION_SIZE);
         return result;
     }
 
@@ -903,6 +1002,19 @@ namespace TL
         }
 
         return result;
+    }
+
+    bool Expression::is_throw_expression()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_THROW_EXPRESSION);
+        return b;
+    }
+    
+    Expression Expression::get_throw_expression()
+    {
+        AST_t throw_ast = _ref.get_attribute(LANG_THROW_EXPRESSION);
+        Expression throw_expression(throw_ast, _scope_link);
+        return throw_expression;
     }
 
     Expression Expression::get_enclosing_expression()
@@ -972,6 +1084,18 @@ namespace TL
         AST a = this->get_ast().get_internal_ast();
         return ::const_value_cast_to_4(
                 ::expression_get_constant(a));
+    }
+
+    //! States if the frontend tagged this expression with a related symbol
+    bool Expression::has_symbol()
+    {
+        return ::expression_has_symbol(this->get_ast().get_internal_ast());
+    }
+
+    //! Returns the symbol with which the frontend tagged this expression
+    Symbol Expression::get_symbol()
+    {
+        return ::expression_get_symbol(this->get_ast().get_internal_ast());
     }
 
     // Do not use this one, instead use get_declared_symbol
@@ -1052,6 +1176,12 @@ namespace TL
         return sym;
     }
 
+    Type TypeSpec::get_type() const
+    {
+        TL::Type t = _ref.get_attribute(LANG_TYPE_SPECIFIER_TYPE);
+        return t;
+    }
+
     bool DeclaredEntity::has_initializer() const
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
@@ -1062,6 +1192,12 @@ namespace TL
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
         return Expression(initializer, this->_scope_link);
+    }
+
+    AST_t DeclaredEntity::get_declarator_tree() const
+    {
+        AST_t declarator = _ref.get_attribute(LANG_DECLARATOR);
+        return declarator;
     }
 
     ObjectList<DeclaredEntity> Declaration::get_declared_entities() const
@@ -1257,16 +1393,21 @@ namespace TL
         _ignore_pragmas = b;
     }
 
-    void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceSrcIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
+    }
+
+    ScopeLink ReplaceSrcIdExpression::get_scope_link() const
+    {
+        return _sl;
     }
 
     Source ReplaceSrcIdExpression::replace(AST_t a) const
     {
         Source result;
 
-        char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
+        const char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
                 &ReplaceSrcIdExpression::prettyprint_callback, (void*)this);
 
         // Not sure whether this could happen or not
@@ -1276,7 +1417,7 @@ namespace TL
         }
 
         // The returned pointer came from C code, so 'free' it
-        free(c);
+        free((void*)c);
 
         return result;
     }
@@ -1314,6 +1455,11 @@ namespace TL
                 return result;
             }
         }
+        else if ((_this->_repl_this != "")
+                && PredicateAttr(LANG_IS_THIS_VARIABLE)(wrapped_tree))
+        {
+            return _this->_repl_this.c_str();
+        }
         else if (!_this->_do_not_replace_declarators)
         {
             Symbol sym = wrapped_tree.get_attribute(LANG_DECLARED_SYMBOL);
@@ -1328,6 +1474,11 @@ namespace TL
         }
 
         return NULL;
+    }
+
+    void ReplaceSrcIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
     }
 
     ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters() const

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_DRIVER_DECLS_H
 #define CXX_DRIVER_DECLS_H
 
@@ -32,55 +37,27 @@
 
 MCXX_BEGIN_DECLS
 
-// Options for command line arguments
-typedef enum 
-{
-    OPTION_UNDEFINED = 1024,
-    OPTION_VERSION,
-    OPTION_PREPROCESSOR_NAME,
-    OPTION_NATIVE_COMPILER_NAME,
-    OPTION_LINKER_NAME,
-    OPTION_DEBUG_FLAG,
-    OPTION_HELP_DEBUG_FLAGS,
-    OPTION_HELP_TARGET_OPTIONS,
-    OPTION_OUTPUT_DIRECTORY,
-    OPTION_NO_OPENMP,
-    OPTION_EXTERNAL_VAR,
-    OPTION_CONFIG_FILE,
-    OPTION_CONFIG_DIR,
-    OPTION_PROFILE,
-    OPTION_TYPECHECK,
-    OPTION_PREPROCESSOR_USES_STDOUT,
-    OPTION_DISABLE_GXX_TRAITS,
-    OPTION_PASS_THROUGH,
-    OPTION_DISABLE_SIZEOF,
-    OPTION_SET_ENVIRONMENT,
-    OPTION_LIST_ENVIRONMENTS,
-    OPTION_PRINT_CONFIG_FILE,
-    OPTION_PRINT_CONFIG_DIR,
-    OPTION_ENABLE_UPC,
-    OPTION_ENABLE_CUDA,
-    OPTION_ENABLE_HLT,
-    OPTION_DO_NOT_UNLOAD_PHASES,
-    OPTION_INSTANTIATE_TEMPLATES,
-    OPTION_VERBOSE
-} COMMAND_LINE_OPTIONS;
-
 // Kind of source 
+#define BITMAP(X) (1<<X)
 typedef enum source_kind_tag
 {
     SOURCE_KIND_UNKNOWN = 0,
-    SOURCE_KIND_NOT_PREPROCESSED,
-    SOURCE_KIND_PREPROCESSED,
-    SOURCE_KIND_NOT_PARSED,
+    SOURCE_KIND_NOT_PREPROCESSED = BITMAP(0),
+    SOURCE_KIND_PREPROCESSED = BITMAP(1),
+    SOURCE_KIND_FIXED_FORM = BITMAP(2),
+    SOURCE_KIND_FREE_FORM = BITMAP(3),
+    SOURCE_KIND_NOT_PARSED = BITMAP(4),
 } source_kind_t;
+#undef BITMAP
 
 typedef enum source_language_tag
 {
     SOURCE_LANGUAGE_UNKNOWN = 0,
     SOURCE_LANGUAGE_C,
     SOURCE_LANGUAGE_CXX,
+    SOURCE_LANGUAGE_FORTRAN,
     SOURCE_LANGUAGE_CUDA,
+    SOURCE_LANGUAGE_OPENCL,
     SOURCE_LANGUAGE_ASSEMBLER,
     SOURCE_LANGUAGE_LINKER_DATA,
 } source_language_t;
@@ -113,6 +90,10 @@ typedef struct translation_unit_tag
 
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
+
+#ifdef FORTRAN_SUPPORT
+    rb_red_blk_tree *module_cache;
+#endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
     void *dto;
@@ -158,7 +139,8 @@ typedef enum pragma_directive_kind_tag
 {
     PDK_NONE = 0,
     PDK_DIRECTIVE,
-    PDK_CONSTRUCT
+    PDK_CONSTRUCT,
+    PDK_CONSTRUCT_NOEND
 } pragma_directive_kind_t;
 
 typedef struct pragma_directive_set_tag
@@ -203,7 +185,10 @@ typedef struct compilation_process_tag
 
     // The set of flags as defined implicitly in the configuration file
     int num_parameter_flags;
-    struct parameter_flags_tag **parameter_flags;
+    parameter_flags_t **parameter_flags;
+
+    // The configuration chosen at command line
+    struct compilation_configuration_tag *command_line_configuration;
 
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
@@ -216,14 +201,15 @@ typedef struct compilation_configuration_conditional_flags
     char value;
 } compilation_configuration_conditional_flags_t;
 
+typedef struct flag_expr_tag flag_expr_t;
+
 typedef struct compilation_configuration_line
 {
     const char *name;
     const char *index;
     const char *value;
 
-    int num_flags;
-    struct compilation_configuration_conditional_flags *flags;
+    flag_expr_t* flag_expr;
 } compilation_configuration_line_t;
 
 #if 0
@@ -270,6 +256,11 @@ typedef struct code_shape_tag
     char short_enums;
 } code_shape_t;
 
+
+// Compiler phases: 
+// the ones that are loaded from files and the one that modifies the dto
+typedef struct compiler_phase_loader_tag compiler_phase_loader_t;
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -285,12 +276,12 @@ typedef struct compilation_configuration_tag
     char verbose;
     char keep_files;
     char keep_temporaries;
-    char check_dates;
     char do_not_process_files;
     char do_not_parse;
     char do_not_prettyprint;
     char do_not_compile;
     char do_not_link;
+    char generate_assembler;
     char disable_openmp;
 	char force_language;
 
@@ -311,6 +302,20 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
+#ifdef FORTRAN_SUPPORT
+    // Fortran prescanner
+    const char** prescanner_options;
+    int column_width;
+
+    char disable_intrinsics;
+
+    int num_module_dirs;
+    const char** module_dirs;
+
+    const char* module_out_dir;
+#endif
+    source_kind_t force_source_kind;
+
     const char* native_compiler_name;
     const char** native_compiler_options;
 
@@ -319,8 +324,12 @@ typedef struct compilation_configuration_tag
 
     const char* output_directory;
 
+    // Include directories
+    int num_include_dirs;
+    const char** include_dirs;
+
     int num_compiler_phases;
-    const char** compiler_phases;
+	compiler_phase_loader_t** phase_loader;
 
     // States whether the phases of this compiler were loaded
     char phases_loaded;
@@ -370,11 +379,24 @@ typedef struct compilation_configuration_tag
     // Enable CUDA
     char enable_cuda;
 
+    // Enable nodecl
+    char enable_nodecl;
+
     // Target options
     int num_target_option_maps;
     target_options_map_t** target_options_maps;
+
+#ifdef FORTRAN_SUPPORT
+    // Fortran lexing
+    char disable_empty_sentinels;
+#endif
 } compilation_configuration_t;
 
+struct compiler_phase_loader_tag
+{
+    void (*func)(compilation_configuration_t* compilation_configuration, const char* data);
+    const char* data;
+};
 
 typedef struct compilation_file_process_tag
 {

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,10 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef TL_LANGCONSTRUCT_HPP
 #define TL_LANGCONSTRUCT_HPP
 
 #include "tl-common.hpp"
+#include "tl-object.hpp"
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
@@ -34,6 +40,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-macros.h"
 #include <iostream>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -54,7 +61,7 @@ namespace TL
      * This is the base class for all classes wrapping distinguished
      * language constructs.
      */
-    class LIBTL_CLASS LangConstruct
+    class LIBTL_CLASS LangConstruct : public TL::Object
     {
         protected:
             //! Wrapped tree
@@ -281,6 +288,7 @@ namespace TL
     };
 
     class TemplateHeader;
+    class LinkageSpecifier;
     class TemplateParameterConstruct;
     class DeclaredEntity;
     //! This function wraps a whole function definition
@@ -323,6 +331,12 @@ namespace TL
             bool is_templated() const;
             //! Returns a list of templated headers for this template declaration
             ObjectList<TemplateHeader> get_template_header() const;
+
+            //! States whether this function definition has a linkage specified
+            bool has_linkage_specifier() const;
+
+            //! Returns a list of LinkageSpecifiers enclosing thins declaration
+            ObjectList<LinkageSpecifier> get_linkage_specifier() const;
 
             //! Returns the declared entity of this function definition.
             /*!
@@ -412,7 +426,9 @@ namespace TL
                 //! Postdecrement a--
                 POSTDECREMENT,
                 //! Conditional expression a ? b : c
-                CONDITIONAL
+                CONDITIONAL,
+                //! Assignment operator =
+                ASSIGNMENT
             };
 
             //! Computes the type of the expression
@@ -492,6 +508,12 @@ namespace TL
              */
             Expression get_subscripted_expression();
 
+            //! States whether this is a 'this' reference
+            bool is_this_variable();
+
+            //! Returns the symbol expressed by a 'this' expression
+            Symbol get_this_symbol();
+
             //! States whether this is a member access expression
             /*!
              * \return True if the expression is of the form 'a.b'
@@ -541,13 +563,41 @@ namespace TL
              */
             std::string get_operator_str();
 
-            //! States whether the expression is an array section
-            bool is_array_section();
+            //! Alias for is_array_section_range
+            /*
+               \deprecated Do not use. Use is_array_section_range instead
+            */
+            DEPRECATED bool is_array_section();
+
+            //! States if this is a ranged array section
+            /*
+               a[e1 : e2] 
+
+               is a ranged array section denoting elements from a[e1]
+               to a[e2] (this is, the ends are both included). e2 should
+               be larger value than e1
+             */
+            bool is_array_section_range();
+
+            //! States if this is a sized array section
+            /*
+               a[e1 ; s] 
+
+               is a ranged array section denoting elements from a[e1]
+               to a[e1 + s - 1] (where s > 0)
+             */
+            bool is_array_section_size();
+
             //! Returns the sectioned expression in the array section
             Expression array_section_item();
             //! Returns the lower bound of the array section
             Expression array_section_lower();
-            //! Returns the upper bound of the array section
+            //! Returns the upper limit of an array section
+            /*!
+              For a ranged array section this is the upper bound.
+              For sized array sections, this is the size of elements
+              in the array section starting from the lower bound
+              */
             Expression array_section_upper();
 
             //! States whether the expression is a shaping expression
@@ -557,6 +607,11 @@ namespace TL
             //! Returns the shape list
             ObjectList<Expression> shape_list();
 
+            //! States whether the expression is a 'throw' expression
+            bool is_throw_expression();
+            //! Returns the expression called by the throw expression
+            Expression get_throw_expression();
+            
             static const PredicateAttr predicate;
 
             /*! Returns the enclosing expression that is meaningful */
@@ -585,6 +640,12 @@ namespace TL
             {
                 return _orig;
             }
+
+            //! States if the frontend tagged this expression with a related symbol
+            bool has_symbol();
+
+            //! Returns the symbol with which the frontend tagged this expression
+            Symbol get_symbol();
 
             /*! States whether this expression is a top level one */
             bool is_top_level_expression();
@@ -645,6 +706,9 @@ namespace TL
             //! Returns an expression with the initializer itself
             Expression get_initializer() const;
 
+            //! Returns the tree of the declarator
+            AST_t get_declarator_tree() const;
+
             //! States whether this declaration is a functional one
             bool is_functional_declaration() const;
             //! Returns all the parameter declarations
@@ -683,6 +747,12 @@ namespace TL
             bool is_enum_specifier() const;
             //! Returns the enym symbol defined in the enum-specifier
             Symbol get_enum_symbol() const;
+
+            //! Returns the Type of this type-specifier
+            Type get_type() const;
+
+            // Fix the predicate
+            static const PredicateAttr predicate;
     };
 
     //! This class wraps a declaration-specifier sequence
@@ -738,6 +808,12 @@ namespace TL
             //! Returns the declaration-specifier sequence of the declaration
             DeclarationSpec get_declaration_specifiers() const;
 
+            //! States whether this declaration has explicit linkage specifier "X"
+            bool has_linkage_specifier() const;
+
+            //! Returns a list of LinkageSpecifiers enclosing thins declaration
+            ObjectList<LinkageSpecifier> get_linkage_specifier() const;
+
             //! States whether this declaration is templated
             bool is_templated() const;
             //! Returns a list of template-haders
@@ -749,6 +825,9 @@ namespace TL
              */
             AST_t get_point_of_declaration() const;
 
+            //! States whether this declaration is empty or not
+            bool is_empty_declaration() const;
+            
             // Fix the predicate
             static const PredicateAttr predicate;
     };
@@ -780,6 +859,17 @@ namespace TL
             }
 
             ObjectList<TemplateParameterConstruct> get_parameters() const;
+            virtual std::string prettyprint() const;
+    };
+
+    class LIBTL_CLASS LinkageSpecifier : public LangConstruct
+    {
+        public:
+            LinkageSpecifier(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
             virtual std::string prettyprint() const;
     };
 
@@ -859,6 +949,7 @@ namespace TL
     {
         protected:
             std::map<Symbol, std::string> _repl_map;
+            std::string _repl_this;
         public:
             ReplaceIdExpression()
             {
@@ -876,7 +967,7 @@ namespace TL
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
              */
-            void add_replacement(Symbol sym, std::string str);
+            void add_replacement(Symbol sym, const std::string& str);
             
             //! Sets a replacement for the symbol with a tree
             /*!
@@ -891,16 +982,36 @@ namespace TL
              * \param str A string containing the expression used for the replacement
              * \param ref_tree Reference tree to perform the parsing of \a str
              * \param scope_link The ScopeLink used to parse the expression \a str
+             * \deprecated
              */
-            void add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link);
+            void add_replacement(Symbol sym, const std::string& str, AST_t ref_tree, ScopeLink scope_link) DEPRECATED;
             //! Sets a replacement for the symbol with a tree
             /*!
              * \param sym The symbol to be replaced
              * \param src A Source containing an expression
              * \param ref_tree Reference tree to perform the parsing of \a src
              * \param scope_link The ScopeLink used to parse the Source \a src
+             * \deprecated
              */
-            void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link);
+            void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link) DEPRECATED;
+
+            //! Sets a replacement for 'this'
+            /*! 
+               \param str A string containing the expression used for the replacement
+             */
+            void add_this_replacement(const std::string& str);
+
+            //! Sets a replacement for 'this'
+            /*! 
+             * \param src A Source containing an expression
+             */
+            void add_this_replacement(Source src);
+
+            //! Sets a replacement for 'this'
+            /*! 
+             * \param ast The expression tree used for the replacement
+             */
+            void add_this_replacement(AST_t ast);
 
             //! States whether a replacement for a given symbol has been set
             /*
@@ -948,6 +1059,28 @@ namespace TL
                     }
                 }
 
+                if (_repl_this != "")
+                {
+                    ObjectList<AST_t> this_references = result.get_ast().depth_subtrees(PredicateAttr(LANG_IS_THIS_VARIABLE));
+
+                    for (ObjectList<AST_t>::iterator it = this_references.begin();
+                            it != this_references.end();
+                            it++)
+                    {
+                        AST_t &orig_ast(*it);
+
+                        Source src;
+                        src << _repl_this
+                            ;
+
+                        AST_t repl_ast = src.parse_expression(orig_ast, 
+                                orig_stmt.get_scope_link(),
+                                Source::DO_NOT_CHECK_EXPRESSION);
+
+                        orig_ast.replace(repl_ast);
+                    }
+                }
+
                 return result;
             }
     };
@@ -978,6 +1111,8 @@ namespace TL
             static const char* prettyprint_callback(AST a, void* data);
 
             std::map<Symbol, std::string> _repl_map;
+            std::string _repl_this;
+
             ScopeLink _sl;
             bool _do_not_replace_declarators;
             bool _ignore_pragmas;
@@ -992,7 +1127,13 @@ namespace TL
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
              */
-            void add_replacement(Symbol sym, std::string str);
+            void add_replacement(Symbol sym, const std::string& str);
+
+            //! Sets a replacement for this
+            /*!
+             * \param str A string containing the expression used for the replacement
+             */
+            void add_this_replacement(const std::string& str);
 
             //! Perform the replacement returning a prettyprinted coe
             Source replace(AST_t a) const;
@@ -1003,6 +1144,10 @@ namespace TL
             void set_replace_declarators(bool b);
 
             void set_ignore_pragma(bool b);
+
+            ScopeLink get_scope_link() const;
+
+            virtual ~ReplaceSrcIdExpression() { }
     };
 
     //! \addtogroup Functors

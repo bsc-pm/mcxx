@@ -2,45 +2,46 @@
 [omp-base]
 options =
 {debug} options = -g
-{instrument,!debug} options = --variable=instrument:1
+{(instrument|instrumentation)} options = --variable=instrument:1
 preprocessor_name = gcc
 preprocessor_options = -E
-{instrument,!debug,!openmpt,!nanox} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+{(instrument|instrumentation),!(openmpt|ompss|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
+linker_options = -Wl,--add-needed
 {openmp} compiler_phase = libtlomp-core.so
 {openmp} pragma_prefix = nanos
 {openmp} compiler_phase = libtlnanos-version.so
 # nanos4
-{openmp,!openmpt,!nanox} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
-{openmp,!openmpt,!nanox} linker_options = -L@NANOS4_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOS4_LIBS@
-{openmp,!openmpt,!nanox,!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
-{openmp,!openmpt,!nanox,nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
-{openmp,!openmpt,!nanox,instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,@RPATH_PARAMETER@,@MINTAKA_LIBS@ -lmintaka
-{openmp,!openmpt,!nanox,debug} linker_options = -g -lnthreads-dbg
-{openmp,!openmpt,!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
-{openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-serialize.so
-{openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization
-{openmp,!openmpt,!nanox} compiler_phase = libtlomp-nanos4.so
+{openmp,!(nanox|openmpt|ompss)} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
+{openmp,!(nanox|openmpt|ompss)} linker_options = -L@NANOS4_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOS4_LIBS@
+{openmp,!(nanox|openmpt|ompss),!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
+{openmp,!(nanox|openmpt|ompss),nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{openmp,!(nanox|openmpt|ompss),instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,@RPATH_PARAMETER@,@MINTAKA_LIBS@ -lmintaka
+{openmp,!(nanox|openmpt|ompss),debug} linker_options = -g -lnthreads-dbg
+{openmp,!(nanox|openmpt|ompss),instrument,!debug} @INSTRUMENTATION_PHASE@
+{openmp,!(nanox|openmpt|ompss),serialize} compiler_phase = libtlomp-serialize.so
+{openmp,!(nanox|openmpt|ompss),serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization
+{openmp,!(nanox|openmpt|ompss)} compiler_phase = libtlomp-nanos4.so
 # nanos++
-{openmp,nanox} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
-{openmp,nanox} linker_options = -L@NANOX_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@
-{openmp,openmpt,!nanox} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
-{openmp,openmpt,!nanox} linker_options = -L@NANOX_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@
-{openmp,nanox,!openmpt} linker_options = -lnanox-c -lnanox-omp
-{openmp,openmpt} linker_options = -lnanox-c -lnanox-ss
-{openmp,nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
-{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
-{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
-{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
-{openmp,openmpt,!nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
-{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
-{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
-{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
-{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
+{openmp,(nanox|openmpt|ompss)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{openmp,!debug,!(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
+{openmp,debug,!(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
+{openmp,!debug,(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
+{openmp,debug,(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
+{openmp,nanox,!(openmpt|ompss)} linker_options = -lnanox -lnanox-c -lnanox-omp
+{openmp,!nanox,(openmpt|ompss)} linker_options = -lnanox -lnanox-c -lnanox-ss
+{openmp,(nanox|openmpt|ompss)} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_dto = show_warnings:bool:0
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp_ocl.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
+
 
 [mcc : omp-base]
 language = C
@@ -53,26 +54,28 @@ compiler_name = g++
 linker_name = g++
 
 [imcc : mcc]
-preprocessor_name = icc
-compiler_name = icc
-linker_name = icc
+preprocessor_name = @ICC@
+compiler_name = @ICC@
+linker_name = @ICC@
+options = --variable=weaks_as_statics:1
 
 [imcxx : mcxx]
-preprocessor_name = icpc
-compiler_name = icpc
-linker_name = icpc
+preprocessor_name = @ICPC@
+compiler_name = @ICPC@
+linker_name = @ICPC@
+options = --variable=weaks_as_statics:1
 
 [xlmcc : mcc]
-preprocessor_name = gxlc
+preprocessor_name = @GXLC@
 preprocessor_uses_stdout = yes
-compiler_name = gxlc
-linker_name = gxlc
+compiler_name = @GXLC@
+linker_name = @GXLC@
 
 [xlmcxx : mcxx]
-preprocessor_name = gxlc++
+preprocessor_name = @GXLCXX@
 preprocessor_uses_stdout = yes
-compiler_name = gxlc++
-linker_name = gxlc++
+compiler_name = @GXLCXX@
+linker_name = @GXLCXX@
 
 # Profile mode
 [omp-prof-common]
@@ -96,3 +99,15 @@ compiler_name = g++
 compiler_options =
 linker_name = g++
 linker_options =
+
+# Fortran EXPERIMENTAL support
+[mf95]
+language = Fortran
+options =
+preprocessor_name = gfortran
+preprocessor_options = -cpp -E
+compiler_name = gfortran
+compiler_options =
+linker_name = gfortran
+linker_options =
+{openmp} compiler_phase = libtlomp-core.so

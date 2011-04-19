@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <string.h>
 #include "cxx-buildscope.h"
@@ -36,6 +41,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+#include "cxx-entrylist.h"
 
 #include "red_black_tree.h"
 
@@ -47,7 +53,7 @@ static long long unsigned int _bytes_due_to_type_system = 0;
 // An exception specifier used in function info
 typedef struct {
     int num_exception_types;
-    struct type_tag** exception_type_seq;
+    type_t** exception_type_seq;
 } exception_spec_t;
 
 // For type_t
@@ -66,6 +72,7 @@ enum type_kind
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
     TK_BRACED_LIST,        // 12
+    TK_ERROR,
 };
 
 // For simple_type_t
@@ -90,7 +97,7 @@ enum simple_type_kind_tag
     STK_COMPLEX,
     STK_CLASS, // [2] struct {identifier};
     STK_ENUM, // [3] enum {identifier}
-    STK_USER_DEFINED, // [4] A {identifier};
+    STK_INDIRECT, // [4] A type defined after the type of another symbol
     STK_TEMPLATE_TYPE, // [5] a template type
     // An unknown type
     STK_TEMPLATE_DEPENDENT_TYPE, // [6]
@@ -99,13 +106,11 @@ enum simple_type_kind_tag
     STK_TYPEOF  // [8] __typeof__(int) {identifier};
 } simple_type_kind_t;
 
-struct scope_entry_tag;
-
 // Information of enums
 typedef 
 struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
-    struct scope_entry_tag** enumeration_list; // The symtab entry of the enum
+    scope_entry_t** enumeration_list; // The symtab entry of the enum
     type_t* underlying_type; // The underlying type of this enum type
 } enum_info_t;
 
@@ -117,10 +122,10 @@ typedef
 struct base_class_info_tag
 {
     // The parent class type
-    struct type_tag* class_type;
+    type_t* class_type;
 
     // The parent class symbol
-    struct scope_entry_tag* class_symbol;
+    scope_entry_t* class_symbol;
 
     // The access specifier (public, private, protected inheritance)
     access_specifier_t access_specifier;
@@ -137,7 +142,7 @@ struct base_class_info_tag
 typedef
 struct virtual_base_class_info_tag
 {
-    struct scope_entry_tag* virtual_base;
+    scope_entry_t* virtual_base;
     _size_t virtual_base_offset;
 } virtual_base_class_info_t;
 
@@ -154,64 +159,64 @@ struct class_information_tag {
     unsigned char is_abstract:1;
 
     // Enclosing class type
-    struct type_tag* enclosing_class_type;
+    type_t* enclosing_class_type;
 
     // The inner decl context created by this class
     decl_context_t inner_decl_context;
     
     // All members must be here, but can also be in lists below
     int num_members;
-    struct scope_entry_tag** members;
+    scope_entry_t** members;
 
     // Destructor
-    struct scope_entry_tag* destructor;
+    scope_entry_t* destructor;
 
     // Member functions
     int num_member_functions;
-    struct scope_entry_tag** member_functions;
+    scope_entry_t** member_functions;
 
     // Conversion functions info
     int num_conversion_functions;
-    struct scope_entry_tag** conversion_functions;
+    scope_entry_t** conversion_functions;
 
     // Copy assignment function info
     int num_copy_assignment_operator_functions;
-    struct scope_entry_tag** copy_assignment_operator_function_list;
+    scope_entry_t** copy_assignment_operator_function_list;
 
     // Move assignment function info
     int num_move_assignment_operator_functions;
-    struct scope_entry_tag** move_assignment_operator_function_list;
+    scope_entry_t** move_assignment_operator_function_list;
 
     // Class constructors info
     int num_constructors;
-    struct scope_entry_tag** constructor_list;
+    scope_entry_t** constructor_list;
 
     // Default constructor
-    struct scope_entry_tag* default_constructor;
+    scope_entry_t* default_constructor;
 
     // Copy constructors
     int num_copy_constructors;
-    struct scope_entry_tag** copy_constructor_list;
+    scope_entry_t** copy_constructor_list;
 
     // Move constructors
     int num_move_constructors;
-    struct scope_entry_tag** move_constructor_list;
+    scope_entry_t** move_constructor_list;
 
     // Nonstatic data members
     int num_nonstatic_data_members;
-    struct scope_entry_tag** nonstatic_data_members;
+    scope_entry_t** nonstatic_data_members;
     
     // Static data members
     int num_static_data_members;
-    struct scope_entry_tag** static_data_members;
+    scope_entry_t** static_data_members;
 
     // Virtual functions
     int num_virtual_functions;
-    struct scope_entry_tag** virtual_functions;
+    scope_entry_t** virtual_functions;
 
     // Typenames (either typedefs, enums or inner classes)
     int num_typenames;
-    struct scope_entry_tag** typenames;
+    scope_entry_t** typenames;
 
     // Base (parent classes) info
     int num_bases;
@@ -252,6 +257,9 @@ struct simple_type_tag {
     // (kind == STK_TYPEOF)
     unsigned char typeof_is_expr:1;
 
+    // States that the STK_INDIRECT is a not the last indirect
+    unsigned char is_indirect:1;
+
     // This type exists after another symbol, for
     // instance
     //
@@ -261,9 +269,9 @@ struct simple_type_tag {
     // A b;
     //
     // creates an 'A' symbol of type SK_CLASS
-    // and a 'b' symbol SK_VARIABLE with type STK_USER_DEFINED
+    // and a 'b' symbol SK_VARIABLE with type STK_INDIRECT
     // pointing to 'A' symbol
-    struct scope_entry_tag* user_defined_type;
+    scope_entry_t* user_defined_type;
 
     // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
@@ -291,14 +299,14 @@ struct simple_type_tag {
 
     // For template types
     template_parameter_list_t* template_parameter_list;
-    // This is a STK_USER_DEFINED
+    // This is a STK_INDIRECT
     type_t* primary_specialization;
     // Sometimes we need the original symbol defining this template type
     scope_entry_t* related_template_symbol;
 
     // Specialized types
     int num_specialized_types;
-    // These are a STK_USER_DEFINED
+    // These are a STK_INDIRECT
     type_t** specialized_types;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
@@ -315,7 +323,7 @@ typedef
 struct function_tag
 {
     // The returning type of the function
-    struct type_tag* return_type;
+    type_t* return_type;
 
     // Parameter information
     int num_parameters;
@@ -332,24 +340,33 @@ typedef
 struct pointer_tag
 {
     // The pointee type
-    struct type_tag* pointee;
+    type_t* pointee;
 
     // If the type was a TK_POINTER_TO_MEMBER
     // the pointee class
-    struct scope_entry_tag* pointee_class;
+    scope_entry_t* pointee_class;
 } pointer_info_t;
 
 // Array information
 typedef 
 struct array_tag
 {
-    AST array_expr;
-    // Scope of the array size expression
+    // Whole size. If the array is created using lower and upper boundaries
+    // this one is upper - lower + 1
+    AST whole_size;
+    // This is always zero in C
+    // It may be non zero in Fortran
+    AST lower_bound; 
+
+    // This is the upper bound. If the array is created using the size of the
+    // array, this is always whole_size - 1
+    AST upper_bound;
+
+    // Scope of the array size expressions
     decl_context_t array_expr_decl_context;
-    const char* array_dim;
 
     // The type of the array elements
-    struct type_tag* element_type;
+    type_t* element_type;
 
     // Is literal string type ?
     unsigned char is_literal_string:1;
@@ -362,7 +379,7 @@ struct array_tag
 typedef struct vector_tag
 {
     unsigned int vector_size;
-    struct type_tag* element_type;
+    type_t* element_type;
 } vector_info_t;
 
 typedef
@@ -436,14 +453,14 @@ struct type_tag
     vector_info_t* vector;
 
     // Unqualified type, itself if the type is not qualified
-    struct type_tag* unqualified_type;
+    type_t* unqualified_type;
 
     // For parameter types, if not null it means some adjustement was done
-    struct type_tag* original_type;
+    type_t* original_type;
     // For template specialized parameters
     // --> char is_template_specialized_type;
     template_argument_list_t* template_arguments;
-    struct type_tag* related_template_type;
+    type_t* related_template_type;
     // It is not obvious why do we need this, but it is for
     // checking that unification actually succeed
     // It is only NON-null for complete types
@@ -474,6 +491,7 @@ const standard_conversion_t no_scs_conversion = {
 
 
 static unsigned int _function_type_counter = 0;
+static unsigned int _function_type_reused = 0;
 static unsigned int _class_type_counter = 0;
 static unsigned int _array_type_counter = 0;
 static unsigned int _pointer_type_counter = 0;
@@ -487,6 +505,11 @@ static unsigned int _enum_type_counter = 0;
 unsigned int get_function_type_counter(void)
 {
     return _function_type_counter;
+}
+
+unsigned int get_function_type_reused(void)
+{
+    return _function_type_reused;
 }
 
 unsigned int get_class_type_counter(void)
@@ -665,6 +688,30 @@ type_t* get_bool_type(void)
     }
 
     return _type;
+}
+
+type_t* get_bool_of_integer_type(type_t* t)
+{
+    ERROR_CONDITION(!is_integer_type(t), "Invalid type for bool", 0);
+
+#define MAX_BOOL_SIZE 16
+    static type_t* _bool_types[MAX_BOOL_SIZE + 1] = { 0 };
+
+    _size_t s = type_get_size(t);
+
+    ERROR_CONDITION(s > MAX_BOOL_SIZE, "Integer of size %d too big for bool", s);
+
+    if (_bool_types[s] == NULL)
+    {
+        _bool_types[s] = get_simple_type();
+        _bool_types[s]->type->kind = STK_BUILTIN_TYPE;
+        _bool_types[s]->type->builtin_type = BT_BOOL;
+        _bool_types[s]->info->size = type_get_size(t);
+        _bool_types[s]->info->alignment = type_get_alignment(t);
+        _bool_types[s]->info->valid_size = 1;
+    }
+
+    return _bool_types[s];
 }
 
 type_t* get_signed_int_type(void)
@@ -953,29 +1000,95 @@ char is_gcc_builtin_va_list(type_t *t)
             && t->type->kind == STK_VA_LIST);
 }
 
-type_t* get_user_defined_type(scope_entry_t* entry)
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+
+static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
 {
-    type_t* type_info = get_simple_type();
-
-    type_info->type->kind = STK_USER_DEFINED;
-    type_info->type->user_defined_type = entry;
-
-    if (entry->type_information != NULL)
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, t);
+    if (n != NULL)
     {
-        ERROR_CONDITION(entry->type_information->unqualified_type == NULL, "This cannot be null", 0);
+        result = (type_t*)rb_node_get_info(n);
     }
 
-    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    return result;
+}
+
+static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, sym);
+    if (n != NULL)
     {
-        type_info->info->is_dependent = 1;
+        result = (type_t*)rb_node_get_info(n);
     }
-    else if (entry->type_information != NULL)
+
+    return result;
+}
+
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
+static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
+{
+    static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
+
+    if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        type_info->info->is_dependent = is_dependent_type(entry->type_information);
+        _user_defined_types_arr[!!indirect] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
+    }
+
+    rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
+    
+    type_t* type_info = rb_tree_query_symbol(_user_defined_types, entry);
+
+    if (type_info == NULL)
+    {
+        type_info = get_simple_type();
+
+        type_info->type->kind = STK_INDIRECT;
+        type_info->type->user_defined_type = entry;
+        type_info->type->is_indirect = indirect;
+
+        if (entry->type_information != NULL)
+        {
+            ERROR_CONDITION(entry->type_information->unqualified_type == NULL, "This cannot be null", 0);
+        }
+
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            type_info->info->is_dependent = 1;
+        }
+        else if (entry->type_information != NULL)
+        {
+            type_info->info->is_dependent = is_dependent_type(entry->type_information);
+        }
+
+        rb_tree_add(_user_defined_types, entry, type_info);
     }
 
     return type_info;
+}
+
+type_t* get_user_defined_type(scope_entry_t* entry)
+{
+    return get_indirect_type_(entry, /* indirect */ entry->kind == SK_TYPEDEF);
+}
+
+type_t* get_indirect_type(scope_entry_t* entry)
+{
+    return get_indirect_type_(entry, /* indirect */ 1);
 }
 
 static dependent_name_part_t* get_dependent_nested_part(
@@ -1885,27 +1998,13 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(typ
     return t->template_parameters;
 }
 
-static void null_dtor(const void* v UNUSED_PARAMETER) { }
-
-static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
-{
-    type_t* result = NULL;
-    rb_red_blk_node* n = rb_tree_query(tree, t);
-    if (n != NULL)
-    {
-        result = rb_node_get_info(n);
-    }
-
-    return result;
-}
-
 type_t* get_complex_type(type_t* t)
 {
-    rb_red_blk_tree *_complex_hash = NULL;
+    static rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _complex_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* result = rb_tree_query_type(_complex_hash, t);
@@ -1948,15 +2047,48 @@ static void init_qualification_hash(void)
                 i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
                 i++)
         {
-            _qualification[i] = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _qualification[i] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
         _qualif_hash_initialized = 1;
     }
 }
 
+static void _get_array_type_components(type_t* array_type, 
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context);
+
+static type_t* _get_array_type(type_t* element_type, 
+        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context);
+
+static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
+{
+        AST whole_size = NULL;
+        AST lower_bound = NULL;
+        AST upper_bound = NULL;
+        decl_context_t decl_context;
+        memset(&decl_context, 0, sizeof(decl_context));
+
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context);
+
+        // And now rebuild the array type
+        type_t* result = _get_array_type(new_element_type, 
+                ast_copy_for_instantiation(whole_size), 
+                ast_copy_for_instantiation(lower_bound), 
+                ast_copy_for_instantiation(upper_bound), 
+                decl_context);
+        return result;
+}
+
+
 type_t* get_unqualified_type(type_t* t)
 {
     t = advance_over_typedefs(t);
+
+    if (t->kind == TK_ARRAY)
+    {
+        type_t* element_unqualif = get_unqualified_type(t->array->element_type);
+        return _clone_array_type(t, element_unqualif);
+    }
+
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
     return t->unqualified_type;
 }
@@ -1967,8 +2099,18 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
+    original = advance_over_typedefs_with_cv_qualif(original, NULL);
+
     ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
+
+    // The standard forces us to do some strange things here
+    if (original->kind == TK_ARRAY)
+    {
+        // Now clone the type
+        type_t* qualif_element_type = get_qualified_type(original->array->element_type, cv_qualification);
+        return _clone_array_type(original, qualif_element_type);
+    }
 
     if (cv_qualification == CV_NONE)
     {
@@ -2018,11 +2160,13 @@ type_t* get_restrict_qualified_type(type_t* t)
 
 type_t* get_pointer_type(type_t* t)
 {
-    rb_red_blk_tree *_pointer_types = NULL;
+    ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
+
+    static rb_red_blk_tree *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _pointer_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
@@ -2067,6 +2211,8 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
         internal_error("No referenced types should be created in C", 0);
     }
 
+    ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
+
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
     {
@@ -2076,22 +2222,22 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    rb_red_blk_tree **_reference_types = NULL;
+    rb_red_blk_tree **reference_types = NULL;
     if (is_rvalue_ref)
     {
-        _reference_types = &_lvalue_reference_types;
+        reference_types = &_lvalue_reference_types;
     }
     else
     {
-        _reference_types = &_rvalue_reference_types;
+        reference_types = &_rvalue_reference_types;
     }
 
-    if ((*_reference_types) == NULL)
+    if ((*reference_types) == NULL)
     {
-        (*_reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        (*reference_types) = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
-    type_t* referenced_type = rb_tree_query_type((*_reference_types), t);
+    type_t* referenced_type = rb_tree_query_type((*reference_types), t);
 
     if (referenced_type == NULL)
     {
@@ -2111,7 +2257,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_add((*_reference_types), t, referenced_type);
+        rb_tree_add((*reference_types), t, referenced_type);
     }
 
     return referenced_type;
@@ -2129,15 +2275,16 @@ type_t* get_rvalue_reference_type(type_t* t)
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
-    rb_red_blk_tree *_class_types = NULL;
+    ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
 
-    // First lookup using the class symbol
+    static rb_red_blk_tree *_class_types = NULL;
+
     if (_class_types == NULL)
     {
-        _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _class_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
-    // First then lookup using the 
+    // First lookup using the class symbol
     rb_red_blk_tree * class_type_hash = NULL;
     rb_red_blk_node * n = rb_tree_query(_class_types, class_entry);
     if (n != NULL)
@@ -2147,7 +2294,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
         rb_tree_add(_class_types, class_entry, class_type_hash);
     }
@@ -2193,17 +2340,24 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
 typedef struct array_sized_hash
 {
-    _size_t size;
+    _size_t whole_size;
+    _size_t lower_bound;
+    _size_t upper_bound;
     rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
 static array_sized_hash_t *_array_sized_hash = NULL;
 static int _array_sized_hash_size = 0;
 
-static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
+static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, 
+        _size_t whole_size,
+        _size_t lower_bound,
+        _size_t upper_bound)
 {
-    array_sized_hash_elem->size = size;
-    array_sized_hash_elem->element_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+    array_sized_hash_elem->whole_size = whole_size;
+    array_sized_hash_elem->lower_bound = lower_bound;
+    array_sized_hash_elem->upper_bound = upper_bound;
+    array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -2214,22 +2368,66 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
    int (*compar)(const void *, const void *));
  */
 
+static char tuple_lower_than(
+        int a0, int a1,
+        int b0, int b1)
+{
+    if (a0 < b0)
+        return 1;
+    else if (a0 > b0)
+        return 0;
+    else
+        return a1 < b1;
+}
+
+static char triple_lower_than(
+        int a0, int a1, int a2,
+        int b0, int b1, int b2)
+{
+    if (a0 < b0)
+        return 1;
+    else if (a0 > b0)
+        return 0;
+    else // a0 == b0 
+        return tuple_lower_than(a1, a2, b1, b2);
+}
+
 int array_hash_compar(const void* v1, const void* v2)
 {
     const array_sized_hash_t* a1 = (const array_sized_hash_t*)v1;
     const array_sized_hash_t* a2 = (const array_sized_hash_t*)v2;
 
-    if (a1->size < a2->size)
+    // (x0, y0, z0) < (x1, y1, z1)
+    if (triple_lower_than(
+                a1->whole_size,
+                a1->lower_bound,
+                a1->upper_bound,
+                a2->whole_size,
+                a2->lower_bound,
+                a2->upper_bound))
+    {
         return -1;
-    else if (a2->size < a1->size)
+    }
+    // (x0, y0, z0) > (x1, y1, z1)
+    else if (triple_lower_than(
+                a2->whole_size,
+                a2->lower_bound,
+                a2->upper_bound,
+                a1->whole_size,
+                a1->lower_bound,
+                a1->upper_bound))
+    {
         return 1;
+    }
     else
+    {
         return 0;
+    }
 }
 
-static rb_red_blk_tree* get_array_sized_hash(_size_t size)
+static rb_red_blk_tree* get_array_sized_hash(_size_t whole_size, _size_t lower_bound, _size_t upper_bound)
 {
-    array_sized_hash_t key = { .size = size };
+    array_sized_hash_t key = { .whole_size = whole_size, .lower_bound = lower_bound, .upper_bound = upper_bound };
 
     array_sized_hash_t* sized_hash = bsearch(&key, 
             _array_sized_hash, _array_sized_hash_size, 
@@ -2240,7 +2438,8 @@ static rb_red_blk_tree* get_array_sized_hash(_size_t size)
         _array_sized_hash_size++;
         _array_sized_hash = realloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
-        rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
+        rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], 
+                whole_size, lower_bound, upper_bound);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -2259,11 +2458,48 @@ type_t* get_array_type_str(type_t* element_type, const char* dim)
     return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
 }
 
-type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl_context)
+// This is used only for cloning array types
+static void _get_array_type_components(type_t* array_type, 
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context)
 {
-    // This type is not efficiently managed since sometimes we cannot state
-    // which is its length. On the other hand, inside type calculus this type
-    // is barely needed since normally expressions cannot express array types.
+    ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
+
+    *whole_size = array_type->array->whole_size;
+    *lower_bound = array_type->array->lower_bound;
+    *upper_bound = array_type->array->upper_bound;
+    *decl_context = array_type->array->array_expr_decl_context;
+}
+
+// This function owns the three trees passed to it (unless they are NULL, of
+// course)
+static type_t* _get_array_type(type_t* element_type, 
+        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context)
+{
+    ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
+
+    ERROR_CONDITION(whole_size != NULL
+            && (lower_bound == NULL || upper_bound == NULL),
+            "Invalid definition of boundaries for array", 0);
+
+        // Properly set the scope links, as if the expressions belonged to decl_context
+    if (lower_bound != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, lower_bound, decl_context);
+    if (upper_bound != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, upper_bound, decl_context);
+    if (whole_size != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, whole_size, decl_context);
+
+    char expression_sizes_ok = 1;
+    char whole_size_is_constant = 0;
+    _size_t whole_size_k = 0;
+
+    char lower_bound_is_constant = 0;
+    _size_t lower_bound_k = 0;
+
+    char upper_bound_is_constant = 0;
+    _size_t upper_bound_k = 0;
+
+    // We try to reuse this type as much as possible
     //
     // E.g.
     //
@@ -2282,18 +2518,56 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     // } 
     //
     //
-    // Fold if possible the expression
+    // First try to fold as many trees as possible to free them
+    if (whole_size != NULL)
+    {
+        struct {
+            AST *tree;
+            char* pred;
+            _size_t* value;
+        } data[] = 
+        {
+            { &whole_size, &whole_size_is_constant, &whole_size_k },
+            { &lower_bound, &lower_bound_is_constant, &lower_bound_k },
+            { &upper_bound, &upper_bound_is_constant, &upper_bound_k },
+            { NULL, NULL, NULL }
+        };
+        
+        int i;
+        for (i = 0; data[i].tree != NULL; i++)
+        {
+            if (data[i].tree == NULL)
+                continue;
+            char check_expr = check_for_expression(*(data[i].tree), decl_context);
+            if (check_expr)
+            {
+                if (expression_is_constant(*(data[i].tree)))
+                {
+                    *(data[i].pred) = 1;
+                    *(data[i].value) = const_value_cast_to_8(
+                            expression_get_constant(*(data[i].tree)));
+                    AST old = *(data[i].tree);
+                    *(data[i].tree) = const_value_to_tree(expression_get_constant(*(data[i].tree)));
+                    ast_free(old);
+                }
+            }
+            else
+            {
+                expression_sizes_ok = 0;
+            }
+        }
+    }
 
     type_t* result = NULL;
 
-    if (expression == NULL)
+    if (whole_size == NULL)
     {
         // Use the same strategy we use for pointers
         static rb_red_blk_tree *_undefined_array_types = NULL;
 
         if (_undefined_array_types == NULL)
         {
-            _undefined_array_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _undefined_array_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
@@ -2305,7 +2579,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->unqualified_type = result;
             result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
             result->array->element_type = element_type;
-            result->array->array_expr = NULL;
+            result->array->whole_size = NULL;
             result->array->array_expr_decl_context = decl_context;
 
             result->info->is_incomplete = 1;
@@ -2321,16 +2595,12 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     }
     else
     {
-        char check_expr = check_for_expression(expression, decl_context);
-
         if (!CURRENT_CONFIGURATION->disable_sizeof
-                && check_expr
-                && expression_is_constant(expression))
+                && whole_size_is_constant
+                && lower_bound_is_constant
+                && upper_bound_is_constant)
         {
-            _size_t num_elements = const_value_cast_to_8(
-                    expression_get_constant(expression));
-
-            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(num_elements);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k);
 
             type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
@@ -2343,13 +2613,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
 
-                result->array->array_expr = const_value_to_tree(
-                        const_value_get(num_elements, sizeof(num_elements), 0));
+                result->array->whole_size = whole_size;
+                result->array->lower_bound = lower_bound;
+                result->array->upper_bound = upper_bound;
+
                 result->array->array_expr_decl_context = decl_context;
                 rb_tree_add(array_sized_hash, element_type, result);
 
                 result->info->is_dependent = is_dependent_type(element_type);
-
             }
             else
             {
@@ -2364,13 +2635,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->unqualified_type = result;
             result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
             result->array->element_type = element_type;
-            result->array->array_expr = expression;
+            result->array->whole_size = whole_size;
+            result->array->lower_bound = lower_bound;
+            result->array->upper_bound = upper_bound;
             result->array->array_expr_decl_context = decl_context;
-
 
             C_LANGUAGE()
             {
-                if (check_expr)
+                if (expression_sizes_ok)
                 {
                     // This is a VLA
                     // In C++ there are no VLA's but this path can be followed by
@@ -2381,9 +2653,9 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            if (check_expr
+            if (expression_sizes_ok
                     && !result->info->is_dependent
-                    && expression_is_value_dependent(expression))
+                    && expression_is_value_dependent(whole_size))
             {
                 result->info->is_dependent = 1;
             }
@@ -2393,8 +2665,82 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     return result;
 }
 
+static const_AST get_zero_tree() 
+{
+    static AST zero_tree = NULL;
+    if (zero_tree == NULL)
+    {
+        zero_tree = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
+    }
+    return zero_tree;
+}
+
+static const_AST get_one_tree() 
+{
+    static AST one_tree = NULL;
+    if (one_tree == NULL)
+    {
+        one_tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, "1");
+    }
+    return one_tree;
+}
+
+type_t* get_array_type(type_t* element_type, AST whole_size, decl_context_t decl_context)
+{
+    whole_size = ast_copy_for_instantiation(whole_size);
+
+    AST lower_bound = NULL; 
+    AST upper_bound = NULL; 
+    if (whole_size != NULL)
+    {
+        lower_bound = ast_copy_for_instantiation(get_zero_tree());
+        ast_set_filename(lower_bound, ASTFileName(whole_size));
+        ast_set_line(lower_bound, ASTLine(whole_size));
+
+        upper_bound = ASTMake2(AST_MINUS_OP, 
+                ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(whole_size), ASTFileName(whole_size), ASTLine(whole_size), NULL), 
+                ast_copy_for_instantiation(get_one_tree()), 
+                ASTFileName(whole_size), ASTLine(whole_size), NULL);
+    }
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+}
+
+type_t* get_array_type_bounds(type_t* element_type,
+        AST lower_bound,
+        AST upper_bound,
+        decl_context_t decl_context)
+{
+    AST whole_size = NULL;
+    lower_bound = ast_copy_for_instantiation(lower_bound);
+    upper_bound = ast_copy_for_instantiation(upper_bound);
+
+    if (lower_bound != NULL
+            && upper_bound != NULL)
+    {
+        AST one_tree = ast_copy_for_instantiation(get_one_tree());
+        ast_set_filename(one_tree, ASTFileName(lower_bound));
+        ast_set_line(one_tree, ASTLine(lower_bound));
+
+        whole_size = 
+            ASTMake2(AST_ADD_OP, 
+                    ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
+                        ASTMake2(AST_MINUS_OP, 
+                            ast_copy_for_instantiation(upper_bound), 
+                            ast_copy_for_instantiation(lower_bound), 
+                            ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                        ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                    one_tree,
+                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL);
+    }
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+}
+
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
+    ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
+
     _vector_type_counter++;
     // This type is not efficiently managed
     type_t* result = new_empty_type();
@@ -2416,6 +2762,19 @@ char is_vector_type(type_t* t)
     t = advance_over_typedefs(t);
     return (t != NULL
             && t->kind == TK_VECTOR);
+}
+
+type_t* get_generic_vector_type(type_t* element_type)
+{
+    return get_vector_type(element_type, 0);
+}
+
+char is_generic_vector_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_VECTOR
+	    && t->vector->vector_size == 0);
 }
 
 int vector_type_get_vector_size(type_t* t)
@@ -2588,6 +2947,10 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         function_type = new_funct_type;
 
         set_is_dependent_type(function_type, fun_type_is_dependent);
+    }
+    else
+    {
+        _function_type_reused++;
     }
     
     return function_type;
@@ -2968,7 +3331,7 @@ scope_entry_t* class_type_get_destructor(type_t* class_type)
     return class_type->type->class_info->destructor;
 }
 
-void class_type_set_default_constructor(struct type_tag* class_type, struct scope_entry_tag* entry)
+void class_type_set_default_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     class_type->type->class_info->default_constructor = entry;
@@ -3140,7 +3503,7 @@ char is_enum_type(type_t* t)
         || is_named_enumerated_type(t);
 }
 
-char is_unnamed_enumerated_type(struct type_tag* t)
+char is_unnamed_enumerated_type(type_t* t)
 {
     t = advance_over_typedefs(t);
     return (t != NULL
@@ -3148,14 +3511,14 @@ char is_unnamed_enumerated_type(struct type_tag* t)
             && t->type->kind == STK_ENUM);
 }
 
-char is_named_enumerated_type(struct type_tag* t)
+char is_named_enumerated_type(type_t* t)
 {
     t = advance_over_typedefs(t);
     return (is_named_type(t)
             && is_unnamed_enumerated_type(named_type_get_symbol(t)->type_information));
 }
 
-type_t* get_actual_enum_type(struct type_tag* t)
+type_t* get_actual_enum_type(type_t* t)
 {
     if (is_unnamed_enumerated_type(t))
         return advance_over_typedefs(t);
@@ -3165,7 +3528,7 @@ type_t* get_actual_enum_type(struct type_tag* t)
         return NULL;
 }
 
-void enum_type_add_enumerator(struct type_tag* t, scope_entry_t* enumeration_item)
+void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
@@ -3177,7 +3540,7 @@ void enum_type_add_enumerator(struct type_tag* t, scope_entry_t* enumeration_ite
             enumeration_item);
 }
 
-scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n)
+scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
@@ -3187,7 +3550,7 @@ scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n)
     return enum_type->enum_info->enumeration_list[n];
 }
 
-int enum_type_get_num_enumerators(struct type_tag* t)
+int enum_type_get_num_enumerators(type_t* t)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
     t = get_actual_enum_type(t);
@@ -3197,7 +3560,7 @@ int enum_type_get_num_enumerators(struct type_tag* t)
     return enum_type->enum_info->num_enumeration;
 }
 
-type_t* enum_type_get_underlying_type(struct type_tag* t)
+type_t* enum_type_get_underlying_type(type_t* t)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
@@ -3207,7 +3570,7 @@ type_t* enum_type_get_underlying_type(struct type_tag* t)
     return enum_type->enum_info->underlying_type;
 }
 
-void enum_type_set_underlying_type(struct type_tag* t, struct type_tag* underlying_type)
+void enum_type_set_underlying_type(type_t* t, type_t* underlying_type)
 {
     ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
@@ -3224,19 +3587,29 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
 
     if (cv_qualif != NULL)
     {
-        *cv_qualif = t1->cv_qualifier;
+        *cv_qualif |= t1->cv_qualifier;
     }
+
     // Advance over typedefs
     while (t1->kind == TK_DIRECT
-            && t1->type->kind == STK_USER_DEFINED
+            && t1->type->kind == STK_INDIRECT
             && t1->type->user_defined_type != NULL
-            && t1->type->user_defined_type->kind == SK_TYPEDEF)
+            && t1->type->is_indirect)
     {
         t1 = t1->type->user_defined_type->type_information;
         if (cv_qualif != NULL)
         {
             *cv_qualif |= t1->cv_qualifier;
         }
+    }
+
+    // Arrays add the element qualification 
+    //
+    // Note: DO NOT use is_array because it uses advance_over_typedefs which
+    // ends using advance_over_typedefs_with_cv_qualif
+    if (t1->kind == TK_ARRAY)
+    {
+        advance_over_typedefs_with_cv_qualif(t1->array->element_type, cv_qualif);
     }
 
     return t1;
@@ -3335,7 +3708,7 @@ int class_type_get_num_member_functions(type_t* class_type)
     return class_type->type->class_info->num_member_functions;
 }
 
-struct scope_entry_tag* class_type_get_member_function_num(struct type_tag* class_type, int i)
+scope_entry_t* class_type_get_member_function_num(type_t* class_type, int i)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
@@ -3425,25 +3798,25 @@ scope_entry_t* class_type_get_conversion_num(type_t* class_type, int num)
     return class_type->type->class_info->conversion_functions[num];
 }
 
-int class_type_get_num_typenames(struct type_tag* class_type)
+int class_type_get_num_typenames(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->num_typenames;
 }
 
-struct scope_entry_tag* class_type_get_typename_num(struct type_tag* class_type, int num)
+scope_entry_t* class_type_get_typename_num(type_t* class_type, int num)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->typenames[num];
 }
 
-int class_type_get_num_members(struct type_tag* class_type)
+int class_type_get_num_members(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->num_members;
 }
 
-struct scope_entry_tag* class_type_get_member_num(struct type_tag* class_type, int num)
+scope_entry_t* class_type_get_member_num(type_t* class_type, int num)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->members[num];
@@ -3460,27 +3833,16 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     for (i = 0; i < num_bases; i++)
     {
         char is_dependent = 0;
-        type_t* base_class_type = class_type_get_base_num(class_type, i, 
-                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent)->type_information;
+        scope_entry_t* class_entry = class_type_get_base_num(class_type, i, 
+                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent);
+        type_t* base_class_type = class_entry->type_information;
 
         if (is_dependent)
             continue;
 
         scope_entry_list_t* base_conversors = class_type_get_all_conversions(base_class_type, decl_context);
 
-        // Append
-        if (base_result == NULL)
-        {
-            base_result = base_conversors;
-        }
-        else
-        {
-            scope_entry_list_t* last = base_result;
-            while (last->next != NULL)
-                last = last->next;
-            
-            last->next = base_conversors;
-        }
+        base_result = entry_list_merge(base_result, base_conversors);
     }
 
     // Now for every conversor of this class, remove it from 'result'
@@ -3489,62 +3851,35 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     for (i = 0; i < num_conversors; i++)
     {
         scope_entry_t* entry = class_type_get_conversion_num(class_type, i);
-
-        scope_entry_list_t* prev_it = NULL;
-        scope_entry_list_t* it = base_result;
-
-        while (it != NULL)
-        {
-            scope_entry_t* current = it->entry;
-
-            if (equivalent_types(current->type_information, entry->type_information))
-            {
-                // Remove 'it' from the list
-                if (prev_it == NULL)
-                {
-                    // Update the head
-                    base_result = it->next;
-                }
-                else
-                {
-                    prev_it->next = it->next;
-                }
-                it = it->next;
-            }
-            else
-            {
-                prev_it = it;
-                it = it->next;
-            }
-        }
-
         // At the same time build the conversor list of this class
-        {
-            scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_due_to_type_system);
-            new_item->entry = entry;
-            new_item->next = this_class_conversors;
-
-            this_class_conversors = new_item;
-        }
+        this_class_conversors = entry_list_add(this_class_conversors, entry);
     }
 
-    // Now append the filtered one to the result
-    //
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(base_result);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_list_t* last = this_class_conversors;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (this_class_conversors == NULL)
+        char found = 0;
+        scope_entry_list_iterator_t* it2 = NULL;
+        for (it2 = entry_list_iterator_begin(this_class_conversors);
+                !entry_list_iterator_end(it2) && !found;
+                entry_list_iterator_next(it2))
         {
-            this_class_conversors = base_result;
+            scope_entry_t* entry2 = entry_list_iterator_current(it2);
+
+            found = equivalent_types(entry->type_information, entry2->type_information);
         }
-        else
-        {
-            while (last->next != NULL)
-                last = last->next;
+        entry_list_iterator_free(it2);
 
-            last->next = base_result;
+        if (!found)
+        {
+            this_class_conversors = entry_list_add(this_class_conversors, entry);
         }
     }
+    entry_list_iterator_free(it);
 
     return this_class_conversors;
 }
@@ -3571,10 +3906,9 @@ static type_t* advance_dependent_typename(type_t* t);
 
 char equivalent_types(type_t* t1, type_t* t2)
 {
-
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
 
-    cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
+    cv_qualifier_t cv_qualifier_t1 = CV_NONE, cv_qualifier_t2 = CV_NONE;
 
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
@@ -3632,6 +3966,10 @@ char equivalent_types(type_t* t1, type_t* t2)
             break;
         case TK_VECTOR :
             result = equivalent_vector_type(t1, t2);
+            break;
+        case TK_ERROR:
+            // This is always true
+            result = 1;
             break;
         case TK_OVERLOAD:
             // This is always false
@@ -3696,7 +4034,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             // (if not, something is broken)
             result = (t1 == t2);
             break;
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             result = equivalent_named_types(t1->user_defined_type, 
                     t2->user_defined_type);
             break;
@@ -3791,24 +4129,24 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     if (!equivalent_types(t1->element_type, t2->element_type))
         return 0;
 
-    if (t1->array_expr != NULL
-            && t2->array_expr != NULL)
+    if (t1->whole_size != NULL
+            && t2->whole_size != NULL)
     {
         CXX_LANGUAGE()
         {
-            if (!same_functional_expression(t1->array_expr, t1->array_expr_decl_context, 
-                        t2->array_expr, t2->array_expr_decl_context, deduction_flags_empty()))
+            if (!same_functional_expression(t1->whole_size, t1->array_expr_decl_context, 
+                        t2->whole_size, t2->array_expr_decl_context, deduction_flags_empty()))
                 return 0;
         }
         C_LANGUAGE()
         {
-            if (expression_is_constant(t1->array_expr)
-                    && expression_is_constant(t2->array_expr))
+            if (expression_is_constant(t1->whole_size)
+                    && expression_is_constant(t2->whole_size))
             {
                 if( const_value_is_zero(
                             const_value_eq(
-                                expression_get_constant(t1->array_expr), 
-                                expression_get_constant(t2->array_expr))))
+                                expression_get_constant(t1->whole_size), 
+                                expression_get_constant(t2->whole_size))))
                     return 0;
             }
             else
@@ -3826,10 +4164,10 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     {
         // int a[] does not match with int a[10]; (it will match via
         // array-to-pointer, but this is not the case we are handling now)
-        if ((t1->array_expr == NULL
-                && t2->array_expr != NULL)
-                || (t1->array_expr != NULL
-                    && t2->array_expr == NULL))
+        if ((t1->whole_size == NULL
+                && t2->whole_size != NULL)
+                || (t1->whole_size != NULL
+                    && t2->whole_size == NULL))
         {
             return 0;
         }
@@ -3837,46 +4175,6 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     
     return 1;
 }
-
-#if 0
-/*
- * This function just checks functional types
- */
-char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
-{
-    function_info_t* t1 = ft1->function;
-    function_info_t* t2 = ft2->function;
-
-    if (!compatible_parameters(t1, t2, decl_context))
-        return 1;
-
-    // If one has return type but the other does not this is an overload
-    // (technically this is ill-formed)
-    if (((t1->return_type == NULL)
-                && (t2->return_type != NULL))
-            || ((t2->return_type == NULL)
-                && (t1->return_type != NULL)))
-        return 1;
-
-    if (!equivalent_cv_qualification(ft1->cv_qualifier, 
-                ft2->cv_qualifier))
-        return 1;
-
-
-    // Destructors, constructors, operator functions and conversion functions
-    // will not have a full direct type
-    if (t1->return_type == NULL 
-            && t2->return_type == NULL)
-        return 0;
-
-    if (!equivalent_types(t1->return_type, t2->return_type, decl_context))
-    {
-        return 1;
-    }
-
-    return 0;
-}
-#endif
 
 static char equivalent_vector_type(type_t* t1, type_t* t2)
 {
@@ -4063,7 +4361,7 @@ static type_t* advance_dependent_typename_aux(
                     copy_dependent_parts(dependent_parts));
         }
 
-        if (member_list->next != NULL)
+        if (entry_list_size(member_list) > 1)
         {
             DEBUG_CODE()
             {
@@ -4073,7 +4371,7 @@ static type_t* advance_dependent_typename_aux(
                     copy_dependent_parts(dependent_parts));
         }
 
-        scope_entry_t* member = member_list->entry;
+        scope_entry_t* member = entry_list_head(member_list);
 
         if (member->kind == SK_TYPEDEF)
         {
@@ -4200,7 +4498,7 @@ static type_t* advance_dependent_typename_aux(
                 copy_dependent_parts(dependent_parts));
     }
 
-    if (member_list->next != NULL)
+    if (entry_list_size(member_list) > 1)
     {
         DEBUG_CODE()
         {
@@ -4210,7 +4508,7 @@ static type_t* advance_dependent_typename_aux(
                 copy_dependent_parts(dependent_parts));
     }
 
-    scope_entry_t* member = member_list->entry;
+    scope_entry_t* member = entry_list_head(member_list);
 
     if (member->kind == SK_CLASS
             || member->kind == SK_TYPEDEF)
@@ -4846,7 +5144,33 @@ AST array_type_get_array_size_expr(type_t* t)
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
 
-    return t->array->array_expr;
+    return t->array->whole_size;
+}
+
+char array_type_is_unknown_size(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->whole_size == NULL;
+}
+
+AST array_type_get_array_lower_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have lower bound", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->lower_bound;
+}
+
+AST array_type_get_array_upper_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have upper bound", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->upper_bound;
 }
 
 decl_context_t array_type_get_array_size_expr_context(type_t* t)
@@ -4936,7 +5260,7 @@ char is_named_type(type_t* t)
 {
     return (t != NULL
             && t->kind == TK_DIRECT
-            && t->type->kind == STK_USER_DEFINED
+            && t->type->kind == STK_INDIRECT
             && t->type->user_defined_type != NULL);
 }
 
@@ -5109,7 +5433,7 @@ char is_class_type(type_t* possible_class)
     return (is_named_class_type(possible_class) || is_unnamed_class_type(possible_class));
 }
 
-char is_union_type(struct type_tag* possible_union)
+char is_union_type(type_t* possible_union)
 {
     if (!is_class_type(possible_union))
         return 0;
@@ -5132,7 +5456,7 @@ char is_named_class_type(type_t* possible_class)
     possible_class = advance_over_typedefs(possible_class);
     return (possible_class != NULL
             && possible_class->kind == TK_DIRECT
-            && possible_class->type->kind == STK_USER_DEFINED
+            && possible_class->type->kind == STK_INDIRECT
             && possible_class->type->user_defined_type != NULL
             && possible_class->type->user_defined_type->type_information != NULL
             && possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
@@ -5234,6 +5558,10 @@ char pointer_to_class_type_is_derived(type_t* possible_pclass_derived,
 cv_qualifier_t get_cv_qualifier(type_t* type_info)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
+    if (is_array_type(type_info))
+    {
+        return get_cv_qualifier(array_type_get_element_type(type_info));
+    }
     return type_info->cv_qualifier;
 }
 
@@ -5244,7 +5572,6 @@ type_t* canonical_type(type_t* type)
 
     while ((is_named_type(type)
                 && named_type_get_symbol(type)->type_information != NULL))
-
     {
         type = advance_over_typedefs(type);
         if (is_named_type(type)
@@ -5267,7 +5594,7 @@ char is_dependent_type(type_t* type)
     return type->info->is_dependent;
 }
 
-void set_is_dependent_type(struct type_tag* t, char is_dependent)
+void set_is_dependent_type(type_t* t, char is_dependent)
 {
     t = canonical_type(t);
     t->info->is_dependent = is_dependent;
@@ -5339,7 +5666,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     const char* result = "";
     switch ((int)simple_type->kind)
     {
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
 
@@ -5475,12 +5802,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                     if (parts->template_arguments != NULL)
                     {
-                        result = strappend(result, "<");
+                        result = strappend(result, "< ");
                         int i;
                         for (i = 0; i < parts->template_arguments->num_arguments; i++)
                         {
                             template_argument_t * template_arg = parts->template_arguments->argument_list[i];
-
 
                             switch (template_arg->kind)
                             {
@@ -5554,6 +5880,10 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     if (is_unresolved_overloaded_type(type_info))
     {
         result = uniquestr("<unresolved overloaded function type>");
+    }
+    else if (is_error_type(type_info))
+    {
+        result = uniquestr("<error-type>");
     }
     else
     {
@@ -5872,25 +6202,25 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         case TK_ARRAY :
             {
                 if (is_parameter
-                        && (type_info->array->array_expr == NULL))
+                        && (type_info->array->whole_size == NULL))
                 {
                     // Get rid of those annoying unbounded arrays
                     // in parameters
                     //
                     // This is not valid, but works most of the time...
-                    const char* array_expr = uniquestr("[0]");
+                    const char* whole_size = uniquestr("[0]");
 
-                    (*right) = strappend((*right), array_expr);
+                    (*right) = strappend((*right), whole_size);
 
                     get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
                             num_parameter_names, parameter_names, is_parameter);
                 }
                 else
                 {
-                    const char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
-                    array_expr = strappend(array_expr, "]");
+                    const char* whole_size = strappend("[", prettyprint_in_buffer(type_info->array->whole_size));
+                    whole_size = strappend(whole_size, "]");
 
-                    (*right) = strappend((*right), array_expr);
+                    (*right) = strappend((*right), whole_size);
 
                     get_type_name_str_internal(decl_context, type_info->array->element_type, left, right, 
                             num_parameter_names, parameter_names, is_parameter);
@@ -5969,14 +6299,23 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-                snprintf(c, 255, "__attribute__((vector_size(%d)))", 
-                        type_info->vector->vector_size);
+                //generic_vector
+                if (type_info->vector->vector_size == 0)
+                {
+                    snprintf(c, 255, "__attribute__((generic_vector)) ");
+                }
+                else
+                {
+                    snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
+                             type_info->vector->vector_size);
+                }
                 c[255] = '\0';
 
                 (*left) = strappend((*left), c);
                 break;
             }
         case TK_OVERLOAD:
+        case TK_ERROR:
             {
                 break;
             }
@@ -6021,6 +6360,9 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
                 break;
             }
         case SK_TYPEDEF :
+        case SK_VARIABLE :
+        case SK_FUNCTION :
+        case SK_UNDEFINED :
             {
                 type_t* aliased_type = advance_over_typedefs(user_defined_type->type_information);
 
@@ -6066,7 +6408,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             snprintf(user_defined_str, MAX_LENGTH, "<dependent entity>");
             break;
         default :
-            snprintf(user_defined_str, MAX_LENGTH, "¿¿¿unknown user defined type??? (kind=%d)", user_defined_type->kind);
+            snprintf(user_defined_str, MAX_LENGTH, "<<<unknown user defined type>>> (kind=%d)", user_defined_type->kind);
     }
     result = strappend(result, user_defined_str);
 
@@ -6077,7 +6419,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
 {
     const char* result = "";
-    result = strappend(result, "<");
+    result = strappend(result, "< ");
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
@@ -6203,7 +6545,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, print_declarator(simple_type_info->complex_element));
                 break;
             }
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             result = get_named_simple_type_name(simple_type_info->user_defined_type);
             break;
         case STK_ENUM :
@@ -6355,6 +6697,12 @@ const char* print_declarator(type_t* printed_declarator)
                 }
                 printed_declarator = NULL;
                 break;
+            case TK_ERROR:
+                {
+                    tmp_result = strappend(tmp_result, "<error-type>");
+                    printed_declarator = NULL;
+                    break;
+                }
             case TK_OVERLOAD :
                 {
                     tmp_result = strappend(tmp_result, " <unresolved overload function type> ");
@@ -6406,15 +6754,11 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
-                if (printed_declarator->array->array_expr != NULL)
-                {
-                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->array_expr));
-                    tmp_result = strappend(tmp_result, " of ");
-                }
-                else
-                {
-                    tmp_result = strappend(tmp_result, " of ");
-                }
+                tmp_result = strappend(tmp_result, "[");
+                tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->lower_bound));
+                tmp_result = strappend(tmp_result, ":");
+                tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->upper_bound));
+                tmp_result = strappend(tmp_result, "] of ");
                 printed_declarator = printed_declarator->array->element_type;
                 break;
             case TK_FUNCTION :
@@ -6511,11 +6855,18 @@ const char* print_declarator(type_t* printed_declarator)
                     snprintf(c, 255, "<computed function type>");
                     c[255] = '\0';
                     printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
                     break;
                 }
             default :
-                internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
-                break;
+                {
+                    char c[256];
+                    snprintf(c, 255, "<unknown type kind %d>", printed_declarator->kind);
+                    c[255] = '\0';
+                    printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
+                    break;
+                }
         }
     } while (printed_declarator != NULL);
 
@@ -6606,14 +6957,6 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
         }
     }
 
-    // This additional comparison is just for C++
-    while (is_pointer_type(orig)
-            && is_pointer_type(dest))
-    {
-        orig = pointer_type_get_pointee_type(orig);
-        dest = pointer_type_get_pointee_type(dest);
-    }
-
     // Zero type of C++
     if ((is_zero_type(orig)
                 && is_pointer_type(dest))
@@ -6621,6 +6964,21 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
                 && is_pointer_type(orig)))
     {
         return 1;
+    }
+
+    // It turned that none was a pointer!
+    if (!is_pointer_type(orig)
+            || !is_pointer_type(dest))
+    {
+        return 0;
+    }
+
+    // This additional comparison is just for C++
+    while (is_pointer_type(orig)
+            && is_pointer_type(dest))
+    {
+        orig = pointer_type_get_pointee_type(orig);
+        dest = pointer_type_get_pointee_type(dest);
     }
 
     return equivalent_types(get_unqualified_type(orig), get_unqualified_type(dest));
@@ -6867,6 +7225,18 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_LVALUE_TO_RVALUE;
         orig = reference_type_get_referenced_type(orig);
+    }
+
+    //Vector types
+    //scalar -->__attribute_((vector_size(X)))  
+    if(is_vector_type(no_ref(dest)) 
+            && is_scalar_type(no_ref(orig)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
+        }
+        dest = vector_type_get_element_type(dest);
     }
 
     // Lower complex types
@@ -7252,7 +7622,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     return valid_conversion;
 }
 
-type_t* get_unresolved_overloaded_type(scope_entry_list_t* overload_set,
+type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
         template_argument_list_t* explicit_template_arguments)
 {
     type_t* result = new_empty_type();
@@ -7260,7 +7630,8 @@ type_t* get_unresolved_overloaded_type(scope_entry_list_t* overload_set,
     result->kind = TK_OVERLOAD;
 
     result->unqualified_type = result;
-    result->overload_set = overload_set;
+    // Use a smarter approach for this one
+    result->overload_set = entry_list_copy(overload_set);
     result->explicit_template_argument_list = explicit_template_arguments;
 
     return result;
@@ -7276,7 +7647,7 @@ scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
-    return t->overload_set;
+    return entry_list_copy(t->overload_set);
 }
 
 template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t)
@@ -7286,14 +7657,14 @@ template_argument_list_t* unresolved_overloaded_type_get_explicit_template_argum
     return t->explicit_template_argument_list;
 }
 
-scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_context_t decl_context, int line, const char* filename)
+scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, int line, const char* filename)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
-    if (t->overload_set->next != NULL)
+    if (entry_list_size(t->overload_set) > 1)
         return NULL;
 
-    scope_entry_t* entry = t->overload_set->entry;
+    scope_entry_t* entry = entry_list_head(t->overload_set);
     template_argument_list_t *argument_list = t->explicit_template_argument_list;
 
     if (entry->kind != SK_TEMPLATE)
@@ -7340,7 +7711,8 @@ type_t* get_dependent_expr_type(void)
 
 char is_dependent_expr_type(type_t* t)
 {
-    return (t != NULL
+    return (_dependent_type != NULL
+            && t != NULL
             && (t->unqualified_type == _dependent_type
                 || (is_named_type(t) 
                     && (named_type_get_symbol(t)->kind == SK_TEMPLATE_PARAMETER)))
@@ -7411,11 +7783,33 @@ type_t* get_null_type(void)
     return _null_type;
 }
 
+static type_t* _error_type = NULL;
+type_t* get_error_type(void)
+{
+    if (_error_type == NULL)
+    {
+        _error_type = counted_calloc(1, sizeof(*_error_type), &_bytes_due_to_type_system);
+        _error_type->kind = TK_ERROR;
+        _error_type->unqualified_type = _error_type;
+        _error_type->info = 
+            counted_calloc(1, sizeof(*_error_type->info), &_bytes_due_to_type_system);
+    }
+    return _error_type;
+}
+
+char is_error_type(type_t* t)
+{
+    // We do not allow a NULL type here at the moment
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    return (_error_type != NULL && t == _error_type);
+}
+
 char is_zero_type(type_t* t)
 {
-    return ((_zero_type != NULL)
-            && ((t == _zero_type) 
-                || (t == _null_type)));
+    return ((_zero_type != NULL
+            && t == _zero_type)
+            || (_null_type != NULL
+                && t == _null_type));
 }
 
 static int _literal_string_set_num_elements = 0;
@@ -7603,7 +7997,7 @@ int get_sizeof_type(type_t* t)
     return t->info->size;
 }
 
-struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function)
+type_t* get_computed_function_type(computed_function_type_t compute_type_function)
 {
     type_t* result = new_empty_type();
 
@@ -7634,7 +8028,8 @@ char is_scalar_type(type_t* t)
             && !is_array_type(t)
             && !is_lvalue_reference_type(t)
             && !is_rvalue_reference_type(t)
-            && !is_function_type(t));
+            && !is_function_type(t)
+            && !is_vector_type(t));
 }
 
 
@@ -7678,90 +8073,62 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent)
             continue;
 
         // Add the current class if it is not already in the result
-        scope_entry_list_t* it_result = result;
 
         char found = 0;
 
-        while (it_result != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(result);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (equivalent_types(base_class->type_information, 
-                        it_result->entry->type_information))
+                        entry->type_information))
             {
                 found = 1;
                 break;
             }
-            it_result = it_result->next;
         }
+        entry_list_iterator_free(it);
 
         if (!found)
         {
-            scope_entry_list_t* new_entry 
-                = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
-            new_entry->entry = base_class;
-            new_entry->next = NULL;
-
-            if (result == NULL)
-            {
-                result = new_entry;
-            }
-            else
-            {
-                it_result = result;
-                while (it_result->next != NULL)
-                {
-                    it_result = it_result->next;
-                }
-
-                it_result->next = new_entry;
-            }
+            result = entry_list_add(result, base_class);
         }
 
         // Now recursively get all the bases of this base
         scope_entry_list_t* base_list = class_type_get_all_bases(base_class->type_information, 
                 /* include_dependent */ 0);
 
-        // Append those that are not already in the result
-        scope_entry_list_t* it_base = base_list;
-        while (it_base != NULL)
+        // Add those that are not already in the result
+        for (it = entry_list_iterator_begin(base_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
             found = 0;
-            it_result = result;
-            while (it_result != NULL)
+            scope_entry_list_iterator_t* it2 = NULL;
+            for (it2 = entry_list_iterator_begin(result);
+                    !entry_list_iterator_end(it2);
+                    entry_list_iterator_next(it2))
             {
-                if (equivalent_types(it_base->entry->type_information, 
-                            it_result->entry->type_information))
+                scope_entry_t* entry2 = entry_list_iterator_current(it2);
+                if (equivalent_types(entry->type_information, 
+                            entry2->type_information))
                 {
                     found = 1;
                     break;
                 }
-                it_result = it_result->next;
             }
+            entry_list_iterator_free(it2);
 
             if (!found)
             {
-                scope_entry_list_t* new_entry 
-                    = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
-                new_entry->entry = it_base->entry;
-                new_entry->next = NULL;
-
-                if (result == NULL)
-                {
-                    result = new_entry;
-                }
-                else
-                {
-                    it_result = result;
-                    while (it_result->next != NULL)
-                    {
-                        it_result = it_result->next;
-                    }
-
-                    it_result->next = new_entry;
-                }
+                result = entry_list_add(result, entry); 
             }
-
-            it_base = it_base->next;
         }
+        entry_list_iterator_free(it);
     }
 
     return result;
@@ -8253,6 +8620,8 @@ _size_t type_get_size(type_t* t)
         ERROR_CONDITION(is_dependent_type(t), "Dependent type '%s' has got its size requested!\n",
                 print_declarator(t));
     }
+    ERROR_CONDITION(is_incomplete_type(t), "Incomplete type '%s' got its size requested!\n",
+            print_declarator(t));
 
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->info->valid_size)
@@ -8527,7 +8896,7 @@ void class_type_get_virtual_base_with_offset_num(type_t* t, int num,
     *offset = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base_offset;
 }
 
-char is_variably_modified_type(struct type_tag* t)
+char is_variably_modified_type(type_t* t)
 {
     CXX_LANGUAGE()
     {
@@ -8587,18 +8956,23 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
     else if (is_unresolved_overloaded_type(t))
     {
         scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
-        if (overload_set->next == NULL)
+        if (entry_list_size(overload_set) == 1)
         {
-            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
+            return print_decl_type_str(entry_list_head(overload_set)->type_information, decl_context, name);
         }
         else
         {
             return uniquestr("<unresolved overload>");
         }
+        entry_list_free(overload_set);
     }
     else if (is_braced_list_type(t))
     {
         return uniquestr("<brace-enclosed initializer list>");
+    }
+    else if (is_error_type(t))
+    {
+        return uniquestr("<error-type>");
     }
     else
     {
@@ -8618,7 +8992,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
 //     const T& f(int)   returns 'const T' 
 //
 // so the type-specifier part of a type-id plus cv-qualifiers, if any
-type_t* get_foundation_type(struct type_tag* t)
+type_t* get_foundation_type(type_t* t)
 {
     cv_qualifier_t cv = CV_NONE;
     t = advance_over_typedefs_with_cv_qualif(t, &cv);
@@ -8659,6 +9033,10 @@ type_t* get_foundation_type(struct type_tag* t)
     else if (is_unresolved_overloaded_type(t))
     {
         return t;
+    }
+    else if (is_error_type(t))
+    {
+        return _error_type;
     }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 if [ "@ENABLE_SUPERSCALAR@" = "no" ];
 then
@@ -11,27 +11,12 @@ fi
 
 cat <<EOF
 compile_versions=API_@superscalar_version@
-SS_LIBS=
 EOF
 
-CACHE_SS_LIBRARIES_LT="@abs_builddir@/ss-libraries-libtool"
-
-if [ ! -e ${CACHE_SS_LIBRARIES_LT} -a -e "@abs_top_builddir@/config/config.superscalar" ];
-then
-
-grep -o "compiler_phase[[:blank:]]*=[[:blank:]]*[^# ]*" @abs_top_builddir@/config/config.superscalar | sed -e 's/compiler_phase[[:blank:]]*=\(.*\).so[[:blank:]]*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/SS_LIBS="${SS_LIBS} -dlopen &"/g' > ${CACHE_SS_LIBRARIES_LT}
-
-fi
-
-if [ -e ${CACHE_SS_LIBRARIES_LT} ];
-then
-
-cat ${CACHE_SS_LIBRARIES_LT}
-
-fi
+source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/libtool --mode=execute \${SS_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar -I@abs_top_srcdir@/../../master --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar -I@abs_top_srcdir@/../../master --verbose"
 
 test_CC_API_3="\${MCC}"
 test_CC_API_4="\${MCC}"

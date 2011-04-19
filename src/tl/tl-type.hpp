@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_TYPE_HPP
 #define TL_TYPE_HPP
@@ -81,15 +86,51 @@ namespace TL
             }
 
             //! States whether the type is valid
+            /*!
+             * This means that the wrapped type really refers a useful type.
+             *
+             * If the wrapped type is NULL this function returns true, false otherwise
+             * Invalid types appear because we expect a type to be computed
+             * somewhere but it was not computed.
+             */
             bool is_valid() const
             {
                 return (_type_info != NULL);
             }
 
+            //! States whether this type is the error type
+            /*!
+              Even if the wrapped type is valid (is_valid returns true) it
+              might be an error type. Error types appear because the frontend
+              encountered some problem when computing the type. Usually
+              semantic problems during typechecking cause the error type be
+              computed.
+              */
+            bool is_error_type() const;
+
             bool is_faulty() const
             {
                 return false;
             }
+
+            //! Constructs a Symbol after a reference to Object
+            Type(RefPtr<Object> obj)
+            {
+                RefPtr<Type> pint = RefPtr<Type>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
+                {
+                    this->_type_info = pint->_type_info;
+                }
+                else
+                {
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
+                    {
+                        std::cerr << "Bad initialization of Type" << std::endl;
+                    }
+                    this->_type_info = NULL;
+                }
+            }
+
 
             virtual ~Type()
             {
@@ -133,6 +174,16 @@ namespace TL
 
             //! Returns a pointer to the current type
             Type get_pointer_to();
+
+            //! Returns a vector to the current type
+            /*! 
+             * \param vector_size The size of the vector in bytes.
+             */
+            Type get_vector_to(unsigned int vector_size);
+
+            //! Returns a generic vector to the current type
+            Type get_generic_vector_to();
+
             //! Returns an array to the current type
             /*! 
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
@@ -155,8 +206,24 @@ namespace TL
               */
             Type get_array_to(const std::string& str);
 
+            //! Returns a ranged array to the current type
+            /*! 
+             * \param lower_bound The lower bound expression of the array. 
+             * \param upper_bound The upper bound expression of the array. 
+             * \param scope Scope of \a lower_bound and \a upper_bound
+             */
+            Type get_array_to(AST_t lower_bound, AST_t upper_bound, Scope scope);
+
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
+
+            //! Returns a function to the current list of parameter types 
+            /*! 
+             * \param type_list List of parameter types of the function.
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             */
+            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+
 
             int get_alignment_of();
 
@@ -342,12 +409,44 @@ namespace TL
             //! Returns the element type of an array-type
             Type array_element() const;
             //! States whether this array-type has an explicit array dimension
-            bool explicit_array_dimension() const;
+            bool array_has_size() const;
+
+            //! This is an alias to array_has_size
+            /*!
+              \deprecated Do not use it, use array_has_size instead
+              */
+            DEPRECATED bool explicit_array_dimension() const;
+
             //! Returns the expression of the array dimension
-            AST_t array_dimension() const;
+            AST_t array_get_size() const; 
+
+            //! This is an alias to array_get_size
+            /*!
+              \deprecated Do not use it, use array_get_size instead
+              */
+            DEPRECATED AST_t array_dimension() const;
+
+            //! This returns the bounds of the array
+            /*!
+              The array bounds are expressed as a range of [lower, upper] (both ends included)
+              \a lower Output argument with the tree of the lower expression boundary
+              \a upper Output argument with the tree of the upper expression boundary
+
+              In C all the arrays with explicit size will have a lower of zero
+              and an upper of N-1 where N is the size of the array as returned
+              by array_get_size
+              */
+            void array_get_bounds(AST_t& lower, AST_t& upper);
 
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
+
+            //! States whether current type is a vector-type
+            bool is_vector() const;
+            //! States whether current type is a vector-type
+            bool is_generic_vector() const;
+            //! Returns the element type of a vector-type
+            Type vector_element() const;
 
 
             //! States whether this type represents an unresolved overload type
@@ -525,6 +624,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'char'
+            static Type get_char_type(void);
 
     };
     

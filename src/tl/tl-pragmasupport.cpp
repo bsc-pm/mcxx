@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include <typeinfo>
 
@@ -288,6 +293,17 @@ namespace TL
 
         return result;
     }
+    
+    void PragmaCustomConstruct::init_clause_info() const
+    {
+        RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
+        if (!clauses_info->directive_already_defined(this->get_ast()))
+        {
+            clauses_info->set_all_clauses(this->get_ast(), this->get_clause_names());
+            clauses_info->set_locus_info(this->get_ast());
+            clauses_info->set_pragma(*this);   
+        }
+    }
 
     PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name) const
     {
@@ -296,17 +312,11 @@ namespace TL
         if (_dto!=NULL)
         {
 		    RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
-		    if (clauses_info->directive_already_defined(this->get_ast()))
+		    if (!clauses_info->directive_already_defined(this->get_ast()))
 		    {
-		        clauses_info->add_referenced_clause(this->get_ast(), name);
-		    }
-		    else
-		    {
-		        clauses_info->set_all_clauses(this->get_ast(), this->get_clause_names());
-		        clauses_info->add_referenced_clause(this->get_ast(), name);
-		        clauses_info->set_locus_info(this->get_ast());
-		        clauses_info->set_pragma(*this);
-		    }
+                init_clause_info();
+            }
+		    clauses_info->add_referenced_clause(this->get_ast(), name);
         }
 
         return result;
@@ -420,6 +430,15 @@ namespace TL
         _dto = dto;
     }
 
+	bool PragmaCustomConstruct::get_show_warnings()
+	{
+        if(_dto->get_keys().contains("show_warnings")) 
+        {
+            RefPtr<Bool> sw = RefPtr<Bool>::cast_static((*_dto)["show_warnings"]);
+            return true;
+        }
+        return false;
+	}
 
 // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
@@ -463,12 +482,19 @@ namespace TL
 
     void PragmaCustomCompilerPhase::register_directive(const std::string& str)
     {
-        register_new_directive(_pragma_handled.c_str(), str.c_str(), 0);
+        register_new_directive(_pragma_handled.c_str(), str.c_str(), 0, 0);
     }
 
-    void PragmaCustomCompilerPhase::register_construct(const std::string& str)
+    void PragmaCustomCompilerPhase::register_construct(const std::string& str, bool bound_to_statement)
     {
-        register_new_directive(_pragma_handled.c_str(), str.c_str(), 1);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
+        }
+        else
+        {
+            register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, 0);
+        }
     }
 
     void PragmaCustomCompilerPhase::warning_pragma_unused_clauses(bool warning)

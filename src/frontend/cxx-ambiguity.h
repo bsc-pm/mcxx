@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_AMBIGUITY
 #define CXX_AMBIGUITY
@@ -61,7 +66,7 @@ LIBMCXX_EXTERN void solve_ambiguous_nested_name_specifier(AST a, decl_context_t 
 LIBMCXX_EXTERN void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context);
 LIBMCXX_EXTERN char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context);
 
-LIBMCXX_EXTERN void build_solve_condition_ambiguity(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_condition_ambiguity(AST a, decl_context_t decl_context);
 
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 

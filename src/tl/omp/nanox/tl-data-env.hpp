@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_DATA_ENV_HPP
 #define TL_DATA_ENV_HPP
@@ -41,7 +46,7 @@ namespace TL
                 Symbol _sym;
                 Type _type;
                 std::string _field_name;
-                bool _is_copy;
+                bool _is_firstprivate;
                 bool _is_raw_buffer;
                 bool _is_vla_type;
                 bool _is_private;
@@ -53,7 +58,7 @@ namespace TL
                     : _sym(NULL), 
                     _type(NULL),
                     _field_name(""), 
-                    _is_copy(false),
+                    _is_firstprivate(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
@@ -72,7 +77,7 @@ namespace TL
                     : _sym(sym), 
                     _type(type),
                     _field_name(field_name),
-                    _is_copy(false),
+                    _is_firstprivate(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
@@ -99,16 +104,23 @@ namespace TL
                     return _field_name;
                 }
 
-                //! States if this item is to be copied
-                bool is_copy() const
+                //! States if this item is firstprivate (its value to be copied in)
+                bool is_firstprivate() const
                 {
-                    return _is_copy;
+                    return _is_firstprivate;
+                }
+
+                //! States if this item is shared (not firstprivate nor private)
+                bool is_shared() const
+                {
+                    return !is_firstprivate()
+                        && !is_private();
                 }
 
                 //! Sets this item to be copied
-                DataEnvironItem& set_is_copy(bool b)
+                DataEnvironItem& set_is_firstprivate(bool b)
                 {
-                    _is_copy = b;
+                    _is_firstprivate = b;
                     return *this;
                 }
 
@@ -174,6 +186,8 @@ namespace TL
                 {
                     return _alignment;
                 }
+                
+                
         };
 
         class DataEnvironInfo
@@ -181,13 +195,23 @@ namespace TL
             private:
                 ObjectList<DataEnvironItem> _data_env_items;
                 ObjectList<OpenMP::CopyItem> _copy_items;
+                ObjectList<OpenMP::ReductionSymbol> _reduction_symbols;
+                OpenMP::DataSharingEnvironment* _data_sharing;
+                bool _has_local_copies;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
                     return item.get_symbol().is_valid();
                 }
+
             public:
-                DataEnvironInfo() { }
+
+                DataEnvironInfo()
+                    : _data_env_items(),
+                    _copy_items(),
+                    _reduction_symbols(),
+                    _data_sharing(NULL),
+                    _has_local_copies(false) { }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
@@ -195,11 +219,33 @@ namespace TL
                     _data_env_items.append(item);
                 }
 
+                void set_data_sharing(OpenMP::DataSharingEnvironment& data_sharing)
+                {
+                    _data_sharing = &data_sharing;
+                }
+
+                OpenMP::DataSharingEnvironment& get_data_sharing() const
+                {
+                    return *_data_sharing;
+                }
+
                 //! Returns the data environment items
                 ObjectList<DataEnvironItem> get_items() const
                 {
                     return _data_env_items.filter(predicate(data_env_item_has_sym));
                 }
+
+                //! States if the DataEnvironItems are copied locally
+                bool has_local_copies() const
+                {
+                    return _has_local_copies;
+                } 
+
+                //! Sets if the DataEnvironItems are copied locally
+                void set_local_copies(const bool has_local_copies) 
+                {
+                    _has_local_copies = has_local_copies;
+                } 
 
                 //! Returns the data environment item for a given symbol
                 /*
@@ -305,6 +351,16 @@ namespace TL
                 {
                     return _copy_items;
                 }
+                
+                ObjectList<OpenMP::ReductionSymbol> get_reduction_symbols() const
+                {
+                    return _reduction_symbols;
+                }
+                
+                void set_reduction_symbols(ObjectList<OpenMP::ReductionSymbol> reduction_symbols)
+                {
+                    _reduction_symbols.append(reduction_symbols);
+                }
         };
 
         //! \cond NO_DOCUMENT
@@ -317,22 +373,19 @@ namespace TL
                 ObjectList<Symbol>& converted_vlas);
 
         // This one is not to be exported
-        void fill_data_environment_structure(
-                Scope sc,
-                DataEnvironInfo &data_env_info,
-                Source &struct_decl,
-                Source &struct_fields,
-                std::string& struct_arg_type_name,
-                ObjectList<OpenMP::DependencyItem> dependencies,
-                bool compiler_alignment);
-
-        // This one is not to be exported
         void fill_data_args(
                 const std::string& arg_var_name,
                 const DataEnvironInfo& data_env, 
                 ObjectList<OpenMP::DependencyItem> dependencies,
                 bool is_pointer_struct,
                 Source& result);
+
+        void define_arguments_structure(
+                const LangConstruct& ctr,
+                std::string& struct_arg_type_name,
+                DataEnvironInfo& data_environ_info,
+                const ObjectList<OpenMP::DependencyItem>& dependences,
+                Source additional_fields);
 
         //! \endcond
     }

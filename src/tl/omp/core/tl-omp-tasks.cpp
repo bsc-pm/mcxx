@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-core.hpp"
 
@@ -277,10 +282,28 @@ namespace TL
                 }
         };
 
-        static void dependence_list_check(const ObjectList<FunctionTaskDependency>& function_task_param_list)
+        static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            // More things could be checked
-            for (ObjectList<FunctionTaskDependency>::const_iterator it = function_task_param_list.begin();
+            Expression expr(function_dep.get_expression());
+            if (expr.is_id_expression())
+            {
+                Symbol sym = expr.get_id_expression().get_computed_symbol();
+                if (sym.is_parameter()
+                        && !sym.get_type().is_reference())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        static void dependence_list_check(ObjectList<FunctionTaskDependency>& function_task_param_list)
+        {
+            ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
+                    function_task_param_list.end(),
+                    is_useless_dependence);
+            
+            for (ObjectList<FunctionTaskDependency>::iterator it = begin_remove;
                     it != function_task_param_list.end();
                     it++)
             {
@@ -294,35 +317,33 @@ namespace TL
                             && !sym.get_type().is_reference())
                     {
                         // Copy semantics of values in C/C++ lead to this fact
-                        running_error("%s: error: dependence expression '%s' "
-                                "only names a parameter, which by itself never defines a dependence\n",
-                                expr.get_ast().get_locus().c_str(),
-                                expr.prettyprint().c_str());
+                        // If the dependence is output (or inout) this should
+                        // be regarded as an error
+                        if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
+                        {
+                            running_error("%s: error: output dependence '%s' "
+                                    "only names a parameter. The value of a parameter is never copied out of a function "
+                                    "so it cannot generate an output dependence",
+                                    expr.get_ast().get_locus().c_str(),
+                                    expr.prettyprint().c_str());
+                        }
+                        else
+                        {
+                            std::cerr << expr.get_ast().get_locus() << ": warning: "
+                                "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
+                                "is always copied and cannot define an input dependence" 
+                                << std::endl;
+                        }
                     }
                 }
             }
+
+            // Remove useless expressions
+            function_task_param_list.erase(begin_remove, function_task_param_list.end());
         }
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
-            // Generic warning so nobody gets fooled by what the compiler will do
-            ObjectList<std::string> clauses = construct.get_clause_names();
-
-            // FIXME This message should be improved
-            // for (ObjectList<std::string>::iterator it = clauses.begin();
-            //         it != clauses.end();
-            //         it++)
-            // {
-            //     if (*it != "input"
-            //             && *it != "output"
-            //             && *it != "inout"
-            //             && *it != "untied")
-            //     {
-            //         std::cerr << construct.get_ast().get_locus() << ": warning: in a '#pragma omp task' applied to a function, clause '" 
-            //             << (*it) << "' has no effect" << std::endl;
-            //     }
-            // }
-
             PragmaCustomClause input_clause = construct.get_clause("input");
             ObjectList<std::string> input_arguments;
             if (input_clause.is_defined())
@@ -342,6 +363,13 @@ namespace TL
             if (inout_clause.is_defined())
             {
                 inout_arguments = inout_clause.get_arguments(ExpressionTokenizer());
+            }
+
+            PragmaCustomClause reduction_clause = construct.get_clause("__shared_reduction");
+            ObjectList<std::string> reduction_arguments;
+            if (reduction_clause.is_defined())
+            {
+                reduction_arguments = reduction_clause.get_arguments(ExpressionTokenizer());
             }
 
             // Now discover whether this is a function definition or a declaration
@@ -368,12 +396,13 @@ namespace TL
             else
             {
                 std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: invalid use of '#pragma omp task', skipping" << std::endl;
+                    << ": warning: invalid use of '#pragma omp task', skipping" << std::endl;
                 return;
             }
 
             if (!decl_entity.is_functional_declaration())
             {
+                std::cerr << "LAla -> " << decl_entity.get_ast().prettyprint() << decl_entity.get_ast().internal_ast_type() << std::endl;
                 std::cerr << construct.get_ast().get_locus() 
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;
@@ -390,14 +419,6 @@ namespace TL
                 return;
             }
 
-            if (parameter_decl.empty()
-                    || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
-            {
-                std::cerr << construct.get_ast().get_locus()
-                    << ": warning: '#pragma omp task' cannot be applied to functions with no parameters, skipping" << std::endl;
-                return;
-            }
-
             Type function_type = function_sym.get_type();
             if (!function_type.returns().is_void())
             {
@@ -406,53 +427,78 @@ namespace TL
                 return;
             }
 
-            // Use the first parameter as a reference tree so we can parse the specifications
-            AST_t param_ref_tree = parameter_decl[0].get_ast();
-
             ObjectList<FunctionTaskDependency> parameter_list;
-            parameter_list.append(input_arguments.map(
-                        FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
-                            param_ref_tree,
-                            construct.get_scope_link())
-                        )
-                    );
-
-            parameter_list.append(output_arguments.map(
-                        FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
-                            param_ref_tree,
-                            construct.get_scope_link())
-                        )
-                    );
-
-            parameter_list.append(inout_arguments.map(
-                        FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                            param_ref_tree,
-                            construct.get_scope_link())
-                        )
-                    );
-
-            dependence_list_check(parameter_list);
-
             FunctionTaskTargetInfo target_info;
-            // Now gather task information
-            if (!_target_context.empty())
+
+            if (parameter_decl.empty()
+                    || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
             {
-                TargetContext& target_context = _target_context.top();
+                std::cerr << construct.get_ast().get_locus()
+                    << ": warning: '#pragma omp task' applied to a function with no parameters" << std::endl;
 
-                ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
-                ObjectList<CopyItem> copy_out = target_context.copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
-                ObjectList<CopyItem> copy_inout = target_context.copy_in.map(FunctionCopyItemGenerator(
-                            COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                // Now gather task information
+                if (!_target_context.empty())
+                {
+                    TargetContext& target_context = _target_context.top();
+                    target_info.set_device_list(target_context.device_list);
+                }
+            }
+            else
+            {
+                // Use the first parameter as a reference tree so we can parse the specifications
+                AST_t param_ref_tree = parameter_decl[0].get_ast();
 
-                target_info.set_copy_in(copy_in);
-                target_info.set_copy_out(copy_in);
-                target_info.set_copy_inout(copy_in);
+                parameter_list.append(input_arguments.map(
+                            FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
+                                param_ref_tree,
+                                construct.get_scope_link())
+                            )
+                        );
 
-                target_info.set_device_list(target_context.device_list);
+                parameter_list.append(output_arguments.map(
+                            FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
+                                param_ref_tree,
+                                construct.get_scope_link())
+                            )
+                        );
 
-                target_info.set_copy_deps(target_context.copy_deps);
+                parameter_list.append(inout_arguments.map(
+                            FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
+                                param_ref_tree,
+                                construct.get_scope_link())
+                            )
+                        );
+
+                parameter_list.append(reduction_arguments.map(
+                            FunctionTaskDependencyGenerator(DEP_REDUCTION,
+                                param_ref_tree,
+                                construct.get_scope_link())
+                            )
+                        );
+
+                dependence_list_check(parameter_list);
+
+                // Now gather task information
+                if (!_target_context.empty())
+                {
+                    TargetContext& target_context = _target_context.top();
+
+                    ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
+                                COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
+                    target_info.set_copy_in(copy_in);
+
+                    ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
+                                COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                    target_info.set_copy_out(copy_out);
+
+                    ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
+                                COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                    target_info.set_copy_inout(copy_inout);
+
+                    target_info.set_device_list(target_context.device_list);
+
+                    target_info.set_copy_deps(target_context.copy_deps);
+                }
             }
 
             FunctionTaskInfo task_info(function_sym, parameter_list, target_info);

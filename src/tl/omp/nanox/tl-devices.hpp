@@ -1,3 +1,30 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 #ifndef NANOX_DEVICES_H
 #define NANOX_DEVICES_H
 
@@ -54,10 +81,13 @@ namespace Nanox
     class DeviceProvider : public TL::CompilerPhase
     {
         protected:
-            bool instrumentation_enabled()
-            {
-                return _enable_instrumentation;
-            }
+            bool instrumentation_enabled();
+
+            bool do_not_create_translation_function();
+
+            bool create_translation_function();
+
+            const std::string _device_name;
         private:
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
@@ -70,37 +100,40 @@ namespace Nanox
                         /* Error message */  "Instrumentation disabled");
             }
 
-            bool _needs_copies;
-        public:
+            bool _do_not_create_translation_fun;
+            std::string _do_not_create_translation_str;
+            void set_translation_function_flag(const std::string& str)
+            {
+                _do_not_create_translation_fun = false;
+                parse_boolean_option("do_not_create_translation_function", 
+                        str, _do_not_create_translation_fun, "Assuming false.");
+            }
 
+            void common_constructor_code();
+
+        public:
             //! Constructor of a DeviceProvider
             /*!
-              \param needs_copies Set this parameter to true if this device requires explicit copies. 
+              \param device_name Device's identifier name
               DeviceProvider::needs_copies can be used to retrieve this value
              */
-            DeviceProvider(bool needs_copies)
-                : _enable_instrumentation(false), 
-                _enable_instrumentation_str(""),
-                _needs_copies(needs_copies)
-            {
-                register_parameter("instrument", 
-                        "Enables instrumentation of the device provider if set to '1'",
-                        _enable_instrumentation_str,
-                        "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
-            }
+            DeviceProvider(const std::string& device_name);
 
             //! States if this device needs copies
             /*!
-              Some device providers do not need runtime copies to work. If the implemented
-              device needs those, this function returns true.
-              The constructor of DeviceProvider receives a parameter stating whether this particular
-              device needs copies or not
+              Obsolete function. It always returns true
               */
-            bool needs_copies() const
+            DEPRECATED bool needs_copies() const
             {
-                return _needs_copies;
+                return true;
             }
 
+            std::string get_name() const
+            {
+                return _device_name;
+            }
+
+            virtual void pre_run(DTO& dto){};
             virtual void run(DTO& dto) { }
 
             /*!
@@ -164,6 +197,17 @@ namespace Nanox
                     Source &ancillary_device_description,
                     Source &device_descriptor) = 0;
 
+            /*!
+              This function return the source code for gathering an omp reduction
+              
+              \param reduction_references Reduction References in the actual environment
+             */
+            virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, 
+                    ScopeLink sl)
+                    {
+                        return Source();
+                    }
+                    
             virtual ~DeviceProvider() { }
     };
 
@@ -172,6 +216,8 @@ namespace Nanox
         public:
             static DeviceHandler& get_device_handler();
 
+            void register_device(DeviceProvider* nanox_device_provider);
+            
             void register_device(const std::string& str, 
                     DeviceProvider* nanox_device_provider);
 

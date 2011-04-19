@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef HLT_OUTLINE_HPP
 #define HLT_OUTLINE_HPP
@@ -93,6 +98,7 @@ namespace TL
                 bool _is_member;
                 bool _is_inlined_member;
                 bool _is_templated;
+                bool _has_linkage_specifier;
                 ObjectList<TemplateHeader> _template_header;
 
                 ObjectList<Symbol> _replaced_symbols;

@@ -1,52 +1,40 @@
-[sscc]
-language = C
+[sscc-common]
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
-{instrument} options = --variable=instrument:1
+{(instrument|instrumentation)} options = --variable=instrument:1
+{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+linker_options = -Wl,--add-needed
+{openmp,!(debug|instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
+{openmp,debug,!(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
+{openmp,!debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
+{openmp,debug,(instrument|instrumentation)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
+{openmp} linker_options = -lnanox -lnanox-c -lnanox-ss
+compiler_phase = libtlsuperscalar-configurator.so
+# compiler_phase = libtlsuperscalar-preanalysis.so
+compiler_phase = libtlsuperscalar-task-analysis.so
+compiler_phase = libtlss2omp.so
+{openmp} compiler_phase = libtlomp-core.so
+{openmp} pragma_prefix = nanos
+{openmp} compiler_phase = libtlnanos-version.so
+{openmp,!only-ss2omp} compiler_phase = libtlomp-fun-tasks.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-core.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
+pragma_prefix = css
+
+[sscc : sscc-common]
+language = C
 preprocessor_name = gcc
 preprocessor_options = -std=gnu99 -E
-{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
-preprocessor_options = 
 compiler_name = gcc
 compiler_options = -std=gnu99
 linker_name = gcc
-{openmp} linker_options = -L@NANOX_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@
-{openmp} linker_options = -lnanox-c -lnanox-ss
-compiler_phase = libtlsuperscalar-configurator.so
-# compiler_phase = libtlsuperscalar-preanalysis.so
-compiler_phase = libtlsuperscalar-task-analysis.so
-compiler_phase = libtlss2omp.so
-{openmp} compiler_phase = libtlomp-core.so
-{openmp} pragma_prefix = nanos
-{openmp} compiler_phase = libtlnanos-version.so
-{openmp,!only-ss2omp} compiler_phase = libtlomp-fun-tasks.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-core.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
-pragma_prefix = css
 
-[sscxx]
+[sscxx : sscc-common]
 language = C++
-options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
-{instrument} options = --variable=instrument:1
 preprocessor_name = g++
 preprocessor_options = -E
-{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
-preprocessor_options = 
+{openmp} preprocessor_options = -include new
 compiler_name = g++
-compiler_options = 
 linker_name = g++
-{openmp} linker_options = -L@NANOX_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@
-{openmp} linker_options = -lnanox-c -lnanox-ss
-compiler_phase = libtlsuperscalar-configurator.so
-# compiler_phase = libtlsuperscalar-preanalysis.so
-compiler_phase = libtlsuperscalar-task-analysis.so
-compiler_phase = libtlss2omp.so
-{openmp} compiler_phase = libtlomp-core.so
-{openmp} pragma_prefix = nanos
-{openmp} compiler_phase = libtlnanos-version.so
-{openmp,!only-ss2omp} compiler_phase = libtlomp-fun-tasks.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-core.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
-{openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
-pragma_prefix = css

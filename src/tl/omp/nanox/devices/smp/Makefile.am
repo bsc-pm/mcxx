@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -28,14 +31,20 @@ END=
 
 phases_LTLIBRARIES=libtlnanox-smp.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+device_flags=$(tl_cflags) -I$(srcdir)/../.. \
+             -I$(srcdir)/../../../core \
+             -I$(srcdir)/../common \
+             -I$(srcdir)/../../../nanos-common
 
 libtlnanox_smp_la_CFLAGS = $(device_flags)
 libtlnanox_smp_la_CXXFLAGS = $(device_flags)
 
 libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_smp_la_LIBADD = $(builddir)/../common/libtlnanox-devices_common.la \
+                          $(builddir)/../../libtlomp-nanox.la
 
 libtlnanox_smp_la_SOURCES = \
+       smp-reduction.cpp \
        nanox-smp.hpp \
        nanox-smp.cpp \
        $(END)

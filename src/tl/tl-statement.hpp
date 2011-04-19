@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_STATEMENT_HPP
 #define TL_STATEMENT_HPP
@@ -73,12 +78,14 @@ namespace TL
             //in the statement
             ObjectList<Symbol> non_local_symbols() const;
 
+            /*
+            // This methods are deleted because we have spetialized the LabeledStatement
             //! States whether this statement is labeled
             bool is_labeled() const;
-
             //! Returns the label of the statement, if any
             std::string get_label() const;
-
+            */
+            
             //! States whether this Statement is actually a compound statement
             bool is_compound_statement() const;
             //! Returns a list of inner statements
@@ -142,6 +149,21 @@ namespace TL
 
             //! Returns the related expression of this expression-statement
             Expression get_expression() const;
+
+			//! Returns whether the Statement breaks the sequential flow of the code or not
+			bool breaks_flow();
+            
+            //! Get the line of a pragma both construct or directive
+            Statement get_pragma_line() const;
+            
+            //! It is a pragma construct
+            bool is_pragma_construct() const;
+            
+            //! Get the associated Statement of a pragma custom construct
+            Statement get_pragma_construct_statement() const;
+            
+            //! It is a pragma directive
+            bool is_pragma_directive() const;
     };
     
     //! This LangConstruct wraps a for-statement in the code
@@ -326,17 +348,59 @@ namespace TL
     {
         public:
             CaseStatement(AST_t ast, ScopeLink sl)
-                : Statement(ast, sl)
+            : Statement(ast, sl)
             {
             }
-
+            
             //! Returns the expression of this case statement
             Expression get_case_expression() const;
             
             //! Returns the statement of this case 
             Statement get_statement() const;
+            
+            const static PredicateAttr predicate;
     };
 
+    //! This class wraps a default-statement
+    class LIBTL_CLASS DefaultStatement : public Statement
+    {
+        public:
+            DefaultStatement(AST_t ast, ScopeLink sl)
+                    : Statement(ast, sl)
+            {
+            }
+            
+            //! Returns the statement of this default 
+            Statement get_statement() const;
+            
+            const static PredicateAttr predicate;
+    };
+
+    //! This class wraps a break-statement
+    class LIBTL_CLASS BreakStatement : public Statement
+    {
+        public:
+            BreakStatement(AST_t ast, ScopeLink sl)
+                    : Statement(ast, sl)
+            {
+            }
+
+            const static PredicateAttr predicate;
+    };
+
+    
+    //! This class wraps a continue-statement
+    class LIBTL_CLASS ContinueStatement : public Statement
+    {
+        public:
+            ContinueStatement(AST_t ast, ScopeLink sl)
+            : Statement(ast, sl)
+            {
+            }
+            
+            const static PredicateAttr predicate;
+    };
+    
     //! This class wraps a switch-statement
     class LIBTL_CLASS SwitchStatement : public Statement
     {
@@ -349,12 +413,39 @@ namespace TL
             //! Returns the switch statement condition
             Condition get_condition() const;
 
+            //! Returns the switch compound statement body
+            Statement get_switch_body() const;
+            
             //! Returns a list of case statements
             ObjectList<CaseStatement> get_cases() const;
+            
+            //! Returns a list of default statements
+            ObjectList<DefaultStatement> get_defaults() const;
 
             const static PredicateAttr predicate;
     };
 
+    //! This class wraps a try-block
+    class LIBTL_CLASS TryStatement : public Statement
+    {
+        public:
+            TryStatement(AST_t ref, ScopeLink sl)
+            : Statement(ref, sl)
+            {
+            }
+            
+            //! Returns the try protected compound statement
+            Statement get_try_protected_block() const;
+            
+            //! Returns the list of exception declarations of the try block
+            ObjectList<Declaration> get_try_handler_declarations() const;
+            
+            //! Returns the list of exception blocks of the try block
+            ObjectList<Statement> get_try_handler_blocks() const;
+            
+            const static PredicateAttr predicate;
+    };
+    
     //! This class wraps a return-statement
     class LIBTL_CLASS ReturnStatement : public Statement
     {
@@ -388,6 +479,35 @@ namespace TL
             const static PredicateAttr predicate;
     };
 
+    //! This class wraps a labeled-statement
+    class LIBTL_CLASS LabeledStatement : public Statement
+    {
+        public:
+            LabeledStatement(AST_t ref, ScopeLink sl)
+                : Statement(ref, sl)
+            {
+            }
+            
+            //! Returns the statement of this labeled-statement
+            Statement get_labeled_statement() const;
+            
+            //! Returns the label of this labeled-statement
+            std::string get_label() const;
+            
+            const static PredicateAttr predicate;
+    };
+    
+    //! This class wraps a empty-statement
+    class LIBTL_CLASS EmptyStatement : public Statement
+    {
+        public:
+            EmptyStatement(AST_t ref, ScopeLink sl)
+            : Statement(ref, sl)
+            {}
+            
+            const static PredicateAttr predicate;
+    };
+    
     //! @}
 }
 #endif // TL_STATEMENT_HPP

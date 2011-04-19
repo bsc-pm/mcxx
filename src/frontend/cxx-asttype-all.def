@@ -9,3 +9,4 @@
 /*!include cxx-asttype-upc.def*/
 /*!include cxx-asttype-cuda.def*/
 /*!include cxx-asttype-xl.def*/
+/*!include cxx-asttype-fortran.def*/

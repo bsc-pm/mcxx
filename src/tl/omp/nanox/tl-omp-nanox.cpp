@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,13 +24,17 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-omp-nanox.hpp"
+#include "tl-nanos.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
 
 
-OMPTransform::OMPTransform() : _compiler_alignment(true)
+OMPTransform::OMPTransform() 
+        : _compiler_alignment(true)
 {
     set_phase_name("OpenMP for nanox");
     set_phase_description("This phase implements OpenMP targeting nanox runtime");
@@ -51,7 +58,7 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
     on_directive_post["flush"].connect(functor(&OMPTransform::flush_postorder, *this));
 
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
-
+    
     register_parameter("instrument", 
             "Enables nanox instrumentation if set to '1'",
             _enable_instrumentation_str,
@@ -62,6 +69,16 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
             _compiler_alignment_str, 
             "1").connect(functor(&OMPTransform::set_compiler_alignment, *this));
 
+    register_parameter("do_not_create_translation_function",
+            "Even if the runtime interface supports a translation function, it will not be generated", 
+            _do_not_create_translation_str,
+            "0").connect(functor(&OMPTransform::set_translation_function_flag, *this));
+
+    register_parameter("weaks_as_statics",
+            "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
+            _static_weak_symbols_str,
+            "0").connect(functor(&OMPTransform::set_weaks_as_statics, *this));
+
     on_directive_post["critical"].connect(functor(&OMPTransform::critical_postorder, *this));
     on_directive_post["master"].connect(functor(&OMPTransform::master_postorder, *this));
 
@@ -71,10 +88,11 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
     on_directive_pre["section"].connect(functor(&OMPTransform::section_preorder, *this));
     on_directive_post["section"].connect(functor(&OMPTransform::section_postorder, *this));
     
+    // Minimally implemented
+    on_directive_post["parallel|for"].connect(functor(&OMPTransform::parallel_for_postorder, *this));
+
     // Not yet implemented
-    on_directive_post["parallel|for"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["parallel|sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
-    on_directive_post["flush"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["ordered"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["declare|reduction"].connect(functor(&OMPTransform::unimplemented_yet, *this));
 
@@ -83,7 +101,7 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
 
 void OMPTransform::unimplemented_yet(PragmaCustomConstruct construct)
 {
-    running_error("%s: error: OpenMP construct/directive not implemented yet in Nanos++\n", 
+    running_error("%s: error: OpenMP construct/directive not implemented yet in Nanos++\n",
             construct.get_ast().get_locus().c_str());
 }
 
@@ -101,10 +119,33 @@ void OMPTransform::set_compiler_alignment(const std::string& str)
     parse_boolean_option("compiler_alignment", str, _compiler_alignment, "Assuming true.");
 }
 
+void OMPTransform::set_translation_function_flag(const std::string& str)
+{
+    parse_boolean_option("do_not_create_translation_function", str, _do_not_create_translation_fun, "Assuming false.");
+}
+
 void OMPTransform::phase_cleanup(DTO& data_flow)
 {
     _lock_names.clear();
     _converted_vlas.clear();
+}
+
+void OMPTransform::set_weaks_as_statics(const std::string& str)
+{
+    parse_boolean_option("set_weaks_as_statics", str, _static_weak_symbols, "Assuming false.");
+}
+
+void OMPTransform::run(DTO& dto)
+{
+    if (!Nanos::Version::interface_is_at_least("master", 5000))
+    {
+        running_error("error: unsupported Nanos++ 'master' interface version %d\n",
+                Nanos::Version::version_of_interface("master"));
+    }
+
+    OpenMP::OpenMPPhase::run(dto);
+
+    add_openmp_initializer(dto);
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,10 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -41,20 +47,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);
-
-    Source struct_arg_type_decl_src, struct_fields;
-    std::string struct_arg_type_name;
-    fill_data_environment_structure(
-            ctr.get_scope(),
-            data_environ_info,
-            struct_arg_type_decl_src,
-            struct_fields,
-            struct_arg_type_name, 
-            dependences,
-            _compiler_alignment);
+    data_environ_info.set_local_copies(true);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
+
+    std::string struct_arg_type_name;
+    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
+            dependences, Source());
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
@@ -63,43 +63,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
     std::string outline_name = ss.str();
 
-    Source template_header;
-    if (funct_def.is_templated())
-    {
-        Source template_params;
-        template_header
-            << "template <" << template_params << ">"
-            ;
-        Source template_args;
-        ObjectList<TemplateHeader> template_header_list = funct_def.get_template_header();
-        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
-                it != template_header_list.end();
-                it++)
-        {
-            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
-            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
-                    it2 != tpl_params.end();
-                    it2++)
-            {
-                template_params.append_with_separator(it2->prettyprint(), ",");
-                template_args.append_with_separator(it2->get_name(), ",");
-            }
-        }
-
-        struct_arg_type_name += "<" + std::string(template_args) + ">";
-    }
-
-    Source newly_generated_code;
-    newly_generated_code
-        << template_header
-        << struct_arg_type_decl_src
-        ;
-
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(
-                ctr.get_ast().get_enclosing_function_definition(/*jump_templates*/ true), 
-                ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
 
     Source device_descriptor, 
            device_description, 
@@ -120,28 +83,26 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     PragmaCustomClause function_clause = ctr.get_clause("__symbol");
     if (function_clause.is_defined())
     {
-    	ObjectList<Expression> expr_list = function_clause.get_expression_list();
+        ObjectList<Expression> expr_list = function_clause.get_expression_list();
 
-    	if (expr_list.size() != 1)
-    	{
-    		running_error("%s: internal error: clause '__symbol' requires just one argument\n",
-    				ctr.get_ast().get_locus().c_str());
-    	}
+        if (expr_list.size() != 1)
+        {
+                running_error("%s: internal error: clause '__symbol' requires just one argument\n",
+                                ctr.get_ast().get_locus().c_str());
+        }
 
-    	Expression &expr = expr_list[0];
-    	IdExpression id_expr = expr.get_id_expression();
+        Expression &expr = expr_list[0];
+        IdExpression id_expr = expr.get_id_expression();
 
-    	if (id_expr.get_computed_symbol().is_valid()) {
-    		task_symbol = id_expr.get_computed_symbol();
-    	}
+        if (id_expr.get_computed_symbol().is_valid()) {
+                task_symbol = id_expr.get_computed_symbol();
+        }
     }
 
     OutlineFlags outline_flags;
     outline_flags.task_symbol = task_symbol;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
-
-    bool some_device_needs_copies = false;
 
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
@@ -181,10 +142,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
-
-        some_device_needs_copies = some_device_needs_copies
-            || device_provider->needs_copies();
     }
+
+    int total_devices = current_targets.size();
 
     // If this is a function coming from a task try to get its devices with an
     // implementation already given
@@ -207,6 +167,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
+        total_devices += implementation_list.size();
+
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
                 it++)
@@ -226,9 +188,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             AST_t new_code = replaced_call.parse_statement(ctr.get_ast(), ctr.get_scope_link());
 
-	    std::stringstream ss;
-	    ss << "_ol_" << it->second.get_name() << "_" << outline_num;
-	    std::string implemented_outline_name = ss.str();
+            std::stringstream ss;
+            ss << "_ol_" << it->second.get_name() << "_" << outline_num;
+            std::string implemented_outline_name = ss.str();
 
             Source initial_setup, replaced_body;
 
@@ -238,8 +200,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                             initial_setup,
                             replaced_body);
 
-	    OutlineFlags implemented_outline_flags;
-	    implemented_outline_flags.task_symbol = it->second;
+            OutlineFlags implemented_outline_flags;
+            implemented_outline_flags.task_symbol = it->second;
 
             device_provider->create_outline(implemented_outline_name,
                             struct_arg_type_name,
@@ -258,13 +220,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
-
-            some_device_needs_copies = some_device_needs_copies
-                    || device_provider->needs_copies();
         }
     }
 
-    num_devices << current_targets.size();
+    num_devices << total_devices;
 
     Source spawn_code;
     Source fill_outline_arguments, fill_immediate_arguments, 
@@ -319,23 +278,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 it++)
         {
             Source dependency_flags;
+            Source reduction_flag;
             dependency_flags << "{";
             OpenMP::DependencyDirection attr = it->get_kind();
-            if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+            if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                dependency_flags << "1,"; 
+                if (Nanos::Version::interface_is_at_least("master", 5001))
+                {
+                    reduction_flag << "0";
+                }
+
+                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                {
+                    dependency_flags << "1,"; 
+                }
+                else
+                {
+                    dependency_flags << "0,"; 
+                }
+                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                {
+                    dependency_flags << "1,"; 
+                }
+                else
+                {
+                    dependency_flags << "0,"; 
+                }
             }
-            else
+            else 
             {
-                dependency_flags << "0,"; 
-            }
-            if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-            {
-                dependency_flags << "1,"; 
-            }
-            else
-            {
-                dependency_flags << "0,"; 
+                if (!Nanos::Version::interface_is_at_least("master", 5001))
+                {
+                    fprintf(stderr,
+                            "%s: warning: the current version of Nanos does not"
+                            " support reduction dependencies in Superscalar\n",
+                            ctr.get_ast().get_locus().c_str());
+                }
+                else
+                {
+                    reduction_flag << "1";
+                }
+                // Reduction behaves like an inout
+                dependency_flags << "1, 1,";
             }
 
             Source dependency_field_name;
@@ -356,10 +340,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                         it->get_dependency_expression().prettyprint().c_str());
             }
 
-            // Can rename in this case
-            dependency_flags << "1"
-                ;
+            if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
+            {
+                // Reductions cannot be renamed
+                dependency_flags << "0,"
+                    ;
+            }
+            else
+            {
+                // Can rename otherwise
+                dependency_flags << "1,"
+                    ;
+            }
 
+            dependency_flags << reduction_flag;
             dependency_flags << "}"
                     ;
 
@@ -517,14 +511,29 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
 
-    if (copy_items.empty()
-            || !some_device_needs_copies)
+    Source set_translation_fun, translation_fun_arg_name;
+
+    if (copy_items.empty())
     {
         num_copies << "0";
         // Non immediate
         copy_data << "(nanos_copy_data_t**)0";
         // Immediate
         copy_imm_data << "(nanos_copy_data_t*)0";
+
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            C_LANGUAGE()
+            {
+                translation_fun_arg_name << ", (void*) 0"
+                    ;
+            }
+            CXX_LANGUAGE()
+            {
+                translation_fun_arg_name << ", 0"
+                    ;
+            }
+        }
     }
     else
     {
@@ -540,51 +549,79 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
         copy_imm_data << "imm_copy_data";
 
+        Source wd_param, wd_arg;
+        if (Nanos::Version::interface_is_at_least("master", 5005))
+        {
+            wd_param
+                << ", nanos_wd_t wd"
+                ;
+            wd_arg
+                << ", wd"
+                ;
+        }
+
+        Source translation_function, translation_statements;
+        translation_function
+            << "static void _xlate_copy_address_" << outline_num << "(void* data" << wd_param <<")"
+            << "{"
+            <<   "nanos_err_t cp_err;"
+            <<   struct_arg_type_name << "* _args = (" << struct_arg_type_name << "*)data;"
+            <<   translation_statements
+            << "}"
+            ;
+
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
                 it != copy_items.end();
                 it++)
         {
+            OpenMP::CopyItem& copy_item(*it);
+            DataReference copy_expr = copy_item.get_copy_expression();
+
+            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
+
             Source copy_direction_in, copy_direction_out;
 
-            if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            if (copy_item.get_kind() == OpenMP::COPY_DIR_IN)
             {
                 copy_direction_in << 1;
                 copy_direction_out << 0;
             }
-            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+            else if (copy_item.get_kind() == OpenMP::COPY_DIR_OUT)
             {
                 copy_direction_in << 0;
                 copy_direction_out << 1;
             }
-            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            else if (copy_item.get_kind() == OpenMP::COPY_DIR_INOUT)
             {
                 copy_direction_in << 1;
                 copy_direction_out << 1;
             }
 
-            DataReference data_ref = it->get_copy_expression();
+            DataReference data_ref = copy_item.get_copy_expression();
             OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            // There used to be NANOS_PRIVATE but nobody knows what it meant
             Source copy_sharing;
-            if (it->is_shared())
-            {
-                copy_sharing << "NANOS_SHARED";
-            }
-            else
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
+            copy_sharing << "NANOS_SHARED";
+
+            translation_statements
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                ;
 
             struct {
                 Source *source;
                 const char* array;
-                const char* struct_name;
+                const char* struct_access;
+                const char* struct_addr;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "ol_args->" },
-                { &copy_immediate_setup, "imm_copy_data", "imm_args." },
+                { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
+                { &copy_immediate_setup, "imm_copy_data", 
+                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                    immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
 
@@ -600,28 +637,55 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                DataReference copy_expr = it->get_copy_expression();
-
-                if (it->is_shared())
-                {
-                    expression_address << copy_expr.get_address();
-                }
-                else
-                {
-                    DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
-                    // We have to use the value of the argument structure if it
-                    // is private
-                    expression_address 
-                        << "&("
-                        << fill_copy_data_info[j].struct_name 
-                        << data_env_item.get_field_name()
-                        << ")"
-                        ;
-                }
+                expression_address << copy_expr.get_address();
                 expression_size << copy_expr.get_sizeof();
             }
 
             i++;
+        }
+
+        if (_do_not_create_translation_fun)
+        {
+            if (Nanos::Version::interface_is_at_least("master", 5005))
+            {
+                C_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", (void*) 0"
+                        ;
+                }
+                CXX_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", 0"
+                        ;
+                }
+            }
+        }
+        else
+        {
+            if (Nanos::Version::interface_is_at_least("master", 5003))
+            {
+                Source translation_fun_name;
+                translation_fun_name << "_xlate_copy_address_" << outline_num
+                    ;
+                // FIXME - Templates
+                set_translation_fun 
+                    << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
+                    ;
+
+                if (Nanos::Version::interface_is_at_least("master", 5005))
+                {
+                    translation_fun_arg_name
+                        // Note this starting comma
+                        << ", _xlate_copy_address_" << outline_num
+                        ;
+                }
+
+                AST_t xlate_function_def = translation_function.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
+                        ctr.get_scope_link());
+
+                ctr.get_ast().prepend_sibling_function(xlate_function_def);
+            }
         }
     }
 
@@ -632,7 +696,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     if ( current_targets.contains( "cuda" ) )
     {
-    	creation << "props.mandatory_creation = 1;"
+        creation << "props.mandatory_creation = 1;"
+            ;
+    }
+
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
 
@@ -653,6 +724,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
         <<                 struct_size << ","
+        <<                 alignment
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props, " << num_copies << ", " << copy_data << ");"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -662,6 +734,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_outline_arguments
         <<        fill_dependences_outline
         <<        copy_setup
+        <<        set_translation_fun
         <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
@@ -673,9 +746,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        copy_immediate_setup
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                struct_size << ", " 
+        <<                alignment
+        <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_imm_data << ");"
+        <<                num_copies << "," << copy_imm_data 
+        <<                translation_fun_arg_name << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"
@@ -697,7 +773,8 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
-    else if (expr.is_array_section())
+    else if (expr.is_array_section_range()
+            || expr.is_array_section_size())
     {
         fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 

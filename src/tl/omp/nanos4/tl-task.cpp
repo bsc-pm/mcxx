@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omptransform.hpp"
 #include "tl-taskserialize.hpp"
@@ -74,8 +79,7 @@ namespace TL
             ObjectList<Expression> & output_dependences =
                 task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
-            if ( TL::Nanos::Version::is_family("trunk") &&
-                    TL::Nanos::Version::version >= 4202 ) 
+			if (TL::Nanos::Version::interface_is_at_least("trunk", 4202))
             {
                 OpenMP::DataSharingEnvironment& current_data_sharing 
                     = openmp_info->get_data_sharing(task_construct.get_ast());
@@ -648,8 +652,7 @@ namespace TL
                 ;
 
             Source cutoff_call;
-            if ( TL::Nanos::Version::is_family("trunk") &&
-                    TL::Nanos::Version::version >= 4201 ) 
+			if (TL::Nanos::Version::interface_is_at_least("trunk", 4202))
             {
                 cutoff_call 
                     <<    comment("_cf_n is a return value")
@@ -1038,7 +1041,7 @@ namespace TL
         Symbol OpenMPTransform::handle_dep_expr(Expression expr)
         {
             // scalar_dep_expr '[' expr : expr ']'
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression item = expr.array_section_item();
                 return handle_scalar_dep_expr(item);
@@ -1118,7 +1121,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1165,7 +1168,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1212,7 +1215,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && (expr.is_array_section()
+                            && (expr.is_array_section_range()
                                 || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
@@ -1237,7 +1240,7 @@ namespace TL
 
         static std::string get_representative_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 // Expression array_section_upper = expr.array_section_upper();
@@ -1264,7 +1267,7 @@ namespace TL
 
         static std::string get_size_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 Expression array_section_upper = expr.array_section_upper();
@@ -1283,7 +1286,7 @@ namespace TL
                 if (t.is_array())
                 {
                     return "((" 
-                        + t.array_dimension().prettyprint() 
+                        + t.array_get_size().prettyprint() 
                         + ") * sizeof( * " 
                         + expr.prettyprint() + "))";
                 }
@@ -1298,7 +1301,7 @@ namespace TL
 
         static std::string get_align_dependence_expr(Expression expr)
         {
-            if (expr.is_array_section())
+            if (expr.is_array_section_range())
             {
                 Symbol sym = OpenMPTransform::handle_dep_expr(expr);
                 Expression array_section_lower = expr.array_section_lower();

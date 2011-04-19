@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "uniquestr.h"
 #include <stdio.h>
@@ -41,7 +46,7 @@ struct char_trie_tag char_trie_t;
 
 typedef struct char_trie_element_tag
 {
-    char elem;
+    unsigned char elem;
     // Only valid when elem == 0
     const char *str;
     char_trie_t* next;
@@ -59,7 +64,7 @@ static struct char_trie_tag const CHAR_TRIE_INITIALIZER =
     .elements = NULL
 };
 
-static char_trie_element_t *lookup_element(const char_trie_t* char_trie, char entity);
+static char_trie_element_t *lookup_element(const char_trie_t* char_trie, unsigned char entity);
 
 static const char* lookup_list(const char_trie_t* char_trie, const char* str, int length)
 {
@@ -117,15 +122,15 @@ static const char* insert_list(char_trie_t* char_trie, const char *orig_str, int
     return insert_list_rec(char_trie, orig_str, orig_str, length);
 }
 
-static char_trie_element_t *lookup_element_rec(const char_trie_t* char_trie, char entity, int lower, int upper)
+static char_trie_element_t *lookup_element_rec(const char_trie_t* char_trie, unsigned char entity, int lower, int upper)
 {
     if (lower > upper)
         return NULL;
 
     int middle = (lower + upper) / 2;
 
-    char i_middle = char_trie->elements[middle].elem;
-    char i_entity = entity;
+    unsigned char i_middle = char_trie->elements[middle].elem;
+    unsigned char i_entity = entity;
 
     if (i_entity < i_middle)
         return lookup_element_rec(char_trie, entity, lower, middle - 1);
@@ -135,7 +140,7 @@ static char_trie_element_t *lookup_element_rec(const char_trie_t* char_trie, cha
         return &(char_trie->elements[middle]);
 }
 
-static char_trie_element_t *lookup_element(const char_trie_t* char_trie, char entity)
+static char_trie_element_t *lookup_element(const char_trie_t* char_trie, unsigned char entity)
 {
     return lookup_element_rec(char_trie, entity, 0, char_trie->num_elements - 1);
 }
@@ -150,14 +155,14 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
     int lower = 0;
     int upper = char_trie->num_elements - 2;
 
-    char i_entity = '\0';
+    unsigned char i_entity = '\0';
     if (length != 0)
         i_entity = *str;
 
     while (lower <= upper)
     {
         int middle = (lower + upper) / 2;
-        char i_middle = char_trie->elements[middle].elem;
+        unsigned char i_middle = char_trie->elements[middle].elem;
 
         if (i_entity < i_middle)
         {
@@ -210,15 +215,15 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
     }
 }
 
+#if 0
 typedef
-struct stack_tag
+struct char_stack_tag
 {
     int pos;
-    char elem;
-} stack_t;
+    unsigned char elem;
+} char_stack_t;
 
-#if 0
-static void print_trie_rec(const char_trie_t* char_trie, int level, stack_t* stack)
+static void print_trie_rec(const char_trie_t* char_trie, int level, char_stack_t* stack)
 {
     int i;
 
@@ -245,7 +250,7 @@ static void print_trie_rec(const char_trie_t* char_trie, int level, stack_t* sta
 
 static void print_trie(const char_trie_t* char_trie)
 {
-    stack_t stack[256];
+    char_stack_t stack[256];
     print_trie_rec(char_trie, 0, stack);
 }
 #endif

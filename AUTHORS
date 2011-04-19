@@ -1,12 +1,19 @@
-Main developer and maintainer
+Authors (in alphabetic order)
 
-  Roger Ferrer Ibáñez <roger.ferrer@bsc.es>
-
-Contributors
-
-  Xavier Martorell Bofill <xavim@ac.upc.edu>
-  David Rodenas Picó <david.rodenas@bsc.es>
-  Xavier Teruel Garcia <xavier.teruel@bsc.es>
-  Alex Duran Gonzalez <aduran@ac.upc.edu>
+  Alex Duran Gonzalez <alex.duran@bsc.es>
+  Diego Caballero <diego.caballero@bsc.es>
   Josep Maria Perez Cancer <josep.m.perez@bsc.es>
   Luis Martinell <luis.martinell@bsc.es>
+  Roger Ferrer Ibáñez <roger.ferrer@bsc.es>
+  Sara Royuela <sara.royuela@bsc.es>
+  Xavier Martorell Bofill <xavim@ac.upc.edu>
+  Xavier Teruel Garcia <xavier.teruel@bsc.es>
+
+Please report bugs at
+
+  http://nanos.ac.upc.edu/projects/mcxx/newticket
+
+For generic questions about the compiler please refer to
+
+  Roger Ferrer Ibáñez <roger.ferrer@bsc.es>
+  Alex Duran Gonzalez <alex.duran@bsc.es>

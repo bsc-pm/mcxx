@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_AST_HPP
 #define TL_AST_HPP
@@ -237,9 +242,6 @@ namespace TL
                 : _ast(NULL)
             {
             }
-
-            //! Schema of this extensible object
-            static Schema schema;
 
             //! Constructor to wrap AST trees
             AST_t(AST _wrapped_tree) 
@@ -476,13 +478,13 @@ namespace TL
             /*!
              * \param jump_templates Tells whether template headers of this function definition must be skipped too
              */
-            AST_t get_enclosing_function_definition(bool jump_templates = false) const;
+            AST_t get_enclosing_function_definition(bool jump_templates = false, bool jump_external_decl = false) const;
 
             //! Returns the point where the function definition begins its whole declaration
             /*!
              * This is equivalent to call
              * @code
-             * a.get_enclosing_function_definition(true).get_parent();
+             * a.get_enclosing_function_definition(true, true);
              * @endcode
              */
             AST_t get_enclosing_function_definition_declaration() const;
@@ -594,8 +596,20 @@ namespace TL
             {
                 if (!ast.is_valid())
                     return false;
-                TL::Bool attr = ast.get_attribute(_ATTR);
-                return attr;
+                
+                RefPtr<Object> obj = ast.get_attribute(_ATTR);
+                if(typeid(*(obj.get_pointer())) == typeid(Undefined))
+                {
+                    return false;
+                }
+                else if (obj->is_bool())
+                {
+                    return (TL::Bool)obj;
+                }
+                else
+                {
+                    return true;                  
+                }
             }
 
             DEPRECATED PredicateAST()
@@ -626,7 +640,20 @@ namespace TL
             {
                 if (!ast.is_valid())
                     return false;
-                return TL::Bool(ast.get_attribute(_attr_name));
+
+                RefPtr<Object> obj = ast.get_attribute(_attr_name);
+                if(typeid(*(obj.get_pointer())) == typeid(Undefined))
+                {
+                    return false;
+                }
+                else if (obj->is_bool())
+                {
+                    return (TL::Bool)obj;
+                }
+                else
+                {
+                    return true;
+                }
             }
     };
 

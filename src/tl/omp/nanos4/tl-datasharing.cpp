@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omptransform.hpp"
 
@@ -41,6 +46,12 @@ namespace TL
                 const ObjectList<Symbol>& firstprivate_references,
                 const ObjectList<OpenMP::ReductionSymbol>& reduction_references);
 
+        static bool is_nonstatic_member_symbol(Symbol sym)
+        {
+            return sym.is_member()
+                && !sym.is_static();
+        }
+
         ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
                 Statement construct_body,
                 ObjectList<Symbol>& shared_references,
@@ -57,6 +68,8 @@ namespace TL
             Symbol function_symbol = function_definition.get_function_name().get_symbol();
             Scope function_scope = function_definition.get_scope();
             ReplaceIdExpression result;
+
+            result.add_this_replacement("_this");
 
             ObjectList<Symbol> actually_shared = shared_references;
             // lastprivate references require sharing the target variable
@@ -113,17 +126,7 @@ namespace TL
                                 "&" + symbol.get_qualified_name(construct_body.get_scope()), 
                                 symbol, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);
-                        result.add_replacement(symbol, "(*" + symbol.get_name() + ")", 
-                                construct_body.get_ast(), construct_body.get_scope_link());
-                    }
-                }
-                else
-                {
-                    // Only if this function is a nonstatic one we need _this access
-                    if (is_nonstatic_member_function(function_definition))
-                    {
-                        result.add_replacement(symbol, "_this->" + symbol.get_name(), 
-                                construct_body.get_ast(), construct_body.get_scope_link());
+                        result.add_replacement(symbol, "(*" + symbol.get_name() + ")");
                     }
                 }
             }
@@ -136,8 +139,7 @@ namespace TL
                 Symbol &symbol(*it);
                 Type type = symbol.get_type();
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // FIRSTPRIVATE references
@@ -164,8 +166,7 @@ namespace TL
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "flp_" + symbol.get_name(),
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "flp_" + symbol.get_name());
                 }
                 else
                 {
@@ -180,8 +181,7 @@ namespace TL
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")",
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")");
                 }
 
             }
@@ -206,8 +206,7 @@ namespace TL
                         symbol, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
 
-                result.add_replacement(symbol, "rdp_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "rdp_" + symbol.get_name());
             }
 
             // Inner REDUCTION references (those coming from lexical enclosed DO's inner to this PARALLEL)
@@ -275,24 +274,16 @@ namespace TL
                 parameter_info.append(parameter);
             }
 
-            if (is_nonstatic_member_function(function_definition))
+            // Nonstatic members have a special replacement (this may override some symbols!)
+            ObjectList<Symbol> nonstatic_members; 
+            nonstatic_members.insert(construct_body
+                    .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
+                    .filter(predicate(is_nonstatic_member_symbol)));
+            for (ObjectList<Symbol>::iterator it = nonstatic_members.begin();
+                    it != nonstatic_members.end();
+                    it++)
             {
-                // Calls to nonstatic member functions within the body of the construct
-                // of a nonstatic member function
-                ObjectList<Symbol> function_references = 
-                    construct_body.non_local_symbol_occurrences(Statement::ONLY_FUNCTIONS)
-                    .map(functor(&IdExpression::get_symbol));
-                for (ObjectList<Symbol>::iterator it = function_references.begin();
-                        it != function_references.end();
-                        it++)
-                {
-                    if (is_unqualified_member_symbol(*it, function_definition))
-                    {
-                        Symbol &symbol(*it);
-                        result.add_replacement(symbol, "_this->" + symbol.get_name(),
-                                construct_body.get_ast(), construct_body.get_scope_link());
-                    }
-                }
+                result.add_replacement(*it, "_this->" + it->get_name());
             }
 
             C_LANGUAGE()
@@ -331,8 +322,7 @@ namespace TL
             {
                 Symbol &symbol(*it);
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // FIRSTPRIVATE references
@@ -343,8 +333,7 @@ namespace TL
             {
                 Symbol &symbol(*it);
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // LASTPRIVATE
@@ -361,8 +350,7 @@ namespace TL
                 {
                     Symbol &symbol(*it);
 
-                    result.add_replacement(symbol, "p_" + symbol.get_name(),
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "p_" + symbol.get_name());
                 }
             }
 
@@ -374,8 +362,7 @@ namespace TL
                 OpenMP::ReductionSymbol &reduction_symbol(*it);
                 Symbol symbol = reduction_symbol.get_symbol();
 
-                result.add_replacement(symbol, "rdp_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "rdp_" + symbol.get_name());
             }
 
             return result;
@@ -530,8 +517,7 @@ namespace TL
                     if (!reduction_references.contains(functor(&OpenMP::ReductionSymbol::get_symbol), param_info.symbol)
                             && !firstprivate_references.contains(param_info.symbol))
                     {
-                        result.add_replacement(param_info.symbol, param_info.symbol.get_name(), 
-                                point_of_decl, sl);
+                        result.add_replacement(param_info.symbol, param_info.symbol.get_name());
                     }
                 }
             }
@@ -552,7 +538,7 @@ namespace TL
                 vla_counter++;
 
                 dim_names.append(dim_name);
-                dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_dimension().prettyprint());
+                dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_get_size().prettyprint());
 
                 dimensional_replacements_of_variable_type_aux(t.array_element(), sym, dim_names, dim_decls);
             }

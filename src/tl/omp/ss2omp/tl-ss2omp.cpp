@@ -1,3 +1,30 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 #include "tl-ss2omp.hpp"
 #include "tl-augmented-symbol.hpp"
 #include "tl-region.hpp"
@@ -7,6 +34,129 @@
 
 namespace TL
 {
+	static void add_to_clause(Region & region, 
+			const Type& parameter, 
+			const ParameterDeclaration& parameter_decl, 
+			Source& clause_args,
+			const std::string& dir_str,
+			AST_t context_tree,
+			ScopeLink sl)
+	{
+		DEBUG_CODE()
+		{
+			std::cerr << "Parameter region" << std::endl
+				<< " direction=" << dir_str << std::endl
+				<< " dimension_count=" << region.get_dimension_count() << std::endl
+				<< " is_full=" << region.is_full() 
+				<< std::endl;
+		}
+
+		if (region.get_dimension_count() == 0)
+		{
+			// Two cases: a scalar or a pointer if it is a scalar there is
+			// no need to state anything
+			if (parameter.is_pointer())
+			{
+				clause_args.append_with_separator(
+						"*" + parameter_decl.get_name().prettyprint(),
+						",");
+			}
+			else if (parameter.is_reference())
+			{
+				clause_args.append_with_separator(
+						parameter_decl.get_name().prettyprint(),
+						",");
+			}
+		}
+		else
+		{
+			Source array_sections;
+			// Note that we start from 1 because we will traverse backwards
+			for (unsigned int j = 1;
+					j <= region.get_dimension_count();
+					j++)
+			{
+				// This list is reversed
+				Region::DimensionSpecifier &dim_spec(region[region.get_dimension_count() - j]);
+
+				DEBUG_CODE()
+				{
+					std::cerr << "Region: #" << j << std::endl
+						<< " dimension_start: " << dim_spec.get_dimension_start() << std::endl
+						<< " accessed_length: " << dim_spec.get_accessed_length() << std::endl
+						<< " dimension_length: " << dim_spec.get_dimension_length() << std::endl;
+				}
+
+				Source lower_bound_src, upper_bound_src;
+
+				array_sections
+					<< "["
+					<< lower_bound_src
+					<< ";"
+					<< upper_bound_src
+					<< "]"
+					;
+
+				lower_bound_src << dim_spec.get_dimension_start()
+					;
+
+				// Simplify if possible the upper bound, otherwise the
+				// resulting expression can get too complex
+				// upper_bound_src << "(" << dim_spec.get_accessed_length() << ")+("
+				// 	<< dim_spec.get_dimension_start().prettyprint() << ") - 1";
+                upper_bound_src << dim_spec.get_accessed_length();
+
+				AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
+						sl);
+			}
+
+			if (parameter.is_pointer()
+					&& region.get_dimension_count() > 1)
+			{
+				// We need a shaped expression if num dims > 1
+				Source shape_dims;
+
+				// Note that we start from 1 because we will traverse backwards
+				for (unsigned int j = 1;
+						j <= region.get_dimension_count();
+						j++)
+				{
+					// This list is reversed
+					Region::DimensionSpecifier& dim_spec(region[region.get_dimension_count() - j]);
+
+					shape_dims
+						<< "[" << dim_spec.get_dimension_length() << "]"
+						;
+				}
+
+				Source shape_src;
+
+				shape_src
+					<< "(" << shape_dims << " "
+					<< parameter_decl.get_name().prettyprint() 
+					<< ")"
+					;
+
+				clause_args.append_with_separator(
+						shape_src.get_source() + array_sections.get_source(),
+						",");
+			}
+			else
+			{
+				clause_args.append_with_separator(
+						parameter_decl.get_name().prettyprint() + array_sections.get_source(),
+						",");
+			}
+		}
+
+
+		DEBUG_CODE()
+		{
+			// Aesthetical
+			std::cerr << std::endl;
+		}
+	}
+
     void SS2OpenMP::on_post_task(PragmaCustomConstruct construct)
     {
         AugmentedSymbol augmented_sym = AugmentedSymbol::invalid();
@@ -52,178 +202,60 @@ namespace TL
         Source input_clause_args;
         Source output_clause_args;
         Source inout_clause_args;
+	Source reduction_clause_args;
 
         ObjectList<Type> parameters = augmented_sym.get_type().nonadjusted_parameters();
         int i = 0;
         for (ObjectList<RegionList>::iterator it = parameter_region_list->begin();
                 it != parameter_region_list->end();
                 it++)
-        {
-            RegionList &region_list(*it);
+		{
+			RegionList &region_list(*it);
 
-            if (region_list.size() > 1)
-            {
-                running_error("%s: error: regions with more than one dependence are not supported\n",
-                        construct.get_ast().get_locus().c_str());
-            }
+			if (region_list.size() > 1)
+			{
+				running_error("%s: error: regions with more than one dependence are not supported\n",
+						construct.get_ast().get_locus().c_str());
+			}
 
-            Region &region(region_list[0]);
+			Region &region(region_list[0]);
 
-            Source *clause_args = NULL;
-            std::string dir_str;
-            switch ((int)region.get_direction())
-            {
-                case Region::INPUT_DIR:
-                    {
-                        clause_args = &input_clause_args;
-                        dir_str = "input";
-                        break;
-                    }
-                case Region::OUTPUT_DIR:
-                    {
-                        clause_args = &output_clause_args;
-                        dir_str = "output";
-                        break;
-                    }
-                case Region::INOUT_DIR:
-                    {
-                        clause_args = &inout_clause_args;
-                        dir_str = "inout";
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Invalid directionality", 0);
-                        break;
-                    }
-            }
+			bool is_reduction = region.get_reduction() == Region::REDUCTION;
 
-            DEBUG_CODE()
-            {
-                std::cerr << "Parameter region #" << i << std::endl
-                    << " direction=" << dir_str << std::endl
-                    << " dimension_count=" << region.get_dimension_count() << std::endl
-                    << " is_full=" << region.is_full() 
-                    << std::endl;
-            }
+			Source *clause_args = NULL;
+			switch ((int)region.get_direction())
+			{
+				case Region::INPUT_DIR:
+					{ 
+						add_to_clause(region, parameters[i], parameter_decls[i], input_clause_args, "input", context_tree, construct.get_scope_link());
+						break;
+					}
+				case Region::OUTPUT_DIR:
+					{
+						add_to_clause(region, parameters[i], parameter_decls[i], output_clause_args, "output", context_tree, construct.get_scope_link());
+						break;
+					}
+				case Region::INOUT_DIR:
+					{
+						if (!is_reduction)
+						{
+							add_to_clause(region, parameters[i], parameter_decls[i], inout_clause_args, "inout", context_tree, construct.get_scope_link());
+						}
+						else
+						{
+							add_to_clause(region, parameters[i], parameter_decls[i], reduction_clause_args, "reduction", context_tree, construct.get_scope_link());
+						}
+						break;
+					}
+				default:
+					{
+						internal_error("Invalid directionality", 0);
+						break;
+					}
+			}
 
-            if (region.get_dimension_count() == 0)
-            {
-                // Two cases: a scalar or a pointer if it is a scalar there is
-                // no need to state anything
-                if (parameters[i].is_pointer())
-                {
-                    clause_args->append_with_separator(
-                            "*" + parameter_decls[i].get_name().prettyprint(),
-                            ",");
-                }
-                else if (parameters[i].is_reference())
-                {
-                    clause_args->append_with_separator(
-                            parameter_decls[i].get_name().prettyprint(),
-                            ",");
-                }
-            }
-            else
-            {
-                Source array_sections;
-                // Note that we start from 1 because we will traverse backwards
-                for (unsigned int j = 1;
-                        j <= region.get_dimension_count();
-                        j++)
-                {
-                    // This list is reversed
-                    Region::DimensionSpecifier &dim_spec(region[region.get_dimension_count() - j]);
-
-                    DEBUG_CODE()
-                    {
-                        std::cerr << "Region: #" << j << std::endl
-                            << " dimension_start: " << dim_spec.get_dimension_start() << std::endl
-                            << " accessed_length: " << dim_spec.get_accessed_length() << std::endl
-                            << " dimension_length: " << dim_spec.get_dimension_length() << std::endl;
-                    }
-
-                    Source lower_bound_src, upper_bound_src;
-
-                    array_sections
-                        << "["
-                        << lower_bound_src
-                        << ":"
-                        << upper_bound_src
-                        << "]"
-                        ;
-
-                    lower_bound_src << dim_spec.get_dimension_start()
-                        ;
-
-                    // Simplify if possible the upper bound, otherwise the
-                    // resulting expression can get too complex
-                    upper_bound_src << "(" << dim_spec.get_accessed_length() << ")+("
-                        << dim_spec.get_dimension_start().prettyprint() << ") - 1";
-
-                    AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
-                            construct.get_scope_link());
-
-                    Expression upper_bound_expr(upper_bound_tree, construct.get_scope_link());
-
-                    if (upper_bound_expr.is_constant())
-                    {
-                        bool valid = false;
-                        int cexpr = upper_bound_expr.evaluate_constant_int_expression(valid);
-                        if (valid)
-                        {
-                            upper_bound_src = (Source() << cexpr);
-                        }
-                    }
-                }
-
-                if (parameters[i].is_pointer()
-                        && region.get_dimension_count() > 1)
-                {
-                    // We need a shaped expression if num dims > 1
-                    Source shape_dims;
-
-                    // Note that we start from 1 because we will traverse backwards
-                    for (unsigned int j = 1;
-                            j <= region.get_dimension_count();
-                            j++)
-                    {
-                        // This list is reversed
-                        Region::DimensionSpecifier& dim_spec(region[region.get_dimension_count() - j]);
-
-                        shape_dims
-                            << "[" << dim_spec.get_dimension_length() << "]"
-                            ;
-                    }
-
-                    Source shape_src;
-
-                    shape_src
-                        << "(" << shape_dims << " "
-                        << parameter_decls[i].get_name().prettyprint() 
-                        << ")"
-                        ;
-
-                    clause_args->append_with_separator(
-                            shape_src.get_source() + array_sections.get_source(),
-                            ",");
-                }
-                else
-                {
-                    clause_args->append_with_separator(
-                            parameter_decls[i].get_name().prettyprint() + array_sections.get_source(),
-                            ",");
-                }
-            }
-
-            i++;
-
-            DEBUG_CODE()
-            {
-                // Aesthetical
-                std::cerr << std::endl;
-            }
-        }
+			i++;
+		}
 
         clauses << " untied";
 
@@ -244,13 +276,18 @@ namespace TL
         {
             clauses << " inout(" << inout_clause_args << ")";
         }
+	if (!reduction_clause_args.empty())
+	{
+		clauses << " __shared_reduction(" << reduction_clause_args << ")";
+	}
 
+        Source implements;
         PragmaCustomClause device_clause = construct.get_clause("device");
         if (device_clause.is_defined())
         {
             Source device_list;
             device_line
-                << "#pragma omp target device(" << device_list << ") copy_deps\n"
+                << "#pragma omp target device(" << device_list << ") copy_deps" << implements << "\n"
                 ;
 
             ObjectList<std::string> arg_list = device_clause.get_arguments(ExpressionTokenizerTrim());
@@ -269,6 +306,11 @@ namespace TL
 
         }
 
+        PragmaCustomClause implements_clause = construct.get_clause("implements");
+        if (implements_clause.is_defined())
+        {
+            implements << " implements(" << concat_strings(implements_clause.get_arguments(), ",") << ")";
+        }
 
         AST_t pragma_decl = construct.get_declaration();
 

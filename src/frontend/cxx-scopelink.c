@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include <stdint.h>
 #include <stdio.h>
@@ -50,11 +55,24 @@ typedef struct scope_link_entry_tag
 
 static void null_dtor(const void* v UNUSED_PARAMETER) { }
 
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
 scope_link_t* scope_link_new(decl_context_t global_decl_context)
 {
     scope_link_t* result = counted_calloc(1, sizeof(*result), &_bytes_scopelink);
 
-    result->h = rb_tree_create(integer_comp, null_dtor, null_dtor);
+    result->h = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     result->global_decl_context = global_decl_context;
 
     return result;
@@ -77,11 +95,19 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
     if (a == NULL)
         return;
 
-    scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
 
-    new_entry->decl_context = decl_context;
-
-    rb_tree_add(sl->h, a, new_entry);
+    rb_red_blk_node *node = rb_tree_query(sl->h, a);
+    if (node == NULL)
+    {
+        scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
+        new_entry->decl_context = decl_context;
+        rb_tree_add(sl->h, a, new_entry);
+    }
+    else
+    {
+        scope_link_entry_t* entry = rb_node_get_info(node);
+        entry->decl_context = decl_context;
+    }
 }
 
 void scope_link_unset(scope_link_t* sl, AST a)

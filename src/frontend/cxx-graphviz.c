@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -100,7 +105,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
         {
             char *quoted = quote_protect(ASTText(a));
 
-            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
+            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: \\\"%s\\\"\"]\n", 
                     current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
             free(quoted);
@@ -133,22 +138,23 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
 
             // Now print all extended trees referenced here
             // First get all TL_AST in 'orig' that point to its childrens
-            if (ast_get_extensible_struct(a) != NULL
+
+            extensible_struct_t* extended_data = ast_get_extensible_struct(a);
+
+            if (extended_data != NULL
                     && !is_extended)
             {
-                int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
-                        ast_get_extensible_struct(a));
+                int num_fields = 0;
+                const char** keys = NULL;
+                const void** values = NULL;
+
+                extensible_struct_get_all_data(extended_data, &num_fields, &keys, &values);
 
                 for (i = 0; i < num_fields; i++)
                 {
-                    const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
-                            ast_get_extensible_struct(a), i);
-                    char is_found = 0;
-                    void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
-                            ast_get_extensible_struct(a), field_name, &is_found);
-                    tl_type_t* tl_data = (tl_type_t*)data;
-                    if (data != NULL
-                            && tl_data->kind == TL_AST)
+                    const char* field_name = keys[i];
+                    tl_type_t* tl_data = (tl_type_t*)values[i];
+                    if (tl_data->kind == TL_AST)
                     {
                         if (tl_data->data._ast != a)
                         {
@@ -160,7 +166,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
                                 current_node,
                                 (size_t)(tl_data->data._ast),
                                 field_name);
-
                     }
                 }
             }

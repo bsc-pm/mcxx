@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <string.h>
 #include "extstruct.h"
@@ -35,6 +40,7 @@
 #include "cxx-tltype.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
+#include "cxx-entrylist.h"
 #include "cxx-overload.h"
 
 /*
@@ -43,24 +49,6 @@
  * context-free (i.e. a flaw in our grammar or the standard grammar)
  *
  */
-
-// This function removes types so we force a recomputation, used only in
-// ambiguities not resolved, to avoid hidden messages because of some
-// implicit types
-static void remove_computed_types(AST t)
-{
-    if (t == NULL)
-        return;
-
-    // Remove the computed type
-    expression_set_type(t, NULL);
-
-    int i;
-    for (i = 0; i < ASTNumChildren(t); i++)
-    {
-        remove_computed_types(ASTChild(t, i));
-    }
-}
 
 static char _ambiguity_testing = 0;
 void enter_test_expression(void) 
@@ -813,23 +801,34 @@ static char check_for_kr_parameter_list(AST parameters_kr, decl_context_t decl_c
     AST identifier_list = ASTSon0(parameters_kr);
     AST iter;
 
+    char ok = 1;
+
     for_each_element(identifier_list, iter)
     {
         AST identifier = ASTSon1(iter);
 
         scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ASTText(identifier));
 
-        if (entry_list != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it) && ok;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = entry_list->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->kind == SK_TYPEDEF)
             {
-                return 0;
+                ok = 0;
             }
         }
+
+        entry_list_iterator_free(it);
+        entry_list_free(entry_list);
+
+        if (!ok)
+            break;
     }
 
-    return 1;
+    return ok;
 }
 
 /*
@@ -1011,7 +1010,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        char do_failure = true;
+        char do_failure = 1;
 
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
@@ -1025,7 +1024,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                             AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                             // This will output some informational messages that might
                             // help solving this ambiguity
-                            remove_computed_types(ambiguous_tree_as_expr);
+                            expression_clear_computed_info(ambiguous_tree_as_expr);
                             check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
                         }
                         else
@@ -1161,33 +1160,38 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                 scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
                 // T names a type
-                if (entry_list != NULL 
-                        && (entry_list->entry->kind == SK_TYPEDEF
-                            || entry_list->entry->kind == SK_ENUM
-                            || entry_list->entry->kind == SK_CLASS
-                            || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER))
+                if (entry_list != NULL)
                 {
-                    // A is a simple type specifier
-                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+                    scope_entry_t* entry = entry_list_head(entry_list);
+                    entry_list_free(entry_list);
+
+                    if (entry->kind == SK_TYPEDEF
+                            || entry->kind == SK_ENUM
+                            || entry->kind == SK_CLASS
+                            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
                     {
-                        AST type_id_expr = ASTSon0(type_spec);
-
-                        entry_list = query_id_expression(decl_context, type_id_expr);
-
-                        // A is of class nature
-                        if (entry_list != NULL
-                                && (entry_list->entry->kind == SK_CLASS))
+                        // A is a simple type specifier
+                        if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
                         {
-                            scope_entry_t* entry = entry_list->entry;
-                            
-                            // The related scope of A is the same as the
-                            // current scope
-                            // Should check this is the injected class name
-                            if (entry->entity_specs.is_injected_class_name)
+                            AST type_id_expr = ASTSon0(type_spec);
+
+                            scope_entry_list_t* type_id_list = query_id_expression(decl_context, type_id_expr);
+
+                            if (type_id_list != NULL)
                             {
-                                // In this case, and only in this case, this is
-                                // not a data member declaration
-                                return 0;
+                                scope_entry_t* type_sym = entry_list_head(type_id_list);
+                                entry_list_free(type_id_list);
+
+                                // A is of class nature
+                                // The related scope of A is the same as the
+                                // current scope
+                                if (type_sym->kind == SK_CLASS
+                                        && type_sym->entity_specs.is_injected_class_name)
+                                {
+                                    // In this case, and only in this case, this is
+                                    // not a data member declaration
+                                    return 0;
+                                }
                             }
                         }
                     }
@@ -1387,12 +1391,15 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                 };
 
                 scope_entry_list_t* classes_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+                entry_list_free(result_list);
 
                 if (classes_list == NULL)
                 {
                     // This is not a class name
                     return 0;
                 }
+
+                entry_list_free(classes_list);
 
                 // It looks sane here
                 return 1;
@@ -1427,10 +1434,16 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                 scope_entry_list_t* result = query_in_scope_str(decl_context, class_name);
 
                 if (result == NULL
-                        || (result->entry->kind != SK_CLASS))
+                        || (entry_list_head(result)->kind != SK_CLASS))
                 {
-                    // This is not a class name
-                    return 0;
+                    scope_entry_t* entry = entry_list_head(result);
+                    entry_list_free(result);
+
+                    if (entry->kind != SK_CLASS)
+                    {
+                        // This is not a class name
+                        return 0;
+                    }
                 }
 
                 // It looks sane here
@@ -1715,15 +1728,24 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         return 0;
     }
 
-    scope_entry_t* entry = entry_list->entry;
-    if (entry->kind == SK_TYPEDEF
-            || entry->kind == SK_ENUM
-            || entry->kind == SK_CLASS
-            // We allow this because templates are like types
-            || entry->kind == SK_TEMPLATE
-            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    scope_entry_list_iterator_t* it = NULL;
+
+    char ok = 1;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && ok;
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry->kind != SK_TYPEDEF
+                && entry->kind != SK_ENUM
+                && entry->kind != SK_CLASS
+                // We allow this because templates are like types
+                && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            ok = 0;
+        }
         if (entry->kind == SK_TEMPLATE)
         {
             // Check that the template-name is actually a template class name
@@ -1731,20 +1753,21 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
             type_t* primary = template_type_get_primary_type(entry->type_information);
             if (!is_named_class_type(primary))
             {
-                return 0;
+                ok = 0;
             }
         }
+    }
+    entry_list_iterator_free(it);
 
-        if (computed_type != NULL)
-        {
-            *computed_type = get_user_defined_type(entry);
-        }
-        return 1;
-    }
-    else
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (ok && computed_type != NULL)
     {
-        return 0;
+        *computed_type = get_user_defined_type(entry);
     }
+
+    return ok;
 }
 
 
@@ -2005,6 +2028,14 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return 1;
                 break;
             }
+	case AST_GCC_DECLARATOR :
+	    {
+		    return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+	    }	
+	case AST_GCC_POINTER_DECLARATOR :
+	    {
+		    return check_for_declarator_rec(ASTSon2(declarator), decl_context);
+	    }	
         default :
             {
                 internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(declarator)));
@@ -2389,7 +2420,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                         AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                         // This will output some informational messages that might
                         // help solving this ambiguity
-                        remove_computed_types(ambiguous_tree_as_expr);
+                        expression_clear_computed_info(ambiguous_tree_as_expr);
                         check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
                         break;
                     }
@@ -2675,11 +2706,23 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 AST current_choice = ast_get_ambiguity(ambig_expression, i);
 
                 // How to read this checks
-                //  either(a, b, T1, T2) will return 1 if a == T1 and b == T2
-                //  and -1 if a == T2 and b == T2 so if it returns -1 it means
-                //  that the previous choice is the second kind and the current is
-                //  the first kind, so we will favor the the first one if we say that
-                //  the correct choice is 'i', the current.
+                //
+                //  either_type(a, b, T1, T2) 
+                //     will return  1 if a == T1 and b == T2
+                //     will return -1 if a == T2 and b == T1 s
+                //     will return  0 otherwise
+                //
+                //  So if 
+                //
+                //     either_type(previous_choice, current_choice, A, B)
+                //
+                //  returns -1 it means that the previous choice is a B and the
+                //  current_choice is an A. If it returns 1 it means that the
+                //  previous_choice is an A and current_choice is a B
+                //
+                //  Tests are arranged so we only take action for the -1 case
+                //  since the 1 case is already OK to us (so we go into the if
+                //  but nothing is done)
                 //
                 //  Example:
                 //
@@ -2899,7 +2942,7 @@ static char check_for_function_definition_declarator(AST declarator, decl_contex
             /* previous_is_array */ 0, /* previous_is_function */ 0);
 }
 
-void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
+void solve_condition_ambiguity(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
             "Must be ambiguous node", 0);
@@ -2908,20 +2951,20 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         char current_check = 0;
-        AST current = ast_get_ambiguity(a, i);
-        if (ASTSon0(current) == NULL) // Expression
+        AST current_condition = ast_get_ambiguity(a, i);
+        if (ASTSon0(current_condition) == NULL) // Expression
         {
             enter_test_expression();
-            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            current_check = check_for_expression(ASTSon2(current_condition), decl_context);
             leave_test_expression();
         }
         else
         {
             // Like a declaration
             // type_specifier_seq declarator '=' assignment_expr
-            AST type_specifier_seq = ASTSon0(current);
-            AST declarator = ASTSon1(current);
-            AST expr = ASTSon2(current);
+            AST type_specifier_seq = ASTSon0(current_condition);
+            AST declarator = ASTSon1(current_condition);
+            AST expr = ASTSon2(current_condition);
 
             if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
             {
@@ -2947,7 +2990,7 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
             else
             {
                 AST first_option = ast_get_ambiguity(a, correct_choice);
-                AST second_option = current;
+                AST second_option = current_condition;
                 internal_error("More than one valid choices! '%s' vs '%s' %s", 
                         ast_print_node_type(ASTType(first_option)),
                         ast_print_node_type(ASTType(second_option)),
@@ -2961,11 +3004,14 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
             char current_check = 0;
-            AST current = ast_get_ambiguity(a, i);
-            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
-            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                    ast_location(a), prettyprint_in_buffer(a));
+            AST current_condition = ast_get_ambiguity(a, i);
+            if (ASTSon0(current_condition) == NULL)
+            {
+                current_check = check_for_expression(ASTSon2(current_condition), decl_context);
+            }
         }
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {

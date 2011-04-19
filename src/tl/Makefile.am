@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -42,9 +45,11 @@ BUILT_SOURCES = $(top_builddir)/src/frontend/cxx-asttype.h
 
 COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/frontend/fortran \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/frontend/fortran \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib \
     $(END)
@@ -120,6 +125,12 @@ libtl_la_SOURCES = \
     tl-datareference.cpp \
     tl-clauses-info.hpp \
     tl-clauses-info.cpp \
+    tl-setdto-phase.hpp \
+    tl-setdto-phase.cpp \
+    tl-fortran.hpp \
+    tl-fortran.cpp \
+    tl-simd.hpp \
+    tl-simd.cpp \
 	$(END)
 
 if WINDOWS_BUILD
@@ -135,3 +146,7 @@ libtl_la_LIBADD = \
 	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)
+
+if FORTRAN_SUPPORT
+libtl_la_LIBADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+endif

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -22,11 +25,15 @@
 --------------------------------------------------------------------*/
 
 
+
+
 #include <cstring>
 
 #include "cxx-attrnames.h"
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
+#include "cxx-exprtype.h"
 #include "cxx-utils.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
@@ -42,7 +49,8 @@ namespace TL
 {
     Region SourceBits::handle_superscalar_declarator(AST_t ref_tree, ScopeLink
             scope_link, std::string const &declarator_string, Region::Direction
-            direction, Region::Reduction reduction, Symbol &original_symbol)
+            direction, Region::Reduction reduction, AugmentedSymbol &function_symbol,
+            AugmentedSymbol &original_symbol)
 	{
 		std::string mangled_text = "@SUPERSCALAR_DECLARATOR@ " + declarator_string;
 		char* str = strdup(mangled_text.c_str());
@@ -86,23 +94,42 @@ namespace TL
 		{
 			throw UnknownParameterException();
 		}
-		else if (entry_list->next != NULL)
+		else if (entry_list_size(entry_list) > 1)
 		{
 			throw AmbiguousParameterException();
 		}
 		
 		// Get the original symbol in order to get its type and to enrichen it
-		scope_entry_t* entry = entry_list->entry;
-		original_symbol = Symbol(entry);
+		scope_entry_t* entry = entry_list_head(entry_list);
+		original_symbol = AugmentedSymbol(entry);
+		
+		if (!original_symbol.is_parameter())
+		{
+			throw UnknownParameterException();
+		}
+		
+		Type function_type = function_symbol.get_type();
+		if (!function_type.is_function())
+		{
+			throw InvalidTypeException();
+		}
+		
+		ObjectList<Type> parameter_types = function_type.nonadjusted_parameters();
+		if ((int)parameter_types.size() < original_symbol.get_parameter_position()+1)
+		{
+			throw SyntaxErrorException();
+		}
+		
+		Type nonadjusted_type = parameter_types[original_symbol.get_parameter_position()];
 		
 		// Create a new variable inside the "virtual" scope, with both, the old type and the declarator part
 		type_t* declared_type = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
-		compute_declarator_type(c_declarator_ast, &gather_info, original_symbol.get_type().get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
+		compute_declarator_type(c_declarator_ast, &gather_info, nonadjusted_type.get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
 		
 		// Fix up the type of the variable (merge the two types into a consistant type)
-		Type augmented_type = TypeUtils::fix_type(original_symbol.get_type(), Type(declared_type), scope_link);
+		Type augmented_type = TypeUtils::fix_type(nonadjusted_type, Type(declared_type), scope_link);
 		
 		// Generate the region
 		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, ref_tree, scope_link);
@@ -114,16 +141,35 @@ namespace TL
 		
 		return region;
 	}
-
-#if 0
-    ObjectList<Region> SourceBits::handle_superscalar_declarator_list(AST_t ref_tree, 
-            ScopeLink scope_link, 
-            std::string const &declarator_string, 
-            Region::Direction direction,
-            Region::Reduction reduction, Symbol &original_symbol)
-    {
-		std::string mangled_text = "@SUPERSCALAR_DECLARATOR_LIST@ " + declarator_string;
-		char* str = strdup(mangled_text.c_str());
+	
+	
+	Expression SourceBits::handle_superscalar_expression(AST_t ref_tree, 
+		ScopeLink scope_link,
+		std::string const &expression_string,
+		Region &region)
+	{
+		std::string mangled_text = "@SUPERSCALAR_EXPRESSION@ " + expression_string;
+		
+		// Separate the ".." so that we can parse it properly
+		std::string separated_mangled_text;
+		size_t index=0;
+		while (index != mangled_text.size())
+		{
+			size_t dotdot_pos = mangled_text.find("..", index);
+			if (dotdot_pos == std::string::npos)
+			{
+				separated_mangled_text.append(mangled_text.substr(index));
+				break;
+			}
+			else
+			{
+				separated_mangled_text.append(mangled_text.substr(index, dotdot_pos - index));
+				separated_mangled_text.append(" .. ");
+				index = dotdot_pos + 2;
+			}
+		}
+		
+		char* str = strdup(separated_mangled_text.c_str());
 		CXX_LANGUAGE()
 		{
 			mcxx_prepare_string_for_scanning(str);
@@ -133,98 +179,67 @@ namespace TL
 			mc99_prepare_string_for_scanning(str);
 		}
 		
-		AST superscalar_declarator_ast_list;
+		AST superscalar_expression_ast;
 		int parse_result = 0;
 		CXX_LANGUAGE()
 		{
-			parse_result = mcxxparse(&superscalar_declarator_ast_list);
+			parse_result = mcxxparse(&superscalar_expression_ast);
 		}
 		C_LANGUAGE()
 		{
-			parse_result = mc99parse(&superscalar_declarator_ast_list);
+			parse_result = mc99parse(&superscalar_expression_ast);
 		}
 		if (parse_result != 0)
 		{
 			throw SyntaxErrorException();
 		}
 		
-		decl_context_t decl_context = scope_link_get_decl_context(scope_link.get_internal_scope_link(), 
-                ref_tree.get_internal_ast());
+		decl_context_t decl_context = scope_link_get_decl_context(scope_link.get_internal_scope_link(), ref_tree.get_internal_ast());
 		
-        AST list, iter;
-        list = superscalar_declarator_ast_list;
-
-        ObjectList<Region> result;
-
-        for_each_element(list, iter)
-        {
-            AST superscalar_declarator_ast = ASTSon1(iter);
-            AST c_declarator_ast = ASTSon0(superscalar_declarator_ast);
-
-            scope_link_set(scope_link.get_internal_scope_link(), c_declarator_ast, decl_context);
-
-            // Get the name of the declarator
-            AST declarator_name = get_declarator_name(c_declarator_ast, decl_context);
-            std::string const name = std::string(ASTText(declarator_name));
-            scope_entry_list_t* entry_list = query_nested_name_flags(decl_context, NULL, NULL, declarator_name, DF_NONE);
-
-            if (entry_list == NULL)
-            {
-                throw UnknownParameterException();
-            }
-            else if (entry_list->next != NULL)
-            {
-                throw AmbiguousParameterException();
-            }
-
-            // Get the original symbol in order to get its type and to enrichen it
-            scope_entry_t* entry = entry_list->entry;
-            original_symbol = Symbol(entry);
-
-            // Create a new variable inside the "virtual" scope, with both, the old type and the declarator part
-            type_t* declared_type = NULL;
-            gather_decl_spec_t gather_info;
-            memset(&gather_info, 0, sizeof(gather_info));
-            compute_declarator_type(c_declarator_ast, &gather_info, original_symbol.get_type().get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
-
-            // Fix up the type of the variable (merge the two types into a consistant type)
-            Type augmented_type = TypeUtils::fix_type(original_symbol.get_type(), Type(declared_type), scope_link);
-
-            // Generate the region
-            ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, ref_tree, scope_link);
-            Region region(direction, reduction, array_subscripts, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
-
-            // Set scope link to the outermost node so if we query in this tree
-            // they will be solved in the proper scope
-            scope_link_set(scope_link.get_internal_scope_link(), superscalar_declarator_ast, decl_context);
-
-            result.append(region);
-        }
-
-        return result;
-    }
-#endif
+		AST c_expression_ast = ASTSon0(superscalar_expression_ast);
+		scope_link_set(scope_link.get_internal_scope_link(), c_expression_ast, decl_context);
+		if (!check_for_expression(c_expression_ast, decl_context))
+		{
+			throw SyntaxErrorException();
+		}
+		
+		Expression expression(c_expression_ast, scope_link);
+		
+		bool is_lvalue;
+		Type normalized_type = TypeUtils::normalize_type(expression.get_type(is_lvalue), ref_tree, scope_link);
+		
+		// Generate the region
+		ObjectList<Expression> array_subscripts = get_array_subscript_list(normalized_type, ref_tree, scope_link);
+		region = Region(Region::UNKNOWN_DIR, Region::UNKNOWN_RED, array_subscripts, ASTSon1(superscalar_expression_ast), ref_tree, scope_link);
+		
+		// Set scope link to the outermost node so if we query in this tree
+		// they will be solved in the proper scope
+		scope_link_set(scope_link.get_internal_scope_link(), superscalar_expression_ast, decl_context);
+		
+		return expression;
+	}
+	
 	
 	ObjectList<Expression> SourceBits::get_array_subscript_list(Type type, AST_t ref_tree, ScopeLink scope_link)
 	{
 		ObjectList<Expression> _result;
-
-        if (type.is_reference())
-        {
-            type = type.references_to();
-        }
+		
+		if (type.is_reference())
+		{
+			type = type.references_to();
+		}
 		
 		if (type.is_array())
 		{
 			_result = get_array_subscript_list(type.array_element(), ref_tree, scope_link);
-			if (!type.explicit_array_dimension())
+			if (!type.array_has_size())
 			{
 				throw MissingArrayDimensions();
 			}
 			
 			_result.push_back(
 				Expression(
-					Source(type.array_dimension().prettyprint())
+					Source(type.array_get_size().prettyprint())
 					.parse_expression(ref_tree, scope_link),
 					scope_link
 			    	)

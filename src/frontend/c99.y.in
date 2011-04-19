@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 %{
 /*
    Parser of ISO/IEC 9899:1999 - C
@@ -8,6 +34,7 @@
    Ask for it at <rferrer@ac.upc.edu>
  */
 
+#include "c99-parser.h"
 #include "cxx-ast.h"
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -172,6 +199,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> attributes
 %type<ast> attribute_value
 %type<ast> block_declaration
+%type<ast> non_empty_block_declaration
+%type<ast> common_block_declaration
 %type<ast> builtin_types
 %type<ast> cast_expression
 %type<ast> class_head
@@ -179,6 +208,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> class_specifier
 %type<ast> compound_statement
 %type<ast> condition
+%type<ast> condition_opt
 %type<ast> conditional_expression
 %type<ast> constant_expression
 %type<ast> constant_initializer
@@ -192,8 +222,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
 %type<ast> final_declarator_id
-// %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
+%type<ast> decl_specifier_seq_may_end_with_declarator
 %type<ast> abstract_direct_declarator
 %type<ast> direct_declarator
 %type<ast> functional_direct_declarator
@@ -210,6 +240,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> equality_expression
 %type<ast> exclusive_or_expression
 %type<ast> expression
+%type<ast> expression_opt
 %type<ast> expression_list
 %type<ast> expression_statement
 %type<ast> for_init_statement
@@ -252,6 +283,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> selection_statement
 %type<ast> shift_expression
 %type<ast> simple_declaration
+%type<ast> non_empty_simple_declaration
 %type<ast> simple_type_specifier
 %type<ast> statement
 %type<ast> statement_seq
@@ -262,6 +294,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_name
 %type<ast> type_specifier
 %type<ast> type_specifier_seq
+%type<ast> type_specifier_seq_may_end_with_attribute
 %type<ast> unary_expression
 %type<ast> unqualified_id
 %type<ast> nontype_specifier_seq
@@ -351,7 +384,23 @@ block_declaration : simple_declaration
 {
 	$$ = $1;
 }
-| asm_definition
+| common_block_declaration
+{
+    $$ = $1;
+}
+;
+
+non_empty_block_declaration : non_empty_simple_declaration
+{
+    $$ = $1;
+}
+| common_block_declaration
+{
+    $$ = $1;
+}
+;
+
+common_block_declaration : asm_definition
 {
 	$$ = $1;
 }
@@ -379,8 +428,6 @@ block_declaration : simple_declaration
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_file, $1.token_line, $1.token_text);
 }
-;
-
 ;
 
 /* GNU Extension */
@@ -530,7 +577,18 @@ asm_operand : string_literal '(' expression ')'
 /* End of GNU extensions */
 
 
-simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambiguityHandler>
+simple_declaration : non_empty_simple_declaration
+{
+    $$ = $1;
+}
+| ';'
+{
+    // This is an error but also a common extension
+    $$ = ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+non_empty_simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -541,11 +599,6 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambigui
 | init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| ';'
-{
-	// This is an error but also a common extension
-	$$ = ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -605,6 +658,28 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+decl_specifier_seq_may_end_with_declarator : nontype_specifier_seq type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -787,6 +862,28 @@ type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 }
 ;
 
+type_specifier_seq_may_end_with_attribute : nontype_specifier_seq type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
 simple_type_specifier : type_name
 {
 	$$ = ASTMake1(AST_SIMPLE_TYPE_SPEC, $1, ASTFileName($1), ASTLine($1), NULL);
@@ -959,11 +1056,11 @@ declarator : direct_declarator
 
 ptr_operator : '*'
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '*' cv_qualifier_seq
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1213,17 +1310,17 @@ enumeration_definition : IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
 }
 | IDENTIFIER '=' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
-type_id : type_specifier_seq
+type_id : type_specifier_seq_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1354,7 +1451,7 @@ parameter_declaration : decl_specifier_seq declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq %merge<ambiguityHandler>
+| decl_specifier_seq_may_end_with_declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1715,14 +1812,14 @@ expression_statement : expression ';'
 {
 	$$ = ASTMake1(AST_EXPRESSION_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-// | ';'
-// {
-// 	// Empty statement ...
-// 	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_file, $1.token_line, NULL);
-// }
+| ';'
+{
+	// Empty statement ...
+	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_file, $1.token_line, NULL);
+}
 ;
 
-declaration_statement : block_declaration
+declaration_statement : non_empty_block_declaration
 {
 	$$ = ASTMake1(AST_DECLARATION_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1752,14 +1849,14 @@ statement_seq : statement
 // We can generate anything here
 if_statement : IF '(' condition ')' statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 // Here only if with an else inside
 if_else_statement : IF '(' condition ')' if_else_eligible_statements ELSE statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, $7, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1776,7 +1873,7 @@ if_else_eligible_statements : no_if_statement
 
 selection_statement : SWITCH '(' condition ')' statement
 {
-	$$ = ASTMake2(AST_SWITCH_STATEMENT, $3, $5, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_SWITCH_STATEMENT, $3, $5, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1817,29 +1914,39 @@ iteration_statement : WHILE '(' condition ')' statement
 {
 	$$ = ASTMake2(AST_DO_STATEMENT, $2, $5, $1.token_file, $1.token_line, NULL);
 }
-| FOR '(' for_init_statement ';' ')' statement
+| FOR '(' for_init_statement condition_opt ';' expression_opt ')' statement
 {
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, NULL, NULL, $6, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement condition ';' ')' statement 
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, NULL, $7, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement ';' expression ')' statement
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, NULL, $5, $7, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement condition ';' expression ')' statement
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, $6, $8, $1.token_file, $1.token_line, NULL);
+    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
+
+expression_opt : expression
+{
+    $$ = $1;
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
+condition_opt : condition
+{
+    $$ = $1;
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
 
 for_init_statement : expression_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| simple_declaration %merge<ambiguityHandler>
+| non_empty_simple_declaration %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -1995,12 +2102,6 @@ postfix_expression : primary_expression
 | '(' type_id ')' '{' initializer_list ',' '}'
 {
 	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
-}
-// Mercurium extension (EXPERIMENTAL)
-// (using logical_or_expression avoids some unnecesary conflicts)
-| postfix_expression '[' logical_or_expression ':' logical_or_expression ']'
-{
-    $$ = ASTMake3(AST_ARRAY_SECTION, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifdef HAVE_CONFIG_H
  #include <config.h>
@@ -68,10 +73,21 @@
 #include "cxx-configfile.h"
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
+#include "cxx-nodecl.h"
+#include "cxx-nodecl-output.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 
 #include "filename.h"
+
+#ifdef FORTRAN_SUPPORT
+#include "fortran03-parser.h"
+#include "fortran03-lexer.h"
+#include "fortran03-prettyprint.h"
+#include "fortran03-split.h"
+#include "fortran03-buildscope.h"
+#include "fortran03-nodecl.h"
+#endif
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
@@ -90,6 +106,7 @@
 "  -l <name>                Adds lib<name> into the final link\n" \
 "  -g                       Enables debug for the native compilation\n" \
 "  -D<macro>                Passes <macro> to the preprocessor\n" \
+"  -U<macro>                Undefines <macro> to the preprocessor\n" \
 "  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
 "                           preprocessor and native compiler\n" \
 "  -y                       File will be parsed but it will not be\n" \
@@ -98,7 +115,6 @@
 "  -k, --keep-files         Do not remove intermediate files\n" \
 "  -K, --keep-all-files     Do not remove any generated file, including\n" \
 "                           temporal files\n" \
-"  -a, --check-dates        Checks dates before regenerating files\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used\n" \
@@ -111,11 +127,11 @@
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
-"  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
-"                           Flag list is a sequence of 'p', 'n' or 'l'\n" \
+"                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
 "                              p: preprocessor\n"  \
+"                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
 "  --Wx:<profile>:<flags>,options\n" \
@@ -169,6 +185,32 @@
 "                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
+"  --pp[=on]                Preprocess files\n"\
+"                           This is the default for files ending with\n"\
+"                           C/C++: .c, .cc, .C, .cp, .cpp, .cxx, .c++\n"\
+"                           Fortran: .F, .F77, .F90, .F95\n"\
+"  --pp=off                 Disables preprocessing\n"\
+"                           This is the default for files ending with\n"\
+"                           C/C++: .i, .ii\n"\
+"                           Fortran: .f, .f77, .f90, .f95\n"\
+"  --pp-stdout              Preprocessor uses stdout for output\n" \
+"  --width=<width>          Fortran column width. By default 132\n" \
+"  --free                   Force Fortran free form regardless of\n" \
+"                           extension.\n"\
+"                           This is the default for files ending with\n"\
+"                           .f90, .F90, .f95, .F95, .f03 or .F03\n"\
+"  --fixed                  Force Fortran fixed form regardless of\n" \
+"                           extension\n"\
+"                           This is the default for files ending with\n"\
+"                           .f, .F, .f77, .F77\n"\
+"  --fpp                    An alias for --pp=on\n"\
+"  --sentinels=on|off       Enables or disables empty sentinels\n" \
+"                           Empty sentinels are enabled by default\n" \
+"                           This flag is only meaningful for Fortran\n" \
+"  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
+"  -J <dir>                 Sets <dir> as the output module directory\n" \
+"                           This flag is only meaningful for Fortran\n" \
+"  --nodecl                 Nodecl processing (EXPERIMENTAL)\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -188,11 +230,22 @@
 "  -std=<option>\n" \
 "  -rdynamic\n" \
 "  -export-dynamic\n" \
+"  -w\n" \
 "  -W<option>\n" \
 "  -pthread\n" \
 "  -Xpreprocessor OPTION\n" \
 "  -Xlinker OPTION\n" \
 "  -Xassembler OPTION\n" \
+"  -S\n" \
+"  -dA\n" \
+"  -dD\n" \
+"  -dH\n" \
+"  -dm\n" \
+"  -dp\n" \
+"  -dP\n" \
+"  -dv\n" \
+"  -dx\n" \
+"  -dy\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker. Some of them may disable compilation and linking to be\n" \
@@ -205,8 +258,49 @@
 static char *_alternate_signal_stack;
 #endif
 
+// Options for command line arguments
+typedef enum 
+{
+    OPTION_UNDEFINED = 1024,
+    OPTION_VERSION,
+    OPTION_PREPROCESSOR_NAME,
+    OPTION_NATIVE_COMPILER_NAME,
+    OPTION_LINKER_NAME,
+    OPTION_DEBUG_FLAG,
+    OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
+    OPTION_OUTPUT_DIRECTORY,
+    OPTION_NO_OPENMP,
+    OPTION_EXTERNAL_VAR,
+    OPTION_CONFIG_FILE,
+    OPTION_CONFIG_DIR,
+    OPTION_PROFILE,
+    OPTION_TYPECHECK,
+    OPTION_PREPROCESSOR_USES_STDOUT,
+    OPTION_DISABLE_GXX_TRAITS,
+    OPTION_PASS_THROUGH,
+    OPTION_DISABLE_SIZEOF,
+    OPTION_SET_ENVIRONMENT,
+    OPTION_LIST_ENVIRONMENTS,
+    OPTION_PRINT_CONFIG_FILE,
+    OPTION_PRINT_CONFIG_DIR,
+    OPTION_ENABLE_UPC,
+    OPTION_ENABLE_HLT,
+    OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
+    OPTION_EMPTY_SENTINELS,
+    OPTION_DISABLE_INTRINSICS,
+    OPTION_NODECL,
+    OPTION_VERBOSE
+} COMMAND_LINE_OPTIONS;
+
+
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -250,6 +344,14 @@ struct command_line_long_options command_line_long_options[] =
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
+    {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
+    {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
+    {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
+    {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
+    {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -260,6 +362,7 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_C] = "C",
     [SOURCE_LANGUAGE_CXX] = "C++",
     [SOURCE_LANGUAGE_CUDA] = "CUDA C/C++",
+    [SOURCE_LANGUAGE_FORTRAN] = "Fortran",
     [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
 };
 
@@ -287,6 +390,10 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
+#ifdef FORTRAN_SUPPORT
+static const char *fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename);
+#endif
+
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
 #endif
@@ -302,8 +409,6 @@ static void parse_subcommand_arguments(const char* arguments);
 static void enable_debug_flag(const char* flag);
 
 static void load_compiler_phases(compilation_configuration_t* config);
-
-static void register_default_initializers(void);
 
 static void help_message(void);
 
@@ -328,9 +433,6 @@ int main(int argc, char* argv[])
 
     // Default values
     initialize_default_values();
-
-    // Register default initializers
-    register_default_initializers();
 
     // Load configuration files and the profiles defined there Here we get all
     // the implicit parameters defined in configuration files and we switch to
@@ -408,6 +510,8 @@ static volatile char in_cleanup_routine = 0;
 static void cleanup_routine(void)
 {
     in_cleanup_routine = 1;
+    // Switch to the command_line_configuration so we honour command line flags
+    SET_CURRENT_CONFIGURATION(compilation_process.command_line_configuration);
     temporal_files_cleanup();
     in_cleanup_routine = 0;
 }
@@ -419,6 +523,8 @@ static void driver_initialization(int argc, const char* argv[])
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     // Define alternate stack
+#if !defined (__CYGWIN__)
+    // Cygwin does not have alternate stack
     stack_t alternate_stack;
 
     // Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
@@ -441,6 +547,7 @@ static void driver_initialization(int argc, const char* argv[])
         running_error("Setting alternate signal stack failed (%s)\n",
                 strerror(errno));
     }
+#endif
 
     // Program signals
     struct sigaction terminating_sigaction;
@@ -448,7 +555,10 @@ static void driver_initialization(int argc, const char* argv[])
 
     terminating_sigaction.sa_handler = terminating_signal_handler;
     // Use alternate stack and we want the signal be reset when it happens
-    terminating_sigaction.sa_flags = SA_RESETHAND | SA_ONSTACK;
+    terminating_sigaction.sa_flags = SA_RESETHAND;
+#if !defined(__CYGWIN__)
+    terminating_sigaction.sa_flags |= SA_ONSTACK;
+#endif
     // Block all blockable signals while handling the termination
     sigfillset(&terminating_sigaction.sa_mask);
 
@@ -562,7 +672,9 @@ int parse_arguments(int argc, const char* argv[],
             if (!used_flag
                     && parse_implicits_only)
             {
-                fprintf(stderr, "Warning: Parameter '%s' skipped.\n", argv[parameter_index]);
+                fprintf(stderr, "%s: parameter '%s' ignored\n", 
+                        compilation_process.exec_basename,
+                        argv[parameter_index]);
                 // Advance one parameter if we do not know anything
                 parameter_index++;
             }
@@ -585,8 +697,9 @@ int parse_arguments(int argc, const char* argv[],
 
             if (!from_command_line)
             {
-                fprintf(stderr, "Invalid non-option bound argument '%s'"
+                fprintf(stderr, "%s: invalid non-option bound argument '%s'"
                         " specified in the configuration file\n",
+                        compilation_process.exec_basename,
                         parameter_info.argument);
                 continue;
             }
@@ -599,7 +712,8 @@ int parse_arguments(int argc, const char* argv[],
                 if (extension == NULL 
                         || (fileextensions_lookup(extension, strlen(extension))) == NULL)
         {
-            fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+            fprintf(stderr, "%s: file '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                    compilation_process.exec_basename,
                     parameter_info.argument);
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
             linker_files_seen = 1;
@@ -712,7 +826,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (y_specified || E_specified)
                         {
-                            fprintf(stderr, "Parameter -c cannot be used together with -E or -y\n");
+                            fprintf(stderr, "%s: parameter -c cannot be used together with -E or -y\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -725,7 +840,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (c_specified || y_specified)
                         {
-                            fprintf(stderr, "Parameter -E cannot be used together with -c or -y\n");
+                            fprintf(stderr, "%s: parameter -E cannot be used together with -c or -y\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -740,7 +856,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (c_specified || E_specified)
                         {
-                            fprintf(stderr, "Parameter -y cannot be used together with -c or -E\n");
+                            fprintf(stderr, "%s: parameter -y cannot be used together with -c or -E\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -748,11 +865,6 @@ int parse_arguments(int argc, const char* argv[],
 
                         CURRENT_CONFIGURATION->do_not_compile = 1;
                         CURRENT_CONFIGURATION->do_not_link = 1;
-                        break;
-                    }
-                case 'a' : // --check-dates || -a
-                    {
-                        CURRENT_CONFIGURATION->check_dates = 1;
                         break;
                     }
                 case OPTION_CONFIG_FILE :
@@ -766,7 +878,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (output_file != NULL)
                         {
-                            fprintf(stderr, "Output file specified twice\n");
+                            fprintf(stderr, "%s: output file specified twice\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
                         else
@@ -774,7 +887,8 @@ int parse_arguments(int argc, const char* argv[],
                             if ((num_input_files > 1) 
                                     && c_specified)
                             {
-                                fprintf(stderr, "Cannot specify -o when -c once given more than one file");
+                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file",
+                                        compilation_process.exec_basename);
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
@@ -786,6 +900,25 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-I%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+#ifdef FORTRAN_SUPPORT
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+#endif
+                        break;
+                    }
+                case 'J':
+                    {
+#ifdef FORTRAN_SUPPORT
+                        if (CURRENT_CONFIGURATION->module_out_dir != NULL)
+                        {
+                            fprintf(stderr, "warning: -J flag passed more than once. This will overwrite the first directory\n");
+                        }
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        CURRENT_CONFIGURATION->module_out_dir = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option -J is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 case 'L' :
@@ -809,6 +942,13 @@ int parse_arguments(int argc, const char* argv[],
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
                         break;
                     }
+                case 'U' :
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-U%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        break;
+                    }
                 case 'g' :
                     {
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, "-g");
@@ -826,9 +966,15 @@ int parse_arguments(int argc, const char* argv[],
                             CURRENT_CONFIGURATION->force_language = 1;
                             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
                         }
+                        else if (strcasecmp(parameter_info.argument, "FORTRAN") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_language = 1;
+                            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+                        }
                         else
                         {
-                            fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n");
+                            fprintf(stderr, "%s: invalid language specification in -x, valid options are 'C', 'C++' or 'FORTRAN'. Ignoring\n",
+                                    compilation_process.exec_basename);
                         }
 
                         break;
@@ -878,7 +1024,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (strchr(parameter_info.argument, ':') == NULL)
                         {
-                            fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
+                            fprintf(stderr, "%s: external variable '%s' definition is missing a colon. It will be ignored\n",
+                                    compilation_process.exec_basename,
                                     parameter_info.argument);
                             break;
                         }
@@ -927,7 +1074,8 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DISABLE_SIZEOF:
                     {
                         CURRENT_CONFIGURATION->disable_sizeof = 1;
-                        fprintf(stderr, "Option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n");
+                        fprintf(stderr, "%s: option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n",
+                                compilation_process.exec_basename);
                         break;
                     }
                 case OPTION_SET_ENVIRONMENT:
@@ -966,7 +1114,9 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->enable_upc = 1;
                         if (parameter_info.argument != NULL)
                         {
-                            fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
+                            fprintf(stderr, "%s: UPC static THREADS=%s\n", 
+                                    compilation_process.exec_basename,
+                                    parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
                         break;
@@ -984,6 +1134,86 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_INSTANTIATE_TEMPLATES:
                     {
                         CURRENT_CONFIGURATION->explicit_instantiation = 1;
+                        break;
+                    }
+                case OPTION_ALWAYS_PREPROCESS:
+                    {
+                        if (parameter_info.argument == NULL
+                                || strcmp(parameter_info.argument, "on") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        }
+                        else if (strcmp(parameter_info.argument, "off") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_NOT_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_PREPROCESSED;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Invalid value given for --pp option, valid values are 'on' or 'off'\n");
+                        }
+                        break;
+                    }
+                case OPTION_DISABLE_INTRINSICS:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->disable_intrinsics = 1;
+#else
+                        running_error("Option --width is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_FORTRAN_COLUMN_WIDTH:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->column_width = atoi(parameter_info.argument);
+#else
+                        running_error("Option --width is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_FORTRAN_FIXED:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FIXED_FORM;
+#else
+                        running_error("Option --fixed is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_FORTRAN_FREE:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FREE_FORM;
+#else
+                        running_error("Option --free is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_EMPTY_SENTINELS:
+                    {
+#ifndef FORTRAN_SUPPORT
+                        running_error("Option --sentinels is only valid when Fortran is enabled\n", 0);
+#else
+                        if (strcasecmp(parameter_info.argument, "on") == 0)
+                        {
+                            CURRENT_CONFIGURATION->disable_empty_sentinels = 0;
+                        }
+                        else if (strcasecmp(parameter_info.argument, "off") == 0)
+                        {
+                            CURRENT_CONFIGURATION->disable_empty_sentinels = 1;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Option --sentinels requires a value of 'on' or 'off'. Ignoring\n");
+                        }
+#endif
+                        break;
+                    }
+                case OPTION_NODECL:
+                    {
+                        CURRENT_CONFIGURATION->enable_nodecl = 1;
                         break;
                     }
                 default:
@@ -1006,7 +1236,7 @@ int parse_arguments(int argc, const char* argv[],
             && !native_verbose
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "You must specify an input file\n");
+        fprintf(stderr, "%s: you must specify an input file\n", compilation_process.exec_basename);
         return 1;
     }
 
@@ -1027,7 +1257,7 @@ int parse_arguments(int argc, const char* argv[],
             && !y_specified
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "Specifying stdout by means of '-o -' is only valid with -y or -E\n");
+        fprintf(stderr, "%s: specifying stdout by means of '-o -' is only valid with -y or -E\n", compilation_process.exec_basename);
         return 1;
     }
 
@@ -1037,7 +1267,7 @@ int parse_arguments(int argc, const char* argv[],
             && !CURRENT_CONFIGURATION->do_not_process_files)
                         // Do not process anything
     {
-        fprintf(stderr, "Assuming stdout as default output since -E has been specified\n");
+        fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
         output_file = uniquestr("-");
     }
 
@@ -1046,7 +1276,8 @@ int parse_arguments(int argc, const char* argv[],
             && c_specified
             && (num_input_files > 1))
     {
-        fprintf(stderr, "Cannot specify -o and -c with multiple files (second file '%s')", 
+        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')", 
+                compilation_process.exec_basename,
                 argv[(parameter_index - 1)]);
         return 1;
     }
@@ -1238,6 +1469,53 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 (*should_advance)++;
                 break;
             }
+        case 'd':
+            {
+                if (strcmp(argument, "-dumpspecs") == 0
+                        || strcmp(argument, "-dumpversion") == 0
+                        || strcmp(argument, "-dumpmachine") == 0)
+                {
+                    if (!dry_run)
+                    {
+                        CURRENT_CONFIGURATION->do_not_process_files = 1;
+                        add_parameter_all_toolchain(argument, dry_run);
+                    }
+                    (*should_advance)++;
+                }
+                else if (strlen(argument) == 3 // -dX
+                    && (argument[2] == 'A'
+                        || argument[2] == 'D'
+                        || argument[2] == 'H'
+                        || argument[2] == 'm'
+                        || argument[2] == 'p'
+                        || argument[2] == 'P'
+                        || argument[2] == 'v'
+                        || argument[2] == 'x'
+                        || argument[2] == 'y'))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
+        case 'S' :
+            {
+                if (strlen(argument) == 2) // -S
+                {
+                    // This disables linking
+                    if (!dry_run)
+                    {
+                        CURRENT_CONFIGURATION->generate_assembler = 1;
+                        CURRENT_CONFIGURATION->do_not_link = 1;
+                    }
+                    (*should_advance)++;
+                }
+                break;
+            }
         case 'M' :
             {
                 if ((argument[2] == '\0') // -M
@@ -1379,14 +1657,24 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 if (strcmp(argument, "-pthread") == 0)
                 {
                 }
-                else if (strcmp(argument, "-print-search-dirs") == 0)
+                else if ((strcmp(argument, "-print-search-dirs") == 0)
+                        || (strcmp(argument, "-print-libgcc-file-name") == 0)
+                        || (strcmp(argument, "-print-multi-directory") == 0)
+                        || (strcmp(argument, "-print-multi-lib") == 0)
+                        || (strcmp(argument, "-print-multi-os-directory") == 0)
+                        || (strcmp(argument, "-print-multi-os-directory") == 0)
+                        || (strcmp(argument, "-print-sysroot") == 0)
+                        || (strcmp(argument, "-print-sysroot-headers-suffix") == 0)
+                        )
                 {
                     // Do not process anything
                     if (!dry_run)
                         CURRENT_CONFIGURATION->do_not_process_files = 1;
                 }
-                else if (strprefix(argument, "-print-prog-name"))
+                else if (strprefix(argument, "-print-prog-name")
+                        || strprefix(argument, "-print-file-name"))
                 {
+                    // KLUDGE: -print-prog-name and -print-file-name have the same length
                     const char *p = argument + strlen("-print-prog-name");
 
                     if (*p == '=' 
@@ -1416,6 +1704,19 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'W' :
             {
                 if (strlen(argument) > strlen("-W"))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
+        case 'w':
+            {
+                if (strlen(argument) == strlen("-w"))
                 {
                     add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
@@ -1497,7 +1798,9 @@ static void enable_debug_flag(const char* flags)
         }
         else
         {
-            fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
+            fprintf(stderr, "%s: debug flag '%s' unknown. Ignoring it\n", 
+                    compilation_process.exec_basename,
+                    flag);
         }
     }
 }
@@ -1527,6 +1830,7 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+    char prescanner_flag = 0;
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
 
@@ -1572,7 +1876,8 @@ static void parse_subcommand_arguments(const char* arguments)
 
         if (configuration == NULL)
         {
-            fprintf(stderr, "No compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+            fprintf(stderr, "%s: no compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+                    compilation_process.exec_basename,
                     profile_name, arguments);
             return;
         }
@@ -1595,8 +1900,12 @@ static void parse_subcommand_arguments(const char* arguments)
             case 'l' : 
                 linker_flag = 1;
                 break;
+            case 's':
+                prescanner_flag = 1;
+                break;
             default:
-                fprintf(stderr, "Invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
+                        compilation_process.exec_basename,
                         *p);
                 break;
         }
@@ -1632,6 +1941,12 @@ static void parse_subcommand_arguments(const char* arguments)
         add_to_parameter_list(
                 &configuration->linker_options,
                 parameters, num_parameters);
+#ifdef FORTRAN_SUPPORT
+    if (prescanner_flag)
+        add_to_parameter_list(
+                &configuration->prescanner_options,
+                parameters, num_parameters);
+#endif
 }
 
 static compilation_configuration_t minimal_default_configuration;
@@ -1673,6 +1988,10 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
 
+#ifdef FORTRAN_SUPPORT
+    CURRENT_CONFIGURATION->column_width = 132;
+#endif
+
     // Add openmp as an implicit flag
     struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
 
@@ -1695,15 +2014,10 @@ static void initialize_default_values(void)
             new_parameter_flag);
 }
 
-static void register_default_initializers(void)
-{
-    register_dynamic_initializer(build_scope_dynamic_initializer);
-    register_dynamic_initializer(scope_entry_dynamic_initializer);
-}
-
 static void print_version(void)
 {
     fprintf(stdout, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
+    fprintf(stdout, "Configured with: %s\n", MCXX_CONFIGURE_ARGS);
 }
 
 static void load_configuration_file(const char *filename)
@@ -1752,7 +2066,8 @@ static void load_configuration(void)
         if (errno != ENOENT)
         {
             // Only give an error if it does exist
-            fprintf(stderr, "Could not open configuration directory (%s)\n", 
+            fprintf(stderr, "%s: could not open configuration directory (%s)\n", 
+                    compilation_process.exec_basename,
                     strerror(errno));
         }
     }
@@ -1791,18 +2106,17 @@ static void load_configuration(void)
     
     // Now set the configuration as stated by the basename
     SET_CURRENT_CONFIGURATION(NULL);
-    for (i = 0; i < compilation_process.num_configurations; i++)
-    {
-        SET_CURRENT_CONFIGURATION(get_compilation_configuration(compilation_process.exec_basename));
-    }
+    SET_CURRENT_CONFIGURATION(get_compilation_configuration(compilation_process.exec_basename));
 
     if (CURRENT_CONFIGURATION == NULL)
     {
-        fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
+        fprintf(stderr, "%s: no suitable configuration defined for %s. Setting to C++ built-in configuration\n",
+               compilation_process.exec_basename,
                compilation_process.exec_basename);
         SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
     }
     
+    compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
 
@@ -1830,42 +2144,15 @@ static void commit_configuration(void)
 
             if (config_directive == NULL)
             {
-                fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", configuration_line->name);
+                fprintf(stderr, "%s: configuration directive '%s' skipped since it is unknown\n", 
+                        compilation_process.exec_basename,
+                        configuration_line->name);
                 continue;
             }
 
             // Check the value of flags before processing this configuration line
-            char can_be_committed = 1;
-
-            {
-                // This is an ugly and stupid O(n^2) algorithm
-                int k;
-                // For every flag of this configuration line
-                for (k = 0; can_be_committed && (k < configuration_line->num_flags); k++)
-                {
-                    // Check it against every seen parameter flag
-                    int q;
-                    char found = 0;
-                    for (q = 0; can_be_committed && (q < compilation_process.num_parameter_flags); q++)
-                    {
-                        struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[q];
-
-                        if (strcmp(parameter_flag->name, configuration_line->flags[k].flag) == 0)
-                        {
-                            found = 1;
-                            can_be_committed = can_be_committed && 
-                                (parameter_flag->value == configuration_line->flags[k].value);
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        // If not found, then this is an error, so do not commit
-                        WARNING_MESSAGE("Not found an implicit flag '%s'", configuration_line->flags[k].flag);
-                        can_be_committed = 0;
-                    }
-                }
-            }
+            char can_be_committed = (configuration_line->flag_expr == NULL)
+                || (flag_expr_eval(configuration_line->flag_expr));
 
             if (can_be_committed)
             {
@@ -1894,6 +2181,13 @@ static void finalize_committed_configuration(void)
     {
         config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }
+    else
+    {
+#ifdef FORTRAN_SUPPORT
+        // Disable empty sentinels
+        CURRENT_CONFIGURATION->disable_empty_sentinels = 1;
+#endif
+    }
 
     // UPC support involves some specific pragmae
     if (CURRENT_CONFIGURATION->enable_upc)
@@ -1918,9 +2212,16 @@ static void enable_hlt_phase(void)
 
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
-    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
+	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	cl->func = compiler_phase_loader;
+	cl->data = (void*)uniquestr(library_name);
+    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->phase_loader, 
+            CURRENT_CONFIGURATION->num_compiler_phases,
+			cl);
+
+    /*P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
             CURRENT_CONFIGURATION->num_compiler_phases, 
-            library_name);
+            library_name);*/
 }
 
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
@@ -1932,15 +2233,15 @@ static void register_upc_pragmae(void)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "upc");
     // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
     // Register '#pragma upc relaxed'
-    register_new_directive("upc", "relaxed", /* is_construct */ 0);
+    register_new_directive("upc", "relaxed", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
     // Register '#pragma upc strict'
-    register_new_directive("upc", "strict", /* is_construct */ 0);
+    register_new_directive("upc", "strict", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "distributed");
     // Register the empty directive since the syntax is '#pragma distributed'
-    register_new_directive("distributed", "", /* is_construct */ 0);
+    register_new_directive("distributed", "", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 }
 
 static void compile_every_translation_unit_aux_(int num_translation_units,
@@ -1988,11 +2289,20 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             continue;
         }
 
+#ifndef FORTRAN_SUPPORT
+        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            running_error("%s: sorry: Fortran support not enabled", 
+                    translation_unit->input_filename);
+        }
+#endif
+
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
+                && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
         {
-            fprintf(stderr, "%s was configured for '%s' language but file '%s' looks %s language (it will be compiled anyways)\n",
+            fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
+                    compilation_process.exec_basename,
                     compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,
@@ -2017,7 +2327,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED
+        // If the file is not preprocessed or we've ben told to preprocess it
+        if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
+                    && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_preprocessing;
@@ -2040,14 +2353,46 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
         }
 
+#ifdef FORTRAN_SUPPORT
+        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
+                && !CURRENT_CONFIGURATION->pass_through)
+        {
+            timing_t timing_prescanning;
+            
+            timing_start(&timing_prescanning);
+            parsed_filename = fortran_prescan_file(translation_unit, parsed_filename);
+            timing_end(&timing_prescanning);
+
+            if (parsed_filename != NULL
+                    && CURRENT_CONFIGURATION->verbose)
+            {
+                fprintf(stderr, "File '%s' converted from fixed to free form in %.2f seconds\n",
+                        parsed_filename,
+                        timing_elapsed(&timing_prescanning));
+            }
+
+            if (parsed_filename == NULL)
+            {
+                running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
+                        translation_unit->input_filename);
+            }
+        }
+#endif
+
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
+                    && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
             {
                 // 0. Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
                 mcxxdebug = mc99debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
+#ifdef FORTRAN_SUPPORT
+                mf03_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
+                mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
+#endif
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
@@ -2067,6 +2412,17 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                         running_error("Could not open file '%s'", parsed_filename);
                     }
                 }
+
+#ifdef FORTRAN_SUPPORT
+                FORTRAN_LANGUAGE()
+                {
+                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    {
+                        running_error("Could not open file '%s'", parsed_filename);
+                    }
+                }
+#endif
+
                 // 2. Parse file
                 parse_translation_unit(translation_unit, parsed_filename);
                 // 3. Close file
@@ -2077,6 +2433,28 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
+
+                if (CURRENT_CONFIGURATION->enable_nodecl)
+                {
+                    AST simplified_tree = NULL;
+                    if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        c_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                    }
+#ifdef FORTRAN_SUPPORT
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        fortran_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                    }
+#endif
+                    else
+                    {
+                        internal_error("Invalid language", 0);
+                    }
+
+                    ast_dump_graphviz(simplified_tree, stdout);
+                }
 
                 // 6. TL::run and TL::phase_cleanup
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
@@ -2105,7 +2483,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
 
             const char* prettyprinted_filename = NULL;
-            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
                 prettyprinted_filename
                     = prettyprint_translation_unit(translation_unit, parsed_filename);
@@ -2130,14 +2508,14 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
-            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
+                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
             }
             else
             {
                 // Do not parse
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
+                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
         }
 
@@ -2220,6 +2598,13 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
         parse_result = mc99parse(&parsed_tree);
     }
 
+#ifdef FORTRAN_SUPPORT
+    FORTRAN_LANGUAGE()
+    {
+        parse_result = mf03parse(&parsed_tree);
+    }
+#endif
+
     if (parse_result != 0)
     {
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
@@ -2251,7 +2636,21 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 {
     // This one is implemented in cxx-buildscope.c
     translation_unit->parsed_tree = get_translation_unit_node();
-    initialize_translation_unit_scope(translation_unit);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        c_initialize_translation_unit_scope(translation_unit);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        fortran_initialize_translation_unit_scope(translation_unit);
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language", 0);
+    }
 }
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
@@ -2259,7 +2658,22 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
-    build_scope_translation_unit(translation_unit);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        build_scope_translation_unit(translation_unit);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        build_scope_fortran_translation_unit(translation_unit);
+    }
+#endif
+    else
+    {
+        internal_error("%s: invalid language kind\n", 
+                parsed_filename);
+    }
     timing_end(&timing_semantic);
 
     if (CURRENT_CONFIGURATION->verbose)
@@ -2305,6 +2719,24 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         const char* preffix = strappend(compilation_process.exec_basename, "_");
 
         const char* output_filename_basename = NULL; 
+
+#ifdef FORTRAN_SUPPORT
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Change the extension to be .f95 always
+            const char * ext = strrchr(input_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(input_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
+            c[ext - input_filename_basename + 1] = '\0';
+
+            input_filename_basename = strappend(c, ".f95");
+        }
+#endif
+
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 
@@ -2337,7 +2769,38 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
 
     // This will be used by a native compiler
     prettyprint_set_not_internal_output();
-    prettyprint(prettyprint_file, translation_unit->parsed_tree);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        prettyprint(prettyprint_file, translation_unit->parsed_tree);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        if (CURRENT_CONFIGURATION->column_width != 0)
+        {
+            temporal_file_t raw_prettyprint = new_temporal_file();
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
+            fortran_prettyprint(raw_prettyprint_file, translation_unit->parsed_tree);
+            rewind(raw_prettyprint_file);
+
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fclose(raw_prettyprint_file);
+        }
+        else
+        {
+            fortran_prettyprint(prettyprint_file, translation_unit->parsed_tree);
+        }
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language kind", 0);
+    }
 
     timing_end(&time_print);
     if (CURRENT_CONFIGURATION->verbose)
@@ -2530,25 +2993,36 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     {
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCXX");
     }
+#ifdef FORTRAN_SUPPORT
+    FORTRAN_LANGUAGE()
+    {
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MF03");
+    }
+#endif
     add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM");
 
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION->preprocessor_options);
 
     char uses_stdout = CURRENT_CONFIGURATION->preprocessor_uses_stdout;
 
-    int num_parameters;
+    int num_parameters = num_arguments;
 
     if (!uses_stdout)
     {
-        num_parameters = num_arguments + 3 + 1;
+        // input -o output
+        num_parameters += 3;
     }
     else
     {
-        // '-o' 'file' are not passed
-        num_parameters = num_arguments + 1 + 1;
+        // input
+        num_parameters += 1;
     }
 
-    const char** preprocessor_options = calloc(num_parameters, sizeof(char*));
+    // NULL
+    num_parameters += 1;
+
+    const char* preprocessor_options[num_parameters];
+    memset(preprocessor_options, 0, sizeof(preprocessor_options));
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -2620,6 +3094,63 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     }
 }
 
+#ifdef FORTRAN_SUPPORT
+static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename)
+{
+    temporal_file_t prescanned_file = new_temporal_file();
+    const char* prescanned_filename = prescanned_file->name;
+
+    int prescanner_args = count_null_ended_array((void**)CURRENT_CONFIGURATION->prescanner_options);
+
+    int num_arguments = prescanner_args;
+    // -q input -o output
+    num_arguments += 5;
+    // NULL
+    num_arguments += 1;
+
+    const char* mf03_prescanner = "mf03-prescanner";
+    int full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    char full_path[full_path_length];
+    memset(full_path, 0, sizeof(full_path));
+
+    snprintf(full_path, sizeof(full_path), "%s/%s", 
+            compilation_process.home_directory,
+            mf03_prescanner);
+    full_path[full_path_length-1] = '\0';
+
+    const char* prescanner_options[num_arguments];
+    memset(prescanner_options, 0, sizeof(prescanner_options));
+
+    int i;
+    for (i = 0; i < prescanner_args; i++)
+    {
+        prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
+    }
+
+    prescanner_options[i] = uniquestr("-l");
+    i++;
+    prescanner_options[i] = uniquestr("-q");
+    i++;
+    prescanner_options[i] = uniquestr("-o");
+    i++;
+    prescanner_options[i] = prescanned_filename;
+    i++;
+    prescanner_options[i] = parsed_filename;
+
+    int result_prescan = execute_program(full_path, prescanner_options);
+    if (result_prescan == 0)
+    {
+        return prescanned_filename;
+    }
+    else
+    {
+        fprintf(stderr, "Conversion from fixed to free form failed. Returned code %d\n",
+                result_prescan);
+        return NULL;
+    }
+}
+#endif
+
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, 
         char remove_input)
@@ -2646,7 +3177,14 @@ static void native_compilation(translation_unit_t* translation_unit,
             *p = '\0';
         }
 
-        output_object_filename = strappend(temp, ".o");
+        if (!CURRENT_CONFIGURATION->generate_assembler)
+        {
+            output_object_filename = strappend(temp, ".o");
+        }
+        else
+        {
+            output_object_filename = strappend(temp, ".s");
+        }
 
         translation_unit->output_filename = output_object_filename;
     }
@@ -2657,7 +3195,14 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION->native_compiler_options);
 
-    const char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
+    int num_arguments = num_args_compiler;
+    // -c -o output input
+    num_arguments += 4;
+    // NULL
+    num_arguments += 1;
+
+    const char* native_compilation_args[num_arguments];
+    memset(native_compilation_args, 0, sizeof(native_compilation_args));
 
     int i;
     for (i = 0; i < num_args_compiler; i++)
@@ -2665,7 +3210,14 @@ static void native_compilation(translation_unit_t* translation_unit,
         native_compilation_args[i] = CURRENT_CONFIGURATION->native_compiler_options[i];
     }
 
-    native_compilation_args[i] = uniquestr("-c");
+    if (!CURRENT_CONFIGURATION->generate_assembler)
+    {
+        native_compilation_args[i] = uniquestr("-c");
+    }
+    else
+    {
+        native_compilation_args[i] = uniquestr("-S");
+    }
     i++;
     native_compilation_args[i] = uniquestr("-o");
     i++;
@@ -2851,13 +3403,19 @@ static void embed_files(void)
 }
 
 static void link_files(const char** file_list, int num_files,
+        const char** additional_files, int num_additional_files,
         compilation_configuration_t* compilation_configuration)
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
-    const char** linker_args = calloc(num_args_linker
-            + compilation_process.num_translation_units + 2 + 1, 
-            sizeof(*linker_args));
+    int num_arguments = num_args_linker + num_files + num_additional_files;
+    // -o output
+    num_arguments += 2;
+    // NULL
+    num_arguments += 1;
+
+    const char* linker_args[num_arguments];
+    memset(linker_args, 0, sizeof(linker_args));
 
     int i = 0;
     int j = 0;
@@ -2867,6 +3425,12 @@ static void link_files(const char** file_list, int num_files,
         linker_args[i] = uniquestr("-o");
         i++;
         linker_args[i] = compilation_configuration->linked_output_filename;
+        i++;
+    }
+
+    for (j = 0; j < num_additional_files; j++)
+    {
+        linker_args[i] = additional_files[j];
         i++;
     }
 
@@ -3005,6 +3569,7 @@ static void do_combining(target_options_map_t* target_map,
 }
 
 static void extract_files_and_sublink(const char** file_list, int num_files,
+        const char*** additional_files, int *num_additional_files,
         compilation_configuration_t* target_configuration)
 {
     multifile_init_dir();
@@ -3061,7 +3626,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             int j;
             for (j = 0; j < multifile_num_files; j++)
             {
-                add_to_parameter_list_str(&target_configuration->linker_options, 
+                P_LIST_ADD((*additional_files), (*num_additional_files), 
                         multifile_file_list[j]);
             }
         }
@@ -3082,12 +3647,15 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             configuration->linked_output_filename =
                 strappend(configuration->configuration_name, linked_output_suffix);
 
-            link_files(multifile_file_list, multifile_num_files, configuration);
+            link_files(multifile_file_list, multifile_num_files, 
+                    /* additional files */ NULL, /* num_additional_files */ 0,
+                    configuration);
 
             do_combining(target_map, configuration);
 
             // Now add the linked output as an additional link file
-            add_to_parameter_list_str(&target_configuration->linker_options, 
+            P_LIST_ADD((*additional_files), 
+                    (*num_additional_files), 
                     configuration->linked_output_filename);
         }
     }
@@ -3119,9 +3687,15 @@ static void link_objects(void)
         }
     }
 
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    int num_additional_files = 0;
+    const char** additional_files = NULL;
+    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+            &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
-    link_files(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    link_files(file_list, compilation_process.num_translation_units, 
+            additional_files, 
+            num_additional_files, 
+            CURRENT_CONFIGURATION);
 }
 
 
@@ -3129,6 +3703,9 @@ static void link_objects(void)
 static void terminating_signal_handler(int sig)
 {
     fprintf(stderr, "Signal handler called (signal=%s). Exiting.\n", strsignal(sig));
+
+    // Switch to the command_line_configuration so we honour command line flags
+    SET_CURRENT_CONFIGURATION(compilation_process.command_line_configuration);
 
     if (CURRENT_CONFIGURATION != NULL
             && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
@@ -3151,7 +3728,21 @@ static char check_tree(AST a)
         fprintf(stderr, "============================\n");
         fprintf(stderr, "  Ambiguities not resolved\n");
         fprintf(stderr, "============================\n");
-        prettyprint(stderr, ambiguous_node);
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            prettyprint(stderr, ambiguous_node);
+        }
+#ifdef FORTRAN_SUPPORT
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            fortran_prettyprint(stderr, ambiguous_node);
+        }
+#endif
+        else
+        {
+            internal_error("Invalid language kind", 0);
+        }
         fprintf(stderr, "\n============================\n");
         fprintf(stderr, " at %s\n", ast_location(ambiguous_node));
         fprintf(stderr, "============================\n");
@@ -3233,7 +3824,7 @@ void _enable_debug(void)
 }
 
 
-#ifndef WIN32_BUILD
+#ifdef HAVE_MALLINFO
 static char* power_suffixes[9] = 
 {
     "",
@@ -3366,6 +3957,7 @@ static void print_memory_report(void)
         fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
         fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
         fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
+        fprintf(stderr, "    - Number of reused function types: %d\n", get_function_type_reused());
         fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());
         fprintf(stderr, "    - Number of pointer types: %d\n", get_pointer_type_counter());
         fprintf(stderr, "    - Number of pointer to member types: %d\n", get_pointer_to_member_type_counter());
@@ -3398,10 +3990,6 @@ static void print_memory_report(void)
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
     fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += hash_used_memory();
-    print_human(c, hash_used_memory());
-    fprintf(stderr, " - Memory usage due to hash tables: %s\n", c);
 
     accounted_memory += typeunif_used_memory();
     print_human(c, typeunif_used_memory());

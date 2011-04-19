@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -85,11 +88,11 @@ libtlsuperscalar_transform_directives_la_SOURCES += \
 endif
 if USE_TL_SUPERSCALAR_V4
 libtlsuperscalar_transform_directives_la_SOURCES += \
-	tl-transform-directives-v3.cpp
+	tl-transform-directives-v4.cpp
 endif
 if USE_TL_SUPERSCALAR_V5
 libtlsuperscalar_transform_directives_la_SOURCES += \
-	tl-transform-directives-v3.cpp
+	tl-transform-directives-v4.cpp
 endif
 
 libtlsuperscalar_code_conversion_la_SOURCES = 
@@ -146,6 +149,7 @@ noinst_HEADERS = \
 	tl-function-router.hpp \
 	tl-transform-directives.hpp \
 	tl-transform-directives-v3.hpp \
+	tl-transform-directives-v4.hpp \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
 	tl-code-conversion-v5.hpp \

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include <stdio.h>
 #include <string.h>
 #include "cxx-typeunif.h"
@@ -34,6 +39,7 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-prettyprint.h"
 #include "cxx-instantiation.h"
+#include "cxx-entrylist.h"
 
 unsigned long long int _bytes_typeunif = 0;
 
@@ -436,16 +442,17 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             }
 
             scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2), /* include_dependent */ 0);
-            scope_entry_list_t* it = all_bases;
 
-            while (it != NULL)
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(all_bases);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
-                scope_entry_t* entry = it->entry;
-
+                scope_entry_t* entry = entry_list_iterator_current(it);
                 unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line, flags);
-
-                it = it->next;
             }
+            entry_list_iterator_free(it);
+            entry_list_free(all_bases);
 
             DEBUG_CODE()
             {
@@ -909,13 +916,16 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                         || result_right == NULL)
                     return 0;
 
-                if (result_left->entry->kind != SK_DEPENDENT_ENTITY
-                        || result_right->entry->kind != SK_DEPENDENT_ENTITY)
+                if (entry_list_head(result_left)->kind != SK_DEPENDENT_ENTITY
+                        || entry_list_head(result_right)->kind != SK_DEPENDENT_ENTITY)
                     return 0;
 
                 // Both are dependent entities now, compare their dependent types
-                type_t* dependent_type_left = result_left->entry->type_information;
-                type_t* dependent_type_right = result_right->entry->type_information;
+                type_t* dependent_type_left = entry_list_head(result_left)->type_information;
+                type_t* dependent_type_right = entry_list_head(result_right)->type_information;
+
+                entry_list_free(result_left);
+                entry_list_free(result_right);
 
                 return equivalent_types(dependent_type_left, dependent_type_right);
                 break;
@@ -1070,7 +1080,12 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                         return 0;
                     }
 
-                    return (left_result_list->entry == right_result_list->entry);
+                    char result = (entry_list_head(left_result_list) == entry_list_head(right_result_list));
+
+                    entry_list_free(left_result_list);
+                    entry_list_free(right_result_list);
+
+                    return result;
                 }
             }
         case AST_GXX_TYPE_TRAITS:
@@ -1139,16 +1154,19 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     {
         fprintf(stderr, "TYPEUNIF: Unifying with an unresolved overloaded type. Unfolding it\n");
     }
-    scope_entry_list_t* it = unresolved_overloaded_type_get_overload_set(t2);
+    scope_entry_list_t* overloaded_set = unresolved_overloaded_type_get_overload_set(t2);
 
     template_argument_list_t* explicit_template_arguments 
         = unresolved_overloaded_type_get_explicit_template_arguments(t2);
 
     char is_template = 0;
 
-    while (it != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(overloaded_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         type_t* function_type = NULL;
 
@@ -1190,7 +1208,6 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
             else
             {
                 // Ignore this one
-                it = it->next;
                 continue;
             }
         }
@@ -1218,9 +1235,9 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
 
         // Now perform deduction
         unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line, flags);
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
+    entry_list_free(overloaded_set);
 
     DEBUG_CODE()
     {

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_CEXPR_H
 #define CXX_CEXPR_H
@@ -76,6 +81,7 @@ BINOP_DECL(gt, >)
 BINOP_DECL(gte, >)
 BINOP_DECL(eq, ==)
 BINOP_DECL(neq, !=)
+BINOP_DECL(pow, **)
 
 #define UNOP_DECL(_opname, _unop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1);

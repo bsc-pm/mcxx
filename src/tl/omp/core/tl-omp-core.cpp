@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-core.hpp"
 #include "tl-langconstruct.hpp"
@@ -87,6 +92,14 @@ namespace TL
 
         void Core::run(TL::DTO& dto)
         {
+#ifdef FORTRAN_SUPPORT
+            FORTRAN_LANGUAGE()
+            {
+                // Not yet implemented
+                return;
+            }
+#endif
+
             // "openmp_info" should exist
             if (!dto.get_keys().contains("openmp_info"))
             {
@@ -97,15 +110,18 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
-                TL::Bool should_run(dto["openmp_core_should_run"]);
-                if (!should_run)
-                {
+                RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+                if (!(*should_run))
                     return;
-                }
 
                 // Make this phase a one shot by default
-                should_run = false;
+                *should_run = false;
             }
+
+			if (dto.get_keys().contains("show_warnings"))
+			{
+				dto.set_value("show_warnings", RefPtr<Integer>(new Integer(1)));
+			}
 
             // Reset any data computed so far
             _openmp_info->reset();
@@ -147,9 +163,19 @@ namespace TL
                     on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
                     on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
+#define OMP_CONSTRUCT_NOEND(_directive, _name) \
+                { \
+                    if (!_already_registered) \
+                    { \
+                      register_construct(_directive, true); \
+                    } \
+                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
+                }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_NOEND
             _already_registered = true;
         }
 
@@ -168,14 +194,25 @@ namespace TL
                 {
                     DataReference data_ref(*it);
 
-                    if (!data_ref.is_valid()
+                    std::string warning;
+                    if (!data_ref.is_valid(warning)
                             || (!allow_extended_references && !it->is_id_expression()))
                     {
+                        std::cerr << warning;
                         std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
                             << "' is not a valid name for data sharing" << std::endl;
                     }
                     else
                     {
+                        Symbol base_sym = data_ref.get_base_symbol();
+
+                        if (base_sym.is_member()
+                                && !base_sym.is_static())
+                        {
+                            std::cerr << data_ref.get_ast().get_locus() << ": ignoring: '" << data_ref 
+                                << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                        }
+
                         data_ref_list.append(data_ref);
                     }
                 }
@@ -354,6 +391,8 @@ namespace TL
                                     }
                                 }
 
+                                udr2.set_builtin_operator(reductor_name);
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -375,7 +414,7 @@ namespace TL
                             {
                                 ReductionSymbol red_sym(var_sym, udr2);
                                 sym_list.append(red_sym);
-                                if (!udr2.is_builtin_operator())
+                                if (!udr2.is_builtin_operator() && construct.get_show_warnings())
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
@@ -595,6 +634,12 @@ namespace TL
                     /* Allow extended references */ true);
             std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_reduction_references;
+            get_clause_symbols(construct.get_clause("__fp_reduction"), fp_reduction_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
@@ -656,6 +701,12 @@ namespace TL
 
                 if (!sym.is_valid()
                         || !sym.is_variable())
+                    continue;
+
+                // We should ignore these ones lest they slipped in because
+                // being named in an unqualified manner
+                if (sym.is_member()
+                        && !sym.is_static())
                     continue;
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
@@ -882,6 +933,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
+
         void Core::parallel_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -889,18 +941,19 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             if (construct.get_clause("collapse").is_defined())
             {
                 // This function _modifies_ construct to reflect the new reality!
                 collapse_loop_first(construct);
             }
 
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
-
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
         }
+
         void Core::parallel_for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -919,7 +972,9 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
+            get_dependences_info(construct, data_sharing);
         }
+
         void Core::for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -931,6 +986,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
         }
+
         void Core::single_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -995,10 +1051,10 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             get_data_explicit_attributes(construct, data_sharing);
-            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
             get_dependences_info(construct, data_sharing);
 
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             // Target info applies after
@@ -1048,7 +1104,7 @@ namespace TL
         }
 
 #define EMPTY_HANDLERS(_name) \
-        void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
+        void Core::_name##_handler_pre(PragmaCustomConstruct ctr) { ctr.init_clause_info(); } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
         EMPTY_HANDLERS(section)
@@ -1058,12 +1114,16 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+#ifdef FORTRAN_SUPPORT
+        EMPTY_HANDLERS(parallel_do)
+        EMPTY_HANDLERS(do)
+#endif
 
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
-            TL::Bool openmp_core_should_run = dto["openmp_core_should_run"];
-            openmp_core_should_run = true;
+            RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+            *openmp_core_should_run = true;
         }
 
     }

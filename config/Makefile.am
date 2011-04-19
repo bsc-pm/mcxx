@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -35,6 +38,8 @@ CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
        config.cuda \
+       config.gpu \
+       config.ocl \
        config.omp \
        config.sscc \
        config.plain \
@@ -56,8 +61,10 @@ CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 # Replacements are defined in this file
 include ./Makefile.replace
 
+BUILT_SOURCES=$(CONFIG_MCXX) $(CONFIG_FILES)
+
 # This is valid in parallel make since we are generating one goal file at a time
-$(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
+config.% : config.%.in Makefile
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install

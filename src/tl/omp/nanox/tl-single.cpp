@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 
 namespace TL { namespace Nanox {
@@ -29,6 +33,40 @@ namespace TL { namespace Nanox {
     {
         Source transform_code;
 
+        Source final_barrier;
+
+        transform_code
+            << "{"
+            << get_single_guard("single_guard")
+            << "if (err != NANOS_OK) nanos_handle_error(err);"
+
+            << "if (single_guard)"
+            << "{"
+            <<     ctr.get_statement()
+            << "}"
+
+            // Final barrier of the whole team
+            << final_barrier
+            << "}"
+            ;
+
+        if (!ctr.get_clause("nowait").is_defined())
+        {
+            final_barrier
+                << get_barrier_code(ctr.get_ast())
+                ;
+        }
+
+
+        AST_t transform_tree 
+            = transform_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+
+        ctr.get_ast().replace(transform_tree);
+    }
+
+    Source OMPTransform::get_single_guard(const std::string& str)
+    {
+        Source single_guard;
         Source bool_type;
         C_LANGUAGE()
         {
@@ -39,28 +77,25 @@ namespace TL { namespace Nanox {
             bool_type << "bool";
         }
 
-        transform_code
-            << "{"
+        single_guard
             << bool_type << " single_guard;"
-            << "nanos_err_t err = nanos_single_guard(&single_guard);"
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-
-            << "if (single_guard)"
-            << "{"
-            <<     ctr.get_statement()
-            << "}"
-
-            // Final barrier of the whole team
-            << "err = nanos_team_barrier();"
-
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
-            << "}"
             ;
 
-        AST_t transform_tree 
-            = transform_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+        if (Nanos::Version::interface_is_at_least("openmp", 1))
+        {
+            single_guard
+                << "nanos_err_t err = nanos_omp_single(&" << str << ");"
+                ;
+        }
+        else
+        {
+            // Old routine, deprecated
+            single_guard
+                << "nanos_err_t err = nanos_single_guard(&" << str << ");"
+                ;
+        }
 
-        ctr.get_ast().replace(transform_tree);
+        return single_guard;
     }
 
 }}

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 #constants
 readonly bets_version=0.9
@@ -123,7 +123,7 @@ compile_c ()
    local version=$1
    local source=$2
    local exec=$3
-   local pwd=$(pwd)
+   local srcdir=$4
 
    local cc
    local cflags
@@ -151,10 +151,10 @@ compile_c ()
      ldflags="$tmp $ldflags"
    fi
 
-   cd $tmpdir
-   logcmd $cc $cflags $ldflags -o $exec $pwd/$source 
+   pushd $tmpdir
+   logcmd $cc $cflags $ldflags -o $exec $srcdir/$source 
    local ret=$?
-   cd $pwd
+   popd
 
    return $ret
 }
@@ -164,7 +164,7 @@ compile_cpp ()
    local version=$1
    local source=$2
    local exec=$3
-   local pwd=$(pwd)
+   local srcdir=$4
 
    local cxx
    local cxxflags
@@ -192,10 +192,10 @@ compile_cpp ()
      ldflags="$tmp $ldflags"
    fi
 
-   cd $tmpdir
-   logcmd $cxx $cxxflags $ldflags -o $exec $pwd/$source 
+   pushd $tmpdir
+   logcmd $cxx $cxxflags $ldflags -o $exec $srcdir/$source 
    local ret=$?
-   cd $pwd
+   popd
 
    return $ret
 }
@@ -311,7 +311,19 @@ run_gen_test ()
 {
    local source=$1
    local type=$2
+   local compressed=$3
    local name=$(basename ${source%.*})
+   local srcdir=$(pwd)
+
+   if [ "$compressed" = compressed ];
+   then
+       local uncompressed_name=${source%.*}
+       log "***Uncompressing file '$source' to '$tmpdir/$uncompressed_name'"
+       bzip2 -c -d $source > $tmpdir/$uncompressed_name
+       source=${uncompressed_name}
+       name=$(basename ${uncompressed_name%.*})
+       srcdir=$tmpdir
+   fi
 
    debug "Starting $name test"
 
@@ -325,13 +337,13 @@ run_gen_test ()
    clean_exec_vars
 
    # get file options
-   local start=$(grep -n "<testinfo>" $source | cut -d: -f1)
+   local start=$(grep -n "<testinfo>" $srcdir/$source | cut -d: -f1)
    let start=start+1
-   local end=$(grep -n "</testinfo>" $source | cut -d: -f1)
+   local end=$(grep -n "</testinfo>" $srcdir/$source | cut -d: -f1)
    let end=end-1
 
    if [ $end -gt 1 ]; then
-     sed -e "${start},${end}p" -n $source > $tmpfile
+     sed -e "${start},${end}p" -n $srcdir/$source > $tmpfile
      source $tmpfile >> $logfile
    fi
 
@@ -410,7 +422,7 @@ run_gen_test ()
         test_fail=${test_fail:-$test_compile_fail}
         eval test_faulty=\${test_compile_faulty_$v}
         test_faulty=${test_faulty:-$test_compile_faulty}
-        passfail "$name-$v" compile_$type $v $source $name  
+        passfail "$name-$v" compile_$type $v $source $name $srcdir
         local ok=$?
 
         if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
@@ -441,18 +453,29 @@ run_gen_test ()
         clean_exec_version_vars $v $e
      done
    done
+
+   if [ "$compressed" = compressed ];
+   then
+       log "***Removing uncompressed file $uncompressed_name"
+       rm -f $tmpdir/$uncompressed_name
+   fi
 }
 
 run_file()
 {
    local file=$1
-   local ext=${file##*.}
-   case $ext in 
-     c)
-       run_gen_test $file c
+   case $file in 
+     *.c)
+       run_gen_test $file c 
        ;;
-    cpp|cu) 
-       run_gen_test $file cpp
+    *.c.bz2)
+       run_gen_test $file c compressed
+       ;;
+    *.cpp|*.cu) 
+       run_gen_test $file cpp 
+       ;;
+    *.cpp.bz2)
+       run_gen_test $file cpp compressed
        ;;
    esac
 }

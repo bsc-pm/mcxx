@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,11 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-scope.hpp"
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
-#include "hash_iterator.h"
+#include "cxx-entrylist.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
 
@@ -38,12 +43,15 @@ namespace TL
 
     void Scope::convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out)
     {
-        while (entry_list != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            Symbol s(entry_list->entry);
+            Symbol s(entry_list_iterator_current(it));
             out.push_back(s);
-            entry_list = entry_list->next;
         }
+        entry_list_iterator_free(it);
     }
 
     void Scope::get_head(const ObjectList<Symbol>& in, Symbol& out)
@@ -71,6 +79,8 @@ namespace TL
 
         convert_to_vector(entry_list, result);
 
+        entry_list_free(entry_list);
+
         return result;
     }
 
@@ -97,6 +107,8 @@ namespace TL
         scope_entry_list_t* entry_list = query_id_expression_flags(_decl_context, _ast, flags);
 
         convert_to_vector(entry_list, result);
+
+        entry_list_free(entry_list);
 
         return result;
     }
@@ -156,11 +168,13 @@ namespace TL
         walk_scope_data_t* walk_data = (walk_scope_data_t*)(data);
 
         scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
-        scope_entry_list_t* it = entry_list;
+        scope_entry_list_iterator_t* it = NULL;
 
-        while (it != NULL)
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = it->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             // Well, do_not_print is what we use to hide symbols :)
             if (!entry->do_not_print
@@ -169,9 +183,8 @@ namespace TL
                 Symbol sym(entry);
                 walk_data->result.append(sym);
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     ObjectList<Symbol> Scope::get_all_symbols(bool include_hidden)
@@ -193,7 +206,7 @@ namespace TL
 
             if (sym_res_list != NULL)
             {
-                sym_res = sym_res_list->entry;
+                sym_res = entry_list_head(sym_res_list);
                 return Symbol(sym_res);
             }
         }
@@ -215,6 +228,8 @@ namespace TL
         scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), filename.c_str(), line);
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
+
         return result;
     }
 
@@ -254,20 +269,22 @@ namespace TL
         scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
 
         ObjectList<Symbol> result;
-        while (entry_list != NULL)
-        {
-            result.append(entry_list->entry);
-            entry_list = entry_list->next;
-        }
+        convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
 
         delete[] argument_list;
 
         return result;
     }
 
-	AST_t Scope::wrap_symbol_name(const std::string& str)
+    AST_t Scope::wrap_symbol_name(const std::string& str)
     {
-		AST a = ASTLeaf(AST_SYMBOL, 0, NULL, str.c_str());
-		return a;
+        AST a = ASTLeaf(AST_SYMBOL, NULL, 0, str.c_str());
+        return a;
+    }
+
+    Symbol Scope::get_related_symbol() const
+    {
+        return _decl_context.current_scope->related_entry;
     }
 }

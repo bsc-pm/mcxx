@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 
 #ifndef TL_TYPE_UTILS_HPP
@@ -66,7 +71,7 @@ namespace TL
 				{
 					Type subtype = type.array_element();
 					subtype = remove_inner_pointer_rec(subtype, filter, scope_link);
-					type = subtype.get_array_to(type.array_dimension(), scope_link.get_scope(type.array_dimension()));
+					type = subtype.get_array_to(type.array_get_size(), scope_link.get_scope(type.array_get_size()));
 					return type;
 				}
 				else
@@ -114,11 +119,11 @@ namespace TL
 				if (type.is_array())
 				{
 					result = get_array_dimensions(type.array_element(), scope_link);
-					if (!type.explicit_array_dimension())
+					if (!type.array_has_size())
 					{
 						throw NotFoundException();
 					}
-					result.push_back(Expression(type.array_dimension(), scope_link));
+					result.push_back(Expression(type.array_get_size(), scope_link));
 				}
 				return result;
 			}
@@ -234,6 +239,23 @@ namespace TL
 				
 				// FIXME: bug Rofi about adding this functionality to the type or to the symbol class
 				return (ast.prettyprint(false).find("extern") != std::string::npos);
+			}
+			
+			static Type normalize_type(Type type, AST_t ref_ast, ScopeLink scope_link)
+			{
+				if (type.is_pointer())
+				{
+					Source maximum_source;
+					maximum_source
+						<< "~0UL";
+					AST_t maximum_ast = maximum_source.parse_expression(ref_ast, scope_link);
+					
+					return type.points_to().get_array_to(maximum_ast, scope_link.get_scope(ref_ast));
+				}
+				else
+				{
+					return type;
+				}
 			}
 			
 	};

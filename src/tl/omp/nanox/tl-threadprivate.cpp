@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,13 +24,13 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "tl-omp-nanox.hpp"
 #include "tl-nanos-threadprivate.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
-
-extern "C" { void _enable_debug(void); }
 
 void OMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_directive)
 {
@@ -64,8 +67,6 @@ void OMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_d
                 << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
         }
     }
-
-    _enable_debug();
 
     // For every symbol in the clause
     ObjectList<Symbol> sym_list = threadprivate_references.map(functor(&IdExpression::get_symbol));

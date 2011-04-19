@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_OBJECT_HPP
 #define TL_OBJECT_HPP
@@ -81,24 +86,6 @@
 
 namespace TL
 {
-    class LIBTL_CLASS Schema
-    {
-        private:
-            extensible_schema_t *_schema;
-
-            Schema(const Schema&) { }
-        public:
-            Schema(extensible_schema_t* schema)
-                : _schema(schema)
-            {
-            }
-
-            void add_attribute(const std::string &str)
-            {
-                extensible_schema_add_field_if_needed(_schema, str.c_str(), sizeof(tl_type_t));
-            }
-    };
-
     //! Base class for objects that wrap compiler structures.
     /*!
      * This class is used for all classes that wrap internal compiler structures.
@@ -249,13 +236,11 @@ namespace TL
 
     //! Function used by TL::Objects that have an extensible struct
     LIBTL_EXTERN tl_type_t* default_get_extended_attribute(
-            extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string& name);
     
     //! Function used by TL::Objects that have an extensible struct
     LIBTL_EXTERN bool default_set_extended_attribute(
-            extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string &str, const tl_type_t &data);
 }

@@ -1,16 +1,11 @@
-/*
-<testinfo>
-test_generator=config/mercurium-omp
-
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
-</testinfo>
-*/
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -29,6 +24,18 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+
+test_compile_fail_nanox_plain=yes
+test_compile_faulty_nanox_plain=yes
+test_compile_fail_nanox_instrument=yes
+test_compile_faulty_nanox_instrument=yes
+</testinfo>
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -39,7 +46,11 @@ int main(int argc, char* argv[])
     int i;
     int s = 0;
 
-#pragma omp parallel shared(s)
+#ifdef NANOX
+    #pragma omp shared(s)
+#else
+    #pragma omp parallel shared(s)
+#endif
     {
 #pragma omp for reduction(+:s)
         for (i = 0; i < NUM_ELEMS; i++)

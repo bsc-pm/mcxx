@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_COMPILERPHASES
 #define CXX_COMPILERPHASES
@@ -44,6 +49,9 @@ LIBMCXXTL_EXTERN void start_compiler_phase_pre_execution(compilation_configurati
 LIBMCXXTL_EXTERN void start_compiler_phase_execution(compilation_configuration_t* config, translation_unit_t* translation_unit);
 LIBMCXXTL_EXTERN void phases_help(compilation_configuration_t* config);
 LIBMCXXTL_EXTERN void unload_compiler_phases(void);
+
+LIBMCXXTL_EXTERN void compiler_set_dto(compilation_configuration_t* config, const char* data);
+LIBMCXXTL_EXTERN void compiler_phase_loader(compilation_configuration_t* config, const char* data);
 
 #ifdef __cplusplus
 }

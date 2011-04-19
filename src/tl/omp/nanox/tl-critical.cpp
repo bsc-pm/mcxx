@@ -1,25 +1,30 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
-  Centro Nacional de Supercomputacion
-
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
   This file is part of Mercurium C/C++ source-to-source compiler.
-
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
-
+  
   Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
   details.
-
+  
   You should have received a copy of the GNU Lesser General Public
   License along with Mercurium C/C++ source-to-source compiler; if
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
-  --------------------------------------------------------------------*/
+--------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-nanox.hpp"
 
@@ -61,9 +66,19 @@ void OMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
         Source global_lock_decl;
 
         // We need to make it weak
-        global_lock_decl
-            << "__attribute__((weak)) nanos_lock_t " << lock_name << " = " << initializer << ";"
-            ;
+        C_LANGUAGE()
+        {
+            global_lock_decl
+                << "__attribute__((weak)) nanos_lock_t " << lock_name << " = " << initializer << ";"
+                ;
+        }
+        CXX_LANGUAGE()
+        {
+            // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
+            global_lock_decl
+                << "__attribute__((weak)) nanos_lock_t " << lock_name << ";"
+                ;
+        }
 
         AST_t tree = global_lock_decl.parse_global(critical_construct.get_ast(), 
                 critical_construct.get_scope_link());

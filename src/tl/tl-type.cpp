@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-type.hpp"
 #include "tl-ast.hpp"
@@ -84,12 +89,40 @@ namespace TL
         return result_type;
     }
 
+    Type Type::get_vector_to(unsigned int vector_size)
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_vector_type(work_type, vector_size);
+
+        return result_type;
+    }
+
+    Type Type::get_generic_vector_to()
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_generic_vector_type(work_type);
+
+        return result_type;
+    }
+
     Type Type::get_array_to(AST_t array_expr, Scope sc)
     {
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
         type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
+
+        return Type(array_to);
+    }
+
+    Type Type::get_array_to(AST_t lower_bound, AST_t upper_bound, Scope sc)
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t decl_context = sc.get_decl_context();
+        type_t* array_to = get_array_type_bounds(result_type, lower_bound._ast, upper_bound._ast, decl_context);
 
         return Type(array_to);
     }
@@ -112,6 +145,37 @@ namespace TL
         type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
 
         return Type(array_to);
+    }
+
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    {
+        int i;
+        parameter_info_t *parameters_list;
+        int num_parameters = type_list.size();
+   
+        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+
+        for (i=0; i<num_parameters; i++)
+        {
+            parameters_list[i].is_ellipsis = 0;
+            parameters_list[i].type_info = type_list[i]._type_info;
+            parameters_list[i].nonadjusted_type_info = NULL;
+        }
+
+        if(has_ellipsis)
+        {
+            num_parameters++;
+            parameters_list[i].is_ellipsis = 1;
+            parameters_list[i].type_info = NULL;
+            parameters_list[i].nonadjusted_type_info = NULL;
+        }
+
+        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+    }
+
+    bool Type::is_error_type() const
+    {
+        return ::is_error_type(_type_info);
     }
 
     bool Type::operator==(Type t) const
@@ -143,6 +207,21 @@ namespace TL
     bool Type::is_array() const
     {
         return (is_array_type(_type_info));
+    }
+
+    bool Type::is_vector() const
+    {
+        return (is_vector_type(_type_info));
+    }
+
+    bool Type::is_generic_vector() const
+    {
+        return (is_generic_vector_type(_type_info));
+    }
+
+    Type Type::vector_element() const
+    {
+        return vector_type_get_element_type(_type_info);
     }
 
     bool Type::is_reference() const
@@ -304,7 +383,17 @@ namespace TL
         return (is_unnamed_class_type(_type_info));
     }
 
-    bool Type::explicit_array_dimension() const
+    bool Type::explicit_array_dimension() const 
+    {
+        return array_has_size();
+    }
+
+    AST_t Type::array_dimension() const
+    {
+        return array_get_size();
+    }
+
+    bool Type::array_has_size() const
     {
         if (is_array())
         {
@@ -314,15 +403,26 @@ namespace TL
         return false;
     }
 
-    AST_t Type::array_dimension() const
+    AST_t Type::array_get_size() const
     {
         AST expression = array_type_get_array_size_expr(_type_info);
         return expression;
     }
 
+    void Type::array_get_bounds(AST_t& lower, AST_t& upper)
+    {
+        lower = AST_t(array_type_get_array_lower_bound(_type_info));
+        upper = AST_t(array_type_get_array_upper_bound(_type_info));
+    }
+
     Type Type::get_int_type(void)
     {
         return Type(::get_signed_int_type());
+    }
+
+    Type Type::get_char_type(void)
+    {
+        return Type(::get_char_type());
     }
 
     Type Type::get_void_type(void)
@@ -639,6 +739,10 @@ namespace TL
         {
             return this->references_to().basic_type();
         }
+        else if (this->is_vector())
+        {
+            return this->vector_element().basic_type();
+        }
         else
         {
             return *this;
@@ -662,7 +766,17 @@ namespace TL
 
     unsigned int Type::get_size() 
     {
-        return (unsigned int)type_get_size(_type_info);
+        unsigned int result;
+
+        if (is_generic_vector_type(_type_info))
+        {
+            result = this->basic_type().get_size(); 
+        }
+        else
+        {
+            result = (unsigned int) type_get_size(_type_info);
+        }
+        return result;
     }
 
     Type Type::advance_over_typedefs()
@@ -684,12 +798,8 @@ namespace TL
 
         scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, 0);
         scope_entry_list_t* it = all_bases;
-        while (it != NULL)
-        {
-            scope_entry_t* entry = it->entry;
-            base_symbol_list.append(Symbol(entry));
-            it = it->next;
-        }
+
+        Scope::convert_to_vector(it, base_symbol_list);
 
         return base_symbol_list;
     }
@@ -709,11 +819,7 @@ namespace TL
         ObjectList<Symbol> result;
         scope_entry_list_t* entry_list = ::unresolved_overloaded_type_get_overload_set(_type_info);
 
-        while (entry_list != NULL)
-        {
-            result.append(Symbol(entry_list->entry));
-            entry_list = entry_list->next;
-        }
+        Scope::convert_to_vector(entry_list, result);
 
         return result;
     }

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,9 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
+#include "tl-nanos.hpp"
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
 
@@ -159,11 +165,34 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
             ;
     }
 
+    Source alignment;
+    if (Nanos::Version::interface_is_at_least("master", 5004))
+    {
+        alignment <<  "__alignof__(" << struct_arg_type_name << "),"
+            ;
+    }
+
     // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
     Source num_copies, copy_data, imm_copy_data;
     num_copies << "0";
     copy_data << "(nanos_copy_data_t**)0";
     imm_copy_data << "(nanos_copy_data_t*)0";
+
+    Source xlate_arg;
+
+    if (Nanos::Version::interface_is_at_least("master", 5005))
+    {
+        C_LANGUAGE()
+        {
+            xlate_arg << ", (void*)0"
+                ;
+        }
+        CXX_LANGUAGE()
+        {
+            xlate_arg << ", 0"
+                ;
+        }
+    }
 
     result
         << "{"
@@ -187,11 +216,12 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   "{"
         //   We have to create a wd tied to a thread
         <<      struct_arg_type_name << " *ol_args = 0;"
-        <<      "props.tie_to = &_nanos_threads[_i];"
+        <<      "props.tie_to = _nanos_threads[_i];"
         <<      "nanos_wd_t wd = 0;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
         <<                    device_descriptor << ", "
         <<                    struct_size << ","
+        <<                    alignment
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
         <<                    "&props, " << num_copies << "," << copy_data << ");"
@@ -203,13 +233,17 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   "props.tie_to = &_nanos_threads[0];"
         <<   immediate_decl
         <<   fill_immediate_arguments
-        <<   "nanos_create_wd_and_run(" << num_devices << ", "
+        <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
-        <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
+        <<                              struct_size << ", " 
+        <<                              alignment
+        <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props, " << num_copies << "," << imm_copy_data << ");"
-        <<   "nanos_end_team(_nanos_team);"
+        <<                              "&props, " << num_copies << "," << imm_copy_data << xlate_arg << ");"
+        <<   "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<   "err = nanos_end_team(_nanos_team);"
+        <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
         ;
 

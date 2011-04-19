@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,11 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_SCOPE_H
 #define CXX_SCOPE_H
 
 #include "libmcxx-common.h"
-#include "hash.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-type-decls.h"
@@ -47,32 +51,32 @@ LIBMCXX_EXTERN decl_context_t new_template_context(decl_context_t enclosing_decl
 LIBMCXX_EXTERN decl_context_t decl_context_empty();
 
 // Functions to handle scopes
-LIBMCXX_EXTERN struct scope_entry_tag* new_symbol(decl_context_t decl_context, 
+LIBMCXX_EXTERN scope_entry_t* new_symbol(decl_context_t decl_context, 
         struct scope_tag* st, const char* name);
-LIBMCXX_EXTERN void remove_entry(struct scope_tag* st, struct scope_entry_tag* entry);
-LIBMCXX_EXTERN void insert_entry(struct scope_tag* st, struct scope_entry_tag* entry);
-LIBMCXX_EXTERN void insert_alias(struct scope_tag* st, struct scope_entry_tag* entry, const char* alias_name);
+LIBMCXX_EXTERN void remove_entry(struct scope_tag* st, scope_entry_t* entry);
+LIBMCXX_EXTERN void insert_entry(struct scope_tag* st, scope_entry_t* entry);
+LIBMCXX_EXTERN void insert_alias(struct scope_tag* st, scope_entry_t* entry, const char* alias_name);
 
 // Given a list of symbols, purge all those that are not of symbol_kind kind
-LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_kind(struct scope_entry_list_tag* entry_list, enum cxx_symbol_kind symbol_kind);
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
 // Similar but can be used to filter based on a kind set
-LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_kind_set(struct scope_entry_list_tag* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
 // Opposite filtering
-LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_non_kind(struct scope_entry_list_tag* entry_list, enum cxx_symbol_kind symbol_kind);
-LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_non_kind_set(struct scope_entry_list_tag* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
-LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_using_predicate(struct scope_entry_list_tag* entry_list, char (*f)(struct scope_entry_tag*));
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*));
 
 // Query functions
-LIBMCXX_EXTERN struct scope_entry_list_tag* query_unqualified_name_str_flags(decl_context_t decl_context,
+LIBMCXX_EXTERN scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
         const char* unqualified_name, decl_flags_t decl_flags);
 #define query_unqualified_name_str(_decl_context, _unqualified_name) \
     query_unqualified_name_str_flags(_decl_context, _unqualified_name, DF_NONE)
 
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
-LIBMCXX_EXTERN struct scope_entry_list_tag* query_nested_name_flags(decl_context_t decl_context, 
+LIBMCXX_EXTERN scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
         struct AST_tag* global_op, 
         struct AST_tag* nested_name, 
         struct AST_tag* unqualified_name,
@@ -81,39 +85,35 @@ LIBMCXX_EXTERN struct scope_entry_list_tag* query_nested_name_flags(decl_context
     query_nested_name_flags(_decl_context, _global_op, _nested_name, _unqualified_name, DF_NONE)
 
 // Only in the current scope
-LIBMCXX_EXTERN struct scope_entry_list_tag* query_in_scope_str_flags(decl_context_t decl_context,
+LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
         const char *name, decl_flags_t decl_flags);
 #define query_in_scope_str(_decl_context, _name) \
     query_in_scope_str_flags(_decl_context, _name, DF_NONE)
 
-LIBMCXX_EXTERN struct scope_entry_list_tag* query_in_scope_flags(decl_context_t decl_context,
+LIBMCXX_EXTERN scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
         struct AST_tag* unqualified_name, decl_flags_t decl_flags);
 #define query_in_scope(_decl_context, _unqualified_name) \
     query_in_scope_flags(_decl_context, _unqualified_name, DF_NONE)
 
 // Convenience function
-LIBMCXX_EXTERN struct scope_entry_list_tag* query_id_expression_flags(decl_context_t decl_context, struct AST_tag* id_expression, decl_flags_t decl_flags);
+LIBMCXX_EXTERN scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context, struct AST_tag* id_expression, decl_flags_t decl_flags);
 #define query_id_expression(_decl_context, _id_expression) \
     query_id_expression_flags(_decl_context, _id_expression, DF_NONE)
-
-// Manipulators
-LIBMCXX_EXTERN struct scope_entry_list_tag* create_list_from_entry(struct scope_entry_tag* entry);
-LIBMCXX_EXTERN struct scope_entry_list_tag *copy_entry_list(scope_entry_list_t* orig);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct
         scope_entry_tag* entry, decl_context_t decl_context, char*
         is_dependent, int* max_qualif_level);
 
-LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(struct scope_entry_tag* entry,
+LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int*
         max_qualif_level);
 
 // A simpler version of get_fully_qualified_symbol_name
-LIBMCXX_EXTERN const char* get_qualified_symbol_name(struct scope_entry_tag* entry, decl_context_t decl_context);
+LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Class scopes
-LIBMCXX_EXTERN struct scope_entry_list_tag* class_context_lookup(decl_context_t decl_context, const char* name);
+LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, const char* name);
 
 // LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
 //         struct AST_tag* template_id,
@@ -145,10 +145,6 @@ LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, c
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 
-LIBMCXX_EXTERN void scope_entry_dynamic_initializer(void);
-
-LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
-
 // Templates 
 LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym);
 LIBMCXX_EXTERN char is_template_parameter_name(AST a);
@@ -162,8 +158,8 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
 
-LIBMCXX_EXTERN scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, 
-        scope_entry_list_t* list_2);
+// Internal use only
+LIBMCXX_EXTERN scope_t* _new_scope(void);
 
 MCXX_END_DECLS
 

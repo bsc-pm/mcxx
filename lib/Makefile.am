@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -35,10 +38,10 @@ endif
 tpp_SOURCES = tpp.c
 
 tpp$(EXEEXT): tpp.o
-	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ 
+	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS) 
 
 tpp.o : tpp.c
-	$(CCHOST_verbose)$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
+	$(CCHOST_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 #end of tpp
 
@@ -55,20 +58,6 @@ END=
 
 libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
 libmcxx_utils_la_SOURCES = \
-                          iterator.c \
-                          iterator.h \
-                          list.c \
-                          list.h \
-                          list_iterator.c \
-                          list_iterator.h \
-                          mem_ctl.h \
-                          mem_ctl.c \
-                          s_types.h \
-                          hash.c \
-                          hash.h \
-                          hash_iterator.h \
-                          hash_iterator.c \
-                          stack.h \
 						  mcxx_refcount.c \
 						  mcxx_refcount.h \
 						  uniquestr.h \
@@ -93,3 +82,6 @@ libmcxx_extstruct_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_extstruct_la_LIBADD=libmcxx-utils.la
 
 dist-hook: tpp$(EXEEXT)
+
+noinst_LIBRARIES = libperish.a
+libperish_a_SOURCES=perish.c
