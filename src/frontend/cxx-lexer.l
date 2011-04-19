@@ -65,7 +65,6 @@ struct lexer_keyword_tag
 
 /*!if CPLUSPLUS*/
 /* g++ 4.3 extensions */
-
 static lexer_keyword_t gxx_43_keywords[] =
 {
     { "__has_nothrow_assign", GXX_HAS_NOTHROW_ASSIGN },
@@ -112,6 +111,17 @@ static lexer_keyword_t upc_keywords[] =
     { NULL, 0 }
 };
 /*!endif*/
+
+static lexer_keyword_t cuda_keywords[] =
+{
+    {"__device__" , CUDA_DEVICE},
+    {"__global__", CUDA_GLOBAL},
+    {"__host__", CUDA_HOST},
+    {"__constant__", CUDA_CONSTANT},
+    {"__shared__", CUDA_SHARED},
+    // Sentinel
+    { NULL, 0 }
+};
 
 static int yywrap(void);
 
@@ -1011,9 +1021,6 @@ type {
 
  /*!if C99*/
  /* UPC Extensions */
- /* "MYTHREAD" | */
- /* "THREADS" | */
- /* "UPC_MAX_BLOCKSIZE" | */
 "relaxed" |
 "shared" |
 "strict" |
@@ -1028,6 +1035,15 @@ type {
     return lookup_keyword_in_table(upc_keywords, yytext, CURRENT_CONFIGURATION->enable_upc);
 }
  /*!endif */
+
+ /* CUDA keywords */
+"__device__" |
+"__global__" |
+"__host__" |
+"__constant__" |
+"__shared__" {
+    return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
+}
 
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }
