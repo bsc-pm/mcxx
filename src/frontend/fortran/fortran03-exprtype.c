@@ -241,7 +241,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     }
 }
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, type_t* rhs_type);
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
 
 static void common_binary_check(AST expr, decl_context_t decl_context);
 static void common_unary_check(AST expr, decl_context_t decl_context);
@@ -1644,7 +1644,7 @@ static char* binary_expression_attr[] =
     [AST_CONCAT_OP] = LANG_IS_CONCAT_OP,
 };
 
-static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type);
+static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
 static void common_binary_check(AST expr, decl_context_t decl_context)
 {
     AST lhs = ASTSon0(expr);
@@ -1657,7 +1657,7 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
 
     RETURN_IF_ERROR_2(lhs_type, rhs_type, expr);
 
-    common_binary_intrinsic_check(expr, lhs_type, rhs_type);
+    common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type);
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
@@ -1665,12 +1665,12 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
-static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type)
+static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, lhs_type, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type));
 }
 
-static void common_unary_intrinsic_check(AST expr, type_t* rhs_type);
+static void common_unary_intrinsic_check(AST expr, decl_context_t, type_t* rhs_type);
 
 static char* unary_expression_attr[] =
 {
@@ -1688,16 +1688,16 @@ static void common_unary_check(AST expr, decl_context_t decl_context)
 
     RETURN_IF_ERROR_1(rhs_type, expr);
 
-    common_unary_intrinsic_check(expr, rhs_type);
+    common_unary_intrinsic_check(expr, decl_context, rhs_type);
 
     ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
 }
 
-static void common_unary_intrinsic_check(AST expr, type_t* rhs_type)
+static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, NULL, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type));
 }
 
 static void check_string_literal(AST expr, decl_context_t decl_context)
@@ -2313,10 +2313,12 @@ typedef struct operand_map_tag
     int num_operands;
 
     void (*compute_const)(AST expr, AST lhs, AST rhs);
+
+    const char* op_symbol_name;
 } operand_map_t;
 
-#define HANDLER_MAP(_node_op, _operands, _compute_const) \
-{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const }
+#define HANDLER_MAP(_node_op, _operands, _compute_const, _operator_symbol_name) \
+{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const, _operator_symbol_name }
 
 static void const_unary_plus(AST expr, AST lhs, AST rhs);
 static void const_unary_neg(AST expr, AST lhs, AST rhs);
@@ -2338,31 +2340,31 @@ static void const_bin_or(AST expr, AST lhs, AST rhs);
 static operand_map_t operand_map[] =
 {
     // Arithmetic unary
-    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus),
-    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg),
+    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus, ".operator.+"),
+    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg, ".operator.-"),
     // Arithmetic binary
-    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add),
-    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub),
-    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult),
-    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div),
-    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power),
+    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add, ".operator.+"),
+    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub, ".operator.-"),
+    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult, ".operator.*"),
+    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div, ".operator./"),
+    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power, ".operator.**"),
     // String concat
-    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL),
+    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL, ".operator.//"),
     // Relational strong
-    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal),
-    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal),
+    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal, ".operator.=="),
+    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal, ".operator./="),
     // Relational weak
-    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt),
-    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte),
-    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt),
-    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte),
+    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt, ".operator.<"),
+    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte, ".operator.<="),
+    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>"),
+    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>="),
     // Unary logical
-    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not),
+    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not, ".operator..not."),
     // Binary logical
-    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal),
-    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal),
-    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and),
-    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or),
+    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv."),
+    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv."),
+    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and, ".operator..and."),
+    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or, ".operator..or."),
 };
 static char operand_map_init = 0;
 
@@ -2385,7 +2387,7 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type);
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, type_t* rhs_type)
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
 {
     // Remove pointer, which is actually only used for data refs
     if (is_pointer_type(lhs_type))
@@ -2439,17 +2441,80 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
 
     if (result == NULL)
     {
-        if (lhs_type != NULL)
+        result = get_error_type();
+        // Now try with a user defined operator
+        scope_entry_t* call_sym = query_name_with_locus(decl_context, expr, value->op_symbol_name);
+
+        // Perform a resolution by means of a call check
+        if (call_sym != NULL)
         {
-            if (!checking_ambiguity())
+#define CREATE_NAMED_PAIR(x) \
+            ASTMake2(AST_NAMED_PAIR_SPEC, NULL, ast_copy(x), ast_get_filename(x), ast_get_line(x), NULL)
+
+            int num_actual_arguments = 0;
+            AST actual_arguments[2] = { NULL, NULL };
+            type_t* argument_types[2] = { NULL, NULL };
+            if (lhs_type == NULL)
             {
-                fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
-                        ast_location(expr),
-                        fortran_print_type_str(lhs_type),
-                        fortran_print_type_str(rhs_type),
-                        get_operator_for_expr(expr));
+                num_actual_arguments = 1;
+                actual_arguments[0] = CREATE_NAMED_PAIR(ASTSon0(expr));
+                argument_types[0] = expression_get_type(ASTSon0(expr));
             }
-            return get_error_type();
+            else
+            {
+                num_actual_arguments = 2;
+                actual_arguments[0] = CREATE_NAMED_PAIR(ASTSon0(expr));
+                argument_types[0] = expression_get_type(ASTSon0(expr));
+
+                actual_arguments[1] = CREATE_NAMED_PAIR(ASTSon1(expr));
+                argument_types[1] = expression_get_type(ASTSon1(expr));
+            }
+
+            AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(expr), ast_get_line(expr), get_operator_for_expr(expr));
+
+            scope_entry_t* called_symbol = NULL;
+            check_called_symbol(call_sym, 
+                    decl_context, 
+                    expr, 
+                    operator_designation,
+                    num_actual_arguments,
+                    actual_arguments,
+                    argument_types,
+                    /* is_call_stmt */ 0,
+                    // out
+                    &result,
+                    &called_symbol);
+
+            ast_free(operator_designation);
+            ast_free(actual_arguments[0]);
+            ast_free(actual_arguments[1]);
+        }
+
+        if (is_error_type(result))
+        {
+            if (lhs_type != NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
+                            ast_location(expr),
+                            fortran_print_type_str(lhs_type),
+                            fortran_print_type_str(rhs_type),
+                            get_operator_for_expr(expr));
+                }
+                return get_error_type();
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid operand types %s for intrinsic unary operator '%s'\n",
+                            ast_location(expr),
+                            fortran_print_type_str(rhs_type),
+                            get_operator_for_expr(expr));
+                }
+                return get_error_type();
+            }
         }
     }
 

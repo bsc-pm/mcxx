@@ -3147,13 +3147,19 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->entity_specs.related_symbols = related_symbols;
-        generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
+
+        int i;
+        for (i = 0; i < num_related_symbols; i++)
+        {
+            P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
+                    generic_spec_sym->entity_specs.num_related_symbols,
+                    related_symbols[i]);
+        }
 
         scope_entry_t* current_symbol = decl_context.current_scope->related_entry;
         if (current_symbol != NULL)
         {
-            P_LIST_ADD(current_symbol->entity_specs.related_symbols, 
+            P_LIST_ADD_ONCE(current_symbol->entity_specs.related_symbols, 
                     current_symbol->entity_specs.num_related_symbols,
                     generic_spec_sym);
         }
