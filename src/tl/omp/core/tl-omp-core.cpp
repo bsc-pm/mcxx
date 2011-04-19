@@ -1104,7 +1104,7 @@ namespace TL
         }
 
 #define EMPTY_HANDLERS(_name) \
-        void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
+        void Core::_name##_handler_pre(PragmaCustomConstruct ctr) { ctr.init_clause_info(); } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
         EMPTY_HANDLERS(section)

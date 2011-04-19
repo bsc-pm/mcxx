@@ -293,6 +293,17 @@ namespace TL
 
         return result;
     }
+    
+    void PragmaCustomConstruct::init_clause_info() const
+    {
+        RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
+        if (!clauses_info->directive_already_defined(this->get_ast()))
+        {
+            clauses_info->set_all_clauses(this->get_ast(), this->get_clause_names());
+            clauses_info->set_locus_info(this->get_ast());
+            clauses_info->set_pragma(*this);   
+        }
+    }
 
     PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name) const
     {
@@ -301,17 +312,11 @@ namespace TL
         if (_dto!=NULL)
         {
 		    RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
-		    if (clauses_info->directive_already_defined(this->get_ast()))
+		    if (!clauses_info->directive_already_defined(this->get_ast()))
 		    {
-		        clauses_info->add_referenced_clause(this->get_ast(), name);
-		    }
-		    else
-		    {
-		        clauses_info->set_all_clauses(this->get_ast(), this->get_clause_names());
-		        clauses_info->add_referenced_clause(this->get_ast(), name);
-		        clauses_info->set_locus_info(this->get_ast());
-		        clauses_info->set_pragma(*this);
-		    }
+                init_clause_info();
+            }
+		    clauses_info->add_referenced_clause(this->get_ast(), name);
         }
 
         return result;

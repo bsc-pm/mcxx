@@ -338,14 +338,9 @@ namespace TL { namespace Nanos {
     {
         Statement critical_body = atomic_construct.get_statement();
 
-        bool atomic_as_critical = false;
 
         AST_t atomic_tree;
-        if (atomic_as_critical)
-        {
-            atomic_tree = inefficient_atomic(atomic_construct);
-        }
-        else if (!critical_body.is_expression())
+        if (!critical_body.is_expression())
         {
             std::cerr << atomic_construct.get_ast().get_locus() << ": warning: 'atomic' construct requires an expression statement" << std::endl;
             atomic_tree = inefficient_atomic(atomic_construct);

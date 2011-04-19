@@ -285,6 +285,13 @@ namespace TL
               This function is rarely needed, only when a change of the pragma itself is required
               */
             AST_t get_pragma_line() const;
+            
+            //! This is used internally to initialize clauses information
+            /*!
+              Use it only if you want automatic clause checks but you never call get_clause on it
+              It is safe to call it more than once.
+              */
+            void init_clause_info() const;
 
             //! States if the pragma encloses a function definition
             /*!
