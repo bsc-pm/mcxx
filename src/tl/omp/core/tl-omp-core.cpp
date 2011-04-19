@@ -194,9 +194,11 @@ namespace TL
                 {
                     DataReference data_ref(*it);
 
-                    if (!data_ref.is_valid()
+                    std::string warning;
+                    if (!data_ref.is_valid(warning)
                             || (!allow_extended_references && !it->is_id_expression()))
                     {
+                        std::cerr << warning;
                         std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
                             << "' is not a valid name for data sharing" << std::endl;
                     }
@@ -939,13 +941,13 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             if (construct.get_clause("collapse").is_defined())
             {
                 // This function _modifies_ construct to reflect the new reality!
                 collapse_loop_first(construct);
             }
-
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
 
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);

@@ -1026,13 +1026,26 @@ static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
     return result;
 }
 
+static int intptr_t_comp(const void *v1, const void *v2)
+{
+    intptr_t p1 = (intptr_t)(v1);
+    intptr_t p2 = (intptr_t)(v2);
+
+    if (p1 < p2)
+        return -1;
+    else if (p1 > p2)
+        return 1;
+    else
+        return 0;
+}
+
 static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
     static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
 
     if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        _user_defined_types_arr[!!indirect] = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _user_defined_types_arr[!!indirect] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
@@ -1991,7 +2004,7 @@ type_t* get_complex_type(type_t* t)
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _complex_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* result = rb_tree_query_type(_complex_hash, t);
@@ -2034,7 +2047,7 @@ static void init_qualification_hash(void)
                 i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
                 i++)
         {
-            _qualification[i] = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _qualification[i] = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
         _qualif_hash_initialized = 1;
     }
@@ -2153,7 +2166,7 @@ type_t* get_pointer_type(type_t* t)
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _pointer_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
@@ -2221,7 +2234,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
     if ((*reference_types) == NULL)
     {
-        (*reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        (*reference_types) = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     type_t* referenced_type = rb_tree_query_type((*reference_types), t);
@@ -2268,7 +2281,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (_class_types == NULL)
     {
-        _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _class_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
     }
 
     // First lookup using the class symbol
@@ -2281,7 +2294,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
         rb_tree_add(_class_types, class_entry, class_type_hash);
     }
@@ -2344,7 +2357,7 @@ static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_h
     array_sized_hash_elem->whole_size = whole_size;
     array_sized_hash_elem->lower_bound = lower_bound;
     array_sized_hash_elem->upper_bound = upper_bound;
-    array_sized_hash_elem->element_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
+    array_sized_hash_elem->element_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -2554,7 +2567,7 @@ static type_t* _get_array_type(type_t* element_type,
 
         if (_undefined_array_types == NULL)
         {
-            _undefined_array_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+            _undefined_array_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
         type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
@@ -2749,6 +2762,19 @@ char is_vector_type(type_t* t)
     t = advance_over_typedefs(t);
     return (t != NULL
             && t->kind == TK_VECTOR);
+}
+
+type_t* get_generic_vector_type(type_t* element_type)
+{
+    return get_vector_type(element_type, 0);
+}
+
+char is_generic_vector_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_VECTOR
+	    && t->vector->vector_size == 0);
 }
 
 int vector_type_get_vector_size(type_t* t)
@@ -6273,8 +6299,16 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-                snprintf(c, 255, "__attribute__((vector_size(%d)))", 
-                        type_info->vector->vector_size);
+                //generic_vector
+                if (type_info->vector->vector_size == 0)
+                {
+                    snprintf(c, 255, "__attribute__((generic_vector)) ");
+                }
+                else
+                {
+                    snprintf(c, 255, "__attribute__((vector_size(%d))) ", 
+                             type_info->vector->vector_size);
+                }
                 c[255] = '\0';
 
                 (*left) = strappend((*left), c);
@@ -6821,11 +6855,18 @@ const char* print_declarator(type_t* printed_declarator)
                     snprintf(c, 255, "<computed function type>");
                     c[255] = '\0';
                     printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
                     break;
                 }
             default :
-                internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
-                break;
+                {
+                    char c[256];
+                    snprintf(c, 255, "<unknown type kind %d>", printed_declarator->kind);
+                    c[255] = '\0';
+                    printed_declarator = NULL;
+                    tmp_result = uniquestr(c);
+                    break;
+                }
         }
     } while (printed_declarator != NULL);
 
@@ -6916,14 +6957,6 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
         }
     }
 
-    // This additional comparison is just for C++
-    while (is_pointer_type(orig)
-            && is_pointer_type(dest))
-    {
-        orig = pointer_type_get_pointee_type(orig);
-        dest = pointer_type_get_pointee_type(dest);
-    }
-
     // Zero type of C++
     if ((is_zero_type(orig)
                 && is_pointer_type(dest))
@@ -6931,6 +6964,21 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
                 && is_pointer_type(orig)))
     {
         return 1;
+    }
+
+    // It turned that none was a pointer!
+    if (!is_pointer_type(orig)
+            || !is_pointer_type(dest))
+    {
+        return 0;
+    }
+
+    // This additional comparison is just for C++
+    while (is_pointer_type(orig)
+            && is_pointer_type(dest))
+    {
+        orig = pointer_type_get_pointee_type(orig);
+        dest = pointer_type_get_pointee_type(dest);
     }
 
     return equivalent_types(get_unqualified_type(orig), get_unqualified_type(dest));
@@ -7177,6 +7225,18 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_LVALUE_TO_RVALUE;
         orig = reference_type_get_referenced_type(orig);
+    }
+
+    //Vector types
+    //scalar -->__attribute_((vector_size(X)))  
+    if(is_vector_type(no_ref(dest)) 
+            && is_scalar_type(no_ref(orig)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
+        }
+        dest = vector_type_get_element_type(dest);
     }
 
     // Lower complex types
@@ -7968,7 +8028,8 @@ char is_scalar_type(type_t* t)
             && !is_array_type(t)
             && !is_lvalue_reference_type(t)
             && !is_rvalue_reference_type(t)
-            && !is_function_type(t));
+            && !is_function_type(t)
+            && !is_vector_type(t));
 }
 
 

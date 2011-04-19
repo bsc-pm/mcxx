@@ -57,6 +57,7 @@ typedef enum source_language_tag
     SOURCE_LANGUAGE_CXX,
     SOURCE_LANGUAGE_FORTRAN,
     SOURCE_LANGUAGE_CUDA,
+    SOURCE_LANGUAGE_OPENCL,
     SOURCE_LANGUAGE_ASSEMBLER,
     SOURCE_LANGUAGE_LINKER_DATA,
 } source_language_t;
@@ -89,6 +90,10 @@ typedef struct translation_unit_tag
 
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
+
+#ifdef FORTRAN_SUPPORT
+    rb_red_blk_tree *module_cache;
+#endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
     void *dto;
@@ -303,6 +308,11 @@ typedef struct compilation_configuration_tag
     int column_width;
 
     char disable_intrinsics;
+
+    int num_module_dirs;
+    const char** module_dirs;
+
+    const char* module_out_dir;
 #endif
     source_kind_t force_source_kind;
 
@@ -365,6 +375,9 @@ typedef struct compilation_configuration_tag
 
     // Enable C++1x
     char enable_cxx1x;
+
+    // Enable nodecl
+    char enable_nodecl;
 
     // Target options
     int num_target_option_maps;

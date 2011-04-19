@@ -33,6 +33,8 @@ namespace TL { namespace Nanox {
     {
         Source transform_code;
 
+        Source final_barrier;
+
         transform_code
             << "{"
             << get_single_guard("single_guard")
@@ -44,11 +46,17 @@ namespace TL { namespace Nanox {
             << "}"
 
             // Final barrier of the whole team
-            << "err = nanos_team_barrier();"
-
-            << "if (err != NANOS_OK) nanos_handle_error(err);"
+            << final_barrier
             << "}"
             ;
+
+        if (!ctr.get_clause("nowait").is_defined())
+        {
+            final_barrier
+                << get_barrier_code(ctr.get_ast())
+                ;
+        }
+
 
         AST_t transform_tree 
             = transform_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());

@@ -26,10 +26,11 @@
 
 
 #ifndef NANOX_SMP_HPP
-#define NANOX_SMP_CPP
+#define NANOX_SMP_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
+#include "tl-simd.hpp"
 
 namespace TL
 {
@@ -41,7 +42,8 @@ namespace TL
         {
             public:
 
-                virtual void run(DTO& dto) { }
+                virtual void run(DTO& dto);
+                virtual void pre_run(DTO& dto);
 
                 DeviceSMP();
 
@@ -89,8 +91,25 @@ namespace TL
                         Source &replaced_outline);
         };
 
-    }
+        class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
+        {
+            protected:
+                static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint (AST_t a, void* data);
+                static std::string get_integer_casting(AST_t a, Type type1, Type type2);
+                static std::string scalar_expansion(Expression exp);
 
+            public:
+                ReplaceSrcSMP(ScopeLink sl, int width) 
+                    : ReplaceSrcGenericFunction(sl, "smp", width){}
+
+                void add_replacement(Symbol sym, const std::string& str);
+                void add_this_replacement(const std::string& str);
+                Source replace(AST_t a) const;
+                Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name, const ScopeLink sl);
+                Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name, const ScopeLink sl);
+        };
+    }
 }
 
-#endif // NANOX_SMP_CPP
+#endif // NANOX_SMP_HPP

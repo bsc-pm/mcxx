@@ -178,6 +178,22 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
     copy_data << "(nanos_copy_data_t**)0";
     imm_copy_data << "(nanos_copy_data_t*)0";
 
+    Source xlate_arg;
+
+    if (Nanos::Version::interface_is_at_least("master", 5005))
+    {
+        C_LANGUAGE()
+        {
+            xlate_arg << ", (void*)0"
+                ;
+        }
+        CXX_LANGUAGE()
+        {
+            xlate_arg << ", 0"
+                ;
+        }
+    }
+
     result
         << "{"
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
@@ -224,7 +240,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<                              (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props, " << num_copies << "," << imm_copy_data << ");"
+        <<                              "&props, " << num_copies << "," << imm_copy_data << xlate_arg << ");"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "err = nanos_end_team(_nanos_team);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"

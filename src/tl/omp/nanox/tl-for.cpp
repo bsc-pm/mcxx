@@ -42,7 +42,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);	
-    // FIXME - Reductions!!
     Source loop_info_field;
     loop_info_field
         << "nanos_loop_info_t loop_info;"
@@ -87,15 +86,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
     {
-        if (Nanos::Version::interface_is_at_least("openmp", 2))
-            final_barrier
-                << "nanos_omp_barrier();"
-            ;
-        else
-            final_barrier
-                << "nanos_wg_wait_completion(nanos_current_wd());"
-                << "nanos_team_barrier();"
-            ;
+        final_barrier << get_barrier_code(ctr.get_ast());
     }
 
     Source induction_var_name = for_statement.get_induction_variable().prettyprint();
@@ -151,7 +142,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<    replaced_body
             << "}"
             ;
-            
+
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -376,8 +367,10 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            bool has_shared_data_sharing = (data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+
             Source copy_sharing;
-            if (it->is_shared())
+            if (has_shared_data_sharing)
             {
                 copy_sharing << "NANOS_SHARED";
             }
@@ -409,7 +402,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                if (it->is_shared())
+                if (has_shared_data_sharing)
                 {
                     expression_address << copy_expr.get_address();
                 }
@@ -474,6 +467,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         reduction_join_arr_decls 
         << "int _nth_team = omp_get_num_threads();"
         ;
+
+
     if (!reduction_symbols.empty())
         reduction_join_arr_decls << "int rs_i;" ;
     for(ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
@@ -482,18 +477,25 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     {
         Symbol rs = it->get_symbol();
         OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
-        Source auxiliar_initializer, auxiliar_initialization;
+        Source auxiliar_initializer;
         
         if (rs.get_type().is_class())
         {
             // When the symbol has class type, we must build an auxiliary variable initialized to the symbol's identity
             // in order to initialize the reduction's vector
             auxiliar_initializer  << "aux_" << rs.get_name();
+            Source identity;
             reduction_join_arr_decls
                 << rs.get_type().get_declaration(rs.get_scope(), "") << " " << auxiliar_initializer
-                << " = "
-                << udr2.get_identity().prettyprint() << ";"
-            ;
+                << identity 
+                << ";"
+                ;
+
+            if (udr2.has_identity())
+            {
+                identity <<  udr2.get_identity().prettyprint() << ";"
+                    ;
+            }
         }
         else
         {

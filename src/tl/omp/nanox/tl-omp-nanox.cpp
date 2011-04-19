@@ -74,6 +74,11 @@ OMPTransform::OMPTransform()
             _do_not_create_translation_str,
             "0").connect(functor(&OMPTransform::set_translation_function_flag, *this));
 
+    register_parameter("weaks_as_statics",
+            "Some compilers do not allow weak symbols be defined in specific sections. Make them static instead",
+            _static_weak_symbols_str,
+            "0").connect(functor(&OMPTransform::set_weaks_as_statics, *this));
+
     on_directive_post["critical"].connect(functor(&OMPTransform::critical_postorder, *this));
     on_directive_post["master"].connect(functor(&OMPTransform::master_postorder, *this));
 
@@ -83,8 +88,10 @@ OMPTransform::OMPTransform()
     on_directive_pre["section"].connect(functor(&OMPTransform::section_preorder, *this));
     on_directive_post["section"].connect(functor(&OMPTransform::section_postorder, *this));
     
+    // Minimally implemented
+    on_directive_post["parallel|for"].connect(functor(&OMPTransform::parallel_for_postorder, *this));
+
     // Not yet implemented
-    on_directive_post["parallel|for"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["parallel|sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["ordered"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["declare|reduction"].connect(functor(&OMPTransform::unimplemented_yet, *this));
@@ -121,6 +128,11 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 {
     _lock_names.clear();
     _converted_vlas.clear();
+}
+
+void OMPTransform::set_weaks_as_statics(const std::string& str)
+{
+    parse_boolean_option("set_weaks_as_statics", str, _static_weak_symbols, "Assuming false.");
 }
 
 void OMPTransform::run(DTO& dto)

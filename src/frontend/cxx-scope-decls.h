@@ -37,6 +37,7 @@
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
+#include "cxx-type-decls.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
@@ -276,28 +277,12 @@ typedef enum access_specifier_t
 } access_specifier_t;
 
 
-// Dependent entity means it depends somehow on a template parameter
-typedef 
-enum dependency_info_tag
-{
-    DI_UNKNOWN = 0,
-    DI_NOT_DEPENDENT, // This entity is not dependent
-    DI_DEPENDENT, // The entity is dependent
-    DI_BUSY // This means it is being calculated now. This happens in enums where
-        // we have to check every enumerator in order to realize if the whole
-        // enum is or not dependent. In this case, infinite recursion could happen
-        // if no care is taken
-} dependency_info_t;
-
-
 typedef
 struct default_argument_info_tag
 {
     struct AST_tag* argument;
     decl_context_t context;
 } default_argument_info_t;
-
-LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 
 #ifdef FORTRAN_SUPPORT
 typedef
@@ -311,235 +296,9 @@ enum intent_kind_tag
 
 #endif
 
-typedef struct entity_specifiers_tag
-{
-    // States if this a static variable
-    char is_static:1;
-
-    // Register variable
-    char is_register:1;
-
-    // States if it is an extern declaration (explicitly given)
-    char is_extern:1;
-
-    // States if it is a mutable entity of a class
-    char is_mutable:1;
-
-    // States is a exported template (unused at all)
-    char is_export:1;
-
-    // Inlined function
-    char is_inline:1;
-
-    // Virtual function
-    char is_virtual:1;
-
-    // Pure function
-    char is_pure:1;
-
-    // Visibility attributes
-    char is_public:1;
-    char is_private:1;
-    char is_protected:1;
-
-    // Builtin symbol
-    char is_builtin:1;
-
-    // Is deleted
-    char is_deleted:1;
-
-    // Is defaulted
-    char is_defaulted:1;
-
-    // Is a conversion function
-    char is_conversion:1;
-
-    // Is trivial special member
-    // Qualifies several special members trivializing it
-    char is_trivial:1;
-
-    // Is a constructor
-    char is_constructor:1;
-    char is_default_constructor:1;
-    // Is a copy constructor
-    char is_copy_constructor:1;
-    // Is a move constructor
-    char is_move_constructor:1;
-    // Is a conversor one
-    char is_conversor_constructor:1;
-
-    // Is a copy assignment operator
-    char is_copy_assignment_operator:1;
-
-    // Is a copy assignment operator
-    char is_move_assignment_operator:1;
-
-    // Is destructor
-    char is_destructor:1;
-
-    // Is an explicit constructor
-    char is_explicit:1;
-
-    // Is a surrogate fake symbol
-    char is_surrogate_function:1;
-
-    // Is an anonymous entity
-    char is_anonymous:1;
-
-    // Template argument, we need this to properly evaluate nontype template
-    // arguments
-    char is_template_argument:1;
-
-    // The entity has really been declared by the code. Only template-names
-    // and constructors have this flag enabled (at the moment)
-    char is_user_declared:1;
-
-    // Some bits have been moved here, they are repeated in comments below next
-    // to their protecting fields
-    char is_template_parameter:1;
-    char is_parameter:1;
-    char is_member:1;
-    char is_bitfield:1;
-    char is_unnamed_bitfield:1;
-    char any_exception:1;
-    char is_injected_class_name:1;
-    char is_nested_unnamed_struct:1;
-
-    // This symbol has been created because of a typedef
-    // of an unnamed struct/class/enum/union type
-    //
-    // typedef struct { } A;
-    //
-    // A will be signed in as 'SK_CLASS'
-    //
-    // (
-    // like if in C++ we had done
-    //
-    // struct A { };
-    // )
-    //
-    // And sometimes we need to distinguish whether is
-    // 'struct A { }' or 'typedef struct { } A';
-    char after_typedef:1;
-
-#ifdef FORTRAN_SUPPORT
-    char is_implicit_basic_type:1;
-
-    // Is allocatable
-    char is_allocatable:1;
-
-    // In common
-    char is_in_common:1;
-
-    // In namelist
-    char is_in_namelist:1;
-
-    // Is optional dummy
-    char is_optional:1;
-
-    // Is target
-    char is_target:1;
-
-    // Is value dummy
-    char is_value:1;
-
-    // Is an elemental function
-    char is_elemental:1;
-
-    // Is a recursive function
-    char is_recursive:1;
-
-    // Is the result of a function
-    char is_result:1;
-
-    // Is a statement function
-    char is_stmt_function:1;
-
-    // Is a dummy of a statement function
-    char is_dummy_arg_stmt_function:1;
-
-    // Is generic spec
-    char is_generic_spec:1;
-
-    // Builtin is a subroutine
-    char is_builtin_subroutine:1;
-#endif
-
-    // -- End of bits, move all bits before this point
-
-#ifdef FORTRAN_SUPPORT
-    intent_kind_t intent_kind;
-
-    // --> char is_in_common:1;
-    scope_entry_t* in_common;
-
-    // --> char is_in_namelist:1
-    scope_entry_t* namelist;
-
-    // Related symbols for this symbol,
-    // NAMELIST, COMMON, FUNCTION, SUBROUTINE, MODULE
-    int num_related_symbols;
-    scope_entry_t** related_symbols;
-
-    // --> char is_builtin : 1
-    // Is the symbol we should use if we name the intrinsic alone
-    // not in a call
-    scope_entry_t* specific_intrinsic;
-#endif
-
-    // Accessibility: public, private, protected
-    access_specifier_t access : 2;
-    
-    // States if the symbol is a template parameter name and its nesting and
-    // position
-    // --> char is_template_parameter:1;
-    int template_parameter_nesting;
-    int template_parameter_position;
-
-    // States if the variable is parameter of a function (kind == SK_VARIABLE)
-    // and its position
-    // --> char is_parameter:1;
-    int parameter_position;
-    
-    // Is a member entity (function or data)
-    // --> char is_member:1;
-    // and its class 
-    struct type_tag* class_type;
-
-    // States if this is the injected class name of every class
-    // --> char is_injected_class_name:1;
-    // and its real symbol class
-    scope_entry_t* injected_class_referred_symbol;
-    
-    // Linkage specifier ("C" or "C++")
-    // Unused field
-    const char* linkage_spec;
-    
-    // Exception specifier for functions
-    // --> char any_exception:1; // States that any exception can be thrown
-    int num_exceptions;
-    struct type_tag** exceptions;
-
-    // Default arguments for functions
-    int num_parameters;
-    default_argument_info_t **default_argument_info;
-
-    // Bitfields
-    // char is_bitfield:1;
-    // char is_unnamed_bitfield:1;
-    struct AST_tag* bitfield_expr;
-    decl_context_t bitfield_expr_context;
-
-    // Only for fields that are not bitfields, their offsetof value
-    _size_t field_offset;
-
-    // GCC attributes synthesized for this symbol coming from the syntax
-    int num_gcc_attributes;
-    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
-
-    // For functions and classes
-    AST definition_tree;
-} entity_specifiers_t;
+// Looking for struct entity_specifiers_tag?
+// Now it is declared in cxx-entity-specs.h in builddir
+#include "cxx-entity-specs.h"
 
 // This is an entry in the scope
 struct scope_entry_tag
@@ -548,7 +307,7 @@ struct scope_entry_tag
     enum cxx_symbol_kind kind;
     
     // Decl context when the symbol was declared it contains the scope where
-    // the symbol was declared
+    // the symbol was registered
     decl_context_t decl_context;
 
     // The symbol name
@@ -591,15 +350,6 @@ struct scope_entry_tag
     // function_definition holding this one. Even if defined is true, it might
     // be NULL since builtins do not have any related AST
     struct AST_tag* point_of_definition;
-
-    // Dependency info. It states if this symbol has a template-dependent nature
-    // A value of DI_UNKNOWN means this has not been already computed
-    //
-    // At the moment, this is used only for variables and enumerators.  It is
-    // intended to avoid an infinite recursion when computing whether an enum
-    // or enumerator is dependent.  An enum will check every of its
-    // enumerators, and an enumerator will check its enum type
-    dependency_info_t dependency_info;
 
     // Extensible information of a symbol
     extensible_struct_t* extended_data;

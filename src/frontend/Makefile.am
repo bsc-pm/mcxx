@@ -148,6 +148,10 @@ libmcxx_la_SOURCES = \
   cxx-overload.c \
   cxx-overload-decls.h \
   cxx-overload.h \
+  cxx-nodecl.h \
+  cxx-nodecl.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
   libmcxx-common.h \
   $(END)
 
@@ -241,6 +245,10 @@ BUILT_SOURCES += cxx03.y
 BUILT_SOURCES += cxx-parser.h
 BUILT_SOURCES += c99-parser.h
 
+EXTRA_DIST += gen-symbol-attrs.py
+EXTRA_DIST += cxx-entity-specs.def
+BUILT_SOURCES += cxx-entity-specs.h
+
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
 # Silent rules
@@ -256,6 +264,10 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
+
+PYTHON_verbose = $(PYTHON_verbose_$(V))
+PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
+PYTHON_verbose_0 = @echo "  PYTHON" $@;
 endif
 
 CLEANFILES += cxx-asttype.h
@@ -305,7 +317,6 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
     echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
 	$(SED) -e "s/^\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
-	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h; \
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
     )
@@ -321,12 +332,6 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
     echo "char LANG_EXPRESSION_INFO[] = \"LANG_EXPRESSION_INFO\";" >> cxx-attrnames.c; \
 	$(SED) -e "s/^\([^[:blank:]]*\)/char \1[] = \"\1\";/" < $< >> cxx-attrnames.c; \
 	echo "/* AST attributes */" >> cxx-attrnames.c; \
-	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c; \
-	echo "{" >> cxx-attrnames.c; \
-	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c; \
-    echo "    extensible_schema_add_field(&ast_extensible_schema, LANG_EXPRESSION_INFO, expression_info_sizeof());" >> cxx-attrnames.c; \
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c; \
-	echo "}" >> cxx-attrnames.c; \
 	)
 
 if FLEX_BUILDING
@@ -406,3 +411,8 @@ endif
 # breaks parallel compilations since bison gets invoked twice.
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
+
+PYTHON = python
+CLEANFILES += cxx-entity-specs.h
+cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h

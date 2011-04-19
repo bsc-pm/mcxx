@@ -271,8 +271,10 @@ namespace TL
 
                 DataReference expr(ast, construct.get_scope_link());
 
-                if (!expr.is_valid())
+                std::string warning;
+                if (!expr.is_valid(warning))
                 {
+                    std::cerr << warning;
                     std::cerr << construct.get_ast().get_locus() 
                         << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;
@@ -283,13 +285,33 @@ namespace TL
                 {
                     Symbol sym = expr.get_base_symbol();
 
-                    if (copy_direction == COPY_DIR_IN)
+                    OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
+                    if (data_sharing_attr == DS_UNDEFINED)
                     {
-                        data_sharing.set_data_sharing(sym, DS_FIRSTPRIVATE);
-                    }
-                    else
-                    {
+                        std::cerr 
+                            << construct.get_ast().get_locus()
+                            << ": warning: symbol '" << sym.get_name() << "' does not have any data sharing, assuming SHARED" 
+                            << std::endl;
+                        // Make it shared if we know nothing about this entity
                         data_sharing.set_data_sharing(sym, DS_SHARED);
+                    }
+
+                    if ((data_sharing_attr & DS_PRIVATE) == DS_PRIVATE)
+                    {
+                        if ((data_sharing_attr & DS_IMPLICIT) != DS_IMPLICIT)
+                        {
+                            // This is an explicit data sharing of a private
+                            // entity, which is being copied, this is wrong
+                            running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
+                                    construct.get_ast().get_locus().c_str(),
+                                    sym.get_name().c_str());
+                        }
+                        else
+                        {
+                            // Otherwise just override the sharing attribute with shared
+                            data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                        }
                     }
                 }
 

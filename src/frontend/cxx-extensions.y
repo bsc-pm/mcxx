@@ -2,6 +2,7 @@
 
 %type<ast> shape_seq
 %type<ast> shape
+%type<ast> noshape_cast_expression
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -17,7 +18,17 @@ postfix_expression : postfix_expression '[' logical_or_expression ':' logical_or
 
 ;
 
-cast_expression : shape_seq cast_expression %merge<ambiguityHandler>
+noshape_cast_expression : unary_expression %merge<ambiguityHandler>
+{
+	$$ = $1;
+}
+| '(' type_id ')' cast_expression %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_CAST_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
+}
+;
+
+cast_expression : shape_seq noshape_cast_expression %merge<ambiguityHandler>
 {
     $$ = ASTMake2(AST_SHAPING_EXPRESSION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }

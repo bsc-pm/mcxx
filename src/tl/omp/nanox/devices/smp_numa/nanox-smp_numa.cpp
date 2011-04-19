@@ -37,35 +37,6 @@ static std::string smp_outline_name(const std::string &task_name)
     return "_smp_numa_" + task_name;
 }
 
-Type DeviceSMP_NUMA::compute_replacement_type_for_vla(Type type, 
-        ObjectList<Source>::iterator dim_names_begin,
-        ObjectList<Source>::iterator dim_names_end)
-{
-    Type new_type(NULL);
-    if (type.is_array())
-    {
-        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-        if (dim_names_begin == dim_names_end)
-        {
-            internal_error("Invalid dimension list", 0);
-        }
-
-        new_type = new_type.get_array_to(*dim_names_begin);
-    }
-    else if (type.is_pointer())
-    {
-        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-        new_type = new_type.get_pointer_to();
-    }
-    else
-    {
-        new_type = type;
-    }
-
-    return new_type;
-}
-
 void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
         const Scope& sc,
         const DataEnvironInfo& data_env_info,
@@ -92,27 +63,27 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
     {
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
-        Type type = sym.get_type();
 
-        bool requires_indirect = false;
+        OpenMP::DataSharingEnvironment &data_sharing = data_env_info.get_data_sharing();
+        OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+        bool is_shared = data_env_item.is_shared();
+
+        Type type = sym.get_type();
 
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
+            is_shared = false;
         }
-        else
+        else if (is_shared)
         {
-            requires_indirect = true;
             type = type.get_pointer_to();
-        }
-
-        if (data_ref.is_array_section_range()
-                || data_ref.is_array_section_size())
-        {
-            // Array sections have a scalar type, but the data type will be array
-            // See ticket #290
-            type = data_ref.get_data_type().array_element().get_pointer_to();
-            requires_indirect = false;
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -125,20 +96,13 @@ void DeviceSMP_NUMA::do_smp_numa_inline_get_addresses(
             err_declared = true;
         }
 
-        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
-        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-                "Invalid data for copy symbol", 0);
-
-        // std::string field_addr = "_args->" + data_env_item.get_field_name();
-
         copy_setup
             << type.get_declaration(sc, copy_name) << ";"
             << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << current_wd_param << ");"
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        if (!requires_indirect)
+        if (!is_shared)
         {
             replace_src.add_replacement(sym, copy_name);
         }
@@ -167,6 +131,8 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
 
     replace_src.add_this_replacement("_args->_this");
 
+    OpenMP::DataSharingEnvironment& data_sharing_env = data_env_info.get_data_sharing();
+
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();
@@ -175,15 +141,26 @@ void DeviceSMP_NUMA::do_smp_numa_outline_replacements(
         DataEnvironItem& data_env_item(*it);
 
         Symbol sym = data_env_item.get_symbol();
+
         const std::string field_name = data_env_item.get_field_name();
 
         if (data_env_item.is_private())
             continue;
 
-        if (data_env_item.is_copy()
+        if (data_env_item.is_firstprivate()
                 || create_translation_function())
         {
-        	replace_src.add_replacement(sym, "_args->" + field_name);
+            OpenMP::DataSharingAttribute data_sharing_attr = data_sharing_env.get_data_sharing(sym);
+
+            bool copy_is_shared = (data_sharing_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED;
+            if (copy_is_shared)
+            {
+                replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+            }
+            else
+            {
+                replace_src.add_replacement(sym, "_args->" + field_name);
+            }
         }
     }
 

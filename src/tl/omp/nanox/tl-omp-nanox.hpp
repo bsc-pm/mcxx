@@ -43,6 +43,7 @@ namespace Nanox
             
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
+            void parallel_for_postorder(PragmaCustomConstruct ctr);
             void task_postorder(PragmaCustomConstruct ctr);
             void taskwait_postorder(PragmaCustomConstruct ctr);
             void single_postorder(PragmaCustomConstruct ctr);
@@ -100,9 +101,20 @@ namespace Nanox
             virtual void run(TL::DTO& dto);
 
             void add_openmp_initializer(TL::DTO& dto);
+
+            static Source get_wait_completion(Source arg, bool do_flush, AST_t ref_tree);
+            static Source get_barrier_code(AST_t ref_tree);
+
+            std::string _static_weak_symbols_str;
+            bool _static_weak_symbols;
+            void set_weaks_as_statics(const std::string& str);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
+
+    Type compute_replacement_type_for_vla(Type type, 
+            ObjectList<Source>::iterator dim_names_begin,
+            ObjectList<Source>::iterator dim_names_end);
 }
 }
 

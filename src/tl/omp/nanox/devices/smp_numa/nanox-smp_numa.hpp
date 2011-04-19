@@ -26,7 +26,7 @@
 
 
 #ifndef NANOX_SMP_HPP
-#define NANOX_SMP_CPP
+#define NANOX_SMP_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -73,10 +73,6 @@ namespace TL
                         Source &device_descriptor);
 
             private:
-                Type compute_replacement_type_for_vla(Type type, 
-                        ObjectList<Source>::iterator dim_names_begin,
-                        ObjectList<Source>::iterator dim_names_end);
-
                 void do_smp_numa_inline_get_addresses(
                         const Scope& sc,
                         const DataEnvironInfo& data_env_info,

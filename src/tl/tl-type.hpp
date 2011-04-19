@@ -113,6 +113,25 @@ namespace TL
                 return false;
             }
 
+            //! Constructs a Symbol after a reference to Object
+            Type(RefPtr<Object> obj)
+            {
+                RefPtr<Type> pint = RefPtr<Type>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
+                {
+                    this->_type_info = pint->_type_info;
+                }
+                else
+                {
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
+                    {
+                        std::cerr << "Bad initialization of Type" << std::endl;
+                    }
+                    this->_type_info = NULL;
+                }
+            }
+
+
             virtual ~Type()
             {
             }
@@ -162,6 +181,9 @@ namespace TL
              */
             Type get_vector_to(unsigned int vector_size);
 
+            //! Returns a generic vector to the current type
+            Type get_generic_vector_to();
+
             //! Returns an array to the current type
             /*! 
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
@@ -184,7 +206,6 @@ namespace TL
               */
             Type get_array_to(const std::string& str);
 
-
             //! Returns a ranged array to the current type
             /*! 
              * \param lower_bound The lower bound expression of the array. 
@@ -195,6 +216,14 @@ namespace TL
 
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
+
+            //! Returns a function to the current list of parameter types 
+            /*! 
+             * \param type_list List of parameter types of the function.
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             */
+            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+
 
             int get_alignment_of();
 
@@ -411,6 +440,13 @@ namespace TL
 
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
+
+            //! States whether current type is a vector-type
+            bool is_vector() const;
+            //! States whether current type is a vector-type
+            bool is_generic_vector() const;
+            //! Returns the element type of a vector-type
+            Type vector_element() const;
 
 
             //! States whether this type represents an unresolved overload type

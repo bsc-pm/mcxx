@@ -95,11 +95,19 @@ namespace TL
   function-definition
           \endcode
           \sa TL::HLT::FunctionExtension
+
+          \code
+#pragma hlt simd (var-list)
+  regular-for-loop
+          \endcode
+          \sa TL::HLT::LoopSimdization
+
           */
         class HLTPragmaPhase : public PragmaCustomCompilerPhase
         {
             public:
                 HLTPragmaPhase();
+                virtual void pre_run(TL::DTO& dto);
                 virtual void run(TL::DTO& dto);
             private:
                 void unroll_loop(PragmaCustomConstruct construct);
@@ -124,6 +132,8 @@ namespace TL
                 void task_aggregate(PragmaCustomConstruct construct);
 
                 void set_instrument_hlt(const std::string &str);
+
+                void simdize(PragmaCustomConstruct construct);
 
                 std::string _enable_hlt_instr_str;
         };

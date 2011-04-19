@@ -73,6 +73,8 @@
 #include "cxx-configfile.h"
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
+#include "cxx-nodecl.h"
+#include "cxx-nodecl-output.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 
@@ -84,6 +86,7 @@
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
+#include "fortran03-nodecl.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -204,6 +207,9 @@
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
+"  -J <dir>                 Sets <dir> as the output module directory\n" \
+"                           This flag is only meaningful for Fortran\n" \
+"  --nodecl                 Nodecl processing (EXPERIMENTAL)\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -223,6 +229,7 @@
 "  -std=<option>\n" \
 "  -rdynamic\n" \
 "  -export-dynamic\n" \
+"  -w\n" \
 "  -W<option>\n" \
 "  -pthread\n" \
 "  -Xpreprocessor OPTION\n" \
@@ -286,12 +293,13 @@ typedef enum
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
+    OPTION_NODECL,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:J:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -341,6 +349,7 @@ struct command_line_long_options command_line_long_options[] =
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -399,8 +408,6 @@ static void enable_debug_flag(const char* flag);
 
 static void load_compiler_phases(compilation_configuration_t* config);
 
-static void register_default_initializers(void);
-
 static void help_message(void);
 
 static void print_memory_report(void);
@@ -424,9 +431,6 @@ int main(int argc, char* argv[])
 
     // Default values
     initialize_default_values();
-
-    // Register default initializers
-    register_default_initializers();
 
     // Load configuration files and the profiles defined there Here we get all
     // the implicit parameters defined in configuration files and we switch to
@@ -894,6 +898,25 @@ int parse_arguments(int argc, const char* argv[],
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-I%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+#ifdef FORTRAN_SUPPORT
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+#endif
+                        break;
+                    }
+                case 'J':
+                    {
+#ifdef FORTRAN_SUPPORT
+                        if (CURRENT_CONFIGURATION->module_out_dir != NULL)
+                        {
+                            fprintf(stderr, "warning: -J flag passed more than once. This will overwrite the first directory\n");
+                        }
+                        P_LIST_ADD(CURRENT_CONFIGURATION->module_dirs, CURRENT_CONFIGURATION->num_module_dirs,
+                                uniquestr(parameter_info.argument));
+                        CURRENT_CONFIGURATION->module_out_dir = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option -J is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 case 'L' :
@@ -1179,6 +1202,11 @@ int parse_arguments(int argc, const char* argv[],
                             fprintf(stderr, "Option --sentinels requires a value of 'on' or 'off'. Ignoring\n");
                         }
 #endif
+                        break;
+                    }
+                case OPTION_NODECL:
+                    {
+                        CURRENT_CONFIGURATION->enable_nodecl = 1;
                         break;
                     }
                 default:
@@ -1679,6 +1707,19 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 }
                 break;
             }
+        case 'w':
+            {
+                if (strlen(argument) == strlen("-w"))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
         case 'X' :
             {
                 if ((strcmp(&argument[2], "preprocessor") == 0)
@@ -1964,12 +2005,6 @@ static void initialize_default_values(void)
     P_LIST_ADD(compilation_process.parameter_flags, 
             compilation_process.num_parameter_flags,
             new_parameter_flag);
-}
-
-static void register_default_initializers(void)
-{
-    register_dynamic_initializer(build_scope_dynamic_initializer);
-    register_dynamic_initializer(scope_entry_dynamic_initializer);
 }
 
 static void print_version(void)
@@ -2380,6 +2415,28 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
+                if (CURRENT_CONFIGURATION->enable_nodecl)
+                {
+                    AST simplified_tree = NULL;
+                    if (IS_C_LANGUAGE
+                            || IS_CXX_LANGUAGE)
+                    {
+                        c_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                    }
+#ifdef FORTRAN_SUPPORT
+                    else if (IS_FORTRAN_LANGUAGE)
+                    {
+                        fortran_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                    }
+#endif
+                    else
+                    {
+                        internal_error("Invalid language", 0);
+                    }
+
+                    ast_dump_graphviz(simplified_tree, stdout);
+                }
+
                 // 6. TL::run and TL::phase_cleanup
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
@@ -2434,12 +2491,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
-                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
+                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
             }
             else
             {
                 // Do not parse
-                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
+                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
         }
 
@@ -3349,15 +3406,15 @@ static void link_files(const char** file_list, int num_files,
         i++;
     }
 
-    for (j = 0; j < num_files; j++)
-    {
-        linker_args[i] = file_list[j];
-        i++;
-    }
-
     for (j = 0; j < num_additional_files; j++)
     {
         linker_args[i] = additional_files[j];
+        i++;
+    }
+
+    for (j = 0; j < num_files; j++)
+    {
+        linker_args[i] = file_list[j];
         i++;
     }
 
@@ -3911,10 +3968,6 @@ static void print_memory_report(void)
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
     fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
-
-    accounted_memory += hash_used_memory();
-    print_human(c, hash_used_memory());
-    fprintf(stderr, " - Memory usage due to hash tables: %s\n", c);
 
     accounted_memory += typeunif_used_memory();
     print_human(c, typeunif_used_memory());

@@ -30,7 +30,6 @@
 #define CXX_SCOPE_H
 
 #include "libmcxx-common.h"
-#include "hash.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-type-decls.h"
@@ -146,10 +145,6 @@ LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, c
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 
-LIBMCXX_EXTERN void scope_entry_dynamic_initializer(void);
-
-LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
-
 // Templates 
 LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym);
 LIBMCXX_EXTERN char is_template_parameter_name(AST a);
@@ -162,6 +157,9 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
+
+// Internal use only
+LIBMCXX_EXTERN scope_t* _new_scope(void);
 
 MCXX_END_DECLS
 

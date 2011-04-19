@@ -101,6 +101,7 @@ mcxx_LDADD = \
 
 if FORTRAN_SUPPORT
 mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+mcxx_LDADD += $(sqlite3_LIBS)
 endif
 
 if WINDOWS_BUILD

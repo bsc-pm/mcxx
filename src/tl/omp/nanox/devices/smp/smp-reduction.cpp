@@ -36,13 +36,16 @@ static Source perform_reduction_symbol( const OpenMP::ReductionSymbol& reduction
 {
     OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
     Source result;
-    
+
     if (udr2.is_builtin_operator())
     {
         ReplaceSrcIdExpression replace_udr_builtin(sl);
         replace_udr_builtin.add_replacement(udr2.get_out_symbol(), reduction_var_name);
         replace_udr_builtin.add_replacement(udr2.get_in_symbol(), partial_reduction);
-        
+
+ std::cout << "UDR2: " << udr2.get_out_symbol().get_name() << ", " << reduction_var_name.get_source() << "\n";
+ std::cout << "UDR2: " << udr2.get_in_symbol().get_name() << ", " << partial_reduction.get_source() << "\n";
+
         result 
                 << replace_udr_builtin.replace(udr2.get_combine_expr())
                 << ";"

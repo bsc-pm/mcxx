@@ -47,6 +47,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);
+    data_environ_info.set_local_copies(true);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
@@ -522,8 +523,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         if (Nanos::Version::interface_is_at_least("master", 5005))
         {
-            translation_fun_arg_name << ", (void*) 0"
-                ;
+            C_LANGUAGE()
+            {
+                translation_fun_arg_name << ", (void*) 0"
+                    ;
+            }
+            CXX_LANGUAGE()
+            {
+                translation_fun_arg_name << ", 0"
+                    ;
+            }
         }
     }
     else
@@ -569,12 +578,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::CopyItem& copy_item(*it);
             DataReference copy_expr = copy_item.get_copy_expression();
 
-            // Fill the translation_function
             DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
-            translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
-                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                ;
 
             Source copy_direction_in, copy_direction_out;
 
@@ -599,23 +603,25 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
+            // There used to be NANOS_PRIVATE but nobody knows what it meant
             Source copy_sharing;
-            if (copy_item.is_shared())
-            {
-                copy_sharing << "NANOS_SHARED";
-            }
-            else
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
+            copy_sharing << "NANOS_SHARED";
+
+            translation_statements
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                ;
 
             struct {
                 Source *source;
                 const char* array;
-                const char* struct_name;
+                const char* struct_access;
+                const char* struct_addr;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data", "ol_args->" },
-                { &copy_immediate_setup, "imm_copy_data", "imm_args." },
+                { &copy_items_src, "copy_data", "ol_args->", "ol_args" },
+                { &copy_immediate_setup, "imm_copy_data", 
+                    immediate_is_alloca ? "imm_args->" : "imm_args.", 
+                    immediate_is_alloca ? "imm_args" : "&imm_args" },
                 { NULL, "" },
             };
 
@@ -631,51 +637,55 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                if (copy_item.is_shared())
-                {
-                    expression_address << copy_expr.get_address();
-                }
-                else
-                {
-                    // We have to use the value of the argument structure if it
-                    // is private
-                    expression_address 
-                        << "&("
-                        << fill_copy_data_info[j].struct_name 
-                        << data_env_item.get_field_name()
-                        << ")"
-                        ;
-                }
+                expression_address << copy_expr.get_address();
                 expression_size << copy_expr.get_sizeof();
             }
 
             i++;
         }
 
-        if (Nanos::Version::interface_is_at_least("master", 5003)
-                && !_do_not_create_translation_fun)
+        if (_do_not_create_translation_fun)
         {
-            Source translation_fun_name;
-            translation_fun_name << "_xlate_copy_address_" << outline_num
-                ;
-            // FIXME - Templates
-            set_translation_fun 
-                << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
-                ;
-
             if (Nanos::Version::interface_is_at_least("master", 5005))
             {
-                translation_fun_arg_name
-                    // Note this starting comma
-                    << ", _xlate_copy_address_" << outline_num
-                    ;
+                C_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", (void*) 0"
+                        ;
+                }
+                CXX_LANGUAGE()
+                {
+                    translation_fun_arg_name << ", 0"
+                        ;
+                }
             }
+        }
+        else
+        {
+            if (Nanos::Version::interface_is_at_least("master", 5003))
+            {
+                Source translation_fun_name;
+                translation_fun_name << "_xlate_copy_address_" << outline_num
+                    ;
+                // FIXME - Templates
+                set_translation_fun 
+                    << "nanos_set_translate_function(wd, " << translation_fun_name << ");"
+                    ;
 
-            AST_t xlate_function_def = translation_function.parse_declaration(
-                    ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
-                    ctr.get_scope_link());
+                if (Nanos::Version::interface_is_at_least("master", 5005))
+                {
+                    translation_fun_arg_name
+                        // Note this starting comma
+                        << ", _xlate_copy_address_" << outline_num
+                        ;
+                }
 
-            ctr.get_ast().prepend_sibling_function(xlate_function_def);
+                AST_t xlate_function_def = translation_function.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(),
+                        ctr.get_scope_link());
+
+                ctr.get_ast().prepend_sibling_function(xlate_function_def);
+            }
         }
     }
 

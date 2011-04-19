@@ -79,35 +79,6 @@ namespace TL
             }
         }
 
-        static Type compute_replacement_type_for_vla(Type type, 
-                ObjectList<Source>::iterator dim_names_begin,
-                ObjectList<Source>::iterator dim_names_end)
-        {
-            Type new_type(NULL);
-            if (type.is_array())
-            {
-                new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-                if (dim_names_begin == dim_names_end)
-                {
-                    internal_error("Invalid dimension list", 0);
-                }
-
-                new_type = new_type.get_array_to(*dim_names_begin);
-            }
-            else if (type.is_pointer())
-            {
-                new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-                new_type = new_type.get_pointer_to();
-            }
-            else
-            {
-                new_type = type;
-            }
-
-            return new_type;
-        }
-
         static void convert_vla(Symbol sym, ObjectList<Symbol>& converted_vlas, ScopeLink sl)
         {
             if (converted_vlas.contains(sym))
@@ -285,7 +256,7 @@ namespace TL
                 data_env_item.set_is_raw_buffer(is_raw_buffer);
             }
 
-            data_env_item.set_is_copy(true);
+            data_env_item.set_is_firstprivate(true);
 
             data_env_info.add_item(data_env_item);
         }
@@ -388,6 +359,7 @@ namespace TL
         ObjectList<Symbol> shared;
         ObjectList<Symbol> value;
         ObjectList<Symbol> private_symbols;
+        data_env_info.set_data_sharing(data_sharing);
         get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
@@ -553,7 +525,7 @@ namespace TL
                 t = t.references_to();
 
             Source alignment;
-
+//AQUI
             struct_fields
                 << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) 
                 << alignment
@@ -648,7 +620,7 @@ namespace TL
                 }
             }
 
-            if (!data_env_item.is_copy())
+            if (!data_env_item.is_firstprivate())
             {
                 if (type.is_array())
                 {

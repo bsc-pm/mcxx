@@ -409,12 +409,8 @@ namespace TL
         }
 
         CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
-            : _copy_expr(copy_expr), _kind(direction), _shared(false)
+            : _copy_expr(copy_expr), _kind(direction)
         {
-            if (!_copy_expr.is_id_expression())
-            {
-                _shared = true;
-            }
         }
 
         CopyDirection CopyItem::get_kind() const

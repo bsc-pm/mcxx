@@ -1010,7 +1010,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        char do_failure = true;
+        char do_failure = 1;
 
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
@@ -2706,11 +2706,23 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 AST current_choice = ast_get_ambiguity(ambig_expression, i);
 
                 // How to read this checks
-                //  either(a, b, T1, T2) will return 1 if a == T1 and b == T2
-                //  and -1 if a == T2 and b == T2 so if it returns -1 it means
-                //  that the previous choice is the second kind and the current is
-                //  the first kind, so we will favor the the first one if we say that
-                //  the correct choice is 'i', the current.
+                //
+                //  either_type(a, b, T1, T2) 
+                //     will return  1 if a == T1 and b == T2
+                //     will return -1 if a == T2 and b == T1 s
+                //     will return  0 otherwise
+                //
+                //  So if 
+                //
+                //     either_type(previous_choice, current_choice, A, B)
+                //
+                //  returns -1 it means that the previous choice is a B and the
+                //  current_choice is an A. If it returns 1 it means that the
+                //  previous_choice is an A and current_choice is a B
+                //
+                //  Tests are arranged so we only take action for the -1 case
+                //  since the 1 case is already OK to us (so we go into the if
+                //  but nothing is done)
                 //
                 //  Example:
                 //

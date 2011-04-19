@@ -31,6 +31,9 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
+#include <cstdlib>
+#include <cstdio>
+
 template <typename T>
 void copy(T* dst, T* src, int N)
 {
@@ -42,9 +45,20 @@ void copy(T* dst, T* src, int N)
 #pragma omp taskwait
 }
 
-void f(void)
+int main(int argc, char *argv[])
 {
     int a[10], b[10];
 
     copy(a, b, 10);
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (a[i] != b[i])
+        {
+            fprintf(stderr, "a[%d] != b[%d]\n", i, i);
+            abort();
+        }
+    }
+
+    return 0;
 }

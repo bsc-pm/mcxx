@@ -23,4 +23,9 @@ config_edit = \
      -e 's|@libdir[@]|$(libdir)|g' \
      -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
      -e 's|@RPATH_PARAMETER[@]|$(RPATH_PARAMETER)|g' \
+     -e 's|@ICC[@]|$(ICC)|g' \
+     -e 's|@ICPC[@]|$(ICPC)|g' \
+     -e 's|@GXLC[@]|$(GXLC)|g' \
+     -e 's|@GXLCXX[@]|$(GXLCXX)|g' \
+     -e 's|@NVCC[@]|$(NVCC)|g' \
     $(END)

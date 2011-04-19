@@ -54,7 +54,6 @@
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
-#include "hash_iterator.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -104,7 +103,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
         decl_context_t declarator_context);
-static void build_scope_declarator_rec(AST a, type_t** declarator_type, 
+static void build_scope_declarator_rec(
+        AST a, type_t** declarator_type, 
         gather_decl_spec_t* gather_info,
         decl_context_t declarator_context,
         decl_context_t entity_context,
@@ -196,7 +196,6 @@ static const char* current_linkage = "\"C++\"";
 
 static void initialize_builtin_symbols(decl_context_t decl_context);
 
-static AST advance_over_declarator_nests(AST a, decl_context_t decl_context);
 
 static void gather_decl_spec_information(AST a, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -206,12 +205,6 @@ static unsigned long long _bytes_used_buildscope = 0;
 unsigned long long int buildscope_used_memory(void)
 {
     return _bytes_used_buildscope;
-}
-
-void build_scope_dynamic_initializer(void)
-{
-    // Defined in cxx-attrnames.c
-    register_ast_extended_attributes();
 }
 
 void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context)
@@ -902,7 +895,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
 
     // A type has been specified and there are declarators ahead
-    if (simple_type_info != NULL && (ASTSon1(a) != NULL))
+    if (simple_type_info != NULL 
+            && ASTSon1(a) != NULL)
     {
         AST list, iter;
         list = ASTSon1(a);
@@ -959,6 +953,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             // Only variables can be initialized
             if (entry->kind == SK_VARIABLE)
             {
+                if (entry->defined
+                        && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION))
+                {
+                    fprintf(stderr, "%s: error: redefined entity '%s', first declared in '%s:%d'\n",
+                            ast_location(declarator),
+                            get_qualified_symbol_name(entry, decl_context),
+                            entry->file,
+                            entry->line);
+                }
                 if (initializer != NULL)
                 {
                     DEBUG_CODE()
@@ -987,13 +990,13 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     entry->expression_value = initializer;
 
                     {
-                        AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                        ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        ASTAttrSetValueType(init_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        ASTAttrSetValueType(init_declarator, LANG_DECLARATOR, tl_type_t, tl_ast(declarator));
                     }
                 }
                 // If it does not have initializer and it is not an extern entity
                 // check a zero args constructor
-                else if (!entry->entity_specs.is_extern)
+                else if (!current_gather_info.is_extern)
                 {
                     CXX_LANGUAGE()
                     {
@@ -1004,10 +1007,19 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                         }
                     }
                 }
+                if (!current_gather_info.is_extern)
+                {
+                    if (!entry->entity_specs.is_member
+                            || (entry->entity_specs.is_static 
+                                && decl_context.current_scope->kind != CLASS_SCOPE))
+                    {
+                        entry->defined = 1;
+                        entry->point_of_definition = get_enclosing_declaration(init_declarator);
+                    }
+                }
             }
         }
     }
-
 }
 
 
@@ -1570,6 +1582,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         default:
             internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
     }
+    ASTAttrSetValueType(a, LANG_IS_TYPE_SPECIFIER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER_TYPE, tl_type_t, tl_type(*simple_type_info));
 }
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** type_info,
@@ -4135,20 +4149,39 @@ static void build_scope_declarator_with_parameter_context(AST a,
     {
         if (gather_info->mode_type != NULL)
         {
-            *declarator_type = get_vector_type(gather_info->mode_type, 
-                    gather_info->vector_size);
+            //Generic Vector
+            if (gather_info->vector_size == 0)
+            {
+                *declarator_type = get_generic_vector_type(gather_info->mode_type);
+            }
+            else
+            {
+                *declarator_type = get_vector_type(gather_info->mode_type, 
+                        gather_info->vector_size);
+            }
         }
         else
         {
             // We do not want a 'vector 16 to volatile float' but a 
             // 'volatile vector to 16 float'
+
             cv_qualifier_t cv_qualif = get_cv_qualifier(type_info);
             type_t* base_vector_type = get_unqualified_type(type_info);
 
-            *declarator_type = get_cv_qualified_type(
-                    get_vector_type(base_vector_type,
-                        gather_info->vector_size), 
-                    cv_qualif);
+            //Generic Vector
+            if (gather_info->vector_size == 0)
+            {
+                *declarator_type = get_cv_qualified_type(
+                        get_generic_vector_type(base_vector_type),
+                        cv_qualif);
+            }
+            else
+            {
+                *declarator_type = get_cv_qualified_type(
+                        get_vector_type(base_vector_type,
+                            gather_info->vector_size), 
+                        cv_qualif);
+            }
         }
     }
     else if (gather_info->is_overriden_type)
@@ -4218,9 +4251,16 @@ static void build_scope_declarator_with_parameter_context(AST a,
             }
 
             {
-                AST non_nested_declarator = advance_over_declarator_nests(a, decl_context);
-                ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                // KLUDGE
+                // FIXME - Rework declarators to avoid this
+                AST set_declarator = a;
+                if (ASTType(ASTParent(a)) == AST_INIT_DECLARATOR
+                        || ASTType(ASTParent(a)) == AST_GCC_INIT_DECLARATOR)
+                {
+                    set_declarator = ASTParent(a);
+                }
+                ASTAttrSetValueType(set_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(set_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
             }
 
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, entity_context);
@@ -4564,6 +4604,17 @@ static void set_function_parameter_clause(type_t** function_type,
             gather_gcc_attribute_list(attribute_list, &param_decl_gather_info, param_decl_context);
         }
 
+        if (param_decl_gather_info.is_extern)
+        {
+            running_error("%s: error: parameter declared as 'extern'\n", 
+                    ast_location(parameter_decl_spec_seq));
+        }
+        if (param_decl_gather_info.is_static)
+        {
+            running_error("%s: error: parameter declared as 'static'\n", 
+                    ast_location(parameter_decl_spec_seq));
+        }
+
         // It is valid in a function declaration not having a declarator at all
         // (note this is different from having an abstract declarator).
         //
@@ -4620,6 +4671,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
             // Update the type info
             entry->type_information = type_info;
+            entry->defined = 1;
         }
 
         parameter_info[num_parameters].is_ellipsis = 0;
@@ -4783,7 +4835,10 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
  *
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
-static void build_scope_declarator_rec(AST a, type_t** declarator_type, 
+static void build_scope_declarator_rec(
+        AST a, 
+        // AST top_declarator, AST a, 
+        type_t** declarator_type, 
         gather_decl_spec_t* gather_info, 
         // This one contains the context of the occurring declarator
         // e.g void A::f(T) will contain the context of 'void A::f(T)'
@@ -4828,7 +4883,32 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             }
         case AST_DECLARATOR_FUNC :
             {
-                ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                // This is a bit awkward. For compatibility reasons we must get
+                // the enclosing declarator or the enclosing init_declarator
+                // (the latter if it exists, the former otherwise)
+                AST enclosing_init_decl = ASTParent(a);
+                while (enclosing_init_decl != NULL
+                        && ASTType(enclosing_init_decl) != AST_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_DECLARATOR)
+                {
+                    enclosing_init_decl = ASTParent(enclosing_init_decl);
+                }
+                AST enclosing_decl = enclosing_init_decl;
+                while (enclosing_init_decl != NULL
+                        && ASTType(enclosing_init_decl) != AST_INIT_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_INIT_DECLARATOR)
+                {
+                    enclosing_init_decl = ASTParent(enclosing_init_decl);
+                }
+                if (enclosing_init_decl != NULL)
+                {
+                    ASTAttrSetValueType(enclosing_init_decl, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                }
+                else
+                {
+                    ASTAttrSetValueType(enclosing_decl, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                }
+
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
 
@@ -4845,6 +4925,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute declarator
         case AST_GCC_DECLARATOR :
             {
+                ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
                 build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
@@ -4853,6 +4934,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute & declarator
         case AST_GCC_POINTER_DECLARATOR :
             {
+                ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
                 build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
@@ -5145,15 +5227,6 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                     entry_list_free(entry_list);
 
-                    if (entry->kind == SK_VARIABLE
-                            && entry->entity_specs.is_member
-                            && entry->entity_specs.is_static
-                            && decl_context.current_scope->kind == NAMESPACE_SCOPE)
-                    {
-                        entry->defined = 1;
-                        entry->point_of_definition = get_enclosing_declaration(declarator_name);
-                    }
-
                     return entry;
                 }
                 else
@@ -5404,7 +5477,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             
             // Always use the latest one, unfortunately a variable can be
             // declared several times by means of "extern" keyword
-            entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+            if (!entry->entity_specs.is_member)
+            {
+                entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+            }
             return entry;
         }
 
@@ -5448,13 +5524,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_mutable = gather_info->is_mutable;
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
-
-        if ((entry->entity_specs.is_member && !entry->entity_specs.is_static)
-                || (!entry->entity_specs.is_member && !entry->entity_specs.is_extern))
-        {
-            entry->defined = 1;
-            entry->point_of_definition = get_enclosing_declaration(declarator_id);
-        }
 
         // Copy gcc attributes
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
@@ -6918,11 +6987,9 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
             if (entry_list == NULL)
             {
                 // Sign in an integer
-                
                 entry = new_symbol(decl_context, decl_context.current_scope, ASTText(kr_param));
                 entry->kind = SK_VARIABLE;
                 entry->type_information = get_signed_int_type();
-                entry->defined = 1;
                 entry->line = ASTLine(kr_param);
                 entry->file = ASTFileName(kr_param);
                 
@@ -6936,6 +7003,18 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 
             entry->entity_specs.is_parameter = 1;
             entry->entity_specs.parameter_position = i;
+            entry->defined = 1;
+
+            if (entry->entity_specs.is_extern)
+            {
+                running_error("%s: error: parameter declared as 'extern'\n", 
+                        ast_location(kr_param));
+            }
+            if (entry->entity_specs.is_static)
+            {
+                running_error("%s: error: parameter declared as 'static'\n", 
+                        ast_location(kr_param));
+            }
 
             i++;
         }
@@ -7358,8 +7437,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
     {
-        AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(non_nested_declarator));
+        // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
+        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(ASTSon1(a)));
     }
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
@@ -7526,7 +7605,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
 
-    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
+    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(a));
 }
 
@@ -8168,6 +8247,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         bitfield_symbol->entity_specs.bitfield_expr = expression;
                         bitfield_symbol->entity_specs.bitfield_expr_context = decl_context;
 
+                        bitfield_symbol->defined = 1;
+                        bitfield_symbol->point_of_declaration = get_enclosing_declaration(declarator);
+                        bitfield_symbol->point_of_definition = get_enclosing_declaration(declarator);
+
                         break;
                     }
                     // init declarator may appear here because of templates
@@ -8185,10 +8268,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST initializer = ASTSon1(declarator);
 
                         {
-                            AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                            ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
-                            ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                            ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                            ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                            ASTAttrSetValueType(declarator, LANG_DECLARATOR, tl_type_t, tl_ast(ASTSon0(declarator)));
                         }
                         
                         // Change name of constructors
@@ -8278,6 +8361,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         if (entry->kind == SK_FUNCTION)
                         {
                             update_member_function_info(declarator_name, is_constructor, entry, class_type);
+                            entry->point_of_declaration = get_enclosing_declaration(declarator);
                         }
                         else if (entry->kind == SK_VARIABLE)
                         {
@@ -8290,6 +8374,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 }
                                 // This is a nonstatic data member
                                 class_type_add_nonstatic_data_member(get_actual_class_type(class_type), entry);
+                                entry->defined = 1;
+                                entry->point_of_declaration = get_enclosing_declaration(declarator);
+                                entry->point_of_definition = get_enclosing_declaration(declarator);
                             }
                             else
                             {
@@ -8300,12 +8387,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 }
                                 // This is a static data member
                                 class_type_add_static_data_member(get_actual_class_type(class_type), entry);
+                                entry->point_of_declaration = get_enclosing_declaration(declarator);
                             }
                         }
                         else if (entry->kind == SK_TYPEDEF
                                 || entry->kind == SK_TEMPLATE)
                         {
                             class_type_add_typename(get_actual_class_type(class_type), entry);
+                            entry->point_of_declaration = get_enclosing_declaration(declarator);
                         }
 
                         if (initializer != NULL)
@@ -9591,6 +9680,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
     }
 }
 
+#if 0
 static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION(a == NULL, "This node cannot be null", 0);
@@ -9601,21 +9691,19 @@ static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
     {
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
-        case AST_GCC_MEMBER_DECLARATOR :
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
                 return advance_over_declarator_nests(ASTSon0(a), decl_context); 
                 break;
             }
-        case AST_GCC_DECLARATOR :
-            {
-                return advance_over_declarator_nests(ASTSon1(a), decl_context);
-            }
+	// Note: GCC declarators are not advanced as we want their attributes
+	// to be visible later
         default:
             return a;
     }
 }
+#endif
 
 // Returns non-null tree with the leftmost declarator
 // that is not preceded by any other sign 

@@ -92,9 +92,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     if (!ctr.get_clause("nowait").is_defined())
     {
-        final_barrier
-            << "nanos_wg_wait_completion(nanos_current_wd());"
-            << "nanos_team_barrier();"
+        final_barrier << get_barrier_code(ctr.get_ast())
             ;
     }
 

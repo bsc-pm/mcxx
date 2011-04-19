@@ -322,15 +322,16 @@ namespace TL
                         if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
                         {
                             running_error("%s: error: output dependence '%s' "
-                                    "only names a parameter, which by itself never defines a dependence\n",
+                                    "only names a parameter. The value of a parameter is never copied out of a function "
+                                    "so it cannot generate an output dependence",
                                     expr.get_ast().get_locus().c_str(),
                                     expr.prettyprint().c_str());
                         }
                         else
                         {
                             std::cerr << expr.get_ast().get_locus() << ": warning: "
-                                "skipping useless dependence '"<< expr.prettyprint() << "' as it only names a parameter "
-                                "which by itself never defines a dependence" 
+                                "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
+                                "is always copied and cannot define an input dependence" 
                                 << std::endl;
                         }
                     }
@@ -401,6 +402,7 @@ namespace TL
 
             if (!decl_entity.is_functional_declaration())
             {
+                std::cerr << "LAla -> " << decl_entity.get_ast().prettyprint() << decl_entity.get_ast().internal_ast_type() << std::endl;
                 std::cerr << construct.get_ast().get_locus() 
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;
@@ -483,14 +485,15 @@ namespace TL
 
                     ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
                                 COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
-                    ObjectList<CopyItem> copy_out = target_context.copy_in.map(FunctionCopyItemGenerator(
-                                COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
-                    ObjectList<CopyItem> copy_inout = target_context.copy_in.map(FunctionCopyItemGenerator(
-                                COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
-
                     target_info.set_copy_in(copy_in);
-                    target_info.set_copy_out(copy_in);
-                    target_info.set_copy_inout(copy_in);
+
+                    ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
+                                COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                    target_info.set_copy_out(copy_out);
+
+                    ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
+                                COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                    target_info.set_copy_inout(copy_inout);
 
                     target_info.set_device_list(target_context.device_list);
 
