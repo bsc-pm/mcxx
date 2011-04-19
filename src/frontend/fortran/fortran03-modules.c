@@ -391,17 +391,20 @@ static void insert_map_ptr(sqlite3* handle, sqlite3_int64 oid, void *ptr)
 }
 
 static int count_rows(void* datum, 
-        int nrows, 
+        int ncols UNUSED_PARAMETER, 
         char** values UNUSED_PARAMETER,
         char** colnames UNUSED_PARAMETER)
 {
     int *num = (int*)datum;
-    *num = nrows;
+    *num = 1;
     return 0;
 }
 
 static sqlite3_int64 oid_already_inserted(sqlite3* handle, const char *table, void *ptr)
 {
+    if (ptr == NULL)
+        return (sqlite3_int64)0;
+
     char * select_oid = sqlite3_mprintf("SELECT oid FROM %s WHERE oid = %lld;", table, ptr);
     char* errmsg = NULL;
     int num_rows = 0;
@@ -434,6 +437,7 @@ static sqlite3_int64 insert_type_ref_to(sqlite3* handle, type_t* t, const char* 
         return (sqlite3_int64)(intptr_t)t;
 
     char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type) VALUES(%lld, %Q, '%d');", t, name, ref_type);
+    run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
     return result;
@@ -468,6 +472,7 @@ static sqlite3_int64 insert_type_ref_to_list_types(sqlite3* handle,
 
     char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, types) VALUES(%lld, %Q, '%d', %Q);", 
             t, name, ref_type, list);
+    run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
     sqlite3_free(list);
@@ -487,6 +492,7 @@ static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle,
 
     char *insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, ast0, ast1) VALUES (%lld, %Q, %d, %d, %d);",
             t, name, ref_type, ast0, ast1);
+    run_query(handle, insert_type_query);
     int result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
     return result;
@@ -660,6 +666,10 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         }
 
         result = insert_type_ref_to_list_types(handle, t, name, 0, num_fields, field_list);
+    }
+    else if (is_void_type(t))
+    {
+        result = insert_type_simple(handle, t, "VOID", 0);
     }
     else
     {
@@ -840,9 +850,9 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
         return 0;
 
     if (oid_already_inserted(handle, "scope", scope))
+    {
         return (sqlite3_int64)(intptr_t)scope;
-
-    insert_symbol(handle, scope->related_entry);
+    }
 
     char * insert_scope_query = sqlite3_mprintf("INSERT INTO scope(oid, kind, contained_in, related_entry) VALUES (%lld, %lld, %lld, %lld);",
             scope,
@@ -852,7 +862,11 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
     run_query(handle, insert_scope_query);
     sqlite3_free(insert_scope_query);
 
-    return sqlite3_last_insert_rowid(handle);
+    sqlite3_int64 oid = sqlite3_last_insert_rowid(handle);
+
+    insert_symbol(handle, scope->related_entry);
+
+    return oid;
 }
 
 static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_context_t decl_context)
@@ -882,7 +896,6 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
         return (sqlite3_int64)(intptr_t)symbol;
 
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
-
     sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
 
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid, name, kind, type, file, line, %s) "
@@ -1325,6 +1338,11 @@ static int get_type(void *datum,
         type_t* result = load_type(handle, ref);
 
         *pt = get_new_function_type(result, parameter_info, num_parameters);
+        insert_map_ptr(handle, current_oid, *pt);
+    }
+    else if (strcmp(kind, "VOID") == 0)
+    {
+        *pt = get_void_type();
         insert_map_ptr(handle, current_oid, *pt);
     }
     else

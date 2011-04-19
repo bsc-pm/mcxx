@@ -3916,6 +3916,62 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     return sym_in_module;
 }
 
+static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_context, const char* aliased_name)
+{
+    ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
+
+    // Why do we duplicate instead of insert_entry or insert_alias
+    // The reason is that we need to know this symbol comes from a module
+    // and its precise USE name, not the original symbol name
+    scope_entry_t* current_symbol = NULL;
+    if (!entry->entity_specs.is_generic_spec)
+    {
+        current_symbol  = new_fortran_symbol(decl_context, 
+                aliased_name != NULL ? aliased_name : entry->symbol_name);
+
+        // Copy everything and restore the name
+        *current_symbol = *entry;
+        current_symbol->symbol_name = aliased_name;
+
+        current_symbol->entity_specs.is_from_module = 1;
+    }
+    else
+    {
+        // Generic specifiers must be handled with care as we want to copy them
+        // instead of straight inserting the symbol to avoid modifying the
+        // original symbol from the program unit using this module
+
+        current_symbol = new_fortran_symbol(decl_context,
+                aliased_name != NULL ? aliased_name : entry->symbol_name);
+
+        // Copy everything and restore the name
+        *current_symbol = *entry;
+        current_symbol->symbol_name = aliased_name;
+
+        current_symbol->entity_specs.is_from_module = 1;
+
+        // Now fix what cannot be shared
+        current_symbol->entity_specs.num_related_symbols = 0;
+        current_symbol->entity_specs.related_symbols = NULL;
+
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            P_LIST_ADD(current_symbol->entity_specs.related_symbols,
+                    current_symbol->entity_specs.num_related_symbols,
+                    entry->entity_specs.related_symbols[i]);
+        }
+    }
+
+    scope_entry_t* related_entry = decl_context.current_scope->related_entry;
+    if (related_entry != NULL)
+    {
+        P_LIST_ADD(related_entry->entity_specs.related_symbols,
+                related_entry->entity_specs.num_related_symbols,
+                current_symbol);
+    }
+}
+
 static void build_scope_use_stmt(AST a, decl_context_t decl_context)
 {
     AST module_nature = NULL;
@@ -3977,6 +4033,14 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
         }
         // Load the file
         load_module_info(strtolower(ASTText(module_name)), &module_symbol);
+
+        if (module_symbol == NULL)
+        {
+            running_error("%s: error: cannot load module '%s'\n",
+                    ast_location(a),
+                    module_name_str);
+        }
+
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
@@ -4012,7 +4076,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
                             module_symbol->symbol_name);
                 }
 
-                insert_alias(decl_context.current_scope, sym_in_module, get_name_of_generic_spec(local_name));
+                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
 
                 // "USE M, C => A, D => A" is valid so we avoid adding twice
                 // 'A' in the list (it would be harmless, though)
@@ -4044,7 +4108,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
             }
             if (!found)
             {
-                insert_entry(decl_context.current_scope, sym_in_module);
+                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
             }
         }
     }
@@ -4074,13 +4138,12 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
                                     module_symbol->symbol_name);
                         }
 
-                        insert_alias(decl_context.current_scope, sym_in_module, get_name_of_generic_spec(local_name));
-
+                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
                         break;
                     }
                 default:
                     {
-                        // This is a generic specifier
+                        // This is a generic name
                         AST sym_in_module_name = only;
                         const char * sym_in_module_name_str = ASTText(sym_in_module_name);
 
@@ -4095,7 +4158,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
                                     module_symbol->symbol_name);
                         }
 
-                        insert_entry(decl_context.current_scope, sym_in_module);
+                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
                         break;
                     }
             }
