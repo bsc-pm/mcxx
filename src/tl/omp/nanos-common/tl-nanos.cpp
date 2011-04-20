@@ -29,8 +29,9 @@
 #include "cxx-utils.h"
 
 #include "tl-nanos.hpp"
-
 #include "tl-ast.hpp"
+#include "tl-source.hpp"
+#include "tl-lexer.hpp"
 
 #include <sstream>
 
@@ -184,10 +185,70 @@ namespace TL
             // Get the translation_unit tree
             // and prepend these declarations
             translation_unit.prepend_to_translation_unit(versioning_symbols_tree);
+
+            if (!_map_events.empty())
+            {
+                Source declare_events, register_events;
+
+                declare_events
+                    << "static void __register_events(void* p __attribute__((unused)))"
+                    << "{"
+                    <<    "nanos_event_key_t nanos_instr_name_key = 0;"
+                    <<    register_events
+                    << "}"
+                    << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __register_events_list = { __register_events, (void*)0 };"
+                    ;
+
+                // Register events
+                for (map_events::iterator it = _map_events.begin();
+                        it != _map_events.end();
+                        it++)
+                {
+                    register_events
+                        << "nanos_instrument_register_key(&nanos_instr_name_key, \"" << it->first << "\", " << it->second << ", /* abort */ 0);"
+                        ;
+                }
+
+                AST_t tree = declare_events.parse_global(translation_unit, 
+                        scope_link);
+
+                translation_unit.append_to_translation_unit(tree);
+            }
         }
+
+#if 0
+            // instrumentation interface
+nanos_err_t nanos_instrument_register_key ( nanos_event_key_t *event_key, const char *key, const char *description, bool abort_when_registered );
+nanos_err_t nanos_instrument_register_value ( nanos_event_value_t *event_value, const char *key, const char *value, const char *description, bool abort_when_registered );
+
+nanos_err_t nanos_instrument_register_value_with_val ( nanos_event_value_t val, const char *key, const char *value, const char *description, bool abort_when_registered );
+
+nanos_err_t nanos_instrument_get_key (const char *key, nanos_event_key_t *event_key);
+nanos_err_t nanos_instrument_get_value (const char *key, const char *value, nanos_event_value_t *event_value);
+
+
+nanos_err_t nanos_instrument_events ( unsigned int num_events, nanos_event_t events[] );
+nanos_err_t nanos_instrument_enter_state ( nanos_event_state_value_t state );
+nanos_err_t nanos_instrument_leave_state ( void );
+nanos_err_t nanos_instrument_enter_burst( nanos_event_key_t key, nanos_event_value_t value );
+nanos_err_t nanos_instrument_leave_burst( nanos_event_key_t key );
+nanos_err_t nanos_instrument_point_event ( unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
+nanos_err_t nanos_instrument_ptp_start ( nanos_event_domain_t domain, nanos_event_id_t id,
+                                         unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
+nanos_err_t nanos_instrument_ptp_end ( nanos_event_domain_t domain, nanos_event_id_t id,
+                                         unsigned int nkvs, nanos_event_key_t *keys, nanos_event_value_t *values );
+
+nanos_err_t nanos_instrument_disable_state_events ( nanos_event_state_value_t state );
+nanos_err_t nanos_instrument_enable_state_events ( void );
+
+nanos_err_t nanos_instrument_close_user_fun_event();
+
+#endif
+
 
         void Interface::phase_cleanup(DTO& dto)
         {
+            _map_events.clear();
         }
 
         void Interface::reset_version_info()
@@ -234,15 +295,61 @@ namespace TL
         {
             ctr.get_ast().remove_in_list();
         }
+        
+        static void invalid_instrument_pragma(PragmaCustomConstruct ctr, const std::string& pragma)
+        {
+            std::cerr << ctr.get_ast().get_locus() << ": warning: ignoring invalid '" << ctr.prettyprint() << "'" << std::endl;
+            std::cerr << ctr.get_ast().get_locus() << ": info: its syntax is '#pragma nanos " << pragma << "(identifier, string-literal)'" << std::endl;
+        }
 
-        // These are not yet implemented
+        static void invalid_instrument_declare(PragmaCustomConstruct ctr)
+        {
+            invalid_instrument_pragma(ctr, "instrument declare");
+        }
+
         void Interface::instrument_declare_pre(PragmaCustomConstruct ctr)
         {
+            ObjectList<std::string> arguments;
+
+            if (!ctr.is_parameterized()
+                    || (arguments = ctr.get_parameter_arguments(ExpressionTokenizerTrim())).size() != 2)
+            {
+                invalid_instrument_declare(ctr);
+                return;
+            }
+
+            Lexer l = Lexer::get_current_lexer();
+            ObjectList<int> tokens_key = l.lex_string(arguments[0]);
+            if (tokens_key.size() != 1
+                    || (IS_C_LANGUAGE && (tokens_key[0] != TokensC::IDENTIFIER))
+                    || (IS_CXX_LANGUAGE && (tokens_key[0] != TokensCXX::IDENTIFIER)))
+            {
+                std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
+                invalid_instrument_declare(ctr);
+                return;
+            }
+
+            ObjectList<int> tokens_descr = l.lex_string(arguments[1]);
+            if (tokens_descr.size() != 1
+                    || (IS_C_LANGUAGE && (tokens_descr[0] != TokensC::STRING_LITERAL))
+                    || (IS_CXX_LANGUAGE && (tokens_descr[0] != TokensCXX::STRING_LITERAL)))
+            {
+                std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
+                invalid_instrument_declare(ctr);
+                return;
+            }
+
+            _map_events[arguments[0]] = arguments[1];
         }
 
         void Interface::instrument_declare_post(PragmaCustomConstruct ctr)
         {
             ctr.get_ast().remove_in_list();
+        }
+
+        static void invalid_instrument_emit(PragmaCustomConstruct ctr)
+        {
+            invalid_instrument_pragma(ctr, "instrument emit");
         }
 
         void Interface::instrument_emit_pre(PragmaCustomConstruct ctr)
@@ -251,7 +358,78 @@ namespace TL
 
         void Interface::instrument_emit_post(PragmaCustomConstruct ctr)
         {
-            ctr.get_ast().remove_in_list();
+            ObjectList<std::string> arguments;
+            if (!ctr.is_parameterized()
+                    || (arguments = ctr.get_parameter_arguments(ExpressionTokenizerTrim())).size() != 2)
+            {
+                invalid_instrument_emit(ctr);
+                ctr.get_ast().remove_in_list();
+                return;
+            }
+
+            Lexer l = Lexer::get_current_lexer();
+            ObjectList<int> tokens_key = l.lex_string(arguments[0]);
+            ObjectList<int> tokens_descr = l.lex_string(arguments[1]);
+
+            if (tokens_key.size() != 1
+                    || tokens_descr.size() != 1)
+            {
+                invalid_instrument_emit(ctr);
+                return;
+            }
+
+            if ((IS_C_LANGUAGE && (tokens_key[0] != TokensC::IDENTIFIER))
+                    || (IS_CXX_LANGUAGE && (tokens_key[0] != TokensCXX::IDENTIFIER)))
+            {
+                std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
+                invalid_instrument_emit(ctr);
+                return;
+            }
+
+            if ((IS_C_LANGUAGE && (tokens_descr[0] != TokensC::STRING_LITERAL))
+                    || (IS_CXX_LANGUAGE && (tokens_descr[0] != TokensCXX::STRING_LITERAL)))
+            {
+                std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
+                invalid_instrument_emit(ctr);
+                return;
+            }
+
+            if (_map_events.find(arguments[0]) == _map_events.end())
+            {
+                std::cerr << ctr.get_ast().get_locus() << ": warning: event key '" << arguments[0] << "' has not been previously declared" << std::endl;
+                invalid_instrument_emit(ctr);
+                ctr.get_ast().remove_in_list();
+                return;
+            }
+
+            Source src;
+            src
+                << "{"
+                << "static int nanos_funct_id_init = 0;"
+                << "static nanos_event_key_t nanos_instr_name_key = 0;"
+                << "static nanos_event_value_t nanos_instr_name_value = 0;"
+                << "if (nanos_funct_id_init == 0)"
+                << "{"
+                <<    "nanos_err_t err = nanos_instrument_get_key(\"" << arguments[0] << "\", &nanos_instr_name_key);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "err = nanos_instrument_register_value (&nanos_instr_name_value, "
+                <<             "\"" << arguments[0] << "\", " 
+                <<             arguments[1] << ", "
+                <<             "\"" << ctr.get_ast().get_locus() << "\"," 
+                <<             "/* abort_if_registered */ 0);"
+                <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                <<    "nanos_funct_id_init = 1;"
+                << "}"
+                << "nanos_event_t _events[1];"
+                << "_events[0].type = NANOS_POINT;"
+                << "_events[0].info.burst.key = nanos_instr_name_key;"
+                << "_events[0].info.burst.value = nanos_instr_name_value;"
+                << "nanos_instrument_events(1, _events);"
+                << "}"
+                ;
+
+            AST_t tree = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+            ctr.get_ast().replace(tree);
         }
     }
 }

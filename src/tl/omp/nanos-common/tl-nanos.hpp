@@ -61,7 +61,8 @@ namespace TL
         class Interface : public PragmaCustomCompilerPhase
         {
             private:
-                int _n_loads;
+                typedef std::map<std::string, std::string> map_events;
+                map_events _map_events;
 
                 void reset_version_info();
                 
