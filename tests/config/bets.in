@@ -1,4 +1,4 @@
-#!@BASH@
+#!/bin/bash
 
 #constants
 readonly bets_version=0.9
@@ -200,14 +200,57 @@ compile_cpp ()
    return $ret
 }
 
+compile_fortran ()
+{
+   local version=$1
+   local source=$2
+   local exec=$3
+   local srcdir=$4
+
+   # Not using fc as it is a shell command
+   local fc_
+   local fflags
+   local ldflags
+   local tmp
+   
+   #defaults
+   fc_=${FC:=f95}
+
+   #test values
+   fc_=${test_FC:-$fc_}
+   fflags=${test_FFLAGS:-$FFLAGS}
+   ldflags=${test_LDFLAGS:-$LDFLAGS}
+
+   #version values
+   eval tmp=\${test_FC_$version}
+   fc_=${tmp:-$fc_}
+   eval tmp=\"\${test_FFLAGS_$version}\"
+   fflags="$tmp $fflags"
+   if [ "$test_nolink" ]; then
+      fflags="-c $fflags"
+      ldflags=""
+   else
+     eval tmp=\"\${test_LDFLAGS_$version}\"
+     ldflags="$tmp $ldflags"
+   fi
+
+   pushd $tmpdir
+   logcmd $fc_ $fflags $ldflags -o $exec $srcdir/$source 
+   local ret=$?
+   popd
+
+   return $ret
+}
+
 execute ()
 {
    local version=$1
    local exec=$2
+   local cversion=$3
    local env
    local args
 
-   eval env=\"$test_ENV \${test_ENV_$version}\"
+   eval env=\"$test_ENV \${test_ENV_$version} \${test_ENV_$cversion}\"
    eval args=\"$test_ARGS \${test_ARGS_$version}\"
  
    log $env ./$exec $args
@@ -227,6 +270,13 @@ merge_c_compile_vars ()
 {
    eval test_CC_$1=\${test_CC_$2}
    eval test_CFLAGS_$1=\"\${test_CFLAGS_$2} \${test_CFLAGS_$3}\"
+   eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
+}
+
+merge_fortran_compile_vars ()
+{
+   eval test_FC_$1=\${test_FC_$2}
+   eval test_FFLAGS_$1=\"\${test_FFLAGS_$2} \${test_FFLAGS_$3}\"
    eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
 }
 
@@ -250,6 +300,13 @@ clean_c_compile_vars ()
    unset test_LDFLAGS
 }
 
+clean_fortran_compile_vars ()
+{
+   unset test_FC
+   unset test_FFLAGS
+   unset test_LDFLAGS
+}
+
 clean_cpp_compile_vars ()
 {
    unset test_CXX
@@ -261,6 +318,15 @@ clean_c_compile_version_vars ()
 {
    unset test_CC_$1
    unset test_CFLAGS_$1
+   unset test_LDFLAGS_$1
+   unset test_compile_fail_$1
+   unset test_compile_faulty_$1
+}
+
+clean_fortran_compile_version_vars ()
+{
+   unset test_FC_$1
+   unset test_FFLAGS_$1
    unset test_LDFLAGS_$1
    unset test_compile_fail_$1
    unset test_compile_faulty_$1
@@ -337,15 +403,22 @@ run_gen_test ()
    clean_exec_vars
 
    # get file options
-   local start=$(grep -n "<testinfo>" $srcdir/$source | cut -d: -f1)
+   # This ! is for Fortran
+   local start=$(egrep -n "(\![[:blank:]]*)?<testinfo>" $srcdir/$source | cut -d: -f1)
    let start=start+1
-   local end=$(grep -n "</testinfo>" $srcdir/$source | cut -d: -f1)
+   local end=$(egrep -n "(\![[:blank:]]*)?</testinfo>" $srcdir/$source | cut -d: -f1)
    let end=end-1
 
-   if [ $end -gt 1 ]; then
-     sed -e "${start},${end}p" -n $srcdir/$source > $tmpfile
-     source $tmpfile >> $logfile
-   fi
+   SED_SCRIPT='/<testinfo>/,/<\/testinfo>/{
+       /<testinfo>/d
+       /<\/testinfo>/d
+       # Remove Fortran/C++ comments if any
+       s/[[:blank:]]*\(!\|\/\/\)[[:blank:]]*\(.*\)/\2/
+       p
+   }'
+
+   sed -e "${SED_SCRIPT}" -n $srcdir/$source > $tmpfile
+   source $tmpfile >> $logfile
 
    test_generator=${test_generator:-$TEST_GENERATOR}
 
@@ -366,10 +439,11 @@ run_gen_test ()
           local tmp=
           for v1 in $all_compile_versions; do
              for v2 in $compile_versions; do
-                v=$v1$v2
+                v="$v1"_"$v2"
                 tmp="$tmp $v" 
 
                 merge_${type}_compile_vars $v $v1 $v2
+                merge_exec_vars $v $v1 $v2
              done
           done
           for v in $all_compile_versions $compile_versions; do
@@ -385,7 +459,7 @@ run_gen_test ()
           local tmp=
           for v1 in $all_exec_versions; do
              for v2 in $exec_versions; do
-                v=$v1$v2
+                v="$v1"_"$v2"
                 tmp="$tmp $v" 
                 merge_exec_vars $v $v1 $v2
              done
@@ -436,12 +510,11 @@ run_gen_test ()
              eval test_faulty=\${test_exec_faulty_${v}_${e}}
              eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
              test_faulty=${test_faulty:-$test_exec_faulty}
-             passfail "$name-$v-$e" execute $e $name
+             passfail "$name-$v-$e" execute $e $name $v
              log "***End execute test $name-$v-$e"
           done
         fi
 
-        rm -f $name
      done
    fi
    
@@ -468,13 +541,16 @@ run_file()
      *.c)
        run_gen_test $file c 
        ;;
-    *.c.bz2)
+     *.f|*.F|*.f77|*.F77|*.f90|*.F90|*.f95|*.F95)
+       run_gen_test $file fortran
+       ;;
+     *.c.bz2)
        run_gen_test $file c compressed
        ;;
-    *.cpp|*.cu) 
+     *.cpp|*.cu) 
        run_gen_test $file cpp 
        ;;
-    *.cpp.bz2)
+     *.cpp.bz2)
        run_gen_test $file cpp compressed
        ;;
    esac
@@ -516,6 +592,7 @@ Options:
 -nocolor            Do not use ANSI colors in output
 -o logfile          Redirect run output to logfile (default=test.log)
 -run                run tests (default) 
+-only-fails         Show only failures
 -version            Show version
 
 In run mode specific directory or file tests can be specified in the command line
