@@ -119,6 +119,14 @@ namespace TL
             register_directive("interface");
             on_directive_pre["interface"].connect(functor(&Interface::interface_preorder, *this));
             on_directive_post["interface"].connect(functor(&Interface::interface_postorder, *this));
+
+            register_directive("instrument|declare");
+            on_directive_pre["instrument|declare"].connect(functor(&Interface::instrument_declare_pre, *this));
+            on_directive_post["instrument|declare"].connect(functor(&Interface::instrument_declare_post, *this));
+
+            register_directive("instrument|emit");
+            on_directive_pre["instrument|emit"].connect(functor(&Interface::instrument_emit_pre, *this));
+            on_directive_post["instrument|emit"].connect(functor(&Interface::instrument_emit_post, *this));
         }
 
         void Interface::run(TL::DTO& dto)
@@ -188,10 +196,10 @@ namespace TL
             Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
         }
 
-        void Interface::interface_preorder(PragmaCustomConstruct construct)
+        void Interface::interface_preorder(PragmaCustomConstruct ctr)
         {
-            PragmaCustomClause version_clause = construct.get_clause("version");
-            PragmaCustomClause family_clause = construct.get_clause("family");
+            PragmaCustomClause version_clause = ctr.get_clause("version");
+            PragmaCustomClause family_clause = ctr.get_clause("family");
             
             // The runtime must provide always a pair of Family/Version, never only one of them
             if (family_clause.is_defined()
@@ -222,9 +230,28 @@ namespace TL
             }
         }
 
-        void Interface::interface_postorder(PragmaCustomConstruct construct)
+        void Interface::interface_postorder(PragmaCustomConstruct ctr)
         {
-            construct.get_ast().remove_in_list();
+            ctr.get_ast().remove_in_list();
+        }
+
+        // These are not yet implemented
+        void Interface::instrument_declare_pre(PragmaCustomConstruct ctr)
+        {
+        }
+
+        void Interface::instrument_declare_post(PragmaCustomConstruct ctr)
+        {
+            ctr.get_ast().remove_in_list();
+        }
+
+        void Interface::instrument_emit_pre(PragmaCustomConstruct ctr)
+        {
+        }
+
+        void Interface::instrument_emit_post(PragmaCustomConstruct ctr)
+        {
+            ctr.get_ast().remove_in_list();
         }
     }
 }

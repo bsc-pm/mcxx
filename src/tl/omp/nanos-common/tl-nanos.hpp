@@ -70,6 +70,12 @@ namespace TL
                 void interface_preorder(PragmaCustomConstruct);
                 void interface_postorder(PragmaCustomConstruct);
 
+                void instrument_declare_pre(PragmaCustomConstruct);
+                void instrument_declare_post(PragmaCustomConstruct);
+
+                void instrument_emit_pre(PragmaCustomConstruct);
+                void instrument_emit_post(PragmaCustomConstruct);
+
                 virtual void run(TL::DTO& dto);
                 virtual void phase_cleanup(DTO& dto);
                 
