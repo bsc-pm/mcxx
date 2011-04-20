@@ -105,7 +105,8 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
             //Constants 
             //TODO: unnanotated variables from outside of the loop
             if (expr.is_literal() 
-                    || (expr.is_unary_operation() && expr.get_unary_operand().is_literal()))
+                    || (expr.is_unary_operation() && expr.get_unary_operand().is_literal())
+                    || (expr.is_casting() && expr.get_casted_expression().is_literal()))
             {
                 if (!expr.get_type().is_generic_vector())
                 {
