@@ -94,7 +94,8 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_SYMBOL, check_symbol) \
  STATEMENT_HANDLER(AST_ASSIGNMENT, check_assignment) \
  STATEMENT_HANDLER(AST_PTR_ASSIGNMENT, check_ptr_assignment) \
- STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) 
+ STATEMENT_HANDLER(AST_AMBIGUITY, disambiguate_expression) \
+ STATEMENT_HANDLER(AST_USER_DEFINED_BINARY_OP, check_user_defined_binary_op) \
 
 // Enable this if you really need extremely verbose typechecking
 // #define VERBOSE_DEBUG_EXPR 1
@@ -240,7 +241,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     }
 }
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, type_t* rhs_type);
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
 
 static void common_binary_check(AST expr, decl_context_t decl_context);
 static void common_unary_check(AST expr, decl_context_t decl_context);
@@ -838,7 +839,7 @@ struct actual_argument_info_tag
     type_t* type;
 } actual_argument_info_t;
 
-#define MAX_ARGUMENTS 128
+#define MAX_ARGUMENTS 256
 
 static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_arguments, actual_argument_info_t* temp_argument_types)
 {
@@ -971,6 +972,390 @@ static char inside_context_of_symbol(decl_context_t decl_context, scope_entry_t*
     return 0;
 }
 
+static void check_called_symbol(
+        scope_entry_t* symbol, 
+        decl_context_t decl_context, 
+        AST location,
+        AST procedure_designator,
+        int num_actual_arguments,
+        AST* actual_arguments,
+        type_t** argument_types,
+        char is_call_stmt,
+        // out
+        type_t** result_type,
+        scope_entry_t** called_symbol)
+{
+    if (symbol != NULL
+            && symbol->kind == SK_VARIABLE
+            && is_void_type(symbol->type_information))
+    {
+        // Upgrade the symbol to a function with unknown arguments
+        symbol->kind = SK_FUNCTION;
+
+        type_t* return_type = symbol->type_information;
+        if (is_call_stmt)
+            return_type = NULL;
+
+        symbol->type_information = get_nonproto_function_type(return_type, 0);
+    }
+
+    if (symbol == NULL
+            || symbol->kind != SK_FUNCTION)
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
+                    ast_location(location),
+                    !is_call_stmt ? "function reference" : "CALL statement",
+                    fortran_prettyprint_in_buffer(procedure_designator));
+        }
+        *result_type = get_error_type();
+        return;
+    }
+
+    if (inside_context_of_symbol(decl_context, symbol)
+            && !symbol->entity_specs.is_recursive)
+    {
+        running_error("%s: error: cannot call recursively '%s'\n",
+                ast_location(location),
+                fortran_prettyprint_in_buffer(procedure_designator));
+    }
+
+    actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
+    memset(temp_argument_types, 0, sizeof(temp_argument_types));
+
+    // Gather arguments (syntactic checking has happened before)
+    if (actual_arguments != NULL)
+    {
+        int i = 0;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            AST actual_arg_spec = actual_arguments[i];
+            AST keyword = ASTSon0(actual_arg_spec);
+            AST actual_arg = ASTSon1(actual_arg_spec);
+
+            if (ASTType(actual_arg) == AST_ALTERNATE_RESULT_SPEC)
+                continue;
+
+            if (keyword != NULL)
+            {
+                temp_argument_types[i].keyword = ASTText(keyword);
+            }
+            temp_argument_types[i].type = expression_get_type(actual_arg);
+        }
+    }
+
+    type_t* return_type = NULL; 
+    // This is a generic procedure reference
+    if (symbol->entity_specs.is_builtin
+            && is_computed_function_type(symbol->type_information))
+    {
+        if (CURRENT_CONFIGURATION->disable_intrinsics)
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: call to intrinsic '%s' not implemented\n", 
+                        ast_location(location),
+                        strtoupper(symbol->symbol_name));
+            }
+            *result_type = get_error_type();
+            return;
+        }
+
+        // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
+        // will be a computed function type
+
+        computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
+
+        scope_entry_t* entry = fun(symbol, argument_types, actual_arguments, num_actual_arguments);
+
+        if (entry == NULL)
+        {
+            const char* actual_arguments_str = "(";
+
+            int i;
+            for (i = 0; i < num_actual_arguments; i++)
+            {
+                char c[256];
+                snprintf(c, 255, "%s%s", i != 0 ? ", " : "", 
+                        fortran_print_type_str(argument_types[i]));
+                c[255] = '\0';
+
+                actual_arguments_str = strappend(actual_arguments_str, c);
+            }
+            actual_arguments_str = strappend(actual_arguments_str, ")");
+            
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
+                        ast_location(location),
+                        strtoupper(symbol->symbol_name),
+                        actual_arguments_str);
+            }
+            *result_type = get_error_type();
+            return;
+        }
+
+        if (entry->entity_specs.is_elemental)
+        {
+            // Try to come up with a common_rank
+            int common_rank = -1;
+            int i;
+            for (i = 0; i < num_actual_arguments; i++)
+            {
+                int current_rank = get_rank_of_type(argument_types[i]);
+                if (common_rank < 0)
+                {
+                    common_rank = current_rank;
+                }
+                else if (current_rank != common_rank
+                        && current_rank != 0)
+                {
+                    common_rank = -1;
+                    break;
+                }
+            }
+
+            if (common_rank == 0)
+            {
+                return_type = function_type_get_return_type(entry->type_information);
+            }
+            else if (common_rank > 0)
+            {
+                return_type = get_n_ranked_type(
+                        function_type_get_return_type(entry->type_information),
+                        common_rank, decl_context);
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
+                            ast_location(location),
+                            strtoupper(symbol->symbol_name));
+                }
+
+                *result_type = get_error_type();
+                return;
+            }
+        }
+        else
+        {
+            return_type = function_type_get_return_type(entry->type_information);
+        }
+    }
+    else
+    {
+        if (symbol->entity_specs.is_generic_spec)
+        {
+            scope_entry_t* specific_symbol = get_specific_interface(symbol, num_actual_arguments, temp_argument_types);
+            if (specific_symbol == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
+                            ast_location(location),
+                            fortran_prettyprint_in_buffer(procedure_designator));
+                }
+
+                *result_type = get_error_type();
+                return;
+            }
+            symbol = specific_symbol;
+        }
+
+        // This is now a specfic procedure reference
+        ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
+
+        // Complete with those arguments that are not present
+        // Reorder the arguments
+        actual_argument_info_t argument_info_items[MAX_ARGUMENTS];
+        memset(argument_info_items, 0, sizeof(argument_info_items));
+
+        int i;
+        for (i = 0; i < num_actual_arguments; i++)
+        {
+            int position = -1;
+            if (temp_argument_types[i].keyword == NULL)
+            {
+                position = i;
+            }
+            else
+            {
+                int j;
+                for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
+                {
+                    scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
+
+                    if (!related_sym->entity_specs.is_parameter)
+                        continue;
+
+                    if (strcasecmp(related_sym->symbol_name, temp_argument_types[i].keyword) == 0)
+                    {
+                        position = related_sym->entity_specs.parameter_position;
+                    }
+                }
+                if (position < 0)
+                {
+                    running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
+                            ast_location(location), 
+                            temp_argument_types[i].keyword,
+                            symbol->symbol_name);
+                }
+            }
+
+            if (argument_info_items[position].type != NULL)
+            {
+                running_error("%s: error: argument keyword '%s' specified more than once\n",
+                        ast_location(location), temp_argument_types[i].keyword);
+            }
+            argument_info_items[position].type = temp_argument_types[i].type;
+        }
+
+        int num_completed_arguments = num_actual_arguments;
+
+        // Now complete with the optional ones
+        for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
+
+            if (related_sym->entity_specs.is_parameter)
+            {
+                if (argument_info_items[related_sym->entity_specs.parameter_position].type == NULL)
+                {
+                    if (related_sym->entity_specs.is_optional)
+                    {
+                        argument_info_items[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                        num_completed_arguments++;
+                    }
+                    else 
+                    {
+                        running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
+                                ast_location(location),
+                                related_sym->symbol_name,
+                                symbol->symbol_name);
+                    }
+                }
+            }
+        }
+
+        if (!function_type_get_lacking_prototype(symbol->type_information) 
+                && num_completed_arguments > function_type_get_num_parameters(symbol->type_information))
+        {
+            fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
+                    ast_location(location),
+                    symbol->symbol_name);
+            *result_type = get_error_type();
+            return;
+        }
+
+        ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
+                && (num_completed_arguments != function_type_get_num_parameters(symbol->type_information)), 
+                "Mismatch between arguments and the type of the function %d != %d", 
+                num_completed_arguments,
+                function_type_get_num_parameters(symbol->type_information));
+
+        char argument_type_mismatch = 0;
+        int common_rank = -1;
+        if (!function_type_get_lacking_prototype(symbol->type_information))
+        {
+            actual_argument_info_t fixed_argument_info_items[MAX_ARGUMENTS];
+            memcpy(fixed_argument_info_items, argument_info_items, sizeof(fixed_argument_info_items));
+
+            if (symbol->entity_specs.is_elemental)
+            {
+                // We may have to adjust the ranks, first check that all the
+                // ranks match
+                char ok = 1;
+                for (i = 0; i < num_completed_arguments && ok; i++)
+                {
+                    int current_rank = get_rank_of_type(fixed_argument_info_items[i].type); 
+                    if (common_rank < 0)
+                    {
+                        common_rank = current_rank;
+                    }
+                    else if ((common_rank != current_rank)
+                            && current_rank != 0)
+                    {
+                        ok = 0;
+                    }
+                }
+
+                if (ok)
+                {
+                    // Remove rank if they match, otherwise let it fail later
+                    for (i = 0; i < num_completed_arguments && ok; i++)
+                    {
+                        fixed_argument_info_items[i].type = get_rank0_type(fixed_argument_info_items[i].type);
+                    }
+                }
+            }
+
+            for (i = 0; i < num_completed_arguments; i++)
+            {
+                type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
+                type_t* real_type = fixed_argument_info_items[i].type;
+
+                if (!equivalent_tkr_types(formal_type, real_type))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
+                                "real argument %s and the dummy argument %s\n",
+                                ast_location(location),
+                                i + 1,
+                                fortran_print_type_str(real_type),
+                                fortran_print_type_str(formal_type));
+                    }
+                    argument_type_mismatch = 1;
+                }
+            }
+        }
+
+        if (argument_type_mismatch)
+        {
+            *result_type = get_error_type();
+            return;
+        }
+
+        return_type = function_type_get_return_type(symbol->type_information);
+
+        if (symbol->entity_specs.is_elemental
+                && return_type != NULL)
+        {
+            if (common_rank > 0)
+            {
+                return_type = get_n_ranked_type(return_type, common_rank, decl_context);
+            }
+        }
+    }
+
+    if (return_type == NULL)
+    {
+        if (!is_call_stmt)
+        {
+            fprintf(stderr, "%s: warning: invalid function reference to a SUBROUTINE\n",
+                    ast_location(location));
+            *result_type = get_error_type();
+            return;
+        }
+        return_type = get_void_type();
+    }
+    else
+    {
+        if (is_call_stmt)
+        {
+            fprintf(stderr, "%s: warning: invalid CALL statement to a FUNCTION\n",
+                    ast_location(location));
+            *result_type = get_error_type();
+            return;
+        }
+    }
+
+    *result_type = return_type;
+    *called_symbol = symbol;
+}
+
 static void check_function_call(AST expr, decl_context_t decl_context)
 {
     char is_call_stmt = (ASTText(expr) != NULL
@@ -1080,392 +1465,60 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     scope_entry_t* symbol = expression_get_symbol(procedure_designator);
 
-    if (symbol != NULL
-            && symbol->kind == SK_VARIABLE
-            && is_void_type(symbol->type_information))
-    {
-        // Upgrade the symbol to a function with unknown arguments
-        symbol->kind = SK_FUNCTION;
+    int num_actual_arguments = 0;
 
-        type_t* return_type = symbol->type_information;
-        if (is_call_stmt)
-            return_type = NULL;
+    type_t* argument_types[MAX_ARGUMENTS];
+    memset(argument_types, 0, sizeof(argument_types));
 
-        symbol->type_information = get_nonproto_function_type(return_type, 0);
-    }
-
-    if (symbol == NULL
-            || symbol->kind != SK_FUNCTION)
-    {
-        if (!checking_ambiguity())
-        {
-            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
-                    ast_location(expr),
-                    !is_call_stmt ? "function reference" : "CALL statement",
-                    fortran_prettyprint_in_buffer(procedure_designator));
-        }
-        expression_set_error(expr);
-        return;
-    }
-
-    if (inside_context_of_symbol(decl_context, symbol)
-            && !symbol->entity_specs.is_recursive)
-    {
-        running_error("%s: error: cannot call recursively '%s'\n",
-                ast_location(expr),
-                fortran_prettyprint_in_buffer(procedure_designator));
-    }
-
-    actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
-    memset(temp_argument_types, 0, sizeof(temp_argument_types));
-    int num_arguments = 0;
+    AST actual_arguments[MAX_ARGUMENTS];
+    memset(actual_arguments, 0, sizeof(actual_arguments));
 
     // Gather arguments (syntactic checking has happened before)
-    int i;
     if (actual_arg_spec_list != NULL)
     {
         AST it;
         for_each_element(actual_arg_spec_list, it)
         {
+            ERROR_CONDITION(num_actual_arguments == MAX_ARGUMENTS, "Too many arguments %d\n", MAX_ARGUMENTS);
+
             AST actual_arg_spec = ASTSon1(it);
-            AST keyword = ASTSon0(actual_arg_spec);
             AST actual_arg = ASTSon1(actual_arg_spec);
 
             if (ASTType(actual_arg) == AST_ALTERNATE_RESULT_SPEC)
                 continue;
 
-            if (keyword != NULL)
-            {
-                temp_argument_types[num_arguments].keyword = ASTText(keyword);
-            }
-            temp_argument_types[num_arguments].type = expression_get_type(actual_arg);
+            actual_arguments[num_actual_arguments] = actual_arg_spec;
+            argument_types[num_actual_arguments] = expression_get_type(actual_arg);
 
-            num_arguments++;
+            num_actual_arguments++;
         }
     }
 
-    type_t* return_type = NULL; 
-    // This is a generic procedure reference
-    if (symbol->entity_specs.is_builtin
-            && is_computed_function_type(symbol->type_information))
+    type_t* result_type = NULL;
+    scope_entry_t* called_symbol = NULL;
+    check_called_symbol(symbol, 
+            decl_context, 
+            expr, 
+            procedure_designator, 
+            num_actual_arguments,
+            actual_arguments,
+            argument_types,
+            is_call_stmt,
+            // out
+            &result_type,
+            &called_symbol
+            );
+
+    ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
+
+    if (is_error_type(result_type))
     {
-        if (CURRENT_CONFIGURATION->disable_intrinsics)
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: call to intrinsic '%s' not implemented\n", 
-                        ast_location(expr),
-                        strtoupper(symbol->symbol_name));
-            }
-            expression_set_error(expr);
-            return;
-        }
-
-        // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
-        // will be a computed function type
-
-        computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
-
-        int num_args = 0;
-        AST* arg_list = NULL;
-        type_t** type_list = NULL;
-        if (actual_arg_spec_list != NULL)
-        {
-            AST it;
-            for_each_element(actual_arg_spec_list, it)
-            {
-                AST actual_arg_spec = ASTSon1(it);
-                AST actual_arg = ASTSon1(actual_arg_spec);
-
-                if (ASTType(actual_arg) == AST_ALTERNATE_RESULT_SPEC)
-                    continue;
-
-                P_LIST_ADD(arg_list, num_args, actual_arg_spec);
-                num_args--;
-                P_LIST_ADD(type_list, num_args, expression_get_type(actual_arg));
-            }
-        }
-
-        scope_entry_t* entry = fun(symbol, type_list, arg_list, num_arguments);
-
-        if (entry == NULL)
-        {
-            const char* actual_arguments = "(";
-
-            for (i = 0; i < num_args; i++)
-            {
-                char c[256];
-                snprintf(c, 255, "%s%s", i != 0 ? ", " : "", 
-                        fortran_print_type_str(type_list[i]));
-                c[255] = '\0';
-
-                actual_arguments = strappend(actual_arguments, c);
-            }
-            actual_arguments = strappend(actual_arguments, ")");
-            
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
-                        ast_location(expr),
-                        strtoupper(symbol->symbol_name),
-                        actual_arguments);
-            }
-            expression_set_error(expr);
-            return;
-        }
-
-        if (entry->entity_specs.is_elemental)
-        {
-            // Try to come up with a common_rank
-            int common_rank = -1;
-            for (i = 0; i < num_arguments; i++)
-            {
-                int current_rank = get_rank_of_type(type_list[i]);
-                if (common_rank < 0)
-                {
-                    common_rank = current_rank;
-                }
-                else if (current_rank != common_rank
-                        && current_rank != 0)
-                {
-                    common_rank = -1;
-                    break;
-                }
-            }
-
-            if (common_rank == 0)
-            {
-                return_type = function_type_get_return_type(entry->type_information);
-            }
-            else if (common_rank > 0)
-            {
-                return_type = get_n_ranked_type(
-                        function_type_get_return_type(entry->type_information),
-                        common_rank, decl_context);
-            }
-            else
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
-                            ast_location(expr),
-                            strtoupper(symbol->symbol_name));
-                }
-                expression_set_error(expr);
-                return;
-            }
-        }
-        else
-        {
-            return_type = function_type_get_return_type(entry->type_information);
-        }
+        expression_set_error(expr);
     }
     else
     {
-        if (symbol->entity_specs.is_generic_spec)
-        {
-            scope_entry_t* specific_symbol = get_specific_interface(symbol, num_arguments, temp_argument_types);
-            if (specific_symbol == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
-                            ast_location(expr),
-                            symbol->symbol_name);
-                }
-                expression_set_error(expr);
-                return;
-            }
-            symbol = specific_symbol;
-        }
-
-        // This is now a specfic procedure reference
-        ERROR_CONDITION (!is_function_type(symbol->type_information), "Invalid type for function symbol!\n", 0);
-
-        // Complete with those arguments that are not present
-        // Reorder the arguments
-        actual_argument_info_t argument_types[MAX_ARGUMENTS];
-        memset(argument_types, 0, sizeof(argument_types));
-
-        for (i = 0; i < num_arguments; i++)
-        {
-            int position = -1;
-            if (temp_argument_types[i].keyword == NULL)
-            {
-                position = i;
-            }
-            else
-            {
-                int j;
-                for (j = 0; j < symbol->entity_specs.num_related_symbols; j++)
-                {
-                    scope_entry_t* related_sym = symbol->entity_specs.related_symbols[j];
-
-                    if (!related_sym->entity_specs.is_parameter)
-                        continue;
-
-                    if (strcasecmp(related_sym->symbol_name, temp_argument_types[i].keyword) == 0)
-                    {
-                        position = related_sym->entity_specs.parameter_position;
-                    }
-                }
-                if (position < 0)
-                {
-                    running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
-                            ast_location(expr), 
-                            temp_argument_types[i].keyword,
-                            symbol->symbol_name);
-                }
-            }
-
-            if (argument_types[position].type != NULL)
-            {
-                running_error("%s: error: argument keyword '%s' specified more than once\n",
-                        ast_location(expr), temp_argument_types[i].keyword);
-            }
-            argument_types[position].type = temp_argument_types[i].type;
-        }
-
-
-        // Now complete with the optional ones
-        for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
-        {
-            scope_entry_t* related_sym = symbol->entity_specs.related_symbols[i];
-
-            if (related_sym->entity_specs.is_parameter)
-            {
-                if (argument_types[related_sym->entity_specs.parameter_position].type == NULL)
-                {
-                    if (related_sym->entity_specs.is_optional)
-                    {
-                        argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
-                        num_arguments++;
-                    }
-                    else 
-                    {
-                        running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
-                                ast_location(expr),
-                                related_sym->symbol_name,
-                                symbol->symbol_name);
-                    }
-                }
-            }
-        }
-
-        if (!function_type_get_lacking_prototype(symbol->type_information) 
-                && num_arguments > function_type_get_num_parameters(symbol->type_information))
-        {
-            fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
-                    ast_location(expr),
-                    symbol->symbol_name);
-            expression_set_error(expr);
-            return;
-        }
-
-        ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
-                && (num_arguments != function_type_get_num_parameters(symbol->type_information)), 
-                "Mismatch between arguments and the type of the function %d != %d", 
-                num_arguments,
-                function_type_get_num_parameters(symbol->type_information));
-
-        char argument_type_mismatch = 0;
-        int common_rank = -1;
-        if (!function_type_get_lacking_prototype(symbol->type_information))
-        {
-            actual_argument_info_t fixed_argument_types[MAX_ARGUMENTS];
-            memcpy(fixed_argument_types, argument_types, sizeof(fixed_argument_types));
-
-            if (symbol->entity_specs.is_elemental)
-            {
-                // We may have to adjust the ranks, first check that all the
-                // ranks match
-                char ok = 1;
-                for (i = 0; i < num_arguments && ok; i++)
-                {
-                    int current_rank = get_rank_of_type(fixed_argument_types[i].type); 
-                    if (common_rank < 0)
-                    {
-                        common_rank = current_rank;
-                    }
-                    else if ((common_rank != current_rank)
-                            && current_rank != 0)
-                    {
-                        ok = 0;
-                    }
-                }
-
-                if (ok)
-                {
-                    // Remove rank if they match, otherwise let it fail later
-                    for (i = 0; i < num_arguments && ok; i++)
-                    {
-                        fixed_argument_types[i].type = get_rank0_type(fixed_argument_types[i].type);
-                    }
-                }
-            }
-
-            for (i = 0; i < num_arguments; i++)
-            {
-                type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
-                type_t* real_type = fixed_argument_types[i].type;
-
-                if (!equivalent_tkr_types(formal_type, real_type))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
-                                "real argument %s and the dummy argument %s\n",
-                                ast_location(expr),
-                                i + 1,
-                                fortran_print_type_str(real_type),
-                                fortran_print_type_str(formal_type));
-                    }
-                    argument_type_mismatch = 1;
-                }
-            }
-        }
-
-        if (argument_type_mismatch)
-        {
-            expression_set_error(expr);
-            return;
-        }
-
-        return_type = function_type_get_return_type(symbol->type_information);
-
-        if (symbol->entity_specs.is_elemental
-                && return_type != NULL)
-        {
-            if (common_rank > 0)
-            {
-                return_type = get_n_ranked_type(return_type, common_rank, decl_context);
-            }
-        }
+        expression_set_type(expr, result_type);
     }
-
-    if (return_type == NULL)
-    {
-        if (!is_call_stmt)
-        {
-            fprintf(stderr, "%s: warning: invalid function reference to a SUBROUTINE\n",
-                    ast_location(expr));
-            expression_set_error(expr);
-            return;
-        }
-        return_type = get_void_type();
-    }
-    else
-    {
-        if (is_call_stmt)
-        {
-            fprintf(stderr, "%s: warning: invalid CALL statement to a FUNCTION\n",
-                    ast_location(expr));
-            expression_set_error(expr);
-            return;
-        }
-    }
-
-    expression_set_type(expr, return_type);
 
     ASTAttrSetValueType(expr, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(procedure_designator));
@@ -1591,7 +1644,7 @@ static char* binary_expression_attr[] =
     [AST_CONCAT_OP] = LANG_IS_CONCAT_OP,
 };
 
-static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type);
+static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
 static void common_binary_check(AST expr, decl_context_t decl_context)
 {
     AST lhs = ASTSon0(expr);
@@ -1604,7 +1657,7 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
 
     RETURN_IF_ERROR_2(lhs_type, rhs_type, expr);
 
-    common_binary_intrinsic_check(expr, lhs_type, rhs_type);
+    common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type);
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
@@ -1612,12 +1665,12 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
 }
 
-static void common_binary_intrinsic_check(AST expr, type_t* lhs_type, type_t* rhs_type)
+static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, lhs_type, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type));
 }
 
-static void common_unary_intrinsic_check(AST expr, type_t* rhs_type);
+static void common_unary_intrinsic_check(AST expr, decl_context_t, type_t* rhs_type);
 
 static char* unary_expression_attr[] =
 {
@@ -1635,16 +1688,16 @@ static void common_unary_check(AST expr, decl_context_t decl_context)
 
     RETURN_IF_ERROR_1(rhs_type, expr);
 
-    common_unary_intrinsic_check(expr, rhs_type);
+    common_unary_intrinsic_check(expr, decl_context, rhs_type);
 
     ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
 }
 
-static void common_unary_intrinsic_check(AST expr, type_t* rhs_type)
+static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, NULL, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type));
 }
 
 static void check_string_literal(AST expr, decl_context_t decl_context)
@@ -1691,9 +1744,105 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 }
 
-static void check_user_defined_unary_op(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
 {
-    running_error("%s: sorry: not yet implemented\n", ast_location(expr));
+    // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
+    // reuse common function call code
+    AST operand = ASTSon1(expr);
+    AST operand_expr = ASTSon1(operand);
+
+    fortran_check_expression_impl_(operand_expr, decl_context);
+
+    if (expression_is_error(operand_expr))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    AST operator = ASTSon0(expr);
+    const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
+    scope_entry_t* call_sym = query_name_with_locus(decl_context, operator, operator_name);
+
+    if (call_sym == NULL)
+    {
+        running_error("%s: unknown user defined operator '%s'\n", ast_location(expr), ASTText(expr));
+    }
+
+    int num_actual_arguments = 1;
+    AST actual_arguments[1] = { operand };
+    type_t* argument_types[1] = { expression_get_type(operand_expr) };
+
+    type_t* result_type = NULL;
+    scope_entry_t* called_symbol = NULL;
+    check_called_symbol(call_sym, 
+            decl_context, 
+            expr, 
+            operator, 
+            num_actual_arguments,
+            actual_arguments,
+            argument_types,
+            /* is_call_stmt */ 0,
+            // out
+            &result_type,
+            &called_symbol);
+
+    expression_set_type(expr, result_type);
+}
+
+static void check_user_defined_binary_op(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
+    // reuse common function call code
+    AST lhs = ASTSon1(expr);
+    AST lhs_expr = ASTSon1(lhs);
+
+    fortran_check_expression_impl_(lhs_expr, decl_context);
+
+    if (expression_is_error(lhs_expr))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    AST rhs = ASTSon2(expr);
+    AST rhs_expr = ASTSon1(rhs);
+
+    fortran_check_expression_impl_(rhs_expr, decl_context);
+
+    if (expression_is_error(rhs_expr))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    AST operator = ASTSon0(expr);
+    const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
+    scope_entry_t* call_sym = query_name_with_locus(decl_context, operator, operator_name);
+
+    if (call_sym == NULL)
+    {
+        running_error("%s: unknown user defined operator '%s'\n", ast_location(expr), ASTText(expr));
+    }
+
+    int num_actual_arguments = 2;
+    AST actual_arguments[2] = { lhs, rhs };
+    type_t* argument_types[2] = { expression_get_type(lhs_expr), expression_get_type(rhs_expr) };
+
+    type_t* result_type = NULL;
+    scope_entry_t* called_symbol = NULL;
+    check_called_symbol(call_sym, 
+            decl_context, 
+            expr, 
+            operator, 
+            num_actual_arguments,
+            actual_arguments,
+            argument_types,
+            /* is_call_stmt */ 0,
+            // out
+            &result_type,
+            &called_symbol);
+
+    expression_set_type(expr, result_type);
 }
 
 static char function_has_result(scope_entry_t* entry)
@@ -2164,10 +2313,12 @@ typedef struct operand_map_tag
     int num_operands;
 
     void (*compute_const)(AST expr, AST lhs, AST rhs);
+
+    const char* op_symbol_name;
 } operand_map_t;
 
-#define HANDLER_MAP(_node_op, _operands, _compute_const) \
-{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const }
+#define HANDLER_MAP(_node_op, _operands, _compute_const, _operator_symbol_name) \
+{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const, _operator_symbol_name }
 
 static void const_unary_plus(AST expr, AST lhs, AST rhs);
 static void const_unary_neg(AST expr, AST lhs, AST rhs);
@@ -2189,31 +2340,31 @@ static void const_bin_or(AST expr, AST lhs, AST rhs);
 static operand_map_t operand_map[] =
 {
     // Arithmetic unary
-    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus),
-    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg),
+    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus, ".operator.+"),
+    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg, ".operator.-"),
     // Arithmetic binary
-    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add),
-    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub),
-    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult),
-    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div),
-    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power),
+    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add, ".operator.+"),
+    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub, ".operator.-"),
+    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult, ".operator.*"),
+    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div, ".operator./"),
+    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power, ".operator.**"),
     // String concat
-    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL),
+    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL, ".operator.//"),
     // Relational strong
-    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal),
-    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal),
+    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal, ".operator.=="),
+    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal, ".operator./="),
     // Relational weak
-    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt),
-    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte),
-    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt),
-    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte),
+    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt, ".operator.<"),
+    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte, ".operator.<="),
+    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>"),
+    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>="),
     // Unary logical
-    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not),
+    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not, ".operator..not."),
     // Binary logical
-    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal),
-    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal),
-    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and),
-    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or),
+    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv."),
+    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv."),
+    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and, ".operator..and."),
+    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or, ".operator..or."),
 };
 static char operand_map_init = 0;
 
@@ -2236,7 +2387,7 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type);
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, type_t* rhs_type)
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
 {
     // Remove pointer, which is actually only used for data refs
     if (is_pointer_type(lhs_type))
@@ -2290,17 +2441,80 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
 
     if (result == NULL)
     {
-        if (lhs_type != NULL)
+        result = get_error_type();
+        // Now try with a user defined operator
+        scope_entry_t* call_sym = query_name_with_locus(decl_context, expr, value->op_symbol_name);
+
+        // Perform a resolution by means of a call check
+        if (call_sym != NULL)
         {
-            if (!checking_ambiguity())
+#define CREATE_NAMED_PAIR(x) \
+            ASTMake2(AST_NAMED_PAIR_SPEC, NULL, ast_copy(x), ast_get_filename(x), ast_get_line(x), NULL)
+
+            int num_actual_arguments = 0;
+            AST actual_arguments[2] = { NULL, NULL };
+            type_t* argument_types[2] = { NULL, NULL };
+            if (lhs_type == NULL)
             {
-                fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
-                        ast_location(expr),
-                        fortran_print_type_str(lhs_type),
-                        fortran_print_type_str(rhs_type),
-                        get_operator_for_expr(expr));
+                num_actual_arguments = 1;
+                actual_arguments[0] = CREATE_NAMED_PAIR(ASTSon0(expr));
+                argument_types[0] = expression_get_type(ASTSon0(expr));
             }
-            return get_error_type();
+            else
+            {
+                num_actual_arguments = 2;
+                actual_arguments[0] = CREATE_NAMED_PAIR(ASTSon0(expr));
+                argument_types[0] = expression_get_type(ASTSon0(expr));
+
+                actual_arguments[1] = CREATE_NAMED_PAIR(ASTSon1(expr));
+                argument_types[1] = expression_get_type(ASTSon1(expr));
+            }
+
+            AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(expr), ast_get_line(expr), get_operator_for_expr(expr));
+
+            scope_entry_t* called_symbol = NULL;
+            check_called_symbol(call_sym, 
+                    decl_context, 
+                    expr, 
+                    operator_designation,
+                    num_actual_arguments,
+                    actual_arguments,
+                    argument_types,
+                    /* is_call_stmt */ 0,
+                    // out
+                    &result,
+                    &called_symbol);
+
+            ast_free(operator_designation);
+            ast_free(actual_arguments[0]);
+            ast_free(actual_arguments[1]);
+        }
+
+        if (is_error_type(result))
+        {
+            if (lhs_type != NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
+                            ast_location(expr),
+                            fortran_print_type_str(lhs_type),
+                            fortran_print_type_str(rhs_type),
+                            get_operator_for_expr(expr));
+                }
+                return get_error_type();
+            }
+            else
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid operand types %s for intrinsic unary operator '%s'\n",
+                            ast_location(expr),
+                            fortran_print_type_str(rhs_type),
+                            get_operator_for_expr(expr));
+                }
+                return get_error_type();
+            }
         }
     }
 

@@ -991,9 +991,12 @@ const char* get_name_of_generic_spec(AST generic_spec)
     switch (ASTType(generic_spec))
     {
         case AST_SYMBOL:
+            {
+                return strtolower(ASTText(generic_spec));
+            }
         case AST_OPERATOR_NAME:
             {
-                return ASTText(generic_spec);
+                return strtolower(strappend(".operator.", ASTText(generic_spec)));
             }
         case AST_IO_SPEC:
             {
@@ -1370,7 +1373,7 @@ static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_contex
                 if (handler == NULL 
                         || handler->handler == NULL)
                 {
-                    internal_error("Unhandled handler of '%s'\n", ASTText(attr_spec_item));
+                    internal_error("Unhandled handler of '%s' (%s)\n", ASTText(attr_spec_item), ast_print_node_type(ASTType(attr_spec_item)));
                 }
 
                 (handler->handler)(attr_spec_item, decl_context, attr_spec);
@@ -3144,13 +3147,19 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
 
         generic_spec_sym->kind = SK_FUNCTION;
         generic_spec_sym->entity_specs.is_generic_spec = 1;
-        generic_spec_sym->entity_specs.related_symbols = related_symbols;
-        generic_spec_sym->entity_specs.num_related_symbols = num_related_symbols;
+
+        int i;
+        for (i = 0; i < num_related_symbols; i++)
+        {
+            P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
+                    generic_spec_sym->entity_specs.num_related_symbols,
+                    related_symbols[i]);
+        }
 
         scope_entry_t* current_symbol = decl_context.current_scope->related_entry;
         if (current_symbol != NULL)
         {
-            P_LIST_ADD(current_symbol->entity_specs.related_symbols, 
+            P_LIST_ADD_ONCE(current_symbol->entity_specs.related_symbols, 
                     current_symbol->entity_specs.num_related_symbols,
                     generic_spec_sym);
         }
@@ -3671,14 +3680,15 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
         else
         {
-            entry->file = ASTFileName(declaration);
-            entry->line = ASTLine(declaration);
+            // It was not so much defined actually...
+            entry->defined = 0;
         }
 
         if (entry->defined)
         {
             running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
                     ast_location(declaration),
+                    entry->symbol_name,
                     entry->file,
                     entry->line);
         }
@@ -3686,6 +3696,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         entry->type_information = update_basic_type_with_type(entry->type_information, basic_type);
         entry->entity_specs.is_implicit_basic_type = 0;
         entry->defined = 1;
+        entry->file = ASTFileName(declaration);
+        entry->line = ASTLine(declaration);
 
         AST char_length = NULL;
         AST initialization = NULL;
@@ -3886,6 +3898,80 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
     unsupported_statement(a, "UNLOCK");
 }
 
+static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol, const char* name)
+{
+    scope_entry_t* sym_in_module = NULL;
+    int i;
+    for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+    {
+        scope_entry_t* sym = module_symbol->entity_specs.related_symbols[i];
+
+        if (strcasecmp(sym->symbol_name, name) == 0)
+        {
+            sym_in_module = sym;
+            break;
+        }
+    }
+
+    return sym_in_module;
+}
+
+static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_context, const char* aliased_name)
+{
+    ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
+
+    // Why do we duplicate instead of insert_entry or insert_alias
+    // The reason is that we need to know this symbol comes from a module
+    // and its precise USE name, not the original symbol name
+    scope_entry_t* current_symbol = NULL;
+    if (!entry->entity_specs.is_generic_spec)
+    {
+        current_symbol  = new_fortran_symbol(decl_context, 
+                aliased_name != NULL ? aliased_name : entry->symbol_name);
+
+        // Copy everything and restore the name
+        *current_symbol = *entry;
+        current_symbol->symbol_name = aliased_name;
+
+        current_symbol->entity_specs.is_from_module = 1;
+    }
+    else
+    {
+        // Generic specifiers must be handled with care as we want to copy them
+        // instead of straight inserting the symbol to avoid modifying the
+        // original symbol from the program unit using this module
+
+        current_symbol = new_fortran_symbol(decl_context,
+                aliased_name != NULL ? aliased_name : entry->symbol_name);
+
+        // Copy everything and restore the name
+        *current_symbol = *entry;
+        current_symbol->symbol_name = aliased_name;
+
+        current_symbol->entity_specs.is_from_module = 1;
+
+        // Now fix what cannot be shared
+        current_symbol->entity_specs.num_related_symbols = 0;
+        current_symbol->entity_specs.related_symbols = NULL;
+
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            P_LIST_ADD(current_symbol->entity_specs.related_symbols,
+                    current_symbol->entity_specs.num_related_symbols,
+                    entry->entity_specs.related_symbols[i]);
+        }
+    }
+
+    scope_entry_t* related_entry = decl_context.current_scope->related_entry;
+    if (related_entry != NULL)
+    {
+        P_LIST_ADD(related_entry->entity_specs.related_symbols,
+                related_entry->entity_specs.num_related_symbols,
+                current_symbol);
+    }
+}
+
 static void build_scope_use_stmt(AST a, decl_context_t decl_context)
 {
     AST module_nature = NULL;
@@ -3924,18 +4010,159 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
     scope_entry_t* module_symbol = NULL;
 
     // Query first in the module cache
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "BUILDSCOPE: Loading module '%s'\n", module_name_str);
+    }
+
     rb_red_blk_node* query = rb_tree_query(CURRENT_COMPILED_FILE->module_cache, module_name_str);
     if (query != NULL)
     {
         module_symbol = (scope_entry_t*)rb_node_get_info(query);
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Module '%s' was in the module cache of this file\n", module_name_str);
+        }
     }
     else
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Loading module '%s' from the filesystem\n", module_name_str);
+        }
         // Load the file
         load_module_info(strtolower(ASTText(module_name)), &module_symbol);
+
+        if (module_symbol == NULL)
+        {
+            running_error("%s: error: cannot load module '%s'\n",
+                    ast_location(a),
+                    module_name_str);
+        }
+
         // And add it to the cache of opened modules
         ERROR_CONDITION(module_symbol == NULL, "Invalid symbol", 0);
         rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, module_name_str, module_symbol);
+    }
+
+    insert_entry(decl_context.current_scope, module_symbol);
+
+    if (!is_only)
+    {
+#define MAX_RENAMED_SYMBOLS 256
+        int num_renamed_symbols = 0;
+        scope_entry_t* renamed_symbols[MAX_RENAMED_SYMBOLS];
+        memset(renamed_symbols, 0, sizeof(renamed_symbols));
+
+        if (rename_list != NULL)
+        {
+            AST it;
+            for_each_element(rename_list, it)
+            {
+                AST rename_tree = ASTSon1(it);
+
+                AST local_name = ASTSon0(rename_tree);
+                AST sym_in_module_name = ASTSon1(rename_tree);
+                const char* sym_in_module_name_str = get_name_of_generic_spec(sym_in_module_name);
+                scope_entry_t* sym_in_module = 
+                    query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+
+                if (sym_in_module == NULL)
+                {
+                    running_error("%s: error: symbol '%s' not found in module '%s'\n", 
+                            ast_location(sym_in_module_name),
+                            prettyprint_in_buffer(sym_in_module_name),
+                            module_symbol->symbol_name);
+                }
+
+                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
+
+                // "USE M, C => A, D => A" is valid so we avoid adding twice
+                // 'A' in the list (it would be harmless, though)
+                char found = 0;
+                int i;
+                for (i = 0; i < num_renamed_symbols && found; i++)
+                {
+                    found = (renamed_symbols[i] == sym_in_module);
+                }
+                if (!found)
+                {
+                    ERROR_CONDITION(num_renamed_symbols == MAX_RENAMED_SYMBOLS, "Too many renames", 0);
+                    renamed_symbols[num_renamed_symbols] = sym_in_module;
+                    num_renamed_symbols++;
+                }
+            }
+        }
+
+        // Now add the ones not renamed
+        int i;
+        for (i = 0; i < module_symbol->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* sym_in_module = module_symbol->entity_specs.related_symbols[i];
+            char found = 0;
+            int j;
+            for (j = 0; j < num_renamed_symbols && !found; j++)
+            {
+                found = (renamed_symbols[j] == sym_in_module);
+            }
+            if (!found)
+            {
+                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
+            }
+        }
+    }
+    else // is_only
+    {
+        AST it;
+        for_each_element(only_list, it)
+        {
+            AST only = ASTSon1(it);
+
+            switch (ASTType(only))
+            {
+                case AST_RENAME:
+                    {
+                        AST local_name = ASTSon0(only);
+                        AST sym_in_module_name = ASTSon1(only);
+                        const char * sym_in_module_name_str = ASTText(sym_in_module_name);
+
+                        scope_entry_t* sym_in_module = 
+                            query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+
+                        if (sym_in_module == NULL)
+                        {
+                            running_error("%s: error: symbol '%s' not found in module '%s'\n", 
+                                    ast_location(sym_in_module_name),
+                                    prettyprint_in_buffer(sym_in_module_name),
+                                    module_symbol->symbol_name);
+                        }
+
+                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
+                        break;
+                    }
+                default:
+                    {
+                        // This is a generic name
+                        AST sym_in_module_name = only;
+                        const char * sym_in_module_name_str = ASTText(sym_in_module_name);
+
+                        scope_entry_t* sym_in_module = 
+                            query_module_for_symbol_name(module_symbol, sym_in_module_name_str);
+
+                        if (sym_in_module == NULL)
+                        {
+                            running_error("%s: error: symbol '%s' not found in module '%s'\n", 
+                                    ast_location(sym_in_module_name),
+                                    prettyprint_in_buffer(sym_in_module_name),
+                                    module_symbol->symbol_name);
+                        }
+
+                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
+                        break;
+                    }
+            }
+        }
     }
 }
 

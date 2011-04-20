@@ -42,7 +42,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);	
-    // FIXME - Reductions!!
     Source loop_info_field;
     loop_info_field
         << "nanos_loop_info_t loop_info;"
@@ -478,19 +477,25 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     {
         Symbol rs = it->get_symbol();
         OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
-        Source auxiliar_initializer, auxiliar_initialization;
-
+        Source auxiliar_initializer;
         
         if (rs.get_type().is_class())
         {
             // When the symbol has class type, we must build an auxiliary variable initialized to the symbol's identity
             // in order to initialize the reduction's vector
             auxiliar_initializer  << "aux_" << rs.get_name();
+            Source identity;
             reduction_join_arr_decls
                 << rs.get_type().get_declaration(rs.get_scope(), "") << " " << auxiliar_initializer
-                << " = "
-                << udr2.get_identity().prettyprint() << ";"
-            ;
+                << identity 
+                << ";"
+                ;
+
+            if (udr2.has_identity())
+            {
+                identity <<  udr2.get_identity().prettyprint() << ";"
+                    ;
+            }
         }
         else
         {

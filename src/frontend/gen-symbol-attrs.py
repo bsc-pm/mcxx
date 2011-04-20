@@ -198,18 +198,22 @@ def get_extra_load_code(_type, num_name, list_name):
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
         if type_name == "gather_gcc_attribute_t" :
+            result.append("{")
             result.append("extra_gcc_attrs_t extra_gcc_attrs;");
             result.append("memset(&extra_gcc_attrs, 0, sizeof(extra_gcc_attrs));");
             result.append("extra_gcc_attrs.handle = handle;");
             result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_gcc_attrs, get_extra_gcc_attrs);");
+            result.append("}")
             # No need to copy back to the symbol
             pass
         elif type_name == "default_argument_info_t*" :
+            result.append("{")
             result.append("extra_default_argument_info_t extra_default_argument_info;")
             result.append("memset(&extra_default_argument_info, 0, sizeof(extra_default_argument_info_t));")
             result.append("extra_default_argument_info.handle = handle;");
             result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_default_argument_info, \
                     get_extra_default_argument_info);")
+            result.append("}")
             pass
     else:
         sys.stderr.write("%s: warning: unknown array type '%s'\n" % (sys.argv[0], _type))
@@ -222,7 +226,7 @@ def get_load_code(_type, name):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = atoll(values[i]);")
+        result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
         result.append("}")
     elif (_type == "string"):
         result.append("int i;");
@@ -234,19 +238,19 @@ def get_load_code(_type, name):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_ast(handle, atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_ast(handle, safe_atoll(values[i]));")
         result.append("}")
     elif (_type == "type"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_type(handle, atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_type(handle, safe_atoll(values[i]));")
         result.append("}")
     elif (_type == "symbol"):
         result.append("int i;");
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
-        result.append("   sym->entity_specs." + name + " = load_symbol(handle, atoll(values[i]));")
+        result.append("   sym->entity_specs." + name + " = load_symbol(handle, safe_atoll(values[i]));")
         result.append("}")
     elif (_type.startswith("array") or _type.startswith("static_array")):
         if _type.startswith("array"):
@@ -263,19 +267,14 @@ def get_load_code(_type, name):
         else:
             raise Exception("Invalid number of fields in array name. Only 1 or 2 comma-separated are allowed")
 
-        result.append("int i;");
-        result.append("int j;");
-        result.append("if (query_contains_field(ncols, names, \"" + num_name + "\", &i) && query_contains_field(ncols, names, \"" + list_name + "\", &j))");
-        result.append("{")
         result.append(get_extra_load_code(type_name, num_name, list_name))
-        result.append("}")
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
         if type_name == "intent_kind_t" or type_name == "access_specifier_t" or type_name == "_size_t":
             result.append("int i;");
             result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
             result.append("{")
-            result.append("   sym->entity_specs." + name + " = atoll(values[i]);")
+            result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
             result.append("}")
         else:
             sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))

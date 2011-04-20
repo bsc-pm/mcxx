@@ -137,14 +137,18 @@ AC_ARG_ENABLE([fortran],
     ]
 )
 
+fortran_enabled=no
 if test x$is_enabled_fortran = xyes;
 then
     FRONTEND_EXTENSIONS=" fortran"
     AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
     COMPILER_NAMES="${COMPILER_NAMES} plainf95 plainfc"
+    fortran_enabled=yes
 fi
 
 AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
+AC_SUBST([fortran_enabled])
 
 AC_SUBST([FRONTEND_EXTENSIONS])
 
@@ -325,18 +329,28 @@ dnl --------------------- End of Support for OpenMP Nanox ----------------------
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
 # Check if it has nVidia GPUs / CUDA is installed
 gpu_valid=no
-gpu_disabled=no
+gpu_enabled=yes
 CUDA=""
 
 AC_MSG_CHECKING([if the use of GPU devices was disabled])
 AC_ARG_ENABLE([nanox-gpu-device],
   AS_HELP_STRING([--disable-nanox-gpu-device], [Disables the use of GPU devices]),
   [
-    gpu_valid="no"
-    gpu_disabled="yes"
-    AC_MSG_RESULT([yes])
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        gpu_enabled="yes"
+        AC_MSG_RESULT([no])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([yes])
+            gpu_enabled="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
   ],
   [
+    gpu_enabled="yes"
     AC_MSG_RESULT([no])
   ]
 )
@@ -350,7 +364,7 @@ AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 		CUDADIR="/usr/local/cuda"
 	])
 
-if test x$gpu_disabled = xno ; then
+if test x$gpu_enabled = xyes ; then
     if test -d "$CUDADIR" ; 
     then
         AC_PATH_PROG([NVCC], [nvcc], [], [$PATH$PATH_SEPARATOR$CUDADIR/bin])
@@ -1307,6 +1321,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp

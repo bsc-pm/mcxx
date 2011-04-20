@@ -12,6 +12,7 @@ cat <<EOF
 MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_top_builddir@/config/config.plain --verbose"
 test_CC="\${MCXX} --profile=plaincc"
 test_CXX="\${MCXX} --profile=plaincxx"
+test_FC="\${MCXX} --profile=plainfc"
 test_nolink=yes
 EOF
 else

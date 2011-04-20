@@ -229,6 +229,7 @@
 "  -std=<option>\n" \
 "  -rdynamic\n" \
 "  -export-dynamic\n" \
+"  -w\n" \
 "  -W<option>\n" \
 "  -pthread\n" \
 "  -Xpreprocessor OPTION\n" \
@@ -1696,6 +1697,19 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'W' :
             {
                 if (strlen(argument) > strlen("-W"))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
+        case 'w':
+            {
+                if (strlen(argument) == strlen("-w"))
                 {
                     add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
@@ -3392,15 +3406,15 @@ static void link_files(const char** file_list, int num_files,
         i++;
     }
 
-    for (j = 0; j < num_files; j++)
-    {
-        linker_args[i] = file_list[j];
-        i++;
-    }
-
     for (j = 0; j < num_additional_files; j++)
     {
         linker_args[i] = additional_files[j];
+        i++;
+    }
+
+    for (j = 0; j < num_files; j++)
+    {
+        linker_args[i] = file_list[j];
         i++;
     }
 
