@@ -27,6 +27,7 @@
 
 #include "tl-langconstruct.hpp"
 #include "hlt-transform.hpp"
+#include <stack>
 
 //#include "hlt-simdization-omp.hpp"
 
@@ -34,34 +35,28 @@ namespace TL
 {
     namespace HLT
     {
-        class ReplaceSimdSrc : public ReplaceSrcIdExpression
+        class ReplaceSIMDSrc : public ReplaceSrcIdExpression
         {
             private:
                 const ObjectList<IdExpression>* _simd_id_exp_list;
+                std::stack<bool> inside_array_subscript;
             protected:
-                static const char* prettyprint_callback_with_generic_variables (AST a, void* data);
-                static const char* prettyprint_callback_with_generic_constants (AST a, void* data);
+                static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint(AST_t a, void* data);
-                static const char* recursive_prettyprint_with_variables (AST_t a, void* data);
-                static const char* recursive_prettyprint_with_constants (AST_t a, void* data);
 
             public:
-                ReplaceSimdSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list) 
-                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list){}
+                ReplaceSIMDSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list) 
+                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list) { inside_array_subscript.push(false); }
 
                 Source replace(AST_t a) const;
                 Source replace(LangConstruct a) const;
-                Source replace_with_generic_variables(AST_t a) const;
-                Source replace_with_generic_variables(LangConstruct a) const;
-                Source replace_with_generic_constants(AST_t a) const;
-                Source replace_with_generic_constants(LangConstruct a) const;
         };
 
 
         //! \addtogroup HLT High Level Transformations
         //! @{
 
-        //! Simdizes a regular loop using OpenCL vector types
+        //! SIMDizes a regular loop using OpenCL vector types
         /*! 
 
 
@@ -69,14 +64,14 @@ namespace TL
           repeats the body of the loop in the loop itsel, adjusting
           the stride and creating, if necessary an epilog loop.
           */
-        class LIBHLT_CLASS Simdization : public BaseTransform
+        class LIBHLT_CLASS SIMDization : public BaseTransform
         {
             protected:
                 AST_t _ast;
                 ScopeLink _sl;
                 unsigned char& _min_stmt_size;
                 bool is_simdizable;
-                ReplaceSimdSrc _replacement;
+                ReplaceSIMDSrc _replacement;
 
                 virtual Source get_source();
                 void gen_vector_type(const IdExpression& id);
@@ -85,19 +80,19 @@ namespace TL
                 virtual Source do_simdization();
 
             public:
-                //! Creates a Simdization object
+                //! Creates a SIMDization object
                 /*!
                   \param for_stmt Regular loop
                   \param factor Number of times this loop is simdizationed
                  */
-                Simdization(LangConstruct& lang_construct, 
+                SIMDization(LangConstruct& lang_construct, 
                         unsigned char& min_stmt_size, 
                         const ObjectList<IdExpression>* simd_id_exp_list = NULL)
                     : _ast(lang_construct.get_ast()), _sl(lang_construct.get_scope_link()),
                     _replacement(_sl, simd_id_exp_list), _min_stmt_size(min_stmt_size), is_simdizable(false){}
         };
 
-        class LIBHLT_CLASS LoopSimdization : public Simdization
+        class LIBHLT_CLASS LoopSIMDization : public SIMDization
         {
             private:
                 ForStatement& _for_stmt;
@@ -107,12 +102,12 @@ namespace TL
                 virtual Source do_simdization();
 
             public:
-                LoopSimdization(ForStatement& for_stmt, 
+                LoopSIMDization(ForStatement& for_stmt, 
                         unsigned char& min_stmt_size,
                         const ObjectList<IdExpression> *simd_id_exp_list = NULL);
         };
 
-        class LIBHLT_CLASS FunctionSimdization : public Simdization
+        class LIBHLT_CLASS FunctionSIMDization : public SIMDization
         {
             private:
                 FunctionDefinition& _func_def;
@@ -121,7 +116,7 @@ namespace TL
                 virtual Source do_simdization();
 
             public:
-                FunctionSimdization(FunctionDefinition& func_def, 
+                FunctionSIMDization(FunctionDefinition& func_def, 
                         unsigned char& min_stmt_size);
         };
 
@@ -135,14 +130,14 @@ namespace TL
         };
 
 
-        //! Creates a Simdization object
+        //! Creates a SIMDization object
         /*!
           \param for_stmt Regular loop
          */
-        LIBHLT_EXTERN Simdization* simdize(LangConstruct& lang_construct, 
+        LIBHLT_EXTERN SIMDization* simdize(LangConstruct& lang_construct, 
                 unsigned char& min_stmt_size);
 
-        LIBHLT_EXTERN Simdization* simdize(LangConstruct& lang_construct, 
+        LIBHLT_EXTERN SIMDization* simdize(LangConstruct& lang_construct, 
                 unsigned char& min_stmt_size, 
                 const ObjectList<IdExpression>* simd_id_exp_list);
        //! @}

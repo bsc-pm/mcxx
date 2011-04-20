@@ -402,14 +402,14 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 << "("
                 ;
             
-            Source args;
+            Source args_src;
 
             for (i=1; i<(arg_list.size()); i++)
             {
-                args.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
+                args_src.append_with_separator(recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
             }
 
-            result << args.get_source()
+            result << args_src.get_source()
                 << ")"
                 ;
 

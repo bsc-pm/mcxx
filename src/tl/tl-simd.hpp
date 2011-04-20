@@ -62,9 +62,10 @@ namespace TL
         class SpecificFunctionInfo
         {
             private:
-                std::string _spec_func_name;
-                specific_function_kind_t _spec_func_kind;
-                int _width;
+                const std::string _spec_func_name;
+                const specific_function_kind_t _spec_func_kind;
+                const int _width;
+
                 bool _needs_prettyprint;
                 bool _needs_definition;
                 bool _needs_declaration;
@@ -130,7 +131,7 @@ namespace TL
                         const std::string scalar_func_name,
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
-                        int width,
+                        const int width,
                         const bool prettyprinted);
 
                 Source get_all_pend_spec_func_def(ReplaceSrcGenericFunction& replace);

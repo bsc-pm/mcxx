@@ -1,4 +1,5 @@
 #include "tl-simd.hpp"
+#include "cxx-utils.h"
 #include <algorithm>
 
 
@@ -84,6 +85,14 @@ Source GenericFunctions::get_pending_specific_declarations(
 //Using add_generic_function you indicate that scalar_func_sym is actually in the code
 void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym)
 {
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Adding generic function '" 
+            << scalar_func_sym.get_name()
+            << "'"
+            << std::endl;
+    }
+
     function_map_t::iterator it =  _function_map.find(scalar_func_sym);
 
     if (it == _function_map.end())
@@ -94,6 +103,16 @@ void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym)
 
 void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym, const Symbol& hlt_simd_func_sym)
 {
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Adding generic function '" 
+            << scalar_func_sym.get_name()
+            << "', hlt_simd_func_name: '"
+            << hlt_simd_func_sym.get_name()
+            << "'" 
+            <<std::endl;
+    }
+
     function_map_t::iterator it =  _function_map.find(scalar_func_sym);
 
     if (it == _function_map.end())
@@ -185,11 +204,20 @@ std::string GenericFunctions::get_specific_func_name(
         const std::string& device_name,
         const int width)
 {
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Getting specific function name for '" << scalar_func_sym.get_name()
+            << ", device: " << device_name
+            << ", width: " << width
+            << std::endl;
+    }
+
     function_map_t::iterator it = _function_map.find(scalar_func_sym);
     if (it == _function_map.end())
     {
-        running_error("Function Symbol is not a generic function.");
+        running_error("error: function Symbol is not a generic function.");
     }
+
 
     return it->second.get_better_specific_function(device_name, width).get_name();
 }
@@ -200,7 +228,7 @@ SpecificFunctionInfo::SpecificFunctionInfo(
         const specific_function_kind_t spec_func_kind, 
         const int width, 
         const bool prettyprint) 
-: _spec_func_name(spec_func_name), _spec_func_kind(spec_func_kind), _width(width), 
+: _spec_func_name(spec_func_name), _spec_func_kind(spec_func_kind), _width(width),
     _needs_definition(prettyprint), _needs_declaration(prettyprint)
 {
 }
@@ -254,7 +282,7 @@ Source SpecificFunctionInfo::get_definition(
 
     if (_spec_func_kind == DEFAULT)
     {
-        running_error("It is not possible to get the source of a DEFAULT specific function.");
+        running_error("error: it is not possible to get the source of a DEFAULT specific function.");
     }
     else if (_spec_func_kind == SIMD)
     {
@@ -265,7 +293,7 @@ Source SpecificFunctionInfo::get_definition(
         return replace.replace_naive_function(scalar_func_sym, _spec_func_name, replace.get_scope_link());
     }
 
-    running_error("Specific function definition has a invalid kind.");
+    running_error("error: specific function definition has a invalid kind.");
 }
 
 Source SpecificFunctionInfo::get_declaration(
@@ -284,7 +312,7 @@ Source SpecificFunctionInfo::get_declaration(
 
         if (!func_type.is_function())
         {
-            running_error("Expected function Symbol");
+            running_error("error: expected function Symbol");
         }
 
         ObjectList<Type> type_param_list = func_type.parameters();
@@ -334,7 +362,7 @@ Source SpecificFunctionInfo::get_declaration(
         return func_decl_src;
     }
 
-    running_error("Specific function definition has a invalid kind.");
+    running_error("error: specific function definition has a invalid kind.");
 }
 
 bool SpecificFunctionInfo::operator< (const SpecificFunctionInfo& spec_func_info) const
@@ -349,12 +377,12 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym,
 {
     if (_scalar_func_sym.is_invalid())
     {
-        running_error("Expected a valid scalar Symbol");
+        running_error("error: expected a valid scalar Symbol");
     }
 
     if (!_scalar_func_sym.is_function())
     {
-        running_error("Expected a function Symbol");
+        running_error("error: expected a function Symbol");
     }
 }
 
@@ -365,22 +393,22 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym,
 {
     if (_scalar_func_sym.is_invalid())
     {
-        running_error("Expected a valid scalar Symbol from a scalar function");
+        running_error("error: expected a valid scalar Symbol from a scalar function");
     }
 
     if (!_scalar_func_sym.is_function())
     {
-        running_error("Expected a function Symbol from a scalar function");
+        running_error("error: expected function Symbol from a scalar function");
     }
 
     if (_hlt_simd_func_sym.is_invalid())
     {
-        running_error("Expected a valid HLT SIMD Symbol from a generic function");
+        running_error("error: expected a valid HLT SIMD Symbol from a generic function");
     }
 
     if (!_hlt_simd_func_sym.is_function())
     {
-        running_error("Expected a function Symbol from a generic function");
+        running_error("error: expected function Symbol from a generic function");
     }
 }
 
@@ -422,9 +450,20 @@ void GenericFunctionInfo::add_specific_function_definition(
         const std::string scalar_func_name,
         const specific_function_kind_t spec_func_kind,
         const std::string& device_name,
-        int width,
+        const int width,
         const bool prettyprinted)
 {
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Adding specific function '" << scalar_func_name
+            << "', device: '" << device_name
+            << "', width: '" << width
+            << "', kind: '" << spec_func_kind
+            << "', prettyprinted: '" << prettyprinted
+            << "'" 
+            << std::endl;
+    }
+
     SpecificFunctionInfo spec_func(scalar_func_name, spec_func_kind, width, prettyprinted);
 
     device_specific_map_t::iterator it = _specific_functions.find(device_name);
@@ -456,6 +495,14 @@ Source GenericFunctionInfo::get_all_pend_spec_func_def(
 {
     Source result;
 
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Getting all pending specific function definition for '" 
+            << _scalar_func_sym.get_name() 
+            << "'" 
+            << std::endl;
+    }
+
     //FIXME? Would this function have to print several widths at a time?
     SpecificFunctionInfo& spec_fun = get_better_specific_function(
             replace.get_device_name(),
@@ -476,6 +523,14 @@ Source GenericFunctionInfo::get_all_pend_spec_func_decl(
         ReplaceSrcGenericFunction& replace)
 {
     Source result;
+
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Getting all pending specific function declarations for '" 
+            << _scalar_func_sym.get_name() 
+            << "'" 
+            << std::endl;
+    }
 
     //FIXME? Would this function have to print several widths at a time?
     SpecificFunctionInfo& spec_fun = get_better_specific_function(
@@ -509,11 +564,19 @@ SpecificFunctionInfo& GenericFunctionInfo::get_better_specific_function(
         const std::string device_name,
         const int width) 
 {
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD: Getting better specific function for device '"
+            << device_name 
+            << "' and width '"
+            << width << "'" << std::endl;
+    }
+
     //Looking for device specific functions
     device_specific_map_t::iterator it = _specific_functions.find(device_name);
     if (it == _specific_functions.end())
     {
-        running_error("Generic function definition is missing in device %s.", device_name.c_str());
+        running_error("error: specific function definition is missing in device %s.", device_name.c_str());
     }
 
     width_specific_map_t& width_spec_map = it->second;
@@ -521,7 +584,7 @@ SpecificFunctionInfo& GenericFunctionInfo::get_better_specific_function(
     width_specific_map_t::iterator it2 = width_spec_map.find(width);
     if (it2 == width_spec_map.end())
     {
-        running_error("Generic function definition is missing in device %s with width %d.", device_name.c_str(), width);
+        running_error("error: specific function definition is missing in device %s with width %d.", device_name.c_str(), width);
     }
 
     it2 = std::max_element(it2, width_spec_map.end(), compare_pairs());

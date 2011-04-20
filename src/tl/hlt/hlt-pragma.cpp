@@ -315,8 +315,11 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
     Source intel_builtins_src, scalar_functions_src, default_generic_functions_src;
 
     scalar_functions_src
+        << "extern int abs (int __x) __attribute__ ((__nothrow__));"
+
         << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
         << "extern float fabsf (float __x) __attribute__ ((__nothrow__));"
+
         << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
         << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
         ;
@@ -327,6 +330,7 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
                 return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &\
                     __builtin_vector_expansion(0x7FFFFFFF));\
             }"
+
         << "static double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)\
             {\
                 return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &\
@@ -334,13 +338,23 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
             }"
         ;
 
-    //SSE2
     intel_builtins_src
+    //SSE2
+        << "char __attribute__((vector_size(16))) __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
+
+        << "short int __attribute__((vector_size(16))) __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
+
+        << "int __attribute__((vector_size(16))) __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+
         << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
         //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+
         << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
         //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
+
+    //SSSE3
+        << "int __attribute__((vector_size(16))) __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         ;
 
     //Global parsing
@@ -353,7 +367,9 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
     //Default functions
     std::string device_name = "smp";
     int width = 16;
+
     //Int
+    generic_functions.add_specific_definition(scope.get_symbol_from_name("abs"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_pabsd128"));
 
     //Float
     generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_sqrtps"));
@@ -1131,7 +1147,7 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     TL::Expression lower_bound = for_stmt.get_lower_bound();
 
     //simdize_loop returns a Compound Statement!
-    Simdization * simdization = TL::HLT::simdize(for_stmt, min_stmt_size, simd_id_exp_list);
+    SIMDization * simdization = TL::HLT::simdize(for_stmt, min_stmt_size, simd_id_exp_list);
     TL::Source simdized_loop_src = *simdization; 
     delete(simdization);
 
@@ -1169,7 +1185,7 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
         DEBUG_CODE()
         {
             std::cerr << for_stmt.get_ast().get_locus() 
-                << ": warning: LoopSimdization doesn't return a CompoundStatement." << std::endl;
+                << ": warning: LoopSIMDization doesn't return a CompoundStatement." << std::endl;
         }
     }
 }
@@ -1181,7 +1197,7 @@ static void simdize_function_fun(TL::FunctionDefinition& func_def)
     
     unsigned char min_stmt_size;
 
-    Simdization * simdization = TL::HLT::simdize(func_def, min_stmt_size);
+    SIMDization * simdization = TL::HLT::simdize(func_def, min_stmt_size);
     TL::Source simdized_func_src = *simdization;
     delete(simdization);
 
@@ -1214,7 +1230,6 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
     //SIMD LOOPS
     else
     {
-        
         Statement statement = construct.get_statement();
 
         if (ForStatement::predicate(statement.get_ast()))

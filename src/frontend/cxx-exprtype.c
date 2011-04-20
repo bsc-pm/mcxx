@@ -10236,6 +10236,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
 
             if (prev != NULL)
             {
+#warning Fix Me
                 fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;
