@@ -137,14 +137,18 @@ AC_ARG_ENABLE([fortran],
     ]
 )
 
+fortran_enabled=no
 if test x$is_enabled_fortran = xyes;
 then
     FRONTEND_EXTENSIONS=" fortran"
     AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
     COMPILER_NAMES="${COMPILER_NAMES} plainf95 plainfc"
+    fortran_enabled=yes
 fi
 
 AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
+AC_SUBST([fortran_enabled])
 
 AC_SUBST([FRONTEND_EXTENSIONS])
 
@@ -1317,6 +1321,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-fortran
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp

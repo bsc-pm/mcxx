@@ -61,7 +61,8 @@ namespace TL
         class Interface : public PragmaCustomCompilerPhase
         {
             private:
-                int _n_loads;
+                typedef std::map<std::string, std::string> map_events;
+                map_events _map_events;
 
                 void reset_version_info();
                 
@@ -69,6 +70,12 @@ namespace TL
                 Interface();
                 void interface_preorder(PragmaCustomConstruct);
                 void interface_postorder(PragmaCustomConstruct);
+
+                void instrument_declare_pre(PragmaCustomConstruct);
+                void instrument_declare_post(PragmaCustomConstruct);
+
+                void instrument_emit_pre(PragmaCustomConstruct);
+                void instrument_emit_post(PragmaCustomConstruct);
 
                 virtual void run(TL::DTO& dto);
                 virtual void phase_cleanup(DTO& dto);
