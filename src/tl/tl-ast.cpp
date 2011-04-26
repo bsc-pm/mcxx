@@ -225,7 +225,6 @@ namespace TL
 
     AST_t AST_t::duplicate() const
     {
-        // Do not clear extended data
         AST_t result(ast_copy(this->_ast));
         return result;
     }
