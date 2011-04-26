@@ -7388,7 +7388,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
 
     // FIXME - Think how to make this better maintained
-    if (CURRENT_CONFIGURATION->enable_cuda)
+    if (CURRENT_CONFIGURATION->enable_cuda
+            && (gather_info.cuda.is_global
+                || gather_info.cuda.is_device))
     {
         cuda_kernel_symbols_for_function_body(function_body, &gather_info, decl_context, block_context);
     }

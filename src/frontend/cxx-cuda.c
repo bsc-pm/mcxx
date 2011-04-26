@@ -8,6 +8,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-entrylist.h"
 
+#if 0
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
     scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
@@ -25,33 +26,98 @@ static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context
 
     return get_user_defined_type(entry);
 }
+#endif
 
-static type_t* cuda_get_dim3_type(decl_context_t decl_context)
+static type_t* cuda_get_dim3_type(void)
 {
     static type_t* dim3_type = NULL;
     if (dim3_type == NULL)
     {
-        dim3_type = cuda_get_named_type("dim3", decl_context);
+        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
+        new_class_sym->kind = SK_CLASS;
+        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+
+        // struct dim3
+        // {
+        //     unsigned int x, y, z;
+
+        //     __attribute__((host)) __attribute__((device)) dim3(unsigned int vx = 1, unsigned int vy = 1, unsigned int vz = 1) : x(vx), y(vy), z(vz) {}
+        //     __attribute__((host)) __attribute__((device)) dim3(uint3 v) : x(v.x), y(v.y), z(v.z) {}
+        //     __attribute__((host)) __attribute__((device)) operator uint3(void) { uint3 t; t.x = x; t.y = y; t.z = z; return t; }
+        // };
+
+        const char *names[] = { "x", "y", "z", /* sentinel */ NULL };
+
+        int i;
+        for (i = 0; names[i] != NULL; i++)
+        {
+            scope_entry_t* member_sym = new_symbol(class_context, class_context.current_scope, names[i]);
+            member_sym->kind = SK_VARIABLE;
+            member_sym->type_information = get_unsigned_int_type();
+            member_sym->entity_specs.is_member = 1;
+            member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
+
+            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+        }
+
+        // FIXME - We should register the constructors and conversion
+        dim3_type = get_user_defined_type(new_class_sym);
     }
     return dim3_type;
 }
 
-static type_t* cuda_get_uint3_type(decl_context_t decl_context)
+static type_t* cuda_get_uint3_type(void)
 {
     static type_t* uint3_type = NULL;
     if (uint3_type == NULL)
     {
-        uint3_type = cuda_get_named_type("uint3", decl_context);
+        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "uint3");
+        new_class_sym->kind = SK_CLASS;
+        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+        decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+
+        // struct uint3
+        // {
+        //     unsigned int x, y, z;
+        // };
+
+        const char *names[] = { "x", "y", "z", /* sentinel */ NULL };
+
+        int i;
+        for (i = 0; names[i] != NULL; i++)
+        {
+            scope_entry_t* member_sym = new_symbol(class_context, class_context.current_scope, names[i]);
+            member_sym->kind = SK_VARIABLE;
+            member_sym->type_information = get_unsigned_int_type();
+            member_sym->entity_specs.is_member = 1;
+            member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
+
+            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+        }
+
+
+        uint3_type = get_user_defined_type(new_class_sym);
     }
     return uint3_type;
 }
 
-static type_t* cuda_get_cudaStream_t_type(decl_context_t decl_context)
+static type_t* cuda_get_cudaStream_t_type(void)
 {
     static type_t* cudaStream_t_type = NULL;
     if (cudaStream_t_type == NULL)
     {
-        cudaStream_t_type = cuda_get_named_type("cudaStream_t", decl_context);
+        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
+        new_class_sym->kind = SK_CLASS;
+        new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
+
+        cudaStream_t_type = get_user_defined_type(new_class_sym);
     }
     return cudaStream_t_type;
 }
@@ -59,7 +125,7 @@ static type_t* cuda_get_cudaStream_t_type(decl_context_t decl_context)
 void cuda_kernel_symbols_for_function_body(
         AST function_body,
         gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context,
+        decl_context_t decl_context UNUSED_PARAMETER,
         decl_context_t block_context)
 {
     // FIXME - We should keep an attribute for this in the symbol otherwise
@@ -68,8 +134,8 @@ void cuda_kernel_symbols_for_function_body(
     if (gather_info->cuda.is_global
             || gather_info->cuda.is_device)
     {
-        type_t* uint3_type = cuda_get_uint3_type(decl_context);
-        type_t* dim3_type = cuda_get_dim3_type(decl_context);
+        type_t* uint3_type = cuda_get_uint3_type();
+        type_t* dim3_type = cuda_get_dim3_type();
         struct symbol_builtin_info_tag
         {
             const char* name;
@@ -141,8 +207,8 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
         return;
     }
 
-    type_t* dim3_type = cuda_get_dim3_type(decl_context);
-    type_t* cudaStream_t_type = cuda_get_cudaStream_t_type(decl_context);
+    type_t* dim3_type = cuda_get_dim3_type();
+    type_t* cudaStream_t_type = cuda_get_cudaStream_t_type();
 
     struct kernel_arg_item
     {
