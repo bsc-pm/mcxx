@@ -35,7 +35,7 @@ static type_t* cuda_get_dim3_type(void)
     {
         decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
 
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct dim3");
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
@@ -76,7 +76,8 @@ static type_t* cuda_get_uint3_type(void)
     {
         decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
 
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "uint3");
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct uint3");
+        new_class_sym->symbol_name = "uint3";
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
@@ -113,11 +114,16 @@ static type_t* cuda_get_cudaStream_t_type(void)
     {
         decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
 
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
+        // typedef struct CUstream_st *cudaStream_t;
+        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct CUstream_st");
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
 
-        cudaStream_t_type = get_user_defined_type(new_class_sym);
+        scope_entry_t* new_typedef_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "cudaStream_t");
+        new_typedef_sym->kind = SK_TYPEDEF;
+        new_typedef_sym->type_information = get_pointer_type(get_user_defined_type(new_class_sym));
+
+        cudaStream_t_type = get_user_defined_type(new_typedef_sym);
     }
     return cudaStream_t_type;
 }
@@ -285,4 +291,11 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     // A CUDA kernel should return void
     expression_set_type(expression, get_void_type());
+}
+
+void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)
+{
+    cuda_get_dim3_type();
+    cuda_get_uint3_type();
+    cuda_get_cudaStream_t_type();
 }

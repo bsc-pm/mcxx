@@ -395,6 +395,11 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             upc_sign_in_builtins(decl_context);
         }
     }
+
+    if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        init_cuda_builtins(decl_context);
+    }
 }
 
 static void build_scope_declaration_sequence(AST list, decl_context_t decl_context)
