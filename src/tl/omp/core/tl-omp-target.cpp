@@ -228,6 +228,11 @@ namespace TL
                 {
                     valid_target = true;
                 }
+                // FIXME - Verbatim should have its own LangConstruct
+                else if (ctr.get_declaration().internal_ast_type_() == AST_VERBATIM)
+                {
+                    valid_target = true;
+                }
 
                 if (!valid_target)
                 {
