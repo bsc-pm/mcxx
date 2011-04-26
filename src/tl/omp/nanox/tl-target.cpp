@@ -51,6 +51,14 @@ static void remove_target_pragma(PragmaCustomConstruct ctr)
 
 void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
 {
+    Statement stmt = ctr.get_statement();
+    if (stmt.get_ast().is_valid())
+    {
+        // For statements, silently remove the pragma
+        remove_target_pragma(ctr);
+        return;
+    }
+
     if (ctr.get_clause("copy_deps").is_defined()
             || ctr.get_clause("copy_in").is_defined()
             || ctr.get_clause("copy_out").is_defined()
@@ -63,14 +71,6 @@ void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
     if (!device_clause.is_defined())
     {
         std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp target' requires a device, skipping" << std::endl;
-        remove_target_pragma(ctr);
-        return;
-    }
-
-    Statement stmt = ctr.get_statement();
-    if (stmt.get_ast().is_valid())
-    {
-        // For statements, silently remove the pragma
         remove_target_pragma(ctr);
         return;
     }
