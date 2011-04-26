@@ -137,6 +137,10 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause inout_clause = construct.get_clause("inout");
         get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
 
+        PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
+        get_dependences_info_clause(concurrent_clause, data_sharing, 
+                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
+
         PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
         get_dependences_info_clause(fp_input_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_DIR_INPUT | DEP_FIRSTPRIVATE));
@@ -149,6 +153,7 @@ namespace TL { namespace OpenMP {
         get_dependences_info_clause(fp_inout_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_DIR_INOUT | DEP_FIRSTPRIVATE));
 
+        // Same meaning as 'concurrent'
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
