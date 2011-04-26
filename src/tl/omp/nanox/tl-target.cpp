@@ -31,7 +31,11 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
+void OMPTransform::target_preorder(PragmaCustomConstruct ctr)
+{
+}
+
+static void remove_target_pragma(PragmaCustomConstruct ctr)
 {
     // We allow this to appear both for statements and declarations
     Statement stmt = ctr.get_statement();
@@ -42,5 +46,76 @@ void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
     else
     {
         ctr.get_ast().replace(ctr.get_declaration());
+    }
+}
+
+void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
+{
+    Statement stmt = ctr.get_statement();
+    if (stmt.get_ast().is_valid())
+    {
+        // For statements, silently remove the pragma
+        remove_target_pragma(ctr);
+        return;
+    }
+
+    if (ctr.get_clause("copy_deps").is_defined()
+            || ctr.get_clause("copy_in").is_defined()
+            || ctr.get_clause("copy_out").is_defined()
+            || ctr.get_clause("copy_inout").is_defined())
+    {
+        std::cerr << ctr.get_ast().get_locus() << ": warning: copy clauses are not considered yet" << std::endl;
+    }
+
+    PragmaCustomClause device_clause = ctr.get_clause("device");
+    if (!device_clause.is_defined())
+    {
+        std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp target' requires a device, skipping" << std::endl;
+        remove_target_pragma(ctr);
+        return;
+    }
+
+    ObjectList<std::string> device_list = device_clause.get_arguments(ExpressionTokenizerTrim());
+
+    DeviceHandler &device_handler = DeviceHandler::get_device_handler();
+    bool need_to_copy_tree = device_list.size() > 1;
+    bool one_is_smp = device_list.contains("smp");
+
+    for (ObjectList<std::string>::iterator it = device_list.begin();
+            it != device_list.end();
+            it++)
+    {
+        DeviceProvider* device_provider = device_handler.get_device(*it);
+
+        PragmaCustomConstruct ctr2(ctr);
+        // We pass copies to all the device providers but 'smp'
+        if (need_to_copy_tree
+                && *it != "smp")
+        {
+            ctr2 = PragmaCustomConstruct(ctr.get_ast().duplicate(), ctr.get_scope_link());
+        }
+
+        if (device_provider == NULL)
+        {
+            internal_error("invalid device '%s' at '%s'\n",
+                    it->c_str(), ctr2.get_ast().get_locus().c_str());
+        }
+
+        if (FunctionDefinition::predicate(ctr2.get_declaration()))
+        {
+            device_provider->insert_function_definition(ctr2, need_to_copy_tree);
+        }
+        else
+        {
+            device_provider->insert_declaration(ctr2, need_to_copy_tree);
+        }
+    }
+
+    // Nobody removed the original tree and there was not smp e.g: 
+    //      #pragma target device(cuda, opencl)
+    if (!one_is_smp
+            && need_to_copy_tree)
+    {
+        ctr.get_ast().remove_in_list();
     }
 }

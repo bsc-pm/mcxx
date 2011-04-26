@@ -58,6 +58,8 @@ namespace TL
                         ReplaceSrcIdExpression& replace_src,
                         bool &err_declared);
 
+                void get_output_file(std::ofstream& cudaFile);
+
                 std::set<std::string> _fwdSymbols;
             public:
 
@@ -94,6 +96,9 @@ namespace TL
                         Source &device_descriptor);
 
                 virtual void phase_cleanup(DTO& data_flow);
+
+                virtual void insert_function_definition(PragmaCustomConstruct, bool);
+                virtual void insert_declaration(PragmaCustomConstruct, bool);
         };
 
     }

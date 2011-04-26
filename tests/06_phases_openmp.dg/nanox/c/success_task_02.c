@@ -25,31 +25,52 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_OMP_DEPS_HPP
-#define TL_OMP_DEPS_HPP
+/*
+<testinfo>
+test_generator=config/mercurium-nanox
+test_nolink=yes
+</testinfo>
+*/
 
-// This header does not contain anything at the moment, it is just here for
-// consistency with the other files
+#include <stdio.h>
+#include <stdlib.h>
 
-#define BITMAP(x) (1<<x)
-
-namespace TL { namespace OpenMP {
-
-enum DependencyDirection
+int main (int argc, char *argv[])
 {
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_INPUT = BITMAP(1),
-    // Output dependence
-    DEP_DIR_OUTPUT = BITMAP(2),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
-    // Reduction dependences
-    DEP_REDUCTION = BITMAP(3),
-};
+    int a[5] = { 1, 2, 3, 4, 5 };
+    int i;
 
-} }
+#pragma omp task inout(a[2])
+    a[2]++;
 
-#undef BITMAP
+#pragma omp task input(a[2])
+    {
+        // { 1, 2, 4, 4, 5 }
+        if (a[2] != 4)
+        {
+            abort();
+        }
+    }
 
-#endif // TL_OMP_DEPS_HPP
+#pragma omp task inout([5] a)
+    {
+        for ( i = 0; i < 5; i ++ )
+            a[i]++;
+    }
+
+#pragma omp task input([5] a)
+    {
+        int b[5] = { 2, 3, 5, 5, 6 };
+        for ( i = 0; i < 5; i ++ )
+        {
+            if (a[i] != b[i])
+            {
+                abort();
+            }
+        }
+    }
+
+#pragma omp taskwait
+
+    return 0;
+}

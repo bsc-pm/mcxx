@@ -25,31 +25,40 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef TL_OMP_DEPS_HPP
-#define TL_OMP_DEPS_HPP
+#ifndef TL_LEXER_HPP
+#define TL_LEXER_HPP
 
-// This header does not contain anything at the moment, it is just here for
-// consistency with the other files
+#include "tl-objectlist.hpp"
+#include "tl-lexer-tokens.hpp"
 
-#define BITMAP(x) (1<<x)
-
-namespace TL { namespace OpenMP {
-
-enum DependencyDirection
+namespace TL
 {
-    DEP_DIR_UNDEFINED = 0,
-    // Input dependence
-    DEP_DIR_INPUT = BITMAP(1),
-    // Output dependence
-    DEP_DIR_OUTPUT = BITMAP(2),
-    // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
-    // Reduction dependences
-    DEP_REDUCTION = BITMAP(3),
-};
+    class LexerImpl;
+    class Lexer
+    {
+        private:
+            enum lexer_kind
+            {
+                LEXER_INVALID = 0,
+                LEXER_CURRENT,
+                LEXER_C,
+                LEXER_CXX,
+                LEXER_FORTRAN
+            };
 
-} }
+            Lexer(lexer_kind);
+            LexerImpl* _lexer;
 
-#undef BITMAP
+        public:
+            static Lexer get_current_lexer();
+            static Lexer get_c_lexer();
+            static Lexer get_cxx_lexer();
+            static Lexer get_fortran_lexer();
 
-#endif // TL_OMP_DEPS_HPP
+            ObjectList<int> lex_string(const std::string& str);
+
+            ~Lexer();
+    };
+}
+
+#endif // TL_LEXER_HPP

@@ -1,7 +1,15 @@
 EXPORTS
 
-mcxx_flex_debug
+mc99_delete_buffer
 mc99_flex_debug
-
+mc99_scan_string
+mc99_switch_to_buffer
 mc99debug
+mc99lex
+
+mcxx_delete_buffer
+mcxx_flex_debug
+mcxx_scan_string
+mcxx_switch_to_buffer
 mcxxdebug
+mcxxlex

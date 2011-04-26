@@ -375,13 +375,14 @@ namespace TL
 
             //! Duplicates a tree.
             /*!
-             * This function does not copy the extended structure of the tree.
+             * This function also copies the extended information of the tree.
              */
             AST_t duplicate() const;
 
             //! Duplicates a tree and makes it to be in the same context as the original one
             /*!
-             * This function does not copy the extended structure of the tree
+             * This function also copies the extended information of the tree.
+             *
              * \param scope_link The scope link considered
              * \return A pair with the duplicated tree and an updated scope link
              */

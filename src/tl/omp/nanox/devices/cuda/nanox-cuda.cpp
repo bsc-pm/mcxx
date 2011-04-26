@@ -195,6 +195,86 @@ DeviceCUDA::DeviceCUDA()
 	set_phase_description("This phase is used by Nanox phases to implement CUDA device support");
 }
 
+void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
+{
+	// Check if the file has already been created (and written)
+	bool new_file = false;
+
+    Source included_files;
+	if (_cudaFilename == "")
+    {
+        // Set the file name
+        _cudaFilename = "cudacc_";
+        _cudaFilename += CompilationProcess::get_current_file().get_filename(false);
+        size_t file_extension = _cudaFilename.find_last_of(".");
+        _cudaFilename.erase(file_extension, _cudaFilename.length());
+        _cudaFilename += ".cu";
+        new_file = true;
+
+        // Remove the intermediate source file
+        mark_file_for_cleanup( _cudaFilename.c_str() );
+
+        // Get *.cu included files
+        ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+        std::string cuda_line (".cu\"");
+        std::size_t cuda_size = cuda_line.size();
+
+        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+        {
+            std::string line = (*it).get_preprocessor_line();
+            if (line.size() > cuda_size)
+            {
+                std::string matching = line.substr(line.size()-cuda_size,cuda_size);
+                if (matching == cuda_line)
+                {
+                    included_files << line << "\n";
+                }
+            }
+        }
+    }
+
+	const std::string configuration_name = "cuda";
+	CompilationProcess::add_file(_cudaFilename, configuration_name, new_file);
+
+	if (new_file)
+	{
+		cudaFile.open (_cudaFilename.c_str());
+		cudaFile << included_files.get_source(false) << "\n";
+	}
+	else
+	{
+		cudaFile.open (_cudaFilename.c_str(), std::ios_base::app);
+	}
+}
+
+void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy)
+{
+	std::ofstream cudaFile; 
+    get_output_file(cudaFile);
+
+    C_LANGUAGE()
+    {
+        cudaFile << "extern \"C\" {\n";
+    }
+    cudaFile << ctr.get_declaration().prettyprint_external();
+    C_LANGUAGE()
+    {
+        cudaFile << "\n}\n";
+    }
+
+    cudaFile.close();
+
+    if (!is_copy)
+    {
+        ctr.get_ast().remove_in_list();
+    }
+}
+
+void DeviceCUDA::insert_declaration(PragmaCustomConstruct ctr, bool is_copy)
+{
+    insert_function_definition(ctr, is_copy);
+}
+
 void DeviceCUDA::create_outline(
 		const std::string& task_name,
 		const std::string& struct_typename,
@@ -207,47 +287,10 @@ void DeviceCUDA::create_outline(
 {
 	/***************** Write the CUDA file *****************/
 
-	// Check if the file has already been created (and written)
-	bool new_file = false;
-
-	if (_cudaFilename == "")
-	{
-		// Set the file name
-		_cudaFilename = "cudacc_";
-		_cudaFilename += CompilationProcess::get_current_file().get_filename(false);
-		size_t file_extension = _cudaFilename.find_last_of(".");
-		_cudaFilename.erase(file_extension, _cudaFilename.length());
-		_cudaFilename += ".cu";
-		new_file = true;
-
-		// Remove the intermediate source file
-		mark_file_for_cleanup( _cudaFilename.c_str() );
-	}
-
-	const std::string configuration_name = "cuda";
-	CompilationProcess::add_file(_cudaFilename, configuration_name, new_file);
-
 	// Get all the needed symbols and CUDA included files
-	Source included_files, forward_declaration;
+	Source forward_declaration;
 	AST_t function_tree;
 
-	// Get *.cu included files
-	ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-	std::string cuda_line (".cu\"");
-	std::size_t cuda_size = cuda_line.size();
-
-	for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
-	{
-		std::string line = (*it).get_preprocessor_line();
-		if (line.size() > cuda_size)
-		{
-			std::string matching = line.substr(line.size()-cuda_size,cuda_size);
-			if (matching == cuda_line)
-			{
-				included_files << line << "\n";
-			}
-		}
-	}
 
 	// Check if the task is a function, or it is inlined
 	if (outline_flags.task_symbol != NULL)
@@ -552,16 +595,9 @@ void DeviceCUDA::create_outline(
 	AST_t outline_code_tree =
 			result.parse_declaration(enclosing_function.get_ast(), sl);
 
-	std::ofstream cudaFile;
-	if (new_file)
-	{
-		cudaFile.open (_cudaFilename.c_str());
-		cudaFile << included_files.get_source(false) << "\n";
-	}
-	else
-	{
-		cudaFile.open (_cudaFilename.c_str(), std::ios_base::app);
-	}
+    // This registers the output file in the compilation pipeline if needed
+    std::ofstream cudaFile;
+    get_output_file(cudaFile);
 
 	cudaFile << "extern \"C\" {\n";
 	cudaFile << forward_declaration.get_source(false) << "\n";

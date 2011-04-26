@@ -92,50 +92,35 @@ namespace TL { namespace OpenMP {
 
             Symbol sym = expr.get_base_symbol();
             DataSharingAttribute ds_attr = data_sharing.get_data_sharing(sym);
+            Type data_type = expr.get_data_type();
+
+            // Arguable if we have T (&)[10] (a reference to array)
+            if (data_type.is_reference())
+            {
+                data_type = data_type.references_to();
+            }
 
             if (expr.is_id_expression())
             {
-                Type data_type = expr.get_data_type();
-
-                // Arguable if we have T (&)[10] (a reference to array)
-                if (data_type.is_reference())
-                {
-                    data_type = data_type.references_to();
-                }
-
-                // if (data_type.is_array())
-                // {
-                //     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
-                // }
-                // else
-                // {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                // }
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
             else
             {
-                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
-            }
+                Type sym_type = sym.get_type();
+                if (sym_type.is_reference())
+                {
+                    sym_type = sym_type.references_to();
+                }
 
-            // if ((dep_attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
-            // {
-            //     if (expr.is_id_expression())
-            //     {
-            //         if (((ds_attr & DS_UNDEFINED) != DS_UNDEFINED)
-            //                 && ((ds_attr & DS_IMPLICIT) != DS_IMPLICIT)
-            //                 && ((ds_attr & DS_SHARED) != DS_SHARED))
-            //         {
-            //             std::cerr << expr.get_ast().get_locus()
-            //                 << ": warning: symbol '" << sym.get_qualified_name() << "' has a non-shared data sharing, overwriting to shared" << std::endl;
-            //         }
-            //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-            //     }
-            //     else if (ds_attr == DS_UNDEFINED)
-            //     {
-            //         // Unclear
-            //         data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
-            //     }
-            // }
+                if (sym_type.is_array())
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                }
+                else
+                {
+                    data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                }
+            }
 
             data_sharing.add_dependence(dep_item);
         }
@@ -152,21 +137,26 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause inout_clause = construct.get_clause("inout");
         get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
 
+        PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
+        get_dependences_info_clause(concurrent_clause, data_sharing, 
+                (OpenMP::DependencyDirection)(DEP_REDUCTION));
+
         PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
         get_dependences_info_clause(fp_input_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INPUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_INPUT));
 
         PragmaCustomClause fp_output_clause = construct.get_clause("__fp_output");
         get_dependences_info_clause(fp_output_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT));
 
         PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
         get_dependences_info_clause(fp_inout_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INOUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_INOUT));
 
+        // Same meaning as 'concurrent'
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_REDUCTION));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,

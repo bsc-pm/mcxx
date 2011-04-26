@@ -42,7 +42,12 @@ DIST_SUBDIRS=analysis \
 
 lib_LTLIBRARIES = libtl.la
 
-BUILT_SOURCES = $(top_builddir)/src/frontend/cxx-asttype.h
+BUILT_SOURCES=
+BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h 
+BUILT_SOURCES += tl-lexer-tokens.hpp
+
+CLEANFILES =
+CLEANFILES += tl-lexer-tokens.hpp
 
 COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_srcdir)/src/frontend \
@@ -78,6 +83,9 @@ libtl_la_SOURCES = \
 	tl-symbol.cpp \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
+	tl-lexer.hpp \
+	tl-lexer.cpp \
+	tl-lexer-tokens.hpp \
 	tl-source.hpp \
 	tl-source.cpp \
 	tl-type.hpp \
@@ -139,6 +147,33 @@ no_undefined=-no-undefined
 else
 no_undefined=
 endif
+
+PARSER_INFO_C=$(builddir)/../frontend/c99-parser-internal.h
+PARSER_INFO_CXX=$(builddir)/../frontend/cxx-parser-internal.h
+if FORTRAN_SUPPORT
+PARSER_INFO_FORTRAN=$(builddir)/../frontend/fortran/fortran03-parser-internal.h
+endif
+
+# Flex makes things very difficult
+tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
+	$(AM_V_GEN)((\
+	 echo "#ifndef TL_LEXER_TOKENS_HPP" ; \
+	 echo "#define TL_LEXER_TOKENS_HPP" ; \
+	 echo "namespace TL {"  ; \
+	 echo "namespace TokensC {"  ; \
+	 $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_C) ; \
+	 echo "}"  ; \
+	 echo "namespace TokensCXX {" ; \
+	 $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_CXX) ; \
+	 echo "}"  ; \
+	 if [ -e "$(PARSER_INFO_FORTRAN)" ]; then \
+	    echo "namespace TokensFortran {"  ; \
+	    $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_FORTRAN) ; \
+	    echo "}"  ; \
+	 fi; \
+	 echo "}";  \
+	 echo "#endif // TL_LEXER_TOKENS_HPP" ; \
+	) > $@)
 
 libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 libtl_la_LIBADD = \
