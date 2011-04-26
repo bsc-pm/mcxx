@@ -253,16 +253,17 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
         if (!is_convertible)
         {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                        ast_location(tree),
-                        kernel_args[i].position,
-                        prettyprint_in_buffer(tree),
-                        print_type_str(dest_type, decl_context));
-            }
-            expression_set_error(expression);
-            return;
+            // FIXME - CUDA and C do not mix
+            // if (!checking_ambiguity())
+            // {
+            //     fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+            //             ast_location(tree),
+            //             kernel_args[i].position,
+            //             prettyprint_in_buffer(tree),
+            //             print_type_str(dest_type, decl_context));
+            // }
+            // expression_set_error(expression);
+            // return;
         }
         i++;
     }
