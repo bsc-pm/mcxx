@@ -470,8 +470,10 @@ void gather_gcc_attribute_list(AST attribute_list,
         gather_decl_spec_t *gather_info, 
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(attribute_list == NULL,
-            "This cannot be NULL", 0);
+    // We allow this since we may have removed all the attributes
+    if (attribute_list == NULL)
+        return;
+
     AST iter;
     for_each_element(attribute_list, iter)
     {
