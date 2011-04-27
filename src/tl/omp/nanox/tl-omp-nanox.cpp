@@ -57,6 +57,7 @@ OMPTransform::OMPTransform()
 
     on_directive_post["flush"].connect(functor(&OMPTransform::flush_postorder, *this));
 
+    on_directive_pre["target"].connect(functor(&OMPTransform::target_preorder, *this));
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
     
     register_parameter("instrument", 

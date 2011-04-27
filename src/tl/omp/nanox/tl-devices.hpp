@@ -198,15 +198,48 @@ namespace Nanox
                     Source &device_descriptor) = 0;
 
             /*!
-              This function return the source code for gathering an omp reduction
+              This function adds a new function definition to a device. Its
+              default implementation simply removes the pragma.
+
+              When a #pragma omp target is used on a function definition the
+              compiler will call this function.
               
-              \param reduction_references Reduction References in the actual environment
+              \param owned_tree States whether \a ctr is a copy of the original
+              or not. When it is not a copy, the DeviceProvider can remove the
+              whole pragma if needed
+              */
+            virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
+            { 
+                ctr.get_ast().replace(ctr.get_declaration());
+            }
+
+            /*!
+              This function adds a new declaration to a device. 
+              Its default implementation simply removes the pragma.
+
+              When a #pragma omp target is used on a declaration (other than a
+              function definition) the compiler will call this function.
+
+              \param owned_tree States whether \a ctr is a copy of the original
+              or not. When it is not a copy, the DeviceProvider can remove the
+              whole pragma if needed
+              */
+            virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
+            { 
+                ctr.get_ast().replace(ctr.get_declaration());
+            }
+
+            /*!
+              This function returns the source code for gathering an omp reduction
+              
+              \param reduction_references List of reduction references in the current environment
              */
-            virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, 
-                    ScopeLink sl)
-                    {
-                        return Source();
-                    }
+            virtual Source get_reduction_code(
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references, 
+                    ScopeLink)
+            {
+                return Source();
+            }
                     
             virtual ~DeviceProvider() { }
     };

@@ -37,12 +37,12 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Check libtool
-LT_INIT([disable-static,win32-dll])
-
 dnl Check cc
 AC_PROG_CC
 AM_PROG_CC_C_O
+
+dnl Check libtool
+LT_INIT([disable-static,win32-dll])
 
 dnl Check cpp
 AC_PROG_CPP
