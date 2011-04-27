@@ -87,6 +87,8 @@ preprocessor_name = @NVCC@
 preprocessor_options = -D__CUDABE__
 compiler_name = @NVCC@
 linker_name = @NVCC@
+compiler_dto = remove_attributes:string:host,device
+compiler_phase = libtl-remove-attrs.so
 
 [mnvcxx : omp-base]
 language = C++
@@ -95,6 +97,8 @@ preprocessor_name = @NVCC@
 preprocessor_options = -D__CUDABE__
 compiler_name = @NVCC@
 linker_name = @NVCC@
+compiler_dto = remove_attributes:string:host,device
+compiler_phase = libtl-remove-attrs.so
 
 # Profile mode
 [omp-prof-common]
