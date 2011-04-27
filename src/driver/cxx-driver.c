@@ -2316,7 +2316,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         {
             if (!old_cuda_flag)
             {
-                fprintf(stderr, "%s: warning: enabling CUDA support\n",
+                fprintf(stderr, "%s: info: enabling experimental CUDA support\n",
                         translation_unit->input_filename);
                 CURRENT_CONFIGURATION->enable_cuda = 1;
             }
