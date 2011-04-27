@@ -53,6 +53,7 @@ language = C++
 compiler_name = g++
 linker_name = g++
 
+# Intel Compiler
 [imcc : mcc]
 preprocessor_name = @ICC@
 compiler_name = @ICC@
@@ -65,6 +66,7 @@ compiler_name = @ICPC@
 linker_name = @ICPC@
 options = --variable=weaks_as_statics:1
 
+# IBM XL
 [xlmcc : mcc]
 preprocessor_name = @GXLC@
 preprocessor_uses_stdout = yes
@@ -76,6 +78,23 @@ preprocessor_name = @GXLCXX@
 preprocessor_uses_stdout = yes
 compiler_name = @GXLCXX@
 linker_name = @GXLCXX@
+
+# nvcc (CUDA)
+[mnvcc : omp-base]
+language = C
+options = --cuda
+preprocessor_name = @NVCC@
+preprocessor_options = -D__CUDABE__
+compiler_name = @NVCC@
+linker_name = @NVCC@
+
+[mnvcxx : omp-base]
+language = C++
+options = --cuda
+preprocessor_name = @NVCC@
+preprocessor_options = -D__CUDABE__
+compiler_name = @NVCC@
+linker_name = @NVCC@
 
 # Profile mode
 [omp-prof-common]
