@@ -7,6 +7,8 @@
 #include "cxx-ambiguity.h"
 #include "cxx-prettyprint.h"
 #include "cxx-entrylist.h"
+#include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 
 #if 0
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
@@ -291,6 +293,11 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     // A CUDA kernel should return void
     expression_set_type(expression, get_void_type());
+
+    ASTAttrSetValueType(expression, LANG_IS_CUDA_KERNEL_CALL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expression, LANG_KERNEL_CONFIGURATION, tl_type_t, tl_ast(cuda_kernel_args));
+    ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(postfix_expr));
+    ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(call_args));
 }
 
 void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)

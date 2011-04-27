@@ -139,6 +139,8 @@ libtl_la_SOURCES = \
     tl-fortran.cpp \
     tl-simd.hpp \
     tl-simd.cpp \
+	tl-cuda.hpp \
+	tl-cuda.cpp \
 	$(END)
 
 if WINDOWS_BUILD
