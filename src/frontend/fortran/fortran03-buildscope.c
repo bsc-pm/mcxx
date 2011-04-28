@@ -691,7 +691,7 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
             if (!allowed_statement(stmt, decl_context))
             {
-                fprintf(stderr, "%s: warning: this statement cannot be used in this context\n",
+                running_error("%s: error: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -734,7 +734,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
 
             if (!allowed_statement(stmt, decl_context))
             {
-                fprintf(stderr, "%s: warning: this statement cannot be used in this context\n",
+                running_error("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -2272,7 +2272,7 @@ static scope_entry_t* query_label(AST label,
         if (new_label->defined
                 && is_definition)
         {
-            fprintf(stderr, "%s: warning: label %s has already been defined in %s:%d\n",
+            running_error("%s: error: label %s has already been defined in %s:%d\n",
                     ast_location(label),
                     new_label->symbol_name,
                     new_label->file, new_label->line);
