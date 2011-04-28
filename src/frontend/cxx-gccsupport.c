@@ -421,6 +421,31 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_inline = 1;
     }
+    // CUDA attributes
+    else if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        if (strcmp(attribute_name, "global") == 0)
+        {
+            gather_info->cuda.is_global = 1;
+        }
+        else if (strcmp(attribute_name, "device") == 0)
+        {
+            gather_info->cuda.is_device = 1;
+        }
+        else if (strcmp(attribute_name, "host") == 0)
+        {
+            // Do nothing
+            gather_info->cuda.is_host = 1;
+        }
+        else if (strcmp(attribute_name, "shared") == 0)
+        {
+            gather_info->cuda.is_shared = 1;
+        }
+        else if (strcmp(attribute_name, "constant") == 0)
+        {
+            gather_info->cuda.is_constant = 1;
+        }
+    }
 
     // Save it in the gather_info structure
     if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)

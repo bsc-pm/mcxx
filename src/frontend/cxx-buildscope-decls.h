@@ -96,6 +96,7 @@ struct gather_decl_spec_tag {
     {
         char is_global;
         char is_device;
+        char is_host;
         char is_shared;
         char is_constant;
     } cuda;
