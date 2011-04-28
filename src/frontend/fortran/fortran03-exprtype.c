@@ -229,7 +229,8 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
         }
     }
 
-    if (CURRENT_CONFIGURATION->strict_typecheck)
+    if (!checking_ambiguity() 
+            && CURRENT_CONFIGURATION->strict_typecheck)
     {
         if (expression_get_type(expression) == NULL
                 || expression_is_error(expression))
