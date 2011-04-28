@@ -3,6 +3,10 @@
 # Basic mercurium generator with Fortran support
 source @abs_top_builddir@/tests/config/mercurium
 
+cat <<EOF
+test_FFLAGS="--typecheck ${test_FFLAGS}"
+EOF
+
 if test @fortran_enabled@ != yes;
 then
 
