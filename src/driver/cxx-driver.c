@@ -1216,7 +1216,11 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_FORTRAN_PRESCANNER:
                     {
+#ifdef FORTRAN_SUPPORT
                         CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option --fpc is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 default:
