@@ -3378,6 +3378,10 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
         {
             computed_type = vector_type_get_element_type(lhs_type);
         }
+        else
+        {
+            return get_error_type();
+        }
 
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
@@ -3439,6 +3443,10 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
     }
 
     type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result == NULL)
+    {
+    }
 
     if (result != NULL
             && val != NULL
