@@ -4,6 +4,7 @@
 source @abs_top_builddir@/tests/config/mercurium
 
 cat <<EOF
+test_nolink=yes
 test_FFLAGS="--typecheck ${test_FFLAGS}"
 EOF
 
