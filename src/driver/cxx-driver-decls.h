@@ -304,6 +304,7 @@ typedef struct compilation_configuration_tag
 
 #ifdef FORTRAN_SUPPORT
     // Fortran prescanner
+    const char* prescanner_name;
     const char** prescanner_options;
     int column_width;
 
