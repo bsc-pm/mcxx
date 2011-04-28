@@ -286,12 +286,11 @@ namespace TL
                     continue;
                 }
 
+                Symbol sym = expr.get_base_symbol();
+                OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
+
                 if (expr.is_id_expression())
                 {
-                    Symbol sym = expr.get_base_symbol();
-
-                    OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
-
                     if (data_sharing_attr == DS_UNDEFINED)
                     {
                         std::cerr 
@@ -317,6 +316,23 @@ namespace TL
                             // Otherwise just override the sharing attribute with shared
                             data_sharing.set_data_sharing(sym, (OpenMP::DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
                         }
+                    }
+                }
+                else
+                {
+                    Type sym_type = sym.get_type();
+                    if (sym_type.is_reference())
+                    {
+                        sym_type = sym_type.references_to();
+                    }
+
+                    if (sym_type.is_array())
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                    }
+                    else
+                    {
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                     }
                 }
 
