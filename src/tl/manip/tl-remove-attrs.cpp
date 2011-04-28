@@ -51,7 +51,6 @@ namespace TL
             {
                 if (GCCAttributeSpecifier::predicate(a))
                 {
-                    std::cerr << "Found ->" << a.get_locus() << std::endl;
                     ObjectList<GCCAttribute> gcc_attrib = GCCAttributeSpecifier(a, _sl).get_gcc_attribute_list();
                     for (ObjectList<GCCAttribute>::iterator it = gcc_attrib.begin();
                             it != gcc_attrib.end();
@@ -59,11 +58,11 @@ namespace TL
                     {
                         if (_attr_names.contains(it->get_name()))
                         {
-                            std::cerr << "Match ->" << a.get_locus() << std::endl;
                             return ast_traversal_result_helper(/* match */ true, /* recurse */ false);
                         }
                     }
                 }
+                return ast_traversal_result_helper(/* match */ false, /* recurse */ true);
             }
     };
 
@@ -98,15 +97,12 @@ namespace TL
             }
         }
 
-        std::cerr << "REMOVING : " << concat_strings(_attr_names, ", ") << std::endl;
-
         ObjectList<AST_t> matching_attributes = tree.depth_subtrees(RemoveAttributeFunctor(_attr_names, sl));
 
         for (ObjectList<AST_t>::iterator it = matching_attributes.begin();
                 it != matching_attributes.end();
                 it++)
         {
-            std::cerr << "Removing ->" << it->get_locus() << std::endl;
             it->remove_in_list();
         }
     }
