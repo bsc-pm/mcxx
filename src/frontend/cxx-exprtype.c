@@ -3444,10 +3444,6 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
 
     type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
 
-    if (result == NULL)
-    {
-    }
-
     if (result != NULL
             && val != NULL
             && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
