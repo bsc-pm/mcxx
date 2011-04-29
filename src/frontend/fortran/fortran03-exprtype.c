@@ -1766,7 +1766,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user defined operator '%s'\n", ast_location(expr), ASTText(expr));
+        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
     }
 
     int num_actual_arguments = 1;
@@ -1822,7 +1822,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user defined operator '%s'\n", ast_location(expr), ASTText(expr));
+        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
     }
 
     int num_actual_arguments = 2;
