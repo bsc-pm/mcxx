@@ -126,7 +126,7 @@ static void clear_unknown_symbols(decl_context_t decl_context)
             }
 
             char c[256] = { 0 };
-            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT info",
+            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type",
                     entry->file,
                     entry->line,
                     entry->symbol_name);
