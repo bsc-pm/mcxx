@@ -141,6 +141,10 @@ static void clear_unknown_symbols(decl_context_t decl_context)
     {
         running_error("%s", message);
     }
+
+    free(unknown_info->entity_specs.related_symbols);
+    unknown_info->entity_specs.related_symbols = NULL;
+    unknown_info->entity_specs.num_related_symbols = 0;
 }
 
 static void update_unknown_symbols(decl_context_t decl_context)
