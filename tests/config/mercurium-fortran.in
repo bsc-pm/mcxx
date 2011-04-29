@@ -4,8 +4,9 @@
 source @abs_top_builddir@/tests/config/mercurium
 
 cat <<EOF
-test_nolink=yes
-test_FFLAGS="--typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner ${test_FFLAGS}"
+unset test_nolink
+test_noexec=yes
+test_FFLAGS="-y --typecheck --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner ${test_FFLAGS}"
 EOF
 
 if test @fortran_enabled@ != yes;
