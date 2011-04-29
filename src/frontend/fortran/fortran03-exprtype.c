@@ -845,10 +845,10 @@ struct actual_argument_info_tag
 static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_arguments, actual_argument_info_t* temp_argument_types)
 {
     scope_entry_t* result = NULL;
-    int i;
-    for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
+    int k;
+    for (k = 0; k < symbol->entity_specs.num_related_symbols; k++)
     {
-        scope_entry_t* specific_symbol = symbol->entity_specs.related_symbols[i];
+        scope_entry_t* specific_symbol = symbol->entity_specs.related_symbols[k];
 
         char ok = 1;
 
@@ -857,6 +857,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
         actual_argument_info_t argument_types[MAX_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
 
+        int i;
         for (i = 0; (i < num_arguments) && ok; i++)
         {
             int position = -1;
