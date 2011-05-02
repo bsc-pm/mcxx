@@ -57,19 +57,19 @@ typedef struct check_expression_handler_tag
 } check_expression_handler_t;
 
 #define STATEMENT_HANDLER_TABLE \
- STATEMENT_HANDLER(AST_ADD_OP, check_add_op) \
+ STATEMENT_HANDLER(AST_ADD, check_add_op) \
  STATEMENT_HANDLER(AST_ARRAY_CONSTRUCTOR, check_array_constructor) \
  STATEMENT_HANDLER(AST_ARRAY_SUBSCRIPT, check_array_ref) \
  STATEMENT_HANDLER(AST_BINARY_LITERAL, check_binary_literal) \
  STATEMENT_HANDLER(AST_BOOLEAN_LITERAL, check_boolean_literal) \
  STATEMENT_HANDLER(AST_COMPLEX_LITERAL, check_complex_literal) \
  STATEMENT_HANDLER(AST_CLASS_MEMBER_ACCESS, check_component_ref) \
- STATEMENT_HANDLER(AST_CONCAT_OP, check_concat_op) \
+ STATEMENT_HANDLER(AST_CONCAT, check_concat_op) \
  STATEMENT_HANDLER(AST_DECIMAL_LITERAL, check_decimal_literal) \
  STATEMENT_HANDLER(AST_DERIVED_TYPE_CONSTRUCTOR, check_derived_type_constructor) \
- STATEMENT_HANDLER(AST_DIFFERENT_OP, check_different_op) \
- STATEMENT_HANDLER(AST_DIV_OP, check_div_op) \
- STATEMENT_HANDLER(AST_EQUAL_OP, check_equal_op) \
+ STATEMENT_HANDLER(AST_DIFFERENT, check_different_op) \
+ STATEMENT_HANDLER(AST_DIV, check_div_op) \
+ STATEMENT_HANDLER(AST_EQUAL, check_equal_op) \
  STATEMENT_HANDLER(AST_FLOATING_LITERAL, check_floating_literal) \
  STATEMENT_HANDLER(AST_FUNCTION_CALL, check_function_call) \
  STATEMENT_HANDLER(AST_GREATER_OR_EQUAL_THAN, check_greater_or_equal_than) \
@@ -81,14 +81,14 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_LOGICAL_OR, check_logical_or) \
  STATEMENT_HANDLER(AST_LOWER_OR_EQUAL_THAN, check_lower_or_equal_than) \
  STATEMENT_HANDLER(AST_LOWER_THAN, check_lower_than) \
- STATEMENT_HANDLER(AST_MINUS_OP, check_minus_op) \
- STATEMENT_HANDLER(AST_MULT_OP, check_mult_op) \
- STATEMENT_HANDLER(AST_NEG_OP, check_neg_op) \
- STATEMENT_HANDLER(AST_NOT_OP, check_not_op) \
+ STATEMENT_HANDLER(AST_MINUS, check_minus_op) \
+ STATEMENT_HANDLER(AST_MULT, check_mult_op) \
+ STATEMENT_HANDLER(AST_NEG, check_neg_op) \
+ STATEMENT_HANDLER(AST_NOT, check_not_op) \
  STATEMENT_HANDLER(AST_OCTAL_LITERAL, check_octal_literal) \
  STATEMENT_HANDLER(AST_PARENTHESIZED_EXPRESSION, check_parenthesized_expression) \
- STATEMENT_HANDLER(AST_PLUS_OP, check_plus_op) \
- STATEMENT_HANDLER(AST_POWER_OP, check_power_op) \
+ STATEMENT_HANDLER(AST_PLUS, check_plus_op) \
+ STATEMENT_HANDLER(AST_POWER, check_power_op) \
  STATEMENT_HANDLER(AST_STRING_LITERAL, check_string_literal) \
  STATEMENT_HANDLER(AST_USER_DEFINED_UNARY_OP, check_user_defined_unary_op) \
  STATEMENT_HANDLER(AST_SYMBOL, check_symbol) \
@@ -1695,25 +1695,25 @@ static void check_power_op(AST expr, decl_context_t decl_context)
 
 static char* binary_expression_attr[] =
 {
-    [AST_MULT_OP] = LANG_IS_MULT_OP,
-    [AST_DIV_OP] = LANG_IS_DIVISION_OP,
-    [AST_MOD_OP] = LANG_IS_MODULUS_OP,
-    [AST_ADD_OP] = LANG_IS_ADDITION_OP,
-    [AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
-    [AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
-    [AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
+    [AST_MULT] = LANG_IS_MULT_OP,
+    [AST_DIV] = LANG_IS_DIVISION_OP,
+    [AST_MOD] = LANG_IS_MODULUS_OP,
+    [AST_ADD] = LANG_IS_ADDITION_OP,
+    [AST_MINUS] = LANG_IS_SUBSTRACTION_OP,
+    [AST_SHL] = LANG_IS_SHIFT_LEFT_OP,
+    [AST_SHR] = LANG_IS_SHIFT_RIGHT_OP,
     [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
     [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
     [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
     [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
-    [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
-    [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
+    [AST_EQUAL] = LANG_IS_EQUAL_OP,
+    [AST_DIFFERENT] = LANG_IS_DIFFERENT_OP,
     [AST_LOGICAL_EQUAL] = LANG_IS_EQUAL_OP,
     [AST_LOGICAL_DIFFERENT] = LANG_IS_DIFFERENT_OP,
     [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
     [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
-    [AST_POWER_OP] = LANG_IS_POWER_OP,
-    [AST_CONCAT_OP] = LANG_IS_CONCAT_OP,
+    [AST_POWER] = LANG_IS_POWER_OP,
+    [AST_CONCAT] = LANG_IS_CONCAT_OP,
 };
 
 static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
@@ -1746,9 +1746,9 @@ static void common_unary_intrinsic_check(AST expr, decl_context_t, type_t* rhs_t
 
 static char* unary_expression_attr[] =
 {
-    [AST_PLUS_OP]       = LANG_IS_PLUS_OP,
-    [AST_NEG_OP]        = LANG_IS_NEGATE_OP,
-    [AST_NOT_OP]        = LANG_IS_NOT_OP,
+    [AST_PLUS]       = LANG_IS_PLUS_OP,
+    [AST_NEG]        = LANG_IS_NEGATE_OP,
+    [AST_NOT]        = LANG_IS_NOT_OP,
 };
 
 static void common_unary_check(AST expr, decl_context_t decl_context) 
@@ -2343,7 +2343,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     {
         AST new_lower_bound = const_value_to_tree(const_value_get_one(4, 1));
         AST new_upper_bound = 
-            ASTMake2(AST_ADD_OP,
+            ASTMake2(AST_ADD,
                     ast_copy_for_instantiation(array_type_get_array_size_expr(t1)),
                     ast_copy_for_instantiation(array_type_get_array_size_expr(t2)),
                     NULL, 0, NULL);
@@ -2477,26 +2477,26 @@ static void const_bin_or(AST expr, AST lhs, AST rhs);
 static operand_map_t operand_map[] =
 {
     // Arithmetic unary
-    HANDLER_MAP(AST_PLUS_OP, arithmetic_unary, const_unary_plus, ".operator.+"),
-    HANDLER_MAP(AST_NEG_OP, arithmetic_unary, const_unary_neg, ".operator.-"),
+    HANDLER_MAP(AST_PLUS, arithmetic_unary, const_unary_plus, ".operator.+"),
+    HANDLER_MAP(AST_NEG, arithmetic_unary, const_unary_neg, ".operator.-"),
     // Arithmetic binary
-    HANDLER_MAP(AST_ADD_OP, arithmetic_binary, const_bin_add, ".operator.+"),
-    HANDLER_MAP(AST_MINUS_OP, arithmetic_binary, const_bin_sub, ".operator.-"),
-    HANDLER_MAP(AST_MULT_OP, arithmetic_binary, const_bin_mult, ".operator.*"),
-    HANDLER_MAP(AST_DIV_OP, arithmetic_binary, const_bin_div, ".operator./"),
-    HANDLER_MAP(AST_POWER_OP, arithmetic_binary, const_bin_power, ".operator.**"),
+    HANDLER_MAP(AST_ADD, arithmetic_binary, const_bin_add, ".operator.+"),
+    HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-"),
+    HANDLER_MAP(AST_MULT, arithmetic_binary, const_bin_mult, ".operator.*"),
+    HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./"),
+    HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**"),
     // String concat
-    HANDLER_MAP(AST_CONCAT_OP, concat_op, NULL, ".operator.//"),
+    HANDLER_MAP(AST_CONCAT, concat_op, NULL, ".operator.//"),
     // Relational strong
-    HANDLER_MAP(AST_EQUAL_OP, relational_equality, const_bin_equal, ".operator.=="),
-    HANDLER_MAP(AST_DIFFERENT_OP, relational_equality, const_bin_not_equal, ".operator./="),
+    HANDLER_MAP(AST_EQUAL, relational_equality, const_bin_equal, ".operator.=="),
+    HANDLER_MAP(AST_DIFFERENT, relational_equality, const_bin_not_equal, ".operator./="),
     // Relational weak
     HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt, ".operator.<"),
     HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte, ".operator.<="),
     HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>"),
     HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>="),
     // Unary logical
-    HANDLER_MAP(AST_NOT_OP, logical_unary, const_unary_not, ".operator..not."),
+    HANDLER_MAP(AST_NOT, logical_unary, const_unary_not, ".operator..not."),
     // Binary logical
     HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv."),
     HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv."),
@@ -2674,21 +2674,21 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
 
 const char* operator_names[] =
 {
-    [AST_PLUS_OP] = "+",
-    [AST_NEG_OP] = "-",
-    [AST_ADD_OP] = "+",
-    [AST_MINUS_OP] = "-",
-    [AST_MULT_OP] = "*",
-    [AST_DIV_OP] = "/",
-    [AST_POWER_OP] = "**",
-    [AST_CONCAT_OP] = "//",
-    [AST_EQUAL_OP] = "==",
-    [AST_DIFFERENT_OP] = "/=",
+    [AST_PLUS] = "+",
+    [AST_NEG] = "-",
+    [AST_ADD] = "+",
+    [AST_MINUS] = "-",
+    [AST_MULT] = "*",
+    [AST_DIV] = "/",
+    [AST_POWER] = "**",
+    [AST_CONCAT] = "//",
+    [AST_EQUAL] = "==",
+    [AST_DIFFERENT] = "/=",
     [AST_LOWER_THAN] = "<",
     [AST_LOWER_OR_EQUAL_THAN] = "<=",
     [AST_GREATER_THAN] = ">",
     [AST_GREATER_OR_EQUAL_THAN] = ">=",
-    [AST_NOT_OP] = ".NOT.",
+    [AST_NOT] = ".NOT.",
     [AST_LOGICAL_EQUAL] = ".EQV.",
     [AST_LOGICAL_DIFFERENT] = ".NEQV.",
     [AST_LOGICAL_AND] = ".AND.",

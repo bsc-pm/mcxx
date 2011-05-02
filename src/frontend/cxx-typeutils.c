@@ -2697,7 +2697,7 @@ type_t* get_array_type(type_t* element_type, AST whole_size, decl_context_t decl
         ast_set_filename(lower_bound, ASTFileName(whole_size));
         ast_set_line(lower_bound, ASTLine(whole_size));
 
-        upper_bound = ASTMake2(AST_MINUS_OP, 
+        upper_bound = ASTMake2(AST_MINUS, 
                 ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(whole_size), ASTFileName(whole_size), ASTLine(whole_size), NULL), 
                 ast_copy_for_instantiation(get_one_tree()), 
                 ASTFileName(whole_size), ASTLine(whole_size), NULL);
@@ -2723,9 +2723,9 @@ type_t* get_array_type_bounds(type_t* element_type,
         ast_set_line(one_tree, ASTLine(lower_bound));
 
         whole_size = 
-            ASTMake2(AST_ADD_OP, 
+            ASTMake2(AST_ADD, 
                     ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
-                        ASTMake2(AST_MINUS_OP, 
+                        ASTMake2(AST_MINUS, 
                             ast_copy_for_instantiation(upper_bound), 
                             ast_copy_for_instantiation(lower_bound), 
                             ASTFileName(lower_bound), ASTLine(lower_bound), NULL),

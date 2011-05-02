@@ -8586,19 +8586,19 @@ const char *get_operation_function_name(AST operation_tree)
 {
     switch (ASTType(operation_tree))
     {
-        case AST_ADD_OP :
+        case AST_ADD :
             return STR_OPERATOR_ADD;
-        case AST_MULT_OP :
+        case AST_MULT :
             return STR_OPERATOR_MULT;
-        case AST_DIV_OP :
+        case AST_DIV :
             return STR_OPERATOR_DIV;
-        case AST_MOD_OP :
+        case AST_MOD :
             return STR_OPERATOR_MOD;
-        case AST_MINUS_OP :
+        case AST_MINUS :
             return STR_OPERATOR_MINUS;
-        case AST_SHL_OP :
+        case AST_SHL :
             return STR_OPERATOR_SHIFT_LEFT;
-        case AST_SHR_OP :
+        case AST_SHR :
             return STR_OPERATOR_SHIFT_RIGHT;
         case AST_LOWER_THAN :
             return STR_OPERATOR_LOWER_THAN;
@@ -8608,9 +8608,9 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_GREATER_EQUAL;
         case AST_LOWER_OR_EQUAL_THAN :
             return STR_OPERATOR_LOWER_EQUAL;
-        case AST_EQUAL_OP :
+        case AST_EQUAL :
             return STR_OPERATOR_EQUAL;
-        case AST_DIFFERENT_OP :
+        case AST_DIFFERENT :
             return STR_OPERATOR_DIFFERENT;
         case AST_BITWISE_AND :
             return STR_OPERATOR_BIT_AND;
@@ -8626,13 +8626,13 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_DERREF;
         case AST_REFERENCE : 
             return STR_OPERATOR_REFERENCE;
-        case AST_PLUS_OP :
+        case AST_PLUS :
             return STR_OPERATOR_UNARY_PLUS;
-        case AST_NEG_OP :
+        case AST_NEG :
             return STR_OPERATOR_UNARY_NEG;
-        case AST_NOT_OP :
+        case AST_NOT :
             return STR_OPERATOR_LOGIC_NOT;
-        case AST_COMPLEMENT_OP :
+        case AST_COMPLEMENT :
             return STR_OPERATOR_BIT_NOT;
         case AST_ASSIGNMENT :
             return STR_OPERATOR_ASSIGNMENT;
@@ -8689,15 +8689,15 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_NEW_ARRAY;
         case AST_DELETE_ARRAY_OPERATOR :
             return STR_OPERATOR_DELETE_ARRAY;
-        case AST_ADD_OPERATOR :
+        case AST_ADDERATOR :
             return STR_OPERATOR_ADD;
-        case AST_MINUS_OPERATOR :
+        case AST_MINUSERATOR :
             return STR_OPERATOR_MINUS;
-        case AST_MULT_OPERATOR :
+        case AST_MULTERATOR :
             return STR_OPERATOR_MULT;
-        case AST_DIV_OPERATOR :
+        case AST_DIVERATOR :
             return STR_OPERATOR_DIV;
-        case AST_MOD_OPERATOR :
+        case AST_MODERATOR :
             return STR_OPERATOR_MOD;
         case AST_BITWISE_XOR_OPERATOR :
             return STR_OPERATOR_BIT_XOR;
@@ -8739,9 +8739,9 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_SHL_ASSIGNMENT;
         case AST_RIGHT_ASSIGN_OPERATOR :
             return STR_OPERATOR_SHR_ASSIGNMENT;
-        case AST_EQUAL_OPERATOR :
+        case AST_EQUALERATOR :
             return STR_OPERATOR_EQUAL;
-        case AST_DIFFERENT_OPERATOR :
+        case AST_DIFFERENTERATOR :
             return STR_OPERATOR_DIFFERENT;
         case AST_LESS_OR_EQUAL_OPERATOR :
             return STR_OPERATOR_LOWER_EQUAL;
@@ -8755,7 +8755,7 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_POSTINCREMENT;
         case AST_DECREMENT_OPERATOR :
             return STR_OPERATOR_POSTDECREMENT;
-        case AST_COMMA_OPERATOR :
+        case AST_COMMAERATOR :
             return STR_OPERATOR_COMMA;
         case AST_POINTER_OPERATOR :
             return STR_OPERATOR_ARROW;
