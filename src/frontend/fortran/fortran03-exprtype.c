@@ -172,6 +172,9 @@ static int check_expression_function_compare(const void *a, const void *b)
     } \
 }
 
+#define CREATE_NAMED_PAIR(x) \
+            ASTMake2(AST_NAMED_PAIR_SPEC, NULL, ast_copy(x), ast_get_filename(x), ast_get_line(x), NULL)
+
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
@@ -323,16 +326,53 @@ static void check_array_constructor(AST expr, decl_context_t decl_context)
     expression_set_type(expr, expression_get_type(ac_value_list));
 }
 
-static void check_array_ref(AST expr, decl_context_t decl_context)
+static void check_substring(AST expr, decl_context_t decl_context)
 {
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context);
+    type_t* subscripted_type = expression_get_type(ASTSon0(expr));
 
-    if (is_error_type(expression_get_type(ASTSon0(expr))))
+    AST subscript_list = ASTSon1(expr);
+
+    int num_subscripts = 0;
+    AST it;
+    for_each_element(subscript_list, it)
     {
-        expression_set_error(expr);
-        return;
+        num_subscripts++;
     }
 
+    if (num_subscripts != 1)
+    {
+        running_error("%s: error: invalid number of subscripts (%d) in substring expression\n",
+                ast_location(expr),
+                num_subscripts);
+    }
+
+    AST subscript = ASTSon1(subscript_list);
+
+    AST lower = ASTSon0(subscript);
+    AST upper = ASTSon1(subscript);
+    AST stride = ASTSon2(subscript);
+
+    if (stride != NULL)
+    {
+        running_error("%s: error: a stride is not valid in a substring expression\n",
+                ast_location(expr));
+    }
+
+    if (lower != NULL)
+        fortran_check_expression_impl_(lower, decl_context);
+    if (upper != NULL)
+        fortran_check_expression_impl_(upper, decl_context);
+
+    type_t* synthesized_type = NULL;
+
+    // Do not compute the exact size at the moment
+    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), NULL, NULL, decl_context);
+
+    expression_set_type(expr, synthesized_type);
+}
+
+static void check_array_ref_(AST expr, decl_context_t decl_context)
+{
     char symbol_is_invalid = 0;
 
     type_t* array_type = NULL;
@@ -355,10 +395,6 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
 
         synthesized_type = get_rank0_type(array_type);
         rank_of_type = get_rank_of_type(array_type);
-
-        // get_rank_of_type normally does not take into account the array of chars
-        if (is_fortran_character_type(array_type))
-            rank_of_type++;
     }
 
     AST subscript_list = ASTSon1(expr);
@@ -401,7 +437,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array\n",
+            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array name\n",
                     ast_location(expr), fortran_prettyprint_in_buffer(ASTSon0(expr)));
         }
         expression_set_error(expr);
@@ -426,6 +462,40 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expr)));
     ASTAttrSetValueType(expr, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expr)));
+}
+
+static void check_array_ref(AST expr, decl_context_t decl_context)
+{
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context);
+
+    if (is_error_type(expression_get_type(ASTSon0(expr))))
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    type_t* subscripted_type = expression_get_type(ASTSon0(expr));
+
+    if (is_fortran_array_type(subscripted_type)
+            || is_pointer_to_fortran_array_type(subscripted_type))
+    {
+        check_array_ref_(expr, decl_context);
+        return;
+    }
+    else if (is_fortran_character_type(get_rank0_type(subscripted_type))
+            || is_pointer_to_fortran_character_type(get_rank0_type(subscripted_type)))
+    {
+        check_substring(expr, decl_context);
+        return;
+    }
+
+    if (!checking_ambiguity())
+    {
+        fprintf(stderr, "%s: warning: invalid entity '%s' for subscript expression\n",
+                ast_location(expr),
+                fortran_prettyprint_in_buffer(ASTSon0(expr)));
+    }
+    expression_set_error(expr);
 }
 
 static char in_string_set(char c, const char* char_set)
@@ -1763,7 +1833,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
 
     AST operator = ASTSon0(expr);
     const char* operator_name = strtolower(strappend(".operator.", ASTText(operator)));
-    scope_entry_t* call_sym = query_name_with_locus(decl_context, operator, operator_name);
+    scope_entry_t* call_sym = query_name_no_implicit(decl_context, operator_name);
 
     if (call_sym == NULL)
     {
@@ -1834,7 +1904,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
     scope_entry_t* called_symbol = NULL;
     check_called_symbol(call_sym, 
             decl_context, 
-            expr, 
+            /* location */ expr, 
             operator, 
             num_actual_arguments,
             actual_arguments,
@@ -1986,6 +2056,86 @@ static void check_symbol(AST expr, decl_context_t decl_context)
     ASTAttrSetValueType(expr, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expr));
 }
 
+static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
+{
+    if (is_pointer_type(lvalue_type))
+    {
+        lvalue_type = pointer_type_get_pointee_type(lvalue_type);
+    }
+    if (is_fortran_array_type(lvalue_type))
+    {
+        lvalue_type = get_rank0_type(lvalue_type);
+    }
+    if (is_pointer_type(rvalue_type))
+    {
+        rvalue_type = pointer_type_get_pointee_type(rvalue_type);
+    }
+
+    if ((is_integer_type(lvalue_type)
+                || is_floating_type(lvalue_type)
+                || is_complex_type(lvalue_type))
+            && (is_integer_type(rvalue_type)
+                || is_floating_type(rvalue_type)
+                || is_complex_type(rvalue_type)))
+        return 1;
+
+    if (is_fortran_character_type(lvalue_type)
+            && is_fortran_character_type(rvalue_type)
+            && equivalent_types(array_type_get_element_type(lvalue_type), 
+                array_type_get_element_type(rvalue_type))) 
+    {
+        return 1;
+    }
+
+    if (is_bool_type(lvalue_type)
+            && is_bool_type(rvalue_type))
+        return 1;
+
+    if (is_class_type(lvalue_type)
+            && is_class_type(rvalue_type)
+            && equivalent_types(lvalue_type, rvalue_type))
+        return 1;
+
+    return 0;
+}
+
+static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context_t decl_context)
+{
+    const char* operator_name = ".operator.=";
+    scope_entry_t* call_sym = query_name_no_implicit(decl_context, operator_name);
+
+    if (call_sym == NULL)
+        return 0;
+
+    int num_actual_arguments = 2;
+    AST actual_arguments[2] = { CREATE_NAMED_PAIR(lvalue), CREATE_NAMED_PAIR(rvalue) };
+    type_t* argument_types[2] = { expression_get_type(lvalue), expression_get_type(rvalue) };
+
+    type_t* result_type = NULL;
+
+    scope_entry_t* called_symbol = NULL;
+
+    AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(lvalue), ast_get_line(lvalue), "=");
+
+    check_called_symbol(call_sym, 
+            decl_context,
+            /* location */ expr,
+            operator_designation,
+            num_actual_arguments,
+            actual_arguments,
+            argument_types,
+            /* is_call_stmt */ 1, // Assignments must be subroutines!
+            // out
+            &result_type,
+            &called_symbol);
+
+    ast_free(actual_arguments[0]);
+    ast_free(actual_arguments[1]);
+    ast_free(operator_designation);
+
+    return !is_error_type(result_type);
+}
+
 static void check_assignment(AST expr, decl_context_t decl_context)
 {
     AST lvalue = ASTSon0(expr);
@@ -2009,34 +2159,19 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
-#if 0
-    if (expression_has_symbol(lvalue))
+    if (!is_intrinsic_assignment(lvalue_type, rvalue_type)
+            && !is_defined_assignment(expr, lvalue, rvalue, decl_context))
     {
-        scope_entry_t* sym = expression_get_symbol(lvalue);
-        if (sym->kind == SK_FUNCTION)
+        if (!checking_ambiguity())
         {
-            if(function_type_get_return_type(sym->type_information) != NULL
-                    && !function_has_result(sym))
-            {
-                lvalue_type = function_type_get_return_type(sym->type_information);
-            }
-            else
-            {
-                running_error("%s: '%s' is not a variable\n",
-                        ast_location(expr), fortran_prettyprint_in_buffer(lvalue));
-
-            }
+            fprintf(stderr, "%s: warning: cannot assign to a variable of type '%s' a value of type '%s'\n",
+                    ast_location(expr),
+                    fortran_print_type_str(lvalue_type),
+                    fortran_print_type_str(rvalue_type));
         }
-        else if (sym->kind == SK_VARIABLE)
-        {
-            // Do nothing
-        }
-        else
-        {
-            internal_error("Invalid symbol kind in left part of assignment", 0);
-        }
+        expression_set_error(expr);
+        return;
     }
-#endif
 
     expression_set_type(expr, lvalue_type);
 
@@ -2450,8 +2585,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         // Perform a resolution by means of a call check
         if (call_sym != NULL)
         {
-#define CREATE_NAMED_PAIR(x) \
-            ASTMake2(AST_NAMED_PAIR_SPEC, NULL, ast_copy(x), ast_get_filename(x), ast_get_line(x), NULL)
 
             int num_actual_arguments = 0;
             AST actual_arguments[2] = { NULL, NULL };
@@ -2477,7 +2610,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             scope_entry_t* called_symbol = NULL;
             check_called_symbol(call_sym, 
                     decl_context, 
-                    expr, 
+                    /* location */ expr, 
                     operator_designation,
                     num_actual_arguments,
                     actual_arguments,

@@ -2086,7 +2086,14 @@ static void open_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void operator_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    token_fprintf(f, a, pt_ctx, "OPERATOR(%s)", ASTText(a));
+    if (strcmp(ASTText(a), "=") != 0)
+    {
+        token_fprintf(f, a, pt_ctx, "OPERATOR(%s)", ASTText(a));
+    }
+    else
+    {
+        token_fprintf(f, a, pt_ctx, "ASSIGNMENT(%s)", ASTText(a));
+    }
 }
 
 static void optional_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
