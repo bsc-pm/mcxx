@@ -59,11 +59,11 @@ typedef struct check_expression_handler_tag
 #define STATEMENT_HANDLER_TABLE \
  STATEMENT_HANDLER(AST_ADD_OP, check_add_op) \
  STATEMENT_HANDLER(AST_ARRAY_CONSTRUCTOR, check_array_constructor) \
- STATEMENT_HANDLER(AST_ARRAY_REF, check_array_ref) \
+ STATEMENT_HANDLER(AST_ARRAY_SUBSCRIPT, check_array_ref) \
  STATEMENT_HANDLER(AST_BINARY_LITERAL, check_binary_literal) \
  STATEMENT_HANDLER(AST_BOOLEAN_LITERAL, check_boolean_literal) \
  STATEMENT_HANDLER(AST_COMPLEX_LITERAL, check_complex_literal) \
- STATEMENT_HANDLER(AST_COMPONENT_REF, check_component_ref) \
+ STATEMENT_HANDLER(AST_CLASS_MEMBER_ACCESS, check_component_ref) \
  STATEMENT_HANDLER(AST_CONCAT_OP, check_concat_op) \
  STATEMENT_HANDLER(AST_DECIMAL_LITERAL, check_decimal_literal) \
  STATEMENT_HANDLER(AST_DERIVED_TYPE_CONSTRUCTOR, check_derived_type_constructor) \
@@ -2245,7 +2245,7 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
         switch (ASTType(current_expr))
         {
             case AST_FUNCTION_CALL:
-            case AST_ARRAY_REF:
+            case AST_ARRAY_SUBSCRIPT:
             case AST_DERIVED_TYPE_CONSTRUCTOR:
                 {
                     enter_test_expression();
