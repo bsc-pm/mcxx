@@ -1,0 +1,91 @@
+nodecl : top-level-seq
+top-level : function-code 
+          | object-init
+
+function-code : AST_FUNCTION_CODE(name, statement-seq, function-code-opt)
+object-init : AST_OBJECT_INIT(name, expression)
+
+statement : AST_EXPRESSION_STATEMENT(expression)
+          | AST_COMPOUND_STATEMENT(statement-seq-opt)
+          | AST_DO_STATEMENT(expression, statement)
+          | AST_WHILE_STATEMENT(expression, statement)
+          | AST_FOR_STATEMENT(loop-control, statement)
+          | AST_IF_ELSE_STATEMENT(expression, statement, statement-opt)
+          | AST_LABELED_STATEMENT(label, statement)
+          | AST_SWITCH_STATEMENT(expression, statement)
+          | AST_DEFAULT_STATEMENT(statement)
+          | AST_CASE_STATEMENT(label, statement)
+          | AST_BREAK_STATEMENT()
+          | AST_CONTINUE_STATEMENT()
+          | AST_GOTO_STATEMENT(label)
+          | AST_RETURN_STATEMENT(expression))
+          | pragma-directive
+          | AST_PRAGMA_CUSTOM_CONSTRUCT(pragma-directive, statement)
+          | c-cxx-only_statements
+#         | fortran-only-statements
+
+pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE(pragma-line)
+
+c-cxx-only-statements : AST_TRY_BLOCK(statement, catch-handler-seq)
+catch-handler : AST_CATCH_HANDLER(name, statement)
+
+# FIXME - Document these. Some of them could be simplified further
+# fortran-only-statements : AST_ALLOCATE_STATEMENT
+#                         | AST_ARITHMETIC_IF_STATEMENT
+#                         | AST_ASSIGNED_GOTO_STATEMENT
+#                         | AST_CLOSE_STATEMENT
+#                         | AST_COMPUTED_GOTO_STATEMENT
+#                         | AST_DEALLOCATE_STATEMENT
+#                         | AST_IO_STATEMENT
+#                         | AST_LABEL_ASSIGN_STATEMENT
+#                         | AST_NULLIFY_STATEMENT
+#                         | AST_OPEN_STATEMENT
+#                         | AST_PRINT_STATEMENT
+#                         | AST_READ_STATEMENT
+#                         | AST_RETURN_STATEMENT
+#                         | AST_STOP_STATEMENT
+#                         | AST_PAUSE_STATEMENT
+#                         | AST_WRITE_STATEMENT
+
+expression : literal
+           | name
+           | AST_FUNCTION_CALL(name, argument-seq)
+           | AST_ARRAY_SUBSCRIPT(expression, subscript-seq)
+           | AST_CLASS_MEMBER_ACCESS(expression, name)
+           | AST_PLUS(expression)
+           | AST_NEG(expression)
+           | AST_MULT(expression, expression)
+           | AST_POWER(expression, expression)
+           | AST_DIV(expression, expression)
+           | AST_ADD(expression, expression)
+           | AST_MINUS(expression, expression)
+           | AST_CONCAT(expression, expression)
+           | AST_EQUAL(expression, expression)
+           | AST_DIFFERENT(expression, expression)
+           | AST_LOWER_THAN(expression, expression)
+           | AST_LOWER_OR_EQUAL_THAN(expression, expression)
+           | AST_GREATER_THAN(expression, expression)
+           | AST_GREATER_OR_EQUAL_THAN(expression, expression)
+           | AST_NOT(expression)
+           | AST_LOGICAL_AND(expression, expression)
+           | AST_LOGICAL_OR(expression, expression)
+           | AST_COMPLEMENT(expression)
+           | AST_BITWISE_AND(expression, expression)
+           | AST_BITWISE_OR(expression, expression)
+           | AST_BITWISE_XOR(expression, expression)
+           | AST_SHL(expression, expression)
+           | AST_SHR(expression, expression)
+           | AST_ASSIGNMENT(expression, expression)
+           | AST_PARENTHESIZED_EXPRESSION(expression)
+           | c-cxx-expressions
+           | fortran-expressions
+
+subscript : expression
+          | AST_SUBSCRIPT_TRIPLET(expression-opt, expression-opt, expression-opt)
+
+c-cxx-expressions : AST_CONDITIONAL_EXPRESSION(expression, expression, expression)
+                  | AST_POINTER_TO_MEMBER(expression, expression)
+                  | AST_REFERENCE(expression)
+                  | AST_DERREFERENCE(expression)
+
+fortran-expressions : AST_PTR_ASSIGNMENT(expression, expression)
