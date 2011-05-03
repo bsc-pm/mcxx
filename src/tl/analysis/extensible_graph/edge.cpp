@@ -1,20 +1,44 @@
+/*--------------------------------------------------------------------
+(C) Copyright 2006-2009 Barcelona Supercomputing Center 
+Centro Nacional de Supercomputacion
+
+This file is part of Mercurium C/C++ source-to-source compiler.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 3 of the License, or (at your option) any later version.
+
+Mercurium C/C++ source-to-source compiler is distributed in the hope
+that it will be useful, but WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with Mercurium C/C++ source-to-source compiler; if
+not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 #include "edge.hpp"
 
 namespace TL
 {
     Edge::Edge(Node *source, Node *target, Edge_type type, std::string label)
-        :_source(source), _target(target)
+        : _source(source), _target(target)
     {
-        set_data <Edge_type> ("type", type);
-        set_data <std::string> ("label", label);
+        set_data<Edge_type>("type", type);
+        set_data<std::string>("label", label);
     }
 
-    Node* Edge::get_source()
+    Node* Edge::get_source() const
     {
         return _source;
     }
 
-    Node* Edge::get_target()
+    Node* Edge::get_target() const
     {
         return _target;
     }
@@ -23,7 +47,7 @@ namespace TL
     {
         if (has_key("type"))
         {    
-            return get_data <Edge_type> ((const std::string) "type");
+            return get_data<Edge_type>("type");
         }
         else
         {    
@@ -33,43 +57,29 @@ namespace TL
 
     std::string Edge::get_label()
     {
+        std::string label = "";
+        
         if (has_key("type") && 
-            get_data <Edge_type> ((const std::string) "type") != UNCLASSIFIED_EDGE)
+            get_data<Edge_type>("type") != UNCLASSIFIED_EDGE)
         {
             Edge_type etype = get_data<Edge_type>((const std::string) "type");
-            if (etype == TRUE_EDGE)
-            {    
-                return "True";
-            }
-            else if (etype == FALSE_EDGE)
-            {    
-                return "False";
-            }
-            else if (etype == ALWAYS_EDGE)
-            {    
-                return "";
-            }
-            else if (etype == CASE_EDGE || etype == CATCH_EDGE)
-            {    
-                return get_data<std::string>(std::string("label"));
-            }
-            else if (etype == PARALLEL_EDGE)
-            {    
-                return "Parallel";
-            }
-            else if (etype == CONFLICT_EDGE)
-            {    
-                return "Conflict";
-            }
-            else
+            switch (etype)
             {
-                std::cout << "Unexpected type of edge while getting the Edge label: '" << etype << "'" << std::endl;
-            }
-                
+                case TRUE_EDGE:     label = "True";
+                break;
+                case FALSE_EDGE:    label = "False";
+                break;
+                case ALWAYS_EDGE:   label = "";
+                break;
+                case CASE_EDGE:
+                case CATCH_EDGE:    label = get_data<std::string>(std::string("label"));
+                break;
+                default: std::cerr << " ** Edge.cpp :: get_label() ** "
+                                   << "warning: Unexpected type '" << etype << "' while getting "
+                                   << "the Edge label" << std::endl;
+            };
         }
-        else
-        {    
-            return "";
-        }
+        
+        return label;
     }
 }

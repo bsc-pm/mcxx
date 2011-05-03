@@ -1,5 +1,10 @@
+# Base
+[plain-base]
+{cfg} compiler_phase = libextensible_graph.so
+{omp} compiler_phase = libtlomp-core.so
+
 # Plain profile
-[plaincc]
+[plaincc : plain-base]
 language = C
 options =
 preprocessor_name = gcc
@@ -9,7 +14,7 @@ compiler_options =
 linker_name = gcc
 linker_options = 
 
-[plaincxx]
+[plaincxx : plain-base]
 language = C++
 options = 
 preprocessor_name = g++
@@ -19,7 +24,7 @@ compiler_options =
 linker_name = g++
 linker_options = 
 
-[plainfc]
+[plainfc : plain-base]
 language = Fortran
 options = 
 preprocessor_name = gfortran

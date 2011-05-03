@@ -484,7 +484,7 @@ namespace TL
 
             LinkData& operator=(const LinkData&);
 
-            bool has_key(std::string str);
+            bool has_key(std::string str) const;
             
             //! Destroy object
             /*!

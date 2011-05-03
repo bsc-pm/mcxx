@@ -26,9 +26,9 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libextensible_graph.la
 
 libextensible_graph_la_CFLAGS = $(tl_cflags)
-libextensible_graph_la_CXXFLAGS = $(tl_cflags)
+libextensible_graph_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../
 libextensible_graph_la_LDFLAGS = $(tl_ldflags)
-libextensible_graph_la_LIBADD = $(tl_libadd)
+libextensible_graph_la_LIBADD = $(tl_libadd) ../../libtl.la
 
 END=
 
@@ -42,6 +42,9 @@ libextensible_graph_la_SOURCES = \
    extensible_graph.cpp \
    extensible_graph.hpp \
    dot_graph.cpp \
-   analysis_phase.hpp \
-   analysis_phase.cpp \
+   extensible_symbol.hpp \
+   extensible_symbol.cpp \
+   static_analysis.cpp \
+   tl-analysis-phase.hpp \
+   tl-analysis-phase.cpp \
    $(END)
