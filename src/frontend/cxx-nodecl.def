@@ -2,6 +2,8 @@ nodecl : top-level-seq
 top-level : function-code 
           | object-init
 
+name : AST_SYMBOL() symbol
+
 function-code : AST_FUNCTION_CODE(name, statement-seq, function-code-opt)
 object-init : AST_OBJECT_INIT(name, expression)
 
@@ -11,81 +13,99 @@ statement : AST_EXPRESSION_STATEMENT(expression)
           | AST_WHILE_STATEMENT(expression, statement)
           | AST_FOR_STATEMENT(loop-control, statement)
           | AST_IF_ELSE_STATEMENT(expression, statement, statement-opt)
-          | AST_LABELED_STATEMENT(label, statement)
+          | AST_LABELED_STATEMENT(name, statement)
           | AST_SWITCH_STATEMENT(expression, statement)
           | AST_DEFAULT_STATEMENT(statement)
-          | AST_CASE_STATEMENT(label, statement)
+          | AST_CASE_STATEMENT(name, statement)
           | AST_BREAK_STATEMENT()
           | AST_CONTINUE_STATEMENT()
-          | AST_GOTO_STATEMENT(label)
+          | AST_GOTO_STATEMENT(name)
           | AST_RETURN_STATEMENT(expression))
           | pragma-directive
           | AST_PRAGMA_CUSTOM_CONSTRUCT(pragma-directive, statement)
-          | c-cxx-only_statements
-#         | fortran-only-statements
+          | c-cxx-only-statements
+          | fortran-only-statements
+
+loop-control: AST_LOOP_CONTROL(expression, expression, expression)
 
 pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE(pragma-line)
+pragma-line: AST_PRAGMA_CUSTOM_LINE(pragma-clause-arg-seq-opt, pragma-custom-clause-seq-opt)
+pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE(pragma-clause-arg-seq-opt)
+pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG()
 
 c-cxx-only-statements : AST_TRY_BLOCK(statement, catch-handler-seq)
 catch-handler : AST_CATCH_HANDLER(name, statement)
 
 # FIXME - Document these. Some of them could be simplified further
-# fortran-only-statements : AST_ALLOCATE_STATEMENT
-#                         | AST_ARITHMETIC_IF_STATEMENT
-#                         | AST_ASSIGNED_GOTO_STATEMENT
-#                         | AST_CLOSE_STATEMENT
-#                         | AST_COMPUTED_GOTO_STATEMENT
-#                         | AST_DEALLOCATE_STATEMENT
-#                         | AST_IO_STATEMENT
-#                         | AST_LABEL_ASSIGN_STATEMENT
-#                         | AST_NULLIFY_STATEMENT
-#                         | AST_OPEN_STATEMENT
-#                         | AST_PRINT_STATEMENT
-#                         | AST_READ_STATEMENT
-#                         | AST_RETURN_STATEMENT
-#                         | AST_STOP_STATEMENT
-#                         | AST_PAUSE_STATEMENT
-#                         | AST_WRITE_STATEMENT
+fortran-only-statements : AST_ALLOCATE_STATEMENT()
+                        | AST_ARITHMETIC_IF_STATEMENT()
+                        | AST_ASSIGNED_GOTO_STATEMENT()
+                        | AST_CLOSE_STATEMENT()
+                        | AST_COMPUTED_GOTO_STATEMENT()
+                        | AST_DEALLOCATE_STATEMENT()
+                        | AST_IO_STATEMENT()
+                        | AST_LABEL_ASSIGN_STATEMENT()
+                        | AST_NULLIFY_STATEMENT()
+                        | AST_OPEN_STATEMENT()
+                        | AST_PRINT_STATEMENT()
+                        | AST_READ_STATEMENT()
+                        | AST_RETURN_STATEMENT()
+                        | AST_STOP_STATEMENT()
+                        | AST_PAUSE_STATEMENT()
+                        | AST_WRITE_STATEMENT()
+
+literal : AST_DECIMAL_LITERAL() type
+    | AST_FLOATING_LITERAL() type
+    | AST_COMPLEX_LITERAL(complex-part, complex-part) type
+    | AST_STRING_LITERAL() type
+    | AST_BOOLEAN_LITERAL() type
+ 
+complex-part: AST_PLUS(literal) type
+    | AST_NEG(literal) type
 
 expression : literal
            | name
-           | AST_FUNCTION_CALL(name, argument-seq)
-           | AST_ARRAY_SUBSCRIPT(expression, subscript-seq)
-           | AST_CLASS_MEMBER_ACCESS(expression, name)
-           | AST_PLUS(expression)
-           | AST_NEG(expression)
-           | AST_MULT(expression, expression)
-           | AST_POWER(expression, expression)
-           | AST_DIV(expression, expression)
-           | AST_ADD(expression, expression)
-           | AST_MINUS(expression, expression)
-           | AST_CONCAT(expression, expression)
-           | AST_EQUAL(expression, expression)
-           | AST_DIFFERENT(expression, expression)
-           | AST_LOWER_THAN(expression, expression)
-           | AST_LOWER_OR_EQUAL_THAN(expression, expression)
-           | AST_GREATER_THAN(expression, expression)
-           | AST_GREATER_OR_EQUAL_THAN(expression, expression)
-           | AST_NOT(expression)
-           | AST_LOGICAL_AND(expression, expression)
-           | AST_LOGICAL_OR(expression, expression)
-           | AST_COMPLEMENT(expression)
-           | AST_BITWISE_AND(expression, expression)
-           | AST_BITWISE_OR(expression, expression)
-           | AST_BITWISE_XOR(expression, expression)
-           | AST_SHL(expression, expression)
-           | AST_SHR(expression, expression)
-           | AST_ASSIGNMENT(expression, expression)
-           | AST_PARENTHESIZED_EXPRESSION(expression)
+           | AST_FUNCTION_CALL(name, argument-seq) type
+           | AST_ARRAY_SUBSCRIPT(expression, subscript-seq) type
+           | AST_CLASS_MEMBER_ACCESS(expression, name) type
+           | AST_PLUS(expression) type
+           | AST_NEG(expression) type
+           | AST_MULT(expression, expression) type
+           | AST_POWER(expression, expression) type
+           | AST_DIV(expression, expression) type
+           | AST_ADD(expression, expression) type
+           | AST_MINUS(expression, expression) type
+           | AST_CONCAT(expression, expression) type
+           | AST_EQUAL(expression, expression) type
+           | AST_DIFFERENT(expression, expression) type
+           | AST_LOWER_THAN(expression, expression) type
+           | AST_LOWER_OR_EQUAL_THAN(expression, expression) type
+           | AST_GREATER_THAN(expression, expression) type
+           | AST_GREATER_OR_EQUAL_THAN(expression, expression) type
+           | AST_NOT(expression) type
+           | AST_LOGICAL_AND(expression, expression) type
+           | AST_LOGICAL_OR(expression, expression) type
+           | AST_COMPLEMENT(expression) type
+           | AST_BITWISE_AND(expression, expression) type
+           | AST_BITWISE_OR(expression, expression) type
+           | AST_BITWISE_XOR(expression, expression) type
+           | AST_SHL(expression, expression) type
+           | AST_SHR(expression, expression) type
+           | AST_ASSIGNMENT(expression, expression) type
+           | AST_PARENTHESIZED_EXPRESSION(expression) type
            | c-cxx-expressions
            | fortran-expressions
+
+argument : AST_NAMED_PAIR_SPEC(name-opt, expression)
 
 subscript : expression
           | AST_SUBSCRIPT_TRIPLET(expression-opt, expression-opt, expression-opt)
 
-c-cxx-expressions : AST_CONDITIONAL_EXPRESSION(expression, expression, expression)
-                  | AST_POINTER_TO_MEMBER(expression, expression)
-                  | AST_REFERENCE(expression)
-                  | AST_DERREFERENCE(expression)
+c-cxx-expressions : AST_CONDITIONAL_EXPRESSION(expression, expression, expression) type
+                  | AST_POINTER_TO_MEMBER(expression, expression) type
+                  | AST_REFERENCE(expression) type
+                  | AST_DERREFERENCE(expression) type
+                  | AST_THROW_EXPRESSION(expression) type
 
-fortran-expressions : AST_PTR_ASSIGNMENT(expression, expression)
+fortran-expressions : AST_PTR_ASSIGNMENT(expression, expression) type
+
