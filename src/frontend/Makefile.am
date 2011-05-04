@@ -154,6 +154,8 @@ libmcxx_la_SOURCES = \
   cxx-nodecl.c \
   cxx-nodecl-output.h \
   cxx-nodecl-output.c \
+  cxx-nodecl-checker.h \
+  cxx-nodecl-checker.c \
   libmcxx-common.h \
   $(END)
 
@@ -252,6 +254,10 @@ BUILT_SOURCES += c99-parser.h
 EXTRA_DIST += gen-symbol-attrs.py
 EXTRA_DIST += cxx-entity-specs.def
 BUILT_SOURCES += cxx-entity-specs.h
+
+EXTRA_DIST += nodecl-generator.py
+EXTRA_DIST += cxx-nodecl.def
+BUILT_SOURCES += cxx-nodecl-checker.c
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -416,7 +422,10 @@ endif
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
 
-PYTHON = python
 CLEANFILES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h
+
+CLEANFILES += cxx-nodecl-checker.c
+cxx-nodecl-checker.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > cxx-nodecl-checker.c

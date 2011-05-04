@@ -127,6 +127,9 @@
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
+"  --fpc=<name>             Fortran prescanner <name> will be used\n" \
+"                           for fixed form prescanning\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
 "                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
@@ -296,6 +299,7 @@ typedef enum
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_NODECL,
+    OPTION_FORTRAN_PRESCANNER,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
@@ -352,6 +356,7 @@ struct command_line_long_options command_line_long_options[] =
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
     // sentinel
     {NULL, 0, 0}
@@ -1215,6 +1220,15 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_NODECL:
                     {
                         CURRENT_CONFIGURATION->enable_nodecl = 1;
+                        break;
+                    }
+                case OPTION_FORTRAN_PRESCANNER:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option --fpc is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 default:
@@ -3110,13 +3124,28 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     num_arguments += 1;
 
     const char* mf03_prescanner = "mf03-prescanner";
-    int full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    int full_path_length = 0;
+    if (CURRENT_CONFIGURATION->prescanner_name == NULL)
+    {
+        full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    }
+    else
+    {
+        full_path_length = strlen(CURRENT_CONFIGURATION->prescanner_name) + 1;
+    }
     char full_path[full_path_length];
-    memset(full_path, 0, sizeof(full_path));
+    if (CURRENT_CONFIGURATION->prescanner_name == NULL)
+    {
+        memset(full_path, 0, sizeof(full_path));
 
-    snprintf(full_path, sizeof(full_path), "%s/%s", 
-            compilation_process.home_directory,
-            mf03_prescanner);
+        snprintf(full_path, sizeof(full_path), "%s/%s", 
+                compilation_process.home_directory,
+                mf03_prescanner);
+    }
+    else
+    {
+        strncpy(full_path, CURRENT_CONFIGURATION->prescanner_name, strlen(CURRENT_CONFIGURATION->prescanner_name));
+    }
     full_path[full_path_length-1] = '\0';
 
     const char* prescanner_options[num_arguments];

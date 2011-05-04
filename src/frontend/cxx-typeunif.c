@@ -935,19 +935,19 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
         case AST_BITWISE_OR :
         case AST_BITWISE_XOR :
         case AST_BITWISE_AND :
-        case AST_DIFFERENT_OP :
-        case AST_EQUAL_OP :
+        case AST_DIFFERENT :
+        case AST_EQUAL :
         case AST_LOWER_THAN :
         case AST_GREATER_THAN :
         case AST_GREATER_OR_EQUAL_THAN :
         case AST_LOWER_OR_EQUAL_THAN :
-        case AST_SHL_OP :
-        case AST_SHR_OP :
-        case AST_ADD_OP :
-        case AST_MINUS_OP :
-        case AST_MULT_OP :
-        case AST_MOD_OP :
-        case AST_DIV_OP :
+        case AST_SHL :
+        case AST_SHR :
+        case AST_ADD :
+        case AST_MINUS :
+        case AST_MULT :
+        case AST_MOD :
+        case AST_DIV :
             {
                 AST left_tree_0 = ASTSon0(left_tree);
                 AST left_tree_1 = ASTSon1(left_tree);
@@ -1006,10 +1006,10 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
         case AST_BOOLEAN_LITERAL :
             // Check literal values
             return equivalent_expression_trees(left_tree, right_tree);
-        case AST_PLUS_OP :
-        case AST_NOT_OP :
-        case AST_NEG_OP :
-        case AST_COMPLEMENT_OP :
+        case AST_PLUS :
+        case AST_NOT :
+        case AST_NEG :
+        case AST_COMPLEMENT :
             {
                 AST left_operand = ASTSon0(left_tree);
                 AST right_operand = ASTSon0(right_tree);

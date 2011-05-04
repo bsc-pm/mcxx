@@ -139,24 +139,24 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomClause concurrent_clause = construct.get_clause("concurrent");
         get_dependences_info_clause(concurrent_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_REDUCTION));
 
         PragmaCustomClause fp_input_clause = construct.get_clause("__fp_input");
         get_dependences_info_clause(fp_input_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INPUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_INPUT));
 
         PragmaCustomClause fp_output_clause = construct.get_clause("__fp_output");
         get_dependences_info_clause(fp_output_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_OUTPUT));
 
         PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
         get_dependences_info_clause(fp_inout_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_DIR_INOUT | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_DIR_INOUT));
 
         // Same meaning as 'concurrent'
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
-                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
+                (OpenMP::DependencyDirection)(DEP_REDUCTION));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,

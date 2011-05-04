@@ -196,7 +196,7 @@ namespace TL
                     <<    "nanos_event_key_t nanos_instr_name_key = 0;"
                     <<    register_events
                     << "}"
-                    << "static __attribute__((section(\"nanos_init\"))) nanos_init_desc_t __register_events_list = { __register_events, (void*)0 };"
+                    << "static __attribute__((section(\"nanos_post_init\"))) nanos_init_desc_t __register_events_list = { __register_events, (void*)0 };"
                     ;
 
                 // Register events
