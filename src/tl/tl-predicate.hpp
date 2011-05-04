@@ -45,6 +45,7 @@ namespace TL
     class Predicate : public Functor<bool, T>
     {
         public:
+            Predicate() { }
             ~Predicate() { }
     };
     
