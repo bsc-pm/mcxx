@@ -74,7 +74,6 @@
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
 #include "cxx-nodecl.h"
-#include "cxx-nodecl-output.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 
