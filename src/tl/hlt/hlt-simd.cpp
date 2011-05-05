@@ -45,7 +45,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
     if(c == NULL)
     {
         ReplaceSIMDSrc *_this = reinterpret_cast<ReplaceSIMDSrc*>(data);
-        std::stringstream result;
+        Source result;
 
         AST_t ast(a);
 
@@ -86,7 +86,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
 
                         _this->inside_array_subscript.pop();
 
-                        return uniquestr(result.str().c_str());
+                        return uniquestr(result.get_source().c_str());
                     }
                     else
                     {
@@ -96,73 +96,129 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                 }
             }
         }
-        //__builtin_vector_expansion 0.0f -> {0.0f, 0.0f, 0.0f, 0.0f}
-        // We do not want to expand constants inside of an array subscription
-        if ((!_this->inside_array_subscript.top()) && Expression::predicate(ast))
-        {
-            Expression expr(ast, _this->_sl);
-
-            //Constants 
-            //TODO: unnanotated variables from outside of the loop
-            if (expr.is_literal() 
-                    || (expr.is_unary_operation() && expr.get_unary_operand().is_literal())
-                    || (expr.is_casting() && expr.get_casted_expression().is_literal()))
-            {
-                if (!expr.get_type().is_generic_vector())
-                {
-                    result << BUILTIN_VE_NAME
-                        << "("
-                        << expr.prettyprint() 
-                        << ")"
-                        ;
-
-                    return uniquestr(result.str().c_str());
-                }
-            }
-        }
         if (TL::Expression::predicate(ast))
         {
             Expression exp(ast, _this->_sl);
 
-            //It's a function call
-            if (exp.is_function_call())
+            // Since Expression advance over "useless" nests of expressions
+            // (and this includes expression-statements) it is very important
+            // to check we have not advanced any of these nest
+            if (exp.get_ast() == exp.original_tree())
             {
-                result << BUILTIN_GF_NAME
-                    << "("
-                    << recursive_prettyprint(exp.get_called_expression().get_ast(), data)
-                    << ", "
-                    ;
-
-                ObjectList<Expression> arg_list = exp.get_argument_list();
-
-                int i;
-                for (i=0; i<(arg_list.size()-1); i++)
+                //__builtin_vector_expansion: 0.0f -> {0.0f, 0.0f, 0.0f, 0.0f}
+                // Constants are not expanded inside of an array subscription
+                if ((!_this->inside_array_subscript.top()))
                 {
-                    result
-                        << recursive_prettyprint(arg_list[i].get_ast(), data)
-                        << ", "
-                        ;
+                    //Constants 
+                    //TODO: unnanotated variables from outside of the loop
+                    if (exp.is_literal() 
+                            || (exp.is_unary_operation() && exp.get_unary_operand().is_literal())
+                            || (exp.is_casting() && exp.get_casted_expression().is_literal()))
+                    {
+                        if (!exp.get_type().is_generic_vector())
+                        {
+                            result << BUILTIN_VE_NAME
+                                << "("
+                                << exp.prettyprint() 
+                                << ")"
+                                ;
+
+                            return uniquestr(result.get_source().c_str());
+                        }
+                    }
                 }
-                result
-                    << recursive_prettyprint(arg_list[i].get_ast(), data)
-                    << ")"
-                    ;
-                
-                return uniquestr(result.str().c_str());
-            }
-            //Constant Evaluation
-            else if (exp.is_constant())
-            {
-                bool valid_evaluation;
-                int eval_result = exp.evaluate_constant_int_expression(valid_evaluation);
-
-                if (valid_evaluation)
+                //Implicit Conversions
+                if (exp.is_binary_operation())
                 {
-                    result 
-                        << eval_result
+                    Expression first_op = exp.get_first_operand();
+                    Expression second_op = exp.get_second_operand();
+
+                    unsigned int first_op_size = first_op.get_type().get_size();
+                    unsigned int second_op_size = second_op.get_type().get_size();
+
+                    if (first_op_size != second_op_size)
+                    {
+                        Source target_exp_src;
+                        if ((first_op_size > second_op_size) || exp.is_assignment())
+                        {
+                            target_exp_src 
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                ;
+
+                            result 
+                                << target_exp_src
+                                << exp.get_operator_str()
+                                << BUILTIN_VC_NAME
+                                << "("
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                << ", " 
+                                << target_exp_src
+                                ;
+
+                            if (_this->_ind_var_sym.is_valid())
+                            {
+                                result
+                                    << ", "
+                                    << _this->_ind_var_sym.get_name()
+                                    ;
+                            }
+
+                            result << ")"
+                                ;
+                        }
+                        else
+                        {
+                            target_exp_src
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                ;
+
+                            result 
+                                << BUILTIN_VC_NAME
+                                << "("
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << ", "
+                                << target_exp_src
+                                << ")"
+                                << exp.get_operator_str()
+                                << target_exp_src
+                                ;
+                        }
+
+                        return uniquestr(result.get_source().c_str());
+                    }
+                }
+
+                //__builtin_generic_function
+                if (exp.is_function_call())
+                {
+                    result << BUILTIN_GF_NAME
+                        << "("
+                        << recursive_prettyprint(exp.get_called_expression().get_ast(), data)
                         ;
 
-                    return uniquestr(result.str().c_str());
+                    ObjectList<Expression> arg_list = exp.get_argument_list();
+
+                    int i;
+                    for (i=0; i<arg_list.size(); i++)
+                    {
+                        result.append_with_separator(
+                                recursive_prettyprint(arg_list[i].get_ast(), data), ", ");
+                    }
+
+                    result << ")";
+                    return uniquestr(result.get_source().c_str());
+                }
+                //Naïve Constants Evaluation: Waiting for Sara's optimizations
+                if (exp.is_constant())
+                {
+                    bool valid_evaluation;
+                    int eval_result = exp.evaluate_constant_int_expression(valid_evaluation);
+
+                    if (valid_evaluation)
+                    {
+                        result << eval_result;
+                        return uniquestr(result.get_source().c_str());
+                    }
                 }
             }
         }
@@ -321,7 +377,9 @@ TL::Source SIMDization::do_simdization()
 LoopSIMDization::LoopSIMDization(ForStatement& for_stmt, 
         unsigned char& min_stmt_size, 
         const ObjectList<IdExpression>* simd_id_exp_list)
-    : SIMDization(for_stmt, min_stmt_size, simd_id_exp_list), 
+    : SIMDization(for_stmt, min_stmt_size, 
+            simd_id_exp_list, 
+            for_stmt.get_induction_variable().get_symbol()), 
     _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list) 
 {
     is_simdizable = true;

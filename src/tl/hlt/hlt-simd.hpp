@@ -39,6 +39,7 @@ namespace TL
         {
             private:
                 const ObjectList<IdExpression>* _simd_id_exp_list;
+                const TL::Symbol _ind_var_sym;
                 std::stack<bool> inside_array_subscript;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
@@ -46,7 +47,19 @@ namespace TL
 
             public:
                 ReplaceSIMDSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list) 
-                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list) { inside_array_subscript.push(false); }
+                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list), _ind_var_sym(NULL) 
+                { 
+                    inside_array_subscript.push(false); 
+                }
+
+                ReplaceSIMDSrc(
+                        ScopeLink sl, 
+                        const ObjectList<IdExpression>* simd_id_exp_list, 
+                        const TL::Symbol ind_var_sym) 
+                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list), _ind_var_sym(ind_var_sym) 
+                { 
+                    inside_array_subscript.push(false); 
+                }
 
                 Source replace(AST_t a) const;
                 Source replace(LangConstruct a) const;
@@ -87,9 +100,10 @@ namespace TL
                  */
                 SIMDization(LangConstruct& lang_construct, 
                         unsigned char& min_stmt_size, 
-                        const ObjectList<IdExpression>* simd_id_exp_list = NULL)
+                        const ObjectList<IdExpression>* simd_id_exp_list = NULL,
+                        const TL::Symbol ind_var_sym = NULL)
                     : _ast(lang_construct.get_ast()), _sl(lang_construct.get_scope_link()),
-                    _replacement(_sl, simd_id_exp_list), _min_stmt_size(min_stmt_size), is_simdizable(false){}
+                    _replacement(_sl, simd_id_exp_list, ind_var_sym), _min_stmt_size(min_stmt_size), is_simdizable(false){}
         };
 
         class LIBHLT_CLASS LoopSIMDization : public SIMDization

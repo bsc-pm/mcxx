@@ -9,6 +9,12 @@
 #define BUILTIN_VR_NAME "__builtin_vector_reference"
 #define BUILTIN_GF_NAME "__builtin_generic_function"
 #define BUILTIN_IV_NAME "__builtin_induction_variable"
+#define BUILTIN_VC_NAME "__builtin_vector_conversion"
+
+#define COMPILER_CONV_FLOAT2CHAR_SMP16  "__compiler_conv_float_to_char_smp16"
+#define CONV_FLOAT2CHAR_SMP16           "__conv_float_to_char_smp16"
+#define COMPILER_CONV_FLOAT2UCHAR_SMP16 "__compiler_conv_float_to_uchar_smp16"
+#define CONV_FLOAT2UCHAR_SMP16          "__conv_float_to_uchar_smp16"
 
 #define LANG_HLT_SIMD_FOR_INFO "HLT_SIMD_FOR_INFO"
 #define LANG_HLT_SIMD_EPILOG "HLT_SIMD_EPILOG"
@@ -45,19 +51,17 @@ namespace TL
                 virtual Source replace(AST_t a) const;
                 virtual Source replace_naive_function(
                         const Symbol& func_sym, 
-                        const std::string& naive_func_name, 
-                        const ScopeLink sl)=0;
+                        const std::string& naive_func_name)=0;
                 virtual Source replace_simd_function(
                         const Symbol& func_sym, 
-                        const std::string& simd_func_name,
-                        const ScopeLink sl)=0;
+                        const std::string& simd_func_name)=0;
 
                 std::string get_device_name() const;
                 void set_width(const int width);
                 int get_width() const;
         };
 
-        enum specific_function_kind_t { NAIVE=0, SIMD=1, DEFAULT=2, AUTO=3 };
+        enum specific_function_kind_t { NAIVE=0, SIMD=1, COMPILER_DEFAULT=2, ARCH_DEFAULT=3, AUTO=4 };
 
         class SpecificFunctionInfo
         {
@@ -66,16 +70,17 @@ namespace TL
                 const specific_function_kind_t _spec_func_kind;
                 const int _width;
 
-                bool _needs_prettyprint;
-                bool _needs_definition;
-                bool _needs_declaration;
+                bool _needs_prettyprint;    //'Something' needs to be prettyprinted
+                bool _needs_definition;     //It needs definition
+                bool _needs_declaration;    //It needs declaration
 
             public:
                 SpecificFunctionInfo(
                         const std::string& spec_func_name, 
                         const specific_function_kind_t spec_func_kind, 
                         const int width, 
-                        const bool prettyprint);
+                        const bool _needs_prettyprint,
+                        const bool _needs_def_decl);
 
                 std::string get_name() const;
                 int get_width() const;
@@ -108,31 +113,33 @@ namespace TL
         {
             protected:
                 Symbol _scalar_func_sym;
-                Symbol _hlt_simd_func_sym;
-                bool _needs_prettyprint;
+                Symbol _simd_func_sym;
 
                 device_specific_map_t _specific_functions;
-
+                
             public:
-                GenericFunctionInfo(const Symbol& scalar_func_sym,
-                        const bool needs_prettyprint);
+                GenericFunctionInfo(const Symbol& scalar_func_sym);
                 GenericFunctionInfo(const Symbol& scalar_func_sym, 
-                        const Symbol& hlt_simd_func_sym,
-                        const bool needs_prettyprint);
+                        const Symbol& hlt_simd_func_sym);
 
-                void set_prettyprint(const bool needs_prettyprint);
+                void activate_prettyprint(
+                        const std::string device_name,
+                        const int width);
                 bool has_specific_definition(
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
                         const int width) const;
-                bool is_hlt_simd() const;
+                bool has_simd_symbol() const;
+
+                std::string get_simd_func_name() const;
 
                 void add_specific_function_definition(
                         const std::string scalar_func_name,
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
                         const int width,
-                        const bool prettyprinted);
+                        const bool needs_prettyprint,
+                        const bool needs_def_decl);
 
                 Source get_all_pend_spec_func_def(ReplaceSrcGenericFunction& replace);
                 Source get_all_pend_spec_func_decl(ReplaceSrcGenericFunction& replace);
@@ -159,12 +166,24 @@ namespace TL
                 void add_generic_function(
                         const Symbol& scalar_func_sym, 
                         const Symbol& hlt_simd_func_sym);
+
                 void add_specific_definition(
                         const Symbol& scalar_func_sym, 
                         const specific_function_kind_t func_kind, 
                         const std::string& device_name, 
                         const int width, 
-                        const bool prettyprinted,
+                        const bool need_prettyprint,
+                        const bool need_def_decl,
+                        const std::string default_func_name = "");
+
+                void add_specific_definition(
+                        const Symbol& scalar_func_sym, 
+                        const Symbol& simd_func_sym, 
+                        const specific_function_kind_t func_kind, 
+                        const std::string& device_name, 
+                        const int width, 
+                        const bool need_prettyprint,
+                        const bool need_def_decl,
                         const std::string default_func_name = "");
 
                 bool contains_generic_definition(

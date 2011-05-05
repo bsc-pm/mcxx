@@ -443,7 +443,7 @@ namespace TL
 
             //! States whether current type is a vector-type
             bool is_vector() const;
-            //! States whether current type is a vector-type
+            //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
             Type vector_element() const;

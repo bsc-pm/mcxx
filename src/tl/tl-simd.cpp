@@ -97,18 +97,18 @@ void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym)
 
     if (it == _function_map.end())
     {
-        _function_map.insert(std::make_pair(scalar_func_sym, GenericFunctionInfo(scalar_func_sym, true)));
+        _function_map.insert(std::make_pair(scalar_func_sym, GenericFunctionInfo(scalar_func_sym)));
     }
 }
 
-void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym, const Symbol& hlt_simd_func_sym)
+void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym, const Symbol& simd_func_sym)
 {
     DEBUG_CODE()
     {
         std::cerr << "SIMD: Adding generic function '" 
             << scalar_func_sym.get_name()
-            << "', hlt_simd_func_name: '"
-            << hlt_simd_func_sym.get_name()
+            << "', simd_func_name: '"
+            << simd_func_sym.get_name()
             << "'" 
             <<std::endl;
     }
@@ -117,7 +117,7 @@ void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym, const
 
     if (it == _function_map.end())
     {
-        _function_map.insert(std::make_pair(scalar_func_sym, GenericFunctionInfo(scalar_func_sym, hlt_simd_func_sym, true)));
+        _function_map.insert(std::make_pair(scalar_func_sym, GenericFunctionInfo(scalar_func_sym, simd_func_sym)));
     }
 }
 
@@ -126,7 +126,8 @@ void GenericFunctions::add_specific_definition(
         specific_function_kind_t spec_func_kind,
         const std::string& device_name, 
         const int width, 
-        const bool prettyprinted,
+        const bool needs_prettyprint,
+        const bool needs_def_decl,
         const std::string default_func_name)
 {
     function_map_t::iterator it = _function_map.find(scalar_func_sym);
@@ -140,9 +141,16 @@ void GenericFunctions::add_specific_definition(
     
     GenericFunctionInfo &gen_func_info(it->second);
 
+    //needs_prettyprint == true means that the symbol is in the source code.
+    //Then we activate prettyprint in all specific versions
+    if (needs_prettyprint == true)
+    {
+        gen_func_info.activate_prettyprint(device_name, width);
+    }
+
     if (spec_func_kind == AUTO)
     {
-        if(gen_func_info.is_hlt_simd())
+        if(gen_func_info.has_simd_symbol())
         {
             spec_func_kind = SIMD;
         }
@@ -154,11 +162,15 @@ void GenericFunctions::add_specific_definition(
 
     if (!contains_specific_definition(scalar_func_sym, spec_func_kind, device_name, width))
     {
-        if (spec_func_kind == DEFAULT)
+        if ((spec_func_kind == ARCH_DEFAULT))
         {
-            gen_func_info.set_prettyprint(false);
             gen_func_info.add_specific_function_definition( 
-                    default_func_name, spec_func_kind, device_name, width, prettyprinted);
+                    default_func_name, spec_func_kind, device_name, width, needs_prettyprint, needs_def_decl);
+        }
+        else if (spec_func_kind == COMPILER_DEFAULT)
+        {
+            gen_func_info.add_specific_function_definition( 
+                    default_func_name, spec_func_kind, device_name, width, needs_prettyprint, needs_def_decl);
         }
         else
         {
@@ -173,10 +185,41 @@ void GenericFunctions::add_specific_definition(
                 ;
 
             gen_func_info.add_specific_function_definition(
-                    func_name.str(), spec_func_kind, device_name, width, prettyprinted);
+                    func_name.str(), spec_func_kind, device_name, width, needs_prettyprint, needs_def_decl);
         }
     }
 }
+
+void GenericFunctions::add_specific_definition(
+        const Symbol& scalar_func_sym, 
+        const Symbol& simd_func_sym, 
+        specific_function_kind_t spec_func_kind,
+        const std::string& device_name, 
+        const int width, 
+        const bool needs_prettyprint,
+        const bool needs_def_decl,
+        const std::string default_func_name)
+{
+    function_map_t::iterator it = _function_map.find(scalar_func_sym);
+
+    //If Generic Function exists then error
+    if (it != _function_map.end())
+    {
+        running_error("Generic function cannot be added because another one exists."); 
+    }
+
+    add_generic_function(scalar_func_sym, simd_func_sym);
+
+    add_specific_definition(
+            scalar_func_sym,
+            spec_func_kind,
+            device_name,
+            width,
+            needs_prettyprint,
+            needs_def_decl,
+            default_func_name);
+}
+
 
 bool GenericFunctions::contains_generic_definition(const Symbol& scalar_func_sym) const
 {
@@ -227,9 +270,10 @@ SpecificFunctionInfo::SpecificFunctionInfo(
         const std::string& spec_func_name, 
         const specific_function_kind_t spec_func_kind, 
         const int width, 
-        const bool prettyprint) 
+        const bool needs_prettyprint,
+        const bool needs_def_decl) 
 : _spec_func_name(spec_func_name), _spec_func_kind(spec_func_kind), _width(width),
-    _needs_definition(prettyprint), _needs_declaration(prettyprint)
+    _needs_prettyprint(needs_prettyprint), _needs_definition(needs_def_decl), _needs_declaration(needs_def_decl)
 {
 }
 
@@ -253,6 +297,11 @@ bool SpecificFunctionInfo::is_kind(const specific_function_kind_t spec_func_kind
     return spec_func_kind == _spec_func_kind;
 }
 
+bool SpecificFunctionInfo::needs_prettyprint() const
+{
+    return _needs_prettyprint;
+}
+
 bool SpecificFunctionInfo::needs_definition() const
 {
     return _needs_definition;
@@ -261,6 +310,11 @@ bool SpecificFunctionInfo::needs_definition() const
 bool SpecificFunctionInfo::needs_declaration() const
 {
     return _needs_declaration;
+}
+
+void SpecificFunctionInfo::set_prettyprint(const bool needs_prettyprint)
+{
+    _needs_prettyprint = needs_prettyprint;
 }
 
 void SpecificFunctionInfo::set_definition(const bool needs_definition)
@@ -275,22 +329,27 @@ void SpecificFunctionInfo::set_declaration(const bool needs_declaration)
 
 Source SpecificFunctionInfo::get_definition(
         const Symbol& scalar_func_sym,
-        const Symbol& hlt_simd_func_sym,
+        const Symbol& simd_func_sym,
         ReplaceSrcGenericFunction& replace) const
 {
     replace.set_width(_width);
 
-    if (_spec_func_kind == DEFAULT)
+    if (_spec_func_kind == ARCH_DEFAULT)
     {
-        running_error("error: it is not possible to get the source of a DEFAULT specific function.");
+        return Source(); //ARCH_DEFAULT specific function is already defined");
+    }
+    else if (_spec_func_kind == COMPILER_DEFAULT)
+    {
+        replace.add_replacement(simd_func_sym, _spec_func_name);
+        return replace.replace(simd_func_sym.get_point_of_definition());
     }
     else if (_spec_func_kind == SIMD)
     {
-        return replace.replace_simd_function(hlt_simd_func_sym, _spec_func_name, replace.get_scope_link());    
+        return replace.replace_simd_function(simd_func_sym, _spec_func_name);    
     }
     else if (_spec_func_kind == NAIVE)
     {
-        return replace.replace_naive_function(scalar_func_sym, _spec_func_name, replace.get_scope_link());
+        return replace.replace_naive_function(scalar_func_sym, _spec_func_name);
     }
 
     running_error("error: specific function definition has a invalid kind.");
@@ -298,15 +357,15 @@ Source SpecificFunctionInfo::get_definition(
 
 Source SpecificFunctionInfo::get_declaration(
         const Symbol& scalar_func_sym,
-        const Symbol& hlt_simd_func_sym) const
+        const Symbol& simd_func_sym) const
 {
     Source func_decl_src, parameter_decl_list;
 
-    if (_spec_func_kind == DEFAULT)
+    if (_spec_func_kind == ARCH_DEFAULT)
     {
-        return func_decl_src;
+        return func_decl_src; //ARCH_DEFAULT specific function is already declared");
     }
-    else if ((_spec_func_kind == SIMD) || (_spec_func_kind == NAIVE))
+    else //COMPILER_DEFAULT || SIMD || NAIVE
     {
         Type func_type = scalar_func_sym.get_type();
 
@@ -323,16 +382,16 @@ Source SpecificFunctionInfo::get_declaration(
 
         Source static_inline_spec;
 
-        if (_spec_func_kind == NAIVE 
-                || (_spec_func_kind == SIMD
-                    && hlt_simd_func_sym.is_static()))
+        if (_spec_func_kind == NAIVE //NAIVE functions are always static
+                || (_spec_func_kind == SIMD && simd_func_sym.is_static())
+                || (_spec_func_kind == COMPILER_DEFAULT && simd_func_sym.is_static()))
         {
             static_inline_spec << "static ";
         }
 
-        if (((_spec_func_kind == NAIVE) && scalar_func_sym.is_static())
-                || ((_spec_func_kind == SIMD)
-                    && hlt_simd_func_sym.is_inline()))
+        if (((_spec_func_kind == NAIVE) && scalar_func_sym.is_inline())
+                || ((_spec_func_kind == SIMD) && simd_func_sym.is_inline())
+                || ((_spec_func_kind == COMPILER_DEFAULT) && simd_func_sym.is_inline()))
         {
             static_inline_spec << "inline ";
         }
@@ -355,14 +414,11 @@ Source SpecificFunctionInfo::get_declaration(
 
             parameter_decl_list.append_with_separator(
                     param_vec_type.get_declaration(
-                        scalar_func_sym.get_scope(), ""),
-                    ",");
-        }               
+                        scalar_func_sym.get_scope(), ""), ",");
+        }   
+    }        
 
-        return func_decl_src;
-    }
-
-    running_error("error: specific function definition has a invalid kind.");
+    return func_decl_src;
 }
 
 bool SpecificFunctionInfo::operator< (const SpecificFunctionInfo& spec_func_info) const
@@ -371,9 +427,8 @@ bool SpecificFunctionInfo::operator< (const SpecificFunctionInfo& spec_func_info
 }
 
 
-GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym, 
-        bool needs_prettyprint)
-    : _scalar_func_sym(scalar_func_sym), _hlt_simd_func_sym(NULL), _needs_prettyprint(needs_prettyprint)
+GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym)
+    : _scalar_func_sym(scalar_func_sym), _simd_func_sym(NULL)
 {
     if (_scalar_func_sym.is_invalid())
     {
@@ -386,10 +441,10 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym,
     }
 }
 
-GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym, 
-        const Symbol& hlt_simd_func_sym,
-        const bool needs_prettyprint)
-    : _scalar_func_sym(scalar_func_sym), _hlt_simd_func_sym(hlt_simd_func_sym), _needs_prettyprint(needs_prettyprint)
+GenericFunctionInfo::GenericFunctionInfo(
+        const Symbol& scalar_func_sym, 
+        const Symbol& simd_func_sym)
+    : _scalar_func_sym(scalar_func_sym), _simd_func_sym(simd_func_sym)
 {
     if (_scalar_func_sym.is_invalid())
     {
@@ -401,20 +456,15 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym,
         running_error("error: expected function Symbol from a scalar function");
     }
 
-    if (_hlt_simd_func_sym.is_invalid())
+    if (simd_func_sym.is_invalid())
     {
-        running_error("error: expected a valid HLT SIMD Symbol from a generic function");
+        running_error("error: expected a valid SIMD Symbol from a generic function");
     }
 
-    if (!_hlt_simd_func_sym.is_function())
+    if (!_simd_func_sym.is_function())
     {
         running_error("error: expected function Symbol from a generic function");
     }
-}
-
-void GenericFunctionInfo::set_prettyprint(const bool needs_prettyprint)
-{
-    _needs_prettyprint = needs_prettyprint;
 }
 
 
@@ -441,9 +491,31 @@ bool GenericFunctionInfo::has_specific_definition(
     return false;
 }
 
-bool GenericFunctionInfo::is_hlt_simd() const
+void GenericFunctionInfo::activate_prettyprint(const std::string device_name, const int width) 
 {
-    return _hlt_simd_func_sym.is_valid();
+    //Looking for device specific functions (first map)
+    for (device_specific_map_t::iterator it = _specific_functions.find(device_name);
+            it != _specific_functions.end();
+            it++)
+    {
+        //Looking for width specific functions (nested map)
+        for (width_specific_map_t::iterator it2 = it->second.find(width);
+                it2 != it->second.end();
+                it2++)
+        {
+            it2->second.set_prettyprint(true);
+        }
+    }
+}
+
+bool GenericFunctionInfo::has_simd_symbol() const
+{
+    return _simd_func_sym.is_valid();
+}
+
+std::string GenericFunctionInfo::get_simd_func_name() const
+{
+    return _simd_func_sym.get_name();
 }
 
 void GenericFunctionInfo::add_specific_function_definition(
@@ -451,7 +523,8 @@ void GenericFunctionInfo::add_specific_function_definition(
         const specific_function_kind_t spec_func_kind,
         const std::string& device_name,
         const int width,
-        const bool prettyprinted)
+        const bool needs_prettyprint,
+        const bool needs_def_decl)
 {
     DEBUG_CODE()
     {
@@ -459,12 +532,13 @@ void GenericFunctionInfo::add_specific_function_definition(
             << "', device: '" << device_name
             << "', width: '" << width
             << "', kind: '" << spec_func_kind
-            << "', prettyprinted: '" << prettyprinted
+            << "', needs_prettyprint: '" << needs_prettyprint
+            << "', needs_def_decl: '" << needs_def_decl
             << "'" 
             << std::endl;
     }
 
-    SpecificFunctionInfo spec_func(scalar_func_name, spec_func_kind, width, prettyprinted);
+    SpecificFunctionInfo spec_func(scalar_func_name, spec_func_kind, width, needs_prettyprint, needs_def_decl);
 
     device_specific_map_t::iterator it = _specific_functions.find(device_name);
 
@@ -508,11 +582,11 @@ Source GenericFunctionInfo::get_all_pend_spec_func_def(
             replace.get_device_name(),
             replace.get_width());
 
-    if (_needs_prettyprint
+    if (spec_fun.needs_prettyprint()
             && spec_fun.needs_definition())
     {
         spec_fun.set_definition(false);
-        result << spec_fun.get_definition(_scalar_func_sym, _hlt_simd_func_sym, replace);    
+        result << spec_fun.get_definition(_scalar_func_sym, _simd_func_sym, replace);    
     }
 
     return result;
@@ -537,11 +611,11 @@ Source GenericFunctionInfo::get_all_pend_spec_func_decl(
             replace.get_device_name(),
             replace.get_width());
 
-    if (_needs_prettyprint
+    if (spec_fun.needs_prettyprint()
             && spec_fun.needs_declaration())
     {
         spec_fun.set_declaration(false);
-        result << spec_fun.get_declaration(_scalar_func_sym, _hlt_simd_func_sym);    
+        result << spec_fun.get_declaration(_scalar_func_sym, _simd_func_sym);    
     }
 
     return result;
