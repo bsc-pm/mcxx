@@ -229,6 +229,8 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
         { arg_1, "second", dim3_type },
         { arg_2, "third", get_size_t_type() },
         { arg_3, "fourth", cudaStream_t_type },
+	// Sentinel
+	{ NULL, NULL, NULL }
     };
 
     int i = 0;
