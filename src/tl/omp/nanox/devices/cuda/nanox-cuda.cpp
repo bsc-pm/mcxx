@@ -699,7 +699,7 @@ void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,
 		Source &initial_setup,
 		Source &replaced_src)
 {
-	do_gpu_outline_replacements(body,
+	do_cuda_outline_replacements(body,
 			scope_link,
 			data_environ,
 			initial_setup,
