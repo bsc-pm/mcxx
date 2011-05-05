@@ -58,6 +58,8 @@ namespace TL
                         ReplaceSrcIdExpression& replace_src,
                         bool &err_declared);
 
+                void replace_kernel_config(AST_t *kernel_call, ScopeLink sl);
+
                 void get_output_file(std::ofstream& cudaFile);
 
                 std::set<std::string> _fwdSymbols;
