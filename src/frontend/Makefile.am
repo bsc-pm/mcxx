@@ -154,6 +154,8 @@ libmcxx_la_SOURCES = \
   cxx-nodecl.c \
   cxx-nodecl-checker.h \
   cxx-nodecl-checker.c \
+  cxx-codegen.c \
+  cxx-codegen.h \
   libmcxx-common.h \
   $(END)
 

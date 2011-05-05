@@ -76,6 +76,7 @@
 #include "cxx-nodecl.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
+#include "cxx-codegen.h"
 
 #include "filename.h"
 
@@ -86,6 +87,7 @@
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-nodecl.h"
+#include "fortran03-codegen.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -212,7 +214,7 @@
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
-"  --nodecl                 Nodecl processing (EXPERIMENTAL)\n" \
+"  --disable-nodecl         Disable nodecl processing (UNSUPPORTED)\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -297,7 +299,7 @@ typedef enum
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
-    OPTION_NODECL,
+    OPTION_DISABLE_NODECL,
     OPTION_FORTRAN_PRESCANNER,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
@@ -356,7 +358,7 @@ struct command_line_long_options command_line_long_options[] =
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
-    {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
+    {"disable-nodecl", CLP_NO_ARGUMENT, OPTION_DISABLE_NODECL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -392,6 +394,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
+static const char* codegen_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
@@ -1216,9 +1219,9 @@ int parse_arguments(int argc, const char* argv[],
 #endif
                         break;
                     }
-                case OPTION_NODECL:
+                case OPTION_DISABLE_NODECL:
                     {
-                        CURRENT_CONFIGURATION->enable_nodecl = 1;
+                        CURRENT_CONFIGURATION->disable_nodecl = 1;
                         break;
                     }
                 case OPTION_FORTRAN_PRESCANNER:
@@ -2448,7 +2451,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
-                if (CURRENT_CONFIGURATION->enable_nodecl)
+                if (!CURRENT_CONFIGURATION->disable_nodecl)
                 {
                     AST simplified_tree = NULL;
                     if (IS_C_LANGUAGE
@@ -2467,11 +2470,16 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                         internal_error("Invalid language", 0);
                     }
 
-                    ast_dump_graphviz(simplified_tree, stdout);
+                    // We should ensure we can do this
+                    // ast_free(translation_unit->parsed_tree);
+                    translation_unit->parsed_tree = simplified_tree;
                 }
 
                 // 6. TL::run and TL::phase_cleanup
-                compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
+                if (CURRENT_CONFIGURATION->disable_nodecl)
+                {
+                    compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
+                }
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
@@ -2499,8 +2507,16 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             const char* prettyprinted_filename = NULL;
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
-                prettyprinted_filename
-                    = prettyprint_translation_unit(translation_unit, parsed_filename);
+                if (CURRENT_CONFIGURATION->disable_nodecl)
+                {
+                    prettyprinted_filename
+                        = prettyprint_translation_unit(translation_unit, parsed_filename);
+                }
+                else
+                {
+                    prettyprinted_filename
+                        = codegen_translation_unit(translation_unit, parsed_filename);
+                }
             }
 
             // Process secondary translation units
@@ -2699,6 +2715,135 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     }
 
     check_tree(translation_unit->parsed_tree);
+}
+
+static const char* codegen_translation_unit(translation_unit_t* translation_unit, 
+        const char* parsed_filename UNUSED_PARAMETER)
+{
+    if (CURRENT_CONFIGURATION->do_not_prettyprint)
+    {
+        return NULL;
+    }
+
+    FILE* prettyprint_file = NULL;
+    const char* output_filename = NULL;
+
+    if (CURRENT_CONFIGURATION->do_not_compile
+            && CURRENT_CONFIGURATION->do_not_link)
+    {
+        if (strcmp(translation_unit->output_filename, "-") == 0)
+        {
+            prettyprint_file = stdout;
+            output_filename = "(stdout)";
+        }
+        else
+        {
+            output_filename = translation_unit->output_filename;
+        }
+    }
+    else
+    {
+        const char* input_filename_basename = NULL;
+        input_filename_basename = give_basename(translation_unit->input_filename);
+
+        const char* preffix = strappend(compilation_process.exec_basename, "_");
+
+        const char* output_filename_basename = NULL; 
+
+#ifdef FORTRAN_SUPPORT
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Change the extension to be .f95 always
+            const char * ext = strrchr(input_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(input_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
+            c[ext - input_filename_basename + 1] = '\0';
+
+            input_filename_basename = strappend(c, ".f95");
+        }
+#endif
+
+        output_filename_basename = strappend(preffix,
+                input_filename_basename);
+
+        if (CURRENT_CONFIGURATION->output_directory != NULL)
+        {
+            output_filename = strappend(CURRENT_CONFIGURATION->output_directory, "/");
+            output_filename = strappend(output_filename, output_filename_basename);
+        }
+        else
+        {
+            output_filename = output_filename_basename;
+        }
+    }
+
+    if (CURRENT_CONFIGURATION->pass_through)
+        return output_filename;
+
+    // Open it, unless was an already opened descriptor
+    if (prettyprint_file == NULL)
+        prettyprint_file = fopen(output_filename, "w");
+
+    if (prettyprint_file == NULL)
+    {
+        running_error("Cannot create output file '%s' (%s)", output_filename,
+                strerror(errno));
+    }
+
+    timing_t time_print;
+    timing_start(&time_print);
+
+    // This will be used by a native compiler
+    prettyprint_set_not_internal_output();
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        if (CURRENT_CONFIGURATION->column_width != 0)
+        {
+            temporal_file_t raw_prettyprint = new_temporal_file();
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
+            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+            rewind(raw_prettyprint_file);
+
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fclose(raw_prettyprint_file);
+        }
+        else
+        {
+            fortran_codegen_translation_unit(prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+        }
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language kind", 0);
+    }
+
+    timing_end(&time_print);
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
+    }
+
+    if (prettyprint_file != stdout)
+    {
+        fclose(prettyprint_file);
+    }
+
+    return output_filename;
 }
 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 

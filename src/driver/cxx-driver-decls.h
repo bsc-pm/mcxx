@@ -380,8 +380,8 @@ typedef struct compilation_configuration_tag
     // Enable CUDA
     char enable_cuda;
 
-    // Enable nodecl
-    char enable_nodecl;
+    // Disable nodecl (this is UNSUPPORTED)
+    char disable_nodecl;
 
     // Target options
     int num_target_option_maps;

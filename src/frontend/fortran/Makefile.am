@@ -66,6 +66,8 @@ libmf03_la_SOURCES = \
                      fortran03-modules.h \
                      fortran03-modules-bits.h \
                      fortran03-modules.c \
+                     fortran03-codegen.h \
+                     fortran03-codegen.c \
                      libmf03-common.h \
                      $(END)
 
