@@ -237,46 +237,6 @@ std::string ReplaceSrcSMP::get_integer_casting(AST_t ast, Type type1, Type type2
 }
 
 
-Source get_conversion_source(Expression dst_exp, Expression src_exp)
-{
-    Source result;
-
-    TL::Type dst_type(dst_exp.get_type());
-    TL::Type src_type(src_exp.get_type());
-
-    //FLOAT ==> CHAR
-    if (src_type.is_unsigned_char() && dst_type.is_float())
-    {
-        /*
-        result 
-            << "{"
-            << "int __attribute__((vector_size(16))) vi0, vi1;"
-            << "short int __attribute__((vector_size(16))) vs0, vs1;"
-            << "vi0 = __builtin_ia32_cvttps2dq(vf0);"
-        vi1 = __builtin_ia32_cvttps2dq(vf1);
-
-        vs0 = __builtin_ia32_packusdw128(vi0, vi1);
-
-        vi0 = __builtin_ia32_cvttps2dq(vf2);
-        vi1 = __builtin_ia32_cvttps2dq(vf3);
-
-        vs1 = __builtin_ia32_packusdw128(vi0, vi1);
-        << "}"
-
-        return __builtin_ia32_packuswb128(vs0, vs1);
-        */
-
-    }
-    else
-    {
-        running_error("Conversions from %s type to %d type not supported yet", 
-                src_type.get_declaration(src_exp.get_scope(), "").c_str(),
-                dst_type.get_declaration(dst_exp.get_scope(), "").c_str());
-    }
-
-}
-
-
 const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 {
     ObjectList<Expression> arg_list;
@@ -363,22 +323,25 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     if (first_type.is_generic_vector() && second_type.is_generic_vector())
                     {
+                        //if x86 architecture
+
                         //Relational Operators (<, >, <=, ...)
-                        if (expr.get_operation_kind() == Expression::LOWER_THAN
-                           )
+                        if (expr.get_operation_kind() == Expression::LOWER_THAN)
                         {
-                            //if x86 architecture
-
-                            result 
-                                << "__builtin_ia32_cmpltps("
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
-                                << recursive_prettyprint(second_op.get_ast(), data)
-                                << ")"
-                                ;
-
-                            return uniquestr(result.get_source().c_str());
+                            result << "__builtin_ia32_cmpltps(";
                         }
+                        else if (expr.get_operation_kind() == Expression::GREATER_THAN)
+                        {
+                            result << "__builtin_ia32_cmpgtps(";
+                        }
+                         
+                        result << recursive_prettyprint(first_op.get_ast(), data)
+                            << ", "
+                            << recursive_prettyprint(second_op.get_ast(), data)
+                            << ")"
+                            ;
+
+                        return uniquestr(result.get_source().c_str());
                     }
                 }
             }
@@ -1217,69 +1180,6 @@ DeviceSMP::DeviceSMP()
 
 void DeviceSMP::pre_run(DTO& dto)
 {
-    /*
-    // get the translation_unit tree
-    AST_t translation_unit = dto["translation_unit"];
-    // get the scope_link
-    ScopeLink scope_link = dto["scope_link"];
-
-
-    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src;
-
-    scalar_functions_src
-        << "extern float sqrtf (float __x) __attribute__ ((__nothrow__));"
-        << "extern float fabsf (float __x) __attribute__ ((__nothrow__));"
-        << "extern double sqrt (double __x) __attribute__ ((__nothrow__));"
-        << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
-        ;
-
-    default_generic_functions_src
-        << "static float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)\
-            {\
-                return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &\
-                    __builtin_vector_expansion(0x7FFFFFFF));\
-            }"
-        << "static double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)\
-            {\
-                return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &\
-                    __builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));\
-            }"
-        ;
-
-    //SSE2
-    intel_builtins_src
-        << "int __attribute__((vector_size(16))) __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
-        << "float __attribute__((vector_size(16))) __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
-        //<< "float __attribute__((vector_size(16))) __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
-        << "double __attribute__((vector_size(16))) __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
-        //<< "double __attribute__((vector_size(16))) __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
-        ;
-
-    //Global parsing
-    scalar_functions_src.parse_global(translation_unit, scope_link);
-    default_generic_functions_src.parse_global(translation_unit, scope_link);
-    intel_builtins_src.parse_global(translation_unit, scope_link);
-
-    Scope scope = scope_link.get_scope(translation_unit);
-
-    //Default functions
-    int width = 16;
-    //Int
-
-    //Float
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtps"));
-    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, _device_name, width, true);
-
-
-    //Double
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_sqrtpd"));
-    //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, _device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, _device_name, width, true);
-    */
-
 }
 
 void DeviceSMP::run(DTO& dto) 
