@@ -37,6 +37,7 @@ DIST_SUBDIRS=omp \
              testing \
              hlt \
              ss_valgrind \
+             manip \
              $(END)
 
 lib_LTLIBRARIES = libtl.la
