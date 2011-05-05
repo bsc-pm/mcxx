@@ -32,6 +32,7 @@ include ../Makefile.phases
 libtl_remove_attrs_la_CFLAGS=$(tl_cflags)
 libtl_remove_attrs_la_CXXFLAGS=$(tl_cxxflags)
 libtl_remove_attrs_la_LDFLAGS=$(tl_ldflags)
+libtl_remove_attrs_la_LIBADD=$(tl_libadd)
 libtl_remove_attrs_la_SOURCES = \
                                 tl-remove-attrs.hpp \
                                 tl-remove-attrs.cpp \
