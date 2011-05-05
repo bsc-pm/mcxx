@@ -43,6 +43,7 @@ namespace TL
         protected:
             virtual Ret do_(const T& t) const = 0;
             typedef const T& ArgType;
+            FunctorBase() {}
             virtual ~FunctorBase() {}
     };
 
@@ -52,6 +53,7 @@ namespace TL
         protected:
             virtual Ret do_(const T& t) const = 0;
             typedef const T& ArgType;
+            FunctorBase() {}
             virtual ~FunctorBase() {}
     };
 
@@ -62,6 +64,7 @@ namespace TL
         protected:
             virtual Ret do_(T& t) const = 0;
             typedef T& ArgType;
+            FunctorBase() {}
             virtual ~FunctorBase() {}
     };
     
@@ -79,6 +82,7 @@ namespace TL
                 return this->do_(t);
             }
 
+            Functor() {}
             virtual ~Functor() { }
     };
 

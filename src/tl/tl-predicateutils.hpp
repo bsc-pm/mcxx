@@ -42,6 +42,7 @@ namespace TL
     {
         private:
         public:
+            AlwaysTrue() {}
             virtual bool do_(typename AlwaysTrue::ArgType t) const
             {
                 return true;
@@ -54,6 +55,7 @@ namespace TL
     {
         private:
         public:
+            AlwaysFalse() {}
             virtual bool do_(typename AlwaysFalse::ArgType t) const
             {
                 return false;

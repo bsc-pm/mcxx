@@ -65,7 +65,7 @@ complex-part: AST_PLUS(literal) type
 
 expression : literal
            | name
-           | AST_FUNCTION_CALL(name, argument-seq) type
+           | AST_FUNCTION_CALL(expression, argument-seq) type
            | AST_ARRAY_SUBSCRIPT(expression, subscript-seq) type
            | AST_CLASS_MEMBER_ACCESS(expression, name) type
            | AST_PLUS(expression) type
