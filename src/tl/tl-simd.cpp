@@ -95,9 +95,20 @@ void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym)
 
     function_map_t::iterator it =  _function_map.find(scalar_func_sym);
 
+    //If Generic Function exists then error
     if (it == _function_map.end())
     {
         _function_map.insert(std::make_pair(scalar_func_sym, GenericFunctionInfo(scalar_func_sym)));
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            std::cerr << "SIMD: Ignoring generic function for scalar function '"
+                << scalar_func_sym.get_name()
+                << "'. Another generic function was added before." 
+                << std::endl;
+        }
     }
 }
 
@@ -200,14 +211,6 @@ void GenericFunctions::add_specific_definition(
         const bool needs_def_decl,
         const std::string default_func_name)
 {
-    function_map_t::iterator it = _function_map.find(scalar_func_sym);
-
-    //If Generic Function exists then error
-    if (it != _function_map.end())
-    {
-        running_error("Generic function cannot be added because another one exists."); 
-    }
-
     add_generic_function(scalar_func_sym, simd_func_sym);
 
     add_specific_definition(
