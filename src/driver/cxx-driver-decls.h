@@ -304,6 +304,7 @@ typedef struct compilation_configuration_tag
 
 #ifdef FORTRAN_SUPPORT
     // Fortran prescanner
+    const char* prescanner_name;
     const char** prescanner_options;
     int column_width;
 
@@ -375,6 +376,9 @@ typedef struct compilation_configuration_tag
 
     // Enable C++1x
     char enable_cxx1x;
+
+    // Enable CUDA
+    char enable_cuda;
 
     // Enable nodecl
     char enable_nodecl;

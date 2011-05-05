@@ -83,11 +83,24 @@ struct gather_decl_spec_tag {
     gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 
     // UPC info
-    char is_upc_shared;
-    AST upc_shared_layout;
+    struct
+    {
+        char is_shared;
+        AST shared_layout;
+        char is_relaxed;
+        char is_strict;
+    } upc;
 
-    char is_upc_relaxed;
-    char is_upc_strict;
+    // CUDA info
+    struct
+    {
+        char is_global;
+        char is_device;
+        char is_host;
+        char is_shared;
+        char is_constant;
+    } cuda;
+
 } gather_decl_spec_t;
 
 MCXX_END_DECLS

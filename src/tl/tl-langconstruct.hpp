@@ -884,7 +884,7 @@ namespace TL
      *
      * Will have two GCCAttribute, one for 'a' and one for 'b'
      */
-    class GCCAttribute : public LangConstruct
+    class LIBTL_CLASS GCCAttribute : public LangConstruct
     {
         private:
         public:

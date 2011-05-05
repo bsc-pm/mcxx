@@ -68,21 +68,53 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
     }
 }
 
+static scope_entry_t* get_unknown_symbols_info(decl_context_t decl_context)
+{
+    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ".unknown_symbols");
+    if (entry_list == NULL)
+    {
+        return NULL;
+    }
+    scope_entry_t* unknown_info = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    return unknown_info;
+}
+
+static scope_entry_t* get_or_create_unknown_symbols_info(decl_context_t decl_context)
+{
+    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+
+    if (unknown_info == NULL)
+    {
+        unknown_info = new_symbol(decl_context, decl_context.current_scope, ".unknown_symbols");
+        unknown_info->kind = SK_OTHER;
+    }
+
+    return unknown_info;
+}
+
 static void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
-    P_LIST_ADD(decl_context.unknown_symbols, 
-            decl_context.num_unknown_symbols, 
+    scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
+
+    P_LIST_ADD(unknown_info->entity_specs.related_symbols,
+            unknown_info->entity_specs.num_related_symbols,
             entry);
 }
 
 static void clear_unknown_symbols(decl_context_t decl_context)
 {
+    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+    if (unknown_info == NULL)
+        return;
+
     const char* message = "";
     char unresolved_implicits = 0;
     int i;
-    for (i = 0; i < decl_context.num_unknown_symbols; i++)
+    for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
     {
-        scope_entry_t* entry = decl_context.unknown_symbols[i];
+        scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
 
         if ((entry->type_information == NULL
                     || basic_type_is_void(entry->type_information))
@@ -94,7 +126,7 @@ static void clear_unknown_symbols(decl_context_t decl_context)
             }
 
             char c[256] = { 0 };
-            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT info",
+            snprintf(c, 255, "%s:%d: error: symbol '%s' has no IMPLICIT type",
                     entry->file,
                     entry->line,
                     entry->symbol_name);
@@ -110,17 +142,21 @@ static void clear_unknown_symbols(decl_context_t decl_context)
         running_error("%s", message);
     }
 
-    free(decl_context.unknown_symbols);
-    decl_context.unknown_symbols = NULL;
-    decl_context.num_unknown_symbols = 0;
+    free(unknown_info->entity_specs.related_symbols);
+    unknown_info->entity_specs.related_symbols = NULL;
+    unknown_info->entity_specs.num_related_symbols = 0;
 }
 
 static void update_unknown_symbols(decl_context_t decl_context)
 {
+    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+    if (unknown_info == NULL)
+        return;
+
     int i;
-    for (i = 0; i < decl_context.num_unknown_symbols; i++)
+    for (i = 0; i < unknown_info->entity_specs.num_related_symbols; i++)
     {
-        scope_entry_t* entry = decl_context.unknown_symbols[i];
+        scope_entry_t* entry = unknown_info->entity_specs.related_symbols[i];
 
         ERROR_CONDITION(entry->type_information == NULL, "Invalid type for unknown entity '%s'\n", entry->symbol_name);
 
@@ -129,6 +165,14 @@ static void update_unknown_symbols(decl_context_t decl_context)
         {
             entry->type_information = update_basic_type_with_type(entry->type_information,
                     get_implicit_type_for_symbol(decl_context, entry->symbol_name));
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "BUILDSCOPE: Type of symbol '%s' at '%s:%d' updated to %s\n", 
+                        entry->symbol_name,
+                        entry->file,
+                        entry->line,
+                        entry->type_information == NULL ? "<<NULL>>" : print_declarator(entry->type_information));
+            }
         }
     }
 }
@@ -582,8 +626,6 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
 
             // dummy_arg->kind = SK_VARIABLE;
-            dummy_arg->type_information = 
-                get_implicit_type_for_symbol(decl_context, ASTText(dummy_arg_name));
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
@@ -691,7 +733,7 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
             if (!allowed_statement(stmt, decl_context))
             {
-                fprintf(stderr, "%s: warning: this statement cannot be used in this context\n",
+                running_error("%s: error: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -734,7 +776,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
 
             if (!allowed_statement(stmt, decl_context))
             {
-                fprintf(stderr, "%s: warning: this statement cannot be used in this context\n",
+                running_error("%s: warning: this statement cannot be used in this context\n",
                         ast_location(stmt));
             }
 
@@ -2272,7 +2314,7 @@ static scope_entry_t* query_label(AST label,
         if (new_label->defined
                 && is_definition)
         {
-            fprintf(stderr, "%s: warning: label %s has already been defined in %s:%d\n",
+            running_error("%s: error: label %s has already been defined in %s:%d\n",
                     ast_location(label),
                     new_label->symbol_name,
                     new_label->file, new_label->line);
@@ -2384,7 +2426,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context)
         for_each_element(data_stmt_value_list, it2)
         {
             AST data_stmt_value = ASTSon1(it2);
-            if (ASTType(data_stmt_value) == AST_MULT_OP)
+            if (ASTType(data_stmt_value) == AST_MULT)
             {
                 // Do not try to check at the same time because the mult does
                 // not have to be valid

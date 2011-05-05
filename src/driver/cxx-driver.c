@@ -127,6 +127,9 @@
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
+"  --fpc=<name>             Fortran prescanner <name> will be used\n" \
+"                           for fixed form prescanning\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
 "                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
@@ -172,6 +175,7 @@
 "  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
+"  --cuda                   Enables experimental support for CUDA\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
@@ -284,6 +288,7 @@ typedef enum
     OPTION_PRINT_CONFIG_FILE,
     OPTION_PRINT_CONFIG_DIR,
     OPTION_ENABLE_UPC,
+    OPTION_ENABLE_CUDA,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
@@ -294,6 +299,7 @@ typedef enum
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
     OPTION_NODECL,
+    OPTION_FORTRAN_PRESCANNER,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
@@ -339,6 +345,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
+    {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
@@ -349,6 +356,7 @@ struct command_line_long_options command_line_long_options[] =
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
+    {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
     // sentinel
     {NULL, 0, 0}
@@ -1119,6 +1127,11 @@ int parse_arguments(int argc, const char* argv[],
                         }
                         break;
                     }
+                case OPTION_ENABLE_CUDA:
+                    {
+                        CURRENT_CONFIGURATION->enable_cuda = 1;
+                        break;
+                    }
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
@@ -1207,6 +1220,15 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_NODECL:
                     {
                         CURRENT_CONFIGURATION->enable_nodecl = 1;
+                        break;
+                    }
+                case OPTION_FORTRAN_PRESCANNER:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->prescanner_name = uniquestr(parameter_info.argument);
+#else
+                        running_error("Option --fpc is only valid when Fortran is enabled\n", 0);
+#endif
                         break;
                     }
                 default:
@@ -2302,6 +2324,18 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                     source_language_names[current_extension->source_language]);
         }
 
+        char old_cuda_flag = CURRENT_CONFIGURATION->enable_cuda;
+        // For cuda enable CUDA
+        if (current_extension->source_language == SOURCE_LANGUAGE_CUDA)
+        {
+            if (!old_cuda_flag)
+            {
+                fprintf(stderr, "%s: info: enabling experimental CUDA support\n",
+                        translation_unit->input_filename);
+                CURRENT_CONFIGURATION->enable_cuda = 1;
+            }
+        }
+
         if (CURRENT_CONFIGURATION->verbose)
         {
             fprintf(stderr, "Compiling file '%s'\n", translation_unit->input_filename);
@@ -2499,6 +2533,9 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
         }
+
+        // Restore CUDA flag
+        CURRENT_CONFIGURATION->enable_cuda = old_cuda_flag;
 
         file_process->already_compiled = 1;
     }
@@ -3087,13 +3124,28 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     num_arguments += 1;
 
     const char* mf03_prescanner = "mf03-prescanner";
-    int full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    int full_path_length = 0;
+    if (CURRENT_CONFIGURATION->prescanner_name == NULL)
+    {
+        full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    }
+    else
+    {
+        full_path_length = strlen(CURRENT_CONFIGURATION->prescanner_name) + 1;
+    }
     char full_path[full_path_length];
-    memset(full_path, 0, sizeof(full_path));
+    if (CURRENT_CONFIGURATION->prescanner_name == NULL)
+    {
+        memset(full_path, 0, sizeof(full_path));
 
-    snprintf(full_path, sizeof(full_path), "%s/%s", 
-            compilation_process.home_directory,
-            mf03_prescanner);
+        snprintf(full_path, sizeof(full_path), "%s/%s", 
+                compilation_process.home_directory,
+                mf03_prescanner);
+    }
+    else
+    {
+        strncpy(full_path, CURRENT_CONFIGURATION->prescanner_name, strlen(CURRENT_CONFIGURATION->prescanner_name));
+    }
     full_path[full_path_length-1] = '\0';
 
     const char* prescanner_options[num_arguments];
