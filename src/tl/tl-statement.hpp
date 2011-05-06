@@ -74,10 +74,6 @@ namespace TL
             {
             }
 
-            //! Returns all non local referenced symbols
-            //in the statement
-            ObjectList<Symbol> non_local_symbols() const;
-
             /*
             // This methods are deleted because we have spetialized the LabeledStatement
             //! States whether this statement is labeled

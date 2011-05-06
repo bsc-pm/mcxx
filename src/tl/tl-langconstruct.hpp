@@ -127,6 +127,7 @@ namespace TL
             //! Returns a list of all symbolic occurrences that are not defined
             //within this construction
             ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS) const;
+            ObjectList<Symbol> non_local_symbols(SymbolsWanted symbols = ALL_SYMBOLS) const;
             /*!
              * \bug Not implemented
              */

@@ -38,26 +38,27 @@ using namespace TL::SIMD;
 
 const unsigned int _vector_width = 16;
 
-std::string ReplaceSrcSMP::scalar_expansion(Expression exp)
+std::string ReplaceSrcSMP::scalar_expansion(Expression expr, void* data)
 {
+    ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
     std::stringstream result;
     unsigned char num_elements, i;
 
-    TL::Type vector_type = exp.get_type().get_vector_to(_vector_width);
+    TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
 
     result << "(("
-        << vector_type.get_simple_declaration(exp.get_scope(), "")
+        << vector_type.get_simple_declaration(expr.get_scope(), "")
         << "){"
         ;
 
     num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
     for (i=0; i<num_elements; i++)
     {
-        result << exp.prettyprint()
+        result << recursive_prettyprint(expr.get_ast(), data)
             << ",";
     }
 
-    result << exp.prettyprint()
+    result << recursive_prettyprint(expr.get_ast(), data)
         << "})";
 
     return result.str();
@@ -269,7 +270,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                     result
                         << recursive_prettyprint(decl_ent.get_declarator_tree(), data)
                         << " = "
-                        << scalar_expansion(decl_ent.get_initializer());
+                        << scalar_expansion(decl_ent.get_initializer(), data);
 
                     return uniquestr(result.get_source().c_str());
                 }
@@ -381,7 +382,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
             }
 
-            result << scalar_expansion(arg_list[0]);
+            result << scalar_expansion(arg_list[0], data);
 
             return uniquestr(result.get_source().c_str());
         }

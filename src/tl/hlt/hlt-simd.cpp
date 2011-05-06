@@ -109,11 +109,19 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                 // Constants are not expanded inside of an array subscription
                 if ((!_this->inside_array_subscript.top()))
                 {
-                    //Constants 
-                    //TODO: unnanotated variables from outside of the loop
+                    //Constants Expansion
                     if (exp.is_literal() 
                             || (exp.is_unary_operation() && exp.get_unary_operand().is_literal())
-                            || (exp.is_casting() && exp.get_casted_expression().is_literal()))
+                            || (exp.is_casting() && exp.get_casted_expression().is_literal())
+                            //Unnanotated variables from outside of the loop
+                                //If you are: IdExpression, non local, in the hlt list, not a function, not a bultin and not the induction variable
+                            //TODO: Unnanotated arrays
+                            || (exp.is_id_expression() 
+                                && !exp.get_id_expression().get_symbol().is_function()
+                                && !exp.get_id_expression().get_symbol().is_builtin()
+                                && _this->_nonlocal_symbols.contains(exp.get_id_expression().get_computed_symbol())
+                                && !_this->_simd_id_exp_list->contains(functor(&IdExpression::get_computed_symbol), exp.get_id_expression().get_computed_symbol())
+                                && (!_this->_ind_var_sym.is_valid() || (_this->_ind_var_sym != exp.get_id_expression().get_computed_symbol()))))
                     {
                         if (!exp.get_type().is_generic_vector())
                         {
@@ -269,7 +277,7 @@ SIMDization* TL::HLT::simdize(LangConstruct& lang_const,
         << lang_const.get_ast().get_locus() 
         << ": warning: unexpected #pragma hlt simd" << std::endl;
 
-    return new SIMDization(lang_const, min_stmt_size); 
+    return new SIMDization(lang_const, min_stmt_size, lang_const.non_local_symbols());
 }
 
 SIMDization* TL::HLT::simdize(LangConstruct& lang_const, 
@@ -290,7 +298,7 @@ SIMDization* TL::HLT::simdize(LangConstruct& lang_const,
         << lang_const.get_ast().get_locus() 
         << ": warning: unexpected #pragma hlt simd" << std::endl;
 
-    return new SIMDization(lang_const, min_stmt_size); 
+    return new SIMDization(lang_const, min_stmt_size, lang_const.non_local_symbols()); 
 }
 
 
@@ -378,6 +386,7 @@ LoopSIMDization::LoopSIMDization(ForStatement& for_stmt,
         unsigned char& min_stmt_size, 
         const ObjectList<IdExpression>* simd_id_exp_list)
     : SIMDization(for_stmt, min_stmt_size, 
+            for_stmt.non_local_symbols(),
             simd_id_exp_list, 
             for_stmt.get_induction_variable().get_symbol()), 
     _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list) 
@@ -517,7 +526,7 @@ TL::Source LoopSIMDization::do_simdization()
 
 FunctionSIMDization::FunctionSIMDization(FunctionDefinition& func_def, 
         unsigned char& min_stmt_size)
-    : SIMDization(func_def, min_stmt_size), _func_def(func_def) 
+    : SIMDization(func_def, min_stmt_size, func_def.non_local_symbols()), _func_def(func_def) 
 {
     is_simdizable = true;
 }
