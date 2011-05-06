@@ -350,7 +350,8 @@ namespace TL {
 			
 			Bool is_task() const
             {
-                if (!this->is_dependent_entity())
+                if (this->is_valid() 
+                        && !this->is_dependent_entity())
                 {
                     RefPtr<Object> task_attribute = get_attribute(SYMBOL_SUPERSCALAR_IS_TASK);
                     return task_attribute;
