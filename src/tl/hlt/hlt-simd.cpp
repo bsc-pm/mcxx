@@ -58,14 +58,14 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                 .c_str());
         }
         //The ast is in the list of the user's expressions
-        if ((_this->_simd_id_exp_list != NULL) && TL::DataReference::predicate(ast))
+        if ((!_this->_simd_id_exp_list.empty()) && TL::DataReference::predicate(ast))
         {
             DataReference dataref(ast, _this->_sl);
             if (dataref.is_valid())
             {
                 Symbol sym = dataref.get_base_symbol();
 
-                if (_this->_simd_id_exp_list->contains(functor(&IdExpression::get_symbol), sym))
+                if (_this->_simd_id_exp_list.contains(functor(&IdExpression::get_symbol), sym))
                 {
                     if (dataref.is_array_subscript())
                     {
@@ -125,34 +125,62 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                             return uniquestr(result.get_source().c_str());
                         }
                         //Unnanotated variables from outside of the loop
-                        //If you are: IdExpression, non local, in the hlt list and not a function
-                        else if (expr.is_id_expression() 
-                                && !expr.get_id_expression().get_symbol().is_function()
-                                && !expr.get_id_expression().get_symbol().is_builtin()
-                                && _this->_nonlocal_symbols.contains(expr.get_id_expression().get_computed_symbol())
-                                && !_this->_simd_id_exp_list->contains(
-                                    functor(&IdExpression::get_computed_symbol), expr.get_id_expression().get_computed_symbol()))
+                        //Arrays
+                        else if (expr.is_array_subscript())
                         {
-                            //Induction variable expansion 
-                            if (_this->_ind_var_sym.is_valid() 
-                                    && (_this->_ind_var_sym == expr.get_id_expression().get_computed_symbol()))
+                            Expression subscripted_expr = expr.get_subscripted_expression();
+                            if (!subscripted_expr.is_id_expression())
                             {
-                                result << BUILTIN_IVVE_NAME
-                                    << "("
-                                    << expr.prettyprint() //Not recursive
-                                    << ")"
-                                    ;
+                                running_error("%s: error: subscripted array Expression seems to be complicated. SIMDization is not supported yet.\n",
+                                        ast.get_locus().c_str());
                             }
-                            else
+
+                            IdExpression subscripted_id_expr = subscripted_expr.get_id_expression();
+
+                            if (!_this->_simd_id_exp_list.contains(
+                                        functor(&IdExpression::get_computed_symbol), 
+                                        subscripted_id_expr.get_computed_symbol()))
                             {
                                 result << BUILTIN_VE_NAME
                                     << "("
                                     << expr.prettyprint()
                                     << ")"
                                     ;
-                            }
 
-                            return uniquestr(result.get_source().c_str());
+                                return uniquestr(result.get_source().c_str());
+                            }
+                        }
+                        //Scalars
+                        else if (expr.is_id_expression())
+                        {
+                            IdExpression id_expr = expr.get_id_expression();
+                            if (_this->_nonlocal_symbols.contains(id_expr.get_computed_symbol())
+                                    && !id_expr.get_symbol().is_function()
+                                    && !id_expr.get_symbol().is_builtin()
+                                    && !_this->_simd_id_exp_list.contains(
+                                        functor(&IdExpression::get_computed_symbol), id_expr.get_computed_symbol()))
+                            {
+                                //Induction variable expansion 
+                                if (_this->_ind_var_sym.is_valid() 
+                                        && (_this->_ind_var_sym == expr.get_id_expression().get_computed_symbol()))
+                                {
+                                    result << BUILTIN_IVVE_NAME
+                                        << "("
+                                        << expr.prettyprint() //Not recursive
+                                        << ")"
+                                        ;
+                                }
+                                else
+                                {
+                                    result << BUILTIN_VE_NAME
+                                        << "("
+                                        << expr.prettyprint()
+                                        << ")"
+                                        ;
+                                }
+
+                                return uniquestr(result.get_source().c_str());
+                            }
                         }
                     }
                 }
@@ -283,27 +311,8 @@ TL::Source ReplaceSIMDSrc::replace(TL::LangConstruct a) const
 
 
 SIMDization* TL::HLT::simdize(LangConstruct& lang_const, 
-        unsigned char& min_stmt_size)
-{
-    if (ForStatement::predicate(lang_const.get_ast()))
-    {
-        return new LoopSIMDization(dynamic_cast<ForStatement&> (lang_const), min_stmt_size);
-    }
-    if (FunctionDefinition::predicate(lang_const.get_ast()))
-    { 
-        return new FunctionSIMDization(dynamic_cast<FunctionDefinition&> (lang_const), min_stmt_size);
-    }
-
-    std::cerr 
-        << lang_const.get_ast().get_locus() 
-        << ": warning: unexpected #pragma hlt simd" << std::endl;
-
-    return new SIMDization(lang_const, min_stmt_size, lang_const.non_local_symbols());
-}
-
-SIMDization* TL::HLT::simdize(LangConstruct& lang_const, 
         unsigned char& min_stmt_size,
-        const ObjectList<IdExpression>* simd_id_exp_list)
+        const TL::ObjectList<IdExpression> simd_id_exp_list)
 {
     if (ForStatement::predicate(lang_const.get_ast()))
     {
@@ -311,35 +320,57 @@ SIMDization* TL::HLT::simdize(LangConstruct& lang_const,
     }
     if (FunctionDefinition::predicate(lang_const.get_ast()))
     { 
-        running_error("%s: error: #pragma hlt simd does not support parameters with FunctionDefinition'\n",
-                lang_const.get_ast().get_locus().c_str());
+        if (!simd_id_exp_list.empty())
+        {
+            running_error("%s: error: #pragma hlt simd does not support parameters with functiondefinition'\n",
+                    lang_const.get_ast().get_locus().c_str());
+        }
+
+        return new FunctionSIMDization(dynamic_cast<FunctionDefinition&> (lang_const), min_stmt_size);
     }
 
+    running_error("%s: error: unexpected '#pragma hlt simd'.'\n",
+            lang_const.get_ast().get_locus().c_str());
+
+/*
     std::cerr 
         << lang_const.get_ast().get_locus() 
         << ": warning: unexpected #pragma hlt simd" << std::endl;
 
-    return new SIMDization(lang_const, min_stmt_size, lang_const.non_local_symbols()); 
+    return new SIMDization(lang_const,  min_stmt_size, lang_const.non_local_symbols());
+    */
 }
 
 
 void SIMDization::compute_min_stmt_size()
 {
-    unsigned char statement_type_size;
+    unsigned char expr_type_size;
     unsigned char min = 100;
 
-    ObjectList<AST_t> assignment_list = 
+    //FIXME:THIS IS NOT ENOUGH ACCURATE BUT WORKS SO FAR.
+    //SOMEDAY IT'LL FAIL!
+    ObjectList<AST_t> expr_list = 
         _ast.depth_subtrees(isExpressionAssignment(_sl));
 
-    for (ObjectList<AST_t>::iterator it = assignment_list.begin();
-            it != assignment_list.end();
+    for (ObjectList<AST_t>::iterator it = expr_list.begin();
+            it != expr_list.end();
             it++)
     {
-        Expression exp (*it, _sl);
-        statement_type_size = exp.get_first_operand().get_type().get_size();
-        min = (min <= statement_type_size) ? min : statement_type_size;
+        Expression expr (*it, _sl);
+        Type expr_type = expr.get_type();
+
+        if (expr_type.is_valid())
+        {
+            expr_type_size = expr_type.get_size();
+
+            if (expr_type_size > 0)
+            {
+                min = (min <= expr_type_size) ? min : expr_type_size;
+            }
+        }
     }
 
+    if (min == 0) printf("CERO\n");
     _min_stmt_size = min;
 }
 
@@ -405,7 +436,7 @@ TL::Source SIMDization::do_simdization()
 
 LoopSIMDization::LoopSIMDization(ForStatement& for_stmt, 
         unsigned char& min_stmt_size, 
-        const ObjectList<IdExpression>* simd_id_exp_list)
+        const ObjectList<IdExpression> simd_id_exp_list)
     : SIMDization(for_stmt, min_stmt_size, 
             for_stmt.non_local_symbols(),
             simd_id_exp_list, 
@@ -545,9 +576,15 @@ TL::Source LoopSIMDization::do_simdization()
 }
 
 
-FunctionSIMDization::FunctionSIMDization(FunctionDefinition& func_def, 
+FunctionSIMDization::FunctionSIMDization(
+        FunctionDefinition& func_def, 
         unsigned char& min_stmt_size)
-    : SIMDization(func_def, min_stmt_size, func_def.non_local_symbols()), _func_def(func_def) 
+    : SIMDization(
+            func_def, 
+            min_stmt_size, 
+            func_def.non_local_symbols(),
+            TL::ObjectList<IdExpression>()),
+    _func_def(func_def) 
 {
     is_simdizable = true;
 }

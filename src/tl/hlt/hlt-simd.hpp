@@ -38,7 +38,7 @@ namespace TL
         class ReplaceSIMDSrc : public ReplaceSrcIdExpression
         {
             private:
-                const ObjectList<IdExpression>* _simd_id_exp_list;
+                const ObjectList<IdExpression> _simd_id_exp_list;
                 const TL::Symbol _ind_var_sym;
                 ObjectList<Symbol> _nonlocal_symbols;
                 std::stack<bool> inside_array_subscript;
@@ -47,15 +47,9 @@ namespace TL
                 static const char* recursive_prettyprint(AST_t a, void* data);
 
             public:
-                ReplaceSIMDSrc(ScopeLink sl, const ObjectList<IdExpression>* simd_id_exp_list, ObjectList<Symbol> nonlocal_symbols) 
-                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list), _ind_var_sym(NULL), _nonlocal_symbols(nonlocal_symbols)
-                { 
-                    inside_array_subscript.push(false); 
-                }
-
                 ReplaceSIMDSrc(
                         ScopeLink sl, 
-                        const ObjectList<IdExpression>* simd_id_exp_list, 
+                        const ObjectList<IdExpression> simd_id_exp_list, 
                         const TL::Symbol ind_var_sym,
                         ObjectList<Symbol> nonlocal_symbols) 
                     : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list), _ind_var_sym(ind_var_sym), _nonlocal_symbols(nonlocal_symbols)
@@ -71,9 +65,8 @@ namespace TL
         //! \addtogroup HLT High Level Transformations
         //! @{
 
-        //! SIMDizes a regular loop using OpenCL vector types
+        //! SIMDizes a regular loop using vector types
         /*! 
-
 
           This class implements loop simdizationing. Loop simdizationing
           repeats the body of the loop in the loop itsel, adjusting
@@ -103,7 +96,7 @@ namespace TL
                 SIMDization(LangConstruct& lang_construct, 
                         unsigned char& min_stmt_size, 
                         ObjectList<Symbol> nonlocal_symbols,
-                        const ObjectList<IdExpression>* simd_id_exp_list = NULL,
+                        const ObjectList<IdExpression> simd_id_exp_list,
                         const TL::Symbol ind_var_sym = NULL)
                     : _ast(lang_construct.get_ast()), _sl(lang_construct.get_scope_link()),
                     _replacement(_sl, simd_id_exp_list, ind_var_sym, nonlocal_symbols), _min_stmt_size(min_stmt_size), is_simdizable(false){}
@@ -113,7 +106,7 @@ namespace TL
         {
             private:
                 ForStatement& _for_stmt;
-                const ObjectList<IdExpression> *_simd_id_exp_list;
+                const ObjectList<IdExpression> _simd_id_exp_list;
 
             protected:
                 virtual Source do_simdization();
@@ -121,7 +114,7 @@ namespace TL
             public:
                 LoopSIMDization(ForStatement& for_stmt, 
                         unsigned char& min_stmt_size,
-                        const ObjectList<IdExpression> *simd_id_exp_list = NULL);
+                        const ObjectList<IdExpression> simd_id_exp_list);
         };
 
         class LIBHLT_CLASS FunctionSIMDization : public SIMDization
@@ -140,23 +133,19 @@ namespace TL
         class isExpressionAssignment : public TL::Predicate<AST_t>
         {
             private:
-                ScopeLink _sl;
+                ScopeLink& _sl;
             public:
-                isExpressionAssignment(ScopeLink sl) : _sl(sl){};
+                isExpressionAssignment(ScopeLink& sl) : _sl(sl){};
                 virtual bool do_(const AST_t& ast) const;
         };
-
 
         //! Creates a SIMDization object
         /*!
           \param for_stmt Regular loop
          */
         LIBHLT_EXTERN SIMDization* simdize(LangConstruct& lang_construct, 
-                unsigned char& min_stmt_size);
-
-        LIBHLT_EXTERN SIMDization* simdize(LangConstruct& lang_construct, 
                 unsigned char& min_stmt_size, 
-                const ObjectList<IdExpression>* simd_id_exp_list);
+                const TL::ObjectList<IdExpression> simd_id_exp_list);
        //! @}
     }
 }

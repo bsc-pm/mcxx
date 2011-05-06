@@ -1298,7 +1298,7 @@ void HLTPragmaPhase::task_aggregate(PragmaCustomConstruct construct)
 }
 
 static void simdize_loop_fun(TL::ForStatement& for_stmt,
-			     TL::ObjectList<TL::IdExpression>* simd_id_exp_list = NULL)
+			     TL::ObjectList<TL::IdExpression> simd_id_exp_list)
 {
     unsigned char min_stmt_size;
 
@@ -1348,14 +1348,16 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     }
 }
 
-static void simdize_function_fun(TL::FunctionDefinition& func_def)
+static void simdize_function_fun(
+        TL::FunctionDefinition& func_def, 
+        TL::ObjectList<TL::IdExpression> empty_simd_id_exp_list)
 {
     using namespace TL;
     using namespace TL::SIMD;
     
     unsigned char min_stmt_size;
 
-    SIMDization * simdization = TL::HLT::simdize(func_def, min_stmt_size);
+    SIMDization * simdization = TL::HLT::simdize(func_def, min_stmt_size, empty_simd_id_exp_list);
     TL::Source simdized_func_src = *simdization;
     delete(simdization);
 
@@ -1388,10 +1390,10 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
         if (construct.is_parameterized())
         {
             std::cerr << construct.get_ast().get_locus() 
-                << ": warning: unexpected parameters in #pragma hlt simd" << std::endl;
+                << ": warning: unexpected parameters in #pragma hlt simd. Ignored." << std::endl;
         }
 
-        simdize_function_fun(func_def);
+        simdize_function_fun(func_def, TL::ObjectList<IdExpression>());
         construct.get_ast().replace(func_def.get_ast());
         
     }
@@ -1407,11 +1409,11 @@ void HLTPragmaPhase::simdize(PragmaCustomConstruct construct)
             if (construct.is_parameterized())
             {
                 ObjectList<IdExpression> simd_id_exp_list = construct.get_parameter_id_expressions();
-                simdize_loop_fun(for_statement, &simd_id_exp_list);
+                simdize_loop_fun(for_statement, simd_id_exp_list);
             }
             else
             {
-                simdize_loop_fun(for_statement);
+                simdize_loop_fun(for_statement, TL::ObjectList<IdExpression>());
             }
 
             construct.get_ast().replace(for_statement.get_ast());
