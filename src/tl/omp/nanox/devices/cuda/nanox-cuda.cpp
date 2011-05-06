@@ -45,9 +45,9 @@ static std::string gpu_outline_name(const std::string &task_name)
 	return "_gpu_" + task_name;
 }
 
-void DeviceCUDA::replace_kernel_config(AST_t *kernel_call, ScopeLink sl)
+void DeviceCUDA::replace_kernel_config(AST_t &kernel_call, ScopeLink sl)
 {
-	CUDA::KernelCall kcall(*kernel_call, sl);
+	CUDA::KernelCall kcall(kernel_call, sl);
 
 	Source new_kernel_call;
 	Source new_config, new_param_list, nanos_stream_call;
@@ -88,8 +88,8 @@ void DeviceCUDA::replace_kernel_config(AST_t *kernel_call, ScopeLink sl)
 		internal_error("Code unreachable: a kernel call configuration must have between 2 and 4 parameters", 0);
 	}
 
-	AST_t expr = new_kernel_call.parse_expression(*kernel_call, sl);
-	kernel_call->replace(expr);
+	AST_t expr = new_kernel_call.parse_expression(kernel_call, sl);
+	kernel_call.replace(expr);
 }
 
 void DeviceCUDA::do_cuda_inline_get_addresses(
@@ -653,7 +653,7 @@ void DeviceCUDA::create_outline(
 			it != kernel_call_list.end();
 			it++)
 	{
-		replace_kernel_config(&(*it), sl);
+		replace_kernel_config(*it, sl);
 	}
 
 	cudaFile << "extern \"C\" {\n";
