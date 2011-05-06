@@ -1,40 +1,40 @@
-nodecl : top-level-seq
+nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq)
 top-level : function-code 
           | object-init
 
 name : AST_SYMBOL() symbol
 
-function-code : AST_FUNCTION_CODE(name, statement-seq, function-code-opt)
-object-init : AST_OBJECT_INIT(name, expression)
+function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [code]function-code-opt)
+object-init : AST_OBJECT_INIT([name]name, [initializer]expression-opt)
 
-statement : AST_EXPRESSION_STATEMENT(expression)
-          | AST_COMPOUND_STATEMENT(statement-seq-opt)
-          | AST_DO_STATEMENT(expression, statement)
-          | AST_WHILE_STATEMENT(expression, statement)
-          | AST_FOR_STATEMENT(loop-control, statement)
-          | AST_IF_ELSE_STATEMENT(expression, statement, statement-opt)
-          | AST_LABELED_STATEMENT(name, statement)
-          | AST_SWITCH_STATEMENT(expression, statement)
-          | AST_DEFAULT_STATEMENT(statement)
-          | AST_CASE_STATEMENT(name, statement)
+statement : AST_EXPRESSION_STATEMENT([nest]expression)
+          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt)
+          | AST_DO_STATEMENT([condition]expression, [statement]statement)
+          | AST_WHILE_STATEMENT([condition]expression, [statement]statement)
+          | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement)
+          | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt)
+          | AST_LABELED_STATEMENT([label]name, [statement]statement)
+          | AST_SWITCH_STATEMENT([switch]expression, [statement]statement)
+          | AST_DEFAULT_STATEMENT([statement]statement)
+          | AST_CASE_STATEMENT([label]name, [statement]statement)
           | AST_BREAK_STATEMENT()
           | AST_CONTINUE_STATEMENT()
-          | AST_GOTO_STATEMENT(name)
-          | AST_RETURN_STATEMENT(expression))
+          | AST_GOTO_STATEMENT([label]name)
+          | AST_RETURN_STATEMENT([value]expression))
           | pragma-directive
-          | AST_PRAGMA_CUSTOM_CONSTRUCT(pragma-directive, statement)
+          | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_directive]pragma-directive, [statement]statement)
           | c-cxx-only-statements
           | fortran-only-statements
 
-loop-control: AST_LOOP_CONTROL(expression, expression, expression)
+loop-control: AST_LOOP_CONTROL([init]expression, [cond]expression, [next]expression)
 
-pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE(pragma-line)
-pragma-line: AST_PRAGMA_CUSTOM_LINE(pragma-clause-arg-seq-opt, pragma-custom-clause-seq-opt)
-pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE(pragma-clause-arg-seq-opt)
+pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line)
+pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt)
+pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt)
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG()
 
-c-cxx-only-statements : AST_TRY_BLOCK(statement, catch-handler-seq)
-catch-handler : AST_CATCH_HANDLER(name, statement)
+c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq)
+catch-handler : AST_CATCH_HANDLER([type]name, [statement]statement)
 
 # FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : AST_ALLOCATE_STATEMENT()
@@ -56,56 +56,49 @@ fortran-only-statements : AST_ALLOCATE_STATEMENT()
 
 literal : AST_DECIMAL_LITERAL() type
     | AST_FLOATING_LITERAL() type
-    | AST_COMPLEX_LITERAL(complex-part, complex-part) type
+    | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | AST_STRING_LITERAL() type
     | AST_BOOLEAN_LITERAL() type
  
-complex-part: AST_PLUS(literal) type
-    | AST_NEG(literal) type
-
 expression : literal
            | name
-           | AST_FUNCTION_CALL(expression, argument-seq) type
-           | AST_ARRAY_SUBSCRIPT(expression, subscript-seq) type
-           | AST_CLASS_MEMBER_ACCESS(expression, name) type
-           | AST_PLUS(expression) type
-           | AST_NEG(expression) type
-           | AST_MULT(expression, expression) type
-           | AST_POWER(expression, expression) type
-           | AST_DIV(expression, expression) type
-           | AST_ADD(expression, expression) type
-           | AST_MINUS(expression, expression) type
-           | AST_CONCAT(expression, expression) type
-           | AST_EQUAL(expression, expression) type
-           | AST_DIFFERENT(expression, expression) type
-           | AST_LOWER_THAN(expression, expression) type
-           | AST_LOWER_OR_EQUAL_THAN(expression, expression) type
-           | AST_GREATER_THAN(expression, expression) type
-           | AST_GREATER_OR_EQUAL_THAN(expression, expression) type
-           | AST_NOT(expression) type
-           | AST_LOGICAL_AND(expression, expression) type
-           | AST_LOGICAL_OR(expression, expression) type
-           | AST_COMPLEMENT(expression) type
-           | AST_BITWISE_AND(expression, expression) type
-           | AST_BITWISE_OR(expression, expression) type
-           | AST_BITWISE_XOR(expression, expression) type
-           | AST_SHL(expression, expression) type
-           | AST_SHR(expression, expression) type
-           | AST_ASSIGNMENT(expression, expression) type
-           | AST_PARENTHESIZED_EXPRESSION(expression) type
+           | AST_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
+           | AST_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
+           | AST_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
+           | AST_PLUS([rhs]expression) type
+           | AST_NEG([rhs]expression) type
+           | AST_MULT([lhs]expression, [rhs]expression) type
+           | AST_POWER([lsh]expression, [rhs]expression) type
+           | AST_DIV([lhs]expression, [rhs]expression) type
+           | AST_ADD([lhs]expression, [rhs]expression) type
+           | AST_MINUS([lhs]expression, [rhs]expression) type
+           | AST_CONCAT([lhs]expression, [rhs]expression) type
+           | AST_EQUAL([lhs]expression, [rhs]expression) type
+           | AST_DIFFERENT([lhs]expression, [rhs]expression) type
+           | AST_LOWER_THAN([lhs]expression, [rhs]expression) type
+           | AST_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
+           | AST_GREATER_THAN([lhs]expression, [rhs]expression) type
+           | AST_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
+           | AST_NOT([rhs]expression) type
+           | AST_LOGICAL_AND([lhs] expression, [rhs] expression) type
+           | AST_LOGICAL_OR([lhs] expression, [rhs] expression) type
+           | AST_COMPLEMENT([rhs]expression) type
+           | AST_BITWISE_AND([lhs] expression, [rhs] expression) type
+           | AST_BITWISE_OR([lhs] expression, [rhs] expression) type
+           | AST_BITWISE_XOR([lhs] expression, [rhs] expression) type
+           | AST_SHL([lhs] expression, [rhs] expression) type
+           | AST_SHR([lhs] expression, [rhs] expression) type
+           | AST_ASSIGNMENT([lhs] expression, [rhs] expression) type
+           | AST_PARENTHESIZED_EXPRESSION([nest]expression) type
+           | AST_DERREFERENCE([rhs]expression) type
            | c-cxx-expressions
-           | fortran-expressions
 
-argument : AST_NAMED_PAIR_SPEC(name-opt, expression)
+argument : AST_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
 subscript : expression
-          | AST_SUBSCRIPT_TRIPLET(expression-opt, expression-opt, expression-opt)
+          | AST_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
 
-c-cxx-expressions : AST_CONDITIONAL_EXPRESSION(expression, expression, expression) type
-                  | AST_POINTER_TO_MEMBER(expression, expression) type
-                  | AST_REFERENCE(expression) type
-                  | AST_DERREFERENCE(expression) type
-                  | AST_THROW_EXPRESSION(expression) type
-
-fortran-expressions : AST_PTR_ASSIGNMENT(expression, expression) type
-
+c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
+                  | AST_REFERENCE([rhs]expression) type
+                  | AST_THROW_EXPRESSION([rhs]expression) type
+                  | AST_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type

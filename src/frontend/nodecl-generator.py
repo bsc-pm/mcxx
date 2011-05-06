@@ -2,7 +2,7 @@
 
 import sys
 import string
-
+import re
 
 def loadlines(f):
     lines = f.readlines()
@@ -45,11 +45,7 @@ def parse_rules(f):
     if (rule_name != "") :
        rule_set.append( (rule_name, rule_rhs) )
     
-    # for r in rule_set:
-    #     print r
-    # 
-    # print 50 * "*"
-    
+    regex_name = re.compile("\[([_A-Za-z][_A-Za-z0-9]*)\]\s*([-_A-Za-z0-9]+)")
     rule_map = { }
     for r in rule_set:
         (rule_name, rule_rhs) = r
@@ -70,7 +66,19 @@ def parse_rules(f):
                 needs_text = "text" in remaining_flags
                 if ast_args :
                     ast_args_2 = map(lambda x : x.strip(), ast_args.split(","))
-                    rule_map[rule_name].append( ASTStructure(tree_ast, ast_args_2, needs_symbol, needs_type, needs_text) )
+                    ast_args_3 = []
+                    i = 0
+                    for x in ast_args_2:
+                        m = regex_name.match(x)
+                        if m:
+                            (r_label, r_ref) = m.groups()
+                        else:
+                            (r_label, r_ref) = (x, x)
+                            sys.stderr.write("Missing label for component %d in %s\n" % (i, rhs))
+                        ast_args_3.append((r_label, r_ref))
+                        i = i + 1
+                        
+                    rule_map[rule_name].append( ASTStructure(tree_ast, ast_args_3, needs_symbol, needs_type, needs_text) )
                 else:
                     rule_map[rule_name].append( ASTStructure(tree_ast, [], needs_symbol, needs_type, needs_text) )
             else:
@@ -101,7 +109,8 @@ class ASTStructure(Variable):
            print "   ERROR_CONDITION(ASTText(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
         i = 0
         for subtree in self.subtrees:
-            RuleRef(subtree).check_code("ASTSon%d(%s)" % (i, tree_expr))
+            (rule_label, rule_ref) = subtree
+            RuleRef(rule_ref).check_code("ASTSon%d(%s)" % (i, tree_expr))
             i = i + 1
         print "  break;"
         print "}"
@@ -115,6 +124,12 @@ class RuleRef(Variable):
         rule_ref = rule_ref.replace("-seq", "").replace("-opt", "")
         rule_ref_c = rule_ref.replace("-", "_")
         return (rule_ref, rule_ref_c, is_seq, is_opt) 
+    def is_opt(self):
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        return is_opt
+    def is_seq(self):
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        return is_seq
     def first(self) :
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         rule_set = rule_map[rule_ref]
@@ -205,6 +220,134 @@ def generate_check_routines(rule_map):
     print "   nodecl_check_tree_nodecl(a);"
     print "}"
 
+def from_underscore_to_camel_case(x):
+    result = ''
+    previous_is_underscore = True
+    for c in x:
+        if c == '_' or c == '-':
+            previous_is_underscore = True
+        elif previous_is_underscore:
+            previous_is_underscore = False
+            result += c.upper()
+        else:
+            result += c.lower()
+    return result
+
+
+def get_all_class_names(rule_map):
+    classes = set([])
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == ASTStructure:
+                classes.add(from_underscore_to_camel_case(rhs.tree_kind[4:]))
+    return classes
+
+def generate_nodecl_classes_fwd_decls(rule_map):
+    classes = get_all_class_names(rule_map)
+    for class_name in classes:
+        print "class %s;" % (class_name)
+
+def generate_visitor_class(rule_map):
+    print "#ifndef TL_NODECL_VISITOR_HPP"
+    print "#define TL_NODECL_VISITOR_HPP"
+    print ""
+    print "namespace TL {"
+    generate_nodecl_classes_fwd_decls(rule_map)
+    print ""
+    classes = get_all_class_names(rule_map)
+    print "class NodeclVisitor"
+    print "{"
+    print "   public:"
+    for class_name in classes:
+        print "     virtual void visit(%s &) { };" % (class_name)
+    print "   virtual ~NodeclVisitor() { }"
+    print "};"
+    print ""
+    print "}"
+    print "#endif"
+
+def generate_nodecl_classes_base(rule_map):
+   print "#ifndef TL_NODECL_AST_HPP"
+   print "#define TL_NODECL_AST_HPP"
+   print ""
+   print "#include \"tl-ast.hpp\""
+   print "#include \"tl-nodecl-visitor.hpp\""
+   print "namespace TL {"
+   print ""
+   print "class NodeclAST : public AST_t" 
+   print "{"
+   print "  public:"
+   print "    NodeclAST(const AST_t& a) : AST_t(a) { }"
+   print "    virtual void accept(NodeclVisitor& visitor) { }"
+   print "    virtual ~NodeclAST() { }"
+   print "};"
+   classes = get_all_class_names(rule_map)
+   for class_name in classes:
+       print "class %s : public NodeclAST" % (class_name)
+       print "{"
+       print "    public:"
+       print "    %s(AST_t a) : NodeclAST(a) { }" %(class_name)
+       print "    virtual void accept(NodeclVisitor& visitor);"
+       print "};"
+   print ""
+   print "}"
+   print "#endif"
+
+def generate_nodecl_classes_specs(rule_map):
+   print "#include \"cxx-utils.h\""
+   print "#include \"tl-nodecl-ast.hpp\""
+   print ""
+   print "namespace TL {"
+   classes = {}
+   for rule_name in rule_map:
+       rule_rhs = rule_map[rule_name]
+       for rhs in rule_rhs:
+           if rhs.__class__ == ASTStructure:
+               classes[from_underscore_to_camel_case(rhs.tree_kind[4:])] = rhs.subtrees
+   for (class_name, subtrees) in classes.iteritems():
+       print "void %s::accept(NodeclVisitor& visitor)" % (class_name)
+       print "{"
+       print "   ObjectList<AST_t> children(this->children());"
+       i = 0;
+       for subtree in subtrees:
+           rule_ref = RuleRef(subtree[1])
+           tree_name = "children[%d]" % (i)
+           if rule_ref.is_opt():
+               print "   if (%s.is_valid())" % (tree_name)
+               print "   {"
+               pass
+           if rule_ref.is_seq():
+               print "   ASTIterator it = %s.get_list_iterator();" % (tree_name)
+               print "   while (!it.end())"
+               print "   {"
+               tree_name = "it.item()"
+               pass
+           print "   switch ((int)%s.internal_ast_type_())" % (tree_name)
+           print "   {"
+           first_set = rule_ref.first()
+           for kind in first_set:
+                 print "       case %s: " % (kind)
+                 print "       {"
+                 print "           %s t(%s);" % (from_underscore_to_camel_case(kind[4:]), tree_name)
+                 print "           t.accept(visitor);"
+                 print "           break;"
+                 print "       }"
+           print "       default:"
+           print "       {"
+           print "          internal_error(\"Unexpected tree %s\\n\", this->internal_ast_type().c_str());"
+           print "          break;"
+           print "       }"
+           print "   }"
+           i = i + 1         
+           if rule_ref.is_seq():
+               print "    it.next();"
+               print "}"
+           if rule_ref.is_opt():
+               print "}"
+       print "    visitor.visit(*this);"
+       print "}"
+   print "}"
 
 # MAIN
 
@@ -219,5 +362,11 @@ rule_map = parse_rules(f)
 
 if op_mode == "check_routines":
     generate_check_routines(rule_map)
+elif op_mode == "cxx_visitor_decl":
+    generate_visitor_class(rule_map)
+elif op_mode == "cxx_nodecl_class_header":
+    generate_nodecl_classes_base(rule_map)
+elif op_mode == "cxx_nodecl_class_impl":
+    generate_nodecl_classes_specs(rule_map)
 else:    
     raise Exception("Invalid op_mode %s" % (op_mode))
