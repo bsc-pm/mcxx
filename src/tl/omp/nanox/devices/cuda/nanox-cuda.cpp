@@ -30,6 +30,7 @@
 #include "nanox-cuda.hpp"
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
+#include "tl-cuda.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -42,6 +43,53 @@ using namespace TL::Nanox;
 static std::string gpu_outline_name(const std::string &task_name)
 {
 	return "_gpu_" + task_name;
+}
+
+void DeviceCUDA::replace_kernel_config(AST_t *kernel_call, ScopeLink sl)
+{
+	CUDA::KernelCall kcall(*kernel_call, sl);
+
+	Source new_kernel_call;
+	Source new_config, new_param_list, nanos_stream_call;
+
+	new_kernel_call << kcall.get_called_expression() << "<<<" << new_config << ">>>(" << new_param_list << ")";
+
+	ObjectList<Expression> argument_list = kcall.get_argument_list();
+
+	for (ObjectList<Expression>::iterator it = argument_list.begin();
+			it != argument_list.end();
+			it++)
+	{
+		new_param_list.append_with_separator(it->prettyprint(), ",");
+	}
+
+	nanos_stream_call << "nanos_get_kernel_execution_stream()";
+	ObjectList<Expression> kernel_config = kcall.get_kernel_configuration();
+	if (kernel_config.size() == 2)
+	{
+		new_config << kernel_config[0] << ","
+				<< kernel_config[1] << ","
+				<< "0, "
+				<< nanos_stream_call;
+	}
+	else if (kernel_config.size() == 3)
+	{
+		new_config << kernel_config[0] << ","
+				<< kernel_config[1] << ","
+				<< kernel_config[2] << ","
+				<< nanos_stream_call;
+	}
+	else if (kernel_config.size() == 4)
+	{
+		// Do nothing at the moment
+	}
+	else
+	{
+		internal_error("Code unreachable: a kernel call configuration must have between 2 and 4 parameters", 0);
+	}
+
+	AST_t expr = new_kernel_call.parse_expression(*kernel_call, sl);
+	kernel_call->replace(expr);
 }
 
 void DeviceCUDA::do_cuda_inline_get_addresses(
@@ -120,7 +168,7 @@ void DeviceCUDA::do_cuda_inline_get_addresses(
     }
 }
 
-void DeviceCUDA::do_gpu_outline_replacements(
+void DeviceCUDA::do_cuda_outline_replacements(
 		AST_t body,
 		ScopeLink scope_link,
 		const DataEnvironInfo& data_env_info,
@@ -595,9 +643,18 @@ void DeviceCUDA::create_outline(
 	AST_t outline_code_tree =
 			result.parse_declaration(enclosing_function.get_ast(), sl);
 
-    // This registers the output file in the compilation pipeline if needed
-    std::ofstream cudaFile;
-    get_output_file(cudaFile);
+	// This registers the output file in the compilation pipeline if needed
+	std::ofstream cudaFile;
+	get_output_file(cudaFile);
+
+	// Look for kernel calls and add the Nanos++ kernel execution stream
+	ObjectList<AST_t> kernel_call_list = outline_code_tree.depth_subtrees(CUDA::KernelCall::predicate);
+	for (ObjectList<AST_t>::iterator it = kernel_call_list.begin();
+			it != kernel_call_list.end();
+			it++)
+	{
+		replace_kernel_config(&(*it), sl);
+	}
 
 	cudaFile << "extern \"C\" {\n";
 	cudaFile << forward_declaration.get_source(false) << "\n";
@@ -699,7 +756,7 @@ void DeviceCUDA::do_replacements(DataEnvironInfo& data_environ,
 		Source &initial_setup,
 		Source &replaced_src)
 {
-	do_gpu_outline_replacements(body,
+	do_cuda_outline_replacements(body,
 			scope_link,
 			data_environ,
 			initial_setup,
