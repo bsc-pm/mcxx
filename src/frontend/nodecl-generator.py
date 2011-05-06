@@ -260,7 +260,8 @@ def generate_visitor_class(rule_map):
     print "{"
     print "   public:"
     for class_name in classes:
-        print "     virtual void visit(%s &) { };" % (class_name)
+        print "     virtual void visit_preorder(%s &) { }" % (class_name)
+        print "     virtual void visit_postorder(%s &) { }" % (class_name)
     print "   virtual ~NodeclVisitor() { }"
     print "};"
     print ""
@@ -308,7 +309,9 @@ def generate_nodecl_classes_specs(rule_map):
    for (class_name, subtrees) in classes.iteritems():
        print "void %s::accept(NodeclVisitor& visitor)" % (class_name)
        print "{"
-       print "   ObjectList<AST_t> children(this->children());"
+       print "    visitor.visit_preorder(*this);"
+       if subtrees :
+               print "   ObjectList<AST_t> children(this->children());"
        i = 0;
        for subtree in subtrees:
            rule_ref = RuleRef(subtree[1])
@@ -345,7 +348,7 @@ def generate_nodecl_classes_specs(rule_map):
                print "}"
            if rule_ref.is_opt():
                print "}"
-       print "    visitor.visit(*this);"
+       print "    visitor.visit_postorder(*this);"
        print "}"
    print "}"
 
