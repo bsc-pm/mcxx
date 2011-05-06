@@ -90,6 +90,11 @@ namespace TL
 		}
 		
 		AugmentedSymbol called_function = function_called_expresion.get_id_expression().get_symbol();
+		if (!called_function.is_valid())
+		{
+			// Sometimes this may yield an empty symbol when __builtin_XXX are involved
+			return;
+		}
 		std::string function_name = called_function.get_qualified_name();
 		
 		if ( _function_table.find(function_name) == _function_table.end() )
