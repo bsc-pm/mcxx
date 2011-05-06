@@ -328,20 +328,26 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                         //Relational Operators (<, >, <=, ...)
                         if (expr.get_operation_kind() == Expression::LOWER_THAN)
                         {
-                            result << "__builtin_ia32_cmpltps(";
+                            result << "__builtin_ia32_cmpltps("
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << ", "
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                << ")"
+                                ;
+
+                            return uniquestr(result.get_source().c_str());
                         }
                         else if (expr.get_operation_kind() == Expression::GREATER_THAN)
                         {
-                            result << "__builtin_ia32_cmpgtps(";
-                        }
-                         
-                        result << recursive_prettyprint(first_op.get_ast(), data)
-                            << ", "
-                            << recursive_prettyprint(second_op.get_ast(), data)
-                            << ")"
-                            ;
+                            result << "__builtin_ia32_cmpgtps("
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << ", "
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                << ")"
+                                ;
 
-                        return uniquestr(result.get_source().c_str());
+                            return uniquestr(result.get_source().c_str());
+                        }
                     }
                 }
             }

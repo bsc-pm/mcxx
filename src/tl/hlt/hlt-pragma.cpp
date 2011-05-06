@@ -397,7 +397,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     intel_builtins_src
     //SSE2
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
-        << "unsigned char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(unsigned short int __attribute__((vector_size(16))) vs0, unsigned short int __attribute__((vector_size(16))) vs1);"
+        << "char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_packsswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         //<< "short int __attribute__((vector_size(16)))    __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
@@ -411,7 +411,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
     //SSE4.1
-        << "unsigned short int __attribute__((vector_size(16))) __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16))) __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
         ;
 
     conversions_src
@@ -439,14 +439,14 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "float __attribute__((vector_size(16))) vf3)"
         << "{"
         <<      "int __attribute__((vector_size(16))) vi0, vi1;"
-        <<      "unsigned short int __attribute__((vector_size(16))) vs0, vs1;"
+        <<      "short int __attribute__((vector_size(16))) vs0, vs1;"
         <<      "vi0 = __builtin_ia32_cvttps2dq(vf0);"
         <<      "vi1 = __builtin_ia32_cvttps2dq(vf1);"
         <<      "vs0 = __builtin_ia32_packusdw128(vi0, vi1);"
         <<      "vi0 = __builtin_ia32_cvttps2dq(vf2);"
         <<      "vi1 = __builtin_ia32_cvttps2dq(vf3);"
         <<      "vs1 = __builtin_ia32_packusdw128(vi0, vi1);"
-        <<      "return __builtin_ia32_packuswb128(vs0, vs1);"
+        <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
         << "}"
 
         ;
