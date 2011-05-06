@@ -55,6 +55,7 @@ static std::string _allow_identity_str;
 
 static TL::ObjectList<TL::Symbol> builtin_vr_list;
 static TL::ObjectList<TL::Symbol> builtin_ve_list;
+static TL::ObjectList<TL::Symbol> builtin_ivve_list;
 static TL::ObjectList<TL::Symbol> builtin_gf_list;
 static TL::ObjectList<TL::Symbol> builtin_vc_list;
 
@@ -348,6 +349,15 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     builtin_ve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
     //artificial symbol in list[0]
     builtin_ve_list.append(builtin_ve_sym);
+
+    //new artificial symbol: __builtin_ind_var_vector_expansion
+    Symbol builtin_ivve_sym = global_scope.new_artificial_symbol(BUILTIN_IVVE_NAME);
+    scope_entry_t* builtin_ivve_se = builtin_ivve_sym.get_internal_symbol();
+    builtin_ivve_se->kind = SK_FUNCTION;
+    builtin_ivve_se->entity_specs.is_builtin = 1;
+    builtin_ivve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
+    //artificial symbol in list[0]
+    builtin_ivve_list.append(builtin_ivve_sym);
 
     //new artificial symbol: __builtin_global_function
     Symbol builtin_gf_sym = global_scope.new_artificial_symbol(BUILTIN_GF_NAME);

@@ -98,69 +98,90 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
         }
         if (TL::Expression::predicate(ast))
         {
-            Expression exp(ast, _this->_sl);
+            Expression expr(ast, _this->_sl);
 
             // Since Expression advance over "useless" nests of expressions
             // (and this includes expression-statements) it is very important
             // to check we have not advanced any of these nest
-            if (exp.get_ast() == exp.original_tree())
+            if (expr.get_ast() == expr.original_tree())
             {
                 //__builtin_vector_expansion: 0.0f -> {0.0f, 0.0f, 0.0f, 0.0f}
                 // Constants are not expanded inside of an array subscription
                 if ((!_this->inside_array_subscript.top()))
                 {
-                    //Constants Expansion
-                    if (exp.is_literal() 
-                            || (exp.is_unary_operation() && exp.get_unary_operand().is_literal())
-                            || (exp.is_casting() && exp.get_casted_expression().is_literal())
-                            //Unnanotated variables from outside of the loop
-                                //If you are: IdExpression, non local, in the hlt list, not a function, not a bultin and not the induction variable
-                            //TODO: Unnanotated arrays
-                            || (exp.is_id_expression() 
-                                && !exp.get_id_expression().get_symbol().is_function()
-                                && !exp.get_id_expression().get_symbol().is_builtin()
-                                && _this->_nonlocal_symbols.contains(exp.get_id_expression().get_computed_symbol())
-                                && !_this->_simd_id_exp_list->contains(functor(&IdExpression::get_computed_symbol), exp.get_id_expression().get_computed_symbol())
-                                && (!_this->_ind_var_sym.is_valid() || (_this->_ind_var_sym != exp.get_id_expression().get_computed_symbol()))))
+                    if (!expr.get_type().is_generic_vector())
                     {
-                        if (!exp.get_type().is_generic_vector())
+                        //Constants Expansion
+                        if (expr.is_literal() 
+                                || (expr.is_unary_operation() && expr.get_unary_operand().is_literal())
+                                || (expr.is_casting() && expr.get_casted_expression().is_literal()))
                         {
                             result << BUILTIN_VE_NAME
                                 << "("
-                                << exp.prettyprint() 
+                                << expr.prettyprint()   //Not recursive
                                 << ")"
                                 ;
+
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        //Unnanotated variables from outside of the loop
+                        //If you are: IdExpression, non local, in the hlt list and not a function
+                        else if (expr.is_id_expression() 
+                                && !expr.get_id_expression().get_symbol().is_function()
+                                && !expr.get_id_expression().get_symbol().is_builtin()
+                                && _this->_nonlocal_symbols.contains(expr.get_id_expression().get_computed_symbol())
+                                && !_this->_simd_id_exp_list->contains(
+                                    functor(&IdExpression::get_computed_symbol), expr.get_id_expression().get_computed_symbol()))
+                        {
+                            //Induction variable expansion 
+                            if (_this->_ind_var_sym.is_valid() 
+                                    && (_this->_ind_var_sym == expr.get_id_expression().get_computed_symbol()))
+                            {
+                                result << BUILTIN_IVVE_NAME
+                                    << "("
+                                    << expr.prettyprint() //Not recursive
+                                    << ")"
+                                    ;
+                            }
+                            else
+                            {
+                                result << BUILTIN_VE_NAME
+                                    << "("
+                                    << expr.prettyprint()
+                                    << ")"
+                                    ;
+                            }
 
                             return uniquestr(result.get_source().c_str());
                         }
                     }
                 }
                 //Implicit Conversions
-                if (exp.is_binary_operation())
+                if (expr.is_binary_operation())
                 {
-                    Expression first_op = exp.get_first_operand();
-                    Expression second_op = exp.get_second_operand();
+                    Expression first_op = expr.get_first_operand();
+                    Expression second_op = expr.get_second_operand();
 
                     unsigned int first_op_size = first_op.get_type().get_size();
                     unsigned int second_op_size = second_op.get_type().get_size();
 
                     if (first_op_size != second_op_size)
                     {
-                        Source target_exp_src;
-                        if ((first_op_size > second_op_size) || exp.is_assignment())
+                        Source target_expr_src;
+                        if ((first_op_size > second_op_size) || expr.is_assignment())
                         {
-                            target_exp_src 
+                            target_expr_src 
                                 << recursive_prettyprint(first_op.get_ast(), data)
                                 ;
 
                             result 
-                                << target_exp_src
-                                << exp.get_operator_str()
+                                << target_expr_src
+                                << expr.get_operator_str()
                                 << BUILTIN_VC_NAME
                                 << "("
                                 << recursive_prettyprint(second_op.get_ast(), data)
                                 << ", " 
-                                << target_exp_src
+                                << target_expr_src
                                 ;
 
                             if (_this->_ind_var_sym.is_valid())
@@ -176,7 +197,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         }
                         else
                         {
-                            target_exp_src
+                            target_expr_src
                                 << recursive_prettyprint(second_op.get_ast(), data)
                                 ;
 
@@ -185,10 +206,10 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "("
                                 << recursive_prettyprint(first_op.get_ast(), data)
                                 << ", "
-                                << target_exp_src
+                                << target_expr_src
                                 << ")"
-                                << exp.get_operator_str()
-                                << target_exp_src
+                                << expr.get_operator_str()
+                                << target_expr_src
                                 ;
                         }
 
@@ -197,14 +218,14 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                 }
 
                 //__builtin_generic_function
-                if (exp.is_function_call())
+                if (expr.is_function_call())
                 {
                     result << BUILTIN_GF_NAME
                         << "("
-                        << recursive_prettyprint(exp.get_called_expression().get_ast(), data)
+                        << recursive_prettyprint(expr.get_called_expression().get_ast(), data)
                         ;
 
-                    ObjectList<Expression> arg_list = exp.get_argument_list();
+                    ObjectList<Expression> arg_list = expr.get_argument_list();
 
                     int i;
                     for (i=0; i<arg_list.size(); i++)
@@ -217,10 +238,10 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     return uniquestr(result.get_source().c_str());
                 }
                 //Naïve Constants Evaluation: Waiting for Sara's optimizations
-                if (exp.is_constant())
+                if (expr.is_constant())
                 {
                     bool valid_evaluation;
-                    int eval_result = exp.evaluate_constant_int_expression(valid_evaluation);
+                    int eval_result = expr.evaluate_constant_int_expression(valid_evaluation);
 
                     if (valid_evaluation)
                     {

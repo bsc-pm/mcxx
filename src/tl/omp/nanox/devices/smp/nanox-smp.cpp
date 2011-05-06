@@ -41,27 +41,80 @@ const unsigned int _vector_width = 16;
 std::string ReplaceSrcSMP::scalar_expansion(Expression expr, void* data)
 {
     ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
-    std::stringstream result;
+    Source result, vector_elements, vector_casting, scalar_expr;
     unsigned char num_elements, i;
 
     TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
 
-    result << "(("
-        << vector_type.get_simple_declaration(expr.get_scope(), "")
-        << "){"
+    result << "("
+        << "(" << vector_casting << ")"
+        << "{" << vector_elements << "}"
+        << ")"
         ;
 
-    num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
+    vector_casting 
+        << vector_type.get_simple_declaration(expr.get_scope(), "");
+
+    scalar_expr << recursive_prettyprint(expr.get_ast(), data);
+    num_elements = (_vector_width/vector_type.basic_type().get_size());
+
     for (i=0; i<num_elements; i++)
     {
-        result << recursive_prettyprint(expr.get_ast(), data)
-            << ",";
+        //Don't use recursive
+        vector_elements.append_with_separator(
+                scalar_expr, ",");
     }
 
-    result << recursive_prettyprint(expr.get_ast(), data)
-        << "})";
+    return result.get_source();
+}
 
-    return result.str();
+std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
+{
+    ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
+
+    ReplaceSrcIdExpression induct_var_rmplmt(expr.get_scope_link());
+    Source result, vector_elements, vector_casting, old_ind_var, new_ind_var;
+    unsigned char num_elements, i;
+
+    int expr_size = expr.get_type().get_size();
+
+    TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
+
+    result << "("
+        << "(" << vector_casting << ")"
+        << "{" << vector_elements << "}"
+        << ")"
+        ;
+
+    vector_casting 
+        << vector_type.get_simple_declaration(expr.get_scope(), "");
+
+    //Don't use recursive
+    old_ind_var << expr.prettyprint();
+    num_elements = (_vector_width/vector_type.basic_type().get_size());
+
+
+    for (i=0; i<num_elements; i++)
+    {
+        Source new_vec_elem;
+        
+        new_vec_elem 
+            << "("
+            << old_ind_var
+            << "+" << i
+            << ")"
+            ;
+        new_ind_var.append_with_separator(new_vec_elem, ",");
+
+    }
+
+    induct_var_rmplmt.add_replacement(
+            expr.get_id_expression().get_symbol(), new_ind_var.get_source());
+
+    vector_elements
+        << induct_var_rmplmt.replace(expr.get_ast());
+
+    return result.get_source();
 }
 
 
@@ -383,6 +436,20 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             }
 
             result << scalar_expansion(arg_list[0], data);
+
+            return uniquestr(result.get_source().c_str());
+        }
+        else if (FindFunction(_this->_sl, BUILTIN_IVVE_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list(); 
+
+            if (arg_list.size() != 1)
+            {
+                internal_error("Wrong number of arguments in %s", BUILTIN_IVVE_NAME);
+            }
+
+            result << ind_var_scalar_expansion(arg_list[0], data);
 
             return uniquestr(result.get_source().c_str());
         }
@@ -720,7 +787,6 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
     
     replace_src.add_this_replacement("_args->_this");
 
-    //FIXME: This code could be replicated among devices
     //Statements replication and loop unrolling
     builtin_ast_list =
         body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));

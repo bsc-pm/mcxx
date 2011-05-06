@@ -9,6 +9,7 @@
 #define BUILTIN_VR_NAME "__builtin_vector_reference"
 #define BUILTIN_GF_NAME "__builtin_generic_function"
 #define BUILTIN_IV_NAME "__builtin_induction_variable"
+#define BUILTIN_IVVE_NAME "__builtin_ind_var_vector_expansion"
 #define BUILTIN_VC_NAME "__builtin_vector_conversion"
 
 #define COMPILER_CONV_FLOAT2CHAR_SMP16  "__compiler_conv_float_to_char_smp16"
