@@ -12,10 +12,20 @@
 #define BUILTIN_IVVE_NAME "__builtin_ind_var_vector_expansion"
 #define BUILTIN_VC_NAME "__builtin_vector_conversion"
 
-#define COMPILER_CONV_FLOAT2CHAR_SMP16  "__compiler_conv_float_to_char_smp16"
-#define CONV_FLOAT2CHAR_SMP16           "__conv_float_to_char_smp16"
 #define COMPILER_CONV_FLOAT2UCHAR_SMP16 "__compiler_conv_float_to_uchar_smp16"
-#define CONV_FLOAT2UCHAR_SMP16          "__conv_float_to_uchar_smp16"
+#define COMPILER_CONV_FLOAT2CHAR_SMP16  "__compiler_conv_float_to_char_smp16"
+#define COMPILER_CONV_UINT2UCHAR_SMP16  "__compiler_conv_uint_to_uchar_smp16"
+#define COMPILER_CONV_UINT2CHAR_SMP16 "__compiler_conv_uint_to_char_smp16"
+#define COMPILER_CONV_INT2UCHAR_SMP16  "__compiler_conv_int_to_uchar_smp16"
+#define COMPILER_CONV_INT2CHAR_SMP16 "__compiler_conv_int_to_char_smp16"
+
+#define CONV_FLOAT2UCHAR_SMP16 "__conv_float_to_uchar_smp16"
+#define CONV_FLOAT2CHAR_SMP16 "__conv_float_to_char_smp16"
+#define CONV_UINT2UCHAR_SMP16 "__conv_uint_to_uchar_smp16"
+#define CONV_UINT2CHAR_SMP16 "__conv_uint_to_char_smp16"
+#define CONV_INT2UCHAR_SMP16 "__conv_int_to_uchar_smp16"
+#define CONV_INT2CHAR_SMP16 "__conv_int_to_char_smp16"
+
 
 #define LANG_HLT_SIMD_FOR_INFO "HLT_SIMD_FOR_INFO"
 #define LANG_HLT_SIMD_EPILOG "HLT_SIMD_EPILOG"

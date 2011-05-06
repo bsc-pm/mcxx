@@ -553,6 +553,78 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                                 true, true,
                                 CONV_FLOAT2CHAR_SMP16);
                     }
+                    else if (src_expr_type.is_unsigned_int() 
+                            && (dst_expr_type.is_unsigned_char()))
+                    {
+                        result 
+                            << CONV_UINT2UCHAR_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_UINT2UCHAR_SMP16);
+                    }
+                    else if (src_expr_type.is_unsigned_int() 
+                            && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+                    {
+                        result 
+                            << CONV_UINT2CHAR_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_UINT2CHAR_SMP16);
+                    }
+                    else if (src_expr_type.is_signed_int() 
+                            && (dst_expr_type.is_unsigned_char()))
+                    {
+                        result 
+                            << CONV_INT2UCHAR_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_INT2UCHAR_SMP16);
+                    }
+                    else if (src_expr_type.is_signed_int() 
+                            && (dst_expr_type.is_signed_char()))
+                    {
+                        result 
+                            << CONV_INT2CHAR_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_INT2CHAR_SMP16);
+                    }
                     else
                     {
                         running_error("Conversion from '%s' to '%s' is not supported yet.\n", 

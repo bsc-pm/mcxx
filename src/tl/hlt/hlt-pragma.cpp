@@ -459,6 +459,56 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
         << "}"
 
+        << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_INT2UCHAR_SMP16 << "("
+        <<      "int __attribute__((vector_size(16))) vi0,"
+        <<      "int __attribute__((vector_size(16))) vi1," 
+        <<      "int __attribute__((vector_size(16))) vi2," 
+        <<      "int __attribute__((vector_size(16))) vi3)"
+        << "{"
+        <<      "short int __attribute__((vector_size(16))) vs0, vs1;"
+        <<      "vs0 = __builtin_ia32_packusdw128(vi0, vi1);"
+        <<      "vs1 = __builtin_ia32_packusdw128(vi2, vi3);"
+        <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
+        << "}"
+
+        << "static inline char __attribute__((vector_size(16))) " << COMPILER_CONV_INT2CHAR_SMP16 << "("
+        <<      "int __attribute__((vector_size(16))) vi0,"
+        <<      "int __attribute__((vector_size(16))) vi1," 
+        <<      "int __attribute__((vector_size(16))) vi2," 
+        <<      "int __attribute__((vector_size(16))) vi3)"
+        << "{"
+        <<      "short int __attribute__((vector_size(16))) vs0, vs1;"
+        <<      "vs0 = __builtin_ia32_packssdw128(vi0, vi1);"
+        <<      "vs1 = __builtin_ia32_packssdw128(vi2, vi3);"
+        <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
+        << "}"
+
+        << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2UCHAR_SMP16 << "("
+        <<      "unsigned int __attribute__((vector_size(16))) vi0,"
+        <<      "unsigned int __attribute__((vector_size(16))) vi1," 
+        <<      "unsigned int __attribute__((vector_size(16))) vi2," 
+        <<      "unsigned int __attribute__((vector_size(16))) vi3)"
+        << "{"
+        <<      "return " << COMPILER_CONV_INT2UCHAR_SMP16 
+        << "((int __attribute__((vector_size(16)))) vi0,"
+        << "(int __attribute__((vector_size(16)))) vi1,"
+        << "(int __attribute__((vector_size(16)))) vi2,"
+        << "(int __attribute__((vector_size(16)))) vi3);"
+        << "}"
+
+        << "static inline char __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2CHAR_SMP16 << "("
+        <<      "unsigned int __attribute__((vector_size(16))) vi0,"
+        <<      "unsigned int __attribute__((vector_size(16))) vi1," 
+        <<      "unsigned int __attribute__((vector_size(16))) vi2," 
+        <<      "unsigned int __attribute__((vector_size(16))) vi3)"
+        << "{"
+        <<      "return " << COMPILER_CONV_INT2CHAR_SMP16 
+        << "((int __attribute__((vector_size(16)))) vi0,"
+        << "(int __attribute__((vector_size(16)))) vi1,"
+        << "(int __attribute__((vector_size(16)))) vi2,"
+        << "(int __attribute__((vector_size(16)))) vi3);"
+        << "}"
+
         ;
 
     //Global parsing
