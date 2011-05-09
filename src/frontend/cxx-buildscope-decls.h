@@ -32,6 +32,7 @@
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 #include "cxx-gccsupport-decls.h"
+#include "cxx-limits.h"
 
 MCXX_BEGIN_DECLS
 
@@ -80,7 +81,7 @@ struct gather_decl_spec_tag {
 
     // Attribute info
     int num_gcc_attributes;
-    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+    gather_gcc_attribute_t gcc_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 
     // UPC info
     struct

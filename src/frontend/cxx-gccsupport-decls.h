@@ -29,8 +29,6 @@
 #ifndef CXX_GCCSUPPORT_DECLS_H
 #define CXX_GCCSUPPORT_DECLS_H
 
-#define MAX_GCC_ATTRIBUTES_PER_SYMBOL (16)
-
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS

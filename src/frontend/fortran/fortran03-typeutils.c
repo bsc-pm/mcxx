@@ -1,5 +1,6 @@
 #include "fortran03-typeutils.h"
 #include "fortran03-prettyprint.h"
+#include "cxx-limits.h"
 #include "cxx-utils.h"
 #include <string.h>
 
@@ -13,21 +14,20 @@ const char* fortran_print_type_str(type_t* t)
         t = pointer_type_get_pointee_type(t);
     }
 
-#define MAX_ARRAY_SPEC 16
     struct array_spec_tag {
         AST lower;
         AST upper;
         char is_undefined;
-    } array_spec_list[MAX_ARRAY_SPEC] = { { 0, 0, 0 }  };
+    } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { 0, 0, 0 }  };
 
     int array_spec_idx;
-    for (array_spec_idx = MAX_ARRAY_SPEC - 1; 
+    for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
             is_fortran_array_type(t);
             array_spec_idx--)
     {
         if (array_spec_idx < 0)
         {
-            internal_error("too many array dimensions %d\n", MAX_ARRAY_SPEC);
+            internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
         }
 
         if (!array_type_is_unknown_size(t))
@@ -43,7 +43,7 @@ const char* fortran_print_type_str(type_t* t)
         t = array_type_get_element_type(t);
     }
 
-    char is_array = (array_spec_idx != (MAX_ARRAY_SPEC - 1));
+    char is_array = (array_spec_idx != (MCXX_MAX_ARRAY_SPECIFIER - 1));
 
     if (is_bool_type(t)
             || is_integer_type(t)
@@ -141,7 +141,7 @@ const char* fortran_print_type_str(type_t* t)
         array_spec_idx++;
         result = strappend(result, ", DIMENSION(");
 
-        while (array_spec_idx <= (MAX_ARRAY_SPEC - 1))
+        while (array_spec_idx <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
@@ -153,7 +153,7 @@ const char* fortran_print_type_str(type_t* t)
             {
                 result = strappend(result, ":");
             }
-            if ((array_spec_idx + 1) <= (MAX_ARRAY_SPEC - 1))
+            if ((array_spec_idx + 1) <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
             {
                 result = strappend(result, ", ");
             }

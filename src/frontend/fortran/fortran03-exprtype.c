@@ -910,8 +910,6 @@ struct actual_argument_info_tag
     type_t* type;
 } actual_argument_info_t;
 
-#define MAX_ARGUMENTS 256
-
 static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_arguments, actual_argument_info_t* temp_argument_types)
 {
     scope_entry_t* result = NULL;
@@ -924,7 +922,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
 
         // Complete with those arguments that are not present
         // Reorder the arguments
-        actual_argument_info_t argument_types[MAX_ARGUMENTS];
+        actual_argument_info_t argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
 
         int i;
@@ -1093,7 +1091,7 @@ static void check_called_symbol(
                 fortran_prettyprint_in_buffer(procedure_designator));
     }
 
-    actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
+    actual_argument_info_t temp_argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(temp_argument_types, 0, sizeof(temp_argument_types));
 
     // Gather arguments (syntactic checking has happened before)
@@ -1241,7 +1239,7 @@ static void check_called_symbol(
 
         // Complete with those arguments that are not present
         // Reorder the arguments
-        actual_argument_info_t argument_info_items[MAX_ARGUMENTS];
+        actual_argument_info_t argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_info_items, 0, sizeof(argument_info_items));
 
         int i;
@@ -1331,7 +1329,7 @@ static void check_called_symbol(
         int common_rank = -1;
         if (!function_type_get_lacking_prototype(symbol->type_information))
         {
-            actual_argument_info_t fixed_argument_info_items[MAX_ARGUMENTS];
+            actual_argument_info_t fixed_argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
             memcpy(fixed_argument_info_items, argument_info_items, sizeof(fixed_argument_info_items));
 
             if (symbol->entity_specs.is_elemental)
@@ -1539,10 +1537,10 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     int num_actual_arguments = 0;
 
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(argument_types, 0, sizeof(argument_types));
 
-    AST actual_arguments[MAX_ARGUMENTS];
+    AST actual_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(actual_arguments, 0, sizeof(actual_arguments));
 
     // Gather arguments (syntactic checking has happened before)
@@ -1551,7 +1549,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         AST it;
         for_each_element(actual_arg_spec_list, it)
         {
-            ERROR_CONDITION(num_actual_arguments == MAX_ARGUMENTS, "Too many arguments %d\n", MAX_ARGUMENTS);
+            ERROR_CONDITION(num_actual_arguments == MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments %d\n", MCXX_MAX_FUNCTION_CALL_ARGUMENTS);
 
             AST actual_arg_spec = ASTSon1(it);
             AST actual_arg = ASTSon1(actual_arg_spec);

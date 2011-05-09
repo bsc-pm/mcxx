@@ -144,7 +144,7 @@ static void ast_dump_html_rec(AST a, FILE* f, const char* root_id, int id_node)
     {
         fprintf(f, "%s", "<div class=\"node_list\">");
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             ast_dump_html_rec(ASTChild(a, i), f, current_id_node, i);
         }

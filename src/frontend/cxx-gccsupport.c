@@ -448,9 +448,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     }
 
     // Save it in the gather_info structure
-    if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+    if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
     {
-        running_error("Too many gcc attributes, maximum supported is %d\n", MAX_GCC_ATTRIBUTES_PER_SYMBOL);
+        running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
     }
     gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
     gather_info->num_gcc_attributes++;

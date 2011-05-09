@@ -1866,7 +1866,7 @@ static void merge_declarators_aux(
 
     // Chain with my parent
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ast_get_child(ASTParent(old_declarator), i) == old_declarator)
         {
@@ -2067,7 +2067,7 @@ static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_
     else
     {
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             instantiate_tree_rec(ast_get_child(orig_tree, i), context_of_being_instantiated);
         }

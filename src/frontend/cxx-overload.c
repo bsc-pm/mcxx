@@ -72,15 +72,13 @@ struct implicit_conversion_sequence_tag
 static
 implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguous_ics = 0 };
 
-#define MAX_ARGUMENTS (256)
-
 typedef
 struct overload_entry_list_tag
 {
     candidate_t* candidate;
     struct overload_entry_list_tag* next;
 
-    implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
+    implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
     char requires_ambiguous_ics;
 } overload_entry_list_t;
@@ -330,9 +328,9 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             && !is_aggregate_type(dest))
     {
         scope_entry_list_t* candidates = NULL;
-        scope_entry_t* conversors[MAX_ARGUMENTS];
+        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
-        type_t* arguments[MAX_ARGUMENTS] = { orig };
+        type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { orig };
 
         scope_entry_t* constructor = solve_init_list_constructor(
                 dest,
@@ -602,8 +600,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
     // So no standard conversion is possible let's try with a user defined
     // conversion
-#define MAX_USER_DEFINED_CONVERSIONS (256)
-    implicit_conversion_sequence_t user_defined_conversions[MAX_USER_DEFINED_CONVERSIONS];
+    implicit_conversion_sequence_t user_defined_conversions[MCXX_MAX_USER_DEFINED_CONVERSIONS];
     int num_user_defined_conversions = 0;
     memset(user_defined_conversions, 0, sizeof(user_defined_conversions));
 
@@ -1525,10 +1522,10 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
         if (can_be_called_with_number_of_arguments_ovl(candidate, num_arguments))
         {
-            implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
+            implicit_conversion_sequence_t ics_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
             {
                 int j;
-                for (j = 0; j < MAX_ARGUMENTS; j++)
+                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
                 {
                     ics_arguments[j] = invalid_ics;
                 }
@@ -1621,7 +1618,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                 result = new_result;
 
                 int j;
-                for (j = 0; j < MAX_ARGUMENTS; j++)
+                for (j = 0; j < MCXX_MAX_FUNCTION_CALL_ARGUMENTS; j++)
                 {
                     // Copy all ICS of this overloaded function entry
                     result->ics_arguments[j] = ics_arguments[j];
@@ -2507,7 +2504,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             decl_context,
             filename, line, /* explicit_template_arguments */ NULL);
 
-    scope_entry_t* augmented_conversors[MAX_ARGUMENTS];
+    scope_entry_t* augmented_conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;

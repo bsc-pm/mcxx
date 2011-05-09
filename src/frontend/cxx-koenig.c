@@ -36,13 +36,11 @@
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 
-#define MAX_ASSOCIATED_SCOPES (256)
-
 typedef 
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t* associated_scopes[MAX_ASSOCIATED_SCOPES];
+    scope_t* associated_scopes[MCXX_MAX_KOENIG_ASSOCIATED_SCOPES];
 } associated_scopes_t;
 
 static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
@@ -150,7 +148,7 @@ static void compute_set_of_associated_classes_scope(type_t* type_info, associate
 
 static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t* sc)
 {
-    ERROR_CONDITION(associated_scopes->num_associated_scopes >= MAX_ASSOCIATED_SCOPES,
+    ERROR_CONDITION(associated_scopes->num_associated_scopes >= MCXX_MAX_KOENIG_ASSOCIATED_SCOPES,
             "Too many associated scopes", 0);
     
     ERROR_CONDITION(sc->kind != NAMESPACE_SCOPE, 

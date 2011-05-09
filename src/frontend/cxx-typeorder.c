@@ -33,6 +33,7 @@
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
+#include "cxx-limits.h"
 
 char is_sound_type(type_t* t, decl_context_t decl_context)
 {
@@ -198,14 +199,13 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         return 0;
     }
 
-#define MAX_ARGUMENTS_FOR_DEDUCTION (256)
-    type_t * arguments[MAX_ARGUMENTS_FOR_DEDUCTION];
-    type_t * parameters[MAX_ARGUMENTS_FOR_DEDUCTION];
+    type_t * arguments[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
+    type_t * parameters[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
 
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        ERROR_CONDITION(i >= MAX_ARGUMENTS_FOR_DEDUCTION, 
+        ERROR_CONDITION(i >= MCXX_MAX_ARGUMENTS_FOR_DEDUCTION, 
                 "Too many types for deduction", 0);
         arguments[i] = function_type_get_parameter_type_num(f2, i);
         parameters[i] = function_type_get_parameter_type_num(f1, i);

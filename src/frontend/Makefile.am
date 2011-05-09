@@ -63,6 +63,7 @@ libmcxx_process_la_SOURCES = \
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
+  cxx-limits.h \
   cxx-macros.h \
   cxx-asttype.h \
   cxx-asttype.c \

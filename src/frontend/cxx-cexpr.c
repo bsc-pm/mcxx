@@ -42,9 +42,7 @@
 #include "cxx-overload.h"
 #include "cxx-instantiation.h"
 #include "cxx-typeenviron.h"
-
-// We allow up to 16 bytes per integer
-#define MAX_NUM_BYTES (16)
+#include "cxx-limits.h"
 
 #define CVAL_HASH_SIZE (37)
 
@@ -65,11 +63,11 @@ struct const_value_hash_bucket_tag
 
 typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
-static const_value_hash_t _hash_pool[MAX_NUM_BYTES * 2] = { { (const_value_hash_bucket_t*)0 } };
+static const_value_hash_t _hash_pool[MCXX_MAX_BYTES_INTEGER * 2] = { { (const_value_hash_bucket_t*)0 } };
 
 const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
 {
-    ERROR_CONDITION(num_bytes > MAX_NUM_BYTES
+    ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
 
     int bucket_index = value % CVAL_HASH_SIZE;

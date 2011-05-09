@@ -16,6 +16,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
+#include "cxx-limits.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -1087,7 +1088,7 @@ static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int nu
     return result;
 }
 
-#define MAX_INT_KIND 16
+#define MAX_INT_KIND MCXX_MAX_BYTES_INTEGER
 static char int_types_init = 0;
 static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
 type_t* choose_int_type_from_kind(AST expr, int kind_size)
@@ -1103,7 +1104,7 @@ type_t* choose_int_type_from_kind(AST expr, int kind_size)
 }
 #undef MAX_INT_KIND
 
-#define MAX_FLOAT_KIND 16
+#define MAX_FLOAT_KIND MCXX_MAX_BYTES_INTEGER
 static char float_types_init = 0;
 static type_t* float_types[MAX_FLOAT_KIND + 1] = { 0 };
 type_t* choose_float_type_from_kind(AST expr, int kind_size)
@@ -1119,7 +1120,7 @@ type_t* choose_float_type_from_kind(AST expr, int kind_size)
 }
 #undef MAX_FLOAT_KIND
 
-#define MAX_LOGICAL_KIND 16
+#define MAX_LOGICAL_KIND MCXX_MAX_BYTES_INTEGER
 static char logical_types_init = 0;
 static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
 type_t* choose_logical_type_from_kind(AST expr, int kind_size)
@@ -4092,9 +4093,8 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
 
     if (!is_only)
     {
-#define MAX_RENAMED_SYMBOLS 256
         int num_renamed_symbols = 0;
-        scope_entry_t* renamed_symbols[MAX_RENAMED_SYMBOLS];
+        scope_entry_t* renamed_symbols[MCXX_MAX_RENAMED_SYMBOLS];
         memset(renamed_symbols, 0, sizeof(renamed_symbols));
 
         if (rename_list != NULL)
@@ -4130,7 +4130,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
                 }
                 if (!found)
                 {
-                    ERROR_CONDITION(num_renamed_symbols == MAX_RENAMED_SYMBOLS, "Too many renames", 0);
+                    ERROR_CONDITION(num_renamed_symbols == MCXX_MAX_RENAMED_SYMBOLS, "Too many renames", 0);
                     renamed_symbols[num_renamed_symbols] = sym_in_module;
                     num_renamed_symbols++;
                 }

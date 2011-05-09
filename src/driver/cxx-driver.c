@@ -74,6 +74,7 @@
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
 #include "cxx-nodecl.h"
+#include "cxx-limits.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "cxx-codegen.h"
@@ -4040,7 +4041,7 @@ static void print_human(char *dest, unsigned long long num_bytes_)
     }
 }
 
-static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], int breakdown_real[MAX_AST_CHILDREN + 1], int *num_nodes)
+static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 1], int breakdown_real[MCXX_MAX_AST_CHILDREN + 1], int *num_nodes)
 {
     if (a == NULL)
         return;
@@ -4051,7 +4052,7 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
     (*num_nodes)++;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(a, i) != NULL)
         {
@@ -4060,10 +4061,10 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
         compute_tree_breakdown(ASTChild(a, i), breakdown, breakdown_real, num_nodes);
     }
 
-    if (num_intent <= (MAX_AST_CHILDREN + 1))
+    if (num_intent <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown[num_intent]++;
 
-    if (num_real <= (MAX_AST_CHILDREN + 1))
+    if (num_real <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
 #endif
@@ -4187,13 +4188,13 @@ static void print_memory_report(void)
     fprintf(stderr, "---------------------------------\n");
     fprintf(stderr, "\n");
 
-    int children_count[MAX_AST_CHILDREN + 1];
-    int children_real_count[MAX_AST_CHILDREN + 1];
+    int children_count[MCXX_MAX_AST_CHILDREN + 1];
+    int children_real_count[MCXX_MAX_AST_CHILDREN + 1];
 
     int num_nodes = 0;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         children_count[i] = 0;
         children_real_count[i] = 0;
@@ -4211,11 +4212,11 @@ static void print_memory_report(void)
     fprintf(stderr, " - AST node size (bytes): %d\n", ast_node_size());
     fprintf(stderr, " - Total number of AST nodes: %d\n", num_nodes);
 
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         fprintf(stderr, " - Nodes with %d children: %d\n", i, children_count[i]);
     }
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         fprintf(stderr, " - Nodes with %d real children: %d\n", i, children_real_count[i]);
     }

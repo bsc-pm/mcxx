@@ -170,7 +170,7 @@ def insert_extra_attr_code(_type, name, suffix):
             _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
                     "insert_default_argument_info_ptr);");
         else:
-            sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s: info: typeof '%s' is not handled\n" % (sys.argv[0], type_name))
     else:
         pass
     return _insert_code
@@ -277,13 +277,13 @@ def get_load_code(_type, name):
             result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
             result.append("}")
         else:
-            sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
         pass
     elif (_type == "scope"):
         result.append("// Scope is not stored (yet)");
         result.append("sym->entity_specs." + name + " = CURRENT_COMPILED_FILE->global_decl_context;")
     else :
-        sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+        sys.stderr.write("%s: info: not handling '%s'\n" % (sys.argv[0], type_name))
         pass
     result.append("}");
     return string.join(result, "\n");
@@ -322,7 +322,7 @@ def print_fortran_modules_functions(lines):
                 attr_names.append(name)
                 _format.append("%lld")
             else:
-                sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+                sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
       else:
           pass
     print "#ifndef FORTRAN03_MODULES_BITS_H"

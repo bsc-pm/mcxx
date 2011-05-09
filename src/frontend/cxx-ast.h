@@ -40,10 +40,9 @@
 #include "cxx-asttype.h"
 #include "cxx-type-decls.h"
 #include "cxx-scopelink-decls.h"
+#include "cxx-limits.h"
 
 MCXX_BEGIN_DECLS
-
-#define MAX_AST_CHILDREN (4)
 
 // Returns the parent node or NULL if none
 LIBMCXX_EXTERN AST ast_get_parent(const_AST a);

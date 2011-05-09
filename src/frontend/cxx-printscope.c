@@ -100,14 +100,12 @@ static char* symbol_kind_names[] =
 //     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 // };
 
-#define MAX_SCOPES_DEPTH 128
-
 typedef
 struct print_context_data_tag
 {
     int global_indent;
     int num_scopes;
-    scope_t* scope_set[MAX_SCOPES_DEPTH];
+    scope_t* scope_set[MCXX_MAX_SCOPES_NESTING];
     rb_red_blk_tree *symbol_set;
 } print_context_data_t;
 

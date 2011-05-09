@@ -6,6 +6,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
+#include "cxx-limits.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
@@ -219,7 +220,6 @@ FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E) \
 FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E) \
-
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -643,8 +643,6 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
             /* is_inquiry */ 0); \
 })
 
-#define MAX_ARGUMENTS 128
-
 #define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0) \
 static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
         type_t** argument_types, \
@@ -655,8 +653,8 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         AST *argument_expressions, \
         int num_arguments) \
 { \
-    type_t* reordered_types[MAX_ARGUMENTS]; \
-    AST reordered_exprs[MAX_ARGUMENTS]; \
+    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
+    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
     if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \
@@ -680,8 +678,8 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         AST *argument_expressions, \
         int num_arguments) \
 { \
-    type_t* reordered_types[MAX_ARGUMENTS]; \
-    AST reordered_exprs[MAX_ARGUMENTS]; \
+    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
+    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
     memset(reordered_types, 0, sizeof(reordered_types)); \
     memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
     if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \

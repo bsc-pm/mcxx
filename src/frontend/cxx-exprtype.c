@@ -45,14 +45,13 @@
 #include "cxx-gccsupport.h"
 #include "cxx-cuda.h"
 #include "cxx-entrylist.h"
+#include "cxx-limits.h"
 #include <ctype.h>
 #include <string.h>
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-exprtype.h"
 #endif
-
-#define MAX_ARGUMENTS (256)
 
 typedef
 struct expression_info_tag
@@ -203,12 +202,11 @@ void expression_clear_computed_info(AST t)
     }
 }
 
-#define MAX_BUILTINS (256)
 typedef
 struct builtin_operators_set_tag
 {
     scope_entry_list_t *entry_list;
-    scope_entry_t entry[MAX_BUILTINS];
+    scope_entry_t entry[MCXX_MAX_BUILTINS_IN_OVERLOAD];
     int num_builtins;
 } builtin_operators_set_t;
 
@@ -6690,10 +6688,10 @@ static void check_for_new_expression(AST new_expr, decl_context_t decl_context)
     // Solve 'operator new' being invoked
     if (!is_dependent_type(declarator_type))
     {
-        scope_entry_t* conversors[MAX_ARGUMENTS];
+        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
 
-        type_t* arguments[MAX_ARGUMENTS];
+        type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(arguments, 0, sizeof(arguments));
 
         // At least the size_t parameter (+1 because we may need an implicit)
@@ -7229,11 +7227,11 @@ static void check_for_delete_expression(AST expression, decl_context_t decl_cont
 static void check_for_explicit_type_conversion_common(type_t* type_info, 
         AST expr, AST expression_list, decl_context_t decl_context)
 {
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(argument_types, 0, sizeof(argument_types));
     int num_arguments = 0;
 
-    scope_entry_t* conversors[MAX_ARGUMENTS];
+    scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(conversors, 0, sizeof(conversors));
 
     char has_dependent_arguments = 0;
@@ -7547,7 +7545,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
     }
 
     // Build types of arguments
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     int num_arguments = 0;
 
     memset(argument_types, 0, sizeof(argument_types));
@@ -7587,7 +7585,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                 }
             }
 
-            ERROR_CONDITION(num_arguments >= MAX_ARGUMENTS, "Too many arguments", 0);
+            ERROR_CONDITION(num_arguments >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments", 0);
 
             argument_types[num_arguments] = argument_type;
             num_arguments++;
@@ -7972,7 +7970,7 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
     }
 
     // Build types of arguments
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     int num_arguments = 0;
 
     memset(argument_types, 0, sizeof(argument_types));
@@ -8015,7 +8013,7 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
                 }
             }
 
-            ERROR_CONDITION(num_arguments >= MAX_ARGUMENTS, "Too many arguments", 0);
+            ERROR_CONDITION(num_arguments >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments", 0);
 
             argument_types[num_arguments] = argument_type;
             num_arguments++;
@@ -8161,7 +8159,6 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
                 /* explicit_template_arguments */ NULL);
         entry_list_free(first_set_candidates);
 
-#define MAX_SURROGATE_FUNCTIONS (64)
         int num_surrogate_functions = 0;
 
         type_t* actual_class_type = get_actual_class_type(class_type);
@@ -8186,7 +8183,7 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
 
             if (is_pointer_to_function_type(no_ref(destination_type)))
             {
-                ERROR_CONDITION(num_surrogate_functions == MAX_SURROGATE_FUNCTIONS,
+                ERROR_CONDITION(num_surrogate_functions == MCXX_MAX_SURROGATE_FUNCTIONS,
                         "Too many surrogate functions to be considered in '%s'\n", 
                         prettyprint_in_buffer(whole_function_call));
 
@@ -8278,7 +8275,7 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
         fprintf(stderr, "EXPRTYPE: Calling overload resolution machinery\n");
     }
 
-    scope_entry_t* conversors[MAX_ARGUMENTS];
+    scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(conversors, 0, sizeof(conversors));
 
     candidate_t* candidate_set = NULL;
@@ -10056,7 +10053,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             && !is_aggregate_type(declared_type))
     {
         // This one is the toughest
-        type_t* arg_list[MAX_ARGUMENTS];
+        type_t* arg_list[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(arg_list, 0, sizeof(arg_list));
 
         char any_is_dependent = 0;
@@ -10067,7 +10064,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
         {
             AST expr = ASTSon1(iter);
 
-            if (num_args == MAX_ARGUMENTS)
+            if (num_args == MCXX_MAX_FUNCTION_CALL_ARGUMENTS)
             {
                 running_error("%s: error: too many elements in initializer-list\n",
                         ast_location(expr));
@@ -10133,7 +10130,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
         if (!has_initializer_list_ctor)
         {
             // Plain constructor resolution should be enough here
-            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
             scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = solve_constructor(declared_type,
                     arg_list,
@@ -10181,7 +10178,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
                         print_type_str(initializer_list_type, decl_context));
             }
 
-            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+            scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
 
             template_parameter_list_t* template_parameters = 
                 template_type_get_template_parameters(std_initializer_list_template->type_information);
@@ -10633,7 +10630,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
     // Single initializer, used later for non-class cases
     AST single_initializer_expr = ASTSon1(initializer_list);
 
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
     char has_dependent_arguments = 0;
 
@@ -10703,7 +10700,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
     }
     else if (is_class && !is_dependent_type(declared_type))
     {
-        scope_entry_t* conversors[MAX_ARGUMENTS];
+        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
 
         scope_entry_list_t* candidates = NULL;
@@ -11668,9 +11665,8 @@ static void check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
         type_get_size(type);
 
         // The tree of offsetof is a bit awkward, let's make our life easier
-#define MAX_DESIGNATORS 64
         int num_designators = 0;
-        AST designators[MAX_DESIGNATORS];
+        AST designators[MCXX_MAX_DESIGNATORS];
 
         // Initial identifier
         designators[num_designators] = ASTSon0(member_designator);
@@ -11680,7 +11676,7 @@ static void check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
             AST iter;
             for_each_element(designator_list, iter)
             {
-                if (num_designators == MAX_DESIGNATORS)
+                if (num_designators == MCXX_MAX_DESIGNATORS)
                 {
                     internal_error("Too many designators", 0);
                 }
@@ -11688,7 +11684,6 @@ static void check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
                 num_designators++;
             }
         }
-#undef MAX_DESIGNATORS
 
         _size_t computed_offset = 0;
 

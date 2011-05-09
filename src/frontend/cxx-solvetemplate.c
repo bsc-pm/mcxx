@@ -478,10 +478,8 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         type_t* function_type, decl_context_t decl_context,
         const char *filename, int line)
 {
-
-#define MAX_FEASIBLE_SPECIALIZATIONS (256)
-    type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
-    deduction_set_t *feasible_deductions[MAX_FEASIBLE_SPECIALIZATIONS];
+    type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
+    deduction_set_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
 
     type_t* extended_function_type = extend_function_with_return_type(function_type);
@@ -514,7 +512,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
                     filename, line, 
                     primary_symbol->entity_specs.is_conversion))
         {
-            ERROR_CONDITION(num_feasible_templates >= MAX_FEASIBLE_SPECIALIZATIONS,
+            ERROR_CONDITION(num_feasible_templates >= MCXX_MAX_FEASIBLE_SPECIALIZATIONS,
                     "Too many feasible deductions", 0);
             feasible_templates[num_feasible_templates] = primary_named_type;
             feasible_deductions[num_feasible_templates] = feasible_deduction;

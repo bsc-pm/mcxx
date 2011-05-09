@@ -55,6 +55,7 @@
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
+#include "cxx-limits.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -3461,15 +3462,14 @@ struct delayed_function_tag
     decl_context_t decl_context;
 };
 
-#define MAX_DELAYED_FUNCTIONS (1024)
 static int _next_delayed_function = 0;
-static struct delayed_function_tag _max_delayed_functions[MAX_DELAYED_FUNCTIONS];
+static struct delayed_function_tag _max_delayed_functions[MCXX_MAX_FUNCTIONS_PER_CLASS];
 
 static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
         scope_entry_t* entry,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(_next_delayed_function == MAX_DELAYED_FUNCTIONS,
+    ERROR_CONDITION(_next_delayed_function == MCXX_MAX_FUNCTIONS_PER_CLASS,
             "Too many delayed member functions!\n", 0);
 
     DEBUG_CODE()
@@ -4493,9 +4493,7 @@ static void set_function_parameter_clause(type_t** function_type,
     decl_context.decl_flags &= ~DF_TEMPLATE;
     decl_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
 
-#define MAX_PARAMETERS (256)
-    // Hope 256 will be enough
-    parameter_info_t parameter_info[MAX_PARAMETERS];
+    parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
     memset(parameter_info, 0, sizeof(parameter_info));
     int num_parameters = 0;
 
@@ -4549,7 +4547,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
     for_each_element(list, iter)
     {
-        if (num_parameters > MAX_PARAMETERS)
+        if (num_parameters > MCXX_MAX_FUNCTION_PARAMETERS)
         {
             running_error("%s: error: too many parameters (more than %d) in function declaration", 
                     ast_location(parameters),
@@ -4726,7 +4724,6 @@ static void set_function_parameter_clause(type_t** function_type,
             gather_info->num_parameters = 0;
         }
     }
-#undef MAX_PARAMETERS
 
     // Now create the type
     *function_type = get_new_function_type(*function_type, parameter_info, num_parameters);

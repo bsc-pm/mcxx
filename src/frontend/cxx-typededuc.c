@@ -84,8 +84,7 @@ char deduce_template_arguments_common(
         }
     }
 
-#define MAX_ARGUMENTS (256)
-    deduction_set_t *deductions[MAX_ARGUMENTS];
+    deduction_set_t *deductions[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(deductions, 0, sizeof(deductions));
 
     if (template_parameters == NULL)
@@ -251,7 +250,7 @@ char deduce_template_arguments_common(
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        ERROR_CONDITION(num_deduction_slots >= MAX_ARGUMENTS, "Too many arguments\n", 0);
+        ERROR_CONDITION(num_deduction_slots >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments\n", 0);
 
         type_t* argument_type = arguments[i];
         type_t* parameter_type = parameters[i];
@@ -318,8 +317,7 @@ char deduce_template_arguments_common(
         return 0;
 
     // 3. Check that all parameters have been deduced an argument
-#define MAX_TEMPLATE_PARAMETERS (256)
-    char c[MAX_TEMPLATE_PARAMETERS];
+    char c[MCXX_MAX_TEMPLATE_PARAMETERS];
     memset(c, 0, sizeof(c));
 
     char any_parameter_deduced = 0;
@@ -334,7 +332,7 @@ char deduce_template_arguments_common(
             ERROR_CONDITION(current_deduction->num_deduced_parameters > 1, 
                     "Error a parameter is deduced more than one argument here", 0);
 
-            ERROR_CONDITION(current_deduction->parameter_position > MAX_TEMPLATE_PARAMETERS,
+            ERROR_CONDITION(current_deduction->parameter_position > MCXX_MAX_TEMPLATE_PARAMETERS,
                     "Too many template parameters", 0);
 
             c[current_deduction->parameter_position] = 1;

@@ -91,5 +91,6 @@ array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info
 AST|all|bitfield_expr|Expression of the bitfield
 scope|all|bitfield_expr_context|Context for the bitfield expression
 typeof(_size_t)|all|field_offset|Offsetof of a field/nonstatic data-member
-static_array(typeof(gather_gcc_attribute_t), MAX_GCC_ATTRIBUTES_PER_SYMBOL)|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
+static_array(typeof(gather_gcc_attribute_t), MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 AST|all|definition_tree|The tree where this function or class has been defined
+typeof(codegen_status_t)|all|codegen_status|Status during codegen

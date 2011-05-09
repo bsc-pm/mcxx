@@ -694,12 +694,11 @@ type_t* get_bool_of_integer_type(type_t* t)
 {
     ERROR_CONDITION(!is_integer_type(t), "Invalid type for bool", 0);
 
-#define MAX_BOOL_SIZE 16
-    static type_t* _bool_types[MAX_BOOL_SIZE + 1] = { 0 };
+    static type_t* _bool_types[MCXX_MAX_BYTES_INTEGER + 1] = { 0 };
 
     _size_t s = type_get_size(t);
 
-    ERROR_CONDITION(s > MAX_BOOL_SIZE, "Integer of size %d too big for bool", s);
+    ERROR_CONDITION(s > MCXX_MAX_BYTES_INTEGER, "Integer of size %d too big for bool", s);
 
     if (_bool_types[s] == NULL)
     {
@@ -3157,10 +3156,8 @@ char class_type_is_dynamic(type_t* t)
     return 0;
 }
 
-#define MAX_CLASS_TYPES (256)
-
 static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_type,
-        type_t* list[MAX_CLASS_TYPES], int num_elems)
+        type_t* list[MCXX_MAX_SCOPES_NESTING], int num_elems)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid unnamed class type", 0);
 
@@ -3178,8 +3175,8 @@ static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_t
         if (!is_virtual
                 && class_type_is_empty(base_class->type_information))
         {
-            ERROR_CONDITION(num_elems == MAX_CLASS_TYPES,
-                    "Too deep hierarchy > %d\n", MAX_CLASS_TYPES);
+            ERROR_CONDITION(num_elems == MCXX_MAX_SCOPES_NESTING,
+                    "Too deep hierarchy > %d\n", MCXX_MAX_SCOPES_NESTING);
 
             int j;
             for (j = 0; j < num_elems; j++)
@@ -3206,14 +3203,12 @@ static char has_non_virtual_empty_base_class_not_zero_offset(type_t* class_type)
     ERROR_CONDITION(!is_class_type(class_type),
             "This is not a class type", 0);
 
-    type_t* list[MAX_CLASS_TYPES] = { 0 };
+    type_t* list[MCXX_MAX_SCOPES_NESTING] = { 0 };
 
     return has_non_virtual_empty_base_class_not_zero_offset_rec(
             get_actual_class_type(class_type), 
             list, /* num_elems */ 0);
 }
-
-#undef MAX_CLASS_TYPES
 
 char class_type_is_nearly_empty(type_t* t)
 {
@@ -6987,7 +6982,6 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
 // This function checks at the same time similarity and convertibility
 char pointer_types_can_be_converted(type_t* orig, type_t* dest)
 {
-#define MAX_QUALIFS (256)
     ERROR_CONDITION(
             !((is_pointer_type(orig) 
                     && is_pointer_type(dest))
@@ -7000,15 +6994,15 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest)
     type_t* t2 = dest;
 
     int num_qualifs = 0;
-    cv_qualifier_t qualifs1[MAX_QUALIFS];
-    cv_qualifier_t qualifs2[MAX_QUALIFS];
+    cv_qualifier_t qualifs1[MCXX_MAX_QUALIFIER_CONVERSION];
+    cv_qualifier_t qualifs2[MCXX_MAX_QUALIFIER_CONVERSION];
 
     while ((is_pointer_type(t1)
                 && is_pointer_type(t2))
             || (is_pointer_to_member_type(t1)
                 && is_pointer_to_member_type(t2)))
     {
-        ERROR_CONDITION(num_qualifs >= MAX_QUALIFS, "Too much qualifiers\n", 0);
+        ERROR_CONDITION(num_qualifs >= MCXX_MAX_QUALIFIER_CONVERSION, "Too many qualifiers\n", 0);
         qualifs1[num_qualifs] = get_cv_qualifier(t1);
         qualifs2[num_qualifs] = get_cv_qualifier(t2);
         num_qualifs++;
@@ -7029,7 +7023,7 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest)
     }
 
     // Add the qualifier of the non-pointer-type
-    ERROR_CONDITION(num_qualifs >= MAX_QUALIFS, "Too much qualifiers\n", 0);
+    ERROR_CONDITION(num_qualifs >= MCXX_MAX_QUALIFIER_CONVERSION, "Too many qualifiers\n", 0);
     qualifs1[num_qualifs] = get_cv_qualifier(t1);
     qualifs2[num_qualifs] = get_cv_qualifier(t2);
     num_qualifs++;

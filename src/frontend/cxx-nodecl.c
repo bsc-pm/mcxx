@@ -3,6 +3,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-attrnames.h"
 #include "cxx-tltype.h"
+#include "cxx-exprtype.h"
 
 static void c_simplify_tree_decl(AST a, AST *out);
 static void c_simplify_tree_stmt(AST a, AST *out);
@@ -95,6 +96,16 @@ static void c_simplify_tree_function_def(AST a, AST *out)
     AST declarator_name = get_declarator_name(function_declarator,
             scope_link_get_decl_context(CURRENT_COMPILED_FILE->scope_link, function_declarator));
 
+    tl_type_t* tl_data = ASTAttrValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t);
+
+    ERROR_CONDITION (tl_data == NULL 
+            || tl_data->kind != TL_SYMBOL
+            || tl_data->data._entry == NULL, 
+            "Invalid declarator", 0);
+
+    scope_entry_t* entry = tl_data->data._entry;
+    expression_set_symbol(declarator_name, entry);
+
     ERROR_CONDITION(declarator_name == NULL, "Invalid tree", 0);
 
     AST function_body = ASTSon3(a);
@@ -161,16 +172,19 @@ static void c_simplify_tree_stmt(AST a, AST *out)
                 AST new_inner_seq = NULL;
                 AST statement_seq = ASTSon0(a);
                 AST it;
-                for_each_element(statement_seq, it)
+                if (statement_seq != NULL)
                 {
-                    AST stmt = ASTSon1(it);
-
-                    AST new_stmt = NULL;
-                    c_simplify_tree_stmt(stmt, &new_stmt);
-
-                    if (new_stmt != NULL)
+                    for_each_element(statement_seq, it)
                     {
-                        new_inner_seq = ASTList(new_inner_seq, new_stmt);
+                        AST stmt = ASTSon1(it);
+
+                        AST new_stmt = NULL;
+                        c_simplify_tree_stmt(stmt, &new_stmt);
+
+                        if (new_stmt != NULL)
+                        {
+                            new_inner_seq = ASTList(new_inner_seq, new_stmt);
+                        }
                     }
                 }
 

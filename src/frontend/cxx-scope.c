@@ -1371,14 +1371,12 @@ static decl_context_t lookup_qualification_scope(
     return result;
 }
 
-#define MAX_CLASS_PATH (64)
-
 typedef
 struct class_scope_lookup_tag
 {
     int path_length;
-    type_t* path[MAX_CLASS_PATH];
-    char is_virtual[MAX_CLASS_PATH];
+    type_t* path[MCXX_MAX_SCOPES_NESTING];
+    char is_virtual[MCXX_MAX_SCOPES_NESTING];
 
     scope_entry_list_t* entry_list;
 } class_scope_lookup_t;
@@ -1434,17 +1432,16 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
 
     // Fill our information
     derived->path_length++;
-    ERROR_CONDITION(derived->path_length == MAX_CLASS_PATH, "Class path too long", 0);
+    ERROR_CONDITION(derived->path_length == MCXX_MAX_SCOPES_NESTING, "Class path too long", 0);
 
     derived->path[derived->path_length - 1] = current_class_type;
     derived->is_virtual[derived->path_length - 1] = is_virtual;
 
-#define MAX_BASES (64)
-    class_scope_lookup_t bases_lookup[MAX_BASES];
+    class_scope_lookup_t bases_lookup[MCXX_MAX_CLASS_BASES];
     memset(bases_lookup, 0, sizeof(bases_lookup));
 
     int num_bases = class_type_get_num_bases(current_class_type);
-    ERROR_CONDITION(num_bases > MAX_BASES, "Too many bases", 0);
+    ERROR_CONDITION(num_bases > MCXX_MAX_CLASS_BASES, "Too many bases", 0);
 
     for (i = 0; i < num_bases; i++)
     {
@@ -1857,8 +1854,6 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
     entry_list_iterator_free(it);
 }
 
-#define MAX_ASSOCIATED_NAMESPACES (64)
-
 static scope_entry_list_t* query_in_namespace_and_associates(
         scope_entry_t* namespace,
         const char* name, 
@@ -1898,8 +1893,8 @@ static scope_entry_list_t* query_in_namespace_and_associates(
             }
             if (!found)
             {
-                if ((idx_associated_namespaces + new_num_associated_namespaces) == MAX_ASSOCIATED_NAMESPACES)
-                    running_error("Too many associated namespaces > %d", MAX_ASSOCIATED_NAMESPACES);
+                if ((idx_associated_namespaces + new_num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated namespaces > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
                 associated_namespaces[idx_associated_namespaces + new_num_associated_namespaces] = current_scope->use_namespace[k];
                 new_num_associated_namespaces++;
             }
@@ -1935,13 +1930,13 @@ static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace,
 
     scope_t* current_scope = namespace->related_decl_context.current_scope;
 
-    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES];
+    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
 
     int i;
     for (i = 0; i < current_scope->num_used_namespaces; i++)
     {
-        if (i == MAX_ASSOCIATED_NAMESPACES)
-            running_error("Too many associated namespaces > %d", MAX_ASSOCIATED_NAMESPACES);
+        if (i == MCXX_MAX_ASSOCIATED_NAMESPACES)
+            running_error("Too many associated namespaces > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
         associated_namespaces[i] = current_scope->use_namespace[i];
     }
 
@@ -1986,7 +1981,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     scope_entry_list_t* result = NULL;
 
     int num_associated_namespaces = 0;
-    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
+    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES] = { 0 };
 
     scope_t* current_scope = decl_context.current_scope;
 
@@ -2012,8 +2007,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             }
             if (!found)
             {
-                if (num_associated_namespaces == MAX_ASSOCIATED_NAMESPACES)
-                    running_error("Too many associated scopes > %d", MAX_ASSOCIATED_NAMESPACES);
+                if (num_associated_namespaces == MCXX_MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
                 associated_namespaces[num_associated_namespaces] = current_scope->use_namespace[i];
                 num_associated_namespaces++;
             }
@@ -2815,8 +2810,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 return NULL;
         }
 
-#define MAX_PARAMETERS (256)
-        parameter_info_t parameter_types[MAX_PARAMETERS];
+        parameter_info_t parameter_types[MCXX_MAX_FUNCTION_PARAMETERS];
         memset(parameter_types, 0, sizeof(parameter_types));
         int num_parameters = 0;
         int last = function_type_get_num_parameters(orig_type);
@@ -2842,7 +2836,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             memset(&parameter_info, 0, sizeof(parameter_info));
             parameter_info.type_info = param_orig_type;
 
-            ERROR_CONDITION(num_parameters >= MAX_PARAMETERS,
+            ERROR_CONDITION(num_parameters >= MCXX_MAX_FUNCTION_PARAMETERS,
                     "Too many parameters", 0);
 
             parameter_types[num_parameters] = parameter_info;
@@ -2856,7 +2850,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             memset(&parameter_info, 0, sizeof(parameter_info));
             parameter_info.is_ellipsis = 1;
 
-            ERROR_CONDITION(num_parameters >= MAX_PARAMETERS,
+            ERROR_CONDITION(num_parameters >= MCXX_MAX_FUNCTION_PARAMETERS,
                     "Too many parameters", 0);
 
             parameter_types[num_parameters] = parameter_info;
@@ -3262,7 +3256,7 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
         }
 
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             update_unresolved_overloaded_type(unresolved_type, solved_type, ASTChild(tree, i));
         }
@@ -3979,7 +3973,7 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
     scope_entry_list_t* result = NULL;
 
     int num_associated_namespaces = 0;
-    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
+    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES] = { 0 };
 
     scope_t* current_scope = decl_context.current_scope;
 

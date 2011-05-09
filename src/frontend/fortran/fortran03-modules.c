@@ -1,5 +1,6 @@
 #include "fortran03-modules.h"
 #include "fortran03-buildscope.h"
+#include "cxx-limits.h"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
@@ -523,11 +524,11 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
     if (oid_already_inserted(handle, "ast", a))
         return (sqlite3_int64)(intptr_t)a;
 
-    sqlite3_int64 children[MAX_AST_CHILDREN];
+    sqlite3_int64 children[MCXX_MAX_AST_CHILDREN];
     memset(children, 0, sizeof(children));
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         AST child = ast_get_child(a, i);
         if (child != NULL)
@@ -817,7 +818,7 @@ static int get_extra_gcc_attrs(void *datum,
     const char* tree = q+1;
 
     p->symbol->entity_specs.num_gcc_attributes++;
-    ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
+    ERROR_CONDITION(p->symbol->entity_specs.num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL, 
             "Too many gcc attributes", 0);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
@@ -1179,13 +1180,13 @@ static int get_ast(void *datum,
     const char *filename = values[2];
     int line = safe_atoll(values[3]);
     const char* text = values[4];
-    // Children: 5  + 0 -> 5 + MAX_AST_CHILDREN 
-    sqlite3_int64 type_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + 1]);
-    sqlite3_int64 sym_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + 2]);
-    char is_lvalue = safe_atoll(values[5 + MAX_AST_CHILDREN + 3]);
-    char is_const_val = safe_atoll(values[5 + MAX_AST_CHILDREN + 4]);
-    sqlite3_int64 const_val = safe_atoll(values[5 + MAX_AST_CHILDREN + 5]);
-    char is_value_dependent = safe_atoll(values[5 + MAX_AST_CHILDREN + 6]);
+    // Children: 5  + 0 -> 5 + MCXX_MAX_AST_CHILDREN 
+    sqlite3_int64 type_oid = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 1]);
+    sqlite3_int64 sym_oid = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 2]);
+    char is_lvalue = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 3]);
+    char is_const_val = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
+    sqlite3_int64 const_val = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
+    char is_value_dependent = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 6]);
 
     p->a = ASTLeaf(node_kind, filename, line, text);
     AST a = p->a;
@@ -1193,9 +1194,9 @@ static int get_ast(void *datum,
     insert_map_ptr(handle, oid, a);
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        sqlite3_int64 child_oid = safe_atoll(values[5 + MAX_AST_CHILDREN + i]);
+        sqlite3_int64 child_oid = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + i]);
         AST child_tree = load_ast(handle, child_oid);
 
         ast_set_child(a, i, child_tree);
@@ -1335,15 +1336,14 @@ static int get_type(void *datum,
     {
         char *copy = strdup(types);
 
-#define MAX_PARAMETERS 256
-        parameter_info_t parameter_info[MAX_PARAMETERS];
+        parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
         memset(parameter_info, 0, sizeof(parameter_info));
 
         int num_parameters = 0;
         char *field = strtok(copy, ",");
         while (field != NULL)
         {
-            ERROR_CONDITION(num_parameters == MAX_PARAMETERS, "Too many parameters %d", num_parameters);
+            ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
 
             parameter_info[num_parameters].type_info = load_type(handle, safe_atoll(field));
 

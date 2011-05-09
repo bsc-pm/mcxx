@@ -38,6 +38,7 @@
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
 #include "cxx-type-decls.h"
+#include "cxx-limits.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
@@ -290,8 +291,15 @@ enum intent_kind_tag
     INTENT_OUT = 2,
     INTENT_INOUT = INTENT_IN | INTENT_OUT,
 } intent_kind_t;
-
 #endif
+
+enum codegen_status_tag
+{
+    CODEGEN_STATUS_NONE = 0,
+    CODEGEN_STATUS_DECLARED,
+    CODEGEN_STATUS_DEFINED
+};
+typedef enum codegen_status_tag codegen_status_t;
 
 // Looking for struct entity_specifiers_tag?
 // Now it is declared in cxx-entity-specs.h in builddir

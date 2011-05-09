@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "cxx-ast.h"
+#include "cxx-limits.h"
 
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -52,7 +53,7 @@ struct AST_tag
     node_t node_type:10; 
 
     // This is a bitmap for the sons
-    unsigned int bitmap_sons:MAX_AST_CHILDREN;
+    unsigned int bitmap_sons:MCXX_MAX_AST_CHILDREN;
 
     // Number of ambiguities of this node
     int num_ambig;
@@ -84,7 +85,7 @@ static int count_bitmap(unsigned int bitmap)
 {
     int i;
     int s = 0;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         s += bitmap & 1;
         bitmap = bitmap >> 1;
@@ -241,7 +242,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
 
     // Now for every old son, update the new children
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         // Note that when shrinking the node ast_has_son
         // will always return false for num_child.
@@ -301,7 +302,7 @@ int ast_num_children(const_AST a)
     int max = 0;
     int i;
     unsigned int bitmap = a->bitmap_sons;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if ((1 << i) & bitmap)
         {
@@ -321,7 +322,7 @@ char ast_check(const_AST node)
     if (node != NULL)
     {
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             if (ast_get_child(node, i) != NULL)
             {
@@ -388,7 +389,7 @@ static int ast_get_number_of_son(const_AST a)
     const_AST parent = ASTParent(a);
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(parent, i) == a)
             return i;
@@ -561,7 +562,7 @@ AST ast_copy(const_AST a)
     ast_copy_one_node(result, (AST)a);
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy(ast_get_child(a, i)));
     }
@@ -598,7 +599,7 @@ void ast_clear_extended_data(AST a)
     {
         a->extended_data = NULL;
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             ast_clear_extended_data(ast_get_child(a, i));
         }
@@ -629,7 +630,7 @@ AST ast_copy_for_instantiation(const_AST a)
     result->extended_data = NULL;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy_for_instantiation(ast_get_child(a, i)));
     }
@@ -804,7 +805,7 @@ char ast_equal (const_AST ast1, const_AST ast2)
     if (ast1 == NULL)
         return 1;
 
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (!ast_equal(ast_get_child(ast1, i), ast_get_child(ast2, i)))
             return 0;
@@ -926,7 +927,7 @@ void ast_free(AST a)
         else
         {
             int i;
-            for (i = 0; i < MAX_AST_CHILDREN; i++)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
             {
                 ast_free(ast_get_child(a, i));
             }
@@ -989,7 +990,7 @@ void ast_replace_with_ambiguity(AST a, int n)
     // Correctly relink to the parent
     ast_set_parent(a, parent);
 
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(a, i) != NULL)
         {
@@ -1037,7 +1038,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
     }
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), sl));
     }

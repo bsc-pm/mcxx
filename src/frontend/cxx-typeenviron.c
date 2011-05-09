@@ -421,8 +421,6 @@ static void cxx_abi_union_sizeof(type_t* t)
     system_v_union_sizeof(t);
 }
 
-#define MAX_BASES 32
-
 typedef
 struct base_info_preorder_tag
 {
@@ -431,10 +429,10 @@ struct base_info_preorder_tag
 } base_info_preorder_t;
 
 static void class_type_preorder_all_bases_rec(type_t* t,
-        base_info_preorder_t base_info[MAX_BASES], int *num_elems)
+        base_info_preorder_t base_info[MCXX_MAX_CLASS_BASES], int *num_elems)
 {
     type_t* class_type = get_actual_class_type(t);
-    ERROR_CONDITION((*num_elems) == MAX_BASES, 
+    ERROR_CONDITION((*num_elems) == MCXX_MAX_CLASS_BASES, 
             "Too many bases (%d)\n", (*num_elems));
 
     int num_bases = class_type_get_num_bases(class_type);
@@ -473,7 +471,7 @@ static void class_type_preorder_all_bases_rec(type_t* t,
 }
 
 static void class_type_preorder_all_bases(type_t* t,
-        base_info_preorder_t base_info[MAX_BASES],
+        base_info_preorder_t base_info[MCXX_MAX_CLASS_BASES],
         int *num_elems)
 {
     *num_elems = 0;
@@ -483,9 +481,9 @@ static void class_type_preorder_all_bases(type_t* t,
 static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char *is_virtual);
 
 static void class_type_get_indirect_virtual_primary_bases(
-        base_info_preorder_t bases[MAX_BASES],
+        base_info_preorder_t bases[MCXX_MAX_CLASS_BASES],
         int num_bases, 
-        base_info_preorder_t indirect_primary_bases[MAX_BASES],
+        base_info_preorder_t indirect_primary_bases[MCXX_MAX_CLASS_BASES],
         int *num_primaries)
 {
     (*num_primaries) = 0;
@@ -514,7 +512,7 @@ static void class_type_get_indirect_virtual_primary_bases(
 
             if (!is_found)
             {
-                ERROR_CONDITION((*num_primaries) == MAX_BASES,
+                ERROR_CONDITION((*num_primaries) == MCXX_MAX_CLASS_BASES,
                         "Too many primaries (%d)!", (*num_primaries));
                 indirect_primary_bases[(*num_primaries)].entry = entry;
                 // This is always 1 since we are only interested in virtual ones
@@ -533,7 +531,7 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
     type_t* class_type = get_actual_class_type(t);
 
     int num_bases = 0;
-    base_info_preorder_t base_info[MAX_BASES];
+    base_info_preorder_t base_info[MCXX_MAX_CLASS_BASES];
 
     class_type_preorder_all_bases(class_type, base_info, &num_bases);
 
@@ -541,7 +539,7 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
     // primary base classes for some other direct or indirect base class
 
     int num_primaries = 0;
-    base_info_preorder_t indirect_primary_bases[MAX_BASES];
+    base_info_preorder_t indirect_primary_bases[MCXX_MAX_CLASS_BASES];
 
     class_type_get_indirect_virtual_primary_bases(base_info, num_bases,
             // indirect primary bases will be stored in 'indirect_primary_bases'
@@ -1328,7 +1326,7 @@ static void cxx_abi_class_sizeof(type_t* class_type)
     {
         // Virtual bases allocation
         int num_bases = 0;
-        base_info_preorder_t base_info[MAX_BASES];
+        base_info_preorder_t base_info[MCXX_MAX_CLASS_BASES];
 
         class_type_preorder_all_bases(class_type, base_info, &num_bases);
 
@@ -1346,7 +1344,7 @@ static void cxx_abi_class_sizeof(type_t* class_type)
 
         // Get all the indirect primary bases since we won'class_type allocate these here
         int num_primaries = 0;
-        base_info_preorder_t indirect_primary_bases[MAX_BASES];
+        base_info_preorder_t indirect_primary_bases[MCXX_MAX_CLASS_BASES];
 
         class_type_get_indirect_virtual_primary_bases(base_info, num_bases,
                 // indirect primary bases will be stored in 'indirect_primary_bases'
