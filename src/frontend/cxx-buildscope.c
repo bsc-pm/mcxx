@@ -7302,6 +7302,25 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     entry->defined = 1;
     entry->point_of_definition = get_enclosing_declaration(a);
     
+    // Keep parameter names
+    int i;
+    for (i = 0; i < gather_info.num_parameters; i++)
+    {
+        // In C they must have name
+        C_LANGUAGE()
+        {
+            if (gather_info.arguments_info[i].entry == NULL)
+            {
+                running_error("%s: error: parameter '%d' does not have name\n", 
+                        ast_location(ASTSon1(a)),
+                        i);
+            }
+        }
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                gather_info.arguments_info[i].entry);
+    }
+
     {
         // Function declaration name
         AST declarator_name = get_declarator_name(ASTSon1(a), decl_context);
@@ -7453,10 +7472,10 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             "__PRETTY_FUNCTION__"
         };
 
-        unsigned int i;
-        for (i = 0; i < STATIC_ARRAY_LENGTH(func_names); i++)
+        unsigned int j;
+        for (j = 0; j < STATIC_ARRAY_LENGTH(func_names); j++)
         {
-            scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[i]);
+            scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[j]);
             func_var->kind = SK_VARIABLE;
             func_var->type_information = const_char_ptr_const_type;
             func_var->expression_value = function_name_tree;

@@ -77,7 +77,7 @@ bool|fortran|bind_c|This symbol has a BIND(C) attribute
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist
-array(symbol)|fortran|related_symbols|Related symbols for this entity. Meaningful for NAMELIST, COMMON, FUNCTION, SUBROUTINE and MODULE
+array(symbol)|all|related_symbols|Related symbols for this entity. Meaningful for NAMELIST, COMMON, FUNCTION, SUBROUTINE and MODULE and C/C++ functions
 symbol|fortran|specific_intrinsic|For some INTRINSICs they have a specific function to be used when referenced not in a call. See is_builtin
 typeof(access_specifier_t)|all|access|Accessibility: public, private, protected
 integer|all|template_parameter_nesting|Nesting in the template parameter scoping hierarchy. See is_template_parameter
