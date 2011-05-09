@@ -36,7 +36,6 @@
 
 MCXX_BEGIN_DECLS
 
-
 // This structure gather things of a declaration in one place so we can use
 // along a whole declaration. Parts of a declaration belong just to type while
 // others belong to the symbol but they do not appear syntactically in the same
@@ -77,7 +76,12 @@ struct gather_decl_spec_tag {
     unsigned int vector_size;
     char is_vector;
     int num_parameters;
-    struct default_argument_info_tag **default_argument_info;
+    struct 
+    {
+        scope_entry_t* entry;
+        AST argument;
+        decl_context_t context;
+    } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
 
     // Attribute info
     int num_gcc_attributes;

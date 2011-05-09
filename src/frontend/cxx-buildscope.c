@@ -4695,19 +4695,12 @@ static void set_function_parameter_clause(type_t** function_type,
         parameter_info[num_parameters].type_info = get_unqualified_type(type_info);
         parameter_info[num_parameters].nonadjusted_type_info = original_type;
 
-        {
-            /* 
-             * Default argument info (note that it is not being checked)
-             */
-            default_argument_info_t *new_default_arg = NULL; 
-            if (default_argument != NULL)
-            {
-                new_default_arg = counted_calloc(1, sizeof(*new_default_arg), &_bytes_used_buildscope);
-                new_default_arg->argument = default_argument;
-                new_default_arg->context = decl_context;
-            }
-            P_LIST_ADD(gather_info->default_argument_info, gather_info->num_parameters, new_default_arg);
-        }
+        ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, 
+                "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
+
+        gather_info->arguments_info[num_parameters].entry = entry;
+        gather_info->arguments_info[num_parameters].argument = default_argument;
+        gather_info->arguments_info[num_parameters].context = decl_context;
 
         num_parameters++;
     }
@@ -5096,9 +5089,15 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         for (i = 0; i < gather_info->num_parameters; i++)
         {
             if (function_symbol->entity_specs.default_argument_info[i] == NULL
-                    && gather_info->default_argument_info[i] != NULL)
+                    && gather_info->arguments_info[i].argument != NULL)
             {
-                function_symbol->entity_specs.default_argument_info[i] = gather_info->default_argument_info[i];
+                if (function_symbol->entity_specs.default_argument_info[i] == NULL)
+                {
+                    function_symbol->entity_specs.default_argument_info[i] 
+                        = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                }
+                function_symbol->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
+                function_symbol->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
             }
         }
     }
@@ -5348,9 +5347,13 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 for (i = 0; i < gather_info->num_parameters; i++)
                 {
                     if (entry->entity_specs.default_argument_info[i] == NULL
-                            && gather_info->default_argument_info[i] != NULL)
+                            && gather_info->arguments_info[i].argument != NULL)
                     {
-                        entry->entity_specs.default_argument_info[i] = gather_info->default_argument_info[i];
+                        entry->entity_specs.default_argument_info[i] 
+                            = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+
+                        entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
+                        entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
                     }
                 }
             }
@@ -5397,12 +5400,20 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             fprintf(stderr, "Number of parameters %d\n", gather_info->num_parameters);
         }
 
+        entry->entity_specs.num_parameters = gather_info->num_parameters;
+        entry->entity_specs.default_argument_info = counted_calloc(entry->entity_specs.num_parameters,
+                sizeof(*(entry->entity_specs.default_argument_info)), 
+                &_bytes_used_buildscope);
         int i;
         for (i = 0; i < gather_info->num_parameters; i++)
         {
-            P_LIST_ADD(entry->entity_specs.default_argument_info,
-                    entry->entity_specs.num_parameters,
-                    gather_info->default_argument_info[i]);
+            if (gather_info->arguments_info[i].argument != NULL)
+            {
+                entry->entity_specs.default_argument_info[i] = 
+                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
+                entry->entity_specs.default_argument_info[i]->argument = gather_info->arguments_info[i].argument;
+                entry->entity_specs.default_argument_info[i]->context = gather_info->arguments_info[i].context;
+            }
         }
         
         // Copy exception info as well
@@ -5672,8 +5683,26 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.exceptions = gather_info->exceptions;
 
         new_entry->entity_specs.num_parameters = gather_info->num_parameters;
-        new_entry->entity_specs.default_argument_info = gather_info->default_argument_info;
-        
+
+        new_entry->entity_specs.default_argument_info = 
+            counted_calloc(gather_info->num_parameters, 
+                    sizeof(*new_entry->entity_specs.default_argument_info),
+                    &_bytes_used_buildscope);
+
+        int i;
+        for (i = 0; i < gather_info->num_parameters; i++)
+        {
+            if (gather_info->arguments_info[i].argument != NULL)
+            {
+                new_entry->entity_specs.default_argument_info[i] = 
+                    (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), 
+                            &_bytes_used_buildscope);
+                new_entry->entity_specs.default_argument_info[i]->argument = 
+                    gather_info->arguments_info[i].argument;
+                new_entry->entity_specs.default_argument_info[i]->context = 
+                    gather_info->arguments_info[i].context;
+            }
+        }
         
         if (is_named_type(new_entry->type_information))
         {
