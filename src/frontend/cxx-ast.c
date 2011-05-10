@@ -423,7 +423,9 @@ static void ast_fix_one_ast_field_rec(
         }
 
         // Now update node 'new' with 'iter'
-        ASTAttrSetValueType(new, field_name, tl_type_t, tl_ast(iter));
+        // Note that we are not using ast_set_link_to_child since field_name is
+        // already mangled here
+        ast_set_field(new, field_name, iter);
     }
     else if (current == NULL)
     {
@@ -484,7 +486,7 @@ static void ast_copy_extended_data(AST new, const_AST orig)
 
     int num_fields = 0;
     const char ** keys = NULL;
-    const void ** values = NULL;
+    void ** values = NULL;
 
     extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
 
@@ -492,9 +494,8 @@ static void ast_copy_extended_data(AST new, const_AST orig)
     for (i = 0; i < num_fields; i++)
     {
         const char *field_name = keys[i];
-
-        tl_type_t* tl_data = (tl_type_t*)values[i];;
-        ASTAttrSetValueType(new, field_name, tl_type_t, (*tl_data));
+        void *data = values[i];
+        ast_set_field(new, field_name, data);
     }
 
     free(keys);
@@ -510,7 +511,7 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     // First get all TL_AST in 'orig' that point to its childrens
     int num_fields = 0;
     const char ** keys = NULL;
-    const void ** values = NULL;
+    void ** values = NULL;
 
     extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
 
@@ -528,15 +529,15 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     for (i = 0; i < num_fields; i++)
     {
         const char* field_name = keys[i];
-        tl_type_t* tl_data = (tl_type_t*)values[i];
+        void *data = values[i];
 
-        if (tl_data->kind == TL_AST
-                && tl_data->data._ast != NULL)
+        if (ast_field_name_is_link_to_child(field_name))
         {
-            if (ast_is_parent(/* potential parent */ orig, /* node */ tl_data->data._ast))
+            AST tree = (AST)data;
+            if (ast_is_parent(/* potential parent */ orig, /* node */ tree))
             {
                 tl_data_index[num_ast_fields].field_name = field_name;
-                tl_data_index[num_ast_fields].ast = tl_data->data._ast;
+                tl_data_index[num_ast_fields].ast = tree;
                 num_ast_fields++;
             }
         }
@@ -1104,4 +1105,34 @@ extensible_struct_t* ast_get_initalized_extensible_struct(AST a)
 {
     ast_init_extensible_struct(a);
     return a->extended_data;
+}
+
+static const char* ast_fields_prefix = ".ast_";
+
+char ast_field_name_is_link_to_child(const char* name)
+{
+    return (strlen(name) > strlen(ast_fields_prefix))
+        && (strncmp(name, ast_fields_prefix, strlen(ast_fields_prefix)) == 0);
+}
+
+static const char* mangle_name_for_ast_field(const char* name)
+{
+    int num_chars = strlen(name) + strlen(ast_fields_prefix);
+    char mangled_name[num_chars + 1];
+    memset(mangled_name, 0, sizeof(mangled_name));
+    snprintf(mangled_name, num_chars, "%s%s", ast_fields_prefix, name);
+
+    return uniquestr(mangled_name);
+}
+
+// Set a link to a (possibly indirect) child
+void ast_set_link_to_child(AST a, const char* name, AST child)
+{
+    ast_set_field(a, mangle_name_for_ast_field(name), child);
+}
+
+// Get child node
+AST ast_get_link_to_child(AST a, const char* name)
+{
+    return ast_get_field(a, mangle_name_for_ast_field(name));
 }

@@ -354,7 +354,7 @@ static void build_scope_main_program_unit(AST program_unit,
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
+    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
 }
 
 static void build_scope_function_program_unit(AST program_unit, 
@@ -395,7 +395,7 @@ static void build_scope_function_program_unit(AST program_unit,
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
+    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
 }
 
 static void build_scope_subroutine_program_unit(AST program_unit, 
@@ -444,7 +444,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(program_body));
+    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
@@ -481,7 +481,7 @@ static void build_scope_module_program_unit(AST program_unit,
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, tl_type_t, tl_ast(module_body));
+    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, module_body);
 
     // Keep the module in the file's module cache
     rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
@@ -746,8 +746,8 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
     clear_unknown_symbols(decl_context);
 
-    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, tl_type_t, tl_ast(program_unit_stmts));
-    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, tl_type_t, tl_ast(internal_subprograms));
+    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, program_unit_stmts);
+    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, internal_subprograms);
 }
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context,
@@ -806,8 +806,8 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         seen_internal_subprograms = 1;
     }
 
-    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, tl_type_t, tl_ast(program_unit_stmts));
-    ASTAttrSetValueType(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, tl_type_t, tl_ast(internal_subprograms));
+    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, program_unit_stmts);
+    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, internal_subprograms);
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t);
@@ -1986,7 +1986,7 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
+    ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);
 }
 
 static void build_scope_associate_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2084,7 +2084,7 @@ static void build_scope_block_construct(AST a, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(ASTSon0(a)));
+    ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context)
@@ -2096,8 +2096,8 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
-    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, expr);
+    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 }
 
 static void build_scope_case_statement(AST a, decl_context_t decl_context)
@@ -2130,8 +2130,8 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_CASE_EXPRESSION, tl_type_t, tl_ast(case_selector));
-    ASTAttrSetValueType(a, LANG_CASE_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_CASE_EXPRESSION, case_selector);
+    ast_set_link_to_child(a, LANG_CASE_STATEMENT_BODY, statement);
 }
 
 static void build_scope_default_statement(AST a, decl_context_t decl_context)
@@ -2154,7 +2154,7 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
+    ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, list);
 }
 
 static void build_scope_close_stmt(AST a, decl_context_t decl_context)
@@ -2340,8 +2340,8 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
-    ASTAttrSetValueType(a, LANG_LABELED_STATEMENT, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
+    ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 }
 
 static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2830,9 +2830,9 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(block, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_FORTRAN_DO_INIT, tl_type_t, tl_ast(assig));
-    ASTAttrSetValueType(a, LANG_FORTRAN_DO_UPPER, tl_type_t, tl_ast(upper));
-    ASTAttrSetValueType(a, LANG_FORTRAN_DO_STRIDE, tl_type_t, tl_ast(stride));
+    ast_set_link_to_child(a, LANG_FORTRAN_DO_INIT, assig);
+    ast_set_link_to_child(a, LANG_FORTRAN_DO_UPPER, upper);
+    ast_set_link_to_child(a, LANG_FORTRAN_DO_STRIDE, stride);
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
@@ -2953,9 +2953,9 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_CONDITION, tl_type_t, tl_ast(logical_expr));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_THEN_BODY, tl_type_t, tl_ast(then_statement));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_ELSE_BODY, tl_type_t, tl_ast(else_statement));
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_CONDITION, logical_expr);
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_statement);
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_statement);
 }
 
 static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
@@ -4352,8 +4352,8 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context)
     fortran_build_scope_statement(block, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_CONDITION, tl_type_t, tl_ast(expr));
-    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_BODY, tl_type_t, tl_ast(block));
+    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, expr);
+    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, block);
 }
 
 static void build_scope_write_stmt(AST a, decl_context_t decl_context)

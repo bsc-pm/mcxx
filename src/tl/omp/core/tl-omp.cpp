@@ -246,7 +246,7 @@ namespace TL
             // Use the DTO instead
 
             // get the translation_unit tree
-            translation_unit = data_flow["translation_unit"];
+            translation_unit = AST_t(data_flow["translation_unit"]);
             // get the scope_link
             scope_link = data_flow["scope_link"];
             // Get the global_scope

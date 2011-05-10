@@ -33,14 +33,14 @@ namespace TL { namespace CUDA {
 
     Expression KernelCall::get_called_expression()
     {
-        AST_t called_expr = _ref.get_attribute(LANG_CALLED_EXPRESSION);
+        AST_t called_expr = _ref.get_link_to_child(LANG_CALLED_EXPRESSION);
 
         return Expression(called_expr, _scope_link);
     }
 
     ObjectList<Expression> KernelCall::get_argument_list()
     {
-        AST_t expression_list = _ref.get_attribute(LANG_FUNCTION_ARGUMENTS);
+        AST_t expression_list = _ref.get_link_to_child(LANG_FUNCTION_ARGUMENTS);
 
         ObjectList<Expression> result;
 
@@ -62,7 +62,7 @@ namespace TL { namespace CUDA {
     ObjectList<Expression> KernelCall::get_kernel_configuration()
     {
         ObjectList<Expression> result;
-        AST_t kernel_config = _ref.get_attribute(LANG_KERNEL_CONFIGURATION);
+        AST_t kernel_config = _ref.get_link_to_child(LANG_KERNEL_CONFIGURATION);
 
         ObjectList<AST_t> children = kernel_config.children();
 

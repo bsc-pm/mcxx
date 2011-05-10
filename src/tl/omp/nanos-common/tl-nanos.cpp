@@ -176,7 +176,7 @@ namespace TL
                     ;
             }
 
-            AST_t translation_unit = dto["translation_unit"];
+            AST_t translation_unit ( dto["translation_unit"] );
             ScopeLink scope_link = dto["scope_link"];
 
             AST_t versioning_symbols_tree = versioning_symbols.parse_global(translation_unit,

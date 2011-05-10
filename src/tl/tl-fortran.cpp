@@ -45,12 +45,12 @@ namespace TL { namespace Fortran {
     ObjectList<Statement> ProgramUnit::get_statements()
     {
         ObjectList<Statement> result;
-        AST_t program_unit_body = _ref.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_BODY);
+        AST_t program_unit_body = _ref.get_link_to_child(LANG_FORTRAN_PROGRAM_UNIT_BODY);
         
         if (!program_unit_body.is_valid())
             return result;
 
-        AST_t statements = program_unit_body.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS);
+        AST_t statements = program_unit_body.get_link_to_child(LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS);
         
         if (!statements.is_valid())
             return result;
@@ -77,7 +77,7 @@ namespace TL { namespace Fortran {
     {
         ObjectList<ProgramUnit> result;
 
-        AST_t internal = _ref.get_attribute(LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS);
+        AST_t internal = _ref.get_link_to_child(LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS);
 
         ASTIterator it = internal.get_list_iterator();
         while (!it.end())

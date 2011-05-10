@@ -182,7 +182,7 @@ namespace TL
 
     IdExpression FunctionDefinition::get_function_name() const
     {
-        TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_NAME);
+        TL::AST_t ast = _ref.get_link_to_child(LANG_FUNCTION_NAME);
 
         return IdExpression(ast, _scope_link);
     }
@@ -194,7 +194,7 @@ namespace TL
 
     Statement FunctionDefinition::get_function_body() const
     {
-        TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_BODY);
+        TL::AST_t ast = _ref.get_link_to_child(LANG_FUNCTION_BODY);
 
         return Statement(ast, _scope_link);
     }
@@ -208,7 +208,7 @@ namespace TL
     ObjectList<TemplateHeader> FunctionDefinition::get_template_header() const
     {
         // FIXME - Improve this
-        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST_t start_t = _ref.get_link_to_child(LANG_TEMPLATE_HEADER);
         AST a = start_t.get_internal_ast();
 
         ObjectList<TemplateHeader> result;
@@ -235,7 +235,7 @@ namespace TL
 
     ObjectList<LinkageSpecifier> FunctionDefinition::get_linkage_specifier() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+        TL::AST_t start = _ref.get_link_to_child(LANG_LINKAGE_SPECIFIER_HEADER);
 
         PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
 
@@ -259,7 +259,7 @@ namespace TL
 
     DeclaredEntity FunctionDefinition::get_declared_entity() const
     {
-        AST_t declarator = _ref.get_attribute(LANG_FUNCTION_DECLARATOR);
+        AST_t declarator = _ref.get_link_to_child(LANG_FUNCTION_DECLARATOR);
         return DeclaredEntity(declarator, _scope_link);
     }
 
@@ -277,7 +277,7 @@ namespace TL
 
     ObjectList<LinkageSpecifier> Declaration::get_linkage_specifier() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+        TL::AST_t start = _ref.get_link_to_child(LANG_LINKAGE_SPECIFIER_HEADER);
 
         PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
 
@@ -297,7 +297,7 @@ namespace TL
     ObjectList<TemplateHeader> Declaration::get_template_header() const
     {
         // FIXME - Improve this
-        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST_t start_t = _ref.get_link_to_child(LANG_TEMPLATE_HEADER);
         AST a = start_t.get_internal_ast();
 
         ObjectList<TemplateHeader> result;
@@ -316,7 +316,7 @@ namespace TL
         if (is_templated())
         {
             // If it is templated we want to spring over the template headers
-            TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+            TL::AST_t start = _ref.get_link_to_child(LANG_TEMPLATE_HEADER);
             AST inner_tree = start.get_internal_ast();
             return ASTParent(inner_tree);
         }
@@ -387,7 +387,7 @@ namespace TL
         }
         else
         {
-            TL::AST_t nested_name_part = _ref.get_attribute(LANG_NESTED_NAME_SPECIFIER);
+            TL::AST_t nested_name_part = _ref.get_link_to_child(LANG_NESTED_NAME_SPECIFIER);
             return nested_name_part.prettyprint();
         }
     }
@@ -403,14 +403,14 @@ namespace TL
     std::string IdExpression::get_template_arguments() const
     {
         TL::AST_t ret = _ref
-            .get_attribute(LANG_UNQUALIFIED_ID)
-            ->get_attribute(LANG_TEMPLATE_ARGS);
+            .get_link_to_child(LANG_UNQUALIFIED_ID)
+            .get_link_to_child(LANG_TEMPLATE_ARGS);
         return "<" + ret.prettyprint(/*comma=*/true) + ">";
     }
 
     std::string IdExpression::get_template_name() const
     {
-        TL::AST_t ret = _ref.get_attribute(LANG_TEMPLATE_NAME);
+        TL::AST_t ret = _ref.get_link_to_child(LANG_TEMPLATE_NAME);
         return ret.prettyprint();
     }
 
@@ -421,7 +421,7 @@ namespace TL
             return _ref.prettyprint();
         }
 
-        TL::AST_t unqualified_part = _ref.get_attribute(LANG_UNQUALIFIED_ID);
+        TL::AST_t unqualified_part = _ref.get_link_to_child(LANG_UNQUALIFIED_ID);
 
         if (!with_template_id)
         {
@@ -432,7 +432,7 @@ namespace TL
             }
             else
             {
-                TL::AST_t template_name = unqualified_part.get_attribute(LANG_TEMPLATE_NAME);
+                TL::AST_t template_name = unqualified_part.get_link_to_child(LANG_TEMPLATE_NAME);
 
                 return template_name.prettyprint();
             }
@@ -525,7 +525,7 @@ namespace TL
 
         while (is_expression_nest)
         {
-            expr = expr.get_attribute(LANG_EXPRESSION_NESTED);
+            expr = expr.get_link_to_child(LANG_EXPRESSION_NESTED);
             is_expression_nest = expr.get_attribute(LANG_IS_EXPRESSION_NEST);
         }
 
@@ -597,7 +597,7 @@ namespace TL
 
     Expression Expression::get_called_expression()
     {
-        TL::AST_t result = _ref.get_attribute(LANG_CALLED_EXPRESSION);
+        TL::AST_t result = _ref.get_link_to_child(LANG_CALLED_EXPRESSION);
         Expression expr(result, get_scope_link());
 
         return expr;
@@ -627,7 +627,7 @@ namespace TL
 
     ObjectList<Expression> Expression::get_argument_list()
     {
-        AST_t expression_list = _ref.get_attribute(LANG_FUNCTION_ARGUMENTS);
+        AST_t expression_list = _ref.get_link_to_child(LANG_FUNCTION_ARGUMENTS);
 
         ObjectList<Expression> result;
 
@@ -655,14 +655,14 @@ namespace TL
 
     Expression Expression::get_subscripted_expression()
     {
-        TL::AST_t result = _ref.get_attribute(LANG_SUBSCRIPTED_EXPRESSION);
+        TL::AST_t result = _ref.get_link_to_child(LANG_SUBSCRIPTED_EXPRESSION);
 
         return Expression(result, _scope_link);
     }
 
     Expression Expression::get_subscript_expression()
     {
-        TL::AST_t result = _ref.get_attribute(LANG_SUBSCRIPT_EXPRESSION);
+        TL::AST_t result = _ref.get_link_to_child(LANG_SUBSCRIPT_EXPRESSION);
 
         return Expression(result, _scope_link);
     }
@@ -676,33 +676,33 @@ namespace TL
 
     AST_t Expression::get_cast_type()
     {
-        AST_t result = _ref.get_attribute(LANG_CAST_TYPE);
+        AST_t result = _ref.get_link_to_child(LANG_CAST_TYPE);
 
         return result;
     }
 
     Expression Expression::get_casted_expression()
     {
-        Expression result(_ref.get_attribute(LANG_CASTED_EXPRESSION), this->_scope_link);
+        Expression result(_ref.get_link_to_child(LANG_CASTED_EXPRESSION), this->_scope_link);
 
         return result;
     }
 
     Expression Expression::get_first_operand()
     {
-        AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
+        AST_t result = _ref.get_link_to_child(LANG_LHS_OPERAND);
         return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_second_operand()
     {
-        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+        AST_t result = _ref.get_link_to_child(LANG_RHS_OPERAND);
         return Expression(result, this->_scope_link);
     }
 
     Expression Expression::get_unary_operand()
     {
-        AST_t result = _ref.get_attribute(LANG_UNARY_OPERAND);
+        AST_t result = _ref.get_link_to_child(LANG_UNARY_OPERAND);
 
         return Expression(result, this->_scope_link);
     }
@@ -732,14 +732,14 @@ namespace TL
 
     IdExpression Expression::get_accessed_member()
     {
-        TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_MEMBER);
+        TL::AST_t ast = _ref.get_link_to_child(LANG_ACCESSED_MEMBER);
 
         return IdExpression(ast, this->get_scope_link());
     }
 
     Expression Expression::get_accessed_entity()
     {
-        TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_ENTITY);
+        TL::AST_t ast = _ref.get_link_to_child(LANG_ACCESSED_ENTITY);
 
         return Expression(ast, this->get_scope_link());
     }
@@ -904,19 +904,19 @@ namespace TL
 
     Expression Expression::get_condition_expression()
     {
-        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_EXPRESSION);
+        TL::AST_t condition_expr = _ref.get_link_to_child(LANG_CONDITIONAL_EXPRESSION);
         return Expression(condition_expr, this->get_scope_link());
     }
 
     Expression Expression::get_true_expression()
     {
-        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_TRUE_EXPRESSION);
+        TL::AST_t condition_expr = _ref.get_link_to_child(LANG_CONDITIONAL_TRUE_EXPRESSION);
         return Expression(condition_expr, this->get_scope_link());
     }
 
     Expression Expression::get_false_expression()
     {
-        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_FALSE_EXPRESSION);
+        TL::AST_t condition_expr = _ref.get_link_to_child(LANG_CONDITIONAL_FALSE_EXPRESSION);
         return Expression(condition_expr, this->get_scope_link());
     }
 
@@ -958,19 +958,19 @@ namespace TL
 
     Expression Expression::array_section_item()
     {
-        AST_t array_section_item = _ref.get_attribute(LANG_ARRAY_SECTION_ITEM);
+        AST_t array_section_item = _ref.get_link_to_child(LANG_ARRAY_SECTION_ITEM);
         return Expression(array_section_item, _scope_link);
     }
 
     Expression Expression::array_section_lower()
     {
-        AST_t array_section_lower = _ref.get_attribute(LANG_ARRAY_SECTION_LOWER);
+        AST_t array_section_lower = _ref.get_link_to_child(LANG_ARRAY_SECTION_LOWER);
         return Expression(array_section_lower, _scope_link);
     }
 
     Expression Expression::array_section_upper()
     {
-        AST_t array_section_upper = _ref.get_attribute(LANG_ARRAY_SECTION_UPPER);
+        AST_t array_section_upper = _ref.get_link_to_child(LANG_ARRAY_SECTION_UPPER);
         return Expression(array_section_upper, _scope_link);
     }
 
@@ -982,14 +982,14 @@ namespace TL
 
     Expression Expression::shaped_expression()
     {
-        AST_t shaped_expression = _ref.get_attribute(LANG_SHAPED_EXPRESSION);
+        AST_t shaped_expression = _ref.get_link_to_child(LANG_SHAPED_EXPRESSION);
         return Expression(shaped_expression, _scope_link);
     }
 
     ObjectList<Expression> Expression::shape_list()
     {
         ObjectList<Expression> result;
-        AST_t shape_list = _ref.get_attribute(LANG_SHAPE_LIST);
+        AST_t shape_list = _ref.get_link_to_child(LANG_SHAPE_LIST);
 
         ASTIterator it = shape_list.get_list_iterator();
 
@@ -1012,7 +1012,7 @@ namespace TL
     
     Expression Expression::get_throw_expression()
     {
-        AST_t throw_ast = _ref.get_attribute(LANG_THROW_EXPRESSION);
+        AST_t throw_ast = _ref.get_link_to_child(LANG_THROW_EXPRESSION);
         Expression throw_expression(throw_ast, _scope_link);
         return throw_expression;
     }
@@ -1102,7 +1102,7 @@ namespace TL
     // since this one will not work for type-names
     IdExpression DeclaredEntity::get_declared_entity() const
     {
-        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+        AST_t declared_name = _ref.get_link_to_child(LANG_DECLARED_NAME);
 
         Source declared_name_str = declared_name.prettyprint();
 
@@ -1117,13 +1117,13 @@ namespace TL
 
     AST_t DeclaredEntity::get_declared_tree() const
     {
-        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+        AST_t declared_name = _ref.get_link_to_child(LANG_DECLARED_NAME);
         return declared_name;
     }
 
     Symbol DeclaredEntity::get_declared_symbol() const
     {
-        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+        AST_t declared_name = _ref.get_link_to_child(LANG_DECLARED_NAME);
         TL::Symbol sym = declared_name.get_attribute(LANG_DECLARED_SYMBOL);
 
         if (!sym.is_valid())
@@ -1138,7 +1138,7 @@ namespace TL
 
     DeclarationSpec Declaration::get_declaration_specifiers() const
     {
-        AST_t declaration_specifiers = _ref.get_attribute(LANG_DECLARATION_SPECIFIERS);
+        AST_t declaration_specifiers = _ref.get_link_to_child(LANG_DECLARATION_SPECIFIERS);
 
         DeclarationSpec result(declaration_specifiers, this->_scope_link);
 
@@ -1147,7 +1147,7 @@ namespace TL
 
     TypeSpec DeclarationSpec::get_type_spec() const
     {
-        AST_t tree = _ref.get_attribute(LANG_TYPE_SPECIFIER);
+        AST_t tree = _ref.get_link_to_child(LANG_TYPE_SPECIFIER);
 
         return TypeSpec(tree, this->_scope_link);
     }
@@ -1184,19 +1184,19 @@ namespace TL
 
     bool DeclaredEntity::has_initializer() const
     {
-        AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
+        AST_t initializer = _ref.get_link_to_child(LANG_INITIALIZER);
         return initializer.is_valid();
     }
 
     Expression DeclaredEntity::get_initializer() const
     {
-        AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
+        AST_t initializer = _ref.get_link_to_child(LANG_INITIALIZER);
         return Expression(initializer, this->_scope_link);
     }
 
     AST_t DeclaredEntity::get_declarator_tree() const
     {
-        AST_t declarator = _ref.get_attribute(LANG_DECLARATOR);
+        AST_t declarator = _ref.get_link_to_child(LANG_DECLARATOR);
         return declarator;
     }
 
@@ -1204,7 +1204,7 @@ namespace TL
     {
         PredicateAttr lang_declared_name_pred(LANG_IS_DECLARED_NAME);
 
-        AST_t declarators_tree = this->_ref.get_attribute(LANG_DECLARATION_DECLARATORS);
+        AST_t declarators_tree = this->_ref.get_link_to_child(LANG_DECLARATION_DECLARATORS);
 
         ObjectList<AST_t> declared_symbols =
             declarators_tree.depth_subtrees(lang_declared_name_pred, AST_t::NON_RECURSIVE);
@@ -1319,7 +1319,7 @@ namespace TL
 
     IdExpression ParameterDeclaration::get_name() const
     {
-        AST_t declaration = _ref.get_attribute(LANG_PARAMETER_DECLARATION_NAME);
+        AST_t declaration = _ref.get_link_to_child(LANG_PARAMETER_DECLARATION_NAME);
         return IdExpression(declaration, _scope_link);
     }
 
@@ -1332,7 +1332,7 @@ namespace TL
     {
         ObjectList<GCCAttribute> result;
 
-        AST_t list = _ref.get_attribute(LANG_GCC_ATTRIBUTE_LIST);
+        AST_t list = _ref.get_link_to_child(LANG_GCC_ATTRIBUTE_LIST);
 
         if (list.is_valid())
         {
@@ -1353,13 +1353,13 @@ namespace TL
 
     std::string GCCAttribute::get_name() const
     {
-        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_NAME);
+        AST_t tree = _ref.get_link_to_child(LANG_GCC_ATTRIBUTE_VALUE_NAME);
         return tree.get_text();
     }
 
     bool GCCAttribute::has_argument_list() const
     {
-        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
+        AST_t tree = _ref.get_link_to_child(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
 
         return tree.is_valid();
     }
@@ -1367,7 +1367,7 @@ namespace TL
     ObjectList<Expression> GCCAttribute::get_argument_list() const
     {
         ObjectList<Expression> result;
-        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
+        AST_t tree = _ref.get_link_to_child(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
 
         ASTIterator it = tree.get_list_iterator();
         it.rewind();
@@ -1515,7 +1515,7 @@ namespace TL
 
     std::string TemplateParameterConstruct::get_name() const
     {
-        TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
+        TL::AST_t a = _ref.get_link_to_child(LANG_TEMPLATE_PARAMETER_NAME);
         return a.prettyprint();
     }
 

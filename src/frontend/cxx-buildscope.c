@@ -898,8 +898,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
 
     // A type has been specified and there are declarators ahead
     if (simple_type_info != NULL 
@@ -997,8 +997,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     entry->expression_value = initializer;
 
                     {
-                        ASTAttrSetValueType(init_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
-                        ASTAttrSetValueType(init_declarator, LANG_DECLARATOR, tl_type_t, tl_ast(declarator));
+                        ast_set_link_to_child(init_declarator, LANG_INITIALIZER, initializer);
+                        ast_set_link_to_child(init_declarator, LANG_DECLARATOR, declarator);
                     }
                 }
                 // If it does not have initializer and it is not an extern entity
@@ -1091,7 +1091,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
     // Now gather information of the type_spec
     if (ASTSon1(a) != NULL) 
     {
-        ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER, tl_type_t, tl_ast(ASTSon1(a)));
+        ast_set_link_to_child(a, LANG_TYPE_SPECIFIER, ASTSon1(a));
 
         decl_context_t new_decl_context = decl_context;
 
@@ -2269,7 +2269,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
 void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         decl_context_t decl_context)
 {
-    ASTAttrSetValueType(a, LANG_IS_ENUM_SPECIFIER, tl_type_t, tl_ast(a));
+    ast_set_link_to_child(a, LANG_IS_ENUM_SPECIFIER, a);
 
     type_t* enum_type = NULL;
 
@@ -4279,7 +4279,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     set_declarator = ASTParent(a);
                 }
                 ASTAttrSetValueType(set_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(set_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                ast_set_link_to_child(set_declarator, LANG_DECLARED_NAME, declarator_name);
             }
 
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, entity_context);
@@ -4581,8 +4581,8 @@ static void set_function_parameter_clause(type_t** function_type,
 
         ASTAttrSetValueType(parameter_declaration, LANG_IS_PARAMETER_DECLARATION, tl_type_t, tl_bool(1));
 
-        ASTAttrSetValueType(parameter_declaration, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(parameter_declaration)));
-        ASTAttrSetValueType(parameter_declaration, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(parameter_declaration)));
+        ast_set_link_to_child(parameter_declaration, LANG_DECLARATION_SPECIFIERS, ASTSon0(parameter_declaration));
+        ast_set_link_to_child(parameter_declaration, LANG_DECLARATION_DECLARATORS, ASTSon1(parameter_declaration));
 
         // This is never null
         AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
@@ -4652,10 +4652,8 @@ static void set_function_parameter_clause(type_t** function_type,
             AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
             if (declarator_name != NULL)
             {
-                ASTAttrSetValueType(parameter_declaration, LANG_IS_NAMED_PARAMETER_DECLARATION, 
-                        tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(parameter_declaration, LANG_PARAMETER_DECLARATION_NAME, 
-                        tl_type_t, tl_ast(declarator_name));
+                ASTAttrSetValueType(parameter_declaration, LANG_IS_NAMED_PARAMETER_DECLARATION, tl_type_t, tl_bool(1));
+                ast_set_link_to_child(parameter_declaration, LANG_PARAMETER_DECLARATION_NAME, declarator_name);
             }
         }
 
@@ -6018,7 +6016,7 @@ static void build_scope_linkage_specifier_declaration(AST a, AST top_linkage_dec
     }
 
     ASTAttrSetValueType(declaration, LANG_HAS_LINKAGE_SPECIFIER, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(declaration, LANG_LINKAGE_SPECIFIER_HEADER, tl_type_t, tl_ast(top_linkage_decl));
+    ast_set_link_to_child(declaration, LANG_LINKAGE_SPECIFIER_HEADER, top_linkage_decl);
     ASTAttrSetValueType(linkage_spec, LANG_IS_LINKAGE_SPECIFIER, tl_type_t, tl_bool(1));
 
     current_linkage = previous_linkage;
@@ -6099,7 +6097,7 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, decl_
     }
 
     ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(templated_decl, LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(top_template_decl));
+    ast_set_link_to_child(templated_decl, LANG_TEMPLATE_HEADER, top_template_decl);
 }
 
 void build_scope_template_header(AST template_parameter_list, 
@@ -6451,7 +6449,7 @@ static void build_scope_template_template_parameter(AST a,
         template_parameter_name = ASTText(symbol);
 
         ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(symbol));
+        ast_set_link_to_child(a, LANG_TEMPLATE_PARAMETER_NAME, symbol);
     }
     else
     {
@@ -6596,7 +6594,7 @@ static void build_scope_type_template_parameter(AST a,
         template_parameter_name = ASTText(name);
 
         ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(name));
+        ast_set_link_to_child(a, LANG_TEMPLATE_PARAMETER_NAME, name);
 
         line = ASTLine(name);
         file = ASTFileName(name);
@@ -6708,7 +6706,7 @@ static void build_scope_nontype_template_parameter(AST a,
                     template_context.template_scope);
         }
         ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(declarator_name));
+        ast_set_link_to_child(a, LANG_TEMPLATE_PARAMETER_NAME, declarator_name);
 
         entry = new_symbol(template_context, template_context.template_scope, declarator_name_str);
     }
@@ -7333,7 +7331,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         // Function declaration name
         AST declarator_name = get_declarator_name(ASTSon1(a), decl_context);
-        ASTAttrSetValueType(a, LANG_FUNCTION_NAME, tl_type_t, tl_ast(declarator_name));
+        ast_set_link_to_child(a, LANG_FUNCTION_NAME, declarator_name);
 
         if (ASTType(declarator_name) == AST_QUALIFIED_ID)
         {
@@ -7351,28 +7349,28 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             if (nested_name_spec != NULL)
             {
-                ASTAttrSetValueType(declarator_name, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+                ast_set_link_to_child(declarator_name, LANG_NESTED_NAME_SPECIFIER, nested_name_spec);
             }
 
-            ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+            ast_set_link_to_child(declarator_name, LANG_UNQUALIFIED_ID, unqualified_id);
 
             if (ASTType(unqualified_id) == AST_TEMPLATE_ID)
             {
                 ASTAttrSetValueType(unqualified_id, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(unqualified_id, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(unqualified_id)));
-                ASTAttrSetValueType(unqualified_id, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(unqualified_id)));
+                ast_set_link_to_child(unqualified_id, LANG_TEMPLATE_NAME, ASTSon0(unqualified_id));
+                ast_set_link_to_child(unqualified_id, LANG_TEMPLATE_ARGS, ASTSon1(unqualified_id));
             }
         }
         else if (ASTType(declarator_name) == AST_SYMBOL)
         {
             ASTAttrSetValueType(declarator_name, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(declarator_name));
+            ast_set_link_to_child(declarator_name, LANG_UNQUALIFIED_ID, declarator_name);
         }
         else if (ASTType(declarator_name) == AST_TEMPLATE_ID)
         {
             ASTAttrSetValueType(declarator_name, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(declarator_name, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(declarator_name)));
-            ASTAttrSetValueType(declarator_name, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(declarator_name)));
+            ast_set_link_to_child(declarator_name, LANG_TEMPLATE_NAME, ASTSon0(declarator_name));
+            ast_set_link_to_child(declarator_name, LANG_TEMPLATE_ARGS, ASTSon1(declarator_name));
         }
     }
 
@@ -7383,8 +7381,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             "This is not a function!!!", 0);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // Keep the function definition, it may be needed later
@@ -7505,7 +7503,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             build_scope_statement_seq(list, block_context);
         }
         ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(statement, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
+        ast_set_link_to_child(statement, LANG_COMPOUND_STATEMENT_LIST, list);
     }
     else
     {
@@ -7519,9 +7517,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
     {
         // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(ASTSon1(a)));
+        ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, ASTSon1(a));
     }
-    ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
     return entry;
 }
@@ -7687,7 +7685,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     }
 
     ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(a));
+    ast_set_link_to_child(ASTSon1(a), LANG_TEMPLATE_HEADER, a);
 }
 
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
@@ -8243,8 +8241,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     if (ASTSon1(a) != NULL)
     {
         ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
-        ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
+        ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
+        ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
 
         AST list = ASTSon1(a);
         AST iter;
@@ -8287,7 +8285,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
 
                             AST declarator_name = get_declarator_name(identifier, decl_context);
-                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                            ast_set_link_to_child(declarator, LANG_DECLARED_NAME, declarator_name);
                         }
                         else
                         {
@@ -8350,9 +8348,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         {
                             ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
-                            ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
-                            ASTAttrSetValueType(declarator, LANG_DECLARATOR, tl_type_t, tl_ast(ASTSon0(declarator)));
+                            ast_set_link_to_child(declarator, LANG_DECLARED_NAME, declarator_name);
+                            ast_set_link_to_child(declarator, LANG_INITIALIZER, initializer);
+                            ast_set_link_to_child(declarator, LANG_DECLARATOR, ASTSon0(declarator));
                         }
                         
                         // Change name of constructors
@@ -8889,7 +8887,7 @@ static void build_scope_compound_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(ASTSon0(a)));
+    ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context)
@@ -8943,8 +8941,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
         entry->expression_value = ASTSon2(a);
 
         ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(type_specifier_seq));
-        ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(declarator));
+        ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, type_specifier_seq);
+        ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, declarator);
 
         ASTAttrSetValueType(a, LANG_IS_CONDITION_DECLARATION, tl_type_t, tl_bool(1));
     }
@@ -8959,7 +8957,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
 
         ASTAttrSetValueType(a, LANG_IS_CONDITION_EXPRESSION, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon2(a)));
+        ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, ASTSon2(a));
     }
 }
 
@@ -8979,8 +8977,8 @@ static void build_scope_while_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_CONDITION, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, ASTSon1(a));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -9001,7 +8999,7 @@ static void build_scope_declaration_statement(AST a,
     build_scope_declaration(declaration, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_DECLARATION_STATEMENT_DECLARATION, tl_type_t, tl_ast(declaration));
+    ast_set_link_to_child(a, LANG_DECLARATION_STATEMENT_DECLARATION, declaration);
 }
 
 static void build_scope_expression_statement(AST a, 
@@ -9026,7 +9024,7 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));        
+    ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9051,9 +9049,9 @@ static void build_scope_if_else_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_CONDITION, tl_type_t, tl_ast(condition));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_THEN_BODY, tl_type_t, tl_ast(then_branch));
-    ASTAttrSetValueType(a, LANG_IF_STATEMENT_ELSE_BODY, tl_type_t, tl_ast(else_branch));
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_CONDITION, condition);
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_branch);
+    ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_branch);
 }
 
 static void build_scope_for_statement(AST a, 
@@ -9114,10 +9112,10 @@ static void build_scope_for_statement(AST a,
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
     ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
-    ASTAttrSetValueType(a, LANG_FOR_CONDITION, tl_type_t, tl_ast(condition));
-    ASTAttrSetValueType(a, LANG_FOR_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
-    ASTAttrSetValueType(a, LANG_FOR_BODY_STATEMENT, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_FOR_INIT_CONSTRUCT, for_init_statement);
+    ast_set_link_to_child(a, LANG_FOR_CONDITION, condition);
+    ast_set_link_to_child(a, LANG_FOR_ITERATION_EXPRESSION, expression);
+    ast_set_link_to_child(a, LANG_FOR_BODY_STATEMENT, statement);
 }
 
 static void build_scope_switch_statement(AST a, 
@@ -9136,8 +9134,8 @@ static void build_scope_switch_statement(AST a,
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
     ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_CONDITION, tl_type_t, tl_ast(condition));
-    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, condition);
+    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 }
 
 static void add_label_if_not_found(AST label, decl_context_t decl_context)
@@ -9164,7 +9162,7 @@ static void build_scope_goto_statement(AST a,
     add_label_if_not_found(label, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_GOTO_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_GOTO_STATEMENT_LABEL, tl_type_t, tl_ast(label));
+    ast_set_link_to_child(a, LANG_GOTO_STATEMENT_LABEL, label);
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -9179,8 +9177,8 @@ static void build_scope_labeled_statement(AST a,
     build_scope_statement_(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
-    ASTAttrSetValueType(a, LANG_LABELED_STATEMENT, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
+    ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 }
 
 static void build_scope_default_statement(AST a, 
@@ -9191,7 +9189,7 @@ static void build_scope_default_statement(AST a,
     build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_DEFAULT_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_DEFAULT_STATEMENT_BODY, statement);
 }
 
 static void build_scope_case_statement(AST a, 
@@ -9210,8 +9208,8 @@ static void build_scope_case_statement(AST a,
     build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_CASE_EXPRESSION, tl_type_t, tl_ast(constant_expression));
-    ASTAttrSetValueType(a, LANG_CASE_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, LANG_CASE_EXPRESSION, constant_expression);
+    ast_set_link_to_child(a, LANG_CASE_STATEMENT_BODY, statement);
 }
 
 static void build_scope_return_statement(AST a, 
@@ -9221,7 +9219,7 @@ static void build_scope_return_statement(AST a,
     AST expression = ASTSon0(a);
     if (expression != NULL)
     {
-        ASTAttrSetValueType(a, LANG_RETURN_EXPRESSION, tl_type_t, tl_ast(expression));
+        ast_set_link_to_child(a, LANG_RETURN_EXPRESSION, expression);
         if (!check_for_expression(expression, decl_context))
         {
             fprintf(stderr, "%s: could not check return expression '%s'\n",
@@ -9288,8 +9286,8 @@ static void build_scope_try_block(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_TRY_BLOCK, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_TRY_BLOCK_BODY, tl_type_t, tl_ast(protected_block));
-    ASTAttrSetValueType(a, LANG_TRY_BLOCK_HANDLER_LIST, tl_type_t, tl_ast(handler_seq));
+    ast_set_link_to_child(a, LANG_TRY_BLOCK_BODY, protected_block);
+    ast_set_link_to_child(a, LANG_TRY_BLOCK_HANDLER_LIST, handler_seq);
 }
 
 static void build_scope_do_statement(AST a, 
@@ -9308,8 +9306,8 @@ static void build_scope_do_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_DO_STATEMENT_BODY, tl_type_t, tl_ast(statement));
-    ASTAttrSetValueType(a, LANG_DO_STATEMENT_EXPRESSION, tl_type_t, tl_ast(expression));
+    ast_set_link_to_child(a, LANG_DO_STATEMENT_BODY, statement);
+    ast_set_link_to_child(a, LANG_DO_STATEMENT_EXPRESSION, expression);
 }
 
 static void build_scope_null(AST a, 
@@ -9361,7 +9359,7 @@ static void build_scope_pragma_custom_line(AST a,
     {
         build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context);
 
-        ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, tl_type_t, tl_ast(ASTSon1(a)));
+        ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, ASTSon1(a));
     }
 
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED, tl_type_t, 
@@ -9379,7 +9377,7 @@ static void build_scope_pragma_custom_directive(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
 }
 
 static void build_scope_pragma_custom_construct_statement(AST a, 
@@ -9392,8 +9390,8 @@ static void build_scope_pragma_custom_construct_statement(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_STATEMENT, ASTSon1(a));
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a, 
@@ -9405,8 +9403,8 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
@@ -9419,8 +9417,8 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
 }
 
 static void build_scope_custom_construct_statement(AST a, 
@@ -9463,7 +9461,7 @@ static void build_scope_upc_synch_statement(AST a,
     if (ASTSon0(a) != NULL)
     {
         check_for_expression(ASTSon0(a), decl_context);
-        ASTAttrSetValueType(a, UPC_SYNC_STMT_ARGUMENT, tl_type_t, tl_ast(ASTSon0(a)));
+        ast_set_link_to_child(a, UPC_SYNC_STMT_ARGUMENT, ASTSon0(a));
     }
 }
 
@@ -9515,11 +9513,11 @@ static void build_scope_upc_forall_statement(AST a,
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
     ASTAttrSetValueType(a, UPC_IS_FORALL_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, UPC_FORALL_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
-    ASTAttrSetValueType(a, UPC_FORALL_CONDITION, tl_type_t, tl_ast(condition));
-    ASTAttrSetValueType(a, UPC_FORALL_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
-    ASTAttrSetValueType(a, UPC_FORALL_AFFINITY, tl_type_t, tl_ast(affinity));
-    ASTAttrSetValueType(a, UPC_FORALL_BODY_STATEMENT, tl_type_t, tl_ast(statement));
+    ast_set_link_to_child(a, UPC_FORALL_INIT_CONSTRUCT, for_init_statement);
+    ast_set_link_to_child(a, UPC_FORALL_CONDITION, condition);
+    ast_set_link_to_child(a, UPC_FORALL_ITERATION_EXPRESSION, expression);
+    ast_set_link_to_child(a, UPC_FORALL_AFFINITY, affinity);
+    ast_set_link_to_child(a, UPC_FORALL_BODY_STATEMENT, statement);
 }
 
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }

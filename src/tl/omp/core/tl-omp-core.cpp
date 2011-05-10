@@ -126,7 +126,7 @@ namespace TL
             // Reset any data computed so far
             _openmp_info->reset();
 
-            AST_t translation_unit = dto["translation_unit"];
+            AST_t translation_unit ( dto["translation_unit"] );
             ScopeLink scope_link = dto["scope_link"];
 
             Scope global_scope = scope_link.get_scope(translation_unit);

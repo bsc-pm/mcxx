@@ -179,6 +179,15 @@ LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 LIBMCXX_EXTERN void ast_set_field(AST a, const char* name, void *data);
 LIBMCXX_EXTERN void* ast_get_field(AST a, const char* name);
 
+// Link to children are stored as mangled field names
+// Set a link to a (possibly indirect) child
+LIBMCXX_EXTERN void ast_set_link_to_child(AST a, const char* name, AST child);
+// Get child node
+LIBMCXX_EXTERN AST ast_get_link_to_child(AST a, const char* name);
+
+// Tells if the name of a field is a link to a children
+LIBMCXX_EXTERN char ast_field_name_is_link_to_child(const char* name);
+
 // Returns the extensible struct of this AST
 LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
 

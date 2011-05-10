@@ -274,7 +274,7 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
 {
 
     // get the translation_unit tree
-    AST_t translation_unit = dto["translation_unit"];
+    AST_t translation_unit ( dto["translation_unit"] );
     // get the scope_link
     ScopeLink scope_link = dto["scope_link"];
     // Get the global_scope

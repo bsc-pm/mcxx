@@ -460,8 +460,8 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
     expression_set_type(expr, synthesized_type);
 
     ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_SUBSCRIPTED_EXPRESSION, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expr));
 }
 
 static void check_array_ref(AST expr, decl_context_t decl_context)
@@ -707,8 +707,8 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(ASTSon1(expr), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
-    ASTAttrSetValueType(expr, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_ACCESSED_ENTITY, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_ACCESSED_MEMBER, ASTSon1(expr));
 
     if (is_pointer_to_class_type(t))
     {
@@ -854,7 +854,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     expression_set_type(expr, entry->type_information);
 
     ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, tl_type_t, tl_ast(component_spec_list));
+    ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, component_spec_list);
 }
 
 static void check_different_op(AST expr, decl_context_t decl_context)
@@ -1591,8 +1591,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(expr, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(procedure_designator));
-    ASTAttrSetValueType(expr, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(actual_arg_spec_list));
+    ast_set_link_to_child(expr, LANG_CALLED_EXPRESSION, procedure_designator);
+    ast_set_link_to_child(expr, LANG_FUNCTION_ARGUMENTS, actual_arg_spec_list);
 }
 
 static void check_greater_or_equal_than(AST expr, decl_context_t decl_context)
@@ -1678,7 +1678,7 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     }
 
     ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expr)));
+    ast_set_link_to_child(expr, LANG_EXPRESSION_NESTED, ASTSon0(expr));
 }
 
 static void check_plus_op(AST expr, decl_context_t decl_context)
@@ -1731,8 +1731,8 @@ static void common_binary_check(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 }
 
 static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
@@ -1762,7 +1762,7 @@ static void common_unary_check(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+    ast_set_link_to_child(expr, LANG_UNARY_OPERAND, ASTSon0(expr));
 }
 
 static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type)
@@ -2051,7 +2051,7 @@ static void check_symbol(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expr));
+    ast_set_link_to_child(expr, LANG_UNQUALIFIED_ID, expr);
 }
 
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
@@ -2180,8 +2180,8 @@ static void check_assignment(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 }
 
 static void check_ptr_assignment(AST expr, decl_context_t decl_context)
@@ -2226,8 +2226,8 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 }
 
 static void disambiguate_expression(AST expr, decl_context_t decl_context)

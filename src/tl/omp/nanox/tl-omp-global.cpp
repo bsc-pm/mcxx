@@ -36,7 +36,7 @@ void OMPTransform::add_openmp_initializer(TL::DTO& dto)
 {
     if (Nanos::Version::interface_is_at_least("openmp", 3))
     {
-        AST_t a = dto["translation_unit"];
+        AST_t a ( dto["translation_unit"] );
         ScopeLink sl = dto["scope_link"];
 
         Source src;

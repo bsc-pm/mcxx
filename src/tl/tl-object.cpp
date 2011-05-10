@@ -65,11 +65,6 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
                 result = RefPtr<Bool>(new Bool(tl_value->data._boolean));
                 return result;
             }
-        case TL_AST :
-            {
-                result = RefPtr<AST_t>(new AST_t(tl_value->data._ast));
-                return result;
-            }
         case TL_STRING :
             {
                 result = RefPtr<String>(new String(tl_value->data._string));

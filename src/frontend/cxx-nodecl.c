@@ -66,14 +66,18 @@ static void c_simplify_tree_simple_decl(AST a, AST *out)
                     || tl_data->data._entry == NULL, 
                     "Invalid declarator", 0);
 
-            if (tl_data->data._entry->kind != SK_VARIABLE)
+            scope_entry_t* entry = tl_data->data._entry;
+            if (entry->kind != SK_VARIABLE)
                 continue;
 
             AST new_initializer = NULL;
             c_simplify_tree_init_decl(initializer, &new_initializer);
 
+            AST new_decl_name = 
+                    ast_copy_with_scope_link(declarator_name, CURRENT_COMPILED_FILE->scope_link);
+            expression_set_symbol(new_decl_name, entry);
             AST new_init_declarator = ASTMake2(AST_OBJECT_INIT, 
-                    ast_copy_with_scope_link(declarator_name, CURRENT_COMPILED_FILE->scope_link),
+                    new_decl_name,
                     new_initializer, 
                     ASTFileName(init_declarator), ASTLine(init_declarator), NULL);
 
@@ -136,6 +140,7 @@ static void c_simplify_tree_expr(AST a, AST *out)
         case AST_GCC_EXTENSION_EXPR : 
             {
                 c_simplify_tree_expr(ASTSon0(a), out);
+                break;
             }
         default:
             {
@@ -167,7 +172,7 @@ static void c_simplify_tree_stmt(AST a, AST *out)
             }
         case AST_DECLARATION_STATEMENT : 
             {
-                c_simplify_tree_decl(a, out);
+                c_simplify_tree_decl(ASTSon0(a), out);
                 break;
             }
         case AST_COMPOUND_STATEMENT : 
@@ -186,7 +191,14 @@ static void c_simplify_tree_stmt(AST a, AST *out)
 
                         if (new_stmt != NULL)
                         {
+                            if (ASTType(new_stmt) != AST_NODE_LIST)
+                            {
                             new_inner_seq = ASTList(new_inner_seq, new_stmt);
+                            }
+                            else
+                            {
+                                new_inner_seq = ast_list_concat(new_inner_seq, new_stmt);
+                            }
                         }
                     }
                 }

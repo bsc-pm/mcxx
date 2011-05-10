@@ -690,7 +690,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(ASTSon0(expression)))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_EXPRESSION_NESTED, ASTSon0(expression));
 
                     expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
                     expression_set_constant(expression, expression_get_constant(ASTSon0(expression)));
@@ -819,10 +819,10 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
 
                     if (nested_name_spec != NULL)
                     {
-                        ASTAttrSetValueType(expression, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+                        ast_set_link_to_child(expression, LANG_NESTED_NAME_SPECIFIER, nested_name_spec);
                     }
 
-                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+                    ast_set_link_to_child(expression, LANG_UNQUALIFIED_ID, unqualified_id);
 
                     expression_set_constant(expression, val);
                 }
@@ -868,10 +868,10 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
 
                     if (nested_name_spec != NULL)
                     {
-                        ASTAttrSetValueType(expression, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+                        ast_set_link_to_child(expression, LANG_NESTED_NAME_SPECIFIER, nested_name_spec);
                     }
 
-                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+                    ast_set_link_to_child(expression, LANG_UNQUALIFIED_ID, unqualified_id);
 
                     expression_set_constant(expression, val);
                 }
@@ -888,7 +888,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
+                    ast_set_link_to_child(expression, LANG_UNQUALIFIED_ID, expression);
 
                     expression_set_constant(expression, val);
                 }
@@ -909,8 +909,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_TEMPLATE_NAME, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_TEMPLATE_ARGS, ASTSon1(expression));
                 }
                 break;
             }
@@ -927,11 +927,11 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
+                    ast_set_link_to_child(expression, LANG_UNQUALIFIED_ID, expression);
 
                     ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_TEMPLATE_NAME, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_TEMPLATE_ARGS, ASTSon1(expression));
                 }
                 break;
             }
@@ -942,8 +942,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_SUBSCRIPTED_EXPRESSION, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression)));
@@ -956,8 +956,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_CALLED_EXPRESSION, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_FUNCTION_ARGUMENTS, ASTSon1(expression));
                 }
                 break;
             }
@@ -981,8 +981,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(ASTSon1(expression), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
-                    ASTAttrSetValueType(expression, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_ACCESSED_ENTITY, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_ACCESSED_MEMBER, ASTSon1(expression));
 
                     if (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
                     {
@@ -1011,8 +1011,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_EXPRESSION_INCREMENTED, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_UNARY_OPERAND, ASTSon0(expression));
                 }
                 break;
             }
@@ -1024,8 +1024,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_EXPRESSION_DECREMENTED, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_UNARY_OPERAND, ASTSon0(expression));
                 }
                 break;
             }
@@ -1058,8 +1058,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_EXPRESSION_INCREMENTED, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_UNARY_OPERAND, ASTSon0(expression));
                 }
                 break;
             }
@@ -1070,8 +1070,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_EXPRESSION_DECREMENTED, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_UNARY_OPERAND, ASTSon0(expression));
                 }
                 break;
             }
@@ -1109,7 +1109,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                     ASTAttrSetValueType(expression, 
                             unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
 
-                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_UNARY_OPERAND, ASTSon0(expression));
 
                     expression_set_constant(expression, val);
 
@@ -1130,8 +1130,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_CAST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_CAST_TYPE, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_CASTED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_CAST_TYPE, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_CASTED_EXPRESSION, ASTSon1(expression));
                 }
 
                 break;
@@ -1177,8 +1177,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_LHS_OPERAND, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_RHS_OPERAND, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression))
@@ -1201,9 +1201,9 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
 
                     if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
                     {
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_EXPRESSION, ASTSon0(expression));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, ASTSon1(expression));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, ASTSon2(expression));
 
                         expression_set_is_value_dependent(expression,
                                 expression_is_value_dependent(ASTSon0(expression))
@@ -1212,9 +1212,9 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                     }
                     else
                     {
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_EXPRESSION, ASTSon0(expression));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, ASTSon0(expression));
+                        ast_set_link_to_child(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, ASTSon1(expression));
 
                         expression_set_is_value_dependent(expression,
                                 expression_is_value_dependent(ASTSon0(expression))
@@ -1242,8 +1242,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_LHS_OPERAND, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_RHS_OPERAND, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression))
@@ -1257,7 +1257,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 {
                     check_for_expression_impl_(ASTSon0(expression), decl_context);
                     ASTAttrSetValueType(expression, LANG_IS_THROW_EXPRESSION, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_THROW_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ast_set_link_to_child(expression, LANG_THROW_EXPRESSION, ASTSon0(expression));
                 }
                 if (ASTSon0(expression) == NULL
                         || !expression_is_error(ASTSon0(expression)))
@@ -1277,8 +1277,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_LHS_OPERAND, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_LHS_OPERAND, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression)));
@@ -1531,9 +1531,9 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION_RANGE, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_ITEM, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_LOWER, ASTSon1(expression));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_UPPER, ASTSon2(expression));
                 }
                 break;
             }
@@ -1544,9 +1544,9 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION_SIZE, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
-                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_ITEM, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_LOWER, ASTSon1(expression));
+                    ast_set_link_to_child(expression, LANG_ARRAY_SECTION_UPPER, ASTSon2(expression));
                 }
                 break;
             }
@@ -1559,8 +1559,8 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 if (!expression_is_error(expression))
                 {
                     ASTAttrSetValueType(expression, LANG_IS_SHAPING_EXPRESSION, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(expression, LANG_SHAPE_LIST, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_SHAPED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ast_set_link_to_child(expression, LANG_SHAPE_LIST, ASTSon0(expression));
+                    ast_set_link_to_child(expression, LANG_SHAPED_EXPRESSION, ASTSon1(expression));
                 }
                 break;
             }
@@ -6611,9 +6611,12 @@ static void check_for_new_expression(AST new_expr, decl_context_t decl_context)
     AST new_initializer = ASTSon3(new_expr);
 
     ASTAttrSetValueType(new_expr, LANG_IS_NEW_EXPRESSION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(new_expr, LANG_NEW_TYPEID, tl_type_t, tl_ast(new_type_id));
-    ASTAttrSetValueType(new_expr, LANG_NEW_INITIALIZER, tl_type_t,
-            new_initializer != NULL ? tl_ast(ASTSon0(new_initializer)) : tl_ast(NULL));
+    ast_set_link_to_child(new_expr, LANG_NEW_TYPEID, new_type_id);
+
+    if (new_initializer != NULL)
+    {
+        ast_set_link_to_child(new_expr, LANG_NEW_INITIALIZER, ASTSon0(new_initializer));
+    }
 
     if (!check_for_type_id_tree(new_type_id, decl_context))
     {
@@ -7238,7 +7241,7 @@ static void check_for_explicit_type_conversion_common(type_t* type_info,
     char has_value_dependent_arguments = 0;
 
     ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, tl_type_t, tl_ast(expression_list));
+    ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, expression_list);
 
     if (expression_list != NULL)
     {
@@ -7639,7 +7642,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
     // Set these attributes
     ASTAttrSetValueType(called_expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(called_expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(called_expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(called_expression));
+    ast_set_link_to_child(called_expression, LANG_UNQUALIFIED_ID, called_expression);
 
     if (entry_list != NULL)
     {
@@ -10766,7 +10769,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                 if (result)
                 {
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(initializer_clause));
+                    ast_set_link_to_child(initializer, LANG_EXPRESSION_NESTED, initializer_clause);
 
                     expression_set_type(initializer, expression_get_type(initializer_clause));
 

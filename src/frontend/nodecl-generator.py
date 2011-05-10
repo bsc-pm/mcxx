@@ -131,10 +131,11 @@ class ASTStructure(Variable):
                print "       {"
                first_set = current_rule.first()
                if current_rule.is_seq():
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(ASTType(a)));" 
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(ASTType(ASTSon%d(%s))));" \
+                                      % (i, tree_expr)
                else:
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
-                      % (string.join(first_set, " or "))
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(ASTSon%d(%s))));" \
+                      % (string.join(first_set, " or "), i, tree_expr)
                print "          break;"
                print "       }"
                print "   }"
@@ -186,7 +187,7 @@ class RuleRef(Variable):
            print "        }"
            print "        default:"
            print "        {"
-           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
+           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(e)));" \
                % (string.join(first_set, " or "))
            print "           break;"
            print "        }"

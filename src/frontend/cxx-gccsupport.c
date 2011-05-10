@@ -469,7 +469,7 @@ void gather_gcc_attribute(AST attribute,
     AST list = ASTSon0(attribute);
 
     ASTAttrSetValueType(attribute, LANG_IS_GCC_ATTRIBUTE, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(attribute, LANG_GCC_ATTRIBUTE_LIST, tl_type_t, tl_ast(list));
+    ast_set_link_to_child(attribute, LANG_GCC_ATTRIBUTE_LIST, list);
 
     if (list != NULL)
     {
@@ -483,8 +483,8 @@ void gather_gcc_attribute(AST attribute,
             const char *attribute_name = ASTText(identif);
 
             ASTAttrSetValueType(gcc_attribute_expr, LANG_IS_GCC_ATTRIBUTE_VALUE, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_NAME, tl_type_t, tl_ast(identif));
-            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_ARGS, tl_type_t, tl_ast(expression_list));
+            ast_set_link_to_child(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_NAME, identif);
+            ast_set_link_to_child(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_ARGS, expression_list);
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }

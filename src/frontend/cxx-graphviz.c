@@ -146,25 +146,27 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 int num_fields = 0;
                 const char** keys = NULL;
-                const void** values = NULL;
+                void** values = NULL;
 
                 extensible_struct_get_all_data(extended_data, &num_fields, &keys, &values);
 
                 for (i = 0; i < num_fields; i++)
                 {
                     const char* field_name = keys[i];
-                    tl_type_t* tl_data = (tl_type_t*)values[i];
-                    if (tl_data->kind == TL_AST)
+                    void *data = values[i];
+
+                    if (ast_field_name_is_link_to_child(field_name))
                     {
-                        if (tl_data->data._ast != a)
+                        AST child = data;
+                        if (child != a)
                         {
-                            ast_dump_graphviz_rec(tl_data->data._ast, f, /* parent_node */ 0, /* position */ 0, /* is_extended */ 1);
+                            ast_dump_graphviz_rec(child, f, /* parent_node */ 0, /* position */ 0, /* is_extended */ 1);
                         }
 
                         // Add an edge
                         fprintf(f, "n%zd -> n%zd [label=\"%s\",style=dashed]\n",
                                 current_node,
-                                (size_t)(tl_data->data._ast),
+                                (size_t)(child),
                                 field_name);
                     }
                 }

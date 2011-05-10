@@ -799,7 +799,7 @@ namespace TL
                 // declarations
                 if (decl_stmt(ast))
                 {
-                    ast = ast.get_attribute(LANG_DECLARATION_STATEMENT_DECLARATION);
+                    ast = ast.get_link_to_child(LANG_DECLARATION_STATEMENT_DECLARATION);
                 }
             }
 
