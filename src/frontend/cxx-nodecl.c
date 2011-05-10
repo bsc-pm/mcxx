@@ -1,4 +1,5 @@
 #include "cxx-nodecl.h"
+#include "cxx-nodecl-checker.h"
 #include "cxx-utils.h"
 #include "cxx-buildscope.h"
 #include "cxx-attrnames.h"
@@ -117,7 +118,9 @@ static void c_simplify_tree_function_def(AST a, AST *out)
 
     *out = ASTListLeaf(
             ASTMake3(AST_FUNCTION_CODE, 
-                declarator_name, new_stmt, NULL,
+                declarator_name, 
+                new_stmt != NULL ? ASTListLeaf(new_stmt) : NULL, 
+                NULL,
                 ASTFileName(a), ASTLine(a), NULL)
             );
 }
@@ -455,6 +458,13 @@ void c_simplify_tree_translation_unit(AST a, AST *out)
             }
         }
     }
+    
+    result = ASTMake1(AST_NODECL_TOP_LEVEL, result, 
+            result != NULL ? ASTFileName(result) : NULL, 
+            result != NULL ? ASTLine(result) : 0,
+            NULL);
+
+    nodecl_check_tree(result);
 
     *out = result;
 }
