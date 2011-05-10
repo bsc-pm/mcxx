@@ -739,7 +739,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
         default:
             {
-                internal_error("Unexpected member kind=%d\n", member_of_template->kind);
+                internal_error("Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
             }
     }
 }
@@ -1267,7 +1267,7 @@ void instantiate_template_function(scope_entry_t* entry,
                     break;
                 }
             default:
-                internal_error("Invalid template parameter kind %d\n", template_param->kind);
+                internal_error("Invalid template parameter kind %s\n", symbol_kind_name(template_param->kind));
         }
     }
 
@@ -1703,7 +1703,7 @@ static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl
         }
         else
         {
-            internal_error("Invalid namespace %d", enclosing_scope->kind);
+            internal_error("Invalid namespace kind %d", enclosing_scope->kind);
         }
 
         qualification_nest = 
@@ -2061,7 +2061,7 @@ static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_
                     break;
                 }
             default:
-                internal_error("Invalid symbol kind '%d'\n", entry->kind);
+                internal_error("Invalid symbol kind '%s'\n", symbol_kind_name(entry));
         }
     }
     else

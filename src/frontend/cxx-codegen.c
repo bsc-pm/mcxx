@@ -156,7 +156,7 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
             }
         default:
             {
-                internal_error("Unhandled symbol kind %d\n", symbol->kind);
+                internal_error("Unhandled symbol kind %s\n", symbol_kind_name(symbol));
             }
     }
 }
@@ -220,7 +220,7 @@ static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
             }
         default:
             {
-                internal_error("Unhandled symbol kind %d\n", symbol->kind);
+                internal_error("Unhandled symbol kind %s\n", symbol_kind_name(symbol));
                 break;
             }
     }
@@ -241,22 +241,22 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, scope_entry_t
 
 void c_cxx_codegen_translation_unit(FILE* f, AST a, scope_link_t* sl UNUSED_PARAMETER)
 {
-    if (a == NULL)
-        return;
+    ERROR_CONDITION(ASTType(a) != AST_NODECL_TOP_LEVEL, "Invalid tree", 0);
+    AST tree = ASTSon0(a);
 
     codegen_context_t ctx;
     ctx.file = f;
     ctx.indent_level = 0;
 
     AST it;
-    for_each_element(a, it)
+    for_each_element(tree, it)
     {
         AST top_level = ASTSon1(it);
 
         if (ASTType(top_level) == AST_OBJECT_INIT)
         {
             // scope_entry_t* symbol = get_symbol_of_name(ASTSon0(top_level));
-            // AST init = ASTSon1(a);
+            // AST init = ASTSon1(tree);
 
             // codegen_object_init_top_level(ctx, symbol, init);
         }

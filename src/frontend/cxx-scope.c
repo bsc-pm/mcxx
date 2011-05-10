@@ -4112,3 +4112,23 @@ char is_inline_namespace_of(decl_context_t inner_namespace_ctx, decl_context_t o
     return is_inline_namespace_of_(inner_namespace_ctx.namespace_scope, 
             outer_namespace_ctx.namespace_scope);
 }
+
+static const char* symbol_kind_table_str[] =
+{
+    [SK_UNDEFINED] = "<<invalid symbol>>",
+#define SYMBOL_KIND(x, _) \
+        [x] = #x, 
+    SYMBOL_KIND_TABLE
+    SYMBOL_KIND_TABLE_FORTRAN
+#undef SYMBOL_KIND
+};
+
+const char* symbol_kind_name(scope_entry_t* entry)
+{
+    if (entry == NULL)
+        return "<<null symbol>>";
+    else if (entry->kind >= SK_LAST_KIND)
+        return "<<invalid kind>>";
+    else
+        return symbol_kind_table_str[entry->kind];
+}

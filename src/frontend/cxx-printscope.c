@@ -60,46 +60,6 @@ static void indent_at_level(FILE* f, int n)
         fprintf(f,  __VA_ARGS__ ); \
     } while (0);
 
-static char* symbol_kind_names[] =
-{
-    [SK_UNDEFINED] = "SK_UNDEFINED",
-    [SK_CLASS] = "SK_CLASS",
-    [SK_ENUM] = "SK_ENUM",
-    [SK_ENUMERATOR] = "SK_ENUMERATOR",
-    [SK_FUNCTION] = "SK_FUNCTION",
-    [SK_LABEL] = "SK_LABEL",
-    [SK_NAMESPACE] = "SK_NAMESPACE",
-    [SK_VARIABLE] = "SK_VARIABLE",
-    [SK_TYPEDEF] = "SK_TYPEDEF",
-    [SK_TEMPLATE] = "SK_TEMPLATE",
-    [SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
-    [SK_TEMPLATE_TYPE_PARAMETER] = "SK_TEMPLATE_TYPE_PARAMETER", 
-    [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
-    // GCC Extension for builtin types
-    [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
-    [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
-    // Artificial symbols
-    [SK_OTHER] = "SK_OTHER",
-#ifdef FORTRAN_SUPPORT
-    [SK_COMMON] = "SK_COMMON",
-    [SK_NAMELIST] = "SK_NAMELIST",
-    [SK_MODULE] = "SK_MODULE",
-    [SK_PROGRAM] = "SK_PROGRAM",
-    [SK_BLOCKDATA] = "SK_BLOCKDATA",
-#endif
-};
-
-// static char* scope_names[] =
-// {
-//     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
-//     [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
-//     [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
-//     [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
-//     [BLOCK_SCOPE] = "BLOCK_SCOPE",
-//     [CLASS_SCOPE] = "CLASS_SCOPE",
-//     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
-// };
-
 typedef
 struct print_context_data_tag
 {
@@ -209,11 +169,11 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
 {
     if (strcmp(key, entry->symbol_name) == 0)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_name(entry));
     }
     else
     {
-        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_names[entry->kind]);
+        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_name(entry));
     }
 
     if (rb_tree_query(print_context_data.symbol_set, entry) != NULL)

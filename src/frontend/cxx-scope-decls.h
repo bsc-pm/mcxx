@@ -154,36 +154,46 @@ typedef struct decl_context_tag
     struct scope_tag* current_scope;
 } decl_context_t;
 
+#define SYMBOL_KIND_TABLE \
+    SYMBOL_KIND(SK_CLASS, "class-name") \
+    SYMBOL_KIND(SK_ENUM, "enum-name") \
+    SYMBOL_KIND(SK_ENUMERATOR, "enumerator-name") \
+    SYMBOL_KIND(SK_FUNCTION, "function-name") \
+    SYMBOL_KIND(SK_LABEL, "label-name") \
+    SYMBOL_KIND(SK_NAMESPACE, "namespace-name") \
+    SYMBOL_KIND(SK_VARIABLE, "data object name") \
+    SYMBOL_KIND(SK_TYPEDEF, "typedef-name") \
+    SYMBOL_KIND(SK_TEMPLATE, "template-name") \
+    SYMBOL_KIND(SK_TEMPLATE_PARAMETER, "nontype template parameter name") \
+    SYMBOL_KIND(SK_TEMPLATE_TYPE_PARAMETER, "type template parameter name") \
+    SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter") \
+    SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
+    SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
+    SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
+
+#ifdef FORTRAN_SUPPORT
+#define SYMBOL_KIND_TABLE_FORTRAN \
+    SYMBOL_KIND(SK_COMMON, "COMMON name") \
+    SYMBOL_KIND(SK_NAMELIST, "NAMELIST name") \
+    SYMBOL_KIND(SK_MODULE, "MODULE name") \
+    SYMBOL_KIND(SK_PROGRAM, "PROGRAM name") \
+    SYMBOL_KIND(SK_BLOCKDATA, "BLOCK DATA name") 
+#endif
+
 enum cxx_symbol_kind
 {
     SK_UNDEFINED = 0,
-    SK_CLASS, // [1] this names a plain class
-    SK_ENUM, // [2] this names an enum
-    SK_ENUMERATOR, // [3] this names an enumerator (the elements an enum is made of)
-    SK_FUNCTION,  // [4] this names a plain function
-    SK_LABEL, // [5] this names a label (currently unused)
-    SK_NAMESPACE, // [6] this names a namespace
-    SK_VARIABLE, // [7] this names an object
-    SK_TYPEDEF, // [8] this names a typedef
-    // Lots of stuff related to the C++ "template madness"
-    SK_TEMPLATE, // [9] this names a template (either function or class)
-    SK_TEMPLATE_PARAMETER, // [10] nontype parameters like N in "template<int N>"
-    SK_TEMPLATE_TYPE_PARAMETER, // [11] plain type parameters like T in "template <class T>"
-    SK_TEMPLATE_TEMPLATE_PARAMETER, // [12] template template parameters like Q in "template<template<typename P> class Q>"
-    // GCC Extension for builtin types
-    SK_GCC_BUILTIN_TYPE, // [13]
-    // Dependent entity that is named but nothing is known at the moment
-    SK_DEPENDENT_ENTITY, // [14]
-    // Other symbols whose use is defined elsewhere
-    // These symbols should not be language-accessible
-    SK_OTHER, // [15]
+#define SYMBOL_KIND(x, _) \
+    x, 
+
+    SYMBOL_KIND_TABLE
+
 #ifdef FORTRAN_SUPPORT
-    SK_COMMON, // [16]
-    SK_NAMELIST, // [17]
-    SK_MODULE, // [18]
-    SK_PROGRAM, // [19]
-    SK_BLOCKDATA, // [20]
+    SYMBOL_KIND_TABLE_FORTRAN
 #endif
+
+#undef SYMBOL_KIND
+    SK_LAST_KIND
 };
 
 #define BITMAP(x) (1 << x)

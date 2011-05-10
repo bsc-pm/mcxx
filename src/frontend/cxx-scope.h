@@ -161,6 +161,9 @@ LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx,
 // Internal use only
 LIBMCXX_EXTERN scope_t* _new_scope(void);
 
+// Debug use mainly
+const char* symbol_kind_name(scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
