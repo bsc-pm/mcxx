@@ -3829,7 +3829,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
                     const char* abstract_declaration;
 
                     abstract_declaration = 
-                        get_declaration_string_internal(template_argument->type, decl_context, "", "", 0, NULL, NULL, 0);
+                        get_declaration_string_internal(template_argument->type, decl_context, "", "", 0, 0, NULL, 0);
 
                     result = strappend(result, abstract_declaration);
                     break;

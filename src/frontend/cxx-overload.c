@@ -1986,7 +1986,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                                 current->candidate->entry->symbol_name, 
                                 "", // initializer
                                 0, // semicolon
-                                NULL, // num_parameter_names
+                                0, // num_parameter_names
                                 NULL, // parameter_names
                                 0 // is_parameter
                                 ));
@@ -2009,7 +2009,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                         best_viable->candidate->entry->symbol_name, 
                         "", // initializer
                         0, // semicolon
-                        NULL, // num_parameter_names
+                        0, // num_parameter_names
                         NULL, // parameter_names
                         0 // is_parameter
                         ));
@@ -2029,7 +2029,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                             best_viable->candidate->entry->symbol_name, 
                             "", // initializer
                             0, // semicolon
-                            NULL, // num_parameter_names
+                            0, // num_parameter_names
                             NULL, // parameter_names
                             0 // is_parameter
                             ));

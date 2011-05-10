@@ -39,22 +39,34 @@ namespace TL
             const std::string& initializer, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                initializer.c_str(), 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                initializer.c_str(), 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration_with_parameters(Scope sc,
             const std::string& symbol_name, ObjectList<std::string>& parameters,
             TypeDeclFlags flags) const
     {
-        const char** parameter_names = NULL;
         int num_parameters = 0;
+        if (this->is_function())
+        {
+            num_parameters = this->parameters().size();
+        }
+        const char** parameter_names = NULL;
+        if (num_parameters > 0)
+        {
+            // + 1 for the ellipsis
+            parameter_names = new const char*[num_parameters + 1];
+        }
+
         const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                "", 0, &num_parameters, &parameter_names, flags == PARAMETER_DECLARATION);
+                "", 0, num_parameters, parameter_names, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
         {
             parameters.push_back(std::string(parameter_names[i]));
         }
+
+        delete[] parameter_names;
 
         return result;
     }
@@ -63,14 +75,14 @@ namespace TL
             symbol_name, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
             TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     Type Type::get_pointer_to()

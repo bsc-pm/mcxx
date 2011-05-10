@@ -5892,18 +5892,19 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
 static const char* get_type_name_string(decl_context_t decl_context,
         type_t* type_info, 
         const char* symbol_name,
-        int* num_parameter_names,
-        const char*** parameter_names,
+        int num_parameter_names,
+        const char** parameter_names,
         char is_parameter);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
+// For function types you can specify the names of the arguments
 const char* get_declaration_string_internal(type_t* type_info, 
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer, 
         char semicolon,
-        int* num_parameter_names,
-        const char*** parameter_names,
+        int num_parameter_names,
+        const char** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -5943,15 +5944,15 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
         const char** left,
         const char** right,
-        int* num_parameter_names,
-        const char*** parameter_names,
+        int num_parameter_names,
+        const char** parameter_names,
         char is_parameter);
 
 static const char* get_type_name_string(decl_context_t decl_context,
         type_t* type_info, 
         const char* symbol_name,
-        int* num_parameter_names,
-        const char*** parameter_names,
+        int num_parameter_names,
+        const char** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6106,8 +6107,8 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
         const char** left,
         const char** right,
-        int* num_parameter_names,
-        const char*** parameter_names,
+        int num_parameter_names,
+        const char** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -6246,25 +6247,34 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     }
                     else
                     {
-                        if (parameter_names == NULL)
+                        if (parameter_names == NULL
+                                || (i >= num_parameter_names)
+                                || parameter_names[i] == NULL)
                         {
                             // Abstract declarator
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        "", "", 0, NULL, NULL, 1));
+                                        "", "", 0, 0, NULL, 1));
                         }
-                        else
+                        else if (parameter_names != NULL
+                                && parameter_names[i] != NULL)
+                        {
+                            prototype = strappend(prototype,
+                                    get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
+                                        parameter_names[i], "", 0, 0, NULL, 1));
+                        }
+                        else // parameter_names != NULL && parameter_names[i] == NULL
                         {
                             // We create a name
                             char parameter_name[20];
                             snprintf(parameter_name, 19, "_p_%d", i);
                             parameter_name[19] = '\0';
 
-                            P_LIST_ADD((*parameter_names), (*num_parameter_names), uniquestr(parameter_name));
+                            parameter_names[i] = uniquestr(parameter_name);
 
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
-                                        parameter_name, "", 0, NULL, NULL, 1));
+                                        parameter_name, "", 0, 0, NULL, 1));
                         }
                     }
                 }
@@ -8933,7 +8943,7 @@ const char* print_type_str(type_t* t, decl_context_t decl_context)
                 decl_context, /* symbol_name */"", 
                 /* initializer */ "", 
                 /* semicolon */ 0,
-                /* num_parameter_names */ NULL,
+                /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
                 /* is_parameter */ 0);
     }
@@ -8974,7 +8984,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
                 decl_context, /* symbol_name */ name, 
                 /* initializer */ "", 
                 /* semicolon */ 0,
-                /* num_parameter_names */ NULL,
+                /* num_parameter_names */ 0,
                 /* parameter_names */ NULL,
                 /* is_parameter */ 0);
     }
