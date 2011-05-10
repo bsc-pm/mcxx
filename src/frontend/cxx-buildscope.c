@@ -4705,6 +4705,15 @@ static void set_function_parameter_clause(type_t** function_type,
         num_parameters++;
     }
 
+    if (parameter_info[num_parameters-1].is_ellipsis)
+    {
+        gather_info->num_parameters = num_parameters - 1;
+    }
+    else
+    {
+        gather_info->num_parameters = num_parameters;
+    }
+
     if ((num_parameters == 1)
             && !parameter_info[0].is_ellipsis)
     {
