@@ -109,9 +109,40 @@ class ASTStructure(Variable):
            print "   ERROR_CONDITION(ASTText(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
         i = 0
         for subtree in self.subtrees:
-            (rule_label, rule_ref) = subtree
-            RuleRef(rule_ref).check_code("ASTSon%d(%s)" % (i, tree_expr))
-            i = i + 1
+           (rule_label, rule_ref) = subtree
+
+           current_rule = RuleRef(rule_ref)
+
+           if current_rule.is_opt():
+               print "if (ASTSon%d(%s) != NULL)" % (i,tree_expr) 
+               print "{"
+           else:
+               print "ERROR_CONDITION(ASTSon%d(%s) == NULL, \"Tree cannot be NULL!\", 0);" % (i, tree_expr)
+
+           if current_rule.is_seq():
+               print "ERROR_CONDITION(ASTType(ASTSon%d(%s)) != AST_NODE_LIST, \"List node required here but got %%s\", ast_print_node_type(ASTType(ASTSon%d(%s))));" % (i, tree_expr, i, tree_expr)
+               current_rule.check_code("ASTSon%d(%s)" % (i, tree_expr))
+           else:
+               print "   switch (ASTType(ASTSon%d(%s)))" % (i,tree_expr)
+               print "   {"
+               print "        // rule -> %s" % (rule_ref)
+               current_rule.check_code("ASTSon%d(%s)" % (i, tree_expr))
+               print "       default:"
+               print "       {"
+               first_set = current_rule.first()
+               if current_rule.is_seq():
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(ASTType(a)));" 
+               else:
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
+                      % (string.join(first_set, " or "))
+               print "          break;"
+               print "       }"
+               print "   }"
+
+           if (current_rule.is_opt()):
+               print "}"
+
+           i = i + 1
         print "  break;"
         print "}"
 
@@ -140,9 +171,6 @@ class RuleRef(Variable):
     def check_code(self, tree_expr):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         first_set = self.first()
-        if is_opt:
-           print "if (%s != NULL)" % (tree_expr)
-           print "{"
         if is_seq:
            print "AST it;"
            print "for_each_element(%s, it)" % (tree_expr)
@@ -158,28 +186,19 @@ class RuleRef(Variable):
            print "        }"
            print "        default:"
            print "        {"
-           print "           internal_error(\"Invalid tree kind '%s'\", ast_print_node_type(ASTType(a)));"
+           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
+               % (string.join(first_set, " or "))
            print "           break;"
            print "        }"
            print "   }"
            print "}"
         else:
-           print "   switch (ASTType(%s))" % (tree_expr)
-           print "   {"
            for first_item in first_set:
                  print "        case %s : " % (first_item) 
            print "        {"
            print "               nodecl_check_tree_%s(%s);" % (rule_ref_c, tree_expr)
            print "               break;"
            print "        }"
-           print "        default:"
-           print "        {"
-           print "           internal_error(\"Invalid tree kind '%s'\", ast_print_node_type(ASTType(a)));"
-           print "           break;"
-           print "        }"
-           print "   }"
-        if is_opt:
-           print "}"
 
 def generate_check_routines_rec(rule_map, rule_name):
     rule_info = rule_map[rule_name]
@@ -189,11 +208,14 @@ def generate_check_routines_rec(rule_map, rule_name):
     print "   ERROR_CONDITION(a == NULL, \"Invalid null tree\", 0);"
     print "   switch (ASTType(a))"
     print "   {"
+    first_set = set([])
     for rhs in rule_info:
         rhs.check_code("a")
+        first_set = first_set.union(rhs.first())
     print "     default:"
     print "     {"
-    print "        internal_error(\"Invalid tree kind '%s'\", ast_print_node_type(ASTType(a)));"
+    print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
+        % (string.join(first_set, " or "))
     print "        break;"
     print "     }"
     print "   }"
