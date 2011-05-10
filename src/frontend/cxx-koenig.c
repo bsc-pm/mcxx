@@ -381,7 +381,10 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_dependent = 0;
-        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL, &is_dependent);
+        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, 
+                /* is_virtual */ NULL, 
+                &is_dependent, 
+                /* access_specifier */ NULL);
         if (is_dependent)
             continue;
 

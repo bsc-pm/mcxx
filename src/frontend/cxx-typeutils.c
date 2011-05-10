@@ -3088,7 +3088,8 @@ char class_type_is_empty(type_t* t)
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
 
         if (is_dependent)
             continue;
@@ -3143,7 +3144,8 @@ char class_type_is_dynamic(type_t* t)
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
 
         if (is_dependent)
             continue;
@@ -3166,7 +3168,8 @@ static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_t
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
 
         if (is_dependent)
             continue;
@@ -3240,7 +3243,8 @@ char class_type_is_nearly_empty(type_t* t)
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
 
         if (is_dependent)
             continue;
@@ -3636,7 +3640,7 @@ char function_type_get_has_ellipsis(type_t* function_type)
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
-        char is_virtual, char is_dependent)
+        char is_virtual, char is_dependent, access_specifier_t access_specifier)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
@@ -3645,6 +3649,7 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
     new_base_class->is_dependent = is_dependent;
+    new_base_class->access_specifier = access_specifier;
 
     class_info_t* class_info = class_type->type->class_info;
     // Only add once
@@ -3710,7 +3715,7 @@ scope_entry_t* class_type_get_member_function_num(type_t* class_type, int i)
     return class_type->type->class_info->member_functions[i];
 }
 
-scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent)
+scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent, access_specifier_t* access_specifier)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     class_type = get_actual_class_type(class_type);
@@ -3725,6 +3730,11 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
     if (is_dependent != NULL)
     {
         *is_dependent = class_info->base_classes_list[num]->is_dependent;
+    }
+
+    if (access_specifier != NULL)
+    {
+        *access_specifier = class_info->base_classes_list[num]->access_specifier;
     }
 
     return class_info->base_classes_list[num]->class_symbol;
@@ -3829,7 +3839,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     {
         char is_dependent = 0;
         scope_entry_t* class_entry = class_type_get_base_num(class_type, i, 
-                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent);
+                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent, /* access_specifier */ NULL);
         type_t* base_class_type = class_entry->type_information;
 
         if (is_dependent)
@@ -5491,7 +5501,7 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
         char is_virtual = 0;
         char is_dependent = 0;
         type_t* current_base = class_type_get_base_num(possible_derived, i, 
-                &is_virtual, &is_dependent)
+                &is_virtual, &is_dependent, /* access_specifier */ NULL)
             ->type_information;
 
         if (is_dependent)
@@ -5506,7 +5516,8 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        type_t* current_base = class_type_get_base_num(possible_derived, i, &is_virtual, &is_dependent)
+        type_t* current_base = class_type_get_base_num(possible_derived, i, &is_virtual, &is_dependent, 
+                /* access_specifier_t */ NULL)
             ->type_information;
 
         if (is_dependent)
@@ -8071,7 +8082,8 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent)
     {
         char is_virtual = 0;
         char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual, &is_dependent);
+        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual, &is_dependent,
+                /* access_specifier*/ NULL);
 
         if (is_dependent && !include_dependent)
             continue;
@@ -8331,7 +8343,8 @@ char class_type_is_standard_layout(type_t* t)
     for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0, is_dependent = 0;
-        /* scope_entry_t* base = */ class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        /* scope_entry_t* base = */ class_type_get_base_num(class_type, i, &is_virtual, &is_dependent,
+                /* access_specifier_t */ NULL);
 
         if (is_virtual)
             return 0;
@@ -8356,7 +8369,8 @@ char class_type_is_standard_layout(type_t* t)
     for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0, is_dependent = 0;
-        scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+        scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, 
+                /* access_specifier */ NULL);
 
         if (!class_type_is_standard_layout(base->type_information))
             return 0;
@@ -8368,7 +8382,8 @@ char class_type_is_standard_layout(type_t* t)
         for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
         {
             char is_virtual = 0, is_dependent = 0;
-            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, 
+                    /* access_specifier */ NULL);
 
             nonempty += (class_type_get_num_nonstatic_data_members(base->type_information) != 0);
         }
@@ -8381,7 +8396,8 @@ char class_type_is_standard_layout(type_t* t)
         for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
         {
             char is_virtual = 0, is_dependent = 0;
-            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent,
+                    /* access_specifier */ NULL);
 
             if (class_type_get_num_nonstatic_data_members(base->type_information) != 0)
             {
@@ -8394,7 +8410,8 @@ char class_type_is_standard_layout(type_t* t)
         for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
         {
             char is_virtual = 0, is_dependent = 0;
-            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent,
+                    /* access_specifier */ NULL);
 
             if (equivalent_types(first_nonstatic->type_information, base->type_information))
                 return 0;

@@ -36,10 +36,8 @@ static void indent(codegen_context_t *ctx)
 
 static void walk_type_for_symbols(
         codegen_context_t *ctx,
-        scope_entry_t* entry, 
         type_t* t,
         char needs_def, 
-        char is_function_def,
         void symbol_to_declare(codegen_context_t*, scope_entry_t*),
         void symbol_to_define(codegen_context_t*, scope_entry_t*))
 {
@@ -48,36 +46,36 @@ static void walk_type_for_symbols(
 
     if (is_pointer_type(t))
     {
-        walk_type_for_symbols(ctx, entry, pointer_type_get_pointee_type(t), /* needs_def */ 0, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
     }
     else if (is_array_type(t))
     {
-        walk_type_for_symbols(ctx, entry, array_type_get_element_type(t), /* needs_def */ 1, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, array_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define);
     }
     else if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
     {
-        walk_type_for_symbols(ctx, entry, reference_type_get_referenced_type(t), /* needs_def */ 0, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, reference_type_get_referenced_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
     }
     else if (is_pointer_to_class_type(t))
     {
-        walk_type_for_symbols(ctx, entry, pointer_type_get_pointee_type(t), /* needs_def */ 0, is_function_def, symbol_to_declare, symbol_to_define);
-        walk_type_for_symbols(ctx, entry, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
     }
     else if (is_function_type(t))
     {
-        walk_type_for_symbols(ctx, entry, function_type_get_return_type(t), 
-                /* needs_def */ is_function_def, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, function_type_get_return_type(t), 
+                /* needs_def */ 0, symbol_to_declare, symbol_to_define);
         int i;
         for (i = 0; i < function_type_get_num_parameters(t); i++)
         {
-            walk_type_for_symbols(ctx, entry, function_type_get_parameter_type_num(t, i), 
-                    /* needs_def */ is_function_def, is_function_def, symbol_to_declare, symbol_to_define);
+            walk_type_for_symbols(ctx, function_type_get_parameter_type_num(t, i), 
+                    /* needs_def */ 0, symbol_to_declare, symbol_to_define);
         }
     }
     else if (is_vector_type(t))
     {
-        walk_type_for_symbols(ctx, entry, vector_type_get_element_type(t), /* needs_def */ 1, is_function_def, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(ctx, vector_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define);
     }
     else if (is_class_type(t))
     {
@@ -109,44 +107,6 @@ static void walk_type_for_symbols(
     }
 }
 
-static scope_entry_list_t* gather_symbols_of_tree(codegen_context_t* ctx, AST tree)
-{
-    if (tree == NULL)
-        return NULL;
-
-    scope_entry_t* entry = expression_get_symbol(tree);
-    scope_entry_list_t* result = NULL;
-
-    if (entry != NULL)
-    {
-        fprintf(stderr, "symbol -> %p @ '%s' %s\n", entry, ast_print_node_type(ASTType(tree)), ast_location(tree));
-        result = entry_list_new(entry);
-    }
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        scope_entry_list_t* child_result = gather_symbols_of_tree(ctx, ast_get_child(tree, i));
-
-        if (child_result != NULL)
-        {
-            if (result == NULL)
-            {
-                result = child_result;
-            }
-            else
-            {
-                scope_entry_list_t* old_result = result;
-                result = entry_list_merge(old_result, child_result);
-                entry_list_free(old_result);
-                entry_list_free(child_result);
-            }
-        }
-    }
-
-    return result;
-}
-
 static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol);
 static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol);
 static void declare_symbol_if_local(codegen_context_t *ctx, scope_entry_t* symbol);
@@ -156,32 +116,51 @@ static void define_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* sym
 
 static void codegen_type_of_symbol(
         codegen_context_t *ctx,
-        scope_entry_t* entry, 
         type_t* t,
-        char needs_def, 
-        char is_function_def)
+        char needs_def)
 {
-    walk_type_for_symbols(ctx, entry, t, needs_def, is_function_def, declare_symbol, define_symbol);
+    walk_type_for_symbols(ctx, t, needs_def, declare_symbol, define_symbol);
 }
 
 static void codegen_type_of_symbol_only_nonlocal(
         codegen_context_t *ctx,
-        scope_entry_t* entry, 
         type_t* t,
-        char needs_def, 
-        char is_function_def)
+        char needs_def)
 {
-    walk_type_for_symbols(ctx, entry, t, needs_def, is_function_def, declare_symbol_if_nonlocal, define_symbol_if_nonlocal);
+    walk_type_for_symbols(ctx, t, needs_def, declare_symbol_if_nonlocal, define_symbol_if_nonlocal);
 }
 
 UNUSED_PARAMETER static void codegen_type_of_symbol_only_local(
         codegen_context_t *ctx,
-        scope_entry_t* entry, 
         type_t* t,
-        char needs_def, 
-        char is_function_def)
+        char needs_def)
 {
-    walk_type_for_symbols(ctx, entry, t, needs_def, is_function_def, declare_symbol_if_local, define_symbol_if_local);
+    walk_type_for_symbols(ctx, t, needs_def, declare_symbol_if_local, define_symbol_if_local);
+}
+
+static void define_nonlocal_types_in_trees(codegen_context_t* ctx, AST tree)
+{
+    if (tree == NULL)
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        define_nonlocal_types_in_trees(ctx, ast_get_child(tree, i));
+    }
+
+    scope_entry_t* entry = expression_get_symbol(tree);
+    if (entry != NULL
+            && entry->type_information != NULL)
+    {
+        codegen_type_of_symbol_only_nonlocal(ctx, entry->type_information, /* needs def */ 1);
+    }
+
+    type_t* type = expression_get_type(tree);
+    if (type != NULL)
+    {
+        codegen_type_of_symbol_only_nonlocal(ctx, type, /* needs def */ 1);
+    }
 }
 
 static scope_entry_list_t *_clear_list = NULL;
@@ -209,7 +188,7 @@ static void run_clear_list(void)
     _clear_list = NULL;
 }
 
-static void define_symbol(codegen_context_t *ctx UNUSED_PARAMETER, scope_entry_t* symbol)
+static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
 {
     ERROR_CONDITION(symbol == NULL, "Invalid symbol", 0);
 
@@ -217,19 +196,24 @@ static void define_symbol(codegen_context_t *ctx UNUSED_PARAMETER, scope_entry_t
     if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
         return;
 
+    if (symbol->do_not_print)
+        return;
 
     add_to_clear_list(symbol);
 
     symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
     switch (symbol->kind)
     {
+        case SK_VARIABLE:
+            {
+                internal_error("Not yet implemented", 0);
+                break;
+            }
         case SK_TYPEDEF:
             {
                 codegen_type_of_symbol(ctx,
-                        symbol,
                         symbol->type_information,
-                        /* needs_def */ 1,
-                        /* is_function_def */ 0);
+                        /* needs_def */ 1);
                 indent(ctx);
                 fprintf(stderr, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
                             symbol->decl_context, symbol->symbol_name));
@@ -269,6 +253,142 @@ static void define_symbol(codegen_context_t *ctx UNUSED_PARAMETER, scope_entry_t
                 fprintf(ctx->file, "};\n");
                 break;
             }
+        case SK_CLASS:
+            {
+                int i = 0;
+                C_LANGUAGE()
+                {
+                    // the symbol will be already called 'struct/union X' in C
+                    indent(ctx);
+                    fprintf(ctx->file, "%s {\n", symbol->symbol_name);
+                }
+                access_specifier_t default_access_spec = AS_UNKNOWN;
+                CXX_LANGUAGE()
+                {
+                    // TODO - Namespaces
+                    const char *class_key = "";
+                    switch (class_type_get_class_kind(symbol->type_information))
+                    {
+                        case CK_CLASS:
+                            class_key = "class";
+                            default_access_spec = AS_PRIVATE;
+                            break;
+                        case CK_STRUCT:
+                            class_key = "struct";
+                            default_access_spec = AS_PUBLIC;
+                            break;
+                        case CK_UNION:
+                            class_key = "union";
+                            default_access_spec = AS_PUBLIC;
+                            break;
+                        default:
+                            internal_error("Invalid class kind", 0);
+                    }
+
+                    if (class_type_get_num_bases(symbol->type_information) != 0)
+                    {
+                        // We need to define all the bases first
+                        for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
+                        {
+                            scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
+                            define_symbol(ctx, entry);
+                        }
+                    }
+
+                    indent(ctx);
+                    fprintf(ctx->file, "%s %s", class_key, symbol->symbol_name);
+
+                    if (class_type_get_num_bases(symbol->type_information) != 0)
+                    {
+                        fprintf(ctx->file, " : ");
+                        for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
+                        {
+                            if (i != 0)
+                            {
+                                fprintf(ctx->file, ", ");
+                            }
+
+                            access_specifier_t current_access_spec = AS_UNKNOWN;
+                            char is_virtual = 0;
+                            scope_entry_t* base = class_type_get_base_num(symbol->type_information, i, 
+                                    &is_virtual, 
+                                    /* is_dependent */ NULL, 
+                                    &current_access_spec);
+
+                            if (is_virtual)
+                            {
+                                fprintf(ctx->file, "virtual ");
+                            }
+
+                            if (current_access_spec != default_access_spec)
+                            {
+                                if (current_access_spec == AS_PUBLIC)
+                                {
+                                    fprintf(ctx->file, "public ");
+                                }
+                                else if (current_access_spec == AS_PRIVATE)
+                                {
+                                    fprintf(ctx->file, "private ");
+                                }
+                                else if (current_access_spec == AS_PROTECTED)
+                                {
+                                    fprintf(ctx->file, "protected ");
+                                }
+                                else
+                                {
+                                    internal_error("Unreachable code", 0);
+                                }
+                            }
+
+                            fprintf(ctx->file, "%s", get_qualified_symbol_name(base, symbol->decl_context));
+                        }
+                    }
+
+                    fprintf(ctx->file, "{\n");
+                }
+
+
+                access_specifier_t current_access_spec = default_access_spec;
+                int num_members = class_type_get_num_members(symbol->type_information);
+                for (i = 0; i < num_members; i++)
+                {
+                    scope_entry_t* entry = class_type_get_member_num(symbol->type_information, i);
+                    access_specifier_t access_spec = entry->entity_specs.access;
+                    if (current_access_spec != access_spec)
+                    {
+                        current_access_spec = access_spec;
+
+                        codegen_context_t new_ctx = *ctx;
+                        ctx->indent_level += 1;
+
+                        indent(&new_ctx);
+                        if (current_access_spec == AS_PUBLIC)
+                        {
+                            fprintf(ctx->file, "public:\n");
+                        }
+                        else if (current_access_spec == AS_PRIVATE)
+                        {
+                            fprintf(ctx->file, "private:\n");
+                        }
+                        else if (current_access_spec == AS_PROTECTED)
+                        {
+                            fprintf(ctx->file, "protected:\n");
+                        }
+                        else
+                        {
+                            internal_error("Unreachable code", 0);
+                        }
+                    }
+
+                    codegen_context_t new_ctx = *ctx;
+                    new_ctx.indent_level += 2;
+                    declare_symbol(&new_ctx, entry);
+                }
+
+                fprintf(ctx->file, "};");
+
+                break;
+            }
         default:
             {
                 internal_error("I do not know how to define a %s\n", symbol_kind_name(symbol));
@@ -286,8 +406,57 @@ static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
     add_to_clear_list(symbol);
     symbol->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
 
+    if (symbol->do_not_print)
+        return;
+
     switch (symbol->kind)
     {
+        case SK_VARIABLE:
+            {
+                indent(ctx);
+
+                const char* decl_specifiers = "";
+                const char* gcc_attributes = "";
+                const char* declarator = "";
+                const char* initializer = "";
+
+                fprintf(ctx->file, "%s%s%s%s;",
+                        decl_specifiers, gcc_attributes, declarator, initializer);
+
+                if (symbol->entity_specs.is_static)
+                {
+                    decl_specifiers = strappend(decl_specifiers, "static ");
+                }
+                if (symbol->entity_specs.is_extern)
+                {
+                    decl_specifiers = strappend(decl_specifiers, "extern ");
+                }
+                else 
+                {
+                    // If this not a member, or if it is, is nonstatic, this has already been defined
+                    if (!symbol->entity_specs.is_member
+                            || !symbol->entity_specs.is_static)
+                    {
+                        symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                    }
+                }
+                if (symbol->entity_specs.is_thread)
+                {
+                    decl_specifiers = strappend(decl_specifiers, "__thread ");
+                }
+                if (symbol->entity_specs.is_mutable)
+                {
+                    decl_specifiers = strappend(decl_specifiers, "mutable ");
+                }
+                if (symbol->entity_specs.is_register)
+                {
+                    decl_specifiers = strappend(decl_specifiers, "register ");
+                }
+
+                declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
+                        symbol->symbol_name);
+                break;
+            }
         case SK_CLASS:
             {
                 indent(ctx);
@@ -321,26 +490,19 @@ static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
             }
         case SK_ENUM:
             {
-                indent(ctx);
-                C_LANGUAGE()
-                {
-                    // the symbol will be already called 'enum X' in C
-                    fprintf(ctx->file, "%s;\n", symbol->symbol_name);
-                }
-                CXX_LANGUAGE()
-                {
-                    // TODO - Namespaces
-                    fprintf(ctx->file, "enum %s;\n", symbol->symbol_name);
-                }
+                // Enums cannot be only declared but defined
+                define_symbol(ctx, symbol);
                 break;
             }
         case SK_TYPEDEF:
             {
+                // Get a declaration to the aliased type
                 codegen_type_of_symbol(ctx,
-                        symbol,
                         symbol->type_information,
-                        /* needs_def */ 0,
-                        /* is_function_def */ 0);
+                        /* needs_def */ 0);
+
+                // A typedef cannot be only declared, it is always defined
+                symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                 indent(ctx);
                 fprintf(stderr, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
                         symbol->decl_context, symbol->symbol_name));
@@ -409,7 +571,16 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement
 
     ERROR_CONDITION(symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
 
-    codegen_type_of_symbol(ctx, symbol, symbol->type_information, /* needs_def */ 0, /* is_function_def */ 1);
+    codegen_type_of_symbol(ctx, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
+    int i;
+    int num_params = function_type_get_num_parameters(symbol->type_information);
+    if (function_type_get_has_ellipsis(symbol->type_information))
+        num_params--;
+
+    for (i = 0; i < num_params; i++)
+    {
+        codegen_type_of_symbol(ctx, function_type_get_parameter_type_num(symbol->type_information, i), /* needs_def */ 1);
+    }
 
     AST statement = NULL;
     if (statement_seq != NULL)
@@ -420,30 +591,14 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement
         statement = ASTSon1(statement_seq);
     }
 
-    scope_entry_list_t* gather_all_symbols = gather_symbols_of_tree(ctx, statement);
-
-    if (gather_all_symbols != NULL)
-    {
-        scope_entry_list_iterator_t* it = entry_list_iterator_begin(gather_all_symbols);
-
-        while (!entry_list_iterator_end(it))
-        {
-            scope_entry_t* current = entry_list_iterator_current(it);
-
-            codegen_type_of_symbol_only_nonlocal(ctx, current, current->type_information, /* needs_def */ 1, /* is_function_def */ 1);
-
-            entry_list_iterator_next(it);
-        }
-    }
+    define_nonlocal_types_in_trees(ctx, statement);
 
     // char first_declaration = (symbol->entity_specs.codegen_status != CODEGEN_STATUS_DECLARED);
-
     // TODO - Namespaces
     // +1 because it could be zero which is undefined
     const char* argument_names[symbol->entity_specs.num_related_symbols + 1];
     memset(argument_names, 0, sizeof(argument_names));
 
-    int i;
     for (i = 0; i < symbol->entity_specs.num_related_symbols; i++)
     {
         if (symbol->entity_specs.related_symbols[i] != NULL)

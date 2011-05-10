@@ -178,7 +178,10 @@ LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier
 /* Modifiers used when the type is still being built */
 
 LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type, 
-        scope_entry_t* base_class, char is_virtual, char is_dependent);
+        scope_entry_t* base_class, 
+        char is_virtual, 
+        char is_dependent,
+        access_specifier_t access_spec);
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_add_constructor(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
@@ -390,7 +393,10 @@ LIBMCXX_EXTERN type_t* enum_type_get_underlying_type(type_t* t);
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(type_t* class_type);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent);
+LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int num, 
+        char *is_virtual, 
+        char *is_dependent,
+        access_specifier_t *access_specifier);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 LIBMCXX_EXTERN int class_type_get_num_constructors(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_constructors_num(type_t* t, int num);

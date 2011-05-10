@@ -1447,9 +1447,11 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     {
         char current_base_is_virtual = 0;
         char current_base_is_dependent = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
         scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, 
                 &current_base_is_virtual,
-                &current_base_is_dependent);
+                &current_base_is_dependent,
+                &access_specifier);
 
         if (current_base_is_dependent)
             continue;

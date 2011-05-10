@@ -1015,8 +1015,9 @@ static void instantiate_bases(
     {
         char is_virtual = 0;
         char is_dependent = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
         scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i, &is_virtual, 
-                &is_dependent);
+                &is_dependent, &access_specifier);
 
         type_t* base_class_named_type = NULL;
         if (base_class_sym->kind == SK_DEPENDENT_ENTITY)
@@ -1046,7 +1047,7 @@ static void instantiate_bases(
             instantiate_template_class(upd_base_class_sym, context_of_being_instantiated, filename, line);
         }
 
-        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0);
+        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0, access_specifier);
     }
 
     DEBUG_CODE()

@@ -2564,8 +2564,58 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         AST base_specifier = ASTSon1(iter);
 
         AST virtual_spec = ASTSon0(base_specifier);
-        // AST access_spec = ASTSon1(base_specifier);
+        AST access_spec_tree = ASTSon1(base_specifier);
         AST class_name = ASTSon2(base_specifier);
+
+        access_specifier_t access_specifier = AS_UNKNOWN;
+        switch (class_type_get_class_kind(class_type))
+        {
+            case CK_CLASS :
+                {
+                    access_specifier = AS_PRIVATE;
+                    break;
+                }
+            case CK_STRUCT :
+                {
+                    access_specifier = AS_PUBLIC;
+                    break;
+                }
+            case CK_UNION:
+                {
+                    running_error("%s: a union cannot have bases\n", ast_location(base_clause));
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid class kind", 0);
+                }
+        }
+
+        if (access_spec_tree != NULL)
+        {
+            switch (ASTType(access_spec_tree))
+            {
+                case AST_PUBLIC_SPEC:
+                    {
+                        access_specifier = AS_PUBLIC;
+                        break;
+                    }
+                case AST_PRIVATE_SPEC:
+                    {
+                        access_specifier = AS_PRIVATE;
+                        break;
+                    }
+                case AST_PROTECTED_SPEC:
+                    {
+                        access_specifier = AS_PROTECTED;
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(access_spec_tree)));
+                    }
+            }
+        }
 
         char is_virtual = (virtual_spec != NULL);
         char is_dependent = 0;
@@ -2646,7 +2696,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         }
 
         // Add the base to the class type
-        class_type_add_base_class(get_actual_class_type(class_type), result, is_virtual, is_dependent);
+        class_type_add_base_class(get_actual_class_type(class_type), result, is_virtual, is_dependent, access_specifier);
     }
 }
 
@@ -2803,8 +2853,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             {
                 char is_virtual = 0;
                 char is_dependent = 0;
+                access_specifier_t current_access_spec = AS_UNKNOWN;
                 scope_entry_t *base_class = class_type_get_base_num(class_type, j, 
-                        &is_virtual, &is_dependent);
+                        &is_virtual, &is_dependent, &current_access_spec);
 
                 int k;
                 for (k = 0; 
@@ -2839,8 +2890,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t current_access_spec = AS_UNKNOWN;
             scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &current_access_spec);
 
             int j;
             for (j = 0; 
@@ -2934,8 +2986,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
             scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -3008,7 +3061,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+            access_specifier_t access_specifier = AS_UNKNOWN;
+            scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -3108,8 +3162,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t access_specifier;
             scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -3187,8 +3242,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
             scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -3271,8 +3327,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
             scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -3389,8 +3446,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             char is_virtual = 0;
             char is_dependent = 0;
+            access_specifier_t access_specifier = AS_UNKNOWN;
             scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, &access_specifier);
 
             if (is_dependent)
                 continue;
@@ -5558,6 +5616,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_mutable = gather_info->is_mutable;
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
+        entry->entity_specs.is_thread = gather_info->is_thread;
 
         // Copy gcc attributes
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
@@ -7810,8 +7869,9 @@ static char is_virtual_destructor(type_t* class_type)
     {
         char is_virtual = 0;
         char is_dependent = 0;
+        access_specifier_t access_specifier = AS_UNKNOWN;
         scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                &is_virtual, &is_dependent);
+                &is_virtual, &is_dependent, &access_specifier);
 
         if (is_dependent)
             continue;

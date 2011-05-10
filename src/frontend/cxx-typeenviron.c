@@ -443,7 +443,7 @@ static void class_type_preorder_all_bases_rec(type_t* t,
         char is_virtual = 0;
         char is_dependent = 0;
         scope_entry_t* current_base = 
-            class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+            class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, /* access_specifier */ NULL);
 
         if (is_dependent)
             continue;
@@ -554,7 +554,7 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
         char current_base_is_virtual = 0;
         char current_base_is_dependent = 0;
         scope_entry_t* current_direct_base = class_type_get_base_num(class_type, i, 
-                &current_base_is_virtual, &current_base_is_dependent);
+                &current_base_is_virtual, &current_base_is_dependent, /* access_specifier */ NULL);
 
         if (current_base_is_dependent)
             continue;
@@ -731,7 +731,7 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
             char is_virtual;
             char is_dependent;
             scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, /* access_specifier */ NULL);
 
             if (is_dependent)
                 continue;
@@ -829,7 +829,7 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
             char is_virtual = 0;
             char is_dependent = 0;
             scope_entry_t* base = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, /* access_specifier */ NULL);
 
             if (is_dependent)
                 continue;
@@ -1284,7 +1284,7 @@ static void cxx_abi_class_sizeof(type_t* class_type)
             char is_virtual;
             char is_dependent;
             scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent);
+                    &is_virtual, &is_dependent, /* access_specifier */ NULL);
 
             if (!is_virtual
                     && primary_base_class != base_class)
