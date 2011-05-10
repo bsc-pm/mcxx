@@ -25,6 +25,7 @@ statement : AST_EXPRESSION_STATEMENT([nest]expression)
           | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_directive]pragma-directive, [statement]statement)
           | c-cxx-only-statements
           | fortran-only-statements
+          | object-init
 
 loop-control: AST_LOOP_CONTROL([init]expression, [cond]expression, [next]expression)
 
