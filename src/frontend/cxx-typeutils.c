@@ -1131,8 +1131,9 @@ static dependent_name_part_t* get_dependent_nested_part(
     }
     else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
     {
+        nodecl_output_t dummy_nodecl_output;
         result->name = get_conversion_function_name(decl_context, nested_part, 
-                &result->related_type);
+                &result->related_type, &dummy_nodecl_output);
     }
     else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
     {

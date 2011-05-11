@@ -35,6 +35,7 @@
 #include "cxx-type-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-nodecl-output.h"
 
 MCXX_BEGIN_DECLS
 

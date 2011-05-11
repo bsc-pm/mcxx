@@ -393,7 +393,7 @@ def generate_routines_header(rule_map):
            if rhs.__class__ == ASTStructure:
                classes[(rhs.tree_kind[4:]).lower()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
-       param_list_nodecl = map(lambda x : "nodecl_output_t*", rhs_rule.subtrees)
+       param_list_nodecl = map(lambda x : "nodecl_output_t", rhs_rule.subtrees)
        if rhs_rule.needs_symbol:
            param_list_nodecl.append("scope_entry_t*");
        if rhs_rule.needs_type:
@@ -403,7 +403,8 @@ def generate_routines_header(rule_map):
        if not param_list_nodecl:
            param_list_nodecl = ["void"];
 
-       print "nodecl_output_t* nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
+       print "nodecl_output_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
+   print "nodecl_output_t nodecl_concat_list(nodecl_output_t e1, nodecl_output_t e2);"
    print ""
    print "MCXX_END_DECLS"
    print ""
@@ -414,6 +415,7 @@ def generate_routines_header(rule_map):
 def generate_routines_impl(rule_map):
    print "#include \"cxx-nodecl-output.h\""
    print "#include \"cxx-exprtype.h\""
+   print "#include \"cxx-utils.h\""
    print "#include <stdlib.h>"
    print ""
    classes = {}
@@ -432,7 +434,7 @@ def generate_routines_impl(rule_map):
                i = i + 1
            param_name = pattern % i
            param_name_list.append(param_name)
-           param_list_nodecl.append("nodecl_output_t* %s" % (param_name))
+           param_list_nodecl.append("nodecl_output_t %s" % (param_name))
        if rhs_rule.needs_symbol:
            param_list_nodecl.append("scope_entry_t* symbol");
        if rhs_rule.needs_type:
@@ -442,26 +444,48 @@ def generate_routines_impl(rule_map):
        if not param_list_nodecl:
            param_list_nodecl = ["void"];
 
-       print "nodecl_output_t* nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
+       print "nodecl_output_t nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
        print "{"
-       print "  nodecl_output_t* result = calloc(1, sizeof(*result));"
+       print "  nodecl_output_t result = { NULL };"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result->tree = ASTLeaf(%s, NULL, 0, NULL);" % (rhs_rule.tree_kind)
+          print "  result.tree = ASTLeaf(%s, NULL, 0, NULL);" % (rhs_rule.tree_kind)
        else:
-          print "  result->tree = ASTMake%d(%s, %s, NULL, 0, NULL);" % (num_children, rhs_rule.tree_kind, \
-                 string.join(map(lambda x : x + "->tree", param_name_list), ", "));
+          print "  result.tree = ASTMake%d(%s, %s, NULL, 0, NULL);" % (num_children, rhs_rule.tree_kind, \
+                 string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
-          print "  expression_set_symbol(result->tree, symbol);"
+          print "  expression_set_symbol(result.tree, symbol);"
        if rhs_rule.needs_type:
-          print "  expression_set_type(result->tree, type);"
+          print "  expression_set_type(result.tree, type);"
        if rhs_rule.needs_text:
-          print "  ast_set_text(result->tree, text);"
+          print "  ast_set_text(result.tree, text);"
 
        print "  return result;"
        print "}"
        print ""
+   print \
+"""nodecl_output_t nodecl_concat_list(nodecl_output_t e1, nodecl_output_t e2)
+{
+    if (e1.tree == NULL)
+        return e2;
+
+    if (e2.tree == NULL)
+        return e1;
+
+    if (ASTType(e1.tree) == AST_NODE_LIST
+            && ASTType(e2.tree) == AST_NODE_LIST)
+    {
+        nodecl_output_t result;
+        result.tree = ast_list_concat(e1.tree, e2.tree);
+        return result;
+    }
+
+    internal_error("Invalid trees when appending two nodecl_output_t", 0);
+    nodecl_output_t result = { NULL };
+    return result;
+}
+"""
 
 # MAIN
 

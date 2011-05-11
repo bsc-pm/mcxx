@@ -353,13 +353,13 @@ type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
+    nodecl_output_t dummy_nodecl_output = { NULL };
+
     type_t* simple_type_info = NULL;
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-            decl_context);
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, decl_context, &dummy_nodecl_output);
 
     type_t* declarator_type = simple_type_info;
-    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-            &declarator_type, decl_context);
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, &declarator_type, decl_context, &dummy_nodecl_output);
 
     return declarator_type;
 }
@@ -1384,7 +1384,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     gather_decl_spec_t gather_info;
                     memset(&gather_info, 0, sizeof(gather_info));
 
-                    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
+                    nodecl_output_t dummy_nodecl_output = { NULL };
+                    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
 
                     if (is_named_type(type_info)
                             && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
@@ -1401,9 +1402,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     }
 
                     type_t* declarator_type = type_info;
-                    compute_declarator_type(abstract_decl, 
-                            &gather_info, type_info, &declarator_type,
-                            decl_context);
+                    compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output); 
 
                     type_t* type_in_context = declarator_type;
                     if (is_array_type(type_in_context))
@@ -1450,7 +1449,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     gather_decl_spec_t gather_info;
                     memset(&gather_info, 0, sizeof(gather_info));
 
-                    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
+                    nodecl_output_t dummy_nodecl_output = { NULL };
+                    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
 
                     if (is_named_type(type_info)
                             && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
@@ -1467,9 +1467,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     }
 
                     type_t* declarator_type = type_info;
-                    compute_declarator_type(abstract_decl, 
-                            &gather_info, type_info, &declarator_type,
-                            decl_context);
+                    compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output);
 
                     expression_set_type(expression, declarator_type);
                 }
@@ -1493,7 +1491,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_GCC_PARENTHESIZED_EXPRESSION :
             {
                 AST compound_statement = ASTSon0(expression);
-                build_scope_statement(compound_statement, decl_context);
+                nodecl_output_t dummy_nodecl_output = { NULL };
+                build_scope_statement(compound_statement, decl_context, &dummy_nodecl_output);
 
                 AST statement_seq = ASTSon0(compound_statement);
                 if (statement_seq == NULL)
@@ -5962,7 +5961,8 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     type_t* conversion_type = NULL;
     /* char* conversion_function_name = */ 
-    get_conversion_function_name(decl_context, expression, &conversion_type);
+    nodecl_output_t dummy_nodecl_output = { NULL };
+    get_conversion_function_name(decl_context, expression, &conversion_type, &dummy_nodecl_output);
 
     ERROR_CONDITION(conversion_type == NULL,
             "Conversion type was not computed", 0);
@@ -6642,7 +6642,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
-    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context);
+    nodecl_output_t dummy_nodecl_output = { NULL };
+    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context, &dummy_nodecl_output);
 
     // template-names are not allowed here since they do not name a type
     if (is_named_type(dummy_type)
@@ -6660,7 +6661,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
     }
 
     type_t* declarator_type = NULL;
-    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
+    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, &dummy_nodecl_output);
 
     if (new_initializer != NULL)
     {
@@ -8600,9 +8601,11 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression, decl_c
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
+        nodecl_output_t dummy_nodecl_output = { NULL };
+
         type_t* simple_type_info = NULL;
         build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                decl_context);
+                decl_context, &dummy_nodecl_output);
 
         if (is_named_type(simple_type_info)
                 && named_type_get_symbol(simple_type_info)->kind == SK_TEMPLATE)
@@ -8620,7 +8623,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression, decl_c
 
         type_t* declarator_type = simple_type_info;
         compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                &declarator_type, decl_context);
+                &declarator_type, decl_context, &dummy_nodecl_output);
 
         if (is_dependent_type(declarator_type))
         {
@@ -8906,8 +8909,9 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     type_t* conversion_type = NULL;
     if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
     {
+        nodecl_output_t dummy_nodecl_output = { NULL };
         /* char* conversion_function_name = */ get_conversion_function_name(decl_context, id_expression, 
-                &conversion_type);
+                &conversion_type, &dummy_nodecl_output);
 
         // If the computed type is dependent then all the expression is dependent
         if (is_dependent_type(conversion_type))
@@ -11355,13 +11359,14 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             gather_decl_spec_t gather_info;
             memset(&gather_info, 0, sizeof(gather_info));
 
+            nodecl_output_t dummy_nodecl_output = { NULL };
             type_t* simple_type_info = NULL;
             build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                    decl_context);
+                    decl_context, &dummy_nodecl_output);
 
             type_t* declarator_type = simple_type_info;
             compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                    &declarator_type, decl_context);
+                    &declarator_type, decl_context, &dummy_nodecl_output);
 
             if (!is_dependent_type(declarator_type)
                     && !type_is_runtime_sized(declarator_type))
