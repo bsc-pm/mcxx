@@ -41,7 +41,7 @@ namespace TL
                 const ObjectList<IdExpression> _simd_id_exp_list;
                 const TL::Symbol _ind_var_sym;
                 ObjectList<Symbol> _nonlocal_symbols;
-                std::stack<bool> inside_array_subscript;
+                std::stack<bool> _inside_array_subscript;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint(AST_t a, void* data);
@@ -54,7 +54,7 @@ namespace TL
                         ObjectList<Symbol> nonlocal_symbols) 
                     : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list), _ind_var_sym(ind_var_sym), _nonlocal_symbols(nonlocal_symbols)
                 { 
-                    inside_array_subscript.push(false); 
+                    _inside_array_subscript.push(false); 
                 }
 
                 Source replace(AST_t a) const;
@@ -133,11 +133,27 @@ namespace TL
         class isExpressionAssignment : public TL::Predicate<AST_t>
         {
             private:
-                ScopeLink& _sl;
+                const ScopeLink& _sl;
             public:
-                isExpressionAssignment(ScopeLink& sl) : _sl(sl){};
+                isExpressionAssignment(const ScopeLink& sl) : _sl(sl){};
                 virtual bool do_(const AST_t& ast) const;
         };
+
+        class isVectorIndex : public TL::Predicate<AST_t>
+        {
+            private:
+                const ScopeLink& _sl;
+                const Symbol& _iv_symbol;
+                const ObjectList<Symbol>& _nonlocal_symbols;
+            public:
+                isVectorIndex(const ScopeLink& sl, 
+                        const Symbol& _iv_symbol,
+                        const ObjectList<Symbol>& nonlocal_symbols) 
+                    : _sl(sl), _iv_symbol(_iv_symbol), _nonlocal_symbols(nonlocal_symbols){};
+                virtual bool do_(const AST_t& ast) const;
+        };
+
+
 
         //! Creates a SIMDization object
         /*!

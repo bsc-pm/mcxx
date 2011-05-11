@@ -58,6 +58,7 @@ static TL::ObjectList<TL::Symbol> builtin_ve_list;
 static TL::ObjectList<TL::Symbol> builtin_ivve_list;
 static TL::ObjectList<TL::Symbol> builtin_gf_list;
 static TL::ObjectList<TL::Symbol> builtin_vc_list;
+static TL::ObjectList<TL::Symbol> builtin_vi_list;
 
 static void update_identity_flag(const std::string &str)
 {
@@ -199,7 +200,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     result->symbol_name = BUILTIN_VC_NAME;
     result->kind = SK_FUNCTION;
 
-    //Last symbol: target type of the conversion
+    //Second parameter: target type of the conversion
     result->type_information = TL::Type(types[1])
         .get_function_returning(param_type_list)
         .get_internal_type();
@@ -211,6 +212,56 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     return result;
 }
 
+
+//__builtin_vector_index overload
+static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types,  
+        AST *arguments UNUSED_PARAMETER,
+        int num_arguments)
+{
+    char name[256];
+    int i;
+    char found_match = 0;
+    scope_entry_t* result = NULL;
+
+    if (num_arguments != 2)
+    {
+        internal_error("hlt-simd builtin '%s' only allows two parameter\n",
+                                overloaded_function->symbol_name);
+    }
+
+    for(i=1; i<builtin_vi_list.size(); i++) 
+    {
+        if (equivalent_types(get_unqualified_type(types[1]),
+                    function_type_get_parameter_type_num(builtin_vi_list[i].get_type()
+                        .get_internal_type(), 1)))
+        {
+            return builtin_vi_list[i].get_internal_symbol();
+        }
+    }
+
+    //No Match: Add a new Symbol to the list.
+    TL::ObjectList<TL::Type> param_type_list;
+
+    param_type_list.append(types[0]);
+    param_type_list.append(types[1]);
+
+    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result->symbol_name = BUILTIN_VI_NAME;
+    result->kind = SK_FUNCTION;
+
+    result->type_information = TL::Type(types[0])
+        .basic_type()
+        .get_generic_vector_to()
+        .get_function_returning(param_type_list)
+        .get_internal_type();
+    result->decl_context = builtin_vi_list.at(0).get_internal_symbol()->decl_context;
+    result->entity_specs.is_builtin = 1;
+
+    builtin_vi_list.append(result);
+
+    return result;
+}
 
 static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_function,
         type_t** types,  
@@ -377,8 +428,18 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //artificial symbol in list[0]
     builtin_vc_list.append(builtin_vc_sym);
 
+    //new artificial symbol: __builtin_vector_index
+    Symbol builtin_vi_sym = global_scope.new_artificial_symbol(BUILTIN_VI_NAME);
+    scope_entry_t* builtin_vi_se = builtin_vi_sym.get_internal_symbol();
+    builtin_vi_se->kind = SK_FUNCTION;
+    builtin_vi_se->entity_specs.is_builtin = 1;
+    builtin_vi_se->type_information = get_computed_function_type(solve_vector_index_overload_name);
+    //artificial symbol in list[0]
+    builtin_vi_list.append(builtin_vi_sym);
 
-    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src, conversions_src;
+
+
+    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src, conversions_src, indexation_src;
 
     scalar_functions_src
         << "extern int abs (int __x) __attribute__ ((__nothrow__));"
@@ -511,11 +572,36 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
         ;
 
+    indexation_src
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_INDEX_W_VECTOR_SMP_16 << "("
+        <<      "int subscripted[], "
+        <<      "int __attribute__((vector_size(16))) subscript)"
+        << "{"
+        <<      "union"
+        <<      "{"
+        <<          "int __attribute__((vector_size(16))) (*v);"
+        <<          "int *w;"
+        <<      "} u_a0 = {&subscript};"
+        <<      "union u_return"
+        <<      "{"
+        <<          "int __attribute__((vector_size(16))) v;"
+        <<          "int w[4];"
+        <<      "};"
+        <<      "union u_return _result;"
+        <<      "_result.w[0] = subscripted[u_a0.w[0]];"
+        <<      "_result.w[1] = subscripted[u_a0.w[1]];"
+        <<      "_result.w[2] = subscripted[u_a0.w[2]];"
+        <<      "_result.w[3] = subscripted[u_a0.w[3]];"
+        <<      "return _result.v;"
+        << "}"
+        ;
+
     //Global parsing
     scalar_functions_src.parse_global(translation_unit, scope_link);
     default_generic_functions_src.parse_global(translation_unit, scope_link);
     intel_builtins_src.parse_global(translation_unit, scope_link);
     conversions_src.parse_global(translation_unit, scope_link);
+    indexation_src.parse_global(translation_unit, scope_link);
 
     Scope scope = scope_link.get_scope(translation_unit);
 

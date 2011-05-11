@@ -399,6 +399,7 @@ Source SpecificFunctionInfo::get_declaration(
             static_inline_spec << "inline ";
         }
 
+        //Ret Type
         func_decl_src
             << static_inline_spec
             << func_ret_type.get_declaration(
@@ -412,12 +413,23 @@ Source SpecificFunctionInfo::get_declaration(
                 it != type_param_list.end();
                 it++)
         {
-            Type param_vec_type = it->basic_type()
+            if ((_spec_func_kind == NAIVE) || (_spec_func_kind == SIMD))
+            {
+                Type param_vec_type = it->basic_type()
                 .get_vector_to(_width);
 
-            parameter_decl_list.append_with_separator(
-                    param_vec_type.get_declaration(
-                        scalar_func_sym.get_scope(), ""), ",");
+                parameter_decl_list.append_with_separator(
+                        param_vec_type.get_declaration(
+                            scalar_func_sym.get_scope(), ""), ",");
+            }
+            else
+            {
+                Type param_vec_type = *it;
+
+                parameter_decl_list.append_with_separator(
+                        param_vec_type.get_declaration(
+                            scalar_func_sym.get_scope(), ""), ",");
+            }
         }   
     }        
 

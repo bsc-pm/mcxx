@@ -439,6 +439,37 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             return uniquestr(result.get_source().c_str());
         }
+        else if (FindFunction(_this->_sl, BUILTIN_VI_NAME).do_(ast))
+        {
+            Expression expr(ast, _this->_sl);
+            arg_list = expr.get_argument_list();
+
+            if (arg_list.size() != 2)
+            {
+                internal_error("Wrong number of arguments in %s", BUILTIN_VI_NAME);
+            }
+
+            result 
+                << INDEX_W_VECTOR_SMP_16
+                << "("
+                << recursive_prettyprint(arg_list.at(0).get_ast(), data) 
+                << ", "
+                << recursive_prettyprint(arg_list.at(1).get_ast(), data) 
+                << ")"
+                ;
+
+            generic_functions.add_specific_definition(
+                    _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_INDEX_W_VECTOR_SMP_16),
+                    _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_INDEX_W_VECTOR_SMP_16), 
+                    TL::SIMD::COMPILER_DEFAULT, 
+                    _this->_device_name, 
+                    _this->_width, 
+                    true, true,
+                    INDEX_W_VECTOR_SMP_16);
+
+            return uniquestr(result.get_source().c_str());
+        }
+
         else if (FindFunction(_this->_sl, BUILTIN_IVVE_NAME).do_(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -475,7 +506,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             result << generic_functions.get_specific_func_name(func_sym, _this->_device_name, _this->_width)
                 << "("
                 ;
-            
+
             Source args_src;
 
             for (i=1; i<(arg_list.size()); i++)

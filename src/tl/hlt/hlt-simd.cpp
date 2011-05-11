@@ -57,45 +57,6 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                 .get_simple_declaration(_this->_sl.get_scope(ast), "")
                 .c_str());
         }
-        //The ast is in the list of the user's expressions
-        if ((!_this->_simd_id_exp_list.empty()) && TL::DataReference::predicate(ast))
-        {
-            DataReference dataref(ast, _this->_sl);
-            if (dataref.is_valid())
-            {
-                Symbol sym = dataref.get_base_symbol();
-
-                if (_this->_simd_id_exp_list.contains(functor(&IdExpression::get_symbol), sym))
-                {
-                    if (dataref.is_array_subscript())
-                    {
-                        result << BUILTIN_VR_NAME 
-                            << "("
-                            //It is ok. Recursive prettyprint does not work.
-                            << dataref.get_subscripted_expression().prettyprint()   
-                            << "["
-                            ;
-
-                        //Disabling vector expansion inside the array subscription
-                        _this->inside_array_subscript.push(true);
-
-                        result
-                            << recursive_prettyprint(dataref.get_subscript_expression().get_ast(), data)
-                            << "]"
-                            << ")";
-
-                        _this->inside_array_subscript.pop();
-
-                        return uniquestr(result.get_source().c_str());
-                    }
-                    else
-                    {
-                        running_error("%s: error: DataReference '%s' with Type '%s' is not allowed in the HLT SIMD list: It is not an array subscript\n", 
-                                dataref.get_ast().get_locus().c_str(), sym.get_type().get_declaration(sym.get_scope(), "").c_str(), sym.get_name().c_str());
-                    }
-                }
-            }
-        }
         if (TL::Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -107,7 +68,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
             {
                 //__builtin_vector_expansion: 0.0f -> {0.0f, 0.0f, 0.0f, 0.0f}
                 // Constants are not expanded inside of an array subscription
-                if ((!_this->inside_array_subscript.top()))
+                if ((!_this->_inside_array_subscript.top()))
                 {
                     if (!expr.get_type().is_generic_vector())
                     {
@@ -124,66 +85,144 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
 
                             return uniquestr(result.get_source().c_str());
                         }
-                        //Unnanotated variables from outside of the loop
                         //Arrays
                         else if (expr.is_array_subscript())
                         {
-                            Expression subscripted_expr = expr.get_subscripted_expression();
-                            if (!subscripted_expr.is_id_expression())
+                            //a[b]
+                            Expression subscripted_expr = expr.get_subscripted_expression(); //a
+                            Expression subscript_expr = expr.get_subscript_expression(); //b
+
+                            if (subscripted_expr.is_id_expression())
                             {
+                                IdExpression subscripted_id_expr = subscripted_expr.get_id_expression();
+                                Symbol subscripted_sym = subscripted_id_expr.get_computed_symbol();
+
+                                //Looking for arrays indexed by vectors
+                                ObjectList<AST_t> vector_indexes_list = 
+                                    ast.depth_subtrees(isVectorIndex(
+                                                _this->_sl, _this->_ind_var_sym, _this->_nonlocal_symbols));
+
+                                //Non local Symbol
+                                if (_this->_nonlocal_symbols.contains(
+                                            subscripted_sym))
+                                {
+                                    if(vector_indexes_list.empty())
+                                    {
+                                        //Arrays in the HLT SIMD list
+                                        if (_this->_simd_id_exp_list.contains(
+                                                    functor(&IdExpression::get_symbol), subscripted_sym))
+                                        {
+                                            result << BUILTIN_VR_NAME 
+                                                << "("
+                                                //Don't use recursive.
+                                                << subscripted_expr.prettyprint()   
+                                                << "["
+                                                ;
+
+                                            //Disabling vector expansion inside the array subscription
+                                            _this->_inside_array_subscript.push(true);
+
+                                            result
+                                                << recursive_prettyprint(subscript_expr.get_ast(), data)
+                                                << "]"
+                                                << ")";
+
+                                            _this->_inside_array_subscript.pop();
+
+                                            return uniquestr(result.get_source().c_str());
+                                        }
+                                        //Arrays: Unnanotated variables from outside of the loop
+                                        else
+                                        {
+                                            result << BUILTIN_VE_NAME
+                                                << "("
+                                                << expr.prettyprint() //Don't use recursive
+                                                << ")"
+                                                ;
+
+                                            return uniquestr(result.get_source().c_str());
+                                        }
+                                    }
+                                    //Array indexed by vector
+                                    else
+                                    {
+                                        result << BUILTIN_VI_NAME 
+                                            << "("
+                                            //Don't use recursive.
+                                            << subscripted_expr.prettyprint()   
+                                            << ", "
+                                            << recursive_prettyprint(subscript_expr.get_ast(), data)
+                                            << ")"
+                                            ;
+                                            
+                                            return uniquestr(result.get_source().c_str());
+                                    }
+                                }
+                            }
+                            else
+                            {           
                                 running_error("%s: error: subscripted array Expression seems to be complicated. SIMDization is not supported yet.\n",
                                         ast.get_locus().c_str());
                             }
-
-                            IdExpression subscripted_id_expr = subscripted_expr.get_id_expression();
-
-                            if (!_this->_simd_id_exp_list.contains(
-                                        functor(&IdExpression::get_computed_symbol), 
-                                        subscripted_id_expr.get_computed_symbol()))
-                            {
-                                result << BUILTIN_VE_NAME
-                                    << "("
-                                    << expr.prettyprint()
-                                    << ")"
-                                    ;
-
-                                return uniquestr(result.get_source().c_str());
-                            }
                         }
-                        //Scalars
+                        //Scalars: Unnanotated variables from outside of the loop
                         else if (expr.is_id_expression())
                         {
                             IdExpression id_expr = expr.get_id_expression();
-                            if (_this->_nonlocal_symbols.contains(id_expr.get_computed_symbol())
-                                    && !id_expr.get_symbol().is_function()
-                                    && !id_expr.get_symbol().is_builtin()
-                                    && !_this->_simd_id_exp_list.contains(
-                                        functor(&IdExpression::get_computed_symbol), id_expr.get_computed_symbol()))
-                            {
-                                //Induction variable expansion 
-                                if (_this->_ind_var_sym.is_valid() 
-                                        && (_this->_ind_var_sym == expr.get_id_expression().get_computed_symbol()))
-                                {
-                                    result << BUILTIN_IVVE_NAME
-                                        << "("
-                                        << expr.prettyprint() //Not recursive
-                                        << ")"
-                                        ;
-                                }
-                                else
-                                {
-                                    result << BUILTIN_VE_NAME
-                                        << "("
-                                        << expr.prettyprint()
-                                        << ")"
-                                        ;
-                                }
+                            Symbol sym = id_expr.get_computed_symbol();
 
-                                return uniquestr(result.get_source().c_str());
-                            }
+                            //It's not in the HLT SIMD list
+                            //if (!_this->_simd_id_exp_list.contains(
+                            //            functor(&IdExpression::get_symbol), sym))
+                            //{
+                                if (_this->_nonlocal_symbols.contains(sym)
+                                        && !sym.is_function()
+                                        && !sym.is_builtin()
+                                        && !_this->_simd_id_exp_list.contains(
+                                            functor(&IdExpression::get_computed_symbol), sym))
+                                {
+                                    //Induction variable expansion 
+                                    if (_this->_ind_var_sym.is_valid() 
+                                            && (_this->_ind_var_sym == sym))
+                                    {
+                                        result << BUILTIN_IVVE_NAME
+                                            << "("
+                                            << expr.prettyprint() //Don't use recursive
+                                            << ")"
+                                            ;
+                                    }
+                                    else
+                                    {
+                                        result << BUILTIN_VE_NAME
+                                            << "("
+                                            << expr.prettyprint()
+                                            << ")"
+                                            ;
+                                    }
+
+                                    return uniquestr(result.get_source().c_str());
+                                }
+                            //}
                         }
                     }
                 }
+                //Inside an array subscript
+                /*
+                else
+                {
+                    ObjectList<AST_t> id_expr_list = 
+                        ast.depth_subtrees(isVectorIndex(_this->_sl, _this->_ind_var_sym, _this->_nonlocal_symbols));
+
+                    if(!id_expr_list.empty())
+                    {
+                        _this->_inside_array_subscript.push(false);
+                        result << recursive_prettyprint(ast, data);
+                        _this->_inside_array_subscript.pop();
+
+                        return uniquestr(result.get_source().c_str());
+                    }
+                }
+                */
                 //Implicit Conversions
                 if (expr.is_binary_operation())
                 {
@@ -348,7 +387,7 @@ void SIMDization::compute_min_stmt_size()
     unsigned char min = 100;
 
     //FIXME:THIS IS NOT ENOUGH ACCURATE BUT WORKS SO FAR.
-    //SOMEDAY IT'LL FAIL!
+    //IT CAN FAIL IN SOME CASES!
     ObjectList<AST_t> expr_list = 
         _ast.depth_subtrees(isExpressionAssignment(_sl));
 
@@ -440,7 +479,7 @@ LoopSIMDization::LoopSIMDization(ForStatement& for_stmt,
     : SIMDization(for_stmt, min_stmt_size, 
             for_stmt.non_local_symbols(),
             simd_id_exp_list, 
-            for_stmt.get_induction_variable().get_symbol()), 
+            for_stmt.get_induction_variable().get_computed_symbol()), 
     _for_stmt(for_stmt), _simd_id_exp_list(simd_id_exp_list) 
 {
     is_simdizable = true;
@@ -655,6 +694,34 @@ bool isExpressionAssignment::do_(const AST_t& ast) const
             if (expr.is_assignment() || expr.is_operation_assignment())
             {
                 return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool isVectorIndex::do_(const AST_t& ast) const
+{
+    if (!ast.is_valid())
+        return false;
+
+    if (Expression::predicate(ast))
+    {
+        Expression expr(ast, _sl);
+
+        if ((!expr.is_constant()) && expr.is_id_expression())
+        {
+            IdExpression id_expr = expr.get_id_expression();
+            Symbol sym = id_expr.get_computed_symbol();
+
+            //Is it not the induction variable
+            if (sym != _iv_symbol)
+            {
+                //Is it local?
+                if (!_nonlocal_symbols.contains(sym))
+                {
+                    return true;
+                }
             }
         }
     }
