@@ -946,49 +946,48 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                 if (statement.is_expression())
                 {
                     Expression exp = statement.get_expression();
-                    if ((exp.get_ast() == exp.original_tree()))
-                    { 
-                        if (exp.is_assignment() || exp.is_operation_assignment())
+                    if (exp.is_assignment() 
+                            || exp.is_operation_assignment()
+                            || exp.is_function_call())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
                         {
-                            int exp_size = exp.get_type().get_size();
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
 
-                            if (exp_size > min_stmt_size)
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
                             {
-                                Source compound_stmt_src;
-                                AST_t stmt_ast = statement.get_ast();
-                                int num_repls = exp_size/min_stmt_size;
-                                int i;
+                                Source new_stmt_src;
 
-                                compound_stmt_src 
-                                    << "{" 
-                                    << statement
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
                                     ;
 
-                                for (i=1; i < num_repls; i++)
-                                {
-                                    Source new_stmt_src;
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
 
-                                    ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
-                                    std::stringstream new_ind_var;
-
-                                    new_ind_var
-                                        << "(" 
-                                        << for_stmt.get_induction_variable().get_symbol().get_name()
-                                        << "+" 
-                                        << i*(_vector_width/exp_size)
-                                        << ")"
-                                        ;
-
-                                    induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
-                                            new_ind_var.str());
-
-                                    compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
-                                }
-
-                                compound_stmt_src << "}";
-
-                                stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
                             }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
                         }
                     }
                 }
