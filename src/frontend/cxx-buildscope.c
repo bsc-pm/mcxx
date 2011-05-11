@@ -1634,19 +1634,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = CK_CLASS;
-                class_kind_name = "class ";
+                class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = CK_STRUCT;
-                class_kind_name = "struct ";
+                class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = CK_UNION;
-                class_kind_name = "union ";
+                class_kind_name = "union";
                 break;
             }
         default:
@@ -1690,7 +1690,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     C_LANGUAGE()
     {
         const char* class_name = ASTText(id_expression);
-        class_name = strappend(class_kind_name, class_name);
+        class_name = strappend(class_kind_name, strappend(" ", class_name));
 
         result_list = query_unqualified_name_str(decl_context, class_name);
     }
@@ -1781,7 +1781,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
             C_LANGUAGE()
             {
-                class_name = strappend(class_kind_name, class_name);
+                class_name = strappend(class_kind_name, strappend(" ", class_name));
             }
 
             // From now DF_FRIEND is not needed anymore, remove it because it
@@ -2323,7 +2323,14 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         // Give it a fake name
         static int anonymous_enums = 0;
         char c[256];
-        snprintf(c, 255, "<<anonymous-enum-%d>>", anonymous_enums);
+        C_LANGUAGE()
+        {
+            snprintf(c, 255, "enum __mcc_enum_anon_%d", anonymous_enums);
+        }
+        CXX_LANGUAGE()
+        {
+            snprintf(c, 255, "__mcc_enum_anon_%d", anonymous_enums);
+        }
         c[255] = '\0';
         anonymous_enums++;
 
@@ -3653,19 +3660,19 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = CK_CLASS;
-                class_kind_name = "class ";
+                class_kind_name = "class";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = CK_STRUCT;
-                class_kind_name = "struct ";
+                class_kind_name = "struct";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = CK_UNION;
-                class_kind_name = "union ";
+                class_kind_name = "union";
 
                 break;
             }
@@ -3713,7 +3720,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         {
             // This can only be an AST_SYMBOL in C
             const char* class_name = ASTText(class_id_expression);
-            class_name = strappend(class_kind_name, class_name);
+            class_name = strappend(class_kind_name, strappend(" ", class_name));
 
             class_entry_list = query_unqualified_name_str(decl_context, class_name);
         }
@@ -3827,7 +3834,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 C_LANGUAGE()
                 {
                     const char* class_name = ASTText(class_id_expression);
-                    class_name = strappend(class_kind_name, class_name);
+                    class_name = strappend(class_kind_name, strappend(" ", class_name));
 
                     class_entry = new_symbol(decl_context, 
                             decl_context.current_scope, class_name);
@@ -3934,7 +3941,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         // Give it a fake name
         static int anonymous_classes = 0;
         char c[256];
-        snprintf(c, 255, "<<anonymous-class-%d>>", anonymous_classes);
+        C_LANGUAGE()
+        {
+            snprintf(c, 255, "%s __mcc_%s_anon_%d", class_kind_name, class_kind_name, anonymous_classes);
+        }
+        CXX_LANGUAGE()
+        {
+            snprintf(c, 255, "__mcc_%s_anon_%d", class_kind_name, anonymous_classes);
+        }
         c[255] = '\0';
         anonymous_classes++;
 

@@ -1120,7 +1120,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 break;
             }
             // Cast expression
-        case AST_CAST_EXPRESSION :
+        case AST_CAST :
             {
                 AST type_id = ASTSon0(expression);
                 AST casted_expr = ASTSon1(expression);

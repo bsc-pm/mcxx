@@ -153,8 +153,11 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   cxx-nodecl.h \
   cxx-nodecl.c \
+  cxx-nodecl-output-decls.h \
   cxx-nodecl-checker.h \
   cxx-nodecl-checker.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
   cxx-codegen.c \
   cxx-codegen.h \
   libmcxx-common.h \
@@ -258,7 +261,10 @@ BUILT_SOURCES += cxx-entity-specs.h
 
 EXTRA_DIST += nodecl-generator.py
 EXTRA_DIST += cxx-nodecl.def
+
 BUILT_SOURCES += cxx-nodecl-checker.c
+BUILT_SOURCES += cxx-nodecl-output.c
+BUILT_SOURCES += cxx-nodecl-output.h
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -425,8 +431,16 @@ c99-parser.output : c99-parser.c
 
 CLEANFILES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > $@
 
 CLEANFILES += cxx-nodecl-checker.c
 cxx-nodecl-checker.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > cxx-nodecl-checker.c
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > $@
+
+CLEANFILES += cxx-nodecl-output.c
+cxx-nodecl-output.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_impl > $@
+
+CLEANFILES += cxx-nodecl-output.h
+cxx-nodecl-output.h : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_header > $@

@@ -340,7 +340,7 @@ static prettyprint_entry_t handlers_list[] =
 #endif
     NODE_HANDLER(AST_POINTER_TO_MEMBER, binary_operator_handler, ".*"),
     NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, binary_operator_handler, "->*"),
-    NODE_HANDLER(AST_CAST_EXPRESSION, cast_expression_handler, NULL),
+    NODE_HANDLER(AST_CAST, cast_expression_handler, NULL),
     NODE_HANDLER(AST_PREDECREMENT, prefix_with_parameter_then_son_handler, "--"),
     NODE_HANDLER(AST_PREINCREMENT, prefix_with_parameter_then_son_handler, "++"),
     NODE_HANDLER(AST_DERREFERENCE, prefix_with_parameter_then_son_handler, "*"),

@@ -375,6 +375,94 @@ def generate_nodecl_classes_specs(rule_map):
        print "}"
    print "}"
 
+def generate_routines_header(rule_map):
+   print "#ifndef CXX_NODECL_OUTPUT_H"
+   print "#define CXX_NODECL_OUTPUT_H"
+   print ""
+   print "#include \"cxx-macros.h\""
+   print "#include \"cxx-nodecl-output-decls.h\""
+   print "#include \"cxx-scope-decls.h\""
+   print "#include \"cxx-typeutils.h\""
+   print ""
+   print "MCXX_BEGIN_DECLS"
+   print ""
+   classes = {}
+   for rule_name in rule_map:
+       rule_rhs = rule_map[rule_name]
+       for rhs in rule_rhs:
+           if rhs.__class__ == ASTStructure:
+               classes[(rhs.tree_kind[4:]).lower()] = rhs
+   for (key, rhs_rule) in classes.iteritems() :
+       param_list_nodecl = map(lambda x : "nodecl_output_t*", rhs_rule.subtrees)
+       if rhs_rule.needs_symbol:
+           param_list_nodecl.append("scope_entry_t*");
+       if rhs_rule.needs_type:
+           param_list_nodecl.append("type_t*");
+       if rhs_rule.needs_text:
+           param_list_nodecl.append("const char*");
+       if not param_list_nodecl:
+           param_list_nodecl = ["void"];
+
+       print "nodecl_output_t* nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
+   print ""
+   print "MCXX_END_DECLS"
+   print ""
+   print "#endif // CXX_NODECL_OUTPUT_H"
+# print "key %s -> value %s" % (repr(key), repr(value))
+
+
+def generate_routines_impl(rule_map):
+   print "#include \"cxx-nodecl-output.h\""
+   print "#include \"cxx-exprtype.h\""
+   print "#include <stdlib.h>"
+   print ""
+   classes = {}
+   for rule_name in rule_map:
+       rule_rhs = rule_map[rule_name]
+       for rhs in rule_rhs:
+           if rhs.__class__ == ASTStructure:
+               classes[(rhs.tree_kind[4:]).lower()] = rhs
+   for (key, rhs_rule) in classes.iteritems() :
+       param_list_nodecl = []
+       param_name_list = []
+       for item in rhs_rule.subtrees:
+           i = 0
+           pattern = item[1].replace("-", "_") + "_%d"
+           while (pattern % i) in param_name_list:
+               i = i + 1
+           param_name = pattern % i
+           param_name_list.append(param_name)
+           param_list_nodecl.append("nodecl_output_t* %s" % (param_name))
+       if rhs_rule.needs_symbol:
+           param_list_nodecl.append("scope_entry_t* symbol");
+       if rhs_rule.needs_type:
+           param_list_nodecl.append("type_t* type");
+       if rhs_rule.needs_text:
+           param_list_nodecl.append("const char* text");
+       if not param_list_nodecl:
+           param_list_nodecl = ["void"];
+
+       print "nodecl_output_t* nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
+       print "{"
+       print "  nodecl_output_t* result = calloc(1, sizeof(*result));"
+       num_children = len(rhs_rule.subtrees)
+       if num_children == 0:
+          print "  result->tree = ASTLeaf(%s, NULL, 0, NULL);" % (rhs_rule.tree_kind)
+       else:
+          print "  result->tree = ASTMake%d(%s, %s, NULL, 0, NULL);" % (num_children, rhs_rule.tree_kind, \
+                 string.join(map(lambda x : x + "->tree", param_name_list), ", "));
+
+       if rhs_rule.needs_symbol:
+          print "  expression_set_symbol(result->tree, symbol);"
+       if rhs_rule.needs_type:
+          print "  expression_set_type(result->tree, type);"
+       if rhs_rule.needs_text:
+          print "  ast_set_text(result->tree, text);"
+
+       print "  return result;"
+       print "}"
+       print ""
+
 # MAIN
 
 op_mode = "check_routines"
@@ -388,6 +476,10 @@ rule_map = parse_rules(f)
 
 if op_mode == "check_routines":
     generate_check_routines(rule_map)
+elif op_mode == "generation_routines_header":
+    generate_routines_header(rule_map)
+elif op_mode == "generation_routines_impl":
+    generate_routines_impl(rule_map)
 elif op_mode == "cxx_visitor_decl":
     generate_visitor_class(rule_map)
 elif op_mode == "cxx_nodecl_class_header":

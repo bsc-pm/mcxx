@@ -54,11 +54,11 @@ fortran-only-statements : AST_ALLOCATE_STATEMENT()
                         | AST_PAUSE_STATEMENT()
                         | AST_WRITE_STATEMENT()
 
-literal : AST_DECIMAL_LITERAL() type
-    | AST_FLOATING_LITERAL() type
+literal : AST_DECIMAL_LITERAL() type text
+    | AST_FLOATING_LITERAL() type text
     | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
-    | AST_STRING_LITERAL() type
-    | AST_BOOLEAN_LITERAL() type
+    | AST_STRING_LITERAL() type text
+    | AST_BOOLEAN_LITERAL() type text
  
 expression : literal
            | name
@@ -91,7 +91,15 @@ expression : literal
            | AST_ASSIGNMENT([lhs] expression, [rhs] expression) type
            | AST_PARENTHESIZED_EXPRESSION([nest]expression) type
            | AST_DERREFERENCE([rhs]expression) type
+           | AST_CAST([type]name, [rhs]expression) type
            | c-cxx-expressions
+           | initializer-expr
+
+initializer-expr : AST_INITIALIZER_BRACES([items]initializer-item-seq-opt)
+
+initializer-item : AST_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
+designator: AST_FIELD_DESIGNATOR([field]name, [next]designator-opt)
+          | AST_INDEX_DESIGNATOR([index]expression, [next]designator-opt)
 
 argument : AST_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 

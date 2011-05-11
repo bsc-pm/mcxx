@@ -961,7 +961,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                             left_decl_context, right_tree_1, right_decl_context, unif_set, flags);
                 break;
             }
-        case AST_CAST_EXPRESSION :
+        case AST_CAST :
             // They share a similar tree layout
         case AST_STATIC_CAST : 
         case AST_DYNAMIC_CAST : 

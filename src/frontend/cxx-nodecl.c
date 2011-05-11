@@ -8,10 +8,26 @@
 
 static void c_simplify_tree_decl(AST a, AST *out);
 static void c_simplify_tree_stmt(AST a, AST *out);
+static void c_simplify_tree_expr(AST a, AST *out);
 
 static void c_simplify_tree_init_decl(AST a, AST *out)
 {
-    *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+    if (a == NULL)
+    {
+        *out = NULL;
+        return;
+    }
+
+    switch (ASTType(a))
+    {
+        case AST_EQUAL_INITIALIZER:
+            {
+                c_simplify_tree_expr(ASTSon0(a), out);
+                break;
+            }
+        default:
+            internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
+    }
 }
 
 // This function returns a list (or NULL)
@@ -81,6 +97,13 @@ static void c_simplify_tree_simple_decl(AST a, AST *out)
                     new_initializer, 
                     ASTFileName(init_declarator), ASTLine(init_declarator), NULL);
 
+            if (entry->expression_value != NULL)
+            {
+                AST new_out = NULL;
+                c_simplify_tree_expr(entry->expression_value, &new_out);
+                entry->expression_value = new_out;
+            }
+
             new_init_declarator_list = ASTList(new_init_declarator_list, new_init_declarator);
         }
     }
@@ -136,15 +159,56 @@ static void c_simplify_tree_expr(AST a, AST *out)
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
         case AST_PARENTHESIZED_EXPRESSION :
+        case AST_EQUAL_INITIALIZER:
             // GCC extensions
         case AST_GCC_EXTENSION_EXPR : 
             {
                 c_simplify_tree_expr(ASTSon0(a), out);
                 break;
             }
+        case AST_POINTER_CLASS_MEMBER_ACCESS:
+            {
+                AST lhs = NULL;
+                c_simplify_tree_expr(ASTSon0(a), &lhs);
+
+                type_t * lhs_type = expression_get_type(lhs);
+                lhs = ASTMake1(AST_DERREFERENCE, lhs, ASTFileName(lhs), ASTLine(lhs), NULL);
+                if (is_pointer_type(lhs_type))
+                {
+                    expression_set_type(lhs, pointer_type_get_pointee_type(lhs_type));
+                }
+                else
+                {
+                    internal_error("Unexpected type %s", print_declarator(lhs_type));
+                }
+
+                AST rhs = NULL;
+                c_simplify_tree_expr(ASTSon0(a), &rhs);
+
+                *out = ASTMake2(AST_CLASS_MEMBER_ACCESS, lhs, rhs, ASTFileName(lhs), ASTLine(lhs), NULL);
+                expression_set_type(*out, expression_get_type(rhs));
+                break;
+            }
         default:
             {
-                *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+                AST children[MCXX_MAX_AST_CHILDREN] = { 0 };
+                int i;
+                for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+                {
+                    if (ast_get_child(a, i) != NULL)
+                    {
+                        c_simplify_tree_expr(ast_get_child(a, i), &children[i]);
+                    }
+                }
+
+                *out = ASTMake4(ast_get_type(a), children[0], children[1], children[2], children[3], 
+                        ASTFileName(a),
+                        ASTLine(a),
+                        ASTText(a));
+
+                expression_set_type(*out, expression_get_type(a));
+                expression_set_symbol(*out, expression_get_symbol(a));
+                break;
             }
     }
 }
