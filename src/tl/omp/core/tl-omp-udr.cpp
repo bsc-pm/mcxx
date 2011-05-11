@@ -924,7 +924,7 @@ namespace TL
                 if (ASTType(operator_id) != AST_OMP_UDR_MEMBER_OP
                         && ASTType(operator_id) != AST_OMP_UDR_BUILTIN_OP)
                 {
-                    check_for_expression(operator_id, decl_context);
+                    check_expression(operator_id, decl_context);
                 }
 
                 operator_list.append(AST_t(operator_id));
@@ -1015,7 +1015,7 @@ namespace TL
 
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
-                check_for_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                check_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
@@ -1024,7 +1024,7 @@ namespace TL
 
                 if (expr_list != NULL)
                 {
-                    check_for_expression_list(expr_list, decl_context);
+                    check_expression_list(expr_list, decl_context);
                 }
             }
 

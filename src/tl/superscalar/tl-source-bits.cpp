@@ -198,7 +198,7 @@ namespace TL
 		
 		AST c_expression_ast = ASTSon0(superscalar_expression_ast);
 		scope_link_set(scope_link.get_internal_scope_link(), c_expression_ast, decl_context);
-		if (!check_for_expression(c_expression_ast, decl_context))
+		if (!check_expression(c_expression_ast, decl_context))
 		{
 			throw SyntaxErrorException();
 		}

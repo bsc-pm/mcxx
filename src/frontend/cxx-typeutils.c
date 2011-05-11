@@ -1437,7 +1437,7 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
                             template_parameter->entry->symbol_name);
                     new_template_argument->expression_context = template_parameter->entry->decl_context;
 
-                    if (!check_for_expression(new_template_argument->expression,
+                    if (!check_expression(new_template_argument->expression,
                                 template_parameter->entry->decl_context))
                     {
                         internal_error("Created nontype template argument could not be checked", 0);
@@ -2537,7 +2537,7 @@ static type_t* _get_array_type(type_t* element_type,
         {
             if (data[i].tree == NULL)
                 continue;
-            char check_expr = check_for_expression(*(data[i].tree), decl_context);
+            char check_expr = check_expression(*(data[i].tree), decl_context);
             if (check_expr)
             {
                 if (expression_is_constant(*(data[i].tree)))

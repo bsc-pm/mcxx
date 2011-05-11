@@ -186,14 +186,14 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
     AST call_args = ASTSon2(expression);
 
     AST arg_0 = ASTSon0(cuda_kernel_args);
-    if (!check_for_expression(arg_0, decl_context))
+    if (!check_expression(arg_0, decl_context))
     {
         expression_set_error(expression);
         return;
     }
 
     AST arg_1 = ASTSon1(cuda_kernel_args);
-    if (!check_for_expression(arg_1, decl_context))
+    if (!check_expression(arg_1, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -201,7 +201,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     AST arg_2 = ASTSon2(cuda_kernel_args);
     if (arg_2 != NULL
-            && !check_for_expression(arg_2, decl_context))
+            && !check_expression(arg_2, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -209,7 +209,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     AST arg_3 = ASTSon3(cuda_kernel_args);
     if (arg_3 != NULL
-            && !check_for_expression(arg_3, decl_context))
+            && !check_expression(arg_3, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -287,7 +287,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
                 || ASTType(postfix_expr) == AST_OPERATOR_FUNCTION_ID);
     }
 
-    if (!_check_for_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
+    if (!_check_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
     {
         expression_set_error(expression);
         return;

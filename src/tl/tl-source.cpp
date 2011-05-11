@@ -382,7 +382,7 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_for_expression(a, decl_context);
+            char c = check_expression(a, decl_context);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -462,7 +462,7 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_for_expression_list(a, decl_context);
+            char c = check_expression_list(a, decl_context);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -662,7 +662,7 @@ namespace TL
         decl_context_t decl_context = scope.get_decl_context();
 
         enter_test_expression();
-        check_for_expression(a, decl_context);
+        check_expression(a, decl_context);
         leave_test_expression();
 
         // Set properly the context of the reference tree

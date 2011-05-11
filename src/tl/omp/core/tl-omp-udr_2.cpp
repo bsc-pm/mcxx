@@ -370,7 +370,7 @@ namespace TL
 	    		in_symbol->line = ASTLine(expression);
 	    		in_symbol->type_information = get_const_qualified_type(declarator_type);
 
-	    	    bool res = check_for_expression(expression, new_context);
+	    	    bool res = check_expression(expression, new_context);
 	    		if (!res)
                 {
                     running_error("%s: error: invalid expression '%s' for OpenMP UDR reduction\n", 
@@ -448,7 +448,7 @@ namespace TL
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
                 is_constructor = false;
-                check_for_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                check_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
@@ -458,7 +458,7 @@ namespace TL
 
                 if (expr_list != NULL)
                 {
-                    check_for_expression_list(expr_list, decl_context);
+                    check_expression_list(expr_list, decl_context);
                 }
             }
 

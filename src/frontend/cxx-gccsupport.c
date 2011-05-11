@@ -140,7 +140,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
 
         // Evaluate the expression
         AST argument = ASTSon1(expression_list);
-        if (check_for_expression(argument, decl_context))
+        if (check_expression(argument, decl_context))
         {
             if (expression_is_constant(argument))
             {
@@ -971,11 +971,11 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
-char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
+char check_gxx_type_traits(AST expression, decl_context_t decl_context)
 {
     AST first_type_id = ASTSon0(expression);
 
-    if (!check_for_type_id_tree(first_type_id, decl_context))
+    if (!check_type_id_tree(first_type_id, decl_context))
     {
         return 0;
     }
@@ -983,7 +983,7 @@ char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
     AST second_type_id = ASTSon1(expression);
 
     if (second_type_id != NULL
-            && !check_for_type_id_tree(second_type_id, decl_context))
+            && !check_type_id_tree(second_type_id, decl_context))
     {
         return 0;
     }

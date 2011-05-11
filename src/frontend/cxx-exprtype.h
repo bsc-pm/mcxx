@@ -48,14 +48,14 @@ LIBMCXX_EXTERN AST advance_expression_nest_flags(AST expr, char advance_parenthe
 
 LIBMCXX_EXTERN char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments);
 
-LIBMCXX_EXTERN char check_for_expression(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char check_for_expression_list(AST expression_list, decl_context_t decl_context);
+LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
+LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
 // Used in some TL phases, do not remove
-LIBMCXX_EXTERN char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
+LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
 LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator);
 
@@ -111,7 +111,7 @@ LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
 
 // Internal function for the frontend only
-char _check_for_functional_expression(AST whole_function_call, AST called_expression, 
+char _check_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig);
 
 MCXX_END_DECLS

@@ -2879,7 +2879,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         {
             updated_expr = ast_copy_for_instantiation(updated_expr);
             updated_expr_context = decl_context;
-            if (!check_for_expression(updated_expr, updated_expr_context))
+            if (!check_expression(updated_expr, updated_expr_context))
             {
                 running_error("%s: error: could not update array dimension",
                         ast_location(expression));
@@ -3118,7 +3118,7 @@ static template_argument_t* update_template_argument(
                 }
 
                 // Update type information 
-                if(!check_for_expression(result->expression, result->expression_context))
+                if(!check_expression(result->expression, result->expression_context))
                 {
                     internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                             prettyprint_in_buffer(result->expression));
@@ -3190,7 +3190,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     else
                     {
                         t_argument->expression = ast_copy_for_instantiation(t_argument->expression);
-                        check_for_expression(t_argument->expression, template_arguments_context);
+                        check_expression(t_argument->expression, template_arguments_context);
                     }
                     t_argument->type = expr_type;
                     break;

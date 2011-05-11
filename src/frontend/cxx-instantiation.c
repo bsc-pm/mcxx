@@ -305,7 +305,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 {
                     new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
 
-                    check_for_initialization(new_member->expression_value, context_of_being_instantiated, 
+                    check_initialization(new_member->expression_value, context_of_being_instantiated, 
                             new_member->type_information);
                 }
 
@@ -401,7 +401,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
 
-                check_for_expression(new_member->expression_value, context_of_being_instantiated);
+                check_expression(new_member->expression_value, context_of_being_instantiated);
 
                 enum_type_add_enumerator(new_type, new_member);
 

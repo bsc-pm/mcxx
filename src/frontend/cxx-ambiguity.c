@@ -84,40 +84,40 @@ static void solve_function_returning_function(AST a);
 
 static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_context);
 
-static char check_for_declaration_statement(AST a, decl_context_t decl_context);
-static char check_for_expression_statement(AST a, decl_context_t decl_context);
-// static char check_for_qualified_id(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
-// static char check_for_symbol(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
+static char check_declaration_statement(AST a, decl_context_t decl_context);
+static char check_expression_statement(AST a, decl_context_t decl_context);
+// static char check_qualified_id(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
+// static char check_symbol(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
 #if 0
-static char check_for_destructor_id(AST expr, decl_context_t decl_context);
+static char check_destructor_id(AST expr, decl_context_t decl_context);
 #endif
-// static char check_for_function_call(AST expr, decl_context_t decl_context);
-// static char check_for_explicit_type_conversion(AST expr, decl_context_t decl_context);
-// static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t decl_context);
-// static char check_for_typeid(AST expr, decl_context_t decl_context);
-// static char check_for_typeid_expr(AST expr, decl_context_t decl_context);
-// static char check_for_sizeof_expr(AST expr, decl_context_t decl_context);
-// static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context);
-// static char check_for_cast(AST expr, decl_context_t decl_context);
+// static char check_function_call(AST expr, decl_context_t decl_context);
+// static char check_explicit_type_conversion(AST expr, decl_context_t decl_context);
+// static char check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context);
+// static char check_typeid(AST expr, decl_context_t decl_context);
+// static char check_typeid_expr(AST expr, decl_context_t decl_context);
+// static char check_sizeof_expr(AST expr, decl_context_t decl_context);
+// static char check_sizeof_typeid(AST expr, decl_context_t decl_context);
+// static char check_cast(AST expr, decl_context_t decl_context);
 
-static char check_for_type_specifier(AST type_id, decl_context_t decl_context);
+static char check_type_specifier(AST type_id, decl_context_t decl_context);
 
-static char check_for_typeless_declarator(AST declarator, decl_context_t decl_context);
+static char check_typeless_declarator(AST declarator, decl_context_t decl_context);
 
-static char check_for_init_declarator(AST init_declarator, decl_context_t decl_context);
+static char check_init_declarator(AST init_declarator, decl_context_t decl_context);
 
-static char check_for_function_definition_declarator(AST declarator, decl_context_t decl_context);
+static char check_function_definition_declarator(AST declarator, decl_context_t decl_context);
 
-static char check_for_declarator(AST declarator, decl_context_t decl_context);
-static char check_for_declarator_rec(AST declarator, decl_context_t decl_context);
-static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context);
+static char check_declarator(AST declarator, decl_context_t decl_context);
+static char check_declarator_rec(AST declarator, decl_context_t decl_context);
+static char check_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context);
 
-static char check_for_simple_declaration(AST a, decl_context_t decl_context);
+static char check_simple_declaration(AST a, decl_context_t decl_context);
 
-// static char check_for_new_expression(AST new_expr, decl_context_t decl_context);
-// static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context);
+// static char check_new_expression(AST new_expr, decl_context_t decl_context);
+// static char check_new_type_id_expr(AST new_expr, decl_context_t decl_context);
 
-// static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context);
+// static char check_array_subscript_expr(AST expr, decl_context_t decl_context);
 
 #define EXPECT_OPTIONS(a, n) \
 do \
@@ -185,7 +185,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
                 ast_location(a));
     }
 }
-static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
+static char check_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
 {
     // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
     // (if you want the latter you must use A(::f(c))
@@ -273,17 +273,17 @@ static void solve_ambiguous_explicit_instantiation(AST a, decl_context_t decl_co
         if (decl_specifier_seq != NULL
                 && declarator != NULL)
         {
-            valid = valid && check_for_declarator(declarator, decl_context);
-            valid = valid && check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
+            valid = valid && check_declarator(declarator, decl_context);
+            valid = valid && check_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
         }
         else if (declarator != NULL)
         {
-            valid = valid && check_for_typeless_declarator(declarator, decl_context);
+            valid = valid && check_typeless_declarator(declarator, decl_context);
         }
         else if (decl_specifier_seq != NULL)
         {
             AST type_specifier = ASTSon1(decl_specifier_seq);
-            valid = valid && check_for_type_specifier(type_specifier, decl_context);
+            valid = valid && check_type_specifier(type_specifier, decl_context);
         }
 
         if (valid)
@@ -327,14 +327,14 @@ void solve_ambiguous_qualified_member_declaration(AST a, decl_context_t decl_con
         {
             case AST_MEMBER_DECLARATION:
                 {
-                    valid = check_for_simple_declaration(option, decl_context);
+                    valid = check_simple_declaration(option, decl_context);
                     break;
                 }
             case AST_MEMBER_DECLARATION_QUALIF:
                 {
                     // Check the expression to see whether it is feasible
                     AST id_expression = ASTSon0(option);
-                    valid = check_for_expression(id_expression, decl_context);
+                    valid = check_expression(id_expression, decl_context);
                     break;
                 }
             default:
@@ -482,7 +482,7 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
             AST declarator = ASTSon1(option);
 
             // This is a syntactic check for sanity of a function definition declarator
-            char current_valid = check_for_function_definition_declarator(declarator, decl_context);
+            char current_valid = check_function_definition_declarator(declarator, decl_context);
 
             if (current_valid)
             {
@@ -605,7 +605,7 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
             }
         }
 
-        if (check_for_simple_declaration(option, decl_context))
+        if (check_simple_declaration(option, decl_context))
         {
             if (correct_option < 0)
             {
@@ -791,7 +791,7 @@ static void solve_integral_specification_ambig(AST a)
 }
 
 // Checks for old-styled functions
-static char check_for_kr_parameter_list(AST parameters_kr, decl_context_t decl_context)
+static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_context)
 {
     CXX_LANGUAGE()
     {
@@ -883,7 +883,7 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
 
                         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
                         {
-                            if (check_for_kr_parameter_list(parameters, decl_context))
+                            if (check_kr_parameter_list(parameters, decl_context))
                             {
                                 choose_option(a, 0);
                                 return;
@@ -898,7 +898,7 @@ void solve_ambiguous_declarator(AST a, decl_context_t decl_context)
                         parameters = ASTSon1(second_option);
                         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
                         {
-                            if (check_for_kr_parameter_list(parameters, decl_context))
+                            if (check_kr_parameter_list(parameters, decl_context))
                             {
                                 choose_option(a, 1);
                                 return;
@@ -933,13 +933,13 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
         {
             case AST_DECLARATION_STATEMENT :
                 {
-                    current_check = check_for_declaration_statement(ast_get_ambiguity(a, i), decl_context);
+                    current_check = check_declaration_statement(ast_get_ambiguity(a, i), decl_context);
                     break;
                 }
             case AST_EXPRESSION_STATEMENT :
                 {
                     enter_test_expression();
-                    current_check = check_for_expression_statement(ast_get_ambiguity(a, i), decl_context);
+                    current_check = check_expression_statement(ast_get_ambiguity(a, i), decl_context);
                     leave_test_expression();
                     break;
                 }
@@ -1025,7 +1025,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                             // This will output some informational messages that might
                             // help solving this ambiguity
                             expression_clear_computed_info(ambiguous_tree_as_expr);
-                            check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
+                            check_expression_statement(ambiguous_tree_as_expr, decl_context);
                         }
                         else
                         {
@@ -1051,7 +1051,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
 
 
-static char check_for_simple_declaration(AST a, decl_context_t decl_context)
+static char check_simple_declaration(AST a, decl_context_t decl_context)
 {
     AST decl_specifier_seq = ASTSon0(a);
 
@@ -1091,7 +1091,7 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
             if (ASTType(first_init_declarator) != AST_BITFIELD_DECLARATOR
                     || first_declarator != NULL)
             {
-                if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator, decl_context))
+                if (!check_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator, decl_context))
                 {
                     return 0;
                 }
@@ -1102,7 +1102,7 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 
         if (type_spec != NULL)
         {
-            if (!check_for_type_specifier(type_spec, decl_context))
+            if (!check_type_specifier(type_spec, decl_context))
             {
                 return 0;
             }
@@ -1117,7 +1117,7 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
         // AST init_declarator_list = ASTSon1(a);
         // if (init_declarator_list != NULL)
         // {
-        //     if (!check_for_init_declarator_list(init_declarator_list, decl_context))
+        //     if (!check_init_declarator_list(init_declarator_list, decl_context))
         //     {
         //         return 0;
         //     }
@@ -1229,7 +1229,7 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                 {
                     AST opt_declarator = ASTSon0(ast_get_ambiguity(init_declarator, i));
 
-                    if (check_for_typeless_declarator(opt_declarator, decl_context))
+                    if (check_typeless_declarator(opt_declarator, decl_context))
                     {
                         if (correct_choice < 0)
                         {
@@ -1254,7 +1254,7 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
             }
             else
             {
-                if (!check_for_typeless_declarator(declarator, decl_context))
+                if (!check_typeless_declarator(declarator, decl_context))
                 {
                     return 0;
                 }
@@ -1265,14 +1265,14 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
     return 1;
 }
 
-static char check_for_declaration_statement(AST declaration_statement, decl_context_t decl_context)
+static char check_declaration_statement(AST declaration_statement, decl_context_t decl_context)
 {
     AST a = ASTSon0(declaration_statement);
 
     // In general only AST_SIMPLE_DECLARATION gets ambiguous here
     if (ASTType(a) == AST_SIMPLE_DECLARATION)
     {
-        return check_for_simple_declaration(a, decl_context);
+        return check_simple_declaration(a, decl_context);
     }
     else if (ASTType(a) == AST_AMBIGUITY)
     {
@@ -1285,7 +1285,7 @@ static char check_for_declaration_statement(AST declaration_statement, decl_cont
         int i;
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
-            if (check_for_simple_declaration(ast_get_ambiguity(a, i), decl_context))
+            if (check_simple_declaration(ast_get_ambiguity(a, i), decl_context))
             {
                 if (correct_choice < 0)
                 {
@@ -1311,14 +1311,14 @@ static char check_for_declaration_statement(AST declaration_statement, decl_cont
     return 1;
 }
 
-static char check_for_typeless_declarator_rec(AST declarator, decl_context_t decl_context, int nfuncs)
+static char check_typeless_declarator_rec(AST declarator, decl_context_t decl_context, int nfuncs)
 {
     switch (ASTType(declarator))
     {
         case AST_PARENTHESIZED_EXPRESSION :
         case AST_DECLARATOR :
             {
-                return check_for_typeless_declarator_rec(ASTSon0(declarator), 
+                return check_typeless_declarator_rec(ASTSon0(declarator), 
                         decl_context, nfuncs);
                 break;
             }
@@ -1334,7 +1334,7 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
             }
         case AST_DECLARATOR_FUNC :
             {
-                return check_for_typeless_declarator_rec(ASTSon0(declarator), decl_context, nfuncs+1);
+                return check_typeless_declarator_rec(ASTSon0(declarator), decl_context, nfuncs+1);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -1346,7 +1346,7 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
         case AST_AMBIGUITY:
             {
                 solve_ambiguous_declarator(declarator, decl_context);
-                return check_for_typeless_declarator_rec(declarator, decl_context, nfuncs);
+                return check_typeless_declarator_rec(declarator, decl_context, nfuncs);
                 break;
             }
         default :
@@ -1461,17 +1461,17 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
     return 0;
 }
 
-static char check_for_typeless_declarator(AST declarator, decl_context_t decl_context)
+static char check_typeless_declarator(AST declarator, decl_context_t decl_context)
 {
-    return check_for_typeless_declarator_rec(declarator, decl_context, 0);
+    return check_typeless_declarator_rec(declarator, decl_context, 0);
 }
 
-static char check_for_expression_statement(AST a, decl_context_t decl_context)
+static char check_expression_statement(AST a, decl_context_t decl_context)
 {
     AST expression = ASTSon0(a);
 
     char result = 
-        check_for_expression(expression, decl_context );
+        check_expression(expression, decl_context );
 
     return result;
 }
@@ -1507,7 +1507,7 @@ char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context
                 {
                     AST type_id = ASTSon0(current_template_argument);
 
-                    current_option = check_for_type_id_tree(type_id, decl_context);
+                    current_option = check_type_id_tree(type_id, decl_context);
                     break;
                 }
             case AST_TEMPLATE_EXPRESSION_ARGUMENT :
@@ -1515,7 +1515,7 @@ char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context
                     AST expression_arg = ASTSon0(current_template_argument);
 
                     enter_test_expression();
-                    current_option = check_for_expression(expression_arg, decl_context);
+                    current_option = check_expression(expression_arg, decl_context);
                     leave_test_expression();
 
                     break;
@@ -1575,9 +1575,9 @@ char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context
     }
 }
 
-static char check_for_template_argument_list(AST argument_list, decl_context_t decl_context);
+static char check_template_argument_list(AST argument_list, decl_context_t decl_context);
 
-// Returns false if expression arguments do not pass the check_for_expression test,
+// Returns false if expression arguments do not pass the check_expression test,
 // otherwise returns true.
 char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_context)
 {
@@ -1602,7 +1602,7 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
             int feasible_list = -1;
             for (i = 0; i < ast_get_num_ambiguities(argument_list); i++)
             {
-                if (check_for_template_argument_list(ast_get_ambiguity(argument_list, i), decl_context))
+                if (check_template_argument_list(ast_get_ambiguity(argument_list, i), decl_context))
                 {
                     if (feasible_list < 0)
                     {
@@ -1625,14 +1625,14 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
         }
         else
         {
-            result = check_for_template_argument_list(argument_list, decl_context);
+            result = check_template_argument_list(argument_list, decl_context);
         }
     }
     
     return result;
 }
 
-static char check_for_template_argument_list(AST argument_list, decl_context_t decl_context)
+static char check_template_argument_list(AST argument_list, decl_context_t decl_context)
 {
     ENSURE_TYPE(argument_list, AST_NODE_LIST);
 
@@ -1653,7 +1653,7 @@ static char check_for_template_argument_list(AST argument_list, decl_context_t d
             if (ASTType(template_argument) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
             {
                 enter_test_expression();
-                char valid_template_argument = check_for_expression(ASTSon0(template_argument), decl_context);
+                char valid_template_argument = check_expression(ASTSon0(template_argument), decl_context);
                 leave_test_expression();
                 if (!valid_template_argument)
                     return 0;
@@ -1681,7 +1681,7 @@ static char check_for_template_argument_list(AST argument_list, decl_context_t d
     return 1;
 }
 
-char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t** computed_type)
+char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t** computed_type)
 {
     if (computed_type != NULL)
     {
@@ -1772,7 +1772,7 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
 
 
 
-static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
+static char check_type_specifier(AST type_id, decl_context_t decl_context)
 {
     C_LANGUAGE()
     {
@@ -1788,7 +1788,7 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
     switch (ASTType(type_id))
     {
         case AST_SIMPLE_TYPE_SPEC :
-            return check_for_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL);
+            return check_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL);
             break;
         case AST_CLASS_SPECIFIER :
         case AST_ENUM_SPECIFIER :
@@ -1824,13 +1824,13 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
         case AST_GCC_TYPEOF_EXPR :
             {
                 enter_test_expression();
-                char result = check_for_expression(ASTSon0(type_id), decl_context);
+                char result = check_expression(ASTSon0(type_id), decl_context);
                 leave_test_expression();
                 return result;
             }
         case AST_GCC_TYPEOF :
             {
-                return check_for_type_id_tree(ASTSon0(type_id), decl_context);
+                return check_type_id_tree(ASTSon0(type_id), decl_context);
             }
             // There is an ambiguity between AST_GCC_TYPEOF_EXPR and AST_GCC_TYPEOF
         case AST_AMBIGUITY :
@@ -1839,7 +1839,7 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
                 int i;
                 for (i = 0; i < ast_get_num_ambiguities(type_id); i++)
                 {
-                    if (check_for_type_specifier(ast_get_ambiguity(type_id, i), decl_context))
+                    if (check_type_specifier(ast_get_ambiguity(type_id, i), decl_context))
                     {
                         if (valid < 0)
                         {
@@ -1883,7 +1883,7 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     {
         AST init_declarator = ast_get_ambiguity(a, i);
 
-        if (check_for_init_declarator(init_declarator, decl_context))
+        if (check_init_declarator(init_declarator, decl_context))
         {
             if (correct_choice < 0)
             {
@@ -1927,19 +1927,19 @@ void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
     }
 }
 
-static char check_for_init_declarator(AST init_declarator, decl_context_t decl_context)
+static char check_init_declarator(AST init_declarator, decl_context_t decl_context)
 {
     AST declarator = ASTSon0(init_declarator);
     AST initializer = ASTSon1(init_declarator);
 
-    if (!check_for_declarator(declarator, decl_context ))
+    if (!check_declarator(declarator, decl_context ))
         return 0;
 
     char result = 1;
 
     if (initializer != NULL)
     {
-        // This code is similar to 'check_for_initialization' in cxx-exprtype.c but
+        // This code is similar to 'check_initialization' in cxx-exprtype.c but
         // here types are not used
         //
         // Ambiguous cases are '= e' and '(e1, e2, .., e3)'
@@ -1949,7 +1949,7 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
             default:
                 {
                     enter_test_expression();
-                    result = check_for_expression(initializer, decl_context);
+                    result = check_expression(initializer, decl_context);
                     leave_test_expression();
                     break;
                 }
@@ -1959,7 +1959,7 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
                     AST initializer_list = ASTSon0(initializer);
 
                     enter_test_expression();
-                    result = check_for_expression_list(initializer_list, decl_context);
+                    result = check_expression_list(initializer_list, decl_context);
                     leave_test_expression();
                     break;
                 }
@@ -1969,12 +1969,12 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
     return result;
 }
 
-static char check_for_declarator(AST declarator, decl_context_t decl_context)
+static char check_declarator(AST declarator, decl_context_t decl_context)
 {
-    return check_for_declarator_rec(declarator, decl_context);
+    return check_declarator_rec(declarator, decl_context);
 }
 
-static char check_for_declarator_rec(AST declarator, decl_context_t decl_context)
+static char check_declarator_rec(AST declarator, decl_context_t decl_context)
 {
     if (declarator == NULL)
         return 1;
@@ -1986,7 +1986,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 if (ASTSon1(declarator) != NULL)
                 {
                     enter_test_expression();
-                    char result = check_for_expression(ASTSon1(declarator), decl_context);
+                    char result = check_expression(ASTSon1(declarator), decl_context);
                     leave_test_expression();
 
                     if (!result)
@@ -1994,18 +1994,18 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context);
                 return 1;
             }
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
         case AST_POINTER_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+                return check_declarator_rec(ASTSon1(declarator), decl_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
@@ -2014,12 +2014,12 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 AST parameter_declaration_clause = ASTSon1(declarator);
                 if (parameter_declaration_clause != NULL)
                 {
-                    if (!check_for_function_declarator_parameters(parameter_declaration_clause, decl_context))
+                    if (!check_function_declarator_parameters(parameter_declaration_clause, decl_context))
                     {
                         return 0;
                     }
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
+                return check_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2030,11 +2030,11 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
             }
 	case AST_GCC_DECLARATOR :
 	    {
-		    return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+		    return check_declarator_rec(ASTSon1(declarator), decl_context);
 	    }	
 	case AST_GCC_POINTER_DECLARATOR :
 	    {
-		    return check_for_declarator_rec(ASTSon2(declarator), decl_context);
+		    return check_declarator_rec(ASTSon2(declarator), decl_context);
 	    }	
         default :
             {
@@ -2056,7 +2056,7 @@ static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
     return !is_abstract_declarator(a, decl_context);
 }
 
-static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
+static char check_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
 {
     AST list = parameter_declaration_clause;
     AST iter;
@@ -2089,12 +2089,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
                 char seems_ok = 1;
 
-                seems_ok &= check_for_type_specifier(type_specifier, decl_context);
+                seems_ok &= check_type_specifier(type_specifier, decl_context);
 
                 if (seems_ok && declarator != NULL)
                 {
-                    seems_ok &= check_for_declarator(declarator, decl_context);
-                    seems_ok &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
+                    seems_ok &= check_declarator(declarator, decl_context);
+                    seems_ok &= check_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
                 }
 
                 if (seems_ok)
@@ -2170,14 +2170,14 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
         AST type_specifier = ASTSon1(decl_specifier_seq);
 
-        if (!check_for_type_specifier(type_specifier, decl_context))
+        if (!check_type_specifier(type_specifier, decl_context))
         {
             return 0;
         }
 
         if (abstract_declarator != NULL)
         {
-            if (!check_for_declarator(abstract_declarator, decl_context))
+            if (!check_declarator(abstract_declarator, decl_context))
             {
                 return 0;
             }
@@ -2187,7 +2187,7 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
         if (default_arg != NULL)
         {
-            check_for_expression(default_arg, decl_context);
+            check_expression(default_arg, decl_context);
         }
     }
 
@@ -2215,7 +2215,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
 
         if (type_specifier != NULL)
         {
-            current_valid &= check_for_type_specifier(type_specifier, decl_context);
+            current_valid &= check_type_specifier(type_specifier, decl_context);
         }
         else
         {
@@ -2227,11 +2227,11 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
 
         if (declarator != NULL)
         {
-            current_valid &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
+            current_valid &= check_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
 
             if (current_valid)
             {
-                current_valid &= check_for_declarator(declarator, decl_context);
+                current_valid &= check_declarator(declarator, decl_context);
             }
         }
 
@@ -2373,7 +2373,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
         switch (ASTType(for_init_statement))
         {
             case AST_SIMPLE_DECLARATION :
-                if (check_for_simple_declaration(for_init_statement, decl_context))
+                if (check_simple_declaration(for_init_statement, decl_context))
                 {
                     current = 1;
                 }
@@ -2381,7 +2381,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
             case AST_EXPRESSION_STATEMENT :
                 {
                     enter_test_expression();
-                    if (check_for_expression(ASTSon0(for_init_statement), decl_context))
+                    if (check_expression(ASTSon0(for_init_statement), decl_context))
                     {
                         current = 1;
                     }
@@ -2421,7 +2421,7 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                         // This will output some informational messages that might
                         // help solving this ambiguity
                         expression_clear_computed_info(ambiguous_tree_as_expr);
-                        check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
+                        check_expression_statement(ambiguous_tree_as_expr, decl_context);
                         break;
                     }
                 default:
@@ -2474,12 +2474,12 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
 
         if (ASTType(type_specifier) == AST_GCC_TYPEOF)
         {
-            current_typeof = check_for_type_id_tree(typeof_argument, decl_context);
+            current_typeof = check_type_id_tree(typeof_argument, decl_context);
         }
         else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
         {
             enter_test_expression();
-            current_typeof = check_for_expression(typeof_argument, decl_context);
+            current_typeof = check_expression(typeof_argument, decl_context);
             leave_test_expression();
         }
         else
@@ -2525,7 +2525,7 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
             AST current_expression = ASTSon1(iter);
 
             enter_test_expression();
-            result &= check_for_expression(current_expression, decl_context);
+            result &= check_expression(current_expression, decl_context);
             leave_test_expression();
         }
 
@@ -2653,7 +2653,7 @@ char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
 }
 
 
-char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
+char check_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
@@ -2666,9 +2666,9 @@ char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
     // This is never NULL
     AST type_specifier = ASTSon1(type_specifier_seq);
 
-    return check_for_type_specifier(type_specifier, decl_context)
+    return check_type_specifier(type_specifier, decl_context)
         && ((abstract_declarator == NULL)
-                || (check_for_declarator(abstract_declarator, decl_context)));
+                || (check_declarator(abstract_declarator, decl_context)));
 
 }
 
@@ -2690,7 +2690,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     {
         enter_test_expression();
         char current_check = 
-            check_for_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
+            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
         leave_test_expression();
 
         if (current_check)
@@ -2852,7 +2852,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             {
                 if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
                 {
-                    check_for_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
+                    check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
                 }
 
                 // Choose this one just to avoid spurious errors later
@@ -2872,7 +2872,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     return result;
 }
 
-static char check_for_function_definition_declarator_rec(AST declarator,
+static char check_function_definition_declarator_rec(AST declarator,
         decl_context_t decl_context,
         char previous_is_array, char previous_is_function)
 {
@@ -2883,7 +2883,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
                 // An array cannot contain functions
                 if (previous_is_function)
                     return 0;
-                return check_for_function_definition_declarator_rec(ASTSon0(declarator), 
+                return check_function_definition_declarator_rec(ASTSon0(declarator), 
                         decl_context,
                         /* previous_is_array */ 1, /* previous_is_function */ 0);
             }
@@ -2891,7 +2891,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
         case AST_DECLARATOR :
         case AST_POINTER_DECLARATOR :
             {
-                return check_for_function_definition_declarator_rec(ASTSon0(declarator),
+                return check_function_definition_declarator_rec(ASTSon0(declarator),
                         decl_context,
                         /* previous_is_array */ 0, /* previous_is_function */ 0);
             }
@@ -2902,7 +2902,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
                 {
                     return 0;
                 }
-                return check_for_function_definition_declarator_rec(ASTSon0(declarator),
+                return check_function_definition_declarator_rec(ASTSon0(declarator),
                         decl_context,
                         /* previous_is_array */ 0, /* previous_is_function */ 1);
             }
@@ -2922,7 +2922,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
         case AST_AMBIGUITY:
             {
                 solve_ambiguous_declarator(declarator, decl_context);
-                return check_for_function_definition_declarator_rec(declarator, decl_context,
+                return check_function_definition_declarator_rec(declarator, decl_context,
                         previous_is_array, previous_is_function);
             }
         default :
@@ -2935,9 +2935,9 @@ static char check_for_function_definition_declarator_rec(AST declarator,
     return 0;
 }
 
-static char check_for_function_definition_declarator(AST declarator, decl_context_t decl_context)
+static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)
 {
-    return check_for_function_definition_declarator_rec(declarator, 
+    return check_function_definition_declarator_rec(declarator, 
             decl_context,
             /* previous_is_array */ 0, /* previous_is_function */ 0);
 }
@@ -2955,7 +2955,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
         if (ASTSon0(current_condition) == NULL) // Expression
         {
             enter_test_expression();
-            current_check = check_for_expression(ASTSon2(current_condition), decl_context);
+            current_check = check_expression(ASTSon2(current_condition), decl_context);
             leave_test_expression();
         }
         else
@@ -2973,11 +2973,11 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
 
             AST type_specifier = ASTSon1(type_specifier_seq);
 
-            current_check = check_for_type_specifier(type_specifier, decl_context)
-                && check_for_declarator(declarator, decl_context);
+            current_check = check_type_specifier(type_specifier, decl_context)
+                && check_declarator(declarator, decl_context);
 
             enter_test_expression();
-            current_check = current_check && check_for_expression(expr, decl_context);
+            current_check = current_check && check_expression(expr, decl_context);
             leave_test_expression();
         }
 
@@ -3007,7 +3007,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             AST current_condition = ast_get_ambiguity(a, i);
             if (ASTSon0(current_condition) == NULL)
             {
-                current_check = check_for_expression(ASTSon2(current_condition), decl_context);
+                current_check = check_expression(ASTSon2(current_condition), decl_context);
             }
         }
         running_error("%s: error: cannot continue due to serious semantic problems in '%s'",

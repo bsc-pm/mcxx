@@ -191,7 +191,7 @@ namespace TL {
 		CURRENT_CONFIGURATION->scope_link = scope_link.get_internal_scope_link();
 		decl_context_t decl_context = scope_link_get_decl_context(scope_link.get_internal_scope_link(), ref_ast.get_internal_ast());
 		enter_test_expression();
-		char c = check_for_expression(expression_ast, decl_context);
+		char c = ::check_expression(expression_ast, decl_context);
 		leave_test_expression();
 		CURRENT_CONFIGURATION->scope_link = NULL;
 		

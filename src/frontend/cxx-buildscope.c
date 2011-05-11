@@ -608,7 +608,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context)
                 if (ASTType(asm_operand) == AST_GCC_ASM_OPERAND)
                 {
                     AST expression = ASTSon2(asm_operand);
-                    if (!check_for_expression(expression, decl_context))
+                    if (!check_expression(expression, decl_context))
                     {
                         fprintf(stderr, "%s: warning: assembler operand '%s' could not be checked\n",
                                 ast_location(expression),
@@ -808,7 +808,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     AST constant_expr = ASTSon0(a);
     AST message = ASTSon1(a);
 
-    if (!check_for_expression(constant_expr, decl_context))
+    if (!check_expression(constant_expr, decl_context))
     {
         fprintf(stderr, "%s: warning: static_assert expression is invalid\n",
                 ast_location(a));
@@ -977,7 +977,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     }
 
                     // This will yield a warning if needed but do not make it an error
-                    char init_check = check_for_initialization(initializer, entry->decl_context, 
+                    char init_check = check_initialization(initializer, entry->decl_context, 
                             get_unqualified_type(declarator_type));
 
                     // Update unbounded arrays, bounded by their initialization
@@ -1299,7 +1299,7 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                         if (layout_qualif_kind != NULL
                                 && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
                         {
-                            check_for_expression(layout_qualif_kind, decl_context);
+                            check_expression(layout_qualif_kind, decl_context);
                         }
                     }
                 }
@@ -1423,7 +1423,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
 
                 // Compute the expression type and use it for the whole type
-                if (check_for_expression(expression, decl_context)
+                if (check_expression(expression, decl_context)
                         && (expression_get_type(expression) != NULL))
                 {
                     // Do not remove the reference here, we will do this later
@@ -1545,7 +1545,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_GCC_TYPEOF_EXPR :
             {
                 // Compute the expression type and use it for the whole type
-                if (check_for_expression(ASTSon0(a), decl_context)
+                if (check_expression(ASTSon0(a), decl_context)
                         && (expression_get_type(ASTSon0(a)) != NULL))
                 {
                     type_t* computed_type = expression_get_type(ASTSon0(a));
@@ -2411,7 +2411,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             if (enumeration_expr != NULL)
             {
-                if (!check_for_expression(enumeration_expr, enumerators_context))
+                if (!check_expression(enumeration_expr, enumerators_context))
                 {
                     fprintf(stderr, "%s: warning: could not check enumerator initializer '%s'\n",
                             ast_location(enumeration_expr),
@@ -4532,7 +4532,7 @@ static void set_array_type(type_t** declarator_type,
 
     if (constant_expr != NULL)
     {
-        if (!check_for_expression(constant_expr, decl_context))
+        if (!check_expression(constant_expr, decl_context))
         {
             fprintf(stderr, "%s: warning: could not check array size expression '%s'\n",
                     ast_location(constant_expr),
@@ -4668,7 +4668,7 @@ static void set_function_parameter_clause(type_t** function_type,
         // of an instantiation
         if (default_argument != NULL)
         {
-            if (!check_for_expression(default_argument, decl_context))
+            if (!check_expression(default_argument, decl_context))
             {
                 fprintf(stderr, "%s: warning: could not check default argument expression '%s'\n",
                         ast_location(default_argument),
@@ -6416,7 +6416,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 decl_context_t initializer_context = entry->decl_context;
                 initializer_context.template_scope = new_decl_context.template_scope;
 
-                check_for_initialization(initializer, 
+                check_initialization(initializer, 
                         initializer_context, 
                         get_unqualified_type(declarator_type));
                 entry->expression_value = initializer;
@@ -6574,7 +6574,7 @@ static void build_scope_template_template_parameter(AST a,
     if (id_expr != NULL)
     {
         // This might be ambiguous
-        // check_for_expression(id_expr, template_context);
+        // check_expression(id_expr, template_context);
 
         scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr);
 
@@ -6804,7 +6804,7 @@ static void build_scope_nontype_template_parameter(AST a,
     template_parameters->entry = entry;
     if (default_expression != NULL)
     {
-        if (!check_for_expression(default_expression, template_context))
+        if (!check_expression(default_expression, template_context))
         {
             fprintf(stderr, "%s: warning: could not check default argument of template parameter '%s'\n",
                     ast_location(default_expression),
@@ -7054,7 +7054,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                         {
                             AST expression = ASTSon1(iter2);
 
-                            if (!check_for_expression(expression, block_context))
+                            if (!check_expression(expression, block_context))
                             {
                                 fprintf(stderr, "%s: warning: could not check expression for constructor '%s'\n",
                                         ast_location(expression),
@@ -8389,7 +8389,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 bitfield_symbol);
 
                         AST expression = ASTSon1(declarator);
-                        if (!check_for_expression(expression, decl_context))
+                        if (!check_expression(expression, decl_context))
                         {
                             fprintf(stderr, "%s: warning: could not check bitfield size expression '%s'\n",
                                     ast_location(expression),
@@ -8554,7 +8554,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             if (entry->kind == SK_VARIABLE)
                             {
-                                check_for_initialization(initializer,
+                                check_initialization(initializer,
                                         entry->decl_context,
                                         get_unqualified_type(entry->type_information));
 
@@ -9002,7 +9002,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
                 decl_context);
         scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
 
-        if (!check_for_expression(ASTSon2(a), decl_context))
+        if (!check_expression(ASTSon2(a), decl_context))
         {
             if (!checking_ambiguity())
             {
@@ -9022,7 +9022,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
     }
     else
     {
-        if (!check_for_expression(ASTSon2(a), decl_context))
+        if (!check_expression(ASTSon2(a), decl_context))
         {
             fprintf(stderr, "%s: warning: condition '%s' could not be checked\n",
                     ast_location(ASTSon2(a)),
@@ -9081,7 +9081,7 @@ static void build_scope_expression_statement(AST a,
         char* attr_name UNUSED_PARAMETER)
 {
     AST expr = ASTSon0(a);
-    if (!check_for_expression(expr, decl_context)
+    if (!check_expression(expr, decl_context)
             && CURRENT_CONFIGURATION->strict_typecheck)
     {
         internal_error("Could not check expression '%s' at '%s'\n",
@@ -9173,7 +9173,7 @@ static void build_scope_for_statement(AST a,
 
     if (expression != NULL)
     {
-        if (!check_for_expression(expression, block_context))
+        if (!check_expression(expression, block_context))
         {
             fprintf(stderr, "%s: warning: could not check iterating expression '%s'\n",
                     ast_location(expression),
@@ -9272,7 +9272,7 @@ static void build_scope_case_statement(AST a,
 {
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
-    if (!check_for_expression(constant_expression, decl_context))
+    if (!check_expression(constant_expression, decl_context))
     {
         fprintf(stderr, "%s: could not check case expression '%s'\n",
                 ast_location(constant_expression),
@@ -9294,7 +9294,7 @@ static void build_scope_return_statement(AST a,
     if (expression != NULL)
     {
         ast_set_link_to_child(a, LANG_RETURN_EXPRESSION, expression);
-        if (!check_for_expression(expression, decl_context))
+        if (!check_expression(expression, decl_context))
         {
             fprintf(stderr, "%s: could not check return expression '%s'\n",
                     ast_location(expression),
@@ -9372,7 +9372,7 @@ static void build_scope_do_statement(AST a,
     AST expression = ASTSon1(a);
 
     build_scope_statement(statement, decl_context);
-    if (!check_for_expression(expression, decl_context))
+    if (!check_expression(expression, decl_context))
     {
         fprintf(stderr, "%s: warning: could not check do expression '%s'\n",
                 ast_location(expression),
@@ -9513,7 +9513,7 @@ static void build_scope_custom_construct_statement(AST a,
             // AST symbol = ASTSon0(parameter);
             AST expression = ASTSon1(parameter);
             
-            if (!check_for_expression(expression, decl_context))
+            if (!check_expression(expression, decl_context))
             {
                 internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(expression));
             }
@@ -9534,7 +9534,7 @@ static void build_scope_upc_synch_statement(AST a,
 
     if (ASTSon0(a) != NULL)
     {
-        check_for_expression(ASTSon0(a), decl_context);
+        check_expression(ASTSon0(a), decl_context);
         ast_set_link_to_child(a, UPC_SYNC_STMT_ARGUMENT, ASTSon0(a));
     }
 }
@@ -9570,17 +9570,17 @@ static void build_scope_upc_forall_statement(AST a,
 
     if (condition != NULL)
     {
-        check_for_expression(condition, block_context);
+        check_expression(condition, block_context);
     }
 
     if (expression != NULL)
     {
-        check_for_expression(expression, block_context);
+        check_expression(expression, block_context);
     }
 
     if (affinity != NULL)
     {
-        check_for_expression(affinity, block_context);
+        check_expression(affinity, block_context);
     }
 
     build_scope_statement(statement, block_context);
@@ -10003,7 +10003,7 @@ AST internal_expression_parse(const char *source, decl_context_t decl_context)
     }
 
     enter_test_expression();
-    char c = check_for_expression(a, decl_context);
+    char c = check_expression(a, decl_context);
     leave_test_expression();
 
     if (!c)
