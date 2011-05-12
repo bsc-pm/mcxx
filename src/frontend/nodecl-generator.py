@@ -442,7 +442,7 @@ def generate_routines_impl(rule_map):
    print ""
    print \
 """
-extern inline nodecl_output_t nodecl_null(void)
+nodecl_output_t nodecl_null(void)
 {
     nodecl_output_t result = { NULL };
     return result;
