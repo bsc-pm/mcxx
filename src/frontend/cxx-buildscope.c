@@ -267,7 +267,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     decl_context_t decl_context 
         = scope_link_get_global_decl_context(translation_unit->scope_link);
 
-    nodecl_output_t nodecl_output = { NULL };
+    nodecl_output_t nodecl_output = nodecl_null();
 
     AST list = ASTSon0(a);
     if (list != NULL)
@@ -289,7 +289,7 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
                 ast_print_node_type(ASTType(tree)));
     }
 
-    nodecl_output_t nodecl_output = { NULL };
+    nodecl_output_t nodecl_output = nodecl_null();
 
     AST list = ASTSon0(tree);
     if (list != NULL)
@@ -627,7 +627,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
 }
 
 // It simply disambiguates
-static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
     AST asm_parms = ASTSon1(a);
 
@@ -698,7 +698,7 @@ static void build_scope_explicit_instantiation(AST a,
     }
 }
 
-static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
     // First get the involved namespace
     AST id_expression = ASTSon0(a);
@@ -827,7 +827,7 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
     entry_list_free(used_entity);
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
 
@@ -843,7 +843,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, no
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST id_expression = ASTSon0(a);
     introduce_using_entity(id_expression, decl_context);
@@ -7467,6 +7467,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // instantiating template functions
     entry->defined = 1;
     entry->point_of_definition = get_enclosing_declaration(a);
+
+    nodecl_output_t function_symbol_nodecl = nodecl_make_symbol(entry);
     
     // Keep parameter names
     int i;
@@ -7649,6 +7651,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
     }
 
+    nodecl_output_t body_nodecl = nodecl_null();
     if (ASTType(statement) == AST_COMPOUND_STATEMENT)
     {
         // We want to inherit the block context to this compound statement
@@ -7659,16 +7662,23 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, list, block_context);
 
-            build_scope_statement_seq(list, block_context, nodecl_output);
+            build_scope_statement_seq(list, block_context, &body_nodecl);
         }
         ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
         ast_set_link_to_child(statement, LANG_COMPOUND_STATEMENT_LIST, list);
+
+        // We manually create a compound statement here for nodecl
+        body_nodecl = nodecl_make_compound_statement(body_nodecl);
     }
-    else
+    else if (ASTType(statement) == AST_TRY_BLOCK)
     {
         // This only can be a try-except, but a normal context is created
         // for this one
-        build_scope_statement(statement, block_context, nodecl_output);
+        build_scope_statement(statement, block_context, &body_nodecl);
+    }
+    else
+    {
+        internal_error("Unreachable code", 0);
     }
 
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
@@ -7679,6 +7689,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, ASTSon1(a));
     }
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
+
+    // Create nodecl
+    *nodecl_output = nodecl_make_function_code(function_symbol_nodecl, 
+            nodecl_append_to_list(nodecl_null(), body_nodecl), 
+            /* internal_functions */ nodecl_null());
 
     return entry;
 }
@@ -9035,7 +9050,7 @@ struct stmt_scope_handler_map_tag
 static void build_scope_compound_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
 
@@ -9156,7 +9171,7 @@ static void build_scope_while_statement(AST a,
 static void build_scope_ambiguity_handler(AST a, 
         decl_context_t decl_context, 
         char* attrib_to_set UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     solve_ambiguous_statement(a, decl_context);
     // Restart
@@ -9179,7 +9194,7 @@ static void build_scope_declaration_statement(AST a,
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
     if (!check_expression(expr, decl_context)
@@ -9335,7 +9350,7 @@ static void add_label_if_not_found(AST label, decl_context_t decl_context)
 static void build_scope_goto_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST label = ASTSon0(a);
     add_label_if_not_found(label, decl_context);
@@ -9347,7 +9362,7 @@ static void build_scope_goto_statement(AST a,
 static void build_scope_labeled_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST label = ASTSon0(a);
     add_label_if_not_found(label, decl_context);
@@ -9364,7 +9379,7 @@ static void build_scope_labeled_statement(AST a,
 static void build_scope_default_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST statement = ASTSon0(a);
     build_scope_statement(statement, decl_context, nodecl_output);
@@ -9376,7 +9391,7 @@ static void build_scope_default_statement(AST a,
 static void build_scope_case_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
@@ -9397,7 +9412,7 @@ static void build_scope_case_statement(AST a,
 static void build_scope_return_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST expression = ASTSon0(a);
     if (expression != NULL)
@@ -9418,7 +9433,7 @@ static void build_scope_return_statement(AST a,
 static void build_scope_try_block(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     AST protected_block = ASTSon0(a);
 
@@ -9477,7 +9492,7 @@ static void build_scope_try_block(AST a,
 static void build_scope_do_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER) 
+        nodecl_output_t* nodecl_output) 
 {
     AST statement = ASTSon0(a);
     AST expression = ASTSon1(a);
@@ -9498,7 +9513,7 @@ static void build_scope_do_statement(AST a,
 static void build_scope_null(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         char* attr_name,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     // Do nothing
     if (attr_name != NULL)
@@ -9510,7 +9525,7 @@ static void build_scope_null(AST a,
 static void build_scope_break(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         char* attr_name,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     // Do nothing
     if (attr_name != NULL)
@@ -9522,7 +9537,7 @@ static void build_scope_break(AST a,
 static void build_scope_continue(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         char* attr_name,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     // Do nothing
     if (attr_name != NULL)
@@ -9551,7 +9566,7 @@ static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context)
 static void build_scope_pragma_custom_line(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     if (ASTSon0(a) != NULL)
     {
@@ -9639,7 +9654,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
 static void build_scope_custom_construct_statement(AST a, 
         decl_context_t decl_context, 
         char *attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     // Header
     AST custom_construct_header = ASTSon0(a);
@@ -9671,7 +9686,7 @@ static void build_scope_custom_construct_statement(AST a,
 static void build_scope_upc_synch_statement(AST a, 
         decl_context_t decl_context, 
         char *attr_name,
-        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_output_t* nodecl_output)
 {
     ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 
@@ -9799,6 +9814,7 @@ static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl
         AST iter;
         for_each_element(list, iter)
         {
+            nodecl_output_t current_nodecl = nodecl_null();
             build_scope_statement(ASTSon1(iter), decl_context, nodecl_output);
         }
     }

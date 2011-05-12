@@ -802,7 +802,7 @@ static scope_entry_list_t* query_unqualified_name(
                 decl_context_t modified_class_context = decl_context;
                 modified_class_context.template_scope = template_arg_ctx.template_scope;
 
-                nodecl_output_t dummy_nodecl_output = { NULL };
+                nodecl_output_t dummy_nodecl_output = nodecl_null();
                 char* conversion_function_name = 
                     get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL, &dummy_nodecl_output);
                 result = name_lookup(decl_context, conversion_function_name,
@@ -975,7 +975,7 @@ static scope_entry_list_t* query_final_part_of_qualified(
                 decl_context_t modified_class_context = lookup_context;
                 modified_class_context.template_scope = nested_name_context.template_scope;
 
-                nodecl_output_t dummy_nodecl_output = { NULL };
+                nodecl_output_t dummy_nodecl_output = nodecl_null();
                 char* conversion_function_name = 
                     get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL, &dummy_nodecl_output);
 
@@ -1125,7 +1125,7 @@ static scope_entry_list_t* query_qualified_name(
             }
             else if (ASTType(unqualified_name) == AST_CONVERSION_FUNCTION_ID)
             {
-                nodecl_output_t dummy_nodecl_output = { NULL };
+                nodecl_output_t dummy_nodecl_output = nodecl_null();
                 dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
                         unqualified_name, /* result_type */ NULL, &dummy_nodecl_output);
             }
@@ -3210,7 +3210,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     gather_decl_spec_t gather_info;
                     memset(&gather_info, 0, sizeof(gather_info));
 
-                    nodecl_output_t dummy_nodecl_output = { NULL };
+                    nodecl_output_t dummy_nodecl_output = nodecl_null();
                     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                             template_arguments_context, &dummy_nodecl_output);
 

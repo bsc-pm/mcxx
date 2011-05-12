@@ -4,7 +4,7 @@ top-level : function-code
 
 name : AST_SYMBOL() symbol
 
-function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [code]function-code-opt)
+function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [internal_functions]function-code-opt)
 object-init : AST_OBJECT_INIT([name]name, [initializer]expression-opt)
 
 statement : AST_EXPRESSION_STATEMENT([nest]expression)
@@ -54,11 +54,11 @@ fortran-only-statements : AST_ALLOCATE_STATEMENT()
                         | AST_PAUSE_STATEMENT()
                         | AST_WRITE_STATEMENT()
 
-literal : AST_DECIMAL_LITERAL() type text
+literal : AST_INTEGER_LITERAL() type const_value
     | AST_FLOATING_LITERAL() type text
     | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | AST_STRING_LITERAL() type text
-    | AST_BOOLEAN_LITERAL() type text
+    | AST_BOOLEAN_LITERAL() type const_value
  
 expression : literal
            | name
@@ -110,3 +110,4 @@ c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expr
                   | AST_REFERENCE([rhs]expression) type
                   | AST_THROW_EXPRESSION([rhs]expression) type
                   | AST_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type
+                  | AST_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
