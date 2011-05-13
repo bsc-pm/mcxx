@@ -8,5 +8,5 @@
 
 void c_simplify_tree_translation_unit(AST a, AST *out)
 {
-    internal_error("Do not call me", 0);
+    *out = a;
 }

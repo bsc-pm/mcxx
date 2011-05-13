@@ -1,8 +1,9 @@
-nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq)
+nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
 
 name : AST_SYMBOL() symbol
+type : AST_TYPE() type
 
 function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [internal_functions]function-code-opt)
 object-init : AST_OBJECT_INIT([name]name, [initializer]expression-opt)
@@ -91,7 +92,7 @@ expression : literal
            | AST_ASSIGNMENT([lhs] expression, [rhs] expression) type
            | AST_PARENTHESIZED_EXPRESSION([nest]expression) type
            | AST_DERREFERENCE([rhs]expression) type
-           | AST_CAST([type]name, [rhs]expression) type
+           | AST_CAST([rhs]expression) type
            | c-cxx-expressions
            | initializer-expr
 
@@ -111,3 +112,17 @@ c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expr
                   | AST_THROW_EXPRESSION([rhs]expression) type
                   | AST_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type
                   | AST_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
+                  | AST_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_PREINCREMENT([rhs]expression) type
+                  | AST_POSTINCREMENT([rhs]expression) type
+                  | AST_PREDECREMENT([rhs]expression) type
+                  | AST_POSTDECREMENT([rhs]expression) type

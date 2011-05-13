@@ -3834,19 +3834,19 @@ postfix_expression : primary_expression
 }
 | DYNAMIC_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | STATIC_CAST '<' type_id '>' '(' expression ')' 
 {
-	$$ = ASTMake2(AST_STATIC_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_STATIC_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | REINTERPRET_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | CONST_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_CONST_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CONST_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | TYPEID '(' expression ')' %merge<ambiguityHandler>
 {
@@ -4156,7 +4156,7 @@ cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -4474,19 +4474,19 @@ operator : TOKEN_NEW
 }
 | '+'
 {
-	$$ = ASTLeaf(AST_ADDERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '-'
 {
-	$$ = ASTLeaf(AST_MINUSERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MINUS_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '*'
 {
-	$$ = ASTLeaf(AST_MULTERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MULT_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '/'
 {
-	$$ = ASTLeaf(AST_DIVERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIV_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '%' 
 {
@@ -4574,11 +4574,11 @@ operator : TOKEN_NEW
 }
 | EQUAL
 {
-	$$ = ASTLeaf(AST_EQUALERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_EQUAL_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | NOT_EQUAL
 {
-	$$ = ASTLeaf(AST_DIFFERENTERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIFFERENT_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | LESS_OR_EQUAL
 {
@@ -4606,7 +4606,7 @@ operator : TOKEN_NEW
 }
 | ','
 {
-	$$ = ASTLeaf(AST_COMMAERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_COMMA_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | PTR_OP
 {

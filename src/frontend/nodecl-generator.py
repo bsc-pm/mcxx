@@ -470,6 +470,10 @@ nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2
 }
 nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t element)
 {
+    if (element.tree == NULL)
+    {
+        return list;
+    }
     if (list.tree != NULL)
     {
         nodecl_output_t result = { ASTListLeaf(element.tree) };

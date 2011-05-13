@@ -33,6 +33,7 @@
 #include "cxx-scope-decls.h"
 #include "cxx-scopelink-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-nodecl-output-decls.h"
 #include <stddef.h>
 
 MCXX_BEGIN_DECLS
@@ -85,6 +86,7 @@ typedef struct translation_unit_tag
     const char* output_filename;
 
     struct AST_tag* parsed_tree;
+    nodecl_output_t nodecl;
     decl_context_t global_decl_context;
     scope_link_t* scope_link;
 

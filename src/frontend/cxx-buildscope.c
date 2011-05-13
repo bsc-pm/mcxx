@@ -267,16 +267,16 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     decl_context_t decl_context 
         = scope_link_get_global_decl_context(translation_unit->scope_link);
 
-    nodecl_output_t nodecl_output = nodecl_null();
+    nodecl_output_t nodecl = nodecl_null();
 
     AST list = ASTSon0(a);
     if (list != NULL)
     {
         // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
-        build_scope_declaration_sequence(list, decl_context, &nodecl_output);
+        build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
 
-    // translation_unit->nodecl = nodecl_output
+    translation_unit->nodecl = nodecl_make_nodecl_top_level(nodecl);
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree, 
@@ -442,12 +442,15 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
 
 static void build_scope_declaration_sequence(AST list, 
         decl_context_t decl_context, 
-        nodecl_output_t* nodecl_output)
+        nodecl_output_t* nodecl_output_list)
 {
     AST iter;
     for_each_element(list, iter)
     {
-        build_scope_declaration(ASTSon1(iter), decl_context, nodecl_output);
+        nodecl_output_t current_nodecl_output_list = nodecl_null();
+        build_scope_declaration(ASTSon1(iter), decl_context, &current_nodecl_output_list);
+
+        *nodecl_output_list = nodecl_concat_lists(*nodecl_output_list, current_nodecl_output_list);
     }
 }
 
@@ -7691,9 +7694,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
     // Create nodecl
-    *nodecl_output = nodecl_make_function_code(function_symbol_nodecl, 
-            nodecl_append_to_list(nodecl_null(), body_nodecl), 
-            /* internal_functions */ nodecl_null());
+    nodecl_output_t nodecl_function_def = nodecl_make_function_code(function_symbol_nodecl, 
+                    nodecl_append_to_list(nodecl_null(), body_nodecl), 
+                    /* internal_functions */ nodecl_null());
+
+    *nodecl_output = nodecl_append_to_list(nodecl_null(), nodecl_function_def);
 
     return entry;
 }
@@ -8953,13 +8958,13 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_NEW_ARRAY;
         case AST_DELETE_ARRAY_OPERATOR :
             return STR_OPERATOR_DELETE_ARRAY;
-        case AST_ADDERATOR :
+        case AST_ADD_OPERATOR :
             return STR_OPERATOR_ADD;
-        case AST_MINUSERATOR :
+        case AST_MINUS_OPERATOR :
             return STR_OPERATOR_MINUS;
-        case AST_MULTERATOR :
+        case AST_MULT_OPERATOR :
             return STR_OPERATOR_MULT;
-        case AST_DIVERATOR :
+        case AST_DIV_OPERATOR :
             return STR_OPERATOR_DIV;
         case AST_MODERATOR :
             return STR_OPERATOR_MOD;
@@ -9003,9 +9008,9 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_SHL_ASSIGNMENT;
         case AST_RIGHT_ASSIGN_OPERATOR :
             return STR_OPERATOR_SHR_ASSIGNMENT;
-        case AST_EQUALERATOR :
+        case AST_EQUAL_OPERATOR :
             return STR_OPERATOR_EQUAL;
-        case AST_DIFFERENTERATOR :
+        case AST_DIFFERENT_OPERATOR :
             return STR_OPERATOR_DIFFERENT;
         case AST_LESS_OR_EQUAL_OPERATOR :
             return STR_OPERATOR_LOWER_EQUAL;
@@ -9019,7 +9024,7 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_POSTINCREMENT;
         case AST_DECREMENT_OPERATOR :
             return STR_OPERATOR_POSTDECREMENT;
-        case AST_COMMAERATOR :
+        case AST_COMMA_OPERATOR :
             return STR_OPERATOR_COMMA;
         case AST_POINTER_OPERATOR :
             return STR_OPERATOR_ARROW;
@@ -9064,16 +9069,23 @@ static void build_scope_compound_statement(AST a,
     //
     // This adds a bit of burden when enlarging an empty compound
 
+    nodecl_output_t nodecl_output_list = nodecl_null();
+
     AST list = ASTSon0(a);
     if (list != NULL)
     {
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, list, block_context);
 
-        build_scope_statement_seq(list, block_context, nodecl_output);
+        nodecl_output_t current_nodecl_output = nodecl_null();
+        build_scope_statement_seq(list, block_context, &current_nodecl_output);
+
+        nodecl_output_list = nodecl_append_to_list(nodecl_output_list, current_nodecl_output);
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
+
+    *nodecl_output = nodecl_make_compound_statement(nodecl_output_list);
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
@@ -9215,6 +9227,8 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
+
+    *nodecl_output = nodecl_make_expression_statement(expression_get_nodecl(expr));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9808,16 +9822,22 @@ void build_scope_member_specification_with_scope_link(
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
+    nodecl_output_t nodecl_output_list = nodecl_null();
     AST list = a;
     if (list != NULL)
     {
         AST iter;
         for_each_element(list, iter)
         {
-            nodecl_output_t current_nodecl = nodecl_null();
-            build_scope_statement(ASTSon1(iter), decl_context, nodecl_output);
+            nodecl_output_t current_nodecl_output = nodecl_null();
+
+            build_scope_statement(ASTSon1(iter), decl_context, &current_nodecl_output);
+
+            nodecl_output_list = nodecl_append_to_list(nodecl_output_list, current_nodecl_output);
         }
     }
+
+    *nodecl_output = nodecl_output_list;
 }
 
 void build_scope_statement_seq_with_scope_link(AST a, 
@@ -9846,7 +9866,8 @@ void build_scope_declaration_sequence_with_scope_link(AST a,
     CURRENT_COMPILED_FILE->scope_link = old_scope_link;
 }
 
-static void build_scope_statement_(AST a, decl_context_t decl_context, 
+static void build_scope_statement_(AST a, 
+        decl_context_t decl_context, 
         nodecl_output_t* nodecl_output)
 {
     DEBUG_CODE()

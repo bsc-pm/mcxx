@@ -74,6 +74,7 @@
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
 #include "cxx-nodecl.h"
+#include "cxx-nodecl-checker.h"
 #include "cxx-limits.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
@@ -2454,26 +2455,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 if (!CURRENT_CONFIGURATION->disable_nodecl)
                 {
-                    AST simplified_tree = NULL;
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
-                    {
-                        c_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
-                    }
-#ifdef FORTRAN_SUPPORT
-                    else if (IS_FORTRAN_LANGUAGE)
-                    {
-                        fortran_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
-                    }
-#endif
-                    else
-                    {
-                        internal_error("Invalid language", 0);
-                    }
-
                     // We should ensure we can do this
                     // ast_free(translation_unit->parsed_tree);
-                    translation_unit->parsed_tree = simplified_tree;
+                    translation_unit->parsed_tree = translation_unit->nodecl.tree;
+                    nodecl_check_tree(translation_unit->parsed_tree);
                 }
 
                 // 6. TL::run and TL::phase_cleanup

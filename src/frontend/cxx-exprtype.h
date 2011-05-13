@@ -36,6 +36,7 @@
 #include "cxx-buildscope-decls.h"
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
+#include "cxx-nodecl-output.h"
 
 MCXX_BEGIN_DECLS
 
@@ -73,42 +74,38 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         );
 
 LIBMCXX_EXTERN type_t* expression_get_type(AST expr);
-
 LIBMCXX_EXTERN void expression_set_type(AST expr, type_t* t);
 
-LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
 
-LIBMCXX_EXTERN char expression_is_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_error(AST expr);
-
 LIBMCXX_EXTERN char expression_is_error(AST expr);
 
+LIBMCXX_EXTERN char expression_is_constant(AST expr);
 LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
-
 LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);
-
 LIBMCXX_EXTERN const_value_t* expression_get_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_is_lvalue(AST expr, char is_lvalue);
+LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
 
 LIBMCXX_EXTERN char expression_is_value_dependent(AST expr);
-
 LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_dependent);
 
+LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
-
 LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
 
 LIBMCXX_EXTERN void expression_clear_computed_info(AST expr);
-
-LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 
 LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);
 
 LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
 
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
+
+LIBMCXX_EXTERN nodecl_output_t expression_get_nodecl(AST expr);
+LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_output_t nodecl_output);
 
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
