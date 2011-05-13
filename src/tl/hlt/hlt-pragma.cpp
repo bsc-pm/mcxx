@@ -42,6 +42,7 @@
 #include "hlt-exception.hpp"
 #include "hlt-simd.hpp"
 #include "tl-simd.hpp"
+#include "tl-refptr.hpp"
 
 
 #include <algorithm>
@@ -1401,7 +1402,6 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     for_stmt.get_ast().replace(simdized_loop_tree);
 
 
-
     TL::Statement& stmt = for_stmt;
 
     if (stmt.is_compound_statement())
@@ -1418,7 +1418,9 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
         TL::ForStatement& for_stmt_epilog = (TL::ForStatement&) statement_list[1];
 
         // This ForStatement is the unrolled loop (SIMD)
-        for_stmt_simd.get_ast().set_attribute(LANG_HLT_SIMD_FOR_INFO, min_stmt_size);
+        for_stmt_simd.get_ast().set_attribute(LANG_HLT_SIMD_FOR_INFO, 
+                TL::RefPtr<ForStatementInfo> (new ForStatementInfo(min_stmt_size,
+                    for_stmt.get_induction_variable().get_symbol(), for_stmt.non_local_symbols())));
 
         // This ForStatement is marked as Epilog
         TL::RefPtr<TL::Expression> lower_bound_ref(new TL::Expression(lower_bound));

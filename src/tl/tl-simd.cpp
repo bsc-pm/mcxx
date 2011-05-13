@@ -261,7 +261,8 @@ std::string GenericFunctions::get_specific_func_name(
     function_map_t::iterator it = _function_map.find(scalar_func_sym);
     if (it == _function_map.end())
     {
-        running_error("error: function Symbol is not a generic function.");
+        running_error("error: '%s' Symbol is not a function Symbol.",
+                scalar_func_sym.get_name().c_str());
     }
 
 
@@ -592,7 +593,17 @@ Source GenericFunctionInfo::get_all_pend_spec_func_def(
             << std::endl;
     }
 
-    //FIXME? Would this function have to print several widths at a time?
+    if (_specific_functions.empty())
+    {
+        DEBUG_CODE()
+        {
+            std::cerr << "SIMD: There are no specific functions yet for this generic function." 
+                << std::endl;
+        }
+        return Source(); //Empty Source
+    }
+
+    //FIXME? Would this function has to print several widths at a time?
     SpecificFunctionInfo& spec_fun = get_better_specific_function(
             replace.get_device_name(),
             replace.get_width());
@@ -620,6 +631,17 @@ Source GenericFunctionInfo::get_all_pend_spec_func_decl(
             << "'" 
             << std::endl;
     }
+
+    if (_specific_functions.empty())
+    {
+        DEBUG_CODE()
+        {
+            std::cerr << "SIMD: There are no specific functions yet for this generic function." 
+                << std::endl;
+        }
+        return Source(); //Empty Source
+    }
+
 
     //FIXME? Would this function have to print several widths at a time?
     SpecificFunctionInfo& spec_fun = get_better_specific_function(
@@ -680,4 +702,41 @@ SpecificFunctionInfo& GenericFunctionInfo::get_better_specific_function(
 
     return it2->second;
 }
+
+
+ForStatementInfo::ForStatementInfo()
+    : _min_expr_size(0), _ind_var_sym(NULL), _is_valid(false)
+{
+}
+
+ForStatementInfo::ForStatementInfo(
+        int min_expr_size,
+        Symbol ind_var_sym,
+        ObjectList<Symbol> nonlocal_symbols)
+    : _min_expr_size(min_expr_size), _ind_var_sym(ind_var_sym), 
+    _nonlocal_symbols(nonlocal_symbols), _is_valid(true)
+{
+}
+
+int ForStatementInfo::get_min_expr_size()
+{
+    return _min_expr_size;
+}
+
+Symbol ForStatementInfo::get_ind_var_sym()
+{
+    return _ind_var_sym;
+}
+
+bool ForStatementInfo::is_valid()
+{
+    return _is_valid;
+}
+
+ObjectList<Symbol> ForStatementInfo::get_nonlocal_symbols()
+{
+    return _nonlocal_symbols;
+}
+
+
 

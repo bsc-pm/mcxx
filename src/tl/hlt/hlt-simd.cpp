@@ -191,6 +191,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                             << ")"
                                             ;
                                     }
+                                    //Common variable expansion
                                     else
                                     {
                                         result << BUILTIN_VE_NAME
@@ -206,23 +207,6 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         }
                     }
                 }
-                //Inside an array subscript
-                /*
-                else
-                {
-                    ObjectList<AST_t> id_expr_list = 
-                        ast.depth_subtrees(isVectorIndex(_this->_sl, _this->_ind_var_sym, _this->_nonlocal_symbols));
-
-                    if(!id_expr_list.empty())
-                    {
-                        _this->_inside_array_subscript.push(false);
-                        result << recursive_prettyprint(ast, data);
-                        _this->_inside_array_subscript.pop();
-
-                        return uniquestr(result.get_source().c_str());
-                    }
-                }
-                */
                 //Implicit Conversions
                 if (expr.is_binary_operation())
                 {
@@ -283,7 +267,22 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         return uniquestr(result.get_source().c_str());
                     }
                 }
+                //Explicit conversions
+                if(expr.is_casting())
+                {
+                    Type cast_type = expr.get_type();
 
+                    if (cast_type.is_valid())
+                    {
+                        result
+                            << "("
+                            << cast_type.get_generic_vector_to().get_simple_declaration(
+                                    _this->_sl.get_scope(ast), "")
+                            << ")"
+                            << recursive_prettyprint(expr.get_casted_expression().get_ast(), data)
+                            ;
+                    }
+                }
                 //__builtin_generic_function
                 if (expr.is_function_call())
                 {
@@ -304,7 +303,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     result << ")";
                     return uniquestr(result.get_source().c_str());
                 }
-                //Naïve Constants Evaluation: Waiting for Sara's optimizations
+                //Naïve Constants Evaluation: Waiting for Sara's optimizations :)
                 if (expr.is_constant())
                 {
                     bool valid_evaluation;

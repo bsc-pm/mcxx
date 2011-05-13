@@ -215,6 +215,27 @@ namespace TL
                         const int width);
         };
 
+        class ForStatementInfo : public TL::Object
+        {
+            private:
+                int _min_expr_size;
+                TL::Symbol _ind_var_sym;
+                ObjectList<Symbol> _nonlocal_symbols;
+                bool _is_valid;
+
+            public:
+                ForStatementInfo();
+                ForStatementInfo(int min_expr_size,
+                        Symbol ind_var_sym,
+                        ObjectList<Symbol> nonlocal_symbols);
+
+
+                int get_min_expr_size();    
+                Symbol get_ind_var_sym();
+                ObjectList<Symbol> get_nonlocal_symbols();
+                bool is_valid();
+        };
+
         extern GenericFunctions generic_functions;
     }
 }
