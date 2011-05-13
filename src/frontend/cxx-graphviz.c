@@ -33,7 +33,9 @@
 #include "cxx-driver.h"
 #include "cxx-graphviz.h"
 #include "cxx-ast.h"
+#include "cxx-exprtype.h"
 #include "cxx-tltype.h"
+#include "cxx-utils.h"
 
 /*
    ****************************************************
@@ -75,6 +77,24 @@ static char* quote_protect(const char *c)
     }
 
     return result;
+}
+
+static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
+{
+    const char* symbol_name = entry->symbol_name;
+    CXX_LANGUAGE()
+    {
+        if (entry->kind == SK_FUNCTION)
+        {
+            symbol_name = print_decl_type_str(entry->type_information, entry->decl_context,
+                    get_qualified_symbol_name(entry, entry->decl_context));
+        }
+        else
+        {
+            symbol_name = get_qualified_symbol_name(entry, entry->decl_context);
+        }
+    }
+    fprintf(f, "sym_%zd[shape=egg,label=\"%s\\n%s:%d\"]", (size_t)entry, symbol_name, entry->file, entry->line);
 }
 
 static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position, char is_extended UNUSED_PARAMETER)
@@ -179,6 +199,17 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             {
                 ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, current_node, i, /* is_extended */ 0);
             }
+        }
+
+        scope_entry_t* entry = expression_get_symbol(a);
+
+        if (entry != NULL)
+        {
+            symbol_dump_graphviz(f, entry);
+            fprintf(f, "n%zd -> sym_%zd [label=\"%s\",style=dotted]\n",
+                    current_node,
+                    (size_t)entry,
+                    "sym");
         }
     }
     else

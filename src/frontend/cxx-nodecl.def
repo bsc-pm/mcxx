@@ -103,6 +103,7 @@ designator: AST_FIELD_DESIGNATOR([field]name, [next]designator-opt)
           | AST_INDEX_DESIGNATOR([index]expression, [next]designator-opt)
 
 argument : AST_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+         | expression
 
 subscript : expression
           | AST_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)

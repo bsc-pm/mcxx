@@ -405,6 +405,9 @@ def generate_routines_header(rule_map):
    print "// Either list1 or list2 can be 'nodecl_null()'"
    print "nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2);"
    print ""
+   print "// Creates a list from two elements"
+   print "nodecl_output_t nodecl_make_list_2(nodecl_output_t element0, nodecl_output_t element1);"
+   print ""
    classes = {}
    for rule_name in rule_map:
        rule_rhs = rule_map[rule_name]
@@ -474,7 +477,7 @@ nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t elem
     {
         return list;
     }
-    if (list.tree != NULL)
+    if (list.tree == NULL)
     {
         nodecl_output_t result = { ASTListLeaf(element.tree) };
         return result;
@@ -484,6 +487,12 @@ nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t elem
         nodecl_output_t result = { ASTList(list.tree, element.tree) };
         return result;
     }
+}
+nodecl_output_t nodecl_make_list_2(nodecl_output_t element0, nodecl_output_t element1)
+{
+    return nodecl_append_to_list(
+            nodecl_append_to_list(nodecl_null(), element0), 
+            element1);
 }
 """
    classes = {}

@@ -2713,6 +2713,13 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
             ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
+
+            expression_set_nodecl(
+                    lhs,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(conversors[0]),
+                        expression_get_nodecl(lhs),
+                        actual_type_of_conversor(conversors[0])));
         }
         if (conversors[1] != NULL)
         {
@@ -2720,6 +2727,13 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
+
+            expression_set_nodecl(
+                    rhs,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(conversors[1]),
+                        expression_get_nodecl(rhs),
+                        actual_type_of_conversor(conversors[1])));
         }
 
         if (!overloaded_call->entity_specs.is_builtin)
@@ -2961,7 +2975,8 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
         expression_set_is_lvalue(expr, 0);
 
         expression_set_nodecl(expr,
-                nodecl_make_add(expression_get_nodecl(lhs),
+                nodecl_make_add(
+                    expression_get_nodecl(lhs),
                     expression_get_nodecl(rhs),
                     computed_type));
 
@@ -3003,6 +3018,29 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
     {
         *val = const_value_add(expression_get_constant(lhs),
                 expression_get_constant(rhs));
+    }
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_add(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
     }
 
     return result;
