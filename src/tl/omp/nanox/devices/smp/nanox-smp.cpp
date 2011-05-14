@@ -748,15 +748,21 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
 
-            if (arg_list.size() != 2 && arg_list.size() != 3)
+            if ((arg_list.size() != 2) && (arg_list.size() != 3))
             {
-                internal_error("Wrong number of arguments in %s", BUILTIN_GF_NAME);
+                internal_error("Wrong number of arguments in %s", BUILTIN_VC_NAME);
             }
 
             Expression src_expr = arg_list.at(0);
 
             TL::Type src_expr_type = src_expr.get_type().vector_element();
-            TL::Type dst_expr_type = arg_list.at(1).get_type().vector_element();
+            TL::Type dst_expr_type = arg_list.at(1).get_type();
+            
+            //Implicit conversion
+            if (dst_expr_type.is_vector())
+            {
+                dst_expr_type = dst_expr_type.vector_element();
+            }
 
             int src_size = src_expr_type.get_size();
             int dst_size = dst_expr_type.get_size();

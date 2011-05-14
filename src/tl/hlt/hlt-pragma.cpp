@@ -174,9 +174,9 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     char found_match = 0;
     scope_entry_t* result = NULL;
 
-    if (num_arguments != 3)
+    if ((num_arguments != 2) && (num_arguments != 3))
     {
-        internal_error("hlt-simd builtin '%s' only allows two parameter\n",
+        internal_error("hlt-simd builtin '%s' only allows two or three parameter\n",
                                 overloaded_function->symbol_name);
     }
 
@@ -193,9 +193,10 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     //No Match: Add a new Symbol to the list.
     TL::ObjectList<TL::Type> param_type_list;
 
-    param_type_list.append(types[0]);
-    param_type_list.append(types[1]);
-    param_type_list.append(types[2]);
+    for (i=0; i<num_arguments; i++)
+    {
+        param_type_list.append(types[i]);
+    }
 
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VC_NAME;
@@ -283,7 +284,6 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     for(i=1; i<builtin_ve_list.size(); i++) 
     {
         type_t* first_param_type = function_type_get_parameter_type_num(builtin_ve_list[i].get_type().get_internal_type(), 0);
-
         if (equivalent_types(get_unqualified_type(types[0]), first_param_type))
         {
             return builtin_ve_list[i].get_internal_symbol();
