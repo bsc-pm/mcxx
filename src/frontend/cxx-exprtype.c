@@ -3838,6 +3838,7 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
     type_t* conversion_type = NULL;
+    type_t* computed_type = NULL;
 
     char requires_overload = 0;
 
@@ -3855,7 +3856,6 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
             && standard_conversion_between_types(&lhs_to_bool, lhs_type, conversion_type)
             && standard_conversion_between_types(&rhs_to_bool, rhs_type, conversion_type))
     {
-        type_t* computed_type = NULL;
         C_LANGUAGE()
         {
             computed_type = get_signed_int_type();
@@ -3870,6 +3870,20 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
         return computed_type;
     }
+    #warning FIXME
+    //FIXME: Temporal patch
+    else if (both_operands_are_vector_types(
+                no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        computed_type = lhs_type;
+
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
+
+        return computed_type;
+    }
+    
 
     C_LANGUAGE()
     {
@@ -3909,7 +3923,8 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_integral(
+                no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
