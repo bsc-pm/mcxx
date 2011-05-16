@@ -601,30 +601,210 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     if (first_type.is_generic_vector() && second_type.is_generic_vector())
                     {
+                        Type first_basic_type = first_type.basic_type();
+                        Type second_basic_type = second_type.basic_type();
+
                         //if x86 architecture
+                        Expression::OperationKind op_kind = expr.get_operation_kind();
 
                         //Relational Operators (<, >, <=, ...)
-                        if (expr.get_operation_kind() == Expression::LOWER_THAN)
+                        if (op_kind == Expression::LOWER_THAN)
                         {
-                            result << "__builtin_ia32_cmpltps("
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
-                                << recursive_prettyprint(second_op.get_ast(), data)
-                                << ")"
-                                ;
+                            if (first_basic_type.is_float()
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpltps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
 
-                            return uniquestr(result.get_source().c_str());
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtd128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtw128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtb128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'LOWER_THAN' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
                         }
-                        else if (expr.get_operation_kind() == Expression::GREATER_THAN)
+                        else if (op_kind == Expression::GREATER_THAN)
                         {
-                            result << "__builtin_ia32_cmpgtps("
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
-                                << recursive_prettyprint(second_op.get_ast(), data)
-                                << ")"
-                                ;
+                            if ((first_basic_type.is_float())
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpgtps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
 
-                            return uniquestr(result.get_source().c_str());
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                result << "__builtin_ia32_pcmpgtd128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                result << "__builtin_ia32_pcmpgtw128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                result << "__builtin_ia32_pcmpgtb128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'GREATER_THAN' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
+                        }
+                        else if (op_kind == Expression::COMPARISON)
+                        {
+                            if ((first_basic_type.is_float())
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpeqps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                result << "__builtin_ia32_pcmpeqd128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                result << "__builtin_ia32_pcmpeqw128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                result << "__builtin_ia32_pcmpeqb128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'COMPARISON' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
                         }
                     }
                 }

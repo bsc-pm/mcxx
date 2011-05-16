@@ -471,14 +471,24 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
         << "char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_packsswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpeqb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpgtb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+
         //<< "short int __attribute__((vector_size(16)))    __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpeqw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpgtw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpgtps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_pcmpeqd128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_pcmpgtd128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+
         << "float __attribute__((vector_size(16)))          __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
         //<< "float __attribute__((vector_size(16)))        __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
         << "float __attribute__((vector_size(16)))          __builtin_ia32_cvtdq2ps(int __attribute__((vector_size(16))));"
+
         << "double __attribute__((vector_size(16)))         __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
         //<< "double __attribute__((vector_size(16)))       __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
     //SSSE3
