@@ -475,13 +475,14 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpgtps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
         << "float __attribute__((vector_size(16)))          __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
         //<< "float __attribute__((vector_size(16)))        __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_cvtdq2ps(int __attribute__((vector_size(16))));"
         << "double __attribute__((vector_size(16)))         __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
         //<< "double __attribute__((vector_size(16)))       __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
     //SSSE3
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
-        << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
     //SSE4.1
         << "short int __attribute__((vector_size(16))) __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
         ;
@@ -521,6 +522,19 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
         << "}"
 
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2INT_SMP16 << "("
+        <<      "float __attribute__((vector_size(16))) vf)"
+        << "{"
+        <<      "return __builtin_ia32_cvttps2dq(vf);"
+        << "}"
+
+        << "static inline unsigned int __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2UINT_SMP16 << "("
+        <<      "float __attribute__((vector_size(16))) vf)"
+        << "{"
+        <<      "return (unsigned int __attribute__((vector_size(16)))) " << COMPILER_CONV_FLOAT2INT_SMP16 << "("
+        <<          "vf);"
+        << "}"
+
         << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_INT2UCHAR_SMP16 << "("
         <<      "int __attribute__((vector_size(16))) vi0,"
         <<      "int __attribute__((vector_size(16))) vi1," 
@@ -545,6 +559,12 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
+        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        <<      "int __attribute__((vector_size(16))) vi)"
+        << "{"
+        <<      "return __builtin_ia32_cvtdq2ps(vi);"
+        << "}"
+
         << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2UCHAR_SMP16 << "("
         <<      "unsigned int __attribute__((vector_size(16))) vi0,"
         <<      "unsigned int __attribute__((vector_size(16))) vi1," 
@@ -565,12 +585,18 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "unsigned int __attribute__((vector_size(16))) vi3)"
         << "{"
         <<      "return " << COMPILER_CONV_INT2CHAR_SMP16 
-        << "((int __attribute__((vector_size(16)))) vi0,"
-        << "(int __attribute__((vector_size(16)))) vi1,"
-        << "(int __attribute__((vector_size(16)))) vi2,"
-        << "(int __attribute__((vector_size(16)))) vi3);"
+        <<          "((int __attribute__((vector_size(16)))) vi0,"
+        <<          "(int __attribute__((vector_size(16)))) vi1,"
+        <<          "(int __attribute__((vector_size(16)))) vi2,"
+        <<          "(int __attribute__((vector_size(16)))) vi3);"
         << "}"
 
+        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
+        <<      "unsigned int __attribute__((vector_size(16))) vi)"
+        << "{"
+        <<      "return " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        <<          "(int __attribute__((vector_size(16)))) vi);"
+        << "}"
         ;
 
     indexation_src

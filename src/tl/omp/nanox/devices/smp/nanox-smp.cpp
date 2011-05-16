@@ -814,6 +814,42 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                                 true, true,
                                 CONV_FLOAT2CHAR_SMP16);
                     }
+                    else if (src_expr_type.is_float()
+                            && dst_expr_type.is_signed_int())
+                    {
+                        result 
+                            << CONV_FLOAT2INT_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_FLOAT2INT_SMP16);
+                    }
+                    else if (src_expr_type.is_float()
+                            && dst_expr_type.is_unsigned_int())
+                    {
+                        result 
+                            << CONV_FLOAT2UINT_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_FLOAT2UINT_SMP16);
+                    }
                     else if (src_expr_type.is_unsigned_int() 
                             && (dst_expr_type.is_unsigned_char()))
                     {
@@ -850,6 +886,24 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                                 true, true,
                                 CONV_UINT2CHAR_SMP16);
                     }
+                    else if (src_expr_type.is_unsigned_int() 
+                            && (dst_expr_type.is_float()))
+                    {
+                        result 
+                            << CONV_UINT2FLOAT_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_UINT2FLOAT_SMP16);
+                    }
                     else if (src_expr_type.is_signed_int() 
                             && (dst_expr_type.is_unsigned_char()))
                     {
@@ -885,6 +939,24 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                                 _this->_width, 
                                 true, true,
                                 CONV_INT2CHAR_SMP16);
+                    }
+                    else if (src_expr_type.is_signed_int() 
+                            && (dst_expr_type.is_float()))
+                    {
+                        result 
+                            << CONV_INT2FLOAT_SMP16
+                            << "("
+                            << recursive_prettyprint(src_expr.get_ast(), data) 
+                            ;
+
+                        generic_functions.add_specific_definition(
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16),
+                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16), 
+                                TL::SIMD::COMPILER_DEFAULT, 
+                                _this->_device_name, 
+                                _this->_width, 
+                                true, true,
+                                CONV_INT2FLOAT_SMP16);
                     }
                     else
                     {
