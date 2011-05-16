@@ -607,8 +607,30 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                         //if x86 architecture
                         Expression::OperationKind op_kind = expr.get_operation_kind();
 
+                        //Logical 'or' and 'and' are not supported in SSE
+                        //so '||' -> '|' and '&&' -> '&&'
+                        if (op_kind == Expression::LOGICAL_OR)
+                        {
+                            result 
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << "|"
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                ;
+
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        else if(op_kind == Expression::LOGICAL_AND)
+                        {
+                            result 
+                                << recursive_prettyprint(first_op.get_ast(), data)
+                                << "&"
+                                << recursive_prettyprint(second_op.get_ast(), data)
+                                ;
+
+                            return uniquestr(result.get_source().c_str());
+                        }
                         //Relational Operators (<, >, <=, ...)
-                        if (op_kind == Expression::LOWER_THAN)
+                        else if (op_kind == Expression::LOWER_THAN)
                         {
                             if (first_basic_type.is_float()
                                     && second_basic_type.is_float())
