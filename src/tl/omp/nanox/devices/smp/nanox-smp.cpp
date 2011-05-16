@@ -527,30 +527,6 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
             return (uniquestr(result.get_source().c_str()));
         }
-        //a -> _a_rep0 if IdExpr.size() > min
-        if (_this->_inside_simd_for.top()
-                && IdExpression::predicate(ast))
-        {
-            IdExpression id_expr(ast, _this->_sl);
-            Symbol sym = id_expr.get_symbol();
-
-            int sym_size = sym.get_type().get_size();
-
-
-            if (sym_size > _this->_min_expr_size
-                    && !_this->_nonlocal_symbols.contains(sym))
-            {
-                //Don't use recursive
-                result
-                    << "_"
-                    << id_expr.prettyprint()
-                    << "_rep"
-                    << _this->_num_repl
-                    ;
-
-                return (uniquestr(result.get_source().c_str()));
-            }
-        }
         if (Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -558,8 +534,34 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             //Don't skip ';'
             if ((expr.original_tree() == expr.get_ast()))
             {
+                //IdExpression renaming: a -> _a_rep0 if IdExpr.size() > min
+                if (_this->_inside_simd_for.top()
+                        && expr.is_id_expression())
+                {
+                    IdExpression id_expr = expr.get_id_expression();
+                    Symbol sym = id_expr.get_symbol();
+
+                    if (sym.is_variable())
+                    {
+                        int sym_size = sym.get_type().get_size();
+
+                        if (sym_size > _this->_min_expr_size
+                                && !_this->_nonlocal_symbols.contains(sym))
+                        {
+                            //Don't use recursive
+                            result
+                                << "_"
+                                << id_expr.prettyprint()
+                                << "_rep"
+                                << _this->_num_repl
+                                ;
+
+                            return (uniquestr(result.get_source().c_str()));
+                        }
+                    }
+                }
                 //Conditional Expression: a ? b : c
-                if (expr.is_conditional())
+                else if (expr.is_conditional())
                 {
                     Expression cond_exp(expr.get_condition_expression());
                     Expression true_exp(expr.get_true_expression());
