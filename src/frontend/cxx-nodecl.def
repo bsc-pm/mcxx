@@ -63,7 +63,7 @@ literal : AST_INTEGER_LITERAL() type const_value
  
 expression : literal
            | name
-           | AST_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
+           | AST_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | AST_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
            | AST_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
            | AST_PLUS([rhs]expression) type

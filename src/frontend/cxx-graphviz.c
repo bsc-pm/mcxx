@@ -94,7 +94,7 @@ static void symbol_dump_graphviz(FILE* f, scope_entry_t* entry)
             symbol_name = get_qualified_symbol_name(entry, entry->decl_context);
         }
     }
-    fprintf(f, "sym_%zd[shape=egg,label=\"%s\\n%s:%d\"]", (size_t)entry, symbol_name, entry->file, entry->line);
+    fprintf(f, "sym_%zd[shape=rectangle,label=\"%s\\n%s:%d\"]", (size_t)entry, symbol_name, entry->file, entry->line);
 }
 
 static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position, char is_extended UNUSED_PARAMETER)

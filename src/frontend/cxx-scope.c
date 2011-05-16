@@ -4138,3 +4138,24 @@ const char* symbol_kind_name(scope_entry_t* entry)
     else
         return symbol_kind_table_str[entry->kind];
 }
+
+struct fun_adaptor_data_tag
+{
+    void *data;
+    void (*fun)(scope_entry_list_t*, void*);
+};
+
+static void for_each_fun_adaptor(const void* key UNUSED_PARAMETER, void* info, void* data)
+{
+    scope_entry_list_t* it = (scope_entry_list_t*)info;
+    struct fun_adaptor_data_tag * adaptor_data = (struct fun_adaptor_data_tag*) data;
+
+    (adaptor_data->fun)(entry_list_copy(it), adaptor_data->data);
+}
+
+void scope_for_each_entity(scope_t* sc, void *data, void (*fun)(scope_entry_list_t*, void*))
+{
+    struct fun_adaptor_data_tag fun_adaptor_data = { .data = data, .fun = fun };
+
+    rb_tree_walk(sc->hash, for_each_fun_adaptor, &fun_adaptor_data);
+}

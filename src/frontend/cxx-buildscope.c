@@ -224,6 +224,9 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
         type_t* class_info,
         nodecl_output_t* nodecl_output);
 
+static void call_destructors_of_classes(decl_context_t block_context, 
+        nodecl_output_t* nodecl_output);
+
 // Current linkage, by default C++
 static const char* current_linkage = "\"C++\"";
 
@@ -7670,6 +7673,13 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
         ast_set_link_to_child(statement, LANG_COMPOUND_STATEMENT_LIST, list);
 
+        CXX_LANGUAGE()
+        {
+            nodecl_output_t nodecl_destructors = nodecl_null();
+            call_destructors_of_classes(block_context, &nodecl_destructors);
+            body_nodecl = nodecl_concat_lists(body_nodecl, nodecl_destructors);
+        }
+
         // We manually create a compound statement here for nodecl
         body_nodecl = nodecl_make_compound_statement(body_nodecl);
     }
@@ -9040,6 +9050,49 @@ const char* get_operator_function_name(AST declarator_id)
 }
 
 
+typedef
+struct call_to_destructor_data_tag
+{
+    nodecl_output_t* nodecl_output;
+} call_to_destructor_data_t;
+
+static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
+{
+    call_to_destructor_data_t* destructor_data = (call_to_destructor_data_t*)data;
+
+    scope_entry_t* entry = entry_list_head(entry_list);
+
+    if (entry->kind == SK_VARIABLE
+            && is_class_type(entry->type_information))
+    {
+        type_t* class_type = get_actual_class_type(entry->type_information);
+
+        nodecl_output_t nodecl_call_to_destructor = 
+            nodecl_make_expression_statement(
+            nodecl_make_function_call(
+                    nodecl_make_symbol(class_type_get_destructor(class_type)),
+                    nodecl_null(),
+                    get_void_type()
+                    ));
+
+        *(destructor_data->nodecl_output) = nodecl_append_to_list(
+                *(destructor_data->nodecl_output), 
+                nodecl_call_to_destructor);
+    }
+
+    entry_list_free(entry_list);
+}
+
+static void call_destructors_of_classes(decl_context_t block_context, 
+        nodecl_output_t* nodecl_output)
+{
+    call_to_destructor_data_t call_to_destructor_data = { 
+        .nodecl_output = nodecl_output
+    };
+
+    scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
+}
+
 /*
  * Building scope for statements
  */
@@ -9051,6 +9104,7 @@ struct stmt_scope_handler_map_tag
     stmt_scope_handler_t handler;
     char* attr_name;
 } stmt_scope_handler_map_t;
+
 
 static void build_scope_compound_statement(AST a, 
         decl_context_t decl_context, 
@@ -9084,6 +9138,14 @@ static void build_scope_compound_statement(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
+
+    CXX_LANGUAGE()
+    {
+        nodecl_output_t nodecl_destructors = nodecl_null();
+        call_destructors_of_classes(block_context, &nodecl_destructors);
+
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, nodecl_destructors);
+    }
 
     *nodecl_output = nodecl_make_compound_statement(nodecl_output_list);
 }
@@ -10206,4 +10268,3 @@ AST internal_expression_parse(const char *source, decl_context_t decl_context)
 
     return a;
 }
-
