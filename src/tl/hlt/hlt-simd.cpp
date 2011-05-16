@@ -337,18 +337,23 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "("
                                 << recursive_prettyprint(casted_expr.get_ast(), data)
                                 << ", "
-                                << expr.prettyprint()   //Don't use recursive
+                                << "(("
+                                << cast_type.get_generic_vector_to().get_simple_declaration(
+                                        _this->_sl.get_scope(ast), "") 
                                 << ")"
+                                << recursive_prettyprint(casted_expr.get_ast(), data)
+                                << "))"
                                 ;
                         }
                         else
                         {
                             result
-                                << "("
+                                << "(("
                                 << cast_type.get_generic_vector_to().get_simple_declaration(
                                         _this->_sl.get_scope(ast), "")
                                 << ")"
-                                << recursive_prettyprint(expr.get_casted_expression().get_ast(), data)
+                                << recursive_prettyprint(casted_expr.get_ast(), data)
+                                << ")"
                                 ;
                         }    
                         return uniquestr(result.get_source().c_str());
