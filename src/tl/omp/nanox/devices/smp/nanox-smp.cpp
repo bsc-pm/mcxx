@@ -949,235 +949,261 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             int src_size = src_expr_type.get_size();
             int dst_size = dst_expr_type.get_size();
 
-            //Expressions could have the induction variable of the SIMDized loop
-            if (arg_list.size() == 3)
+            //Example: From float to char
+            if (src_size > dst_size)
             {
-                Expression ind_var_exp = arg_list.at(2);;
-                TL::Symbol ind_var_sym = ind_var_exp.get_id_expression().get_symbol();
-
-                //Example: From float to char
-                if (src_size > dst_size)
+                //Only HLT SIMD for conversions are supported
+                if (!_this->_inside_simd_for.top())
                 {
-                    if (src_expr_type.is_float()
-                            && dst_expr_type.is_unsigned_char())
-                    {
-                        result 
-                            << CONV_FLOAT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    running_error("Conversions between vectors with different number of elements are not supported in HLT SIMD functions yet");
+                }
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_float() 
-                            && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
-                    {
-                        result 
-                            << CONV_FLOAT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                _this->_num_repl = 0;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2CHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_float()
-                            && dst_expr_type.is_signed_int())
-                    {
-                        result 
-                            << CONV_FLOAT2INT_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                if (src_expr_type.is_float()
+                        && dst_expr_type.is_unsigned_char())
+                {
+                    result 
+                        << CONV_FLOAT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2INT_SMP16);
-                    }
-                    else if (src_expr_type.is_float()
-                            && dst_expr_type.is_unsigned_int())
-                    {
-                        result 
-                            << CONV_FLOAT2UINT_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_float() 
+                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+                {
+                    result 
+                        << CONV_FLOAT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2UINT_SMP16);
-                    }
-                    else if (src_expr_type.is_unsigned_int() 
-                            && (dst_expr_type.is_unsigned_char()))
-                    {
-                        result 
-                            << CONV_UINT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2CHAR_SMP16);
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_unsigned_char()))
+                {
+                    result 
+                        << CONV_UINT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_UINT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_unsigned_int() 
-                            && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
-                    {
-                        result 
-                            << CONV_UINT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+                {
+                    result 
+                        << CONV_UINT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_UINT2CHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_unsigned_int() 
-                            && (dst_expr_type.is_float()))
-                    {
-                        result 
-                            << CONV_UINT2FLOAT_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2CHAR_SMP16);
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_unsigned_char()))
+                {
+                    result 
+                        << CONV_INT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_UINT2FLOAT_SMP16);
-                    }
-                    else if (src_expr_type.is_signed_int() 
-                            && (dst_expr_type.is_unsigned_char()))
-                    {
-                        result 
-                            << CONV_INT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_signed_char()))
+                {
+                    result 
+                        << CONV_INT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_INT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_signed_int() 
-                            && (dst_expr_type.is_signed_char()))
-                    {
-                        result 
-                            << CONV_INT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2CHAR_SMP16);
+                }
+                else
+                {
+                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                }
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_INT2CHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_signed_int() 
-                            && (dst_expr_type.is_float()))
-                    {
-                        result 
-                            << CONV_INT2FLOAT_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                //Replicating expressions
+                int num_repls = src_size / dst_size;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_INT2FLOAT_SMP16);
-                    }
-                    else
-                    {
-                        running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
-                                src_expr_type.get_simple_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                                dst_expr_type.get_simple_declaration(_this->_sl.get_scope(ast), "").c_str());
-                    }
+                for (i=1; i < num_repls; i++)
+                {
+                    Source new_stmt_src;
 
-                    //Replicating expressions
-                    int num_repls = src_size / dst_size;
+                    _this->_num_repl = i;
+                    ReplaceSrcSMP induct_var_rmplmt(*_this);
+                    std::stringstream new_ind_var;
 
-                    for (i=1; i < num_repls; i++)
-                    {
-                        Source new_stmt_src;
+                    new_ind_var
+                        << "(" 
+                        << _this->_ind_var_sym.get_name()
+                        << "+" 
+                        << i*(_vector_width/src_size)
+                        << ")"
+                        ;
 
-                        ReplaceSrcSMP induct_var_rmplmt(expr.get_scope_link(), _vector_width);
-                        std::stringstream new_ind_var;
+                    induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+                            new_ind_var.str());
 
-                        new_ind_var
-                            << "(" 
-                            << recursive_prettyprint(ind_var_exp.get_ast(), data)
-                            << "+" 
-                            << i*(_vector_width/src_size)
-                            << ")"
-                            ;
+                    result.append_with_separator(induct_var_rmplmt.replace(src_expr.get_ast()), ",");
+                }
 
-                        induct_var_rmplmt.add_replacement(ind_var_sym, 
-                                new_ind_var.str());
+                result << ")";
 
-                        result.append_with_separator(induct_var_rmplmt.replace(src_expr.get_ast()), ",");
-                    }
+                return uniquestr(result.get_source().c_str());
+            }
+            //Example: From int to float
+            else if (src_size == dst_size)
+            {
+                if (src_expr_type.is_float()
+                        && dst_expr_type.is_signed_int())
+                {
+                    result 
+                        << CONV_FLOAT2INT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
 
-                    result << ")";
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2INT_SMP16);
 
                     return uniquestr(result.get_source().c_str());
                 }
-                //Example: From char to float
+                else if (src_expr_type.is_float()
+                        && dst_expr_type.is_unsigned_int())
+                {
+                    result 
+                        << CONV_FLOAT2UINT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2UINT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_float()))
+                {
+                    result 
+                        << CONV_UINT2FLOAT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2FLOAT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_float()))
+                {
+                    result 
+                        << CONV_INT2FLOAT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2FLOAT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
                 else
                 {
-                    internal_error("Conversion not supported yet", 0);
+                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
                 }
+            }
+            //Example: From char to float
+            else
+            {
+                running_error("Conversion in HLT SIMD from '%s' to '%s' is not supported yet",
+                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
             }
         }
         else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))
