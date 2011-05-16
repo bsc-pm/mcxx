@@ -4125,7 +4125,9 @@ static const char* symbol_kind_table_str[] =
 #define SYMBOL_KIND(x, _) \
         [x] = #x, 
     SYMBOL_KIND_TABLE
+#ifdef FORTRAN_SUPPORT
     SYMBOL_KIND_TABLE_FORTRAN
+#endif
 #undef SYMBOL_KIND
 };
 

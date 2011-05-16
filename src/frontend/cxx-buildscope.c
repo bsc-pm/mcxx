@@ -50,6 +50,7 @@
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-overload.h"
 #include "cxx-upc.h"
 #include "cxx-cuda.h"
 #include "cxx-entrylist.h"
@@ -637,9 +638,11 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
 {
     AST asm_parms = ASTSon1(a);
 
+    nodecl_output_t nodecl_asm_params[3] = { nodecl_null(), nodecl_null(), nodecl_null() };
+
     int i;
     // first one is always an AST_STRING_LITERAL
-    for (i = 1; i < ASTNumChildren(asm_parms); i++)
+    for (i = 1; i < 4; i++)
     {
         AST asm_operand_list = ASTChild(asm_parms, i);
 
@@ -652,6 +655,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
 
                 if (ASTType(asm_operand) == AST_GCC_ASM_OPERAND)
                 {
+                    AST identifier = ASTSon0(asm_operand);
+                    AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
                     if (!check_expression(expression, decl_context))
                     {
@@ -659,10 +664,41 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                                 ast_location(expression),
                                 prettyprint_in_buffer(expression));
                     }
+
+                    nodecl_output_t nodecl_identifier = nodecl_null();
+                    if (identifier != NULL)
+                    {
+                        nodecl_identifier = nodecl_make_string_literal(get_void_type(), ASTText(identifier));
+                    }
+
+                    nodecl_output_t nodecl_constraint = nodecl_null();
+                    if (constraint != NULL)
+                    {
+                        nodecl_constraint = nodecl_make_string_literal(get_void_type(), ASTText(constraint));
+                    }
+
+                    nodecl_output_t nodecl_asm_param = nodecl_make_gcc_asm_operand(
+                            nodecl_identifier,
+                            nodecl_constraint,
+                            expression_get_nodecl(expression));
+
+                    nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
+                            nodecl_asm_param);
                 }
+                else
+                {
+                    internal_error("Unexpected tree '%s'\n", ast_print_node_type(ASTType(asm_operand)));
+                }
+
             }
         }
     }
+
+    *nodecl_output = nodecl_make_asm_definition(
+            nodecl_make_string_literal(get_void_type(), ASTText(ASTSon0(asm_parms))),
+            nodecl_asm_params[0],
+            nodecl_asm_params[1],
+            nodecl_asm_params[2]);
 }
 
 // It simply disambiguates
@@ -704,7 +740,7 @@ static void build_scope_explicit_instantiation(AST a,
     }
 }
 
-static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
+static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output UNUSED_PARAMETER)
 {
     // First get the involved namespace
     AST id_expression = ASTSon0(a);
@@ -833,7 +869,7 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
     entry_list_free(used_entity);
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
 
@@ -849,7 +885,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, no
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
-        nodecl_output_t* nodecl_output)
+        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
     introduce_using_entity(id_expression, decl_context);
@@ -7673,15 +7709,14 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
         ast_set_link_to_child(statement, LANG_COMPOUND_STATEMENT_LIST, list);
 
+        nodecl_output_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
         {
-            nodecl_output_t nodecl_destructors = nodecl_null();
             call_destructors_of_classes(block_context, &nodecl_destructors);
-            body_nodecl = nodecl_concat_lists(body_nodecl, nodecl_destructors);
         }
 
         // We manually create a compound statement here for nodecl
-        body_nodecl = nodecl_make_compound_statement(body_nodecl);
+        body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors);
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
     {
@@ -9054,6 +9089,7 @@ typedef
 struct call_to_destructor_data_tag
 {
     nodecl_output_t* nodecl_output;
+    scope_t* scope;
 } call_to_destructor_data_t;
 
 static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
@@ -9063,7 +9099,12 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
     scope_entry_t* entry = entry_list_head(entry_list);
 
     if (entry->kind == SK_VARIABLE
-            && is_class_type(entry->type_information))
+            && is_class_type(entry->type_information)
+            && !entry->entity_specs.is_static
+            && !entry->entity_specs.is_extern
+            // Has been defined in this scope and has not been inserted because
+            // of using declarations
+            && entry->decl_context.current_scope == destructor_data->scope)
     {
         type_t* class_type = get_actual_class_type(entry->type_information);
 
@@ -9087,7 +9128,8 @@ static void call_destructors_of_classes(decl_context_t block_context,
         nodecl_output_t* nodecl_output)
 {
     call_to_destructor_data_t call_to_destructor_data = { 
-        .nodecl_output = nodecl_output
+        .nodecl_output = nodecl_output,
+        .scope = block_context.current_scope
     };
 
     scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
@@ -9139,15 +9181,13 @@ static void build_scope_compound_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 
+    nodecl_output_t nodecl_destructors = nodecl_null();
     CXX_LANGUAGE()
     {
-        nodecl_output_t nodecl_destructors = nodecl_null();
         call_destructors_of_classes(block_context, &nodecl_destructors);
-
-        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, nodecl_destructors);
     }
 
-    *nodecl_output = nodecl_make_compound_statement(nodecl_output_list);
+    *nodecl_output = nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors);
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
@@ -9188,23 +9228,63 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
                 decl_context, nodecl_output);
         scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
-        if (!check_expression(ASTSon2(a), decl_context))
+        AST initializer = ASTSon2(a);
+
+        if (check_initialization(initializer, decl_context, entry->type_information))
         {
-            if (!checking_ambiguity())
+            fprintf(stderr, "%s: warning: initializer '%s' could not be checked\n",
+                    ast_location(initializer),
+                    prettyprint_in_buffer(initializer));
+        }
+
+        entry->expression_value = initializer;
+
+        C_LANGUAGE()
+        {
+            standard_conversion_t dummy;
+            if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type()))
             {
-                fprintf(stderr, "%s: warning: initializer '%s' could not be checked\n",
-                        ast_location(ASTSon2(a)),
-                        prettyprint_in_buffer(ASTSon2(a)));
+                fprintf(stderr, "%s: warning: value of type '%s' where a scalar was expected\n",
+                        ast_location(a),
+                        print_type_str(entry->type_information, decl_context));
+            }
+
+            *nodecl_output = nodecl_make_object_init(expression_get_nodecl(initializer), entry);
+        }
+        CXX_LANGUAGE()
+        {
+            if (!is_dependent_expr_type(expression_get_type(initializer))
+                    && !is_dependent_type(declarator_type))
+            {
+                char ambiguous_conversion = 0;
+                scope_entry_t* conversor = NULL;
+                if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
+                            &ambiguous_conversion, &conversor))
+                {
+                    fprintf(stderr, "%s: warning: value of type '%s' cannot be converted to 'bool' type\n",
+                            ast_location(a),
+                            print_type_str(entry->type_information, decl_context));
+                }
+
+                *nodecl_output = nodecl_make_object_init(expression_get_nodecl(initializer), entry);
+                if (conversor != NULL)
+                {
+                    ERROR_CONDITION((conversor->entity_specs.is_conversion),
+                            "I expected a conversion function!", 0);
+                    *nodecl_output = nodecl_make_function_call(nodecl_make_symbol(conversor),
+                            nodecl_append_to_list(nodecl_null(), *nodecl_output),
+                            function_type_get_return_type(conversor->type_information));
+                }
             }
         }
 
-        entry->expression_value = ASTSon2(a);
 
         ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, type_specifier_seq);
         ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, declarator);
 
         ASTAttrSetValueType(a, LANG_IS_CONDITION_DECLARATION, tl_type_t, tl_bool(1));
+
     }
     else
     {
@@ -9218,6 +9298,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
         ASTAttrSetValueType(a, LANG_IS_CONDITION_EXPRESSION, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, ASTSon2(a));
+
+        *nodecl_output = expression_get_nodecl(ASTSon2(a));
     }
 }
 
@@ -9407,21 +9489,27 @@ static void build_scope_switch_statement(AST a,
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 }
 
-static void add_label_if_not_found(AST label, decl_context_t decl_context)
+static scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
 {
-    // A curiosity :)
     const char* label_text = ASTText(label);
     scope_entry_list_t* entry_list = query_unqualified_name_str_flags(decl_context, label_text, DF_LABEL);
 
+    scope_entry_t* sym_label = NULL;
     if (entry_list == NULL)
     {
-        scope_entry_t* new_label = new_symbol(decl_context, decl_context.function_scope, ASTText(label));
-        new_label->kind = SK_LABEL;
-        new_label->line = ASTLine(label);
-        new_label->file = ASTFileName(label);
+        sym_label = new_symbol(decl_context, decl_context.function_scope, ASTText(label));
+        sym_label->kind = SK_LABEL;
+        sym_label->line = ASTLine(label);
+        sym_label->file = ASTFileName(label);
+    }
+    else
+    {
+        sym_label = entry_list_head(entry_list);
     }
 
     entry_list_free(entry_list);
+
+    return sym_label;
 }
 static void build_scope_goto_statement(AST a, 
         decl_context_t decl_context, 
@@ -9429,10 +9517,12 @@ static void build_scope_goto_statement(AST a,
         nodecl_output_t* nodecl_output)
 {
     AST label = ASTSon0(a);
-    add_label_if_not_found(label, decl_context);
+    scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_GOTO_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_GOTO_STATEMENT_LABEL, label);
+
+    *nodecl_output = nodecl_make_goto_statement(nodecl_make_symbol(sym_label));
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -9441,15 +9531,20 @@ static void build_scope_labeled_statement(AST a,
         nodecl_output_t* nodecl_output)
 {
     AST label = ASTSon0(a);
-    add_label_if_not_found(label, decl_context);
+    scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
 
     AST statement = ASTSon1(a);
 
-    build_scope_statement_(statement, decl_context, nodecl_output);
+    nodecl_output_t nodecl_statement = nodecl_null();
+    build_scope_statement_(statement, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
     ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
+
+    *nodecl_output = nodecl_make_labeled_statement(
+            nodecl_make_symbol(sym_label), 
+            nodecl_statement);
 }
 
 static void build_scope_default_statement(AST a, 
@@ -9504,6 +9599,8 @@ static void build_scope_return_statement(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_RETURN_STATEMENT_HAS_EXPRESSION, tl_type_t, tl_bool(expression != NULL));
+
+    *nodecl_output = nodecl_make_return_statement(expression_get_nodecl(expression));
 }
 
 static void build_scope_try_block(AST a, 
@@ -9589,7 +9686,7 @@ static void build_scope_do_statement(AST a,
 static void build_scope_null(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         char* attr_name,
-        nodecl_output_t* nodecl_output)
+        nodecl_output_t* nodecl_output UNUSED_PARAMETER)
 {
     // Do nothing
     if (attr_name != NULL)
@@ -9603,11 +9700,12 @@ static void build_scope_break(AST a,
         char* attr_name,
         nodecl_output_t* nodecl_output)
 {
-    // Do nothing
     if (attr_name != NULL)
     {
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
+
+    *nodecl_output = nodecl_make_break_statement();
 }
 
 static void build_scope_continue(AST a, 
@@ -9620,6 +9718,8 @@ static void build_scope_continue(AST a,
     {
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
+
+    *nodecl_output = nodecl_make_continue_statement();
 }
 
 static void build_scope_pragma_custom_clause_argument(AST a, 
@@ -9727,38 +9827,6 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
 }
 
-static void build_scope_custom_construct_statement(AST a, 
-        decl_context_t decl_context, 
-        char *attr_name UNUSED_PARAMETER,
-        nodecl_output_t* nodecl_output)
-{
-    // Header
-    AST custom_construct_header = ASTSon0(a);
-
-    AST parameters_seq = ASTSon0(custom_construct_header);
-    if (parameters_seq != NULL)
-    {
-        AST iter;
-        for_each_element(parameters_seq, iter)
-        {
-            AST parameter = ASTSon1(iter);
-
-            // AST symbol = ASTSon0(parameter);
-            AST expression = ASTSon1(parameter);
-            
-            if (!check_expression(expression, decl_context))
-            {
-                internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(expression));
-            }
-        }
-    }
-
-    // Statement
-    build_scope_statement(ASTSon1(a), new_block_context(decl_context), nodecl_output);
-
-    // TODO - Fill attributes
-}
-
 static void build_scope_upc_synch_statement(AST a, 
         decl_context_t decl_context, 
         char *attr_name,
@@ -9854,8 +9922,6 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     // Pragma custom support
     STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, NULL),
     STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive, NULL),
-    // Custom construct
-    STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, NULL),
     // UPC
     STMT_HANDLER(AST_UPC_NOTIFY, build_scope_upc_synch_statement, UPC_IS_NOTIFY_STATEMENT),
     STMT_HANDLER(AST_UPC_WAIT, build_scope_upc_synch_statement, UPC_IS_WAIT_STATEMENT),

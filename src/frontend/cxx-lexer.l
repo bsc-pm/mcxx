@@ -1045,9 +1045,6 @@ type {
     return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
 }
 
- /* mcxx extensions */
-"__construct__" { parse_token_text(); return CONSTRUCT; }
-
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }

@@ -6,10 +6,10 @@ name : AST_SYMBOL() symbol
 type : AST_TYPE() type
 
 function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [internal_functions]function-code-opt)
-object-init : AST_OBJECT_INIT([name]name, [initializer]expression-opt)
+object-init : AST_OBJECT_INIT([initializer]expression-seq-opt) symbol
 
 statement : AST_EXPRESSION_STATEMENT([nest]expression)
-          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt)
+          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
           | AST_DO_STATEMENT([condition]expression, [statement]statement)
           | AST_WHILE_STATEMENT([condition]expression, [statement]statement)
           | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement)
@@ -36,7 +36,9 @@ pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG()
 
 c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq)
+    | AST_ASM_DEFINITION([asm_code]string-literal, [first]asm-operand-seq-opt, [second]asm-operand-seq-opt, [third]asm-operand-seq-opt)
 catch-handler : AST_CATCH_HANDLER([type]name, [statement]statement)
+asm-operand: AST_GCC_ASM_OPERAND([identifier]string-literal-opt, [constraint]string-literal, [expression] expression-opt)
 
 # FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : AST_ALLOCATE_STATEMENT()
@@ -58,8 +60,10 @@ fortran-only-statements : AST_ALLOCATE_STATEMENT()
 literal : AST_INTEGER_LITERAL() type const_value
     | AST_FLOATING_LITERAL() type text
     | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
-    | AST_STRING_LITERAL() type text
     | AST_BOOLEAN_LITERAL() type const_value
+    | string-literal
+
+string-literal: AST_STRING_LITERAL() type text
  
 expression : literal
            | name
@@ -95,8 +99,9 @@ expression : literal
            | AST_CAST([rhs]expression) type
            | c-cxx-expressions
            | initializer-expr
+           | object-init
 
-initializer-expr : AST_INITIALIZER_BRACES([items]initializer-item-seq-opt)
+initializer-expr : AST_INITIALIZER_BRACES([items]initializer-item-seq-opt) type
 
 initializer-item : AST_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
 designator: AST_FIELD_DESIGNATOR([field]name, [next]designator-opt)

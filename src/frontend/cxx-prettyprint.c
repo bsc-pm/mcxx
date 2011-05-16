@@ -171,11 +171,6 @@ HANDLER_PROTOTYPE(pragma_custom_construct_handler);
 HANDLER_PROTOTYPE(pragma_custom_clause_handler);
 HANDLER_PROTOTYPE(pragma_custom_line_handler);
 
-// Custom construct
-HANDLER_PROTOTYPE(custom_construct_statement_handler);
-HANDLER_PROTOTYPE(custom_construct_header_handler);
-HANDLER_PROTOTYPE(custom_construct_parameter);
-
 // OpenMP
 HANDLER_PROTOTYPE(omp_udr_member_op_handler);
 HANDLER_PROTOTYPE(omp_udr_constructor_handler);
@@ -517,10 +512,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
-    // Custom code constructs
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, custom_construct_statement_handler, NULL),
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_HEADER, custom_construct_header_handler, NULL),
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_PARAMETER, custom_construct_parameter, NULL),
     // OpenMP special nodes
     NODE_HANDLER(AST_OMP_UDR_BUILTIN_OP, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_MEMBER_OP, omp_udr_member_op_handler, NULL),
@@ -2212,36 +2203,6 @@ static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt
     {
         token_fprintf(f, a, pt_ctx, "%s", "#pragma mcxx verbatim end\n");
     }
-}
-
-static void custom_construct_statement_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void custom_construct_header_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "__construct__ %s ", ASTText(a));
-
-    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, "\n");
-        indent_at_level(f, a, new_pt_ctx);
-        list_handler(f, ASTSon0(a), pt_ctx);
-    }
-
-    token_fprintf(f, a, pt_ctx, "\n");
-}
-
-static void custom_construct_parameter(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " : ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void pragma_custom_line_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
