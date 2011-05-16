@@ -461,6 +461,7 @@ static void build_scope_declaration_sequence(AST list,
 // Build scope for a declaration
 static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
+    // NOTE: if nodecl_output is not nodecl_null it should return a list
     DEBUG_CODE()
     {
         fprintf(stderr, "==== Declaration line [%s] ====\n", ast_location(a));
@@ -9187,7 +9188,9 @@ static void build_scope_compound_statement(AST a,
         call_destructors_of_classes(block_context, &nodecl_destructors);
     }
 
-    *nodecl_output = nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors);
+    *nodecl_output = nodecl_append_to_list(
+            nodecl_null(),
+            nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors));
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
@@ -9310,18 +9313,23 @@ static void build_scope_while_statement(AST a,
 {
     decl_context_t block_context = new_block_context(decl_context);
 
-    build_scope_condition(ASTSon0(a), block_context, nodecl_output);
+    nodecl_output_t nodecl_condition = nodecl_null();
+    build_scope_condition(ASTSon0(a), block_context, &nodecl_condition);
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, ASTSon0(a), block_context);
 
+    nodecl_output_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
-        build_scope_statement(ASTSon1(a), block_context, nodecl_output);
+        build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, ASTSon1(a), block_context);
     }
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, ASTSon0(a));
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, ASTSon1(a));
+
+    *nodecl_output = nodecl_append_to_list(nodecl_null(), 
+            nodecl_make_while_statement(nodecl_condition, nodecl_statement));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -9372,7 +9380,8 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 
-    *nodecl_output = nodecl_make_expression_statement(expression_get_nodecl(expr));
+    *nodecl_output = 
+        nodecl_append_to_list(nodecl_null(), nodecl_make_expression_statement(expression_get_nodecl(expr)));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9383,17 +9392,20 @@ static void build_scope_if_else_statement(AST a,
     decl_context_t block_context = new_block_context(decl_context);
 
     AST condition = ASTSon0(a);
-    build_scope_condition(condition, block_context, nodecl_output);
+    nodecl_output_t nodecl_condition = nodecl_null();
+    build_scope_condition(condition, block_context, &nodecl_condition);
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, condition, block_context);
 
     AST then_branch = ASTSon1(a);
-    build_scope_statement(then_branch, block_context, nodecl_output);
+    nodecl_output_t nodecl_then = nodecl_null();
+    build_scope_statement(then_branch, block_context, &nodecl_then);
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, then_branch, block_context);
 
+    nodecl_output_t nodecl_else = nodecl_null();
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
-        build_scope_statement(else_branch, block_context, nodecl_output);
+        build_scope_statement(else_branch, block_context, &nodecl_else);
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, else_branch, block_context);
     }
 
@@ -9401,6 +9413,10 @@ static void build_scope_if_else_statement(AST a,
     ast_set_link_to_child(a, LANG_IF_STATEMENT_CONDITION, condition);
     ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_branch);
     ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_branch);
+
+    *nodecl_output = nodecl_append_to_list(
+            nodecl_null(),
+            nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -9723,20 +9739,28 @@ static void build_scope_continue(AST a,
 }
 
 static void build_scope_pragma_custom_clause_argument(AST a, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER,
+        nodecl_output_t *nodecl_output)
 {
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, tl_type_t, tl_bool(1));
+
+    *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a));
 }
 
-static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context)
+static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
 {
+    nodecl_output_t nodecl_argument = nodecl_null();
     if (ASTSon0(a) != NULL)
     {
-        build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context);
+        build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context, &nodecl_argument);
+        // This is a list because it may be extended in later phases
+        nodecl_argument = nodecl_append_to_list(nodecl_null(), nodecl_argument);
     }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
+
+    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument);
 }
 
 static void build_scope_pragma_custom_line(AST a, 
@@ -9744,6 +9768,7 @@ static void build_scope_pragma_custom_line(AST a,
         char* attr_name UNUSED_PARAMETER,
         nodecl_output_t* nodecl_output)
 {
+    nodecl_output_t nodecl_clauses = nodecl_null();
     if (ASTSon0(a) != NULL)
     {
         AST list, iter;
@@ -9753,13 +9778,19 @@ static void build_scope_pragma_custom_line(AST a,
         {
             AST pragma_clause = ASTSon1(iter);
 
-            build_scope_pragma_custom_clause(pragma_clause, decl_context);
+            nodecl_output_t nodecl_clause = nodecl_null();
+            build_scope_pragma_custom_clause(pragma_clause, decl_context, &nodecl_clause);
+
+            nodecl_clauses = nodecl_append_to_list(nodecl_clauses, nodecl_clause);
         }
     }
 
+    nodecl_output_t nodecl_parameter = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
-        build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context);
+        build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context, &nodecl_parameter);
+        
+        nodecl_parameter = nodecl_append_to_list(nodecl_null(), nodecl_parameter);
 
         ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, ASTSon1(a));
     }
@@ -9769,6 +9800,8 @@ static void build_scope_pragma_custom_line(AST a,
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
+
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses);
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
@@ -9776,11 +9809,14 @@ static void build_scope_pragma_custom_directive(AST a,
         char* _dummy UNUSED_PARAMETER,
         nodecl_output_t* nodecl_output)
 {
-    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, nodecl_output);
+    nodecl_output_t nodecl_pragma_line = nodecl_null();
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
+
+    *nodecl_output = nodecl_make_pragma_custom_directive(nodecl_pragma_line);
 }
 
 static void build_scope_pragma_custom_construct_statement(AST a, 
@@ -9788,14 +9824,18 @@ static void build_scope_pragma_custom_construct_statement(AST a,
         char* attr_name UNUSED_PARAMETER,
         nodecl_output_t* nodecl_output)
 {
-    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, nodecl_output);
+    nodecl_output_t nodecl_pragma_line = nodecl_null();
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    build_scope_statement(ASTSon1(a), new_block_context(decl_context), nodecl_output);
+    nodecl_output_t nodecl_statement = nodecl_null();
+    build_scope_statement(ASTSon1(a), new_block_context(decl_context), &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_STATEMENT, ASTSon1(a));
+
+    *nodecl_output = nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement);
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a, 
@@ -9803,13 +9843,18 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
         char* attr_name UNUSED_PARAMETER,
         nodecl_output_t *nodecl_output)
 {
-    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, nodecl_output);
-    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output);
+    nodecl_output_t nodecl_pragma_line = nodecl_null();
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
+
+    nodecl_output_t nodecl_declaration = nodecl_null();
+    build_scope_declaration(ASTSon1(a), decl_context, &nodecl_declaration);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
+
+    *nodecl_output = nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_declaration);
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
@@ -9818,13 +9863,18 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
         type_t* class_info,
         nodecl_output_t* nodecl_output)
 {
-    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, nodecl_output);
-    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, nodecl_output);
+    nodecl_output_t nodecl_pragma_line = nodecl_null();
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
+
+    nodecl_output_t nodecl_declaration = nodecl_null();
+    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, &nodecl_declaration);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
+
+    *nodecl_output = nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_declaration);
 }
 
 static void build_scope_upc_synch_statement(AST a, 
@@ -9961,7 +10011,7 @@ static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl
 
             build_scope_statement(ASTSon1(iter), decl_context, &current_nodecl_output);
 
-            nodecl_output_list = nodecl_append_to_list(nodecl_output_list, current_nodecl_output);
+            nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
         }
     }
 

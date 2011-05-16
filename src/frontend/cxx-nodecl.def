@@ -23,7 +23,7 @@ statement : AST_EXPRESSION_STATEMENT([nest]expression)
           | AST_GOTO_STATEMENT([label]name)
           | AST_RETURN_STATEMENT([value]expression))
           | pragma-directive
-          | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_directive]pragma-directive, [statement]statement)
+          | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement)
           | c-cxx-only-statements
           | fortran-only-statements
           | object-init
@@ -33,7 +33,7 @@ loop-control: AST_LOOP_CONTROL([init]expression, [cond]expression, [next]express
 pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line)
 pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt)
 pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt)
-pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG()
+pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq)
     | AST_ASM_DEFINITION([asm_code]string-literal, [first]asm-operand-seq-opt, [second]asm-operand-seq-opt, [third]asm-operand-seq-opt)
