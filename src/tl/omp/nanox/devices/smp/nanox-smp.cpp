@@ -73,7 +73,7 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
 
     ReplaceSrcIdExpression induct_var_rmplmt(expr.get_scope_link());
-    Source result, vector_elements, vector_casting, old_ind_var, new_ind_var;
+    Source result, vector_casting, ind_var_vector, offset_vector, old_ind_var, new_ind_var;
     unsigned char num_elements, i;
 
     int expr_size = expr.get_type().get_size();
@@ -81,8 +81,9 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     TL::Type vector_type = expr.get_type().get_vector_to(_vector_width);
 
     result << "("
-        << "(" << vector_casting << ")"
-        << "{" << vector_elements << "}"
+        << "(" << vector_casting << "){" << ind_var_vector << "}"
+        << "+"
+        << "(" << vector_casting << "){" << offset_vector << "}"
         << ")"
         ;
 
@@ -93,25 +94,29 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     old_ind_var << expr.prettyprint();
     num_elements = (_vector_width/vector_type.basic_type().get_size());
 
-
     for (i=0; i<num_elements; i++)
     {
-        Source new_vec_elem;
-        
-        new_vec_elem 
-            << "("
-            << old_ind_var
-            << "+" << i
-            << ")"
-            ;
-        new_ind_var.append_with_separator(new_vec_elem, ",");
+        Source offset;
 
+        new_ind_var.append_with_separator(old_ind_var, ",");
+
+        //In replication state the offset is different depending on the replication number
+        if (_this->_replication_state.top())
+        {
+            offset << i + (num_elements * _this->_num_repl);
+        }
+        else
+        {
+            offset << i;
+        }
+
+        offset_vector.append_with_separator(offset.get_source(), ",");
     }
 
     induct_var_rmplmt.add_replacement(
             expr.get_id_expression().get_symbol(), new_ind_var.get_source());
 
-    vector_elements
+    ind_var_vector
         << induct_var_rmplmt.replace(expr.get_ast());
 
     return result.get_source();
@@ -290,6 +295,123 @@ std::string ReplaceSrcSMP::get_integer_casting(AST_t ast, Type type1, Type type2
     return result.str();
 }
 
+std::string ReplaceSrcSMP::statement_replication(
+        Expression expr, 
+        int num_repls, 
+        AST_t statement_ast,
+        ReplaceSrcSMP * _this)
+{
+    Source result;
+    int i;
+
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD-SMP: Replicating statement '" 
+            << statement_ast.prettyprint()
+            << "' "
+            << num_repls
+            << " times."
+            << std::endl;
+    }
+
+    //Starting replication state
+    _this->_replication_state.push(true);
+
+    _this->_num_repl = 0;
+    result
+        << recursive_prettyprint(statement_ast, (void *) _this)
+        ;
+    
+    for (int i=1; i < num_repls; i++)
+    {
+        std::stringstream new_ind_var;
+
+        //New ReplaceSrcSMP to add the specific replacements for this num_rep
+        _this->_num_repl = i;
+        ReplaceSrcSMP induct_var_rmplmt(*_this);
+
+        new_ind_var
+            << "(" 
+            << _this->_ind_var_sym.get_name()
+            << "+" 
+            << i*(_vector_width/expr.get_type().get_size())
+            << ")"
+            ;
+
+        induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+                new_ind_var.str());
+
+        result << induct_var_rmplmt.replace(statement_ast);
+    }
+
+
+    /*
+    result
+        << recursive_prettyprint(statement_ast, (void *) _this)
+        ;
+    
+    for (int i=1; i < num_repls; i++)
+    {
+        std::stringstream new_ind_var;
+
+        //New ReplaceSrcSMP to add the specific replacements for this num_rep
+        ReplaceSrcSMP induct_var_rmplmt(*_this);
+
+        new_ind_var
+            << "(" 
+            << _this->_ind_var_sym.get_name()
+            << "+" 
+            << i*(_vector_width/expr.get_type().get_size())
+            << ")"
+            ;
+
+        induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+                new_ind_var.str());
+
+        result << induct_var_rmplmt.replace(statement_ast);
+    }
+*/
+    //Ending replication state
+    _this->_replication_state.pop();
+
+    return result.get_source();
+}
+
+
+std::string ReplaceSrcSMP::declaration_replication(
+        Declaration decl, 
+        int num_repls, 
+        AST_t decl_ast,
+        ReplaceSrcSMP * _this)
+{
+    Source result, old_decl;
+    int i;
+
+    DEBUG_CODE()
+    {
+        std::cerr << "SIMD-SMP: Replicating declaration '" 
+            << decl_ast.prettyprint()
+            << "' "
+            << num_repls
+            << " times."
+            << std::endl;
+    }
+
+    //Starting replication state
+    _this->_replication_state.push(true);
+
+    for (int i=0; i < num_repls; i++)
+    {
+        _this->_num_repl = i;
+        result << recursive_prettyprint(decl_ast, (void *) _this);
+    }
+
+    //Ending replication state
+    _this->_replication_state.pop();
+
+    return result.get_source();
+}
+
 
 const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 {
@@ -307,17 +429,61 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
         AST_t ast(a);
 
-        if (DeclaredEntity::predicate(ast))
+        if (!_this->_inside_simd_for.top() 
+                && ast.has_attribute(LANG_HLT_SIMD_FOR_INFO))
+        {
+            _this->_inside_simd_for.push(true);
+
+            ForStatementInfo for_stmt_info = *dynamic_cast<ForStatementInfo*>(
+                    ast.get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer());
+
+            if (!for_stmt_info.is_valid())
+            {
+                internal_error("ForStatementInfo is invalid.", BUILTIN_GF_NAME);
+            }
+            _this->_min_expr_size = for_stmt_info.get_min_expr_size();
+            _this->_ind_var_sym = for_stmt_info.get_ind_var_sym();
+            _this->_nonlocal_symbols = for_stmt_info.get_nonlocal_symbols();
+
+            result << recursive_prettyprint(ast, data);
+
+            _this->_inside_simd_for.pop();
+
+            return uniquestr(result.get_source().c_str());
+        }
+        //Declarations Replication
+        if (_this->_inside_simd_for.top()
+                && !_this->_replication_state.top()
+                && Declaration::predicate(ast))
+        {
+            Declaration decl(ast, _this->_sl);
+
+            int decl_size = decl.get_declaration_specifiers()
+                .get_type_spec().get_type().get_size();
+
+            if (decl_size > _this->_min_expr_size)
+            {
+                int num_repls = decl_size/_this->_min_expr_size;
+                result << declaration_replication(
+                        decl, num_repls, ast, _this);
+
+                return uniquestr(result.get_source().c_str());
+            }
+        }
+        //Vector expansion in DeclaredEntity
+        if (_this->_inside_simd_for.top() 
+                && DeclaredEntity::predicate(ast))
         {
             DeclaredEntity decl_ent(ast, _this->_sl);
 
             //Vector expansion in DeclaredEntity
             if (decl_ent.has_initializer())
             {
-                Symbol sym (decl_ent.get_declared_symbol());
-                Type sym_type = sym.get_type();
+                Symbol decl_sym = decl_ent.get_declared_symbol();
+                Type decl_sym_type = decl_sym.get_type();
+                int decl_size = decl_sym_type.get_size();
 
-                if (sym_type.is_vector() &&
+                if (decl_sym_type.is_vector() &&
                         (!decl_ent.get_initializer().get_type().is_vector()))
                 {
                     result
@@ -329,6 +495,47 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
             }    
         }
+        //Statements replication
+        if (_this->_inside_simd_for.top() 
+                && !_this->_replication_state.top() 
+                && Statement::predicate(ast))
+        {
+            Statement statement(ast, _this->_sl);
+
+            if (statement.is_expression())
+            {
+                Expression expr = statement.get_expression();
+                if (expr.is_assignment() 
+                        || expr.is_operation_assignment()
+                        || expr.is_function_call())
+                {
+                    int expr_size = expr.get_type().get_size();
+
+                    if (expr_size > _this->_min_expr_size)
+                    {
+                        int num_repls = expr_size/_this->_min_expr_size;
+                        result << statement_replication(
+                                expr, num_repls, ast, _this);
+
+                        return uniquestr(result.get_source().c_str());
+                    }
+                }
+            }
+        }
+        //a -> _a_repX if replication_state && declarator_id_expr
+        if (_this->_replication_state.top()
+                && ast.has_attribute(LANG_DECLARATOR_ID_EXPR))
+        {
+            //Don't use recursive  
+            result
+                << "_"
+                << ast.prettyprint()
+                << "_rep"
+                << _this->_num_repl
+                ;
+
+            return (uniquestr(result.get_source().c_str()));
+        }
         if (Expression::predicate(ast))
         {
             Expression expr(ast, _this->_sl);
@@ -336,8 +543,34 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             //Don't skip ';'
             if ((expr.original_tree() == expr.get_ast()))
             {
+                //IdExpression renaming: a -> _a_rep0 if IdExpr.size() > min
+                if (_this->_inside_simd_for.top()
+                        && expr.is_id_expression())
+                {
+                    IdExpression id_expr = expr.get_id_expression();
+                    Symbol sym = id_expr.get_symbol();
+
+                    if (sym.is_variable())
+                    {
+                        int sym_size = sym.get_type().get_size();
+
+                        if (sym_size > _this->_min_expr_size
+                                && !_this->_nonlocal_symbols.contains(sym))
+                        {
+                            //Don't use recursive
+                            result
+                                << "_"
+                                << id_expr.prettyprint()
+                                << "_rep"
+                                << _this->_num_repl
+                                ;
+
+                            return (uniquestr(result.get_source().c_str()));
+                        }
+                    }
+                }
                 //Conditional Expression: a ? b : c
-                if (expr.is_conditional())
+                else if (expr.is_conditional())
                 {
                     Expression cond_exp(expr.get_condition_expression());
                     Expression true_exp(expr.get_true_expression());
@@ -377,30 +610,232 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 
                     if (first_type.is_generic_vector() && second_type.is_generic_vector())
                     {
-                        //if x86 architecture
+                        Type first_basic_type = first_type.basic_type();
+                        Type second_basic_type = second_type.basic_type();
 
-                        //Relational Operators (<, >, <=, ...)
-                        if (expr.get_operation_kind() == Expression::LOWER_THAN)
+                        //if x86 architecture
+                        Expression::OperationKind op_kind = expr.get_operation_kind();
+
+                        //Logical 'or' and 'and' are not supported in SSE
+                        //so '||' -> '|' and '&&' -> '&&'
+                        if (op_kind == Expression::LOGICAL_OR)
                         {
-                            result << "__builtin_ia32_cmpltps("
+                            result 
                                 << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
+                                << "|"
                                 << recursive_prettyprint(second_op.get_ast(), data)
-                                << ")"
                                 ;
 
                             return uniquestr(result.get_source().c_str());
                         }
-                        else if (expr.get_operation_kind() == Expression::GREATER_THAN)
+                        else if(op_kind == Expression::LOGICAL_AND)
                         {
-                            result << "__builtin_ia32_cmpgtps("
+                            result 
                                 << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
+                                << "&"
                                 << recursive_prettyprint(second_op.get_ast(), data)
-                                << ")"
                                 ;
 
                             return uniquestr(result.get_source().c_str());
+                        }
+                        //Relational Operators (<, >, <=, ...)
+                        else if (op_kind == Expression::LOWER_THAN)
+                        {
+                            if (first_basic_type.is_float()
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpltps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtd128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtw128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                //<(A,B) --> >(B,A)
+                                result << "__builtin_ia32_pcmpgtb128("
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'LOWER_THAN' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
+                        }
+                        else if (op_kind == Expression::GREATER_THAN)
+                        {
+                            if ((first_basic_type.is_float())
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpgtps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                result << "__builtin_ia32_pcmpgtd128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                result << "__builtin_ia32_pcmpgtw128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                result << "__builtin_ia32_pcmpgtb128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'GREATER_THAN' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
+                        }
+                        else if (op_kind == Expression::COMPARISON)
+                        {
+                            if ((first_basic_type.is_float())
+                                    && second_basic_type.is_float())
+                            {
+                                result << "__builtin_ia32_cmpeqps("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_int() 
+                                        || first_basic_type.is_unsigned_int())
+                                    && (second_basic_type.is_signed_int() 
+                                        || second_basic_type.is_unsigned_int()))
+                            {
+                                result << "__builtin_ia32_pcmpeqd128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_short_int() 
+                                        || first_basic_type.is_unsigned_short_int())
+                                    && (second_basic_type.is_signed_short_int() 
+                                        || second_basic_type.is_unsigned_short_int()))
+                            {
+                                result << "__builtin_ia32_pcmpeqw128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else if((first_basic_type.is_signed_char() 
+                                        || first_basic_type.is_unsigned_char()
+                                        || first_basic_type.is_char())
+                                    && (second_basic_type.is_signed_char() 
+                                        || second_basic_type.is_unsigned_char()
+                                        || second_basic_type.is_char()))
+                            {
+                                result << "__builtin_ia32_pcmpeqb128("
+                                    << recursive_prettyprint(first_op.get_ast(), data)
+                                    << ", "
+                                    << recursive_prettyprint(second_op.get_ast(), data)
+                                    << ")"
+                                    ;
+
+                                return uniquestr(result.get_source().c_str());
+                            }
+                            else
+                            {
+                                running_error("Relational operator 'COMPARISON' is not supported yet on types '%s' and '%s'",
+                                        first_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                                        second_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            }
                         }
                     }
                 }
@@ -526,183 +961,288 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
 
-            if (arg_list.size() != 2 && arg_list.size() != 3)
+            if ((arg_list.size() != 2) && (arg_list.size() != 3))
             {
-                internal_error("Wrong number of arguments in %s", BUILTIN_GF_NAME);
+                internal_error("Wrong number of arguments in %s", BUILTIN_VC_NAME);
             }
 
             Expression src_expr = arg_list.at(0);
 
             TL::Type src_expr_type = src_expr.get_type().vector_element();
-            TL::Type dst_expr_type = arg_list.at(1).get_type().vector_element();
+            TL::Type dst_expr_type = arg_list.at(1).get_type();
+            
+            //Implicit conversion
+            if (dst_expr_type.is_vector())
+            {
+                dst_expr_type = dst_expr_type.vector_element();
+            }
 
             int src_size = src_expr_type.get_size();
             int dst_size = dst_expr_type.get_size();
 
-            //Expressions could have the induction variable of the SIMDized loop
-            if (arg_list.size() == 3)
+            //Example: From float to char
+            if (src_size > dst_size)
             {
-                Expression ind_var_exp = arg_list.at(2);;
-                TL::Symbol ind_var_sym = ind_var_exp.get_id_expression().get_symbol();
-
-                //Example: From float to char
-                if (src_size > dst_size)
+                //Only HLT SIMD for conversions are supported
+                if (!_this->_inside_simd_for.top())
                 {
-                    if (src_expr_type.is_float()
-                            && dst_expr_type.is_unsigned_char())
-                    {
-                        result 
-                            << CONV_FLOAT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    running_error("Conversions between vectors with different number of elements are not supported in HLT SIMD functions yet");
+                }
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_float() 
-                            && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
-                    {
-                        result 
-                            << CONV_FLOAT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                _this->_num_repl = 0;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_FLOAT2CHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_unsigned_int() 
-                            && (dst_expr_type.is_unsigned_char()))
-                    {
-                        result 
-                            << CONV_UINT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                if (src_expr_type.is_float()
+                        && dst_expr_type.is_unsigned_char())
+                {
+                    result 
+                        << CONV_FLOAT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_UINT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_unsigned_int() 
-                            && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
-                    {
-                        result 
-                            << CONV_UINT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_float() 
+                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+                {
+                    result 
+                        << CONV_FLOAT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_UINT2CHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_signed_int() 
-                            && (dst_expr_type.is_unsigned_char()))
-                    {
-                        result 
-                            << CONV_INT2UCHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2CHAR_SMP16);
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_unsigned_char()))
+                {
+                    result 
+                        << CONV_UINT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_INT2UCHAR_SMP16);
-                    }
-                    else if (src_expr_type.is_signed_int() 
-                            && (dst_expr_type.is_signed_char()))
-                    {
-                        result 
-                            << CONV_INT2CHAR_SMP16
-                            << "("
-                            << recursive_prettyprint(src_expr.get_ast(), data) 
-                            ;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_signed_char() || dst_expr_type.is_char()))
+                {
+                    result 
+                        << CONV_UINT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                        generic_functions.add_specific_definition(
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
-                                _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
-                                TL::SIMD::COMPILER_DEFAULT, 
-                                _this->_device_name, 
-                                _this->_width, 
-                                true, true,
-                                CONV_INT2CHAR_SMP16);
-                    }
-                    else
-                    {
-                        running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
-                                src_expr_type.get_simple_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                                dst_expr_type.get_simple_declaration(_this->_sl.get_scope(ast), "").c_str());
-                    }
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2CHAR_SMP16);
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_unsigned_char()))
+                {
+                    result 
+                        << CONV_INT2UCHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                    //Replicating expressions
-                    int num_repls = src_size / dst_size;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2UCHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2UCHAR_SMP16);
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_signed_char()))
+                {
+                    result 
+                        << CONV_INT2CHAR_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        ;
 
-                    for (i=1; i < num_repls; i++)
-                    {
-                        Source new_stmt_src;
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2CHAR_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2CHAR_SMP16);
+                }
+                else
+                {
+                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                }
 
-                        ReplaceSrcSMP induct_var_rmplmt(expr.get_scope_link(), _vector_width);
-                        std::stringstream new_ind_var;
+                //Replicating expressions
+                int num_repls = src_size / dst_size;
 
-                        new_ind_var
-                            << "(" 
-                            << recursive_prettyprint(ind_var_exp.get_ast(), data)
-                            << "+" 
-                            << i*(_vector_width/src_size)
-                            << ")"
-                            ;
+                for (i=1; i < num_repls; i++)
+                {
+                    Source new_stmt_src;
 
-                        induct_var_rmplmt.add_replacement(ind_var_sym, 
-                                new_ind_var.str());
+                    _this->_num_repl = i;
+                    ReplaceSrcSMP induct_var_rmplmt(*_this);
+                    std::stringstream new_ind_var;
 
-                        result.append_with_separator(induct_var_rmplmt.replace(src_expr.get_ast()), ",");
-                    }
+                    new_ind_var
+                        << "(" 
+                        << _this->_ind_var_sym.get_name()
+                        << "+" 
+                        << i*(_vector_width/src_size)
+                        << ")"
+                        ;
 
-                    result << ")";
+                    induct_var_rmplmt.add_replacement(_this->_ind_var_sym, 
+                            new_ind_var.str());
+
+                    result.append_with_separator(induct_var_rmplmt.replace(src_expr.get_ast()), ",");
+                }
+
+                result << ")";
+
+                return uniquestr(result.get_source().c_str());
+            }
+            //Example: From int to float
+            else if (src_size == dst_size)
+            {
+                if (src_expr_type.is_float()
+                        && dst_expr_type.is_signed_int())
+                {
+                    result 
+                        << CONV_FLOAT2INT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2INT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2INT_SMP16);
 
                     return uniquestr(result.get_source().c_str());
                 }
-                //Example: From char to float
+                else if (src_expr_type.is_float()
+                        && dst_expr_type.is_unsigned_int())
+                {
+                    result 
+                        << CONV_FLOAT2UINT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_FLOAT2UINT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_FLOAT2UINT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
+                else if (src_expr_type.is_unsigned_int() 
+                        && (dst_expr_type.is_float()))
+                {
+                    result 
+                        << CONV_UINT2FLOAT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_UINT2FLOAT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_UINT2FLOAT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
+                else if (src_expr_type.is_signed_int() 
+                        && (dst_expr_type.is_float()))
+                {
+                    result 
+                        << CONV_INT2FLOAT_SMP16
+                        << "("
+                        << recursive_prettyprint(src_expr.get_ast(), data) 
+                        << ")"
+                        ;
+
+                    generic_functions.add_specific_definition(
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16),
+                            _this->_sl.get_scope(ast).get_symbol_from_name(COMPILER_CONV_INT2FLOAT_SMP16), 
+                            TL::SIMD::COMPILER_DEFAULT, 
+                            _this->_device_name, 
+                            _this->_width, 
+                            true, true,
+                            CONV_INT2FLOAT_SMP16);
+
+                    return uniquestr(result.get_source().c_str());
+                }
                 else
                 {
-                    internal_error("Conversion not supported yet", 0);
+                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                            src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
                 }
+            }
+            //Example: From char to float
+            else
+            {
+                running_error("Conversion in HLT SIMD from '%s' to '%s' is not supported yet",
+                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
             }
         }
         else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))
         {
             ForStatement for_stmt(ast, _this->_sl);
 
-            Expression lower_exp = *((Expression *)ast.get_attribute(LANG_HLT_SIMD_EPILOG).get_pointer());
+            Expression lower_exp = *dynamic_cast<Expression *>(
+                    ast.get_attribute(LANG_HLT_SIMD_EPILOG).get_pointer());
             Expression upper_exp = for_stmt.get_upper_bound();
             Expression step_exp = for_stmt.get_step();
 
@@ -890,7 +1430,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
     
     replace_src.add_this_replacement("_args->_this");
 
-    //Statements replication and loop unrolling
+    //Loop unrolling
     builtin_ast_list =
         body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));
 
@@ -899,8 +1439,8 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             it++)
     {
         ForStatement for_stmt (*it, scope_link);
-        const int min_stmt_size = (Integer)for_stmt.get_ast().
-                get_attribute(LANG_HLT_SIMD_FOR_INFO);
+        const int min_expr_size = dynamic_cast<ForStatementInfo*>(
+                for_stmt.get_ast().get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer())->get_min_expr_size();
 
         //Unrolling
         Expression it_exp = for_stmt.get_iterating_expression();
@@ -925,12 +1465,13 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         it_exp_source
             << " += "
             << (for_stmt.get_step().evaluate_constant_int_expression(constant_evaluation)
-                    * (_vector_width / min_stmt_size))
+                    * (_vector_width / min_expr_size))
             ;
 
         it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
 
         //Statements replication
+        /*
         Statement stmt = for_stmt.get_loop_body();
     
         if (stmt.is_compound_statement())
@@ -946,87 +1487,67 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                 if (statement.is_expression())
                 {
                     Expression exp = statement.get_expression();
-                    if ((exp.get_ast() == exp.original_tree()))
-                    { 
-                        if (exp.is_assignment() || exp.is_operation_assignment())
+                    if (exp.is_assignment() 
+                            || exp.is_operation_assignment()
+                            || exp.is_function_call())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
                         {
-                            int exp_size = exp.get_type().get_size();
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
 
-                            if (exp_size > min_stmt_size)
+                            DEBUG_CODE()
                             {
-                                Source compound_stmt_src;
-                                AST_t stmt_ast = statement.get_ast();
-                                int num_repls = exp_size/min_stmt_size;
-                                int i;
+                                std::cerr << "SIMD-SMP: Replicating statement '" 
+                                    << statement.prettyprint()
+                                    << "' "
+                                    << num_repls
+                                    << " times."
+                                    << std::endl;
+                            }
 
-                                compound_stmt_src 
-                                    << "{" 
-                                    << statement
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
+                            {
+                                Source new_stmt_src;
+
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
                                     ;
 
-                                for (i=1; i < num_repls; i++)
-                                {
-                                    Source new_stmt_src;
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
 
-                                    ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
-                                    std::stringstream new_ind_var;
-
-                                    new_ind_var
-                                        << "(" 
-                                        << for_stmt.get_induction_variable().get_symbol().get_name()
-                                        << "+" 
-                                        << i*(_vector_width/exp_size)
-                                        << ")"
-                                        ;
-
-                                    induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
-                                            new_ind_var.str());
-
-                                    compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
-                                }
-
-                                compound_stmt_src << "}";
-
-                                stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
                             }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
                         }
                     }
                 }
             }
-        }
+        }*/
+
     }
 
-    //__builtin_vector_loop AST replacement
-    /*
-    builtin_ast_list = 
-        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
-
-    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
-            it != builtin_ast_list.end();
-            it++)
-    {
-        ast = (AST_t)*it ;
-        Expression expr(ast, scope_link);
-
-        arg_list = expr.get_argument_list();
-        if (arg_list.size() != 3){
-            internal_error("Wrong number of arguments in %s", BUILTIN_VL_NAME);
-        }
-
-        Source builtin_vl_replacement;
-
-        builtin_vl_replacement << arg_list[0].get_id_expression()
-            << "+="
-            << (arg_list[1].evaluate_constant_int_expression(constant_evaluation) 
-            * (_vector_width / arg_list[2].evaluate_constant_int_expression(constant_evaluation)))
-            ;
-
-//        builtin_vl_replacement << "((" << arg_list[0].get_id_expression().get_unqualified_part()
-//            << ")/(" << _vector_width << "/" << arg_list[1].get_id_expression().get_unqualified_part() << "))";
-
-        ast.replace(builtin_vl_replacement.parse_expression(ast, scope_link));
-    }
-*/
+    //FIXME: Move me to prettyprint_callback
     //__builtin_vector_reference AST replacement
     builtin_ast_list =
         body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
@@ -1058,44 +1579,6 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         ast.replace(builtin_vr_replacement.parse_expression(ast, scope_link));
     }
 
-    //__builtin_vector_expansion AST replacement
-/*  ObjectList<AST_t> builtin_ve_ast_list =
-             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VE_NAME)));
-
-    for (ObjectList<AST_t>::iterator it = builtin_ve_ast_list.begin();
-            it != builtin_ve_ast_list.end();
-            it++)
-    {
-        AST_t ast((AST_t)*it) ;
-        Expression expr(ast, scope_link);
-
-        ObjectList<Expression> arg_list = expr.get_argument_list();
-        if (arg_list.size() != 1){
-            internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
-        }
-
-        Source builtin_ve_replacement;
-
-        Expression expand_exp = arg_list[0];
-        Type expand_exp_type = expand_exp.get_type();
-
-        builtin_ve_replacement << "(" << expand_exp_type.get_simple_declaration(scope_link.get_scope(body), "") 
-            << " __attribute__((vector_size(" << _vector_width << ")))) "
-            << "{";
-
-        counter = (_vector_width/expand_exp_type.get_size())-1;
-        for (i=0; i<counter; i++)
-        {
-            builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
-                << ",";
-        }
-        
-        builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
-            << "}";
-
-        ast.replace(builtin_ve_replacement.parse_expression(ast, scope_link));
-    }
-*/
     Source copy_setup;
     initial_code
         << copy_setup;
@@ -1266,6 +1749,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
     nonstatic_members.insert(Statement(body, scope_link)
         .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
         .filter(predicate(is_nonstatic_member_symbol)));
+
     for (ObjectList<Symbol>::iterator it = nonstatic_members.begin();
             it != nonstatic_members.end();
             it++)

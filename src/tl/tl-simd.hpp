@@ -1,7 +1,6 @@
 #ifndef TL_SIMD_HPP
 #define TL_SIMD_HPP
 
-//#define BUILTIN_VL_NAME "__builtin_vector_loop"
 #define ATTR_GEN_VEC_NAME "generic_vector"
 #define GENERIC_DEVICE "generic"
 
@@ -15,18 +14,25 @@
 
 #define COMPILER_CONV_FLOAT2UCHAR_SMP16 "__compiler_conv_float_to_uchar_smp16"
 #define COMPILER_CONV_FLOAT2CHAR_SMP16  "__compiler_conv_float_to_char_smp16"
+#define COMPILER_CONV_FLOAT2UINT_SMP16  "__compiler_conv_float_to_uint_smp16"
+#define COMPILER_CONV_FLOAT2INT_SMP16  "__compiler_conv_float_to_int_smp16"
 #define COMPILER_CONV_UINT2UCHAR_SMP16  "__compiler_conv_uint_to_uchar_smp16"
 #define COMPILER_CONV_UINT2CHAR_SMP16 "__compiler_conv_uint_to_char_smp16"
+#define COMPILER_CONV_UINT2FLOAT_SMP16 "__compiler_conv_uint_to_float_smp16"
 #define COMPILER_CONV_INT2UCHAR_SMP16  "__compiler_conv_int_to_uchar_smp16"
 #define COMPILER_CONV_INT2CHAR_SMP16 "__compiler_conv_int_to_char_smp16"
+#define COMPILER_CONV_INT2FLOAT_SMP16 "__compiler_conv_int_to_float_smp16"
 
 #define CONV_FLOAT2UCHAR_SMP16 "__conv_float_to_uchar_smp16"
 #define CONV_FLOAT2CHAR_SMP16 "__conv_float_to_char_smp16"
+#define CONV_FLOAT2INT_SMP16 "__conv_float_to_int_smp16"
+#define CONV_FLOAT2UINT_SMP16 "__conv_float_to_uint_smp16"
 #define CONV_UINT2UCHAR_SMP16 "__conv_uint_to_uchar_smp16"
 #define CONV_UINT2CHAR_SMP16 "__conv_uint_to_char_smp16"
+#define CONV_UINT2FLOAT_SMP16 "__conv_uint_to_float_smp16"
 #define CONV_INT2UCHAR_SMP16 "__conv_int_to_uchar_smp16"
 #define CONV_INT2CHAR_SMP16 "__conv_int_to_char_smp16"
-
+#define CONV_INT2FLOAT_SMP16 "__conv_int_to_float_smp16"
 
 #define COMPILER_INDEX_W_VECTOR_SMP_16 "__compiler_vector_index"
 #define INDEX_W_VECTOR_SMP_16 "__vector_index"
@@ -83,19 +89,24 @@ namespace TL
             private:
                 const std::string _spec_func_name;
                 const specific_function_kind_t _spec_func_kind;
+                const std::string _device_name;
                 const int _width;
 
                 bool _needs_prettyprint;    //'Something' needs to be prettyprinted
                 bool _needs_definition;     //It needs definition
                 bool _needs_declaration;    //It needs declaration
 
+                Symbol _arch_default_symbol;
+
             public:
                 SpecificFunctionInfo(
                         const std::string& spec_func_name, 
                         const specific_function_kind_t spec_func_kind, 
+                        const std::string& device_name,
                         const int width, 
-                        const bool _needs_prettyprint,
-                        const bool _needs_def_decl);
+                        const bool needs_prettyprint,
+                        const bool needs_def_decl,
+                        const Symbol& arch_default_symbol);
 
                 std::string get_name() const;
                 int get_width() const;
@@ -149,12 +160,13 @@ namespace TL
                 std::string get_simd_func_name() const;
 
                 void add_specific_function_definition(
-                        const std::string scalar_func_name,
+                        const std::string& scalar_func_name,
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
                         const int width,
                         const bool needs_prettyprint,
-                        const bool needs_def_decl);
+                        const bool needs_def_decl,
+                        const Symbol& arch_default_symbol);
 
                 Source get_all_pend_spec_func_def(ReplaceSrcGenericFunction& replace);
                 Source get_all_pend_spec_func_decl(ReplaceSrcGenericFunction& replace);
@@ -213,6 +225,27 @@ namespace TL
                         const Symbol& scalar_func_sym,
                         const std::string& device_name,
                         const int width);
+        };
+
+        class ForStatementInfo : public TL::Object
+        {
+            private:
+                int _min_expr_size;
+                TL::Symbol _ind_var_sym;
+                ObjectList<Symbol> _nonlocal_symbols;
+                bool _is_valid;
+
+            public:
+                ForStatementInfo();
+                ForStatementInfo(int min_expr_size,
+                        Symbol ind_var_sym,
+                        ObjectList<Symbol> nonlocal_symbols);
+
+
+                int get_min_expr_size();    
+                Symbol get_ind_var_sym();
+                ObjectList<Symbol> get_nonlocal_symbols();
+                bool is_valid();
         };
 
         extern GenericFunctions generic_functions;

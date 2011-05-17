@@ -42,6 +42,7 @@
 #include "hlt-exception.hpp"
 #include "hlt-simd.hpp"
 #include "tl-simd.hpp"
+#include "tl-refptr.hpp"
 
 
 #include <algorithm>
@@ -173,9 +174,9 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     char found_match = 0;
     scope_entry_t* result = NULL;
 
-    if (num_arguments != 3)
+    if ((num_arguments != 2) && (num_arguments != 3))
     {
-        internal_error("hlt-simd builtin '%s' only allows two parameter\n",
+        internal_error("hlt-simd builtin '%s' only allows two or three parameter\n",
                                 overloaded_function->symbol_name);
     }
 
@@ -192,9 +193,10 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     //No Match: Add a new Symbol to the list.
     TL::ObjectList<TL::Type> param_type_list;
 
-    param_type_list.append(types[0]);
-    param_type_list.append(types[1]);
-    param_type_list.append(types[2]);
+    for (i=0; i<num_arguments; i++)
+    {
+        param_type_list.append(types[i]);
+    }
 
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VC_NAME;
@@ -282,7 +284,6 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     for(i=1; i<builtin_ve_list.size(); i++) 
     {
         type_t* first_param_type = function_type_get_parameter_type_num(builtin_ve_list[i].get_type().get_internal_type(), 0);
-
         if (equivalent_types(get_unqualified_type(types[0]), first_param_type))
         {
             return builtin_ve_list[i].get_internal_symbol();
@@ -439,7 +440,8 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
 
 
-    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src, conversions_src, indexation_src;
+    Source scalar_functions_src, intel_builtins_src, default_specific_functions_src, 
+           conversions_src, indexation_src;
 
     scalar_functions_src
         << "extern int abs (int __x) __attribute__ ((__nothrow__));"
@@ -451,41 +453,82 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
         ;
 
-    default_generic_functions_src
-        << "static inline float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)"
-        << "{"
-        <<      "return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &"
-        <<      "__builtin_vector_expansion(0x7FFFFFFF));"
-        << "}"
-
-        << "static inline double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)"
-        << "{"
-        <<      "return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &"
-        <<      "__builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));"
-        << "}"
-        ;
 
     intel_builtins_src
     //SSE2
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
         << "char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_packsswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpeqb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpgtb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+
         //<< "short int __attribute__((vector_size(16)))    __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpeqw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpgtw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpgtps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_pcmpeqd128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+        << "int __attribute__((vector_size(16)))            __builtin_ia32_pcmpgtd128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+
         << "float __attribute__((vector_size(16)))          __builtin_ia32_sqrtps (float __attribute__((vector_size(16))));"
         //<< "float __attribute__((vector_size(16)))        __builtin_ia32_rsqrtps (float __attribute__((vector_size(16))));"
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_cvtdq2ps(int __attribute__((vector_size(16))));"
+
         << "double __attribute__((vector_size(16)))         __builtin_ia32_sqrtpd (double __attribute__((vector_size(16))));"
         //<< "double __attribute__((vector_size(16)))       __builtin_ia32_rsqrtpd (double __attribute__((vector_size(16))));"
     //SSSE3
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
-        << "int __attribute__((vector_size(16)))            __builtin_ia32_cvttps2dq(float __attribute__((vector_size(16))));"
     //SSE4.1
-        << "short int __attribute__((vector_size(16))) __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_roundps(float __attribute__((vector_size(16))), const int);"
+
+        << "double __attribute__((vector_size(16)))         __builtin_ia32_roundpd(double __attribute__((vector_size(16))), const int);"
         ;
 
-    conversions_src
+ 
+    default_specific_functions_src
+        << "static inline float __attribute__((vector_size(16))) _fabsf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return (float __attribute__((vector_size(16)))) (((int __attribute__((vector_size(16))))a)"
+        <<      "&"
+        <<      "((int __attribute__((vector_size(16)))) {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF}));"
+        << "}"
+
+        << "static inline float __attribute__((vector_size(16))) _floorf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundps(a, 0x01|0x00);"
+        << "}"
+
+        << "static inline float __attribute__((vector_size(16))) _ceilf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundps(a, 0x02|0x00);"
+        << "}"
+
+
+        << "static inline double __attribute__((vector_size(16))) _fabs_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return (double __attribute__((vector_size(16)))) (((long long int __attribute__((vector_size(16))))a)"
+        <<      "&"
+        <<      "((long long int __attribute__((vector_size(16)))) {0x7FFFFFFFFFFFFFFFLL, 0x7FFFFFFFFFFFFFFFLL}));"
+        << "}"
+
+        << "static inline double __attribute__((vector_size(16))) _floor_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundpd(a, 0x01|0x00);"
+        << "}"
+
+        << "static inline double __attribute__((vector_size(16))) _ceil_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundpd(a, 0x02|0x00);"
+        << "}"
+        ;
+
+
+   conversions_src
         << "static inline char __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2CHAR_SMP16 << "("
         <<      "float __attribute__((vector_size(16))) vf0,"
         <<      "float __attribute__((vector_size(16))) vf1," 
@@ -520,6 +563,18 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
         << "}"
 
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2INT_SMP16 << "("
+        <<      "float __attribute__((vector_size(16))) vf)"
+        << "{"
+        <<      "return __builtin_ia32_cvttps2dq(vf);"
+        << "}"
+
+        << "static inline unsigned int __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2UINT_SMP16 << "("
+        <<      "float __attribute__((vector_size(16))) vf)"
+        << "{"
+        <<      "return (unsigned int __attribute__((vector_size(16)))) __builtin_ia32_cvttps2dq(vf);"
+        << "}"
+
         << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_INT2UCHAR_SMP16 << "("
         <<      "int __attribute__((vector_size(16))) vi0,"
         <<      "int __attribute__((vector_size(16))) vi1," 
@@ -544,17 +599,22 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
+        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        <<      "int __attribute__((vector_size(16))) vi)"
+        << "{"
+        <<      "return __builtin_ia32_cvtdq2ps(vi);"
+        << "}"
+
         << "static inline unsigned char __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2UCHAR_SMP16 << "("
         <<      "unsigned int __attribute__((vector_size(16))) vi0,"
         <<      "unsigned int __attribute__((vector_size(16))) vi1," 
         <<      "unsigned int __attribute__((vector_size(16))) vi2," 
         <<      "unsigned int __attribute__((vector_size(16))) vi3)"
         << "{"
-        <<      "return " << COMPILER_CONV_INT2UCHAR_SMP16 
-        << "((int __attribute__((vector_size(16)))) vi0,"
-        << "(int __attribute__((vector_size(16)))) vi1,"
-        << "(int __attribute__((vector_size(16)))) vi2,"
-        << "(int __attribute__((vector_size(16)))) vi3);"
+        <<      "short int __attribute__((vector_size(16))) vs0, vs1;"
+        <<      "vs0 = __builtin_ia32_packusdw128((int __attribute__((vector_size(16)))) vi0, (int __attribute__((vector_size(16)))) vi1);"
+        <<      "vs1 = __builtin_ia32_packusdw128((int __attribute__((vector_size(16)))) vi2, (int __attribute__((vector_size(16)))) vi3);"
+        <<      "return (unsigned char __attribute__((vector_size(16)))) __builtin_ia32_packuswb128(vs0, vs1);"
         << "}"
 
         << "static inline char __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2CHAR_SMP16 << "("
@@ -563,13 +623,17 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "unsigned int __attribute__((vector_size(16))) vi2," 
         <<      "unsigned int __attribute__((vector_size(16))) vi3)"
         << "{"
-        <<      "return " << COMPILER_CONV_INT2CHAR_SMP16 
-        << "((int __attribute__((vector_size(16)))) vi0,"
-        << "(int __attribute__((vector_size(16)))) vi1,"
-        << "(int __attribute__((vector_size(16)))) vi2,"
-        << "(int __attribute__((vector_size(16)))) vi3);"
+        <<      "short int __attribute__((vector_size(16))) vs0, vs1;"
+        <<      "vs0 = __builtin_ia32_packssdw128((int __attribute__((vector_size(16)))) vi0, (int __attribute__((vector_size(16)))) vi1);"
+        <<      "vs1 = __builtin_ia32_packssdw128((int __attribute__((vector_size(16)))) vi2, (int __attribute__((vector_size(16)))) vi3);"
+        <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
+        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
+        <<      "unsigned int __attribute__((vector_size(16))) vi)"
+        << "{"
+        <<      "return __builtin_ia32_cvtdq2ps((int __attribute__((vector_size(16)))) vi);"
+        << "}"
         ;
 
     indexation_src
@@ -598,8 +662,8 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
     //Global parsing
     scalar_functions_src.parse_global(translation_unit, scope_link);
-    default_generic_functions_src.parse_global(translation_unit, scope_link);
     intel_builtins_src.parse_global(translation_unit, scope_link);
+    default_specific_functions_src.parse_global(translation_unit, scope_link);
     conversions_src.parse_global(translation_unit, scope_link);
     indexation_src.parse_global(translation_unit, scope_link);
 
@@ -613,22 +677,39 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 //    generic_functions.add_specific_definition(scope.get_symbol_from_name("_float_to_char_smp16"), TL::SIMD::DEFAULT, device_name, width, false, true, std::string("_float_to_char_smp16"));
 
     //Int
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("abs"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_pabsd128"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("abs"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_pabsd128"));
 
     //Float
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_sqrtps"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("sqrtf"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_sqrtps"));
     //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, device_name, width, false, true);
-
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, device_name, width, false, true);
-
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("_fabsf_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("floorf"), scope.get_symbol_from_name("_floorf_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("ceilf"), scope.get_symbol_from_name("_ceilf_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
 
     //Double
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_sqrtpd"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("sqrt"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_sqrtpd"));
     //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("_fabs_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("floor"), scope.get_symbol_from_name("_floor_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("ceil"), scope.get_symbol_from_name("_ceil_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -1401,7 +1482,6 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
     for_stmt.get_ast().replace(simdized_loop_tree);
 
 
-
     TL::Statement& stmt = for_stmt;
 
     if (stmt.is_compound_statement())
@@ -1418,7 +1498,9 @@ static void simdize_loop_fun(TL::ForStatement& for_stmt,
         TL::ForStatement& for_stmt_epilog = (TL::ForStatement&) statement_list[1];
 
         // This ForStatement is the unrolled loop (SIMD)
-        for_stmt_simd.get_ast().set_attribute(LANG_HLT_SIMD_FOR_INFO, min_stmt_size);
+        for_stmt_simd.get_ast().set_attribute(LANG_HLT_SIMD_FOR_INFO, 
+                TL::RefPtr<ForStatementInfo> (new ForStatementInfo(min_stmt_size,
+                    for_stmt.get_induction_variable().get_symbol(), for_stmt.non_local_symbols())));
 
         // This ForStatement is marked as Epilog
         TL::RefPtr<TL::Expression> lower_bound_ref(new TL::Expression(lower_bound));
