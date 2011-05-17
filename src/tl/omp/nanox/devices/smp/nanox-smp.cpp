@@ -97,10 +97,19 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     for (i=0; i<num_elements; i++)
     {
         Source offset;
-        
+
         new_ind_var.append_with_separator(old_ind_var, ",");
 
-        offset << i;
+        //In replication state the offset is different depending on the replication number
+        if (_this->_replication_state.top())
+        {
+            offset << i + (num_elements * _this->_num_repl);
+        }
+        else
+        {
+            offset << i;
+        }
+
         offset_vector.append_with_separator(offset.get_source(), ",");
     }
 
