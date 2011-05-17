@@ -43,6 +43,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
 #include "cxx-gccsupport.h"
+#include "cxx-cuda.h"
 #include "cxx-entrylist.h"
 #include <ctype.h>
 #include <string.h>
@@ -606,34 +607,34 @@ static char* unary_expression_attr[] =
 {
     [AST_DERREFERENCE]  = LANG_IS_DERREFERENCE_OP,
     [AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
-    [AST_PLUS_OP]       = LANG_IS_PLUS_OP,
-    [AST_NEG_OP]        = LANG_IS_NEGATE_OP,
-    [AST_NOT_OP]        = LANG_IS_NOT_OP,
-    [AST_COMPLEMENT_OP] = LANG_IS_COMPLEMENT_OP
+    [AST_PLUS]       = LANG_IS_PLUS_OP,
+    [AST_NEG]        = LANG_IS_NEGATE_OP,
+    [AST_NOT]        = LANG_IS_NOT_OP,
+    [AST_COMPLEMENT] = LANG_IS_COMPLEMENT_OP
 };
 
 static char* binary_expression_attr[] =
 {
-    [AST_MULT_OP] = LANG_IS_MULT_OP,
-    [AST_DIV_OP] = LANG_IS_DIVISION_OP,
-    [AST_MOD_OP] = LANG_IS_MODULUS_OP,
-    [AST_ADD_OP] = LANG_IS_ADDITION_OP,
-    [AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
-    [AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
-    [AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
+    [AST_MULT] = LANG_IS_MULT_OP,
+    [AST_DIV] = LANG_IS_DIVISION_OP,
+    [AST_MOD] = LANG_IS_MODULUS_OP,
+    [AST_ADD] = LANG_IS_ADDITION_OP,
+    [AST_MINUS] = LANG_IS_SUBSTRACTION_OP,
+    [AST_SHL] = LANG_IS_SHIFT_LEFT_OP,
+    [AST_SHR] = LANG_IS_SHIFT_RIGHT_OP,
     [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
     [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
     [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
     [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
-    [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
-    [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
+    [AST_EQUAL] = LANG_IS_EQUAL_OP,
+    [AST_DIFFERENT] = LANG_IS_DIFFERENT_OP,
     [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
     [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
     [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
     [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
     [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
 #ifdef FORTRAN_SUPPORT
-    [AST_POWER_OP] = LANG_IS_POWER_OP,
+    [AST_POWER] = LANG_IS_POWER_OP,
 #endif
 };
 
@@ -1096,10 +1097,10 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
             }
         case AST_DERREFERENCE :
         case AST_REFERENCE :
-        case AST_PLUS_OP :
-        case AST_NEG_OP :
-        case AST_NOT_OP :
-        case AST_COMPLEMENT_OP :
+        case AST_PLUS :
+        case AST_NEG :
+        case AST_NOT :
+        case AST_COMPLEMENT :
             {
                 const_value_t* val = NULL;
                 check_for_unary_expression(expression, decl_context, &val);
@@ -1149,26 +1150,26 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 check_for_pointer_to_member(expression, decl_context);
                 break;
             }
-        case AST_MULT_OP :
-        case AST_DIV_OP :
-        case AST_MOD_OP :
-        case AST_ADD_OP :
-        case AST_MINUS_OP :
-        case AST_SHL_OP :
-        case AST_SHR_OP :
+        case AST_MULT :
+        case AST_DIV :
+        case AST_MOD :
+        case AST_ADD :
+        case AST_MINUS :
+        case AST_SHL :
+        case AST_SHR :
         case AST_LOWER_THAN :
         case AST_GREATER_THAN :
         case AST_GREATER_OR_EQUAL_THAN :
         case AST_LOWER_OR_EQUAL_THAN :
-        case AST_EQUAL_OP :
-        case AST_DIFFERENT_OP :
+        case AST_EQUAL :
+        case AST_DIFFERENT :
         case AST_BITWISE_AND :
         case AST_BITWISE_XOR :
         case AST_BITWISE_OR :
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
 #ifdef FORTRAN_SUPPORT
-        case AST_POWER_OP:
+        case AST_POWER:
 #endif
             {
                 const_value_t* val = NULL;
@@ -1271,7 +1272,7 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 }
                 break;
             }
-        case AST_COMMA_OP :
+        case AST_COMMA :
             {
                 check_for_comma_operand(expression, decl_context);
 
@@ -1571,6 +1572,12 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
                 // We do this to avoid later failures
                 expression_set_type(expression, get_signed_int_type());
                 expression_set_is_lvalue(expression, 0);
+                break;
+            }
+            // CUDA
+        case AST_CUDA_KERNEL_CALL:
+            {
+                cuda_kernel_call_check(expression, decl_context);
                 break;
             }
         case AST_AMBIGUITY :
@@ -2902,7 +2909,7 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_add_tree == NULL)
     {
         operation_add_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_ADDERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set; 
@@ -3024,7 +3031,7 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MULTERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -3071,7 +3078,7 @@ type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DIV_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_DIVERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -3176,7 +3183,7 @@ type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MOD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MODERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -3294,7 +3301,7 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
     if (operator == NULL)
     {
         operator = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MINUS_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MINUSERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -3377,6 +3384,10 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
         else if(left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = vector_type_get_element_type(lhs_type);
+        }
+        else
+        {
+            return get_error_type();
         }
 
         expression_set_type(expr, computed_type);
@@ -3757,7 +3768,7 @@ static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, d
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DIFFERENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_DIFFERENTERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -3781,7 +3792,7 @@ static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_EQUALERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -4726,7 +4737,7 @@ static type_t* compute_operator_derreference_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MULTERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -4835,7 +4846,7 @@ static type_t* compute_operator_plus_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_ADDERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -4938,7 +4949,7 @@ static type_t* compute_operator_minus_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MINUS_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MINUSERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -5277,26 +5288,26 @@ static type_t* compute_operator_reference_type(AST expression,
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
 {
-    [AST_ADD_OP]                = OPERATOR_FUNCT_INIT(compute_bin_operator_add_type),
-    [AST_MULT_OP]               = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_type),
-    [AST_DIV_OP]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
-    [AST_MOD_OP]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
-    [AST_MINUS_OP]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
-    [AST_SHL_OP]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_type),
-    [AST_SHR_OP]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
+    [AST_ADD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_add_type),
+    [AST_MULT]               = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_type),
+    [AST_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
+    [AST_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
+    [AST_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
+    [AST_SHL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_type),
+    [AST_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
     [AST_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
     [AST_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
     [AST_GREATER_OR_EQUAL_THAN] = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_equal_type),
     [AST_LOWER_OR_EQUAL_THAN]   = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_equal_type),
-    [AST_EQUAL_OP]              = OPERATOR_FUNCT_INIT(compute_bin_operator_equal_type),
-    [AST_DIFFERENT_OP]          = OPERATOR_FUNCT_INIT(compute_bin_operator_different_type),
+    [AST_EQUAL]              = OPERATOR_FUNCT_INIT(compute_bin_operator_equal_type),
+    [AST_DIFFERENT]          = OPERATOR_FUNCT_INIT(compute_bin_operator_different_type),
     [AST_BITWISE_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_type),
     [AST_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
 #ifdef FORTRAN_SUPPORT
-    [AST_POWER_OP]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
+    [AST_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
 #endif
 
     [AST_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
@@ -5316,10 +5327,10 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
 {
     [AST_DERREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
     [AST_REFERENCE]             = OPERATOR_FUNCT_INIT(compute_operator_reference_type),
-    [AST_PLUS_OP]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
-    [AST_NEG_OP]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
-    [AST_NOT_OP]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
-    [AST_COMPLEMENT_OP]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
+    [AST_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
+    [AST_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
+    [AST_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
+    [AST_COMPLEMENT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
 static type_t* get_binary_op_type(AST expr, decl_context_t decl_context, const_value_t** val)
@@ -7662,7 +7673,7 @@ static char any_is_member_function(scope_entry_list_t* candidates)
  * This function performs the dirty job when computing the type of a functional call.
  * Note that in this code we already know that this sentence is a feasible type
  */
-static char check_for_functional_expression(AST whole_function_call, AST called_expression, 
+char _check_for_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig)
 {
     // 1. If function arguments did not yield a valid expression ignore them
@@ -8508,7 +8519,7 @@ static void check_for_function_call(AST expr, decl_context_t decl_context)
     // 2. Now perform the actual check. If this function succeeds
     //    'called_expression' node will have a functional type
     //    a pointer to function or a dependent type
-    if (!check_for_functional_expression(expr, called_expression, arguments, 
+    if (!_check_for_functional_expression(expr, called_expression, arguments, 
             decl_context, might_require_koenig))
     {
         DEBUG_CODE()
@@ -8654,7 +8665,7 @@ static void check_for_comma_operand(AST expression, decl_context_t decl_context)
     if (operation_comma_tree == NULL)
     {
         operation_comma_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_COMMA_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_COMMAERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
 
@@ -10236,6 +10247,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
 
             if (prev != NULL)
             {
+                //Ticket #593.
                 fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;

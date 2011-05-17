@@ -413,7 +413,7 @@ static int count_rows(void* datum,
         char** colnames UNUSED_PARAMETER)
 {
     int *num = (int*)datum;
-    *num = 1;
+    (*num)++;
     return 0;
 }
 
@@ -909,11 +909,11 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     if (symbol == NULL)
         return 0;
 
-    if (oid_already_inserted(handle, "symbol", symbol))
-        return (sqlite3_int64)(intptr_t)symbol;
-
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
     sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
+
+    if (oid_already_inserted(handle, "symbol", symbol))
+        return (sqlite3_int64)(intptr_t)symbol;
 
     char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid, name, kind, type, file, line, %s) "
             "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %s);",

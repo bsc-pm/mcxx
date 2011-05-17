@@ -24,7 +24,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt analysis @TL_EXTENSIONS@ 
+SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
 END=
 
@@ -38,6 +38,7 @@ DIST_SUBDIRS=analysis \
              testing \
              hlt \
              ss_valgrind \
+             manip \
              $(END)
 
 lib_LTLIBRARIES = libtl.la
@@ -140,6 +141,8 @@ libtl_la_SOURCES = \
     tl-fortran.cpp \
     tl-simd.hpp \
     tl-simd.cpp \
+	tl-cuda.hpp \
+	tl-cuda.cpp \
 	$(END)
 
 if WINDOWS_BUILD

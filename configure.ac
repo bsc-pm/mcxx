@@ -390,6 +390,11 @@ if test x$gpu_enabled = xyes ; then
     fi
 fi
 
+if test x$gpu_valid = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
+fi
+
 # Use this if we want to conditionally disable compilation of GPU
 # DeviceProvider
 AM_CONDITIONAL(NANOX_GPU_SUPPORT, test x$gpu_valid = xyes)
@@ -1291,6 +1296,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/analysis/Makefile
            src/tl/analysis/extensible_graph/Makefile
            src/tl/hlt/Makefile
+           src/tl/manip/Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile
            src/tl/omp/fun-tasks/Makefile 

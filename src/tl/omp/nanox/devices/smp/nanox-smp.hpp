@@ -97,7 +97,8 @@ namespace TL
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
                 static std::string get_integer_casting(AST_t a, Type type1, Type type2);
-                static std::string scalar_expansion(Expression exp);
+                static std::string scalar_expansion(Expression expr, void* data);
+                static std::string ind_var_scalar_expansion(Expression expr, void* data);
 
             public:
                 ReplaceSrcSMP(ScopeLink sl, int width) 
@@ -106,8 +107,8 @@ namespace TL
                 void add_replacement(Symbol sym, const std::string& str);
                 void add_this_replacement(const std::string& str);
                 Source replace(AST_t a) const;
-                Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name, const ScopeLink sl);
-                Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name, const ScopeLink sl);
+                Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name);
+                Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name);
         };
     }
 }

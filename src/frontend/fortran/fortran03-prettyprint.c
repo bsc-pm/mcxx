@@ -243,7 +243,7 @@ static prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_ABSTRACT, simple_text_handler, NULL),
     NODE_HANDLER(AST_ACCESS_STATEMENT, access_statement_handler, NULL),
-    NODE_HANDLER(AST_ADD_OP, binary_operator_handler, "+"),
+    NODE_HANDLER(AST_ADD, binary_operator_handler, "+"),
     NODE_HANDLER(AST_ALLOCATABLE_STATEMENT, allocatable_statement_handler, NULL),
     NODE_HANDLER(AST_ALLOCATE_STATEMENT, allocate_statement_handler, NULL),
     NODE_HANDLER(AST_ALL_STOP_STATEMENT, all_stop_statement_handler, NULL),
@@ -252,7 +252,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ARITHMETIC_IF_STATEMENT, arithmetic_if_statement_handler, NULL),
     NODE_HANDLER(AST_ARRAY_CONSTRUCTOR, array_constructor_handler, NULL),
     NODE_HANDLER(AST_ARRAY_CONSTRUCTOR_SPEC, array_constructor_spec_handler, NULL),
-    NODE_HANDLER(AST_ARRAY_REF, array_ref_handler, NULL),
+    NODE_HANDLER(AST_ARRAY_SUBSCRIPT, array_ref_handler, NULL),
     NODE_HANDLER(AST_ARRAY_SPEC, array_spec_handler, NULL),
     NODE_HANDLER(AST_ASSIGNED_GOTO_STATEMENT, assigned_goto_statement_handler, NULL),
     NODE_HANDLER(AST_ASSIGNMENT, binary_operator_handler, "="),
@@ -287,10 +287,10 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_COMMON_STATEMENT, common_statement_handler, NULL),
     NODE_HANDLER(AST_COMPLEX_LITERAL, complex_literal_handler, NULL),
     NODE_HANDLER(AST_COMPLEX_TYPE, complex_type_handler, NULL),
-    NODE_HANDLER(AST_COMPONENT_REF, component_ref_handler, NULL),
+    NODE_HANDLER(AST_CLASS_MEMBER_ACCESS, component_ref_handler, NULL),
     NODE_HANDLER(AST_COMPUTED_GOTO_STATEMENT, computed_goto_statement_handler, NULL),
     NODE_HANDLER(AST_COMPOUND_STATEMENT, compound_statement_handler, NULL),
-    NODE_HANDLER(AST_CONCAT_OP, binary_operator_handler, "//"),
+    NODE_HANDLER(AST_CONCAT, binary_operator_handler, "//"),
     NODE_HANDLER(AST_CONTINUE_STATEMENT, cycle_statement_handler, NULL),
     NODE_HANDLER(AST_CRITICAL_CONSTRUCT, critical_construct_handler, NULL),
     NODE_HANDLER(AST_CRITICAL_STATEMENT, critical_statement_handler, NULL),
@@ -308,10 +308,10 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DERIVED_TYPE_DEF, derived_type_def_handler, NULL),
     NODE_HANDLER(AST_DERIVED_TYPE_NAME, derived_type_name_handler, NULL),
     NODE_HANDLER(AST_DERIVED_TYPE_STATEMENT, derived_type_statement_handler, NULL),
-    NODE_HANDLER(AST_DIFFERENT_OP, binary_operator_handler, "/="),
+    NODE_HANDLER(AST_DIFFERENT, binary_operator_handler, "/="),
     NODE_HANDLER(AST_DIMENSION_DECL, dimension_decl_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STATEMENT, dimension_statement_handler, NULL),
-    NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
+    NODE_HANDLER(AST_DIV, binary_operator_handler, "/"),
     NODE_HANDLER(AST_DOUBLE_TYPE, double_type_handler, NULL),
     NODE_HANDLER(AST_ELSEWHERE_STATEMENT, elsewhere_statement_handler, NULL),
     NODE_HANDLER(AST_EMPTY_STATEMENT, continue_statement_handler, NULL),
@@ -320,7 +320,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ENUM_DEF, enum_def_handler, NULL),
     NODE_HANDLER(AST_ENUM_DEF_STATEMENT, enum_def_statement_handler, NULL),
     NODE_HANDLER(AST_ENUMERATOR_DEF, enumerator_def_handler, NULL),
-    NODE_HANDLER(AST_EQUAL_OP, binary_operator_handler, "=="),
+    NODE_HANDLER(AST_EQUAL, binary_operator_handler, "=="),
     NODE_HANDLER(AST_EQUIVALENCE_SET, equivalence_set_handler, NULL),
     NODE_HANDLER(AST_EQUIVALENCE_STATEMENT, equivalence_statement_handler, NULL),
     NODE_HANDLER(AST_EXPRESSION_STATEMENT, expression_statement_handler, NULL),
@@ -369,19 +369,19 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_LOWER_THAN, binary_operator_handler, "<"),
     NODE_HANDLER(AST_MAIN_PROGRAM_UNIT, main_program_unit_handler, NULL),
     NODE_HANDLER(AST_MASK_ELSEWHERE_PART, mask_elsewhere_part_handler, NULL),
-    NODE_HANDLER(AST_MINUS_OP, binary_operator_handler, "-"),
+    NODE_HANDLER(AST_MINUS, binary_operator_handler, "-"),
     NODE_HANDLER(AST_MODULE_PROCEDURE, module_procedure_handler, NULL),
     NODE_HANDLER(AST_MODULE_PROCEDURE_PROGRAM_UNIT, module_procedure_program_unit_handler, NULL),
     NODE_HANDLER(AST_MODULE_PROCEDURE_STATEMENT, module_procedure_statement_handler, NULL),
     NODE_HANDLER(AST_MODULE_PROGRAM_UNIT, module_program_unit_handler, NULL),
     NODE_HANDLER(AST_MODULE_STATEMENT, module_statement_handler, NULL),
-    NODE_HANDLER(AST_MULT_OP, binary_operator_handler, "*"),
+    NODE_HANDLER(AST_MULT, binary_operator_handler, "*"),
     NODE_HANDLER(AST_NAMED_PAIR_SPEC, named_pair_spec_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_ITEM, namelist_item_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_STATEMENT, namelist_statement_handler, NULL),
-    NODE_HANDLER(AST_NEG_OP, unary_operator_handler, "-"),
+    NODE_HANDLER(AST_NEG, unary_operator_handler, "-"),
     NODE_HANDLER(AST_NODE_LIST, sequence_handler, NULL),
-    NODE_HANDLER(AST_NOT_OP, unary_operator_handler, ".NOT."),
+    NODE_HANDLER(AST_NOT, unary_operator_handler, ".NOT."),
     NODE_HANDLER(AST_NULLIFY_STATEMENT, nullify_statement_handler, NULL),
     NODE_HANDLER(AST_OCTAL_LITERAL, simple_text_handler, NULL),
     NODE_HANDLER(AST_OPEN_STATEMENT, open_statement_handler, NULL),
@@ -392,10 +392,10 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_expression_handler, NULL),
     NODE_HANDLER(AST_PAUSE_STATEMENT, pause_statement_handler, NULL),
     NODE_HANDLER(AST_PIXEL_TYPE, pixel_type_handler, NULL),
-    NODE_HANDLER(AST_PLUS_OP, unary_operator_handler, "+"),
+    NODE_HANDLER(AST_PLUS, unary_operator_handler, "+"),
     NODE_HANDLER(AST_POINTER_INITIALIZATION, pointer_initialization_handler, NULL),
     NODE_HANDLER(AST_POINTER_STATEMENT, pointer_statement_handler, NULL),
-    NODE_HANDLER(AST_POWER_OP, binary_operator_handler, "**"),
+    NODE_HANDLER(AST_POWER, binary_operator_handler, "**"),
     NODE_HANDLER(AST_PRINT_STATEMENT, print_statement_handler, NULL),
     NODE_HANDLER(AST_PROC_COMPONENT_DEF_STATEMENT, proc_component_def_statement_handler, NULL),
     NODE_HANDLER(AST_PROCEDURE_DECL_STATEMENT, procedure_decl_statement_handler, NULL),
@@ -2086,7 +2086,14 @@ static void open_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void operator_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    token_fprintf(f, a, pt_ctx, "OPERATOR(%s)", ASTText(a));
+    if (strcmp(ASTText(a), "=") != 0)
+    {
+        token_fprintf(f, a, pt_ctx, "OPERATOR(%s)", ASTText(a));
+    }
+    else
+    {
+        token_fprintf(f, a, pt_ctx, "ASSIGNMENT(%s)", ASTText(a));
+    }
 }
 
 static void optional_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

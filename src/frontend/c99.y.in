@@ -332,6 +332,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/
+/*!include cxx-cuda.y*/
 /*!include cxx-xl.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
@@ -2179,19 +2180,19 @@ unary_operator : '*'
 }
 | '+'
 {
-	$$ = AST_PLUS_OP;
+	$$ = AST_PLUS;
 }
 | '-'
 {
-	$$ = AST_NEG_OP;
+	$$ = AST_NEG;
 }
 | '!'
 {
-	$$ = AST_NOT_OP;
+	$$ = AST_NOT;
 }
 | '~'
 {
-	$$ = AST_COMPLEMENT_OP;
+	$$ = AST_COMPLEMENT;
 }
 ;
 
@@ -2211,15 +2212,15 @@ multiplicative_expression : cast_expression %merge<ambiguityHandler>
 }
 | multiplicative_expression '*' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_MULT_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | multiplicative_expression '/' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_DIV_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_DIV, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | multiplicative_expression '%' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_MOD_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MOD, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -2229,11 +2230,11 @@ additive_expression : multiplicative_expression %merge<ambiguityHandler>
 }
 | additive_expression '+' multiplicative_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_ADD_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_ADD, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | additive_expression '-' multiplicative_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_MINUS_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MINUS, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -2243,11 +2244,11 @@ shift_expression : additive_expression %merge<ambiguityHandler>
 }
 | shift_expression LEFT additive_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_SHL_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_SHL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | shift_expression RIGHT additive_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_SHR_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_SHR, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -2279,11 +2280,11 @@ equality_expression : relational_expression %merge<ambiguityHandler>
 }
 | equality_expression EQUAL relational_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_EQUAL_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_EQUAL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | equality_expression NOT_EQUAL relational_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_DIFFERENT_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_DIFFERENT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -2368,7 +2369,7 @@ expression : assignment_expression %merge<ambiguityHandler>
 }
 | expression ',' assignment_expression %merge<ambiguityHandler>
 {
-	AST comma_expression = ASTMake2(AST_COMMA_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	AST comma_expression = ASTMake2(AST_COMMA, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 
 	$$ = ASTMake1(AST_EXPRESSION, comma_expression, ASTFileName(comma_expression), ASTLine(comma_expression), NULL);
 }
@@ -2500,6 +2501,7 @@ string_literal : STRING_LITERAL
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/
+/*!include cxx-cuda.y*/
 /*!include cxx-xl.y*/
 /*!undefine GRAMMAR_RULES*/
 

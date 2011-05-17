@@ -56,16 +56,16 @@
 #include "cxx-parser-internal.h"
 /*!endif*/
 
+typedef 
+struct lexer_keyword_tag
+{
+    const char* keyword;
+    int token;
+} lexer_keyword_t;
+
 /*!if CPLUSPLUS*/
 /* g++ 4.3 extensions */
-typedef
-struct gxx_43_keywords_tag
-{
-    const char * keyword;
-    int token;
-} gxx_43_keywords_t;
-
-gxx_43_keywords_t gxx_43_keywords[] =
+static lexer_keyword_t gxx_43_keywords[] =
 {
     { "__has_nothrow_assign", GXX_HAS_NOTHROW_ASSIGN },
     { "__has_nothrow_constructor", GXX_HAS_NOTHROW_CONSTRUCTOR },
@@ -90,14 +90,7 @@ gxx_43_keywords_t gxx_43_keywords[] =
 /*!endif*/
 
 /*!if C99*/
-typedef
-struct upc_keywords_tag
-{
-    const char * keyword;
-    int token;
-} upc_keywords_t;
-
-upc_keywords_t upc_keywords[] =
+static lexer_keyword_t upc_keywords[] =
 {
     // It is easier to sign these in as normal builtins
     // { "MYTHREAD", UPC_MYTHREAD },
@@ -119,10 +112,23 @@ upc_keywords_t upc_keywords[] =
 };
 /*!endif*/
 
+static lexer_keyword_t cuda_keywords[] =
+{
+    {"__device__" , CUDA_DEVICE},
+    {"__global__", CUDA_GLOBAL},
+    {"__host__", CUDA_HOST},
+    {"__constant__", CUDA_CONSTANT},
+    {"__shared__", CUDA_SHARED},
+    // Sentinel
+    { NULL, 0 }
+};
+
 static int yywrap(void);
 
 static void parse_token_text(void);
 static void parse_token_text_str(const char*);
+
+static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* keyword, char predicate);
 
 struct scan_file_descriptor scanning_now;
 
@@ -1009,35 +1015,12 @@ type {
 "__is_pod" |
 "__is_polymorphic" |
 "__is_union" {
-    if (CURRENT_CONFIGURATION->disable_gxx_type_traits)
-    {
-        parse_token_text();
-        return IDENTIFIER;
-    }
-
-    int i = 0;
-    while (gxx_43_keywords[i].keyword != NULL)
-    {
-        if (strcmp(gxx_43_keywords[i].keyword, yytext) == 0)
-        {
-            parse_token_text();
-            return gxx_43_keywords[i].token;
-        }
-        i++;
-    }
-
-    internal_error("%s:%d: error: unhandled g++ specific token '%s'", 
-            scanning_now.filename,
-            scanning_now.line_number,
-            yytext);
+    return lookup_keyword_in_table(gxx_43_keywords, yytext, !CURRENT_CONFIGURATION->disable_gxx_type_traits);
 }
  /*!endif*/
 
  /*!if C99*/
  /* UPC Extensions */
- /* "MYTHREAD" | */
- /* "THREADS" | */
- /* "UPC_MAX_BLOCKSIZE" | */
 "relaxed" |
 "shared" |
 "strict" |
@@ -1049,29 +1032,18 @@ type {
 "upc_localsizeof" |
 "upc_notify" |
 "upc_wait" {
-    if (!CURRENT_CONFIGURATION->enable_upc)
-    {
-        parse_token_text();
-        return IDENTIFIER;
-    }
-
-    int i = 0;
-    while (upc_keywords[i].keyword != NULL)
-    {
-        if (strcmp(upc_keywords[i].keyword, yytext) == 0)
-        {
-            parse_token_text();
-            return upc_keywords[i].token;
-        }
-        i++;
-    }
-
-    internal_error("%s:%d: error: unhandled UPC specific token '%s'", 
-            scanning_now.filename,
-            scanning_now.line_number,
-            yytext);
+    return lookup_keyword_in_table(upc_keywords, yytext, CURRENT_CONFIGURATION->enable_upc);
 }
  /*!endif */
+
+ /* CUDA keywords */
+"__device__" |
+"__global__" |
+"__host__" |
+"__constant__" |
+"__shared__" {
+    return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
+}
 
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }
@@ -1153,9 +1125,25 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "/"         { parse_token_text(); return '/'; }
 "%"         { parse_token_text(); return '%'; }
 "<<"        { parse_token_text(); return LEFT; }
+"<<<"       { 
+     if (CURRENT_CONFIGURATION->enable_cuda)
+     {
+         parse_token_text();
+         return CUDA_KERNEL_LEFT;
+     }
+     REJECT;
+}
  /* There is no '>>' token in C++ but AB1 followed by '>', see below */
  /*!if C99*/
 ">>"        { parse_token_text(); return RIGHT; }
+">>>"       { 
+    if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        parse_token_text();
+        return CUDA_KERNEL_RIGHT;
+    }
+    REJECT;
+}
  /*!endif*/
 "<="        { parse_token_text(); return LESS_OR_EQUAL; }
  /* There is no '>=' token in C++ but AB2 followed by '=', see below */
@@ -1620,6 +1608,31 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
     }
 
     return longest_match;
+}
+
+static int lookup_keyword_in_table(lexer_keyword_t *keyword_table, const char* keyword, char predicate)
+{
+    if (!predicate)
+    {
+        parse_token_text();
+        return IDENTIFIER;
+    }
+
+    int i = 0;
+    while (keyword_table[i].keyword != NULL)
+    {
+        if (strcmp(keyword_table[i].keyword, keyword) == 0)
+        {
+            parse_token_text();
+            return keyword_table[i].token;
+        }
+        i++;
+    }
+
+    internal_error("%s:%d: error: unhandled lookup token '%s'", 
+            scanning_now.filename,
+            scanning_now.line_number,
+            keyword);
 }
 
 // Shut up the compiler

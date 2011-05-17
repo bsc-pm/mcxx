@@ -127,6 +127,7 @@ namespace TL
             //! Returns a list of all symbolic occurrences that are not defined
             //within this construction
             ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS) const;
+            ObjectList<Symbol> non_local_symbols(SymbolsWanted symbols = ALL_SYMBOLS) const;
             /*!
              * \bug Not implemented
              */
@@ -884,7 +885,7 @@ namespace TL
      *
      * Will have two GCCAttribute, one for 'a' and one for 'b'
      */
-    class GCCAttribute : public LangConstruct
+    class LIBTL_CLASS GCCAttribute : public LangConstruct
     {
         private:
         public:

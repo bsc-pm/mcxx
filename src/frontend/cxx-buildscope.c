@@ -50,6 +50,7 @@
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
 #include "cxx-upc.h"
+#include "cxx-cuda.h"
 #include "cxx-entrylist.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
@@ -393,6 +394,11 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
         {
             upc_sign_in_builtins(decl_context);
         }
+    }
+
+    if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        init_cuda_builtins(decl_context);
     }
 }
 
@@ -1277,11 +1283,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // UPC extensions
         case AST_UPC_SHARED :
             {
-                gather_info->is_upc_shared = 1;
-                gather_info->upc_shared_layout = ASTSon0(a);
-                if (gather_info->upc_shared_layout != NULL)
+                gather_info->upc.is_shared = 1;
+                gather_info->upc.shared_layout = ASTSon0(a);
+                if (gather_info->upc.shared_layout != NULL)
                 {
-                    AST list = gather_info->upc_shared_layout;
+                    AST list = gather_info->upc.shared_layout;
                     AST iter;
 
                     for_each_element(list, iter)
@@ -1299,10 +1305,23 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                 break;
             }
         case AST_UPC_RELAXED :
-            gather_info->is_upc_relaxed = 1;
+            gather_info->upc.is_relaxed = 1;
             break;
         case AST_UPC_STRICT :
-            gather_info->is_upc_strict = 1;
+            gather_info->upc.is_strict = 1;
+            break;
+            // CUDA stuff
+        case AST_CUDA_GLOBAL:
+            gather_info->cuda.is_global = 1;
+            break;
+        case AST_CUDA_DEVICE:
+            gather_info->cuda.is_device = 1;
+            break;
+        case AST_CUDA_SHARED:
+            gather_info->cuda.is_shared = 1;
+            break;
+        case AST_CUDA_CONSTANT:
+            gather_info->cuda.is_constant = 1;
             break;
         case AST_XL_BUILTIN_SPEC :
             // Do nothing at the moment
@@ -7373,6 +7392,14 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
     }
 
+    // FIXME - Think how to make this better maintained
+    if (CURRENT_CONFIGURATION->enable_cuda
+            && (gather_info.cuda.is_global
+                || gather_info.cuda.is_device))
+    {
+        cuda_kernel_symbols_for_function_body(function_body, &gather_info, decl_context, block_context);
+    }
+
     // Fix inherited template context
     block_context.decl_flags &= ~DF_TEMPLATE;
     block_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
@@ -8586,19 +8613,19 @@ const char *get_operation_function_name(AST operation_tree)
 {
     switch (ASTType(operation_tree))
     {
-        case AST_ADD_OP :
+        case AST_ADD :
             return STR_OPERATOR_ADD;
-        case AST_MULT_OP :
+        case AST_MULT :
             return STR_OPERATOR_MULT;
-        case AST_DIV_OP :
+        case AST_DIV :
             return STR_OPERATOR_DIV;
-        case AST_MOD_OP :
+        case AST_MOD :
             return STR_OPERATOR_MOD;
-        case AST_MINUS_OP :
+        case AST_MINUS :
             return STR_OPERATOR_MINUS;
-        case AST_SHL_OP :
+        case AST_SHL :
             return STR_OPERATOR_SHIFT_LEFT;
-        case AST_SHR_OP :
+        case AST_SHR :
             return STR_OPERATOR_SHIFT_RIGHT;
         case AST_LOWER_THAN :
             return STR_OPERATOR_LOWER_THAN;
@@ -8608,9 +8635,9 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_GREATER_EQUAL;
         case AST_LOWER_OR_EQUAL_THAN :
             return STR_OPERATOR_LOWER_EQUAL;
-        case AST_EQUAL_OP :
+        case AST_EQUAL :
             return STR_OPERATOR_EQUAL;
-        case AST_DIFFERENT_OP :
+        case AST_DIFFERENT :
             return STR_OPERATOR_DIFFERENT;
         case AST_BITWISE_AND :
             return STR_OPERATOR_BIT_AND;
@@ -8626,13 +8653,13 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_DERREF;
         case AST_REFERENCE : 
             return STR_OPERATOR_REFERENCE;
-        case AST_PLUS_OP :
+        case AST_PLUS :
             return STR_OPERATOR_UNARY_PLUS;
-        case AST_NEG_OP :
+        case AST_NEG :
             return STR_OPERATOR_UNARY_NEG;
-        case AST_NOT_OP :
+        case AST_NOT :
             return STR_OPERATOR_LOGIC_NOT;
-        case AST_COMPLEMENT_OP :
+        case AST_COMPLEMENT :
             return STR_OPERATOR_BIT_NOT;
         case AST_ASSIGNMENT :
             return STR_OPERATOR_ASSIGNMENT;
@@ -8689,15 +8716,15 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_NEW_ARRAY;
         case AST_DELETE_ARRAY_OPERATOR :
             return STR_OPERATOR_DELETE_ARRAY;
-        case AST_ADD_OPERATOR :
+        case AST_ADDERATOR :
             return STR_OPERATOR_ADD;
-        case AST_MINUS_OPERATOR :
+        case AST_MINUSERATOR :
             return STR_OPERATOR_MINUS;
-        case AST_MULT_OPERATOR :
+        case AST_MULTERATOR :
             return STR_OPERATOR_MULT;
-        case AST_DIV_OPERATOR :
+        case AST_DIVERATOR :
             return STR_OPERATOR_DIV;
-        case AST_MOD_OPERATOR :
+        case AST_MODERATOR :
             return STR_OPERATOR_MOD;
         case AST_BITWISE_XOR_OPERATOR :
             return STR_OPERATOR_BIT_XOR;
@@ -8739,9 +8766,9 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_SHL_ASSIGNMENT;
         case AST_RIGHT_ASSIGN_OPERATOR :
             return STR_OPERATOR_SHR_ASSIGNMENT;
-        case AST_EQUAL_OPERATOR :
+        case AST_EQUALERATOR :
             return STR_OPERATOR_EQUAL;
-        case AST_DIFFERENT_OPERATOR :
+        case AST_DIFFERENTERATOR :
             return STR_OPERATOR_DIFFERENT;
         case AST_LESS_OR_EQUAL_OPERATOR :
             return STR_OPERATOR_LOWER_EQUAL;
@@ -8755,7 +8782,7 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_POSTINCREMENT;
         case AST_DECREMENT_OPERATOR :
             return STR_OPERATOR_POSTDECREMENT;
-        case AST_COMMA_OPERATOR :
+        case AST_COMMAERATOR :
             return STR_OPERATOR_COMMA;
         case AST_POINTER_OPERATOR :
             return STR_OPERATOR_ARROW;

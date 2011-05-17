@@ -590,8 +590,8 @@ extern "C"
     {
         TL::SetDTOCompilerPhase* new_phase = new TL::SetDTOCompilerPhase();
 
-		new_phase->set_phase_name("set_dto");
-		new_phase->set_phase_description("No file phase created to allow modifications in the DTO");
+		new_phase->set_phase_name("SetDTO phase");
+		new_phase->set_phase_description("Virtual phase created to allow modifications in the DTO in the configuration");
 		new_phase->set_dto(data);
 
 		TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);

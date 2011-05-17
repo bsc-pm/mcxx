@@ -147,9 +147,6 @@ typedef struct decl_context_tag
 
 #ifdef FORTRAN_SUPPORT
     implicit_info_t* implicit_info;
-
-    int num_unknown_symbols;
-    scope_entry_t** unknown_symbols;
 #endif 
 
     // Scope of the declaration,

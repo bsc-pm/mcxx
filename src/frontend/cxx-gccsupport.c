@@ -421,6 +421,31 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_inline = 1;
     }
+    // CUDA attributes
+    else if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        if (strcmp(attribute_name, "global") == 0)
+        {
+            gather_info->cuda.is_global = 1;
+        }
+        else if (strcmp(attribute_name, "device") == 0)
+        {
+            gather_info->cuda.is_device = 1;
+        }
+        else if (strcmp(attribute_name, "host") == 0)
+        {
+            // Do nothing
+            gather_info->cuda.is_host = 1;
+        }
+        else if (strcmp(attribute_name, "shared") == 0)
+        {
+            gather_info->cuda.is_shared = 1;
+        }
+        else if (strcmp(attribute_name, "constant") == 0)
+        {
+            gather_info->cuda.is_constant = 1;
+        }
+    }
 
     // Save it in the gather_info structure
     if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)
@@ -470,8 +495,10 @@ void gather_gcc_attribute_list(AST attribute_list,
         gather_decl_spec_t *gather_info, 
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(attribute_list == NULL,
-            "This cannot be NULL", 0);
+    // We allow this since we may have removed all the attributes
+    if (attribute_list == NULL)
+        return;
+
     AST iter;
     for_each_element(attribute_list, iter)
     {

@@ -44,7 +44,7 @@ namespace TL
                 AST_t _root;
                 std::set<std::string> _taskSymbols;
 
-                void do_gpu_outline_replacements(
+                void do_cuda_outline_replacements(
                         AST_t body,
                         ScopeLink scope_link,
                         const DataEnvironInfo& data_env_info,
@@ -57,6 +57,8 @@ namespace TL
                         Source &copy_setup,
                         ReplaceSrcIdExpression& replace_src,
                         bool &err_declared);
+
+                void replace_kernel_config(AST_t &kernel_call, ScopeLink sl);
 
                 void get_output_file(std::ofstream& cudaFile);
 

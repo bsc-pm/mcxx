@@ -107,7 +107,6 @@ namespace TL
         {
             public:
                 HLTPragmaPhase();
-                virtual void pre_run(TL::DTO& dto);
                 virtual void run(TL::DTO& dto);
             private:
                 void unroll_loop(PragmaCustomConstruct construct);
@@ -133,7 +132,10 @@ namespace TL
 
                 void set_instrument_hlt(const std::string &str);
 
+                void simd_pre_run(AST_t translation_unit, ScopeLink scope_link);
                 void simdize(PragmaCustomConstruct construct);
+
+
 
                 std::string _enable_hlt_instr_str;
         };
