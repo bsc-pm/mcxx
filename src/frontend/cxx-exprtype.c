@@ -3829,6 +3829,8 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
 
 static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
 {
+    int is_vector_op = 0;
+    int vector_size = 0;
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
 
@@ -3837,6 +3839,21 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
+    if (both_operands_are_vector_types(no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        is_vector_op = 1;
+        vector_size = vector_type_get_vector_size(lhs_type);
+
+        if (vector_size != vector_type_get_vector_size(rhs_type))
+        {
+            return get_error_type();
+        }
+
+        lhs_type = vector_type_get_element_type(lhs_type);
+        rhs_type = vector_type_get_element_type(rhs_type);
+    }
+ 
     type_t* conversion_type = NULL;
     type_t* computed_type = NULL;
 
@@ -3870,19 +3887,6 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
         return computed_type;
     }
-    #warning FIXME
-    //FIXME: Temporal patch
-    else if (both_operands_are_vector_types(
-                no_ref(lhs_type),
-                no_ref(rhs_type)))
-    {
-        computed_type = lhs_type;
-
-        expression_set_type(expr, computed_type);
-        expression_set_is_lvalue(expr, 0);
-
-        return computed_type;
-    }
     
 
     C_LANGUAGE()
@@ -3904,6 +3908,11 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    if (is_vector_op)
+    {
+        result = get_vector_type(result, vector_size);
+    }
 
     entry_list_free(builtins);
 
