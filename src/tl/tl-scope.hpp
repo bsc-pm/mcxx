@@ -286,12 +286,6 @@ namespace TL
             */
             ObjectList<Symbol> koenig_lookup(ObjectList<Type> arguments, AST_t id_expr);
 
-            //! States that this is a scope
-            virtual bool is_scope() const
-            {
-                return true;
-            }
-
             //! Convenience functions when it is not possible to create a symbol tree by other means
 			/*!
 				This function returns an AST_t of an unqualified symbol whose text is 'str'. Use this

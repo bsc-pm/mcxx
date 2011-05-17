@@ -650,6 +650,12 @@ namespace TL
 
             /*! States whether this expression is a top level one */
             bool is_top_level_expression();
+            
+            //! States if this is a expression as 'sizeof(expr)'
+            bool is_sizeof();
+            
+            //! States if this is a expression as 'sizeof(type)'
+            bool is_sizeof_typeid();
     };
 
     //! This LangConstruct wraps a parameter declaration in a function declarator

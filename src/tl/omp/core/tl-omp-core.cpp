@@ -374,7 +374,7 @@ namespace TL
                                 reductor_name_tree.children()[2].replace_text(symbol_name);
                                 IdExpression reductor_expression(reductor_name_tree, construct.get_scope_link());
                                 Symbol reductor_sym = reductor_expression.get_symbol();
-                                if (reductor_sym.is_symbol()) found = true;
+                                found = true;
                                 
                                 // Fill UDR info
                                 RefPtr<UDRInfoItem2> obj = 
