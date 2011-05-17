@@ -125,12 +125,6 @@ namespace TL
             {
             }
 
-            //! States whether is a symbol
-            virtual bool is_symbol() const
-            {
-                return true;
-            }
-
             bool operator<(Symbol s) const;
             bool operator==(Symbol s) const;
             bool operator!=(Symbol s) const;

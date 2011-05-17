@@ -1108,6 +1108,18 @@ namespace TL
         return ::expression_get_symbol(this->get_ast().get_internal_ast());
     }
 
+    bool Expression::is_sizeof()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_SIZEOF);
+        return b;
+    }
+
+    bool Expression::is_sizeof_typeid()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_SIZEOF_TYPEID);
+        return b;
+    }
+
     // Do not use this one, instead use get_declared_symbol
     // since this one will not work for type-names
     IdExpression DeclaredEntity::get_declared_entity() const

@@ -136,12 +136,6 @@ namespace TL
             {
             }
 
-            //! States that this is a type
-            virtual bool is_type() const
-            {
-                return true;
-            }
-
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;

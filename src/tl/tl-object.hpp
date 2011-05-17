@@ -172,54 +172,6 @@ namespace TL
              * \return true if the attribute is in the extended struct of this object.
              */
             bool has_attribute(const std::string& name) const;
-
-            //! States whether this TL::Object is a TL::Bool
-            virtual bool is_bool() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::Integer
-            virtual bool is_integer() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::AST_t
-            virtual bool is_ast() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::Symbol
-            virtual bool is_symbol() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::Type
-            virtual bool is_type() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::Scope
-            virtual bool is_scope() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::String
-            virtual bool is_string() const
-            {
-                return false;
-            }
-
-            //! States whether this TL::Object is a TL::Source
-            virtual bool is_source() const
-            {
-                return false;
-            }
     };
 
     //! Class used when a non existant attribute is requested

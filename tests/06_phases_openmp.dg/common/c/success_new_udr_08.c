@@ -45,8 +45,17 @@ typedef struct {
   double imaginary;
 } my_complex_t;
 
-my_complex_t complex_add (my_complex_t a, my_complex_t b);
-my_complex_t complex_mul (my_complex_t a, my_complex_t b);
+my_complex_t complex_add (my_complex_t a, my_complex_t b) 
+{ 
+    my_complex_t m = {0.0, 0.0};
+    return m;
+}
+
+my_complex_t complex_mul (my_complex_t a, my_complex_t b)
+{ 
+    my_complex_t m = {0.0, 0.0};
+    return m;
+}
 
 #pragma omp declare reduction(complex_add : my_complex_t : _out = complex_add(_in,_out)) identity({0,0})
 #pragma omp declare reduction(complex_mul : my_complex_t : _out = complex_mul(_in,_out)) identity({1,0})
