@@ -945,7 +945,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
         case AST_SHR :
         case AST_ADD :
         case AST_MINUS :
-        case AST_MULT :
+        case AST_MUL :
         case AST_MOD :
         case AST_DIV :
             {

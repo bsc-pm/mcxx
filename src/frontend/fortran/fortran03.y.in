@@ -2017,7 +2017,7 @@ data_i_do_variable : do_variable
 data_stmt_value : mult_operand
 | add_operand '*' mult_operand 
 {
-    $$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 dimension_stmt : labeldef TOK_DIMENSION ':' ':' array_name_dim_spec_list eos
@@ -2422,7 +2422,7 @@ mult_operand : level_1_expr power_op mult_operand
 ;
 add_operand : add_operand '*' mult_operand 
 {
-    $$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | add_operand '/' mult_operand 
 {

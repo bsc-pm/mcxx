@@ -8903,7 +8903,7 @@ const char *get_operation_function_name(AST operation_tree)
     {
         case AST_ADD :
             return STR_OPERATOR_ADD;
-        case AST_MULT :
+        case AST_MUL :
             return STR_OPERATOR_MULT;
         case AST_DIV :
             return STR_OPERATOR_DIV;
@@ -8963,11 +8963,11 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_SHL_ASSIGNMENT;
         case AST_SHR_ASSIGNMENT :
             return STR_OPERATOR_SHR_ASSIGNMENT;
-        case AST_AND_ASSIGNMENT :
+        case AST_BITWISE_AND_ASSIGNMENT :
             return STR_OPERATOR_AND_ASSIGNMENT;
-        case AST_OR_ASSIGNMENT :
+        case AST_BITWISE_OR_ASSIGNMENT :
             return STR_OPERATOR_OR_ASSIGNMENT;
-        case AST_XOR_ASSIGNMENT :
+        case AST_BITWISE_XOR_ASSIGNMENT :
             return STR_OPERATOR_XOR_ASSIGNMENT;
         case AST_MOD_ASSIGNMENT :
             return STR_OPERATOR_MOD_ASSIGNMENT;
@@ -9008,11 +9008,11 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_ADD;
         case AST_MINUS_OPERATOR :
             return STR_OPERATOR_MINUS;
-        case AST_MULT_OPERATOR :
+        case AST_MUL_OPERATOR :
             return STR_OPERATOR_MULT;
         case AST_DIV_OPERATOR :
             return STR_OPERATOR_DIV;
-        case AST_MODERATOR :
+        case AST_MOD_OPERATOR :
             return STR_OPERATOR_MOD;
         case AST_BITWISE_XOR_OPERATOR :
             return STR_OPERATOR_BIT_XOR;
@@ -9040,11 +9040,11 @@ const char* get_operator_function_name(AST declarator_id)
             return STR_OPERATOR_DIV_ASSIGNMENT;
         case AST_MOD_ASSIGN_OPERATOR :
             return STR_OPERATOR_MOD_ASSIGNMENT;
-        case AST_XOR_ASSIGN_OPERATOR :
+        case AST_BITWISE_XOR_ASSIGN_OPERATOR :
             return STR_OPERATOR_XOR_ASSIGNMENT;
-        case AST_AND_ASSIGN_OPERATOR :
+        case AST_BITWISE_AND_ASSIGN_OPERATOR :
             return STR_OPERATOR_AND_ASSIGNMENT;
-        case AST_OR_ASSIGN_OPERATOR :
+        case AST_BITWISE_OR_ASSIGN_OPERATOR :
             return STR_OPERATOR_OR_ASSIGNMENT;
         case AST_LEFT_OPERATOR :
             return STR_OPERATOR_SHIFT_LEFT;

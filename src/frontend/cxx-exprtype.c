@@ -599,7 +599,7 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context);
 static void check_typeid_type(AST expr, decl_context_t decl_context);
 static void check_sizeof_expr(AST expr, decl_context_t decl_context);
 static void check_sizeof_typeid(AST expr, decl_context_t decl_context);
-static void check_cast_expr(AST expression, AST type_id, AST casted_expression_list, decl_context_t decl_context);
+static void check_cast_expr(AST expression, AST type_id, AST casted_expression_list, decl_context_t decl_context, const char* cast_kind);
 static void check_new_expression(AST new_expr, decl_context_t decl_context);
 static void check_new_type_id_expr(AST new_expr, decl_context_t decl_context);
 static void check_delete_expression(AST expression, decl_context_t decl_context);
@@ -635,9 +635,9 @@ static char* assig_op_attr[] =
     [AST_SUB_ASSIGNMENT] = LANG_IS_SUB_ASSIGNMENT,
     [AST_SHL_ASSIGNMENT] = LANG_IS_SHL_ASSIGNMENT,
     [AST_SHR_ASSIGNMENT] = LANG_IS_SHR_ASSIGNMENT,
-    [AST_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
-    [AST_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
-    [AST_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
+    [AST_BITWISE_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
+    [AST_BITWISE_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
+    [AST_BITWISE_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
     [AST_MOD_ASSIGNMENT] = LANG_IS_MOD_ASSIGNMENT,
 };
 
@@ -653,7 +653,7 @@ static char* unary_expression_attr[] =
 
 static char* binary_expression_attr[] =
 {
-    [AST_MULT] = LANG_IS_MULT_OP,
+    [AST_MUL] = LANG_IS_MULT_OP,
     [AST_DIV] = LANG_IS_DIVISION_OP,
     [AST_MOD] = LANG_IS_MODULUS_OP,
     [AST_ADD] = LANG_IS_ADDITION_OP,
@@ -1111,7 +1111,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 AST type_id = ASTSon0(expression);
                 AST casted_expr = ASTSon1(expression);
 
-                check_cast_expr(expression, type_id, casted_expr, decl_context);
+                check_cast_expr(expression, type_id, casted_expr, decl_context, ast_print_node_type(ASTType(expression)));
                 break;
             }
         case AST_TYPEID_TYPE :
@@ -1199,7 +1199,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 AST type_id = ASTSon0(expression);
                 AST casted_expr = ASTSon1(expression);
 
-                check_cast_expr(expression, type_id, casted_expr, decl_context);
+                check_cast_expr(expression, type_id, casted_expr, decl_context, "C");
 
                 if (!expression_is_error(expression))
                 {
@@ -1210,7 +1210,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
                 break;
             }
-        case AST_MULT :
+        case AST_MUL :
         case AST_DIV :
         case AST_MOD :
         case AST_ADD :
@@ -1293,9 +1293,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_SUB_ASSIGNMENT :
         case AST_SHL_ASSIGNMENT :
         case AST_SHR_ASSIGNMENT :
-        case AST_AND_ASSIGNMENT :
-        case AST_OR_ASSIGNMENT :
-        case AST_XOR_ASSIGNMENT :
+        case AST_BITWISE_AND_ASSIGNMENT :
+        case AST_BITWISE_OR_ASSIGNMENT :
+        case AST_BITWISE_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
                 check_binary_expression(expression, decl_context, NULL);
@@ -2839,6 +2839,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         ensure_not_deleted(decl_context, expr, overloaded_call);
 
+        nodecl_output_t nodecl_argument = expression_get_nodecl(op);
+
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
@@ -2853,6 +2855,12 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
             ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
+
+            expression_set_nodecl(op,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(conversors[0]),
+                        nodecl_argument,
+                        actual_type_of_conversor(conversors[0])));
         }
 
         overloaded_type = overloaded_call->type_information;
@@ -3064,7 +3072,8 @@ static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs)
 }
 
 static
-type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
+type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -3102,6 +3111,13 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(
+                expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3123,6 +3139,29 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -3133,10 +3172,10 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MUL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_mul);
 
     if (result != NULL
             && val != NULL
@@ -3157,7 +3196,7 @@ type_t* compute_bin_operator_pow_type(AST expr, AST lhs, AST rhs, decl_context_t
 {
     // No operation_tree for Fortran's **
     AST operation_tree = NULL;
-    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_power);
 
     if (result != NULL
             && val != NULL
@@ -3183,7 +3222,7 @@ type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t
                 ASTLeaf(AST_DIV_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_div);
 
     if (result != NULL
             && val != NULL
@@ -3216,7 +3255,8 @@ static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs)
 }
 
 static 
-type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
+type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -3254,6 +3294,11 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(expr,
+                nodecl_bin_fun(expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3275,6 +3320,29 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -3285,10 +3353,10 @@ type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MODERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MOD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_mod);
 
     if (result != NULL
             && val != NULL
@@ -3396,6 +3464,12 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(expr,
+                nodecl_make_minus(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3435,6 +3509,29 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
                 expression_get_constant(rhs));
     }
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_minus(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -3461,7 +3558,8 @@ static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
 
 
 static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AST rhs, AST operator,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -3495,6 +3593,13 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(
+                expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3515,6 +3620,29 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -3527,7 +3655,7 @@ static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_co
                 ASTLeaf(AST_LEFT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_shl);
 
     if (result != NULL
             && val != NULL
@@ -3551,7 +3679,7 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
                 ASTLeaf(AST_RIGHT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_shr);
 
     if (result != NULL
             && val != NULL
@@ -3636,7 +3764,8 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
     return get_error_type();
 }
 
-static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
+static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -3744,6 +3873,12 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3764,6 +3899,29 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -3777,7 +3935,7 @@ static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_lower_or_equal_than);
 
     if (result != NULL
             && val != NULL
@@ -3801,7 +3959,7 @@ static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, 
                 ASTLeaf(AST_LOWER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_lower_than);
 
     if (result != NULL
             && val != NULL
@@ -3825,7 +3983,7 @@ static type_t* compute_bin_operator_greater_equal_type(AST expr, AST lhs, AST rh
                 ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_greater_or_equal_than);
 
     if (result != NULL
             && val != NULL
@@ -3849,7 +4007,7 @@ static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs
                 ASTLeaf(AST_GREATER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_greater_than);
 
     if (result != NULL
             && val != NULL
@@ -3873,7 +4031,7 @@ static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, d
                 ASTLeaf(AST_DIFFERENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_different);
 
     if (result != NULL
             && val != NULL
@@ -3897,7 +4055,7 @@ static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_
                 ASTLeaf(AST_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_equal);
 
     if (result != NULL
             && val != NULL
@@ -3929,7 +4087,8 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
     return get_bool_type();
 }
 
-static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
+static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
@@ -3970,6 +4129,13 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
 
+        expression_set_nodecl(
+                expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
+
         return computed_type;
     }
 
@@ -3995,6 +4161,29 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -4007,7 +4196,7 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
                 ASTLeaf(AST_LOGICAL_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_logical_or);
 
     if (result != NULL
             && val != NULL
@@ -4031,7 +4220,7 @@ static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_LOGICAL_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context, nodecl_make_logical_and);
 
     if (result != NULL
             && val != NULL
@@ -4056,7 +4245,8 @@ static type_t* compute_bin_operator_bitwise_and_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context, 
+            nodecl_make_bitwise_and);
 
     if (result != NULL
             && val != NULL
@@ -4081,7 +4271,8 @@ static type_t* compute_bin_operator_bitwise_or_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context,
+            nodecl_make_bitwise_or);
 
     if (result != NULL
             && val != NULL
@@ -4106,7 +4297,8 @@ static type_t* compute_bin_operator_bitwise_xor_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_XOR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context,
+            nodecl_make_bitwise_xor);
 
     if (result != NULL
             && val != NULL
@@ -4146,7 +4338,7 @@ static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rh
 }
 
 static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, AST rhs, AST operator,
-        decl_context_t decl_context)
+        decl_context_t decl_context, nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -4174,21 +4366,32 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
                 return get_error_type();
         }
 
+        type_t* computed_type = NULL;
         if (both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type)))
         {
             expression_set_type(expr, lhs_type);
             expression_set_is_lvalue(expr, 1);
-            return lhs_type;
+            computed_type = lhs_type;
         }
-        else if(left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
+        else if (left_operand_is_vector_and_right_operand_is_scalar(no_ref(lhs_type), no_ref(rhs_type)))
         { 
             expression_set_type(expr, lhs_type);
             expression_set_is_lvalue(expr, 1);
-            return vector_type_get_element_type(no_ref(lhs_type));
+            computed_type = vector_type_get_element_type(no_ref(lhs_type));
+        }
+        else
+        {
+            return get_error_type();
         }
 
-        return get_error_type();
+        expression_set_nodecl(
+                expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    computed_type));
 
+        return computed_type;
     }
 
     builtin_operators_set_t builtin_set; 
@@ -4209,6 +4412,29 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
     entry_list_free(builtins);
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
 
     return result;
 }
@@ -4244,7 +4470,8 @@ static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, ty
 }
 
 static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, AST lhs, AST rhs, AST operator,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -4280,6 +4507,13 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
         {
             expression_set_type(expr, lhs_type);
             expression_set_is_lvalue(expr, 1);
+
+            expression_set_nodecl(expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        lhs_type));
+
             return lhs_type;
         }
 
@@ -4304,6 +4538,29 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
     entry_list_free(builtins);
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
 
     return result;
 }
@@ -4446,6 +4703,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                                 named_type_get_symbol(solved_function->entity_specs.class_type)));
                 }
                 expression_set_type(rhs, rhs_type);
+                expression_set_nodecl(rhs, nodecl_make_symbol(solved_function));
             }
         }
 
@@ -4483,11 +4741,35 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_assignment(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
 static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -4564,6 +4846,14 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
 
         expression_set_type(expr, lvalue_ref(lhs_type));
         expression_set_is_lvalue(expr, 1);
+
+        expression_set_nodecl(
+                expr,
+                nodecl_bin_fun(
+                    expression_get_nodecl(lhs),
+                    expression_get_nodecl(rhs),
+                    expression_get_type(expr)));
+
         return lhs_type;
     }
 
@@ -4586,6 +4876,29 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
 
     entry_list_free(builtins);
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_bin_fun(
+                        expression_get_nodecl(lhs),
+                        expression_get_nodecl(rhs),
+                        result));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        result));
+        }
+    }
+
     return result;
 }
 
@@ -4603,7 +4916,7 @@ static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_mod_assignment);
 }
 
 static type_t* compute_bin_operator_shl_assig_type(AST expr, AST lhs, AST rhs,
@@ -4620,7 +4933,7 @@ static type_t* compute_bin_operator_shl_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_shl_assignment);
 }
 
 static type_t* compute_bin_operator_shr_assig_type(AST expr, AST lhs, AST rhs,
@@ -4637,7 +4950,7 @@ static type_t* compute_bin_operator_shr_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_shr_assignment);
 }
 
 static type_t* compute_bin_operator_bitwise_and_assig_type(AST expr, AST lhs, AST rhs,
@@ -4647,14 +4960,14 @@ static type_t* compute_bin_operator_bitwise_and_assig_type(AST expr, AST lhs, AS
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_AND_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_BITWISE_AND_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     if (val != NULL)
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_bitwise_and_assignment);
 }
 
 static type_t* compute_bin_operator_bitwise_or_assig_type(AST expr, AST lhs, AST rhs,
@@ -4664,14 +4977,14 @@ static type_t* compute_bin_operator_bitwise_or_assig_type(AST expr, AST lhs, AST
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_OR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_BITWISE_OR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     if (val != NULL)
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_bitwise_or_assignment);
 }
 
 static type_t* compute_bin_operator_bitwise_xor_assig_type(AST expr, AST lhs, AST rhs,
@@ -4681,14 +4994,14 @@ static type_t* compute_bin_operator_bitwise_xor_assig_type(AST expr, AST lhs, AS
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_XOR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_BITWISE_XOR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     if (val != NULL)
         *val = NULL;
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_bitwise_xor_assignment);
 }
 
 static type_t* compute_bin_operator_mul_assig_type(AST expr, AST lhs, AST rhs,
@@ -4705,7 +5018,7 @@ static type_t* compute_bin_operator_mul_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_mul_assignment);
 }
 
 static type_t* compute_bin_operator_assig_type(AST expr, AST lhs, AST rhs,
@@ -4739,7 +5052,7 @@ static type_t* compute_bin_operator_div_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_div_assignment);
 }
 
 static type_t* compute_bin_operator_add_assig_type(AST expr, AST lhs, AST rhs,
@@ -4756,7 +5069,7 @@ static type_t* compute_bin_operator_add_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_add_assignment);
 }
 
 static type_t* compute_bin_operator_sub_assig_type(AST expr, AST lhs, AST rhs,
@@ -4773,7 +5086,7 @@ static type_t* compute_bin_operator_sub_assig_type(AST expr, AST lhs, AST rhs,
         *val = NULL;
 
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
-            operation_tree, decl_context);
+            operation_tree, decl_context, nodecl_make_sub_assignment);
 }
 
 char operator_unary_derref_pred(type_t* op_type)
@@ -4841,6 +5154,11 @@ static type_t* compute_operator_derreference_type(AST expression,
         else
             return get_error_type();
 
+        nodecl_output_t nodecl_output = nodecl_make_derreference(
+                expression_get_nodecl(op),
+                expression_get_type(expression));
+        expression_set_nodecl(expression, nodecl_output);
+
         return expression_get_type(expression);
     }
 
@@ -4848,7 +5166,7 @@ static type_t* compute_operator_derreference_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_MUL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -4865,6 +5183,26 @@ static type_t* compute_operator_derreference_type(AST expression,
 
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            nodecl_output_t nodecl_output = nodecl_make_derreference(
+                    expression_get_nodecl(op),
+                    expression_get_type(expression));
+            expression_set_nodecl(expression, nodecl_output);
+        }
+        else
+        {
+            nodecl_output_t nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator),
+                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    result);
+            expression_set_nodecl(expression, nodecl_output);
+        }
+    }
 
     entry_list_free(builtins);
 
@@ -4950,6 +5288,11 @@ static type_t* compute_operator_plus_type(AST expression,
         else
             return get_error_type();
 
+        nodecl_output_t nodecl_output = nodecl_make_plus(
+                expression_get_nodecl(op),
+                expression_get_type(expression));
+        expression_set_nodecl(expression, nodecl_output);
+
         return expression_get_type(expression);
     }
 
@@ -4983,6 +5326,26 @@ static type_t* compute_operator_plus_type(AST expression,
             && expression_is_constant(op))
     {
         *val = const_value_plus(expression_get_constant(op));
+    }
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            nodecl_output_t nodecl_output = nodecl_make_plus(
+                    expression_get_nodecl(op),
+                    expression_get_type(expression));
+            expression_set_nodecl(expression, nodecl_output);
+        }
+        else
+        {
+            nodecl_output_t nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator),
+                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    result);
+            expression_set_nodecl(expression, nodecl_output);
+        }
     }
 
     return result;
@@ -5053,6 +5416,11 @@ static type_t* compute_operator_minus_type(AST expression,
         else
             return get_error_type();
 
+        nodecl_output_t nodecl_output = nodecl_make_neg(
+                expression_get_nodecl(op),
+                expression_get_type(expression));
+        expression_set_nodecl(expression, nodecl_output);
+
         return expression_get_type(expression);
     }
 
@@ -5088,6 +5456,26 @@ static type_t* compute_operator_minus_type(AST expression,
             && expression_is_constant(op))
     {
         *val = const_value_neg(expression_get_constant(op));
+    }
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            nodecl_output_t nodecl_output = nodecl_make_neg(
+                    expression_get_nodecl(op),
+                    expression_get_type(expression));
+            expression_set_nodecl(expression, nodecl_output);
+        }
+        else
+        {
+            nodecl_output_t nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator),
+                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    result);
+            expression_set_nodecl(expression, nodecl_output);
+        }
     }
 
     return result;
@@ -5152,6 +5540,11 @@ static type_t* compute_operator_complement_type(AST expression,
         else
             return get_error_type();
 
+        nodecl_output_t nodecl_output = nodecl_make_complement(
+                expression_get_nodecl(op),
+                expression_get_type(expression));
+        expression_set_nodecl(expression, nodecl_output);
+
         return expression_get_type(expression);
     }
 
@@ -5187,6 +5580,26 @@ static type_t* compute_operator_complement_type(AST expression,
             && expression_is_constant(op))
     {
         *val = const_value_bitnot(expression_get_constant(op));
+    }
+
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            nodecl_output_t nodecl_output = nodecl_make_complement(
+                    expression_get_nodecl(op),
+                    expression_get_type(expression));
+            expression_set_nodecl(expression, nodecl_output);
+        }
+        else
+        {
+            nodecl_output_t nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator),
+                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    result);
+            expression_set_nodecl(expression, nodecl_output);
+        }
     }
 
     return result;
@@ -5265,6 +5678,11 @@ static type_t* compute_operator_not_type(AST expression,
         else 
             return get_error_type();
 
+        nodecl_output_t nodecl_output = nodecl_make_not(
+                expression_get_nodecl(op),
+                expression_get_type(expression));
+        expression_set_nodecl(expression, nodecl_output);
+
         return expression_get_type(expression);
     }
 
@@ -5302,14 +5720,33 @@ static type_t* compute_operator_not_type(AST expression,
         *val = const_value_not(expression_get_constant(op));
     }
 
+    if (result != NULL
+            && selected_operator != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            nodecl_output_t nodecl_output = nodecl_make_not(
+                    expression_get_nodecl(op),
+                    expression_get_type(expression));
+            expression_set_nodecl(expression, nodecl_output);
+        }
+        else
+        {
+            nodecl_output_t nodecl_output = nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator),
+                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    result);
+            expression_set_nodecl(expression, nodecl_output);
+        }
+    }
+
     return result;
 }
 
 static type_t* compute_operator_reference_type(AST expression, 
         AST op, decl_context_t decl_context, const_value_t** val)
 {
-    // This is an easy operator since it can't be overloaded
-    // but requires checking the syntax in C++
+    // FIXME - This operator can be overloaded
     type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
@@ -5394,13 +5831,18 @@ static type_t* compute_operator_reference_type(AST expression,
     expression_set_type(expression, ptr_type);
     expression_set_is_lvalue(expression, 0);
 
+    nodecl_output_t nodecl_output = nodecl_make_reference(
+            expression_get_nodecl(op),
+            ptr_type);
+    expression_set_nodecl(expression, nodecl_output);
+
     return ptr_type;
 }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
 {
     [AST_ADD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_add_type),
-    [AST_MULT]               = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_type),
+    [AST_MUL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_type),
     [AST_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
     [AST_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
     [AST_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
@@ -5427,9 +5869,9 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_SUB_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
     [AST_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_assig_type),
     [AST_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
-    [AST_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
-    [AST_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
-    [AST_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
+    [AST_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
+    [AST_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
+    [AST_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
     [AST_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
 };
 
@@ -8860,7 +9302,8 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
 static char check_parenthesized_initializer(AST initializer_list, decl_context_t decl_context, type_t* declared_type);
 
-static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context)
+static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
+        const char* cast_kind)
 {
     if (!check_type_id_tree(type_id, decl_context))
     {
@@ -8958,7 +9401,8 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
             nodecl_output_t nodecl_output = nodecl_make_cast(
                     expression_get_nodecl(casted_expression), 
-                    declarator_type);
+                    declarator_type,
+                    cast_kind);
             expression_set_nodecl(expr, nodecl_output);
         }
     }
@@ -9531,7 +9975,8 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
 static void check_postoperator_user_defined(AST expr, AST operator, 
         AST postoperated_expr, 
         decl_context_t decl_context,
-        scope_entry_list_t* builtins)
+        scope_entry_list_t* builtins,
+        nodecl_output_t (*nodecl_fun)(nodecl_output_t, type_t*))
 {
     type_t* incremented_type = expression_get_type(postoperated_expr);
 
@@ -9603,6 +10048,31 @@ static void check_postoperator_user_defined(AST expr, AST operator,
             ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
+
+            expression_set_nodecl(
+                    postoperated_expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(conversors[0]),
+                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(postoperated_expr)),
+                        actual_type_of_conversor(conversors[0])));
+        }
+
+        if (overloaded_call->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_fun(
+                        expression_get_nodecl(postoperated_expr),
+                        function_type_get_return_type(overloaded_call->type_information)));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(overloaded_call),
+                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(postoperated_expr)),
+                        function_type_get_return_type(overloaded_call->type_information)));
         }
         return;
     }
@@ -9620,7 +10090,8 @@ static void check_postoperator_user_defined(AST expr, AST operator,
 static void check_preoperator_user_defined(AST expr, AST operator, 
         AST preoperated_expr,
         decl_context_t decl_context,
-        scope_entry_list_t* builtins)
+        scope_entry_list_t* builtins,
+        nodecl_output_t (*nodecl_fun)(nodecl_output_t, type_t*))
 {
     type_t* incremented_type = expression_get_type(preoperated_expr);
 
@@ -9693,6 +10164,31 @@ static void check_preoperator_user_defined(AST expr, AST operator,
             ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
+
+            expression_set_nodecl(
+                    preoperated_expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(conversors[0]),
+                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(preoperated_expr)),
+                        actual_type_of_conversor(conversors[0])));
+        }
+
+        if (overloaded_call->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_fun(
+                        expression_get_nodecl(preoperated_expr),
+                        function_type_get_return_type(overloaded_call->type_information)));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expr,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(overloaded_call),
+                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(preoperated_expr)),
+                        function_type_get_return_type(overloaded_call->type_information)));
         }
         return;
     }
@@ -9736,7 +10232,8 @@ static type_t* postoperator_result(type_t** lhs,
 }
 
 static void check_postoperator(AST expr, AST operator, AST postoperated_expr, 
-        decl_context_t decl_context, char is_decrement)
+        decl_context_t decl_context, char is_decrement,
+        nodecl_output_t (*nodecl_fun)(nodecl_output_t, type_t*))
 {
     check_expression_impl_(postoperated_expr, decl_context);
     if (expression_is_error(postoperated_expr))
@@ -9789,6 +10286,11 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
 
             expression_set_type(expr, lvalue_ref(get_unqualified_type(operated_type)));
             expression_set_is_lvalue(expr, 0);
+
+            expression_set_nodecl(expr,
+                    nodecl_fun(expression_get_nodecl(postoperated_expr),
+                        expression_get_type(expr)));
+
             return;
         }
         else
@@ -9823,7 +10325,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
     
     // Only C++ after this point
     check_postoperator_user_defined(expr, operator, 
-            postoperated_expr, decl_context, builtins);
+            postoperated_expr, decl_context, builtins, nodecl_fun);
 
     entry_list_free(builtins);
 
@@ -9854,7 +10356,7 @@ static type_t* preoperator_result(type_t** lhs)
 
 static void check_preoperator(AST expr, AST operator, 
         AST preoperated_expr, decl_context_t decl_context,
-        char is_decrement)
+        char is_decrement, nodecl_output_t (*nodecl_fun)(nodecl_output_t, type_t*))
 {
     check_expression_impl_(preoperated_expr, decl_context);
     if (expression_is_error(preoperated_expr))
@@ -9896,6 +10398,11 @@ static void check_preoperator(AST expr, AST operator,
 
         expression_set_type(expr, operated_type);
         expression_set_is_lvalue(expr, 1);
+
+        expression_set_nodecl(expr,
+                nodecl_fun(expression_get_nodecl(preoperated_expr),
+                    expression_get_type(expr)));
+
         return;
     }
     else
@@ -9930,7 +10437,7 @@ static void check_preoperator(AST expr, AST operator,
 
     // Only C++ after this point
     check_preoperator_user_defined(expr, operator, 
-            preoperated_expr, decl_context, builtins);
+            preoperated_expr, decl_context, builtins, nodecl_fun);
 
     entry_list_free(builtins);
 
@@ -9953,7 +10460,8 @@ static void check_postincrement(AST expr, decl_context_t decl_context)
     }
 
     check_postoperator(expr, operation_tree, 
-            postincremented_expr, decl_context, /* is_decr */ 0);
+            postincremented_expr, decl_context, /* is_decr */ 0, 
+            nodecl_make_postincrement);
 }
 
 static void check_postdecrement(AST expr, decl_context_t decl_context)
@@ -9972,7 +10480,8 @@ static void check_postdecrement(AST expr, decl_context_t decl_context)
     }
 
     check_postoperator(expr, operation_tree, 
-            postdecremented_expr, decl_context, /* is_decr */ 1);
+            postdecremented_expr, decl_context, /* is_decr */ 1, 
+            nodecl_make_postdecrement);
 }
 
 static void check_preincrement(AST expr, decl_context_t decl_context)
@@ -9991,7 +10500,7 @@ static void check_preincrement(AST expr, decl_context_t decl_context)
     }
 
     check_preoperator(expr, operation_tree, preincremented_expr, 
-            decl_context, /* is_decr */ 0);
+            decl_context, /* is_decr */ 0, nodecl_make_preincrement);
 }
 
 static void check_predecrement(AST expr, decl_context_t decl_context)
@@ -10010,7 +10519,7 @@ static void check_predecrement(AST expr, decl_context_t decl_context)
     }
 
     check_preoperator(expr, operation_tree, predecremented_expr, 
-            decl_context, /* is_decr */ 1);
+            decl_context, /* is_decr */ 1, nodecl_make_predecrement);
 }
 
 static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
@@ -11618,176 +12127,227 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
     AST sizeof_expression = ASTSon0(expr);
     check_expression_impl_(sizeof_expression, decl_context);
 
-    if (!expression_is_error(sizeof_expression))
+    if (expression_is_error(sizeof_expression))
     {
-        type_t* t = expression_get_type(sizeof_expression);
-
-        if (!CURRENT_CONFIGURATION->disable_sizeof)
-        {
-            if (!is_dependent_expr_type(t)
-                    && !type_is_runtime_sized(t))
-            {
-                CXX_LANGUAGE()
-                {
-                    if (is_named_class_type(t)
-                            && class_type_is_incomplete_independent(get_actual_class_type(t)))
-                    {
-                        scope_entry_t* symbol = named_type_get_symbol(t);
-                        instantiate_template_class(symbol, decl_context, 
-                                ASTFileName(sizeof_expression), ASTLine(sizeof_expression));
-                    }
-                }
-
-                if (is_incomplete_type(t))
-                {
-                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
-                            ast_location(sizeof_expression),
-                            print_type_str(t, decl_context));
-                }
-
-                char is_const_expr = 0;
-                _size_t type_size = 0;
-
-                switch (ASTType(expr))
-                {
-                    case AST_SIZEOF:
-                        {
-                            is_const_expr = 1;
-                            type_size = type_get_size(t);
-                            break;
-                        }
-                    case AST_GCC_ALIGNOF:
-                        {
-                            is_const_expr = 1;
-                            type_size = type_get_alignment(t);
-                            break;
-                        }
-                    default: 
-                        ;
-                }
-
-
-                if (is_const_expr)
-                {
-                    expression_set_constant(expr, 
-                            const_value_get(type_size, /*bytes*/ 8, /* sign*/ 0));
-                }
-
-                DEBUG_SIZEOF_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                            ast_location(expr),
-                            prettyprint_in_buffer(expr),
-                            type_size);
-                }
-            }
-            else if (is_dependent_expr_type(t))
-            {
-                expression_set_is_value_dependent(expr, 1);
-            }
-        }
-
-        expression_set_type(expr, get_size_t_type());
-        expression_set_is_lvalue(expr, 0);
+        expression_set_error(expr);
         return;
     }
 
-    expression_set_error(expr);
+    type_t* t = expression_get_type(sizeof_expression);
+
+    if (!CURRENT_CONFIGURATION->disable_sizeof)
+    {
+        if (!is_dependent_expr_type(t)
+                && !type_is_runtime_sized(t))
+        {
+            CXX_LANGUAGE()
+            {
+                if (is_named_class_type(t)
+                        && class_type_is_incomplete_independent(get_actual_class_type(t)))
+                {
+                    scope_entry_t* symbol = named_type_get_symbol(t);
+                    instantiate_template_class(symbol, decl_context, 
+                            ASTFileName(sizeof_expression), ASTLine(sizeof_expression));
+                }
+            }
+
+            if (is_incomplete_type(t))
+            {
+                running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                        ast_location(sizeof_expression),
+                        print_type_str(t, decl_context));
+            }
+
+            char is_const_expr = 0;
+            _size_t type_size = 0;
+
+            switch (ASTType(expr))
+            {
+                case AST_SIZEOF:
+                    {
+                        is_const_expr = 1;
+                        type_size = type_get_size(t);
+                        break;
+                    }
+                case AST_GCC_ALIGNOF:
+                    {
+                        is_const_expr = 1;
+                        type_size = type_get_alignment(t);
+                        break;
+                    }
+                default: 
+                    ;
+            }
+
+
+            if (is_const_expr)
+            {
+                expression_set_constant(expr, 
+                        const_value_get(type_size, /*bytes*/ 8, /* sign*/ 0));
+            }
+
+            DEBUG_SIZEOF_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
+        }
+        else if (is_dependent_expr_type(t))
+        {
+            expression_set_is_value_dependent(expr, 1);
+        }
+    }
+
+    expression_set_type(expr, get_size_t_type());
+    expression_set_is_lvalue(expr, 0);
+
+    switch (ASTType(expr))
+    {
+        case AST_SIZEOF:
+            {
+                expression_set_nodecl(expr,
+                        nodecl_make_sizeof(nodecl_make_type(t), get_size_t_type()));
+                break;
+            }
+        case AST_UPC_BLOCKSIZEOF:
+        case AST_UPC_ELEMSIZEOF:
+        case AST_UPC_LOCALSIZEOF:
+        case AST_GCC_ALIGNOF:
+            {
+                expression_set_nodecl(expr, 
+                        nodecl_make_builtin(
+                            nodecl_append_to_list(nodecl_null(), nodecl_make_type(t)),
+                            ast_print_node_type(ASTType(expr))));
+                break;
+            }
+        default:
+        {
+            internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(expr)));
+        }
+    }
 }
 
 static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
 {
     AST type_id = ASTSon0(expr);
-    if (check_type_id_tree(type_id, decl_context))
+
+    if (!check_type_id_tree(type_id, decl_context))
     {
-        if (!CURRENT_CONFIGURATION->disable_sizeof)
-        {
-            AST type_specifier = ASTSon0(type_id);
-            AST abstract_declarator = ASTSon1(type_id);
-
-            gather_decl_spec_t gather_info;
-            memset(&gather_info, 0, sizeof(gather_info));
-
-            nodecl_output_t dummy_nodecl_output = nodecl_null();
-            type_t* simple_type_info = NULL;
-            build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                    decl_context, &dummy_nodecl_output);
-
-            type_t* declarator_type = simple_type_info;
-            compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                    &declarator_type, decl_context, &dummy_nodecl_output);
-
-            if (!is_dependent_type(declarator_type)
-                    && !type_is_runtime_sized(declarator_type))
-            {
-                CXX_LANGUAGE()
-                {
-                    if (is_named_class_type(declarator_type)
-                            && class_type_is_incomplete_independent(get_actual_class_type(declarator_type)))
-                    {
-                        scope_entry_t* symbol = named_type_get_symbol(declarator_type);
-                        instantiate_template_class(symbol, decl_context, 
-                                ASTFileName(type_id), ASTLine(type_id));
-                    }
-                }
-
-                if (is_incomplete_type(declarator_type))
-                {
-                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
-                            ast_location(type_id),
-                            print_type_str(declarator_type, decl_context));
-                }
-
-                char is_const_expr = 0;
-                _size_t type_size = 0;
-
-                switch (ASTType(expr))
-                {
-                    case AST_SIZEOF_TYPEID:
-                        {
-                            is_const_expr = 1;
-                            type_size = type_get_size(declarator_type);
-                            break;
-                        }
-                    case AST_GCC_ALIGNOF_TYPE:
-                        {
-                            is_const_expr = 1;
-                            type_size = type_get_alignment(declarator_type);
-                            break;
-                        }
-                     default:
-                        ;
-                }
-
-                if (is_const_expr)
-                {
-                    expression_set_constant(
-                            expr, const_value_get(type_size, /* bytes */ 8, 0));
-                }
-
-                DEBUG_SIZEOF_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                            ast_location(expr),
-                            prettyprint_in_buffer(expr),
-                            type_size);
-                }
-            }
-            else if (is_dependent_type(declarator_type))
-            {
-                expression_set_is_value_dependent(expr, 1);
-            }
-
-            // Set the type of the type_id
-            expression_set_type(type_id, declarator_type);
-            expression_set_is_lvalue(type_id, 0);
-        }
-
-        expression_set_type(expr, get_size_t_type());
-        expression_set_is_lvalue(expr, 0);
+        expression_set_error(expr);
         return;
     }
-    expression_set_error(expr);
+
+    AST type_specifier = ASTSon0(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    nodecl_output_t dummy_nodecl_output = nodecl_null();
+    type_t* simple_type_info = NULL;
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+            decl_context, &dummy_nodecl_output);
+
+    type_t* declarator_type = simple_type_info;
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+            &declarator_type, decl_context, &dummy_nodecl_output);
+
+    if (!is_dependent_type(declarator_type)
+            && !type_is_runtime_sized(declarator_type))
+    {
+        CXX_LANGUAGE()
+        {
+            if (is_named_class_type(declarator_type)
+                    && class_type_is_incomplete_independent(get_actual_class_type(declarator_type)))
+            {
+                scope_entry_t* symbol = named_type_get_symbol(declarator_type);
+                instantiate_template_class(symbol, decl_context, 
+                        ASTFileName(type_id), ASTLine(type_id));
+            }
+        }
+
+        if (is_incomplete_type(declarator_type))
+        {
+            running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                    ast_location(type_id),
+                    print_type_str(declarator_type, decl_context));
+        }
+
+        if (!CURRENT_CONFIGURATION->disable_sizeof)
+        {
+            char is_const_expr = 0;
+            _size_t type_size = 0;
+
+            switch (ASTType(expr))
+            {
+                case AST_SIZEOF_TYPEID:
+                    {
+                        is_const_expr = 1;
+                        type_size = type_get_size(declarator_type);
+                        break;
+                    }
+                case AST_GCC_ALIGNOF_TYPE:
+                    {
+                        is_const_expr = 1;
+                        type_size = type_get_alignment(declarator_type);
+                        break;
+                    }
+                default:
+                    ;
+            }
+
+            if (is_const_expr)
+            {
+                expression_set_constant(
+                        expr, const_value_get(type_size, /* bytes */ 8, 0));
+            }
+
+            DEBUG_SIZEOF_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
+        }
+    }
+    else if (is_dependent_type(declarator_type))
+    {
+        expression_set_is_value_dependent(expr, 1);
+    }
+
+    // Set the type of the type_id
+    expression_set_type(type_id, declarator_type);
+    expression_set_is_lvalue(type_id, 0);
+
+    expression_set_type(expr, get_size_t_type());
+    expression_set_is_lvalue(expr, 0);
+
+    switch (ASTType(expr))
+    {
+        case AST_SIZEOF_TYPEID:
+        {
+            expression_set_nodecl(expr, nodecl_make_sizeof(nodecl_make_type(declarator_type), declarator_type));
+            break;
+        }
+        case AST_GCC_ALIGNOF_TYPE:
+        case AST_UPC_BLOCKSIZEOF_TYPEID:
+        case AST_UPC_ELEMSIZEOF_TYPEID:
+        case AST_UPC_LOCALSIZEOF_TYPEID:
+        {
+            expression_set_nodecl(expr, 
+                    nodecl_make_builtin(
+                        nodecl_append_to_list(nodecl_null(), nodecl_make_type(declarator_type)),
+                        ast_print_node_type(ASTType(expr))));
+            break;
+        }
+        default:
+        {
+            internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(expr)));
+        }
+    }
 }
 
 static void check_pseudo_destructor_call(AST expression, decl_context_t decl_context)

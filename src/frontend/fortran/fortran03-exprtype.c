@@ -82,7 +82,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_LOWER_OR_EQUAL_THAN, check_lower_or_equal_than) \
  STATEMENT_HANDLER(AST_LOWER_THAN, check_lower_than) \
  STATEMENT_HANDLER(AST_MINUS, check_minus_op) \
- STATEMENT_HANDLER(AST_MULT, check_mult_op) \
+ STATEMENT_HANDLER(AST_MUL, check_mult_op) \
  STATEMENT_HANDLER(AST_NEG, check_neg_op) \
  STATEMENT_HANDLER(AST_NOT, check_not_op) \
  STATEMENT_HANDLER(AST_OCTAL_LITERAL, check_octal_literal) \
@@ -1693,7 +1693,7 @@ static void check_power_op(AST expr, decl_context_t decl_context)
 
 static char* binary_expression_attr[] =
 {
-    [AST_MULT] = LANG_IS_MULT_OP,
+    [AST_MUL] = LANG_IS_MULT_OP,
     [AST_DIV] = LANG_IS_DIVISION_OP,
     [AST_MOD] = LANG_IS_MODULUS_OP,
     [AST_ADD] = LANG_IS_ADDITION_OP,
@@ -2480,7 +2480,7 @@ static operand_map_t operand_map[] =
     // Arithmetic binary
     HANDLER_MAP(AST_ADD, arithmetic_binary, const_bin_add, ".operator.+"),
     HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-"),
-    HANDLER_MAP(AST_MULT, arithmetic_binary, const_bin_mult, ".operator.*"),
+    HANDLER_MAP(AST_MUL, arithmetic_binary, const_bin_mult, ".operator.*"),
     HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./"),
     HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**"),
     // String concat
@@ -2676,7 +2676,7 @@ const char* operator_names[] =
     [AST_NEG] = "-",
     [AST_ADD] = "+",
     [AST_MINUS] = "-",
-    [AST_MULT] = "*",
+    [AST_MUL] = "*",
     [AST_DIV] = "/",
     [AST_POWER] = "**",
     [AST_CONCAT] = "//",

@@ -375,7 +375,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_MODULE_PROCEDURE_STATEMENT, module_procedure_statement_handler, NULL),
     NODE_HANDLER(AST_MODULE_PROGRAM_UNIT, module_program_unit_handler, NULL),
     NODE_HANDLER(AST_MODULE_STATEMENT, module_statement_handler, NULL),
-    NODE_HANDLER(AST_MULT, binary_operator_handler, "*"),
+    NODE_HANDLER(AST_MUL, binary_operator_handler, "*"),
     NODE_HANDLER(AST_NAMED_PAIR_SPEC, named_pair_spec_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_ITEM, namelist_item_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_STATEMENT, namelist_statement_handler, NULL),

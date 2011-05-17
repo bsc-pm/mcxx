@@ -31,7 +31,6 @@ statement-but-object-init: AST_EMPTY_STATEMENT()
           | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement)
           | c-cxx-only-statements
           | fortran-only-statements
-          | builtin
 
 builtin: AST_BUILTIN([components]any-seq-opt) text
 
@@ -83,9 +82,10 @@ expression : literal
            | AST_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
            | AST_PLUS([rhs]expression) type
            | AST_NEG([rhs]expression) type
-           | AST_MULT([lhs]expression, [rhs]expression) type
+           | AST_MUL([lhs]expression, [rhs]expression) type
            | AST_POWER([lsh]expression, [rhs]expression) type
            | AST_DIV([lhs]expression, [rhs]expression) type
+           | AST_MOD([lhs]expression, [rhs]expression) type
            | AST_ADD([lhs]expression, [rhs]expression) type
            | AST_MINUS([lhs]expression, [rhs]expression) type
            | AST_CONCAT([lhs]expression, [rhs]expression) type
@@ -107,10 +107,11 @@ expression : literal
            | AST_ASSIGNMENT([lhs] expression, [rhs] expression) type
            | AST_PARENTHESIZED_EXPRESSION([nest]expression) type
            | AST_DERREFERENCE([rhs]expression) type
-           | AST_CAST([rhs]expression) type
+           | AST_CAST([rhs]expression) type text
            | c-cxx-expressions
            | initializer-expr
            | object-init
+           | builtin
 
 initializer-expr : AST_INITIALIZER_BRACES([items]initializer-item-seq-opt) type
 
@@ -135,11 +136,12 @@ c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expr
                   | AST_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | AST_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | AST_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | AST_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | AST_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | AST_PREINCREMENT([rhs]expression) type
                   | AST_POSTINCREMENT([rhs]expression) type
                   | AST_PREDECREMENT([rhs]expression) type
                   | AST_POSTDECREMENT([rhs]expression) type
+                  | AST_SIZEOF([type]type) type

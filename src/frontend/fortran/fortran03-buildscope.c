@@ -2427,7 +2427,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context)
         for_each_element(data_stmt_value_list, it2)
         {
             AST data_stmt_value = ASTSon1(it2);
-            if (ASTType(data_stmt_value) == AST_MULT)
+            if (ASTType(data_stmt_value) == AST_MUL)
             {
                 // Do not try to check at the same time because the mult does
                 // not have to be valid
