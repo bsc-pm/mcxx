@@ -42,6 +42,7 @@ namespace TL
                 const TL::Symbol _ind_var_sym;
                 ObjectList<Symbol> _nonlocal_symbols;
                 std::stack<bool> _inside_array_subscript;
+
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint(AST_t a, void* data);
@@ -99,7 +100,8 @@ namespace TL
                         const ObjectList<IdExpression> simd_id_exp_list,
                         const TL::Symbol ind_var_sym = NULL)
                     : _ast(lang_construct.get_ast()), _sl(lang_construct.get_scope_link()),
-                    _replacement(_sl, simd_id_exp_list, ind_var_sym, nonlocal_symbols), _min_stmt_size(min_stmt_size), is_simdizable(false){}
+                    _replacement(_sl, simd_id_exp_list, ind_var_sym, nonlocal_symbols),
+                    _min_stmt_size(min_stmt_size), is_simdizable(false){}
         };
 
         class LIBHLT_CLASS LoopSIMDization : public SIMDization

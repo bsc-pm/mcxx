@@ -37,6 +37,59 @@ const char* ReplaceSIMDSrc::recursive_prettyprint(AST_t a, void* data)
             &ReplaceSIMDSrc::prettyprint_callback, data);
 }
 
+
+bool casting_needs_reinterpr_or_pack(TL::Type& casted_type, TL::Type& cast_type) 
+{
+    if (casted_type.is_float())
+    {
+        if (cast_type.is_float())
+            return false;
+        else
+            return true;
+    }
+    else if (casted_type.is_double())
+    {
+        if (cast_type.is_double())
+            return false;
+        else
+            return true;
+    }
+    else if (casted_type.is_signed_int()
+            || casted_type.is_unsigned_int())
+    {
+        if (cast_type.is_signed_int()
+                || cast_type.is_unsigned_int())
+            return false;
+        else
+            return true;
+    }
+    else if (casted_type.is_signed_short_int()
+            || casted_type.is_unsigned_short_int())
+    {
+        if (cast_type.is_signed_short_int()
+                || cast_type.is_unsigned_short_int())
+            return false;
+        else
+            return true;
+    }
+    else if (casted_type.is_signed_char()
+            || casted_type.is_unsigned_char()
+            || casted_type.is_char())
+    {
+        if (cast_type.is_signed_char()
+                || cast_type.is_unsigned_char()
+                || cast_type.is_char())
+            return false;
+        else
+            return true;
+    }
+    else
+    {
+        running_error("error: casting_needs_reinterpr_or_pack does not support this casting in HLT SIMD.\n");
+    }
+}
+
+
 const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
 {
     //Standar prettyprint_callback
@@ -191,6 +244,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                             << ")"
                                             ;
                                     }
+                                    //Common variable expansion
                                     else
                                     {
                                         result << BUILTIN_VE_NAME
@@ -206,23 +260,6 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         }
                     }
                 }
-                //Inside an array subscript
-                /*
-                else
-                {
-                    ObjectList<AST_t> id_expr_list = 
-                        ast.depth_subtrees(isVectorIndex(_this->_sl, _this->_ind_var_sym, _this->_nonlocal_symbols));
-
-                    if(!id_expr_list.empty())
-                    {
-                        _this->_inside_array_subscript.push(false);
-                        result << recursive_prettyprint(ast, data);
-                        _this->_inside_array_subscript.pop();
-
-                        return uniquestr(result.get_source().c_str());
-                    }
-                }
-                */
                 //Implicit Conversions
                 if (expr.is_binary_operation())
                 {
@@ -283,7 +320,45 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         return uniquestr(result.get_source().c_str());
                     }
                 }
+                //Explicit conversions
+                if(expr.is_casting())
+                {
+                    Expression casted_expr = expr.get_casted_expression();
+                    Type cast_type = expr.get_type();
+                    Type casted_expr_type = casted_expr.get_type();
 
+                    if (cast_type.is_valid())
+                    {
+                        if (casting_needs_reinterpr_or_pack(
+                                    casted_expr_type, cast_type))
+                        {
+                            result
+                                << BUILTIN_VC_NAME
+                                << "("
+                                << recursive_prettyprint(casted_expr.get_ast(), data)
+                                << ", "
+                                << "(("
+                                << cast_type.get_generic_vector_to().get_simple_declaration(
+                                        _this->_sl.get_scope(ast), "") 
+                                << ")"
+                                << recursive_prettyprint(casted_expr.get_ast(), data)
+                                << "))"
+                                ;
+                        }
+                        else
+                        {
+                            result
+                                << "(("
+                                << cast_type.get_generic_vector_to().get_simple_declaration(
+                                        _this->_sl.get_scope(ast), "")
+                                << ")"
+                                << recursive_prettyprint(casted_expr.get_ast(), data)
+                                << ")"
+                                ;
+                        }    
+                        return uniquestr(result.get_source().c_str());
+                    }
+                }
                 //__builtin_generic_function
                 if (expr.is_function_call())
                 {
@@ -304,7 +379,7 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     result << ")";
                     return uniquestr(result.get_source().c_str());
                 }
-                //Naïve Constants Evaluation: Waiting for Sara's optimizations
+                //Naïve Constants Evaluation: Waiting for Sara's optimizations :)
                 if (expr.is_constant())
                 {
                     bool valid_evaluation;
