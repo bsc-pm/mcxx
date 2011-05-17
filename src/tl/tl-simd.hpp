@@ -1,7 +1,6 @@
 #ifndef TL_SIMD_HPP
 #define TL_SIMD_HPP
 
-//#define BUILTIN_VL_NAME "__builtin_vector_loop"
 #define ATTR_GEN_VEC_NAME "generic_vector"
 #define GENERIC_DEVICE "generic"
 
@@ -34,9 +33,6 @@
 #define CONV_INT2UCHAR_SMP16 "__conv_int_to_uchar_smp16"
 #define CONV_INT2CHAR_SMP16 "__conv_int_to_char_smp16"
 #define CONV_INT2FLOAT_SMP16 "__conv_int_to_float_smp16"
-
-
-
 
 #define COMPILER_INDEX_W_VECTOR_SMP_16 "__compiler_vector_index"
 #define INDEX_W_VECTOR_SMP_16 "__vector_index"
