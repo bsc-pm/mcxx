@@ -1,16 +1,21 @@
 nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
+          | builtin
 
 name : AST_SYMBOL() symbol
 type : AST_TYPE() type
 
 function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [internal_functions]function-code-opt)
-object-init : AST_OBJECT_INIT([initializer]expression-seq-opt) symbol
+object-init : AST_OBJECT_INIT() symbol
 
-statement : AST_EXPRESSION_STATEMENT([nest]expression)
+statement : statement-but-object-init
+          | object-init
+
+statement-but-object-init: AST_EMPTY_STATEMENT()
+          | AST_EXPRESSION_STATEMENT([nest]expression)
           | AST_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
-          | AST_DO_STATEMENT([condition]expression, [statement]statement)
+          | AST_DO_STATEMENT([statement]statement, [condition]expression)
           | AST_WHILE_STATEMENT([condition]expression, [statement]statement)
           | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement)
           | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt)
@@ -26,18 +31,24 @@ statement : AST_EXPRESSION_STATEMENT([nest]expression)
           | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement)
           | c-cxx-only-statements
           | fortran-only-statements
-          | object-init
+          | builtin
 
-loop-control: AST_LOOP_CONTROL([init]expression, [cond]expression, [next]expression)
+builtin: AST_BUILTIN([components]any-seq-opt) text
+
+any : statement-but-object-init
+    | expression
+    | type
+
+loop-control: AST_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
 pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line)
 pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt)
 pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt)
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
 
-c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq)
+c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
     | AST_ASM_DEFINITION([asm_code]string-literal, [first]asm-operand-seq-opt, [second]asm-operand-seq-opt, [third]asm-operand-seq-opt)
-catch-handler : AST_CATCH_HANDLER([type]name, [statement]statement)
+catch-handler : AST_CATCH_HANDLER([type]type, [statement]statement)
 asm-operand: AST_GCC_ASM_OPERAND([identifier]string-literal-opt, [constraint]string-literal, [expression] expression-opt)
 
 # FIXME - Document these. Some of them could be simplified further
