@@ -440,7 +440,8 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
 
 
-    Source intel_builtins_src, scalar_functions_src, default_generic_functions_src, conversions_src, indexation_src;
+    Source scalar_functions_src, intel_builtins_src, default_specific_functions_src, 
+           conversions_src, indexation_src;
 
     scalar_functions_src
         << "extern int abs (int __x) __attribute__ ((__nothrow__));"
@@ -452,19 +453,6 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         << "extern double fabs (double __x) __attribute__ ((__nothrow__));"
         ;
 
-    default_generic_functions_src
-        << "static inline float __attribute__((generic_vector)) __fabsf_default (float __attribute__((generic_vector)) a)"
-        << "{"
-        <<      "return (float __attribute__((generic_vector))) (((int __attribute__((generic_vector)))a) &"
-        <<      "__builtin_vector_expansion(0x7FFFFFFF));"
-        << "}"
-
-        << "static inline double __attribute__((generic_vector)) __fabs_default (double __attribute__((generic_vector)) a)"
-        << "{"
-        <<      "return (double __attribute__((generic_vector))) (((long long int __attribute__((generic_vector)))a) &"
-        <<      "__builtin_vector_expansion(0x7FFFFFFFFFFFFFFFLL));"
-        << "}"
-        ;
 
     intel_builtins_src
     //SSE2
@@ -494,10 +482,53 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //SSSE3
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
     //SSE4.1
-        << "short int __attribute__((vector_size(16))) __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
+
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_roundps(float __attribute__((vector_size(16))), const int);"
+
+        << "double __attribute__((vector_size(16)))         __builtin_ia32_roundpd(double __attribute__((vector_size(16))), const int);"
         ;
 
-    conversions_src
+ 
+    default_specific_functions_src
+        << "static inline float __attribute__((vector_size(16))) _fabsf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return (float __attribute__((vector_size(16)))) (((int __attribute__((vector_size(16))))a)"
+        <<      "&"
+        <<      "((int __attribute__((vector_size(16)))) {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF}));"
+        << "}"
+
+        << "static inline float __attribute__((vector_size(16))) _floorf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundps(a, 0x01|0x00);"
+        << "}"
+
+        << "static inline float __attribute__((vector_size(16))) _ceilf_default_smp_16 (float __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundps(a, 0x02|0x00);"
+        << "}"
+
+
+        << "static inline double __attribute__((vector_size(16))) _fabs_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return (double __attribute__((vector_size(16)))) (((long long int __attribute__((vector_size(16))))a)"
+        <<      "&"
+        <<      "((long long int __attribute__((vector_size(16)))) {0x7FFFFFFFFFFFFFFFLL, 0x7FFFFFFFFFFFFFFFLL}));"
+        << "}"
+
+        << "static inline double __attribute__((vector_size(16))) _floor_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundpd(a, 0x01|0x00);"
+        << "}"
+
+        << "static inline double __attribute__((vector_size(16))) _ceil_default_smp_16 (double __attribute__((vector_size(16))) a)"
+        << "{"
+        <<      "return __builtin_ia32_roundpd(a, 0x02|0x00);"
+        << "}"
+        ;
+
+
+   conversions_src
         << "static inline char __attribute__((vector_size(16))) " << COMPILER_CONV_FLOAT2CHAR_SMP16 << "("
         <<      "float __attribute__((vector_size(16))) vf0,"
         <<      "float __attribute__((vector_size(16))) vf1," 
@@ -631,8 +662,8 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
     //Global parsing
     scalar_functions_src.parse_global(translation_unit, scope_link);
-    default_generic_functions_src.parse_global(translation_unit, scope_link);
     intel_builtins_src.parse_global(translation_unit, scope_link);
+    default_specific_functions_src.parse_global(translation_unit, scope_link);
     conversions_src.parse_global(translation_unit, scope_link);
     indexation_src.parse_global(translation_unit, scope_link);
 
@@ -646,22 +677,39 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 //    generic_functions.add_specific_definition(scope.get_symbol_from_name("_float_to_char_smp16"), TL::SIMD::DEFAULT, device_name, width, false, true, std::string("_float_to_char_smp16"));
 
     //Int
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("abs"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_pabsd128"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("abs"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_pabsd128"));
 
     //Float
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrtf"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_sqrtps"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("sqrtf"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_sqrtps"));
     //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrtf"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtps"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("__fabsf_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, device_name, width, false, true);
-
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabsf"), TL::SIMD::SIMD, device_name, width, false, true);
-
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("fabsf"), scope.get_symbol_from_name("_fabsf_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("floorf"), scope.get_symbol_from_name("_floorf_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("ceilf"), scope.get_symbol_from_name("_ceilf_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
 
     //Double
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("sqrt"), TL::SIMD::ARCH_DEFAULT, device_name, width, false, false, std::string("__builtin_ia32_sqrtpd"));
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("sqrt"), TL::SIMD::ARCH_DEFAULT, device_name, width, 
+            false, false, std::string("__builtin_ia32_sqrtpd"));
     //generic_functions.add_specific_definition(scope.get_symbol_from_name("rsqrt"), TL::SIMD::DEFAULT, device_name, width, false, std::string("__builtin_ia32_rsqrtpd"));
-    generic_functions.add_generic_function(scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("__fabs_default"));
-    generic_functions.add_specific_definition(scope.get_symbol_from_name("fabs"), TL::SIMD::SIMD, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("fabs"), scope.get_symbol_from_name("_fabs_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("floor"), scope.get_symbol_from_name("_floor_default_smp_16"),
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+    generic_functions.add_specific_definition(
+            scope.get_symbol_from_name("ceil"), scope.get_symbol_from_name("_ceil_default_smp_16"), 
+            TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)

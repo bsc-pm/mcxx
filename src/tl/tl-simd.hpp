@@ -93,19 +93,24 @@ namespace TL
             private:
                 const std::string _spec_func_name;
                 const specific_function_kind_t _spec_func_kind;
+                const std::string _device_name;
                 const int _width;
 
                 bool _needs_prettyprint;    //'Something' needs to be prettyprinted
                 bool _needs_definition;     //It needs definition
                 bool _needs_declaration;    //It needs declaration
 
+                Symbol _arch_default_symbol;
+
             public:
                 SpecificFunctionInfo(
                         const std::string& spec_func_name, 
                         const specific_function_kind_t spec_func_kind, 
+                        const std::string& device_name,
                         const int width, 
-                        const bool _needs_prettyprint,
-                        const bool _needs_def_decl);
+                        const bool needs_prettyprint,
+                        const bool needs_def_decl,
+                        const Symbol& arch_default_symbol);
 
                 std::string get_name() const;
                 int get_width() const;
@@ -159,12 +164,13 @@ namespace TL
                 std::string get_simd_func_name() const;
 
                 void add_specific_function_definition(
-                        const std::string scalar_func_name,
+                        const std::string& scalar_func_name,
                         const specific_function_kind_t func_kind,
                         const std::string& device_name, 
                         const int width,
                         const bool needs_prettyprint,
-                        const bool needs_def_decl);
+                        const bool needs_def_decl,
+                        const Symbol& arch_default_symbol);
 
                 Source get_all_pend_spec_func_def(ReplaceSrcGenericFunction& replace);
                 Source get_all_pend_spec_func_decl(ReplaceSrcGenericFunction& replace);
