@@ -2,6 +2,8 @@ nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
           | builtin
+          | pragma-construct
+          | pragma-directive
 
 name : AST_SYMBOL() symbol
 type : AST_TYPE() type
@@ -28,7 +30,7 @@ statement-but-object-init: AST_EMPTY_STATEMENT()
           | AST_GOTO_STATEMENT([label]name)
           | AST_RETURN_STATEMENT([value]expression))
           | pragma-directive
-          | AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement)
+          | pragma-construct
           | c-cxx-only-statements
           | fortran-only-statements
 
@@ -44,6 +46,10 @@ pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line)
 pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt)
 pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt)
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
+pragma-construct : AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]top-level-pragma)
+
+top-level-pragma: function-code
+                  | statement
 
 c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
 catch-handler : AST_CATCH_HANDLER([type]type, [statement]statement)

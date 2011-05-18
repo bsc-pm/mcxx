@@ -9288,12 +9288,15 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     nodecl_output_t nodecl_argument_list = nodecl_null();
     AST it;
-    for_each_element(arguments, it)
+    if (arguments != NULL)
     {
-        AST arg = ASTSon1(it);
+        for_each_element(arguments, it)
+        {
+            AST arg = ASTSon1(it);
 
-        nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, 
-                expression_get_nodecl(arg));
+            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, 
+                    expression_get_nodecl(arg));
+        }
     }
 
     nodecl_output_t nodecl_output = nodecl_make_function_call(
