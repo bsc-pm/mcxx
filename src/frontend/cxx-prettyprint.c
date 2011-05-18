@@ -343,7 +343,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, "+"),
     NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, "-"),
     NODE_HANDLER(AST_NOT, prefix_with_parameter_then_son_handler, "!"),
-    NODE_HANDLER(AST_COMPLEMENT, prefix_with_parameter_then_son_handler, "~"),
+    NODE_HANDLER(AST_BITWISE_NOT, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_SIZEOF, prefix_with_parameter_then_son_handler, "sizeof "),
     NODE_HANDLER(AST_SIZEOF_TYPEID, sizeof_typeid_handler, "sizeof"),
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),

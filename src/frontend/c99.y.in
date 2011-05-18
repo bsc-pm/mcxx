@@ -2191,7 +2191,7 @@ unary_operator : '*'
 }
 | '~'
 {
-	$$ = AST_COMPLEMENT;
+	$$ = AST_BITWISE_NOT;
 }
 ;
 

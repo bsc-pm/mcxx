@@ -648,7 +648,7 @@ static char* unary_expression_attr[] =
     [AST_PLUS]       = LANG_IS_PLUS_OP,
     [AST_NEG]        = LANG_IS_NEGATE_OP,
     [AST_NOT]        = LANG_IS_NOT_OP,
-    [AST_COMPLEMENT] = LANG_IS_COMPLEMENT_OP
+    [AST_BITWISE_NOT] = LANG_IS_COMPLEMENT_OP
 };
 
 static char* binary_expression_attr[] =
@@ -1172,7 +1172,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_PLUS :
         case AST_NEG :
         case AST_NOT :
-        case AST_COMPLEMENT :
+        case AST_BITWISE_NOT :
             {
                 const_value_t* val = NULL;
                 check_unary_expression(expression, decl_context, &val);
@@ -1330,6 +1330,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 {
                     expression_set_error(expression);
                 }
+                expression_set_nodecl(expression,
+                        nodecl_make_throw_expression(expression_get_nodecl(ASTSon0(expression)), 
+                            get_throw_expr_type()));
                 break;
             }
         case AST_COMMA :
@@ -5540,7 +5543,7 @@ static type_t* compute_operator_complement_type(AST expression,
         else
             return get_error_type();
 
-        nodecl_output_t nodecl_output = nodecl_make_complement(
+        nodecl_output_t nodecl_output = nodecl_make_bitwise_not(
                 expression_get_nodecl(op),
                 expression_get_type(expression));
         expression_set_nodecl(expression, nodecl_output);
@@ -5587,7 +5590,7 @@ static type_t* compute_operator_complement_type(AST expression,
     {
         if (selected_operator->entity_specs.is_builtin)
         {
-            nodecl_output_t nodecl_output = nodecl_make_complement(
+            nodecl_output_t nodecl_output = nodecl_make_bitwise_not(
                     expression_get_nodecl(op),
                     expression_get_type(expression));
             expression_set_nodecl(expression, nodecl_output);
@@ -5882,7 +5885,7 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [AST_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
     [AST_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
     [AST_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
-    [AST_COMPLEMENT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
+    [AST_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
 static type_t* get_binary_op_type(AST expr, decl_context_t decl_context, const_value_t** val)
@@ -8627,7 +8630,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         }
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: called entity '%s' is not valid\n", 
+            fprintf(stderr, "%s: warning: entity '%s' cannot be called\n", 
                     ast_location(called_expression), 
                     prettyprint_in_buffer(called_expression));
         }
@@ -9471,9 +9474,18 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
                 &selected_operator);
         leave_test_expression();
 
-        // We will fall-through if no overload exists
         if (!is_error_type(computed_type))
+        {
+            ERROR_CONDITION(selected_operator == NULL, "Invalid operator", 0);
+            expression_set_nodecl(
+                    expression,
+                    nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator),
+                        nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
+                        function_type_get_return_type(selected_operator->type_information)));
             return;
+        }
+        // We will fall-through if no overload exists
     }
 
     // Fall-through if no overload exists for comma
@@ -9484,6 +9496,11 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
     {
         expression_set_constant(expression, expression_get_constant(rhs));
     }
+
+    expression_set_nodecl(expression,
+            nodecl_make_comma(expression_get_nodecl(lhs),
+                expression_get_nodecl(rhs),
+                expression_get_type(rhs)));
 }
 
 

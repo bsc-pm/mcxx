@@ -1009,7 +1009,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
         case AST_PLUS :
         case AST_NOT :
         case AST_NEG :
-        case AST_COMPLEMENT :
+        case AST_BITWISE_NOT :
             {
                 AST left_operand = ASTSon0(left_tree);
                 AST right_operand = ASTSon0(right_tree);

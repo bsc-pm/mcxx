@@ -2854,6 +2854,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             {
                 if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
                 {
+                    expression_clear_computed_info(ast_get_ambiguity(ambig_expression, i));
                     check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
                 }
 
@@ -3009,6 +3010,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             AST current_condition = ast_get_ambiguity(a, i);
             if (ASTSon0(current_condition) == NULL)
             {
+                expression_clear_computed_info(ASTSon2(current_condition));
                 current_check = check_expression(ASTSon2(current_condition), decl_context);
             }
         }

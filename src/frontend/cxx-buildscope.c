@@ -8947,7 +8947,7 @@ const char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_UNARY_NEG;
         case AST_NOT :
             return STR_OPERATOR_LOGIC_NOT;
-        case AST_COMPLEMENT :
+        case AST_BITWISE_NOT :
             return STR_OPERATOR_BIT_NOT;
         case AST_ASSIGNMENT :
             return STR_OPERATOR_ASSIGNMENT;

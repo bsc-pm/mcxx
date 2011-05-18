@@ -98,7 +98,7 @@ expression : literal
            | AST_NOT([rhs]expression) type
            | AST_LOGICAL_AND([lhs] expression, [rhs] expression) type
            | AST_LOGICAL_OR([lhs] expression, [rhs] expression) type
-           | AST_COMPLEMENT([rhs]expression) type
+           | AST_BITWISE_NOT([rhs]expression) type
            | AST_BITWISE_AND([lhs] expression, [rhs] expression) type
            | AST_BITWISE_OR([lhs] expression, [rhs] expression) type
            | AST_BITWISE_XOR([lhs] expression, [rhs] expression) type
@@ -127,6 +127,7 @@ subscript : expression
 
 c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
                   | AST_REFERENCE([rhs]expression) type
+                  | AST_COMMA([rhs]expression, [lhs]expression) type
                   | AST_THROW_EXPRESSION([rhs]expression) type
                   | AST_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type
                   | AST_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
