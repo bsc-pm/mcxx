@@ -5201,7 +5201,7 @@ static type_t* compute_operator_derreference_type(AST expression,
         {
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    nodecl_make_list_1(expression_get_nodecl(op)),
                     result);
             expression_set_nodecl(expression, nodecl_output);
         }
@@ -5345,7 +5345,7 @@ static type_t* compute_operator_plus_type(AST expression,
         {
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    nodecl_make_list_1(expression_get_nodecl(op)),
                     result);
             expression_set_nodecl(expression, nodecl_output);
         }
@@ -5475,7 +5475,7 @@ static type_t* compute_operator_minus_type(AST expression,
         {
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    nodecl_make_list_1(expression_get_nodecl(op)),
                     result);
             expression_set_nodecl(expression, nodecl_output);
         }
@@ -5599,7 +5599,7 @@ static type_t* compute_operator_complement_type(AST expression,
         {
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    nodecl_make_list_1(expression_get_nodecl(op)),
                     result);
             expression_set_nodecl(expression, nodecl_output);
         }
@@ -5737,7 +5737,7 @@ static type_t* compute_operator_not_type(AST expression,
         {
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(op)),
+                    nodecl_make_list_1(expression_get_nodecl(op)),
                     result);
             expression_set_nodecl(expression, nodecl_output);
         }
@@ -6533,7 +6533,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
                 subscript_expr_nodecl = nodecl_make_function_call(
                         nodecl_make_symbol(conversors[1]),
-                        nodecl_append_to_list(nodecl_null(), subscript_expr_nodecl),
+                        nodecl_make_list_1(subscript_expr_nodecl),
                         actual_type_of_conversor(conversors[1]));
 
             }
@@ -7092,7 +7092,7 @@ static void check_conditional_expression_impl(AST expression,
 
                     nodecl_conditional[k] = nodecl_make_function_call(
                             nodecl_make_symbol(conversors[k]),
-                            nodecl_append_to_list(nodecl_null(), nodecl_conditional[k]),
+                            nodecl_make_list_1(nodecl_conditional[k]),
                             actual_type_of_conversor(conversors[k])
                             );
                 }
@@ -7985,7 +7985,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 
                         nodecl_output_t nodecl_output = nodecl_make_function_call(
                                 nodecl_make_symbol(conversors[k]),
-                                nodecl_append_to_list(nodecl_null(), expression_get_nodecl(expr)),
+                                nodecl_make_list_1(expression_get_nodecl(expr)),
                                 actual_type_of_conversor(conversors[k]));
                         expression_set_nodecl(expression, nodecl_output);
                     }
@@ -9666,7 +9666,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
         nodecl_output_t nodecl_output = nodecl_make_function_call(
                 nodecl_make_symbol(selected_operator_arrow),
-                nodecl_append_to_list(nodecl_null(), expression_get_nodecl(class_expr)),
+                nodecl_make_list_1(expression_get_nodecl(class_expr)),
                 t);
         expression_set_nodecl(class_expr, nodecl_output);
     }
@@ -10070,7 +10070,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
                     postoperated_expr,
                     nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0]),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(postoperated_expr)),
+                        nodecl_make_list_1(expression_get_nodecl(postoperated_expr)),
                         actual_type_of_conversor(conversors[0])));
         }
 
@@ -10088,7 +10088,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
                     expr,
                     nodecl_make_function_call(
                         nodecl_make_symbol(overloaded_call),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(postoperated_expr)),
+                        nodecl_make_list_1(expression_get_nodecl(postoperated_expr)),
                         function_type_get_return_type(overloaded_call->type_information)));
         }
         return;
@@ -10186,7 +10186,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
                     preoperated_expr,
                     nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0]),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(preoperated_expr)),
+                        nodecl_make_list_1(expression_get_nodecl(preoperated_expr)),
                         actual_type_of_conversor(conversors[0])));
         }
 
@@ -10204,7 +10204,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
                     expr,
                     nodecl_make_function_call(
                         nodecl_make_symbol(overloaded_call),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(preoperated_expr)),
+                        nodecl_make_list_1(expression_get_nodecl(preoperated_expr)),
                         function_type_get_return_type(overloaded_call->type_information)));
         }
         return;
@@ -11478,7 +11478,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                     expression,
                     nodecl_make_function_call(
                         expression_get_nodecl(rhs),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(lhs)),
+                        nodecl_make_list_1(expression_get_nodecl(lhs)),
                         function_type_get_return_type(selected_operator->type_information)));
         }
 
@@ -11656,7 +11656,7 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
 
             nodecl_output_t nodecl_output = nodecl_make_function_call(
                     nodecl_make_symbol(conversor),
-                    nodecl_append_to_list(nodecl_null(), expression_get_nodecl(single_initializer_expr)),
+                    nodecl_make_list_1(expression_get_nodecl(single_initializer_expr)),
                     actual_type_of_conversor(conversor));
             expression_set_nodecl(single_initializer_expr, nodecl_output);
         }
@@ -11704,7 +11704,7 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
 
                 nodecl_output_t nodecl_output = nodecl_make_function_call(
                         nodecl_make_symbol(conversors[k]),
-                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(initializer)),
+                        nodecl_make_list_1(expression_get_nodecl(initializer)),
                         actual_type_of_conversor(conversors[k]));
                 expression_set_nodecl(initializer, nodecl_output);
             }
@@ -12322,7 +12322,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
             {
                 expression_set_nodecl(expr, 
                         nodecl_make_builtin(
-                            nodecl_append_to_list(nodecl_null(), nodecl_make_type(t)),
+                            nodecl_make_list_1(nodecl_make_type(t)),
                             ast_print_node_type(ASTType(expr))));
                 break;
             }
@@ -12443,7 +12443,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
         {
             expression_set_nodecl(expr, 
                     nodecl_make_builtin(
-                        nodecl_append_to_list(nodecl_null(), nodecl_make_type(declarator_type)),
+                        nodecl_make_list_1(nodecl_make_type(declarator_type)),
                         ast_print_node_type(ASTType(expr))));
             break;
         }

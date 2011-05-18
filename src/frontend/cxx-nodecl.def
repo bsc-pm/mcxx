@@ -46,9 +46,7 @@ pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
 
 c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
-    | AST_ASM_DEFINITION([asm_code]string-literal, [first]asm-operand-seq-opt, [second]asm-operand-seq-opt, [third]asm-operand-seq-opt)
 catch-handler : AST_CATCH_HANDLER([type]type, [statement]statement)
-asm-operand: AST_GCC_ASM_OPERAND([identifier]string-literal-opt, [constraint]string-literal, [expression] expression-opt)
 
 # FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : AST_ALLOCATE_STATEMENT()

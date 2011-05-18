@@ -406,7 +406,9 @@ def generate_routines_header(rule_map):
    print "nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2);"
    print ""
    print "// Creates a list from two elements"
-   print "nodecl_output_t nodecl_make_list_2(nodecl_output_t element0, nodecl_output_t element1);"
+   for i in range(1, 7):
+        params = map(lambda x : "nodecl_output_t element%d" % (x) , range(0, i))
+        print "nodecl_output_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
    print ""
    classes = {}
    for rule_name in rule_map:
@@ -488,13 +490,19 @@ nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t elem
         return result;
     }
 }
-nodecl_output_t nodecl_make_list_2(nodecl_output_t element0, nodecl_output_t element1)
+nodecl_output_t nodecl_make_list_1(nodecl_output_t element0)
 {
-    return nodecl_append_to_list(
-            nodecl_append_to_list(nodecl_null(), element0), 
-            element1);
+    return nodecl_append_to_list(nodecl_null(), element0);
 }
 """
+   for i in range(2, 7):
+        params = map(lambda x : "nodecl_output_t element%d" % (x) , range(0, i))
+        args = map(lambda x : "element%d" % (x) , range(0, i))
+        print "nodecl_output_t nodecl_make_list_%d(%s)" % (i, string.join(params, ", "))
+        print "{"
+        print "  return nodecl_append_to_list(nodecl_make_list_%d(%s), %s);" % (i-1, string.join(args[:-1], ", "), args[-1])
+        print "}"
+
    classes = {}
    for rule_name in rule_map:
        rule_rhs = rule_map[rule_name]

@@ -581,10 +581,22 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 break;
             }
         case AST_EMPTY_DECL :
-        case AST_ASM_DEFINITION :
-        case AST_UNKNOWN_PRAGMA :
             {
                 // Do nothing
+                break;
+            }
+        case AST_ASM_DEFINITION :
+            {
+                internal_error("Not yet implemented in nodecl", 0);
+                break;
+            }
+        case AST_UNKNOWN_PRAGMA :
+            {
+                *nodecl_output = 
+                    nodecl_make_list_1(
+                            nodecl_make_builtin(
+                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
+                                "unknown-pragma"));
                 break;
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
@@ -598,6 +610,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 break;
             }
             // GCC Extensions
+            // FIXME - How to get this back again? :)
         case AST_GCC_EXTENSION : // __extension__
             {
                 build_scope_declaration(ASTSon0(a), decl_context, nodecl_output);
@@ -619,10 +632,30 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 break;
             }
         case AST_PP_COMMENT :
+            {
+                *nodecl_output = 
+                    nodecl_make_list_1(
+                            nodecl_make_builtin(
+                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
+                                "pp-comment"));
+                break;
+            }
         case AST_PP_TOKEN :
+            {
+                *nodecl_output = 
+                    nodecl_make_list_1(
+                            nodecl_make_builtin(
+                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
+                                "pp-token"));
+                break;
+            }
         case AST_VERBATIM :
             {
-                // Ignore this, it is a prettyprinted comment or token
+                *nodecl_output = 
+                    nodecl_make_list_1(
+                            nodecl_make_builtin(
+                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
+                                "verbatim"));
                 break;
             }
         default :
@@ -678,10 +711,12 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                         nodecl_constraint = nodecl_make_string_literal(get_void_type(), ASTText(constraint));
                     }
 
-                    nodecl_output_t nodecl_asm_param = nodecl_make_gcc_asm_operand(
-                            nodecl_identifier,
-                            nodecl_constraint,
-                            expression_get_nodecl(expression));
+                    nodecl_output_t nodecl_asm_param = nodecl_make_builtin(
+                            nodecl_make_list_3(
+                                nodecl_identifier,
+                                nodecl_constraint,
+                                expression_get_nodecl(expression)),
+                            "gcc-asm-operand");
 
                     nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
                             nodecl_asm_param);
@@ -695,11 +730,13 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
         }
     }
 
-    *nodecl_output = nodecl_make_asm_definition(
-            nodecl_make_string_literal(get_void_type(), ASTText(ASTSon0(asm_parms))),
-            nodecl_asm_params[0],
-            nodecl_asm_params[1],
-            nodecl_asm_params[2]);
+    *nodecl_output = nodecl_make_builtin(
+            nodecl_make_list_4(
+                nodecl_make_string_literal(get_void_type(), ASTText(ASTSon0(asm_parms))),
+                nodecl_asm_params[0],
+                nodecl_asm_params[1],
+                nodecl_asm_params[2]),
+            "gcc-asm-definition");
 }
 
 // It simply disambiguates
@@ -7741,10 +7778,10 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Create nodecl
     nodecl_output_t nodecl_function_def = nodecl_make_function_code(function_symbol_nodecl, 
-                    nodecl_append_to_list(nodecl_null(), body_nodecl), 
+                    nodecl_make_list_1(body_nodecl), 
                     /* internal_functions */ nodecl_null());
 
-    *nodecl_output = nodecl_append_to_list(nodecl_null(), nodecl_function_def);
+    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
 
     return entry;
 }
@@ -7777,7 +7814,8 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 build_scope_default_or_delete_member_function_definition(inner_decl_context, a, current_access, class_info, nodecl_output);
                 break;
             }
-        case AST_GCC_EXTENSION :
+            // FIXME - How to get this back again? :)
+        case AST_GCC_EXTENSION : // __extension__
             {
                 build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info, nodecl_output);
                 break;
@@ -7815,6 +7853,11 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 break;
             }
         case AST_UNKNOWN_PRAGMA :
+            {
+                // What can we do here?
+                // FIXME!
+                break;
+            }
         case AST_VERBATIM :
             {
                 break;
@@ -9275,7 +9318,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
                             "I expected a conversion function!", 0);
                     *nodecl_output = nodecl_make_function_call(nodecl_make_symbol(conversor),
-                            nodecl_append_to_list(nodecl_null(), *nodecl_output),
+                            nodecl_make_list_1(*nodecl_output),
                             function_type_get_return_type(conversor->type_information));
                 }
             }
@@ -9736,7 +9779,7 @@ static void build_scope_try_block(AST a,
     ast_set_link_to_child(a, LANG_TRY_BLOCK_BODY, protected_block);
     ast_set_link_to_child(a, LANG_TRY_BLOCK_HANDLER_LIST, handler_seq);
 
-    *nodecl_output = nodecl_append_to_list(nodecl_null(), 
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any));
 }
 
@@ -9829,7 +9872,7 @@ static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context,
     {
         build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context, &nodecl_argument);
         // This is a list because it may be extended in later phases
-        nodecl_argument = nodecl_append_to_list(nodecl_null(), nodecl_argument);
+        nodecl_argument = nodecl_make_list_1(nodecl_argument);
     }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
@@ -9865,7 +9908,7 @@ static void build_scope_pragma_custom_line(AST a,
     {
         build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context, &nodecl_parameter);
         
-        nodecl_parameter = nodecl_append_to_list(nodecl_null(), nodecl_parameter);
+        nodecl_parameter = nodecl_make_list_1(nodecl_parameter);
 
         ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, ASTSon1(a));
     }
