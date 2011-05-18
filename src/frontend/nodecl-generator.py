@@ -285,7 +285,15 @@ def generate_visitor_class(rule_map):
     generate_nodecl_classes_fwd_decls(rule_map)
     print ""
     classes = get_all_class_names(rule_map)
-    print "class NodeclVisitor"
+    print "class BaseNodeclVisitor"
+    print "{"
+    print "   public:"
+    for class_name in classes:
+        print "     virtual void visit_preorder(%s &) = 0;" % (class_name)
+        print "     virtual void visit_postorder(%s &) = 0;" % (class_name)
+    print "   virtual ~BaseNodeclVisitor() { }"
+    print "};"
+    print "class NodeclVisitor : public BaseNodeclVisitor"
     print "{"
     print "   public:"
     for class_name in classes:
@@ -311,7 +319,7 @@ def generate_nodecl_classes_base(rule_map):
    print "{"
    print "  public:"
    print "    NodeclAST(const AST_t& a) : AST_t(a) { }"
-   print "    virtual void accept(NodeclVisitor& visitor) { }"
+   print "    virtual void accept(BaseNodeclVisitor& visitor) { }"
    print "    virtual ~NodeclAST() { }"
    print "};"
    classes = get_all_class_names(rule_map)
@@ -320,7 +328,7 @@ def generate_nodecl_classes_base(rule_map):
        print "{"
        print "    public:"
        print "    %s(AST_t a) : NodeclAST(a) { }" %(class_name)
-       print "    virtual void accept(NodeclVisitor& visitor);"
+       print "    virtual void accept(BaseNodeclVisitor& visitor);"
        print "};"
    print ""
    print "}"
@@ -340,7 +348,7 @@ def generate_nodecl_classes_specs(rule_map):
            if rhs.__class__ == ASTStructure:
                classes[from_underscore_to_camel_case(rhs.tree_kind[4:])] = rhs.subtrees
    for (class_name, subtrees) in classes.iteritems():
-       print "void %s::accept(NodeclVisitor& visitor)" % (class_name)
+       print "void %s::accept(BaseNodeclVisitor& visitor)" % (class_name)
        print "{"
        print "    visitor.visit_preorder(*this);"
        if subtrees :
