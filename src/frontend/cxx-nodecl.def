@@ -146,3 +146,8 @@ c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expr
                   | AST_PREDECREMENT([rhs]expression) type
                   | AST_POSTDECREMENT([rhs]expression) type
                   | AST_SIZEOF([type]type) type
+                  | AST_OFFSET([base]expression, [offset]expression) type
+                  | AST_TYPEID([arg]type-or-expr) type
+
+type-or-expr : type
+             | expression

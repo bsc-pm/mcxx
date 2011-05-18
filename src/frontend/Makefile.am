@@ -195,6 +195,7 @@ EXTRA_DIST += cxx-lexer.l
 # AST node types
 AST_NODE_TYPE_FILES =
 AST_NODE_TYPE_FILES += cxx-asttype-all.def
+AST_NODE_TYPE_FILES += cxx-asttype-nodecl.def
 AST_NODE_TYPE_FILES += cxx-asttype-base.def
 AST_NODE_TYPE_FILES += cxx-asttype-extensions.def
 AST_NODE_TYPE_FILES += cxx-asttype-gcc.def

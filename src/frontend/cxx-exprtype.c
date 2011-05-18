@@ -10657,9 +10657,14 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, 
-            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
+    type_t* typeid_type = get_user_defined_type(get_typeid_symbol(decl_context, expr));
+    expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
+
+    expression_set_nodecl(expr,
+            nodecl_make_typeid(
+                nodecl_make_type(type),
+                typeid_type));
 }
 
 static void check_typeid_expr(AST expr, decl_context_t decl_context)
@@ -10678,9 +10683,14 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, 
-            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
+    type_t* typeid_type = get_user_defined_type(get_typeid_symbol(decl_context, expr));
+    expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
+
+    expression_set_nodecl(expr,
+            nodecl_make_typeid(
+                expression_get_nodecl(ASTSon0(expr)),
+                typeid_type));
 }
 
 static char check_designation(AST designation, decl_context_t decl_context)
@@ -11326,7 +11336,8 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
     check_expression_impl_(lhs, decl_context);
     check_expression_impl_(rhs, decl_context);
 
-    if (expression_is_error(lhs) || expression_is_error(rhs))
+    if (expression_is_error(lhs) 
+            || expression_is_error(rhs))
     {
         expression_set_error(expression);
         return;
@@ -11354,10 +11365,24 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
 
     if (!requires_overload)
     {
-        // This is redundant, but it won't hurt
-        if (!is_pointer_to_member_type(no_ref(rhs_type))
-                || !is_pointer_to_class_type(no_ref(lhs_type)))
+        if (!is_pointer_to_class_type(no_ref(lhs_type)))
         {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: '%s' does not have pointer to class type\n",
+                        ast_location(lhs), prettyprint_in_buffer(lhs));
+            }
+            expression_set_error(expression);
+            return;
+        }
+
+        if (!is_pointer_to_member_type(no_ref(rhs_type)))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: '%s' is does not have pointer to member type\n",
+                        ast_location(rhs), prettyprint_in_buffer(rhs));
+            }
             expression_set_error(expression);
             return;
         }
@@ -11372,9 +11397,15 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                     get_actual_class_type(pm_class_type),
                     get_actual_class_type(pointed_lhs_type))
                 && !class_type_is_base(
-                    get_actual_class_type(pointed_lhs_type),
-                    get_actual_class_type(pm_class_type)))
+                    get_actual_class_type(pm_class_type),
+                    get_actual_class_type(pointed_lhs_type)))
         {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+                        ast_location(expression),
+                        print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(pointed_lhs_type), decl_context));
+            }
             expression_set_error(expression);
             return;
         }
@@ -11393,6 +11424,14 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                         pm_pointed_type, 
                         cv_qualif_object | cv_qualif_pointer)));
         expression_set_is_lvalue(expression, 1);
+
+        expression_set_nodecl(expression,
+                nodecl_make_offset(
+                    nodecl_make_derreference(
+                        expression_get_nodecl(lhs),
+                        lvalue_ref(pointed_lhs_type)),
+                    expression_get_nodecl(rhs),
+                    expression_get_type(expression)));
         return;
     }
 
@@ -11422,7 +11461,29 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
     entry_list_free(builtins);
 
     if (computed_type != NULL)
+    {
+        if (selected_operator->entity_specs.is_builtin)
+        {
+            expression_set_nodecl(expression,
+                    nodecl_make_offset(
+                        nodecl_make_derreference(
+                            expression_get_nodecl(lhs),
+                            lvalue_ref(pointer_type_get_pointee_type(lhs_type))),
+                        expression_get_nodecl(rhs),
+                        expression_get_type(expression)));
+        }
+        else
+        {
+            expression_set_nodecl(
+                    expression,
+                    nodecl_make_function_call(
+                        expression_get_nodecl(rhs),
+                        nodecl_append_to_list(nodecl_null(), expression_get_nodecl(lhs)),
+                        function_type_get_return_type(selected_operator->type_information)));
+        }
+
         return;
+    }
 
     expression_set_error(expression);
 }
@@ -11442,8 +11503,8 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
         return;
     }
 
-    type_t* lhs_type = no_ref(expression_get_type(lhs));
-    type_t* rhs_type = no_ref(expression_get_type(rhs));
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
@@ -11452,9 +11513,23 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
         return;
     }
 
-    if (!is_pointer_to_member_type(no_ref(rhs_type))
-            || !is_class_type(no_ref(lhs_type)))
+    if (!is_class_type(no_ref(lhs_type)))
     {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: '%s' does not have class type\n",
+                    ast_location(lhs), prettyprint_in_buffer(lhs));
+        }
+        expression_set_error(expression);
+        return;
+    }
+    if (!is_pointer_to_member_type(no_ref(rhs_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: '%s' is not a pointer to member\n",
+                    ast_location(rhs), prettyprint_in_buffer(rhs));
+        }
         expression_set_error(expression);
         return;
     }
@@ -11464,9 +11539,16 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
 
     if (!equivalent_types(get_actual_class_type(no_ref(pm_class_type)), 
                 get_actual_class_type(no_ref(lhs_type))) 
-            && !class_type_is_base(get_actual_class_type(no_ref(lhs_type)), 
-                get_actual_class_type(no_ref(pm_class_type))))
+            && !class_type_is_base(
+                get_actual_class_type(no_ref(pm_class_type)),
+                get_actual_class_type(no_ref(lhs_type))))
     {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+                    ast_location(expression),
+                    print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
+        }
         expression_set_error(expression);
         return;
     }
@@ -11481,6 +11563,11 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
             get_cv_qualified_type(pointer_type_get_pointee_type(no_ref(rhs_type)), 
                 cv_qualif_object | cv_qualif_pointer)));
     expression_set_is_lvalue(expression, 1);
+
+    expression_set_nodecl(expression,
+            nodecl_make_offset(expression_get_nodecl(lhs),
+                expression_get_nodecl(rhs),
+                expression_get_type(expression)));
 }
 
 static char check_parenthesized_initializer(AST initializer_list, decl_context_t decl_context, type_t* declared_type)

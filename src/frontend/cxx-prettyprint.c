@@ -333,8 +333,8 @@ static prettyprint_entry_t handlers_list[] =
 #ifdef FORTRAN_SUPPORT
     NODE_HANDLER(AST_POWER, binary_operator_handler, "^^"),
 #endif
-    NODE_HANDLER(AST_POINTER_TO_MEMBER, binary_operator_handler, ".*"),
-    NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, binary_operator_handler, "->*"),
+    NODE_HANDLER(AST_POINTER_TO_MEMBER, infix_parameter_handler, ".*"),
+    NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, infix_parameter_handler, "->*"),
     NODE_HANDLER(AST_CAST, cast_expression_handler, NULL),
     NODE_HANDLER(AST_PREDECREMENT, prefix_with_parameter_then_son_handler, "--"),
     NODE_HANDLER(AST_PREINCREMENT, prefix_with_parameter_then_son_handler, "++"),
