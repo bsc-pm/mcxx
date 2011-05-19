@@ -482,6 +482,10 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //SSSE3
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
     //SSE4.1
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pblendvb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+
+
+
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
 
         << "int                                             __builtin_ia32_vec_ext_v4si (int __attribute__((vector_size(16))), const int);"
@@ -490,8 +494,10 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 
         << "float __attribute__((vector_size(16)))          __builtin_ia32_roundps(float __attribute__((vector_size(16))), const int);"
         << "float                                           __builtin_ia32_vec_ext_v4sf(float __attribute__((vector_size(16))), const int);"
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_blendvps(float __attribute__((vector_size(16))), float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
 
         << "double __attribute__((vector_size(16)))         __builtin_ia32_roundpd(double __attribute__((vector_size(16))), const int);"
+        << "double __attribute__((vector_size(16)))         __builtin_ia32_blendvpd(double __attribute__((vector_size(16))), double __attribute__((vector_size(16))), double __attribute__((vector_size(16))));"
         ;
 
  

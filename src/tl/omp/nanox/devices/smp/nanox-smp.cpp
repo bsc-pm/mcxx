@@ -799,12 +799,54 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 //Conditional Expression: a ? b : c
                 else if (expr.is_conditional())
                 {
-                    Expression cond_exp(expr.get_condition_expression());
-                    Expression true_exp(expr.get_true_expression());
-                    Expression false_exp(expr.get_false_expression());
+                    Expression cond_expr(expr.get_condition_expression());
+                    Expression true_expr(expr.get_true_expression());
+                    Expression false_expr(expr.get_false_expression());
 
-                    if (true_exp.get_type().is_vector() && false_exp.get_type().is_vector())
+                    Type true_type = true_expr.get_type();
+                    Type false_type = false_expr.get_type();
+
+                    if (true_type.is_vector() && false_type.is_vector())
                     {
+                        true_type = true_type.basic_type();
+                        false_type = false_type.basic_type();
+
+                        if (true_type.is_integral_type()
+                                && false_type.is_integral_type())
+                        {
+                            result
+                                << "__builtin_ia32_pblendvb128(";
+                        }
+                        else if (true_type.is_float() 
+                                && false_type.is_float())
+                        {
+                            result
+                                << "__builtin_ia32_blendvps(";
+                        }
+                        else if (true_type.is_double())
+                        {
+                            result
+                                << "__builtin_ia32_blendvpd(";
+                        }
+                        else
+                        {
+                            running_error("Type is not supported in a conditional Expression", 0);
+                        }
+
+                        result
+                            << recursive_prettyprint(false_expr.get_ast(), data)
+                            << ","
+                            << recursive_prettyprint(true_expr.get_ast(), data)
+                            << ","
+                            << "((" << true_type.get_vector_to(_this->_width).get_declaration(_this->_sl.get_scope(ast), "") << ")("
+                            << recursive_prettyprint(cond_expr.get_ast(), data)
+                            << ")))"
+                            ;
+
+                        return uniquestr(result.get_source().c_str());
+
+                        //First Implementation
+                        /*
                         std::string integer_casting = get_integer_casting(true_exp.get_ast(), true_exp.get_type(), false_exp.get_type());
 
                         result 
@@ -822,6 +864,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                             ;
 
                             return uniquestr(result.get_source().c_str());
+                        */
                     }
                 }
                 else if (expr.is_binary_operation())
