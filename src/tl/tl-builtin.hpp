@@ -169,11 +169,6 @@ namespace TL
                 return !(this->operator==(j));
             }
 
-            virtual bool is_integer() const
-            {
-                return true;
-            }
-
             ~Integer() { }
     };
 

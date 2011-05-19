@@ -434,12 +434,6 @@ namespace TL
 
             /* End debug functions */
 
-            //! States that this is an AST_t
-            virtual bool is_ast() const
-            {
-                return true;
-            }
-
             //! Returns the translation unit tree
             AST_t get_translation_unit() const;
 
@@ -603,10 +597,6 @@ namespace TL
                 {
                     return false;
                 }
-                else if (obj->is_bool())
-                {
-                    return (TL::Bool)obj;
-                }
                 else
                 {
                     return true;                  
@@ -646,10 +636,6 @@ namespace TL
                 if(typeid(*(obj.get_pointer())) == typeid(Undefined))
                 {
                     return false;
-                }
-                else if (obj->is_bool())
-                {
-                    return (TL::Bool)obj;
                 }
                 else
                 {

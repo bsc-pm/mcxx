@@ -1084,6 +1084,10 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_UPC_LOCALSIZEOF :
             {
                 check_for_sizeof_expr(expression, decl_context);
+                if (!expression_is_error(expression))
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_SIZEOF, tl_type_t, tl_bool(1));
+                }
                 break;
             }
         case AST_SIZEOF_TYPEID :
@@ -1093,6 +1097,10 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_UPC_LOCALSIZEOF_TYPEID :
             {
                 check_for_sizeof_typeid(expression, decl_context);
+                if (!expression_is_error(expression))
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_SIZEOF_TYPEID, tl_type_t, tl_bool(1));
+                }
                 break;
             }
         case AST_DERREFERENCE :
