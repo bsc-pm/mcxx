@@ -484,7 +484,12 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //SSE4.1
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
 
+        << "int                                             __builtin_ia32_vec_ext_v4si (int __attribute__((vector_size(16))), const int);"
+        << "long long int                                   __builtin_ia32_vec_ext_v2di (long long int __attribute__((vector_size(16))), const int);"
+
+
         << "float __attribute__((vector_size(16)))          __builtin_ia32_roundps(float __attribute__((vector_size(16))), const int);"
+        << "float                                           __builtin_ia32_vec_ext_v4sf(float __attribute__((vector_size(16))), const int);"
 
         << "double __attribute__((vector_size(16)))         __builtin_ia32_roundpd(double __attribute__((vector_size(16))), const int);"
         ;
@@ -641,6 +646,31 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "int subscripted[], "
         <<      "int __attribute__((vector_size(16))) subscript)"
         << "{"
+        <<      "int __attribute__((vector_size(16))) result = (int __attribute__((vector_size(16)))){"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 0)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 1)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 2)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 3)]};"
+        <<      "return result;"
+        << "}"
+        /*
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_INDEX_W_VECTOR_SMP_16 << "("
+        <<      "int subscripted[], "
+        <<      "int __attribute__((vector_size(16))) subscript)"
+        << "{"
+        <<      "int __attribute__((vector_size(16))) result;"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 0)], 0);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 1)], 1);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 2)], 2);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 3)], 3);"
+        <<      "return result;"
+        << "}"
+        */
+        /*
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_INDEX_W_VECTOR_SMP_16 << "("
+        <<      "int subscripted[], "
+        <<      "int __attribute__((vector_size(16))) subscript)"
+        << "{"
         <<      "union"
         <<      "{"
         <<          "int __attribute__((vector_size(16))) (*v);"
@@ -658,6 +688,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "_result.w[3] = subscripted[u_a0.w[3]];"
         <<      "return _result.v;"
         << "}"
+        */
         ;
 
     //Global parsing
