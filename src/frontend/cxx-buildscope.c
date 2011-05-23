@@ -101,8 +101,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         decl_context_t decl_context);
 static void gather_type_spec_from_enum_specifier(AST a, type_t** type_info, 
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
 static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         nodecl_output_t* nodecl_output);
 static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type_info,
@@ -1494,10 +1496,10 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_ENUM_SPECIFIER :
         case AST_GCC_ENUM_SPECIFIER :
-            gather_type_spec_from_enum_specifier(a, simple_type_info, decl_context);
+            gather_type_spec_from_enum_specifier(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_CLASS_SPECIFIER :
-            gather_type_spec_from_class_specifier(a, simple_type_info, decl_context, nodecl_output);
+            gather_type_spec_from_class_specifier(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
@@ -2407,6 +2409,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
  * and if it has been given a name, it is registered in the scope.
  */
 void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     ast_set_link_to_child(a, LANG_IS_ENUM_SPECIFIER, a);
@@ -2457,6 +2460,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
         }
+
+        gather_info->defined_type = new_entry;
     }
     else
     {
@@ -3757,6 +3762,7 @@ void leave_class_specifier(nodecl_output_t* nodecl_output)
  * This function is called for class specifiers
  */
 void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context,
         nodecl_output_t* nodecl_output)
 {
@@ -4126,6 +4132,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
             "The inner context was incorrectly set", 0);
+
+
+    gather_info->defined_type = class_entry;
     
     // Compute *type_info as it is needed by build_scope_member_specification
     *type_info = get_user_defined_type(class_entry);
@@ -8479,11 +8488,21 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             // Register the typename properly
             if (type_specifier != NULL
                     && !gather_info.is_friend
-                    && (ASTType(type_specifier) == AST_CLASS_SPECIFIER
-                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC) && (ASTSon1(a) == NULL))
+                    && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
+                        // class A; (no declarator)
+                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
+                                // class __attribute__((foo)) A; (no declarator)
+                                || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC) 
+                            && (ASTSon1(a) == NULL))
+                        // enum E { } [x];
                         || ASTType(type_specifier) == AST_ENUM_SPECIFIER
+                        // enum __attribute__((foo)) E { } [x];
                         || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
-                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC) && (ASTSon1(a) == NULL))))
+                        // enum E; (no declarator)
+                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
+                                // enum  __attribute__((foo)) E; (no declarator)
+                                || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC) 
+                            && (ASTSon1(a) == NULL))))
             {
                 scope_entry_t* entry = named_type_get_symbol(member_type);
                 DEBUG_CODE()
@@ -8492,9 +8511,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             entry->symbol_name);
                 }
 
+                char is_elaborated = (ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
+                    || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
+                    || (ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
+                    || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC);
+
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.access = current_access;
-                entry->entity_specs.is_defined_inside_class_specifier = 1;
+                entry->entity_specs.is_defined_inside_class_specifier = !is_elaborated;
                 entry->entity_specs.class_type = class_info;
                 class_type_add_member(get_actual_class_type(class_type), entry);
 
