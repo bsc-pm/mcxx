@@ -9968,17 +9968,12 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     nodecl_output_t nodecl_pragma_line = nodecl_null();
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    nodecl_output_t nodecl_declaration = nodecl_null();
-    build_scope_declaration(ASTSon1(a), decl_context, &nodecl_declaration);
+    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
-
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
-            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_declaration));
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
@@ -9990,17 +9985,12 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     nodecl_output_t nodecl_pragma_line = nodecl_null();
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    nodecl_output_t nodecl_declaration = nodecl_null();
-    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, &nodecl_declaration);
+    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, nodecl_output);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
-
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
-            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_declaration));
 }
 
 static void build_scope_upc_synch_statement(AST a, 
