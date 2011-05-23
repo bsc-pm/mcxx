@@ -175,10 +175,15 @@ typedef struct compilation_process_tag
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
     
-    // For further use
+    // For further use. They can be modified as we need
     int argc;
     const char** argv;
+    // These should not be modified
+    int original_argc;
+    const char** original_argv; 
+
     const char* exec_basename;
+
     const char* home_directory;
 
     // The set of configurations as defined by the user in the configuration file

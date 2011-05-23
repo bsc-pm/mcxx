@@ -136,12 +136,6 @@ namespace TL
             {
             }
 
-            //! States that this is a type
-            virtual bool is_type() const
-            {
-                return true;
-            }
-
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
@@ -443,7 +437,7 @@ namespace TL
 
             //! States whether current type is a vector-type
             bool is_vector() const;
-            //! States whether current type is a vector-type
+            //! States whether current type is a generic vector-type
             bool is_generic_vector() const;
             //! Returns the element type of a vector-type
             Type vector_element() const;
@@ -622,12 +616,41 @@ namespace TL
             //! Convenience function that returns a wrapped 'void'
             static Type get_void_type(void);
 
+            //! Convenience function that returns a wrapped 'signed char'
+            static Type get_char_type(void);
+            
+            //! Convenience function that returns a wrapped 'unsigned char'
+            static Type get_unsigned_char_type(void);
+
+            //! Convenience function that returns a wrapped 'signed short int'
+            static Type get_short_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'unsigned short int'
+            static Type get_unsigned_short_int_type(void);
+
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
             
-            //! Convenience function that returns a wrapped 'char'
-            static Type get_char_type(void);
+            //! Convenience function that returns a wrapped 'unsigned int'
+            static Type get_unsigned_int_type(void);
 
+            //! Convenience function that returns a wrapped 'signed long int'
+            static Type get_long_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'unsigned long int'
+            static Type get_unsigned_long_int_type(void);
+
+            //! Convenience function that returns a wrapped 'signed long long int'
+            static Type get_long_long_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'unsigned long long int'
+            static Type get_unsigned_long_long_int_type(void);
+
+            //! Convenience function that returns a wrapped 'float'
+            static Type get_float_type(void);
+            
+            //! Convenience function that returns a wrapped 'double'
+            static Type get_double_type(void);
     };
     
     //! @}

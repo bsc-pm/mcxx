@@ -587,7 +587,16 @@ static void driver_initialization(int argc, const char* argv[])
 
     memset(&compilation_process, 0, sizeof(compilation_process));
     compilation_process.argc = argc;
-    compilation_process.argv = (const char**)argv;
+
+    // Copy argv strings
+    compilation_process.argv = calloc(compilation_process.argc, sizeof(const char*));
+    memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
+
+    // Original versions
+    compilation_process.original_argc = argc;
+    compilation_process.original_argv = calloc(compilation_process.argc, sizeof(const char*));
+    memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
+
     compilation_process.exec_basename = give_basename(argv[0]);
 
     // Find my own directory
@@ -2044,37 +2053,66 @@ static void load_configuration_file(const char *filename)
     config_file_parse(filename);
 }
 
+static void remove_parameter_from_argv(int i)
+{
+    int j;
+    for (j = i; (j + 1) < compilation_process.argc; j++)
+    {
+        compilation_process.argv[j] = compilation_process.argv[j + 1];
+    }
+    compilation_process.argc--;
+}
+
+
 static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file
-    // FIXME - save config directory properly
     int i;
-    for (i = 1; i < compilation_process.argc; i++)
-    {
-        if (strncmp(compilation_process.argv[i], 
-                    "--config-file=", strlen("--config-file=")) == 0)
-        {
-            const char *config_file = NULL;
-            config_file = compilation_process.config_file = 
-                uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
+    char restart = 1;
 
-            // Load the configuration file at this point should the user have
-            // specified more than one config file
-            load_configuration_file(config_file);
-        }
-        else if (strncmp(compilation_process.argv[i], 
-                    "--config-dir=", strlen("--config-dir=")) == 0)
+    // We will restart the scan whenever we remove an item from argv
+    while (restart)
+    {
+        restart = 0;
+        for (i = 1; i < compilation_process.argc; i++)
         {
-            compilation_process.config_dir = 
-                uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
-        }
-        else if (strncmp(compilation_process.argv[i], 
-                    "--profile=", strlen("--profile=")) == 0)
-        {
-            // Change the basename, from now it will look like the compiler
-            // has been called as this basename
-            compilation_process.exec_basename =
-                uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
+            if (strncmp(compilation_process.argv[i], 
+                        "--config-file=", strlen("--config-file=")) == 0)
+            {
+                const char *config_file = NULL;
+                config_file = compilation_process.config_file = 
+                    uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
+
+                // Load the configuration file at this point should the user have
+                // specified more than one config file
+                load_configuration_file(config_file);
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
+            else if (strncmp(compilation_process.argv[i], 
+                        "--config-dir=", strlen("--config-dir=")) == 0)
+            {
+                compilation_process.config_dir = 
+                    uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
+            else if (strncmp(compilation_process.argv[i], 
+                        "--profile=", strlen("--profile=")) == 0)
+            {
+                // Change the basename, from now it will look like the compiler
+                // has been called as this basename
+                compilation_process.exec_basename =
+                    uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
         }
     }
 
@@ -2082,11 +2120,12 @@ static void load_configuration(void)
     DIR* config_dir = opendir(compilation_process.config_dir);
     if (config_dir == NULL)
     {
-        if (errno != ENOENT)
+        if (errno == ENOENT)
         {
             // Only give an error if it does exist
-            fprintf(stderr, "%s: could not open configuration directory (%s)\n", 
+            fprintf(stderr, "%s: could not open configuration directory '%s' (%s)\n", 
                     compilation_process.exec_basename,
+                    compilation_process.config_dir,
                     strerror(errno));
         }
     }

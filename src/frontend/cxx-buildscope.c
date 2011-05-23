@@ -4508,6 +4508,9 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 ast_set_link_to_child(set_declarator, LANG_DECLARED_NAME, declarator_name);
             }
 
+
+            ASTAttrSetValueType(declarator_name, LANG_DECLARATOR_ID_EXPR, tl_type_t, tl_bool(1));
+
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, entity_context);
         }
 

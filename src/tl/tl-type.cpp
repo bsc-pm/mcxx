@@ -427,19 +427,69 @@ namespace TL
         upper = AST_t(array_type_get_array_upper_bound(_type_info));
     }
 
-    Type Type::get_int_type(void)
+    Type Type::get_void_type(void)
     {
-        return Type(::get_signed_int_type());
+        return Type(::get_void_type());
     }
-
+    
     Type Type::get_char_type(void)
     {
         return Type(::get_char_type());
     }
 
-    Type Type::get_void_type(void)
+    Type Type::get_unsigned_char_type(void)
     {
-        return Type(::get_void_type());
+        return Type(::get_unsigned_char_type());
+    }
+
+    Type Type::get_short_int_type(void)
+    {
+        return Type(::get_signed_short_int_type());
+    }
+
+    Type Type::get_unsigned_short_int_type(void)
+    {
+        return Type(::get_unsigned_short_int_type());
+    }
+
+    Type Type::get_int_type(void)
+    {
+        return Type(::get_signed_int_type());
+    }
+
+    Type Type::get_unsigned_int_type(void)
+    {
+        return Type(::get_unsigned_int_type());
+    }
+
+    Type Type::get_long_int_type(void)
+    {
+        return Type(::get_signed_long_int_type());
+    }
+
+    Type Type::get_unsigned_long_int_type(void)
+    {
+        return Type(::get_unsigned_long_int_type());
+    }
+
+    Type Type::get_long_long_int_type(void)
+    {
+        return Type(::get_signed_long_long_int_type());
+    }
+
+    Type Type::get_unsigned_long_long_int_type(void)
+    {
+        return Type(::get_unsigned_long_long_int_type());
+    }
+
+    Type Type::get_float_type(void)
+    {
+        return Type(::get_float_type());
+    }
+
+    Type Type::get_double_type(void)
+    {
+        return Type(::get_double_type());
     }
 
     bool Type::is_integral_type() const

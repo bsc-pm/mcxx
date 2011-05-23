@@ -127,6 +127,7 @@ namespace TL
             //! Returns a list of all symbolic occurrences that are not defined
             //within this construction
             ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS) const;
+            ObjectList<Symbol> non_local_symbols(SymbolsWanted symbols = ALL_SYMBOLS) const;
             /*!
              * \bug Not implemented
              */
@@ -649,6 +650,12 @@ namespace TL
 
             /*! States whether this expression is a top level one */
             bool is_top_level_expression();
+            
+            //! States if this is a expression as 'sizeof(expr)'
+            bool is_sizeof();
+            
+            //! States if this is a expression as 'sizeof(type)'
+            bool is_sizeof_typeid();
     };
 
     //! This LangConstruct wraps a parameter declaration in a function declarator

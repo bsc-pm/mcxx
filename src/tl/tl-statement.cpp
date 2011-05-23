@@ -73,13 +73,6 @@ namespace TL
         return decl;
     }
 
-    ObjectList<Symbol> Statement::non_local_symbols() const
-    {
-        ObjectList<IdExpression> id_expressions  = non_local_symbol_occurrences();
-        ObjectList<Symbol> result = id_expressions.map(functor(&IdExpression::get_symbol));
-        return result;
-    }
-
     bool Statement::is_compound_statement() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_COMPOUND_STATEMENT);

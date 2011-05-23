@@ -1156,6 +1156,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_UPC_LOCALSIZEOF :
             {
                 check_sizeof_expr(expression, decl_context);
+                if (!expression_is_error(expression))
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_SIZEOF, tl_type_t, tl_bool(1));
+                }
                 break;
             }
         case AST_SIZEOF_TYPEID :
@@ -1165,6 +1169,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_UPC_LOCALSIZEOF_TYPEID :
             {
                 check_sizeof_typeid(expression, decl_context);
+                if (!expression_is_error(expression))
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_SIZEOF_TYPEID, tl_type_t, tl_bool(1));
+                }
                 break;
             }
         case AST_DERREFERENCE :
@@ -4093,6 +4101,8 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
 static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context,
         nodecl_output_t (*nodecl_bin_fun)(nodecl_output_t, nodecl_output_t, type_t*))
 {
+    int is_vector_op = 0;
+    int vector_size = 0;
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
 
@@ -4101,7 +4111,23 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
+    if (both_operands_are_vector_types(no_ref(lhs_type),
+                no_ref(rhs_type)))
+    {
+        is_vector_op = 1;
+        vector_size = vector_type_get_vector_size(lhs_type);
+
+        if (vector_size != vector_type_get_vector_size(rhs_type))
+        {
+            return get_error_type();
+        }
+
+        lhs_type = vector_type_get_element_type(lhs_type);
+        rhs_type = vector_type_get_element_type(rhs_type);
+    }
+ 
     type_t* conversion_type = NULL;
+    type_t* computed_type = NULL;
 
     char requires_overload = 0;
 
@@ -4119,7 +4145,6 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
             && standard_conversion_between_types(&lhs_to_bool, lhs_type, conversion_type)
             && standard_conversion_between_types(&rhs_to_bool, rhs_type, conversion_type))
     {
-        type_t* computed_type = NULL;
         C_LANGUAGE()
         {
             computed_type = get_signed_int_type();
@@ -4141,6 +4166,7 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
         return computed_type;
     }
+    
 
     C_LANGUAGE()
     {
@@ -4161,6 +4187,11 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    if (is_vector_op)
+    {
+        result = get_vector_type(result, vector_size);
+    }
 
     entry_list_free(builtins);
 
@@ -4203,7 +4234,8 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_integral(
+                no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -11127,6 +11159,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
             if (prev != NULL)
             {
+                //Ticket #593.
                 fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;

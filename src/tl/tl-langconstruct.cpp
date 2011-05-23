@@ -108,6 +108,16 @@ namespace TL
 
         return result;
     }
+    
+    ObjectList<Symbol> LangConstruct::non_local_symbols(SymbolsWanted symbol_filter) const
+    {
+        ObjectList<IdExpression> id_expr_list = this->non_local_symbol_occurrences(symbol_filter);
+        ObjectList<Symbol> result;
+
+        result.insert(id_expr_list.map(functor(&IdExpression::get_computed_symbol)));
+
+        return result;
+    }
 
     ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter) const
     {
@@ -1096,6 +1106,18 @@ namespace TL
     Symbol Expression::get_symbol()
     {
         return ::expression_get_symbol(this->get_ast().get_internal_ast());
+    }
+
+    bool Expression::is_sizeof()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_SIZEOF);
+        return b;
+    }
+
+    bool Expression::is_sizeof_typeid()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_SIZEOF_TYPEID);
+        return b;
     }
 
     // Do not use this one, instead use get_declared_symbol
