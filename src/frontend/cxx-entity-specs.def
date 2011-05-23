@@ -57,6 +57,7 @@ bool|all|is_unnamed_bitfield|This symbol is an unnamed bitfield
 bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct
+bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
 bool|all|after_typedef|This symbol has been created after a typedef of an anonymous struct type
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute

@@ -69,10 +69,12 @@
  * this is a full type checking phase
  */
 
-static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_output_t* output);
+static void build_scope_declaration(AST a, decl_context_t decl_context, 
+        nodecl_output_t* output, scope_entry_list_t** declared_symbols);
 static void build_scope_declaration_sequence(AST a, 
         decl_context_t decl_context, nodecl_output_t* nodecl_output);
-static void build_scope_simple_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output);
+static void build_scope_simple_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output, 
+        scope_entry_list_t** declared_symbols);
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output);
@@ -132,7 +134,8 @@ static void build_scope_linkage_specifier(AST a, decl_context_t decl_context, no
 static void build_scope_linkage_specifier_declaration(AST a, 
         AST top_linkage_decl, 
         decl_context_t decl_context, 
-        nodecl_output_t* nodecl_output);
+        nodecl_output_t* nodecl_output,
+        scope_entry_list_t** declared_symbols);
 
 static void build_scope_template_declaration(AST a, 
         AST top_template_decl, 
@@ -452,14 +455,15 @@ static void build_scope_declaration_sequence(AST list,
     for_each_element(list, iter)
     {
         nodecl_output_t current_nodecl_output_list = nodecl_null();
-        build_scope_declaration(ASTSon1(iter), decl_context, &current_nodecl_output_list);
+        build_scope_declaration(ASTSon1(iter), decl_context, &current_nodecl_output_list, /* declared_symbols */ NULL);
 
         *nodecl_output_list = nodecl_concat_lists(*nodecl_output_list, current_nodecl_output_list);
     }
 }
 
 // Build scope for a declaration
-static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
+static void build_scope_declaration(AST a, decl_context_t decl_context, 
+        nodecl_output_t* nodecl_output, scope_entry_list_t** declared_symbols)
 {
     // NOTE: if nodecl_output is not nodecl_null it should return a list
     DEBUG_CODE()
@@ -480,7 +484,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 //   int f(int [k]);
                 //
                 // [thing] means that thing is optional
-                build_scope_simple_declaration(a, decl_context, nodecl_output);
+                build_scope_simple_declaration(a, decl_context, nodecl_output, declared_symbols);
                 break;
             }
         case AST_NAMESPACE_DEFINITION :
@@ -527,7 +531,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
         case AST_LINKAGE_SPEC_DECL :
             {
                 // extern "C" int a;
-                build_scope_linkage_specifier_declaration(a, a, decl_context, nodecl_output);
+                build_scope_linkage_specifier_declaration(a, a, decl_context, nodecl_output, declared_symbols);
                 break;
             }
         case AST_EXPORT_TEMPLATE_DECLARATION :
@@ -577,7 +581,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 {
                     internal_error("Ambiguity not handled\n", 0);
                 }
-                build_scope_declaration(a, decl_context, nodecl_output);
+                build_scope_declaration(a, decl_context, nodecl_output, declared_symbols);
                 break;
             }
         case AST_EMPTY_DECL :
@@ -610,10 +614,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context, nodecl_o
                 break;
             }
             // GCC Extensions
-            // FIXME - How to get this back again? :)
         case AST_GCC_EXTENSION : // __extension__
             {
-                build_scope_declaration(ASTSon0(a), decl_context, nodecl_output);
+                build_scope_declaration(ASTSon0(a), decl_context, nodecl_output, declared_symbols);
+                // FIXME Enable a gcc_extension bit for these symbols
                 break;
             }
         case AST_GCC_ASM_DEFINITION :
@@ -965,7 +969,8 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
 }
 
 // Builds scope for a simple declaration
-static void build_scope_simple_declaration(AST a, decl_context_t decl_context, nodecl_output_t *nodecl_output)
+static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
+        nodecl_output_t *nodecl_output, scope_entry_list_t** declared_symbols)
 {
     // Empty declarations are meaningless for the symbol table
     // They are of the form
@@ -1150,6 +1155,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context, n
                         entry->point_of_definition = get_enclosing_declaration(init_declarator);
                     }
                 }
+            }
+
+            if (declared_symbols != NULL)
+            {
+                *declared_symbols = entry_list_add(*declared_symbols, entry);
             }
         }
     }
@@ -6214,7 +6224,8 @@ static void build_scope_linkage_specifier(AST a, decl_context_t decl_context, no
 static void build_scope_linkage_specifier_declaration(AST a, 
         AST top_linkage_decl, 
         decl_context_t decl_context,
-        nodecl_output_t *nodecl_output
+        nodecl_output_t *nodecl_output,
+        scope_entry_list_t** declared_symbols
         )
 {
     AST declaration = ASTSon1(a);
@@ -6226,11 +6237,12 @@ static void build_scope_linkage_specifier_declaration(AST a,
 
     if (ASTType(declaration)  == AST_LINKAGE_SPEC_DECL)
     {
-        build_scope_linkage_specifier_declaration(declaration, top_linkage_decl, decl_context, nodecl_output);
+        build_scope_linkage_specifier_declaration(declaration, top_linkage_decl, decl_context, 
+                nodecl_output, declared_symbols);
     }
     else
     {
-        build_scope_declaration(declaration, decl_context, nodecl_output);
+        build_scope_declaration(declaration, decl_context, nodecl_output, declared_symbols);
     }
 
     ASTAttrSetValueType(declaration, LANG_HAS_LINKAGE_SPECIFIER, tl_type_t, tl_bool(1));
@@ -7247,25 +7259,25 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
         internal_error("This function is intended only for C99", 0);
     }
 
-    AST declaration_list = kr_parameter_declaration;
-    AST iter;
 
     // This can be empty, but undefined parameters must be signed up
     if (kr_parameter_declaration != NULL)
     {
-        for_each_element(declaration_list, iter)
+        AST iter;
+        for_each_element(kr_parameter_declaration, iter)
         {
             AST simple_decl = ASTSon1(iter);
 
-            build_scope_simple_declaration(simple_decl, decl_context, nodecl_output);
+            build_scope_simple_declaration(simple_decl, decl_context, nodecl_output, /* declared_symbols */ NULL);
         }
     }
 
-    // Perform some adjustments
+    // Perform some adjustments. FIXME - YUse
     if (kr_parameters != NULL)
     {
         AST kr_parameter_list = ASTSon0(kr_parameters);
         int i = 0;
+        AST iter;
         for_each_element(kr_parameter_list, iter)
         {
             AST kr_param = ASTSon1(iter);
@@ -8319,6 +8331,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
     entry->entity_specs.access = current_access;
+    entry->entity_specs.is_defined_inside_class_specifier = 1;
 
     update_member_function_info(declarator_name, is_constructor, entry, class_type);
 
@@ -8481,6 +8494,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.access = current_access;
+                entry->entity_specs.is_defined_inside_class_specifier = 1;
                 entry->entity_specs.class_type = class_info;
                 class_type_add_member(get_actual_class_type(class_type), entry);
 
@@ -8501,6 +8515,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         enumerator->entity_specs.is_member = 1;
                         enumerator->entity_specs.access = current_access;
+                        enumerator->entity_specs.is_defined_inside_class_specifier = 1;
                         enumerator->entity_specs.class_type  = class_info;
                         class_type_add_member(get_actual_class_type(class_type), enumerator);
                     }
@@ -9393,7 +9408,7 @@ static void build_scope_declaration_statement(AST a,
 {
     AST declaration = ASTSon0(a);
 
-    build_scope_declaration(declaration, decl_context, nodecl_output);
+    build_scope_declaration(declaration, decl_context, nodecl_output, /* declared_symbols */ NULL);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_DECLARATION_STATEMENT_DECLARATION, declaration);
@@ -9488,7 +9503,7 @@ static void build_scope_for_statement(AST a,
     nodecl_output_t nodecl_loop_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
-        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_loop_init);
+        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_loop_init, /* declared_symbols */ NULL);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
@@ -9968,7 +9983,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     nodecl_output_t nodecl_pragma_line = nodecl_null();
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output);
+    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output, /* declared_symbols */ NULL);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
@@ -10044,7 +10059,7 @@ static void build_scope_upc_forall_statement(AST a,
     nodecl_output_t nodecl_for_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
-        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_for_init);
+        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_for_init, /* declared_symbols */ NULL);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
