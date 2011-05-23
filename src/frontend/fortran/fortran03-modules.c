@@ -52,6 +52,7 @@ static void finish_module_file(sqlite3* handle, const char* module_name, sqlite3
 
 static sqlite3_int64 insert_ast(sqlite3* handle, AST a);
 static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value);
+static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name, AST ast);
 static void insert_extra_attr_symbol(sqlite3* handle, scope_entry_t* symbol, const char* name, scope_entry_t* ref);
 static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const char* name, type_t* ref);
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr);
@@ -742,7 +743,7 @@ static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const
             (sqlite3_int64(*)(sqlite3*, void*))(insert_type));
 }
 
-UNUSED_PARAMETER static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name,
+static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name,
         AST ref)
 {
     insert_extra_attr_data(handle, symbol, name, ref, 

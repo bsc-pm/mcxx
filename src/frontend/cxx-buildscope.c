@@ -88,7 +88,8 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
 
 static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
-        nodecl_output_t* nodecl_output);
+        nodecl_output_t* nodecl_output,
+        scope_entry_list_t** declared_symbols);
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
         nodecl_output_t* nodecl_output);
@@ -1030,6 +1031,13 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         }
     }
 
+    // If the type specifier defined a type, add it to the declared symbols
+    if (gather_info.defined_type != NULL
+            && declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_add(*declared_symbols, gather_info.defined_type);
+    }
+
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
     ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
@@ -1888,8 +1896,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     || BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
                     || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
             {
-                // Look for the smallest enclosing non-prototype
-                // non-function-prototype scope
+                // Look for the smallest enclosing non-function-prototype scope
                 //
                 // Note that in our implementation a function scope is not
                 // nested and template scopes live in another world, so they
@@ -1994,6 +2001,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 }
                 else 
                 {
+                    // This is invalid because it is "class A<int>" but we
+                    // didn't find any symbol related to it
                     running_error("%s: error: invalid template-name '%s'\n", 
                             ast_location(id_expression),
                             prettyprint_in_buffer(id_expression));
@@ -4341,7 +4350,7 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
         {
             // This is a simple member_declaration
             build_scope_member_declaration(new_inner_decl_context, member_specification,
-                    current_access, type_info, nodecl_output);
+                    current_access, type_info, nodecl_output, /* declared_symbols */ NULL);
         }
     }
 }
@@ -7813,7 +7822,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, 
         type_t* class_info,
-        nodecl_output_t* nodecl_output)
+        nodecl_output_t* nodecl_output,
+        scope_entry_list_t** declared_symbols)
 {
     DEBUG_CODE()
     {
@@ -7838,10 +7848,11 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 build_scope_default_or_delete_member_function_definition(inner_decl_context, a, current_access, class_info, nodecl_output);
                 break;
             }
-            // FIXME - How to get this back again? :)
         case AST_GCC_EXTENSION : // __extension__
             {
-                build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info, nodecl_output);
+                build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info, nodecl_output, 
+                        declared_symbols);
+                // FIXME Enable a gcc_extension bit for these symbols
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
@@ -7869,7 +7880,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             {
                 solve_ambiguous_declaration(a, inner_decl_context);
                 // Restart
-                build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output);
+                build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
                 break;
             }
         case AST_EMPTY_DECL :
@@ -10010,7 +10021,18 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     nodecl_output_t nodecl_pragma_line = nodecl_null();
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output, /* declared_symbols */ NULL);
+    scope_entry_list_t* declared_symbols = NULL;
+    build_scope_declaration(ASTSon1(a), decl_context, nodecl_output, &declared_symbols);
+
+    scope_entry_list_iterator_t* it = entry_list_iterator_begin(declared_symbols);
+    while (!entry_list_iterator_end(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line.tree);
+
+        entry_list_iterator_next(it);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
@@ -10027,7 +10049,18 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     nodecl_output_t nodecl_pragma_line = nodecl_null();
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE, &nodecl_pragma_line);
 
-    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, nodecl_output);
+    scope_entry_list_t* declared_symbols = NULL;
+    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info, nodecl_output, &declared_symbols);
+
+    scope_entry_list_iterator_t* it = entry_list_iterator_begin(declared_symbols);
+    while (!entry_list_iterator_end(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line.tree);
+
+        entry_list_iterator_next(it);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
