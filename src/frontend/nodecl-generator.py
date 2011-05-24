@@ -404,16 +404,34 @@ def generate_routines_header(rule_map):
    print "#include \"cxx-cexpr.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
-   print ""
-   print "nodecl_output_t nodecl_null(void);"
-   print ""
-   print "// list' parameter can be a 'nodecl_null()'"
-   print "nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t element);"
-   print ""
-   print "// Either list1 or list2 can be 'nodecl_null()'"
-   print "nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2);"
-   print ""
-   print "// Creates a list from two elements"
+   print """
+nodecl_output_t nodecl_null(void);
+char nodecl_is_null(nodecl_output_t t);
+
+AST nodecl_get_ast(nodecl_output_t t);
+
+nodecl_output_t nodecl_copy(nodecl_output_t t);
+
+char nodecl_is_constant(nodecl_output_t t);
+void nodecl_set_constant(nodecl_output_t t, const_value_t* cval);
+const_value_t* nodecl_get_constant(nodecl_output_t t);
+
+const char* nodecl_get_text(nodecl_output_t t);
+type_t* nodecl_get_type(nodecl_output_t t);
+
+const char* nodecl_get_filename(nodecl_output_t t);
+int nodecl_get_line(nodecl_output_t t);
+
+char nodecl_is_value_dependent(nodecl_output_t t);
+void nodecl_set_is_value_dependent(nodecl_output_t t, char is_value_dependent);
+
+// 'list' parameter can be a 'nodecl_null()'
+nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t element);
+
+// Either list1 or list2 can be 'nodecl_null()'
+nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2);
+"""
+
    for i in range(1, 7):
         params = map(lambda x : "nodecl_output_t element%d" % (x) , range(0, i))
         print "nodecl_output_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
@@ -434,8 +452,8 @@ def generate_routines_header(rule_map):
            param_list_nodecl.append("const char*");
        if rhs_rule.needs_cval:
            param_list_nodecl.append("const_value_t*");
-       if not param_list_nodecl:
-           param_list_nodecl = ["void"];
+       param_list_nodecl.append("const char* filename");
+       param_list_nodecl.append("int line");
 
        print "nodecl_output_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
    print ""
@@ -459,6 +477,67 @@ nodecl_output_t nodecl_null(void)
 {
     nodecl_output_t result = { NULL };
     return result;
+}
+
+char nodecl_is_null(nodecl_output_t t)
+{
+    return t.tree == NULL;
+}
+
+AST nodecl_get_ast(nodecl_output_t t)
+{
+    return t.tree;
+}
+
+const char* nodecl_get_text(nodecl_output_t t)
+{
+    return ASTText(t.tree);
+}
+
+type_t* nodecl_get_type(nodecl_output_t t)
+{
+    return expression_get_type(t.tree);
+}
+
+nodecl_output_t nodecl_copy(nodecl_output_t t)
+{
+    nodecl_output_t result = { ast_copy(t.tree) };
+    return result;
+}
+
+char nodecl_is_constant(nodecl_output_t t)
+{
+    return expression_is_constant(t.tree);
+}
+
+const_value_t* nodecl_get_constant(nodecl_output_t t)
+{
+    return expression_get_constant(t.tree);
+}
+
+void nodecl_set_constant(nodecl_output_t t, const_value_t* cval)
+{
+    expression_set_constant(t.tree, cval);
+}
+
+char nodecl_is_value_dependent(nodecl_output_t t)
+{
+    return expression_is_value_dependent(t.tree);
+}
+
+void nodecl_set_is_value_dependent(nodecl_output_t t, char is_value_dependent)
+{
+    return expression_set_is_value_dependent(t.tree, is_value_dependent);
+}
+
+const char* nodecl_get_filename(nodecl_output_t t)
+{
+    return ASTFileName(t.tree);
+}
+
+int nodecl_get_line(nodecl_output_t t)
+{
+    return ASTLine(t.tree);
 }
 
 nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2)
@@ -536,17 +615,19 @@ nodecl_output_t nodecl_make_list_1(nodecl_output_t element0)
            param_list_nodecl.append("const char* text");
        if rhs_rule.needs_cval:
            param_list_nodecl.append("const_value_t* cval");
+       param_list_nodecl.append("const char* filename");
+       param_list_nodecl.append("int line");
        if not param_list_nodecl:
-           param_list_nodecl = ["void"];
+           raise Exception("Empty list!")
 
        print "nodecl_output_t nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
        print "{"
        print "  nodecl_output_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
-          print "  result.tree = ASTLeaf(%s, NULL, 0, NULL);" % (rhs_rule.tree_kind)
+          print "  result.tree = ASTLeaf(%s, filename, line, NULL);" % (rhs_rule.tree_kind)
        else:
-          print "  result.tree = ASTMake%d(%s, %s, NULL, 0, NULL);" % (num_children, rhs_rule.tree_kind, \
+          print "  result.tree = ASTMake%d(%s, %s, filename, line, NULL);" % (num_children, rhs_rule.tree_kind, \
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:

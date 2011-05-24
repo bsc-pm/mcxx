@@ -76,21 +76,22 @@ static int round_to_upper_byte(_size_t bit_offset)
 static void system_v_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
-    AST expr = array_type_get_array_size_expr(t);
+
+    nodecl_output_t expr = array_type_get_array_size_expr(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
-    if (expr != NULL
-            && expression_is_constant(expr))
+    if (!nodecl_is_null(expr)
+            && nodecl_is_constant(expr))
     {
-        int size = const_value_cast_to_4(expression_get_constant(expr));
+        int size = const_value_cast_to_4(nodecl_get_constant(expr));
 
         type_set_size(t, size * element_size);
         type_set_alignment(t, element_align);
         type_set_valid_size(t, 1);
     }
-    else if (expr == NULL)
+    else if (nodecl_is_null(expr))
     {
         internal_error("The compiler tried to evaluate the size of an unbounded array", 0);
     }
@@ -109,7 +110,7 @@ static void system_v_field_layout(scope_entry_t* field,
 
     // gcc flexible arrays support
     if (is_array_type(field_type)
-            && array_type_get_array_size_expr(field_type) == NULL)
+            && nodecl_is_null(array_type_get_array_size_expr(field_type)))
     {
         if (!is_last_field)
         {
@@ -397,15 +398,15 @@ static void system_v_generic_sizeof(type_t* t)
 static void cxx_abi_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
-    AST expr = array_type_get_array_size_expr(t);
+    nodecl_output_t expr = array_type_get_array_size_expr(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
-    if (expr != NULL
-            && expression_is_constant(expr))
+    if (!nodecl_is_null(expr)
+            && nodecl_is_constant(expr))
     {
-        int size = const_value_cast_to_4(expression_get_constant(expr));
+        int size = const_value_cast_to_4(nodecl_get_constant(expr));
 
         type_set_size(t, size * element_size);
         type_set_alignment(t, element_align);

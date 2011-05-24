@@ -15,10 +15,10 @@ const char* fortran_print_type_str(type_t* t)
     }
 
     struct array_spec_tag {
-        AST lower;
-        AST upper;
+        nodecl_output_t lower;
+        nodecl_output_t upper;
         char is_undefined;
-    } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { 0, 0, 0 }  };
+    } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { nodecl_null(), nodecl_null(), 0 }  };
 
     int array_spec_idx;
     for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
@@ -98,10 +98,10 @@ const char* fortran_print_type_str(type_t* t)
     }
     else if (is_fortran_character_type(t))
     {
-        AST length = array_type_get_array_size_expr(t);
+        nodecl_output_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                length == NULL ? "*" : fortran_prettyprint_in_buffer(length));
+                nodecl_is_null(length) ? "*" : fortran_prettyprint_in_buffer(nodecl_get_ast(length)));
         c[127] = '\0';
         result = uniquestr(c);
     }
@@ -145,9 +145,9 @@ const char* fortran_print_type_str(type_t* t)
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
-                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].lower));
+                result = strappend(result, fortran_prettyprint_in_buffer(nodecl_get_ast(array_spec_list[array_spec_idx].lower)));
                 result = strappend(result, ":");
-                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].upper));
+                result = strappend(result, fortran_prettyprint_in_buffer(nodecl_get_ast(array_spec_list[array_spec_idx].upper)));
             }
             else
             {
@@ -348,7 +348,7 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
         }
         else
         {
-            return get_array_type(t, NULL, array_type_get_array_size_expr_context(array_type));
+            return get_array_type(t, nodecl_null(), array_type_get_array_size_expr_context(array_type));
         }
     }
 }
@@ -363,7 +363,7 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
     }
     else if (rank > 0)
     {
-        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), NULL, decl_context);
+        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), decl_context);
     }
     else
     {

@@ -2873,10 +2873,10 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
-        AST expression = array_type_get_array_size_expr(orig_type);
+        nodecl_output_t expression = array_type_get_array_size_expr(orig_type);
         decl_context_t expr_context = array_type_get_array_size_expr_context(orig_type);
 
-        AST updated_expr = expression;
+        AST updated_expr = nodecl_get_ast(expression);
         decl_context_t updated_expr_context = expr_context;
         if (updated_expr != NULL)
         {
@@ -2885,7 +2885,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             if (!check_expression(updated_expr, updated_expr_context))
             {
                 running_error("%s: error: could not update array dimension",
-                        ast_location(expression));
+                        ast_location(nodecl_get_ast(expression)));
             }
         }
 
@@ -2896,7 +2896,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (element_type == NULL)
             return NULL;
 
-        type_t* updated_array_type = get_array_type(element_type, updated_expr, updated_expr_context);
+        type_t* updated_array_type = get_array_type(element_type, 
+                expression_get_nodecl(updated_expr), 
+                updated_expr_context);
 
         updated_array_type = get_cv_qualified_type(updated_array_type, cv_qualifier);
 

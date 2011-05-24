@@ -846,7 +846,7 @@ done;
 
 static void fortran_init_specific_names(decl_context_t decl_context)
 {
-    type_t* default_char = get_array_type(get_char_type(), NULL, decl_context);
+    type_t* default_char = get_array_type(get_char_type(), nodecl_null(), decl_context);
 
     REGISTER_SPECIFIC_INTRINSIC_1("abs", "abs", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("acos", "acos", get_float_type());
@@ -971,7 +971,7 @@ scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         // We ignore the character kind here
         return GET_INTRINSIC_ELEMENTAL("achar", 
-                get_array_type(get_char_type(), NULL, symbol->decl_context), t0);
+                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), t0);
     }
     return NULL;
 }
@@ -1498,7 +1498,7 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_ELEMENTAL("char", 
-                get_array_type(get_char_type(), NULL, symbol->decl_context), 
+                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
                 t0);
     }
     return NULL;
@@ -1684,7 +1684,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
                 (is_integer_type(get_rank0_type(t3)) &&
                  get_rank_of_type(t3) == 1)))
     {
-        type_t* char_type = get_array_type(get_char_type(), NULL, symbol->decl_context);
+        type_t* char_type = get_array_type(get_char_type(), nodecl_null(), symbol->decl_context);
         type_t* int_array = get_n_ranked_type(get_signed_int_type(), 1, symbol->decl_context);
         return GET_INTRINSIC_IMPURE("date_and_time", NULL, char_type, char_type, char_type, int_array);
     }

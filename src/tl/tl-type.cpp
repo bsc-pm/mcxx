@@ -124,7 +124,10 @@ namespace TL
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
-        type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
+
+        nodecl_output_t n = { array_expr._ast };
+// FIXME - This requires a nodecl
+        type_t* array_to = get_array_type(result_type, n, decl_context);
 
         return Type(array_to);
     }
@@ -134,7 +137,10 @@ namespace TL
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
-        type_t* array_to = get_array_type_bounds(result_type, lower_bound._ast, upper_bound._ast, decl_context);
+
+        nodecl_output_t l = { lower_bound._ast };
+        nodecl_output_t u = { upper_bound._ast };
+        type_t* array_to = get_array_type_bounds(result_type, l, u, decl_context);
 
         return Type(array_to);
     }
@@ -145,7 +151,7 @@ namespace TL
 
         decl_context_t null_decl_context;
         memset(&null_decl_context, 0, sizeof(null_decl_context));
-        type_t* array_to = get_array_type(result_type, NULL, null_decl_context);
+        type_t* array_to = get_array_type(result_type, nodecl_null(), null_decl_context);
 
         return Type(array_to);
     }
@@ -409,7 +415,7 @@ namespace TL
     {
         if (is_array())
         {
-            return (array_type_get_array_size_expr(_type_info));
+            return (!array_type_is_unknown_size(_type_info));
         }
 
         return false;
@@ -417,14 +423,14 @@ namespace TL
 
     AST_t Type::array_get_size() const
     {
-        AST expression = array_type_get_array_size_expr(_type_info);
+        AST expression = nodecl_get_ast(array_type_get_array_size_expr(_type_info));
         return expression;
     }
 
     void Type::array_get_bounds(AST_t& lower, AST_t& upper)
     {
-        lower = AST_t(array_type_get_array_lower_bound(_type_info));
-        upper = AST_t(array_type_get_array_upper_bound(_type_info));
+        lower = AST_t(nodecl_get_ast(array_type_get_array_lower_bound(_type_info)));
+        upper = AST_t(nodecl_get_ast(array_type_get_array_upper_bound(_type_info)));
     }
 
     Type Type::get_void_type(void)

@@ -366,7 +366,7 @@ static void check_substring(AST expr, decl_context_t decl_context)
     type_t* synthesized_type = NULL;
 
     // Do not compute the exact size at the moment
-    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), NULL, NULL, decl_context);
+    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_null(), nodecl_null(), decl_context);
 
     expression_set_type(expr, synthesized_type);
 }
@@ -421,7 +421,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
             // maybe we will in the future
             if (!symbol_is_invalid)
             {
-                synthesized_type = get_array_type_bounds(synthesized_type, NULL, NULL, decl_context);
+                synthesized_type = get_array_type_bounds(synthesized_type, nodecl_null(), nodecl_null(), decl_context);
             }
 
             // FIXME - Mark subscript triplets
@@ -1805,8 +1805,15 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
 
     int length = strlen(literal);
 
-    AST one = const_value_to_tree(const_value_get_one(4, 1));
-    AST length_tree = const_value_to_tree(const_value_get(length, 4, 1));
+    nodecl_output_t one = nodecl_make_integer_literal(
+            get_signed_int_type(), 
+            const_value_get_one(4, 1), 
+            ASTFileName(expr),
+            ASTLine(expr));
+    nodecl_output_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
+            const_value_get(length, 4, 1), 
+            ASTFileName(expr),
+            ASTLine(expr));
 
     expression_set_type(expr, get_array_type_bounds(get_signed_char_type(), one, length_tree, decl_context));
 
@@ -2326,8 +2333,8 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     if (is_pointer_to_fortran_character_type(t2))
         t1 = pointer_type_get_pointee_type(t2);
 
-    AST length1 = array_type_get_array_size_expr(t1);
-    AST length2 = array_type_get_array_size_expr(t2);
+    nodecl_output_t length1 = array_type_get_array_size_expr(t1);
+    nodecl_output_t length2 = array_type_get_array_size_expr(t2);
 
     type_t* char1 = array_type_get_element_type(t1);
     type_t* char2 = array_type_get_element_type(t2);
@@ -2336,24 +2343,28 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
         return NULL;
 
     type_t* result = NULL;
-    if (length1 != NULL
-            && length2 != NULL)
+    if (!nodecl_is_null(length1)
+            && !nodecl_is_null(length2))
     {
-        AST new_lower_bound = const_value_to_tree(const_value_get_one(4, 1));
-        AST new_upper_bound = 
-            ASTMake2(AST_ADD,
-                    ast_copy_for_instantiation(array_type_get_array_size_expr(t1)),
-                    ast_copy_for_instantiation(array_type_get_array_size_expr(t2)),
-                    NULL, 0, NULL);
+        nodecl_output_t lower = nodecl_make_integer_literal(
+                get_signed_int_type(), 
+                const_value_get_one(4, 1), 
+                NULL, 0);
+        nodecl_output_t upper = 
+            nodecl_make_add(
+                    nodecl_copy(length1),
+                    nodecl_copy(length2),
+                    get_signed_int_type(),
+                    NULL, 0);
 
         result = get_array_type_bounds(char1, 
-                new_lower_bound, 
-                new_upper_bound, 
+                lower, 
+                upper, 
                 array_type_get_array_size_expr_context(t1));
     }
     else
     {
-        result = get_array_type(char1, NULL, array_type_get_array_size_expr_context(t1));
+        result = get_array_type(char1, nodecl_null(), array_type_get_array_size_expr_context(t1));
     }
 
     return result;

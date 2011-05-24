@@ -1493,7 +1493,7 @@ static void get_abstract_declarator(AST *abstract_decl,
     {
         *abstract_decl = ASTMake2(AST_DECLARATOR_ARRAY, 
                 *abstract_decl,
-                array_type_get_array_size_expr(t), filename, line, 0);
+                nodecl_get_ast(array_type_get_array_size_expr(t)), filename, line, 0);
 
         get_abstract_declarator(abstract_decl, array_type_get_element_type(t), decl_context, filename, line);
     }

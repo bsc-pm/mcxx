@@ -1237,12 +1237,15 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 }
                 if (!is_undefined)
                 {
-                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
-                    result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                    nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                            get_signed_int_type(),
+                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                            ASTFileName(len), ASTLine(len));
+                    result = get_array_type_bounds(result, lower_bound, expression_get_nodecl(len), decl_context);
                 }
                 else
                 {
-                    result = get_array_type(result, NULL, decl_context);
+                    result = get_array_type(result, nodecl_null(), decl_context);
                 }
                 break;
             }
@@ -1622,31 +1625,34 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
 
     array_spec_kind_t kind = ARRAY_SPEC_KIND_NONE;
 
-    // Note that we traverse the list backwards to create a type that matches
-    // that of a C array
     AST it = NULL;
     for_each_element(array_spec_list, it)
     {
         AST array_spec_item = ASTSon1(it);
-        AST lower_bound = ASTSon0(array_spec_item);
-        AST upper_bound = ASTSon1(array_spec_item);
+        AST lower_bound_tree = ASTSon0(array_spec_item);
+        AST upper_bound_tree = ASTSon1(array_spec_item);
 
-        if (lower_bound != NULL
-                && (ASTType(lower_bound) != AST_SYMBOL
-                    || (strcmp(ASTText(lower_bound), "*") != 0) ))
+        nodecl_output_t lower_bound = nodecl_null();
+        nodecl_output_t upper_bound = nodecl_null();
+
+        if (lower_bound_tree != NULL
+                && (ASTType(lower_bound_tree) != AST_SYMBOL
+                    || (strcmp(ASTText(lower_bound_tree), "*") != 0) ))
         {
-            fortran_check_expression(lower_bound, decl_context);
+            fortran_check_expression(lower_bound_tree, decl_context);
+            lower_bound = expression_get_nodecl(lower_bound_tree);
         }
 
-        if (upper_bound != NULL
-                && (ASTType(upper_bound) != AST_SYMBOL
-                    || (strcmp(ASTText(upper_bound), "*") != 0) ))
+        if (upper_bound_tree != NULL
+                && (ASTType(upper_bound_tree) != AST_SYMBOL
+                    || (strcmp(ASTText(upper_bound_tree), "*") != 0) ))
         {
-            fortran_check_expression(upper_bound, decl_context);
+            fortran_check_expression(upper_bound_tree, decl_context);
+            upper_bound = expression_get_nodecl(upper_bound_tree);
         }
 
-        if (lower_bound == NULL
-                && upper_bound == NULL)
+        if (lower_bound_tree == NULL
+                && upper_bound_tree == NULL)
         {
             // (:)
             if (kind == ARRAY_SPEC_KIND_NONE)
@@ -1660,9 +1666,9 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 kind = ARRAY_SPEC_KIND_ERROR;
             }
         }
-        else if (upper_bound != NULL
-                && ASTType(upper_bound) == AST_SYMBOL
-                && strcmp(ASTText(upper_bound), "*") == 0)
+        else if (upper_bound_tree != NULL
+                && ASTType(upper_bound_tree) == AST_SYMBOL
+                && strcmp(ASTText(upper_bound_tree), "*") == 0)
         {
             // (*)
             // (L:*)
@@ -1681,8 +1687,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 kind = ARRAY_SPEC_KIND_ERROR;
             }
         }
-        else if (lower_bound != NULL
-                && upper_bound == NULL)
+        else if (lower_bound_tree != NULL
+                && upper_bound_tree == NULL)
         {
             // (L:)
             if (kind == ARRAY_SPEC_KIND_NONE
@@ -1696,7 +1702,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 kind = ARRAY_SPEC_KIND_ERROR;
             }
         }
-        else if (upper_bound != NULL)
+        else if (upper_bound_tree != NULL)
         {
             // (U)
             // (:U)
@@ -1711,13 +1717,25 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
                 kind = ARRAY_SPEC_KIND_ERROR;
             }
 
-            if (lower_bound == NULL)
+            if (lower_bound_tree == NULL)
             {
-                lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(upper_bound), ASTLine(upper_bound), "1");
+                lower_bound = nodecl_make_integer_literal(
+                        get_signed_int_type(),
+                        const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                        ASTFileName(upper_bound_tree), ASTLine(upper_bound_tree));
             }
         }
 
-        array_type = get_array_type_bounds(array_type, lower_bound, upper_bound, decl_context);
+        if (kind != ARRAY_SPEC_KIND_ERROR
+                && !is_error_type(array_type))
+        {
+            array_type = get_array_type_bounds(array_type, lower_bound, upper_bound, decl_context);
+        }
+        else
+        {
+            array_type = get_error_type();
+            break;
+        }
     }
 
     if (array_spec_kind != NULL)
@@ -2700,16 +2718,21 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                                 || strcmp(ASTText(char_length), "*") != 0)
                         {
                             fortran_check_expression(char_length, decl_context);
-                            AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+
+                            nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                                    get_signed_int_type(),
+                                    const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                                    ASTFileName(char_length), ASTLine(char_length));
+
                             entry->type_information = get_array_type_bounds(
                                     array_type_get_element_type(entry->type_information), 
-                                    lower_bound, char_length, decl_context);
+                                    lower_bound, expression_get_nodecl(char_length), decl_context);
                         }
                         else
                         {
                             entry->type_information = get_array_type(
                                     array_type_get_element_type(entry->type_information), 
-                                    NULL, decl_context);
+                                    nodecl_null(), decl_context);
                         }
                     }
 
@@ -3778,16 +3801,19 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 {
                     fortran_check_expression(char_length, decl_context);
 
-                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                    nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                            get_signed_int_type(),
+                            const_value_get_one(type_get_size(get_signed_int_type()), 1),
+                            ASTFileName(char_length), ASTLine(char_length));
                     entry->type_information = get_array_type_bounds(
                             array_type_get_element_type(entry->type_information), 
-                            lower_bound, char_length, decl_context);
+                            lower_bound, expression_get_nodecl(char_length), decl_context);
                 }
                 else
                 {
                     entry->type_information = get_array_type(
                             array_type_get_element_type(entry->type_information), 
-                            NULL, decl_context);
+                            nodecl_null(), decl_context);
                 }
             }
 

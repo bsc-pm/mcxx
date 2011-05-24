@@ -659,8 +659,8 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         sqlite3_int64 upper_tree = 0;
         if (!array_type_is_unknown_size(t))
         {
-            lower_tree = insert_ast(handle, array_type_get_array_lower_bound(t));
-            upper_tree = insert_ast(handle, array_type_get_array_upper_bound(t));
+            lower_tree = insert_ast(handle, nodecl_get_ast(array_type_get_array_lower_bound(t)));
+            upper_tree = insert_ast(handle, nodecl_get_ast(array_type_get_array_upper_bound(t)));
         }
 
         result = insert_type(handle, array_type_get_element_type(t));
@@ -1312,7 +1312,9 @@ static int get_type(void *datum,
         // At the moment we do not store the decl_context
         // Hopefully this will be enough
         decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        *pt = get_array_type_bounds(element_type, lower_bound, upper_bound, decl_context);
+        nodecl_output_t lower_bound_nodecl = { lower_bound };
+        nodecl_output_t upper_bound_nodecl = { upper_bound };
+        *pt = get_array_type_bounds(element_type, lower_bound_nodecl, upper_bound_nodecl, decl_context);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "CLASS") == 0)

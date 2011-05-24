@@ -286,7 +286,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
 
-    translation_unit->nodecl = nodecl_make_nodecl_top_level(nodecl);
+    translation_unit->nodecl = nodecl_make_nodecl_top_level(nodecl, ASTFileName(a), ASTLine(a));
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree, 
@@ -602,8 +602,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
-                                "unknown-pragma"));
+                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                "unknown-pragma", ASTFileName(a), ASTLine(a)));
                 break;
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
@@ -643,8 +643,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
-                                "pp-comment"));
+                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                "pp-comment", ASTFileName(a), ASTLine(a)));
                 break;
             }
         case AST_PP_TOKEN :
@@ -652,8 +652,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
-                                "pp-token"));
+                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                "pp-token", ASTFileName(a), ASTLine(a)));
                 break;
             }
         case AST_VERBATIM :
@@ -661,8 +661,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a)),
-                                "verbatim"));
+                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                "verbatim", ASTFileName(a), ASTLine(a)));
                 break;
             }
         default :
@@ -709,13 +709,15 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     nodecl_output_t nodecl_identifier = nodecl_null();
                     if (identifier != NULL)
                     {
-                        nodecl_identifier = nodecl_make_string_literal(get_void_type(), ASTText(identifier));
+                        nodecl_identifier = nodecl_make_string_literal(get_void_type(), 
+                                ASTText(identifier), ASTFileName(identifier), ASTLine(identifier));
                     }
 
                     nodecl_output_t nodecl_constraint = nodecl_null();
                     if (constraint != NULL)
                     {
-                        nodecl_constraint = nodecl_make_string_literal(get_void_type(), ASTText(constraint));
+                        nodecl_constraint = nodecl_make_string_literal(get_void_type(), 
+                                ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
                     nodecl_output_t nodecl_asm_param = nodecl_make_builtin(
@@ -723,7 +725,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                                 nodecl_identifier,
                                 nodecl_constraint,
                                 expression_get_nodecl(expression)),
-                            "gcc-asm-operand");
+                            "gcc-asm-operand", 
+                            ASTFileName(asm_operand), ASTLine(asm_operand));
 
                     nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
                             nodecl_asm_param);
@@ -739,11 +742,14 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
 
     *nodecl_output = nodecl_make_builtin(
             nodecl_make_list_4(
-                nodecl_make_string_literal(get_void_type(), ASTText(ASTSon0(asm_parms))),
+                nodecl_make_string_literal(get_void_type(), 
+                    ASTText(ASTSon0(asm_parms)), 
+                    ASTFileName(ASTSon0(asm_parms)), 
+                    ASTLine(ASTSon0(asm_parms))),
                 nodecl_asm_params[0],
                 nodecl_asm_params[1],
                 nodecl_asm_params[2]),
-            "gcc-asm-definition");
+            "gcc-asm-definition", ASTFileName(a), ASTLine(a));
 }
 
 // It simply disambiguates
@@ -1127,9 +1133,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         type_t* initializer_type = expression_get_type(initializer);
 
                         if (is_array_type(declarator_type)
-                                && array_type_get_array_size_expr(declarator_type) == NULL
+                                && nodecl_get_ast(array_type_get_array_size_expr(declarator_type)) == NULL
                                 && is_array_type(initializer_type)
-                                && array_type_get_array_size_expr(initializer_type) != NULL)
+                                && nodecl_get_ast(array_type_get_array_size_expr(initializer_type)) != NULL)
                         {
                             entry->type_information = initializer_type;
                         }
@@ -4608,7 +4614,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "---> POINTER TO MEMBER <---\n");
+                        fprintf(stderr, "BUILDSCOPE: This is a pointer to member\n");
                     }
 
                     scope_entry_list_t* entry_list = NULL;
@@ -4703,6 +4709,9 @@ static void set_array_type(type_t** declarator_type,
             fprintf(stderr, "%s: warning: could not check array size expression '%s'\n",
                     ast_location(constant_expr),
                     prettyprint_in_buffer(constant_expr));
+
+            *declarator_type = get_error_type();
+            return;
         }
 
         if (!expression_is_value_dependent(constant_expr)
@@ -4714,10 +4723,13 @@ static void set_array_type(type_t** declarator_type,
                 fprintf(stderr, "%s: warning: declaring a variable sized object in a scope not allowing them\n",
                         ast_location(constant_expr));
             }
+
+            *declarator_type = get_error_type();
+            return;
         }
     }
 
-    *declarator_type = get_array_type(element_type, constant_expr, decl_context);
+    *declarator_type = get_array_type(element_type, expression_get_nodecl(constant_expr), decl_context);
 }
 
 /*
@@ -4805,7 +4817,6 @@ static void set_function_parameter_clause(type_t** function_type,
                     ast_location(parameter_declaration));
         }
 
-
         if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
         {
             // Nothing more to do
@@ -4840,6 +4851,9 @@ static void set_function_parameter_clause(type_t** function_type,
                 fprintf(stderr, "%s: warning: could not check default argument expression '%s'\n",
                         ast_location(default_argument),
                         prettyprint_in_buffer(default_argument));
+
+                *function_type = get_error_type();
+                return;
             }
         }
 
@@ -4854,6 +4868,12 @@ static void set_function_parameter_clause(type_t** function_type,
         build_scope_decl_specifier_seq(parameter_decl_spec_seq, &param_decl_gather_info, &simple_type_info,
                 param_decl_context, nodecl_output);
 
+        if (is_error_type(simple_type_info))
+        {
+            *function_type = get_error_type();
+            return;
+        }
+
         if (ASTType(parameter_declaration) == AST_GCC_PARAMETER_DECL)
         {
             AST attribute_list = ASTSon3(parameter_declaration);
@@ -4864,11 +4884,16 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             running_error("%s: error: parameter declared as 'extern'\n", 
                     ast_location(parameter_decl_spec_seq));
+
+            *function_type = get_error_type();
+            return;
         }
         if (param_decl_gather_info.is_static)
         {
             running_error("%s: error: parameter declared as 'static'\n", 
                     ast_location(parameter_decl_spec_seq));
+            *function_type = get_error_type();
+            return;
         }
 
         // It is valid in a function declaration not having a declarator at all
@@ -4884,6 +4909,12 @@ static void set_function_parameter_clause(type_t** function_type,
 
         compute_declarator_type(parameter_declarator, 
                 &param_decl_gather_info, simple_type_info, &type_info, param_decl_context, nodecl_output);
+        if (is_error_type(type_info))
+        {
+            *function_type = get_error_type();
+            return;
+        }
+
         if (parameter_declarator != NULL)
         {
             entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context, nodecl_output);
@@ -5123,6 +5154,10 @@ static void build_scope_declarator_rec(
         case AST_POINTER_DECLARATOR :
             {
                 set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
+                if (is_error_type(*declarator_type))
+                {
+                    return;
+                }
                 build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
                 break;
@@ -5134,6 +5169,10 @@ static void build_scope_declarator_rec(
                         /* (C99)static_qualif */ ASTSon3(a),
                         /* (C99)cv_qualifier_seq */ ASTSon2(a),
                         entity_context);
+                if (is_error_type(*declarator_type))
+                {
+                    return;
+                }
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
                 break;
@@ -5168,6 +5207,10 @@ static void build_scope_declarator_rec(
 
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context, nodecl_output);
+                if (is_error_type(*declarator_type))
+                {
+                    return;
+                }
 
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
@@ -5193,6 +5236,10 @@ static void build_scope_declarator_rec(
             {
                 ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
+                if (is_error_type(*declarator_type))
+                {
+                    return;
+                }
                 build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context, nodecl_output);
                 break;
@@ -7581,7 +7628,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     entry->defined = 1;
     entry->point_of_definition = get_enclosing_declaration(a);
 
-    nodecl_output_t function_symbol_nodecl = nodecl_make_symbol(entry);
+    nodecl_output_t function_symbol_nodecl = nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
     
     // Keep parameter names
     int i;
@@ -7787,7 +7834,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
 
         // We manually create a compound statement here for nodecl
-        body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors);
+        body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors, ASTFileName(statement), ASTLine(statement));
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
     {
@@ -7812,7 +7859,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // Create nodecl
     nodecl_output_t nodecl_function_def = nodecl_make_function_code(function_symbol_nodecl, 
                     nodecl_make_list_1(body_nodecl), 
-                    /* internal_functions */ nodecl_null());
+                    /* internal_functions */ nodecl_null(),
+                    ASTFileName(a), ASTLine(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_function_def);
 
@@ -8983,9 +9031,15 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
         build_scope_decl_specifier_seq(type_specifier_seq, &inner_gather_info, &type_info,
                 decl_context, nodecl_output);
 
+        if (is_error_type(type_info))
+            continue;
+
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
                 decl_context, nodecl_output);
+
+        if (is_error_type(declarator_type))
+            continue;
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
     }
@@ -9208,10 +9262,10 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
         nodecl_output_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(
             nodecl_make_function_call(
-                    nodecl_make_symbol(class_type_get_destructor(class_type)),
+                    nodecl_make_symbol(class_type_get_destructor(class_type), NULL, 0),
                     nodecl_null(),
-                    get_void_type()
-                    ));
+                    get_void_type(),
+                    NULL, 0), NULL, 0);
 
         *(destructor_data->nodecl_output) = nodecl_append_to_list(
                 *(destructor_data->nodecl_output), 
@@ -9286,7 +9340,7 @@ static void build_scope_compound_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors));
+            nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
@@ -9348,7 +9402,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
                         print_type_str(entry->type_information, decl_context));
             }
 
-            *nodecl_output = nodecl_make_object_init(entry);
+            *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
         }
         CXX_LANGUAGE()
         {
@@ -9365,14 +9419,14 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
                             print_type_str(entry->type_information, decl_context));
                 }
 
-                *nodecl_output = nodecl_make_object_init(entry);
+                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
                 if (conversor != NULL)
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
                             "I expected a conversion function!", 0);
-                    *nodecl_output = nodecl_make_function_call(nodecl_make_symbol(conversor),
+                    *nodecl_output = nodecl_make_function_call(nodecl_make_symbol(conversor, ASTFileName(initializer), ASTLine(initializer)),
                             nodecl_make_list_1(*nodecl_output),
-                            function_type_get_return_type(conversor->type_information));
+                            function_type_get_return_type(conversor->type_information), ASTFileName(initializer), ASTLine(initializer));
                 }
             }
         }
@@ -9426,7 +9480,7 @@ static void build_scope_while_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(), 
-            nodecl_make_while_statement(nodecl_condition, nodecl_statement));
+            nodecl_make_while_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -9480,7 +9534,7 @@ static void build_scope_expression_statement(AST a,
     *nodecl_output = 
         nodecl_append_to_list(
                 nodecl_null(), 
-                nodecl_make_expression_statement(expression_get_nodecl(expr)));
+                nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9515,7 +9569,7 @@ static void build_scope_if_else_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else));
+            nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -9588,10 +9642,11 @@ static void build_scope_for_statement(AST a,
     ast_set_link_to_child(a, LANG_FOR_ITERATION_EXPRESSION, expression);
     ast_set_link_to_child(a, LANG_FOR_BODY_STATEMENT, statement);
 
-    nodecl_output_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter);
+    nodecl_output_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
+            ASTFileName(a), ASTLine(a));
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(), 
-            nodecl_make_for_statement(nodecl_loop_control, nodecl_statement));
+            nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_switch_statement(AST a, 
@@ -9618,7 +9673,7 @@ static void build_scope_switch_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_switch_statement(nodecl_condition, nodecl_statement));
+            nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
@@ -9656,7 +9711,8 @@ static void build_scope_goto_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_goto_statement(nodecl_make_symbol(sym_label)));
+            nodecl_make_goto_statement(nodecl_make_symbol(sym_label, ASTFileName(a), ASTLine(a)), 
+                ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -9679,7 +9735,8 @@ static void build_scope_labeled_statement(AST a,
     *nodecl_output = 
         nodecl_append_to_list(
                 nodecl_null(),
-                nodecl_make_labeled_statement(nodecl_make_symbol(sym_label), nodecl_statement));
+                nodecl_make_labeled_statement(nodecl_make_symbol(sym_label, ASTFileName(label), ASTLine(label)), 
+                    nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -9696,7 +9753,7 @@ static void build_scope_default_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_default_statement(nodecl_statement));
+            nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_case_statement(AST a, 
@@ -9722,7 +9779,7 @@ static void build_scope_case_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_case_statement(expression_get_nodecl(constant_expression), nodecl_statement));
+            nodecl_make_case_statement(expression_get_nodecl(constant_expression), nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_return_statement(AST a, 
@@ -9748,7 +9805,7 @@ static void build_scope_return_statement(AST a,
     *nodecl_output = 
         nodecl_append_to_list(
                 nodecl_null(),
-                nodecl_make_return_statement(expression_get_nodecl(expression)));
+                nodecl_make_return_statement(expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_try_block(AST a, 
@@ -9809,12 +9866,14 @@ static void build_scope_try_block(AST a,
                         declarator_type, &gather_info, block_context, &dummy);
             }
 
-            nodecl_output_t nodecl_type = nodecl_make_type(declarator_type);
+            nodecl_output_t nodecl_type = nodecl_make_type(declarator_type, NULL, 0);
             nodecl_output_t nodecl_catch_statement = nodecl_null();
             build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_statement);
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
-                    nodecl_make_catch_handler(nodecl_type, nodecl_catch_statement));
+                    nodecl_make_catch_handler(nodecl_type, nodecl_catch_statement, 
+                        ASTFileName(exception_declaration), 
+                        ASTLine(exception_declaration)));
         }
         else
         {
@@ -9833,7 +9892,7 @@ static void build_scope_try_block(AST a,
     ast_set_link_to_child(a, LANG_TRY_BLOCK_HANDLER_LIST, handler_seq);
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any));
+            nodecl_make_try_block(nodecl_statement, nodecl_catch_list, nodecl_catch_any, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_do_statement(AST a, 
@@ -9859,7 +9918,7 @@ static void build_scope_do_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(nodecl_null(),
             nodecl_make_do_statement(nodecl_statement, 
-                expression_get_nodecl(expression)));
+                expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_empty_statement(AST a, 
@@ -9875,7 +9934,7 @@ static void build_scope_empty_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_empty_statement());
+            nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_break(AST a, 
@@ -9890,7 +9949,7 @@ static void build_scope_break(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_break_statement());
+            nodecl_make_break_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_continue(AST a, 
@@ -9906,7 +9965,7 @@ static void build_scope_continue(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_continue_statement());
+            nodecl_make_continue_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_clause_argument(AST a, 
@@ -9915,7 +9974,7 @@ static void build_scope_pragma_custom_clause_argument(AST a,
 {
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, tl_type_t, tl_bool(1));
 
-    *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a));
+    *nodecl_output = nodecl_make_pragma_clause_arg(ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context, nodecl_output_t* nodecl_output)
@@ -9931,7 +9990,7 @@ static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context,
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
 
-    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument);
+    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pragma_custom_line(AST a, 
@@ -9972,7 +10031,7 @@ static void build_scope_pragma_custom_line(AST a,
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 
-    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses);
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
@@ -9989,7 +10048,7 @@ static void build_scope_pragma_custom_directive(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_pragma_custom_directive(nodecl_pragma_line));
+            nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_construct_statement(AST a, 
@@ -10010,7 +10069,7 @@ static void build_scope_pragma_custom_construct_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement));
+            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a, 
@@ -10086,14 +10145,14 @@ static void build_scope_upc_synch_statement(AST a,
     else
     {
         nodecl_expression = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1));
+                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_expression = nodecl_append_to_list(
             nodecl_null(),
             nodecl_expression);
 
-    *nodecl_output = nodecl_make_builtin(nodecl_expression, attr_name);
+    *nodecl_output = nodecl_make_builtin(nodecl_expression, attr_name, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_upc_forall_statement(AST a, 
@@ -10136,7 +10195,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_condition = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1));
+                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_output_t nodecl_iter = nodecl_null();
@@ -10148,7 +10207,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_iter = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1));
+                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_output_t nodecl_affinity = nodecl_null();
@@ -10156,12 +10215,12 @@ static void build_scope_upc_forall_statement(AST a,
     {
         check_expression(affinity, block_context);
         nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1));
+                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
     else
     {
         nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1));
+                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_output_t* list[] = { 
@@ -10190,7 +10249,7 @@ static void build_scope_upc_forall_statement(AST a,
     ast_set_link_to_child(a, UPC_FORALL_AFFINITY, affinity);
     ast_set_link_to_child(a, UPC_FORALL_BODY_STATEMENT, statement);
 
-    *nodecl_output = nodecl_make_builtin(nodecl_list, UPC_IS_FORALL_STATEMENT);
+    *nodecl_output = nodecl_make_builtin(nodecl_list, UPC_IS_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
 }
 
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }

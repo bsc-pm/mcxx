@@ -490,19 +490,21 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
     else if (is_array_type(t1)
             && is_array_type(t2))
     {
-        if (array_type_get_array_size_expr(t1) != NULL
-                && array_type_get_array_size_expr(t2) != NULL)
+
+        if (!nodecl_is_null(array_type_get_array_size_expr(t1))
+                && !nodecl_is_null(array_type_get_array_size_expr(t2)))
         {
             unificate_two_expressions(deduction_set, 
-                    array_type_get_array_size_expr(t1),
+                    nodecl_get_ast(array_type_get_array_size_expr(t1)),
                     array_type_get_array_size_expr_context(t1), 
-                    array_type_get_array_size_expr(t2),
+                    nodecl_get_ast(array_type_get_array_size_expr(t2)),
                     array_type_get_array_size_expr_context(t2),
                     flags);
         }
 
-        unificate_two_types(array_type_get_element_type(t1), 
-                array_type_get_element_type(t2), 
+
+        unificate_two_types(array_type_get_element_type(t1),
+                array_type_get_element_type(t2),
                 deduction_set,
                 decl_context,
                 filename, line, flags);
