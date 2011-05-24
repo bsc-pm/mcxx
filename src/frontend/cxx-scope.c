@@ -1144,7 +1144,7 @@ static scope_entry_list_t* query_qualified_name(
             dependent_entity->decl_context = nested_name_context;
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
             dependent_entity->type_information = dependent_type;
-            dependent_entity->expression_value = 
+            dependent_entity->language_dependent_value = 
                 ASTMake3(AST_QUALIFIED_ID,
                         ast_copy(global_op), 
                         ast_copy(nested_name), 
@@ -2128,13 +2128,16 @@ decl_context_t update_context_with_template_arguments(
                     // Fold it, as makes things easier
                     if (expression_is_constant(current_template_argument->expression))
                     {
-                        param_symbol->expression_value = const_value_to_tree(
+                        param_symbol->language_dependent_value = const_value_to_tree(
+                                expression_get_constant(current_template_argument->expression)
+                                );
+                        param_symbol->value = const_value_to_nodecl(
                                 expression_get_constant(current_template_argument->expression)
                                 );
                     }
                     else
                     {
-                        param_symbol->expression_value = current_template_argument->expression;
+                        param_symbol->language_dependent_value = current_template_argument->expression;
                     }
                     break;
                 }
@@ -3329,7 +3332,9 @@ static void sign_in_template_name(template_argument_t* current_template_argument
 
                 if (expression_is_constant(current_template_argument->expression))
                 {
-                    param_symbol->expression_value = const_value_to_tree(
+                    param_symbol->language_dependent_value = const_value_to_tree(
+                            expression_get_constant(current_template_argument->expression));
+                    param_symbol->value = const_value_to_nodecl(
                             expression_get_constant(current_template_argument->expression));
                 }
 

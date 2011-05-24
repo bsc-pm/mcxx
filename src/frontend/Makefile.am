@@ -69,6 +69,7 @@ libmcxx_la_SOURCES = \
   cxx-asttype.c \
   cxx-ast.c \
   cxx-ast.h \
+  cxx-ast-fwd.h \
   cxx-ast-decls.h \
   cxx-lexer.h \
   cxx-parser.h \
@@ -93,6 +94,7 @@ libmcxx_la_SOURCES = \
   cxx-entrylist-decls.h \
   cxx-entrylist.c \
   cxx-entrylist.h \
+  cxx-scope-fwd.h \
   cxx-scope-decls.h \
   cxx-attrnames.h \
   cxx-attrnames.c \
@@ -103,6 +105,7 @@ libmcxx_la_SOURCES = \
   cxx-type-trie.c \
   cxx-typeutils.c \
   cxx-typeutils.h \
+  cxx-type-fwd.h \
   cxx-type-decls.h \
   cxx-typeenviron-decls.h \
   cxx-typeenviron.h \
@@ -114,6 +117,7 @@ libmcxx_la_SOURCES = \
   cxx-typededuc.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
+  cxx-cexpr-fwd.h \
   cxx-cexpr-decls.h \
   cxx-ambiguity.c \
   cxx-ambiguity.h \
@@ -153,6 +157,7 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   cxx-nodecl.h \
   cxx-nodecl.c \
+  cxx-nodecl-output-fwd.h \
   cxx-nodecl-output-decls.h \
   cxx-nodecl-checker.h \
   cxx-nodecl-checker.c \

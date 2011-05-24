@@ -3386,7 +3386,8 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
             entry->kind = SK_VARIABLE;
 
         entry->type_information = get_const_qualified_type(entry->type_information);
-        entry->expression_value = constant_expr;
+        entry->language_dependent_value = constant_expr;
+        entry->value = expression_get_nodecl(entry->language_dependent_value);
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
@@ -3866,7 +3867,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         if (initialization != NULL)
         {
-            entry->expression_value = initialization;
+            entry->language_dependent_value = initialization;
+            entry->value = expression_get_nodecl(initialization);
             entry->kind = SK_VARIABLE;
             if (!current_attr_spec.is_constant)
             {

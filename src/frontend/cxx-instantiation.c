@@ -301,12 +301,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
                 }
 
-                if (member_of_template->expression_value != NULL)
+                if (member_of_template->language_dependent_value != NULL)
                 {
-                    new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
+                    new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
 
-                    check_initialization(new_member->expression_value, context_of_being_instantiated, 
+                    check_initialization(new_member->language_dependent_value, context_of_being_instantiated, 
                             new_member->type_information);
+                    new_member->value = expression_get_nodecl(new_member->language_dependent_value);
                 }
 
                 DEBUG_CODE()
@@ -396,12 +397,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 member_of_template->type_information = new_type;
 
-                ERROR_CONDITION(member_of_template->expression_value == NULL,
+                ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
                         "An enumerator always has a related expression", 0);
 
-                new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
+                new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
 
-                check_expression(new_member->expression_value, context_of_being_instantiated);
+                check_expression(new_member->language_dependent_value, context_of_being_instantiated);
+
+                new_member->value = expression_get_nodecl(new_member->language_dependent_value);
 
                 enum_type_add_enumerator(new_type, new_member);
 
@@ -689,17 +692,17 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             // which refer to dependent entities
         case SK_DEPENDENT_ENTITY:
             {
-                ERROR_CONDITION(member_of_template->expression_value == NULL,
+                ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
                         "Invalid expression for dependent entity", 0);
 
-                scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->expression_value);
+                scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->language_dependent_value);
                 
                 if (entry_list == NULL
                         || !entry_list_head(entry_list)->entity_specs.is_member)
                 {
                     running_error("%s: invalid using declaration '%s' while instantiating\n", 
-                            ast_location(member_of_template->expression_value),
-                            prettyprint_in_buffer(member_of_template->expression_value));
+                            ast_location(member_of_template->language_dependent_value),
+                            prettyprint_in_buffer(member_of_template->language_dependent_value));
                 }
 
                 scope_entry_t* entry = entry_list_head(entry_list);
@@ -707,7 +710,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             get_actual_class_type(being_instantiated)))
                 {
                     running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
-                            ast_location(member_of_template->expression_value),
+                            ast_location(member_of_template->language_dependent_value),
                                 get_qualified_symbol_name(entry,
                                     context_of_being_instantiated),
                                 get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
@@ -848,13 +851,16 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
                         if (expression_is_constant(current_deduction->deduced_parameters[0]->expression))
                         {
-                            param_symbol->expression_value = 
+                            param_symbol->language_dependent_value = 
                                 const_value_to_tree(
                                         expression_get_constant(current_deduction->deduced_parameters[0]->expression));
+                            param_symbol->value = const_value_to_nodecl(
+                                    expression_get_constant(param_symbol->language_dependent_value));
                         }
                         else
                         {
-                            param_symbol->expression_value = current_deduction->deduced_parameters[0]->expression;
+                            param_symbol->language_dependent_value = current_deduction->deduced_parameters[0]->expression;
+                            param_symbol->value = expression_get_nodecl(param_symbol->language_dependent_value);
                         }
                         break;
                     }
@@ -2024,7 +2030,7 @@ static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_
                 {
                     AST copied_expr = 
                         ASTMake1(AST_PARENTHESIZED_EXPRESSION,
-                                ast_copy_for_instantiation(entry->expression_value), 
+                                ast_copy_for_instantiation(entry->language_dependent_value), 
                                 ASTFileName(orig_tree),
                                 ASTLine(orig_tree), 
                                 NULL);

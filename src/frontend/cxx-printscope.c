@@ -341,10 +341,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
 
     if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
-            && entry->expression_value != NULL)
+            && entry->language_dependent_value != NULL)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: %s\n",
-                prettyprint_in_buffer(entry->expression_value));
+                prettyprint_in_buffer(entry->language_dependent_value));
     }
 
     if (entry->kind == SK_FUNCTION)

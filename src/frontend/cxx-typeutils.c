@@ -8445,7 +8445,7 @@ char is_aggregate_type(type_t* t)
             CXX1X_LANGUAGE()
             {
                 // No initializer for nonstatic data member
-                if (entry->expression_value != NULL)
+                if (entry->language_dependent_value != NULL)
                     return 0;
             }
 

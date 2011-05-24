@@ -43,6 +43,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-typeenviron.h"
 #include "cxx-limits.h"
+#include "cxx-nodecl-output.h"
 
 #define CVAL_HASH_SIZE (37)
 
@@ -317,6 +318,24 @@ static void get_proper_suffix(char is_signed, uint64_t value, const char** suffi
     else
     {
         internal_error("Invalid type", 0);
+    }
+}
+
+nodecl_output_t const_value_to_nodecl(const_value_t* v)
+{
+    if (v->value == 0)
+    {
+        // Zero is special
+        return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
+    }
+    else
+    {
+        type_t* t = NULL;
+        const char* suffix = NULL;
+
+        get_proper_suffix(v->sign, v->value, &suffix, &t);
+
+        return nodecl_make_integer_literal(t, v, NULL, 0);
     }
 }
 

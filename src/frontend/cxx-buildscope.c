@@ -339,7 +339,8 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword->kind = SK_VARIABLE;
             null_keyword->type_information = get_null_type();
             const_value_t* val = const_value_get_zero(/*bytes*/ 4, /* signed */ 1);
-            null_keyword->expression_value = const_value_to_tree(val);
+            null_keyword->language_dependent_value = const_value_to_tree(val);
+            null_keyword->value = const_value_to_nodecl(val);
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
             null_keyword->file = "(global scope)";
@@ -1141,7 +1142,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
                     }
 
-                    entry->expression_value = initializer;
+                    entry->language_dependent_value = initializer;
 
                     {
                         ast_set_link_to_child(init_declarator, LANG_INITIALIZER, initializer);
@@ -2573,7 +2574,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (!check_expression(enumeration_expr, enumerators_context))
                 {
-                    fprintf(stderr, "%s: warning: could not check enumerator initializer '%s'\n",
+                    running_error("%s: error: invalid enumerator initializer '%s'\n",
                             ast_location(enumeration_expr),
                             prettyprint_in_buffer(enumeration_expr));
                 }
@@ -2583,7 +2584,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         C_LANGUAGE()
                         {
-                            fprintf(stderr, "%s: warning: expression '%s' is not constant\n",
+                            running_error("%s: error: expression '%s' is not constant\n",
                                     ast_location(enumeration_expr),
                                     prettyprint_in_buffer(enumeration_expr));
                         }
@@ -2598,7 +2599,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     }
                 }
 
-                enumeration_item->expression_value = enumeration_expr;
+                enumeration_item->language_dependent_value = enumeration_expr;
                 delta = 1;
                 base_enumerator = enumeration_expr;
             }
@@ -2614,7 +2615,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         enumeration_item->type_information = get_signed_int_type();
                     }
-                    enumeration_item->expression_value = zero_tree;
+                    enumeration_item->language_dependent_value = zero_tree;
+                    enumeration_item->value = const_value_to_nodecl(zero);
                     base_enumerator = zero_tree;
                     delta = 1;
                 }
@@ -2628,8 +2630,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                                     // FIXME - We should be using the size in bytes of signed int
                                     const_value_get(delta, /*bytes*/ 4, /*sign*/0));
 
-                        enumeration_item->expression_value = const_value_to_tree(val_plus_one);
-                        enumeration_item->type_information = expression_get_type(enumeration_item->expression_value);
+                        enumeration_item->language_dependent_value = const_value_to_tree(val_plus_one);
+                        enumeration_item->value = const_value_to_nodecl(val_plus_one);
+                        enumeration_item->type_information = expression_get_type(enumeration_item->language_dependent_value);
                     }
                     else
                     {
@@ -2639,7 +2642,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
                         const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
                         AST add_one = internal_expression_parse(source, decl_context);
-                        enumeration_item->expression_value = add_one;
+                        enumeration_item->language_dependent_value = add_one;
+                        enumeration_item->value = expression_get_nodecl(add_one);
 
                         CXX_LANGUAGE()
                         {
@@ -2654,16 +2658,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             DEBUG_CODE()
             {
-                if (expression_is_constant(enumeration_item->expression_value))
+                if (expression_is_constant(enumeration_item->language_dependent_value))
                 {
                     fprintf(stderr, "Registering enumerator '%s' with constant value '%lld' and type '%s'\n", ASTText(enumeration_name),
-                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->expression_value)),
+                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->language_dependent_value)),
                             print_declarator(enumeration_item->type_information));
                 }
                 else
                 {
                     fprintf(stderr, "Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
-                            prettyprint_in_buffer(enumeration_item->expression_value),
+                            prettyprint_in_buffer(enumeration_item->language_dependent_value),
                             print_declarator(enumeration_item->type_information));
                 }
             }
@@ -2672,10 +2676,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             num_enumerator++;
 
 #define B_(x) const_value_is_nonzero(x)
-            if (expression_is_constant(enumeration_item->expression_value)
+            if (expression_is_constant(enumeration_item->language_dependent_value)
                     && !is_dependent_expr_type(underlying_type))
             {
-                const_value_t* current_value = expression_get_constant(enumeration_item->expression_value);
+                const_value_t* current_value = expression_get_constant(enumeration_item->language_dependent_value);
 
                 if (min_value == NULL
                         || B_(const_value_lt(current_value, min_value)))
@@ -6651,7 +6655,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 check_initialization(initializer, 
                         initializer_context, 
                         get_unqualified_type(declarator_type));
-                entry->expression_value = initializer;
+                entry->language_dependent_value = initializer;
+                entry->value = expression_get_nodecl(initializer);
             }
         }
         else if (is_function_type(declarator_type))
@@ -7806,7 +7811,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[j]);
             func_var->kind = SK_VARIABLE;
             func_var->type_information = const_char_ptr_const_type;
-            func_var->expression_value = function_name_tree;
+            func_var->language_dependent_value = function_name_tree;
+            func_var->value = expression_get_nodecl(function_name_tree);
             func_var->entity_specs.is_builtin = 1;
         }
     }
@@ -8863,7 +8869,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         entry->decl_context,
                                         get_unqualified_type(entry->type_information));
 
-                                entry->expression_value = initializer;
+                                entry->language_dependent_value = initializer;
+                                entry->value = expression_get_nodecl(initializer);
                             }
                             // Special initializer for functions
                             else if (entry->kind == SK_FUNCTION)
@@ -9390,7 +9397,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_out
                     prettyprint_in_buffer(initializer));
         }
 
-        entry->expression_value = initializer;
+        entry->language_dependent_value = initializer;
+        entry->value = expression_get_nodecl(initializer);
 
         C_LANGUAGE()
         {

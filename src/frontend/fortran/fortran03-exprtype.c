@@ -758,14 +758,14 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
             return 0;
         }
 
-        ERROR_CONDITION(sym->expression_value == NULL,
+        ERROR_CONDITION(sym->language_dependent_value == NULL,
                 "Invalid constant for kind '%s'", sym->symbol_name);
 
-        ERROR_CONDITION(!expression_is_constant(sym->expression_value),
+        ERROR_CONDITION(!expression_is_constant(sym->language_dependent_value),
                 "Invalid nonconstant expression for kind '%s'", 
-                fortran_prettyprint_in_buffer(sym->expression_value));
+                fortran_prettyprint_in_buffer(sym->language_dependent_value));
 
-        return const_value_cast_to_4(expression_get_constant(sym->expression_value));
+        return const_value_cast_to_4(expression_get_constant(sym->language_dependent_value));
     }
 }
 
@@ -2010,11 +2010,11 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         expression_set_type(expr, entry->type_information);
 
         if (is_const_qualified_type(entry->type_information)
-                && entry->expression_value != NULL
-                && expression_is_constant(entry->expression_value))
+                && entry->language_dependent_value != NULL
+                && expression_is_constant(entry->language_dependent_value))
         {
             // PARAMETER are const qualified
-            expression_set_constant(expr, expression_get_constant(entry->expression_value));
+            expression_set_constant(expr, expression_get_constant(entry->language_dependent_value));
         }
     }
     else if (entry->kind == SK_UNDEFINED)

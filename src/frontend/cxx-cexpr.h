@@ -35,7 +35,10 @@
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
+#include "cxx-nodecl-output-decls.h"
 #include "cxx-typeutils.h"
+
+#include <stdint.h>
 
 MCXX_BEGIN_DECLS
 
@@ -52,6 +55,8 @@ LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
 LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
+
+LIBMCXX_EXTERN nodecl_output_t const_value_to_nodecl(const_value_t* v);
 
 LIBMCXX_EXTERN AST const_value_to_tree(const_value_t* v);
 

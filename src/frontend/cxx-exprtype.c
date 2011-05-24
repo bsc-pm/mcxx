@@ -756,6 +756,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_is_lvalue(expression, 0);
 
                 nodecl_output_t nodecl_output = nodecl_make_integer_literal(t, val, ASTFileName(expression), ASTLine(expression));
+                nodecl_set_constant(nodecl_output, val);
+
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -796,6 +798,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_constant(expression, val);
 
                 nodecl_output_t nodecl_output = nodecl_make_boolean_literal(t, val, ASTFileName(expression), ASTLine(expression));
+                nodecl_set_constant(nodecl_output, val);
+
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -811,6 +815,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_constant(expression, val);
 
                 nodecl_output_t nodecl_output = nodecl_make_integer_literal(t, val, ASTFileName(expression), ASTLine(expression));
+                nodecl_set_constant(nodecl_output, val);
+
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -6097,9 +6103,9 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 expression_set_is_lvalue(expr, 0);
 
                 if (val != NULL
-                        && expression_is_constant(entry->expression_value))
+                        && expression_is_constant(entry->language_dependent_value))
                 {
-                    *val = expression_get_constant(entry->expression_value);
+                    *val = expression_get_constant(entry->language_dependent_value);
                 }
 
                 nodecl_output_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
@@ -6115,10 +6121,10 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         && entry->kind == SK_VARIABLE
                         && !entry->entity_specs.is_parameter
                         && is_const_qualified_type(entry->type_information)
-                        && entry->expression_value != NULL
-                        && expression_is_constant(entry->expression_value))
+                        && entry->language_dependent_value != NULL
+                        && expression_is_constant(entry->language_dependent_value))
                 {
-                    *val = expression_get_constant(entry->expression_value);
+                    *val = expression_get_constant(entry->language_dependent_value);
                 }
 
                 nodecl_output_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
@@ -6148,12 +6154,12 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     expression_set_is_lvalue(expr, 0);
 
                     if (val != NULL
-                            && expression_is_constant(entry->expression_value))
+                            && expression_is_constant(entry->language_dependent_value))
                     {
-                        *val = expression_get_constant(entry->expression_value);
+                        *val = expression_get_constant(entry->language_dependent_value);
                     }
                 }
-                if (expression_is_value_dependent(entry->expression_value))
+                if (expression_is_value_dependent(entry->language_dependent_value))
                 {
                     expression_set_is_value_dependent(expr, 1);
                 }
@@ -6179,13 +6185,13 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     if (!entry->entity_specs.is_parameter
                             && (is_const_qualified_type(entry->type_information)
                                 || entry->entity_specs.is_template_argument)
-                            && entry->expression_value != NULL)
+                            && entry->language_dependent_value != NULL)
                     {
                         if (val != NULL
-                                && expression_is_constant(entry->expression_value))
-                            *val = expression_get_constant(entry->expression_value);
+                                && expression_is_constant(entry->language_dependent_value))
+                            *val = expression_get_constant(entry->language_dependent_value);
 
-                        if (expression_is_value_dependent(entry->expression_value))
+                        if (expression_is_value_dependent(entry->language_dependent_value))
                             expression_set_is_value_dependent(expr, 1);
                     }
                 }
@@ -6370,16 +6376,18 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             if (!entry->entity_specs.is_parameter
                     && (is_const_qualified_type(entry->type_information)
                         || entry->entity_specs.is_template_argument)
-                    && entry->expression_value != NULL)
+                    && entry->language_dependent_value != NULL)
             {
                 if (val != NULL
-                        && expression_is_constant(entry->expression_value))
-                    *val = expression_get_constant(entry->expression_value);
+                        && expression_is_constant(entry->language_dependent_value))
+                    *val = expression_get_constant(entry->language_dependent_value);
 
-                if (expression_is_value_dependent(entry->expression_value))
+                if (expression_is_value_dependent(entry->language_dependent_value))
                     expression_set_is_value_dependent(expr, 1);
             }
+
             nodecl_output_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+
             expression_set_nodecl(expr, nodecl_output);
         }
         else if (entry->kind == SK_ENUMERATOR)
@@ -6388,12 +6396,12 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             expression_set_is_lvalue(expr, 0);
 
             if (val != NULL
-                    && expression_is_constant(entry->expression_value))
+                    && expression_is_constant(entry->language_dependent_value))
             {
-                *val = expression_get_constant(entry->expression_value);
+                *val = expression_get_constant(entry->language_dependent_value);
             }
 
-            if (expression_is_value_dependent(entry->expression_value))
+            if (expression_is_value_dependent(entry->language_dependent_value))
             {
                 expression_set_is_value_dependent(expr, 1);
             }
@@ -6412,6 +6420,12 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
 
             if (named_type->kind != SK_FUNCTION)
             {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid class template-id '%s' named in an expression\n", 
+                            ast_location(expr),
+                            prettyprint_in_buffer(expr));
+                }
                 entry_list_free(result_list);
                 expression_set_error(expr);
                 return;

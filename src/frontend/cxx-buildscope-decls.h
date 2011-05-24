@@ -40,6 +40,7 @@ MCXX_BEGIN_DECLS
 // along a whole declaration. Parts of a declaration belong just to type while
 // others belong to the symbol but they do not appear syntactically in the same
 // place
+
 typedef 
 struct gather_decl_spec_tag {
     // type-specifiers and decl-specifiers

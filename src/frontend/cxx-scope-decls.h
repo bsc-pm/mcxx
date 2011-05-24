@@ -29,6 +29,8 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
+#include "cxx-scope-fwd.h"
+
 #include "red_black_tree.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
@@ -38,6 +40,7 @@
 #include "cxx-entrylist-decls.h"
 #include "cxx-type-decls.h"
 #include "cxx-limits.h"
+#include "cxx-nodecl-output.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-scope-decls.h"
@@ -62,7 +65,6 @@ MCXX_BEGIN_DECLS
  *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
-typedef struct scope_entry_tag scope_entry_t;
 
 #define BITMAP(x) (1 << (x))
 
@@ -114,7 +116,7 @@ enum decl_flags_tag
 #undef BITMAP
 
 // Inherited attributes
-typedef struct decl_context_tag
+struct decl_context_tag
 {
     // Several declaration flags
     // telling us some context
@@ -152,7 +154,7 @@ typedef struct decl_context_tag
     // Scope of the declaration,
     // should never be null
     struct scope_tag* current_scope;
-} decl_context_t;
+};
 
 #define SYMBOL_KIND_TABLE \
     SYMBOL_KIND(SK_CLASS, "class-name") \
@@ -216,7 +218,6 @@ enum template_argument_kind
     TAK_TEMPLATE // template template argument (not very usual)
 };
 
-typedef 
 struct template_argument_tag
 {
     // Kind of the template argument
@@ -236,14 +237,13 @@ struct template_argument_tag
     // "Identifier" of this template argument
     int position;
     int nesting;
-} template_argument_t;
+};
 
 // List of template arguments
-typedef 
 struct template_argument_list_tag {
     int num_arguments;
     template_argument_t** argument_list;
-} template_argument_list_t;
+};
 
 enum template_parameter_kind
 {
@@ -255,7 +255,7 @@ enum template_parameter_kind
 // A template parameter
 //
 // template <class T, int N> <-- these are parameters
-typedef struct template_parameter_tag
+struct template_parameter_tag
 {
     // Kind of the parameter
     enum template_parameter_kind kind;
@@ -266,13 +266,13 @@ typedef struct template_parameter_tag
 
     char has_default_argument;
     template_argument_t* default_template_argument;
-} template_parameter_t;
+};
 
-typedef struct template_parameter_list_tag
+struct template_parameter_list_tag
 {
     int num_template_parameters;
     template_parameter_t** template_parameters;
-} template_parameter_list_t;
+};
 
 // Access specifier, saved but not enforced by the compiler
 typedef enum access_specifier_t
@@ -284,12 +284,11 @@ typedef enum access_specifier_t
 } access_specifier_t;
 
 
-typedef
 struct default_argument_info_tag
 {
     struct AST_tag* argument;
     decl_context_t context;
-} default_argument_info_t;
+};
 
 #ifdef FORTRAN_SUPPORT
 typedef
@@ -340,7 +339,8 @@ struct scope_entry_tag
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
-    struct AST_tag* expression_value;
+    struct AST_tag* language_dependent_value;
+    nodecl_output_t value;
 
     // File and line where this simbol was signed up
     const char *file;
@@ -382,7 +382,6 @@ enum scope_kind
 };
 
 // This is the scope
-typedef 
 struct scope_tag
 {
     // Kind of this scope
@@ -406,7 +405,7 @@ struct scope_tag
     // they contain the namespace symbol (if any), the class symbol
     // and the function symbol (this last is unused)
     scope_entry_t* related_entry;
-} scope_t;
+};
 
 MCXX_END_DECLS
 

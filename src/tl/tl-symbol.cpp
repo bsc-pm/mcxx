@@ -287,12 +287,12 @@ namespace TL
 
     bool Symbol::has_initialization() const
     {
-        return (_symbol->expression_value != NULL);
+        return (_symbol->language_dependent_value != NULL);
     }
 
     AST_t Symbol::get_initialization() const
     {
-        return _symbol->expression_value;
+        return _symbol->language_dependent_value;
     }
 
     bool Symbol::has_namespace_scope() const

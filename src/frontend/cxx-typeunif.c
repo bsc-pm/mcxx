@@ -699,9 +699,9 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
 
                 // Advance symbol values
                 if (expression_has_symbol(left_tree)
-                        && expression_get_symbol(left_tree)->expression_value != NULL)
+                        && expression_get_symbol(left_tree)->language_dependent_value != NULL)
                 {
-                    AST new_left_tree = expression_get_symbol(left_tree)->expression_value;
+                    AST new_left_tree = expression_get_symbol(left_tree)->language_dependent_value;
                     decl_context_t new_left_decl_context = expression_get_symbol(left_tree)->decl_context;
 
                     return equivalent_dependent_expressions(new_left_tree, new_left_decl_context, 
@@ -710,9 +710,9 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
 
                 // Advance symbol values
                 if (expression_has_symbol(right_tree)
-                        && expression_get_symbol(right_tree)->expression_value != NULL)
+                        && expression_get_symbol(right_tree)->language_dependent_value != NULL)
                 {
-                    AST new_right_tree = expression_get_symbol(right_tree)->expression_value;
+                    AST new_right_tree = expression_get_symbol(right_tree)->language_dependent_value;
                     decl_context_t new_right_decl_context = expression_get_symbol(right_tree)->decl_context;
 
                     return equivalent_dependent_expressions(left_tree, left_decl_context, 
