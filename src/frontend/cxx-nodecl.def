@@ -72,6 +72,7 @@ literal : AST_INTEGER_LITERAL() type const_value
     | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | AST_BOOLEAN_LITERAL() type const_value
     | string-literal
+    | structured-literal
 
 string-literal: AST_STRING_LITERAL() type text
  
@@ -109,11 +110,10 @@ expression : literal
            | AST_DERREFERENCE([rhs]expression) type
            | AST_CAST([rhs]expression) type text
            | c-cxx-expressions
-           | initializer-expr
            | object-init
            | builtin
 
-initializer-expr : AST_INITIALIZER_BRACES([items]initializer-item-seq-opt) type
+structured-literal: AST_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
 
 initializer-item : AST_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
 designator: AST_FIELD_DESIGNATOR([field]name, [next]designator-opt)
