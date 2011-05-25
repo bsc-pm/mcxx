@@ -7633,8 +7633,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     entry->defined = 1;
     entry->point_of_definition = get_enclosing_declaration(a);
 
-    nodecl_t function_symbol_nodecl = nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
-    
     // Keep parameter names
     int i;
     for (i = 0; i < gather_info.num_parameters; i++)
@@ -7865,10 +7863,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
     // Create nodecl
-    nodecl_t nodecl_function_def = nodecl_make_function_code(function_symbol_nodecl, 
-                    nodecl_make_list_1(body_nodecl), 
-                    /* internal_functions */ nodecl_null(),
-                    ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_function_def = nodecl_make_function_code(
+            nodecl_make_list_1(body_nodecl), 
+            /* internal_functions */ nodecl_null(),
+            entry,
+            ASTFileName(a), ASTLine(a));
 
     *nodecl_output = nodecl_make_list_1(nodecl_function_def);
 
@@ -9335,7 +9334,7 @@ static void build_scope_compound_statement(AST a,
         nodecl_t current_nodecl_output = nodecl_null();
         build_scope_statement_seq(list, block_context, &current_nodecl_output);
 
-        nodecl_output_list = nodecl_append_to_list(nodecl_output_list, current_nodecl_output);
+        nodecl_output_list = nodecl_concat_lists(nodecl_output_list, current_nodecl_output);
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
