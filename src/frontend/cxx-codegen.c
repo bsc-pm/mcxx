@@ -569,7 +569,7 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     scope_entry_t* entry = nodecl_get_symbol(node);
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
 
-    fprintf(visitor->file, get_qualified_symbol_name(entry, entry->decl_context));
+    fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
 }
 
 static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
