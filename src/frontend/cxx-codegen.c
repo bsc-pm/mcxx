@@ -559,23 +559,85 @@ UNUSED_PARAMETER static const char* codegen_expression(nodecl_codegen_visitor_t 
     return prettyprint_in_buffer(expression);
 }
 
-#if 0
-static const char* codegen_expression_list(nodecl_codegen_visitor_t *ctx UNUSED_PARAMETER, AST expression, decl_context_t decl_context UNUSED_PARAMETER)
-{
-    return cxx_list_handler_in_buffer(expression);
-}
-#endif
-
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
     fprintf(stderr, "WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
 }
 
+static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    fprintf(visitor->file, get_qualified_symbol_name(entry, entry->decl_context));
+}
+
+static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* value = nodecl_get_constant(node);
+    ERROR_CONDITION(value == NULL, "Invalid value", 0);
+
+    // FIXME: Improve this to use integer literal suffix when possible
+    // FIXME: Write 'A' instead of 65
+    if (const_value_is_signed(value))
+    {
+        fprintf(visitor->file, "%lld", (long long int)const_value_cast_to_8(value));
+    }
+    else
+    {
+        fprintf(visitor->file, "%llu", (unsigned long long)const_value_cast_to_8(value));
+    }
+}
+
+static void codegen_add(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t lhs = nodecl_get_children(node, 0);
+    nodecl_t rhs = nodecl_get_children(node, 1);
+    NODECL_WALK(visitor, lhs);
+    fprintf(visitor->file, " + ");
+    NODECL_WALK(visitor, rhs);
+}
+
+static void codegen_assignment(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t lhs = nodecl_get_children(node, 0);
+    nodecl_t rhs = nodecl_get_children(node, 1);
+    NODECL_WALK(visitor, lhs);
+    fprintf(visitor->file, " = ");
+    NODECL_WALK(visitor, rhs);
+}
+
+static void codegen_expression_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t expression = nodecl_get_children(node, 0);
+    indent(visitor);
+    NODECL_WALK(visitor, expression);
+    fprintf(visitor->file, ";\n");
+}
+
+static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "{\n");
+    visitor->indent_level++;
+    nodecl_t statement_seq = nodecl_get_children(node, 0);
+
+    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
+    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
+
+    define_local_entities_in_trees(visitor, statement_seq, scope_symbol->decl_context.current_scope);
+
+    NODECL_WALK(visitor, statement_seq);
+
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "}\n");
+}
+
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t name = nodecl_get_children(node, 0);
-    nodecl_t statement_seq = nodecl_get_children(node, 1);
-    nodecl_t internal_functions = nodecl_get_children(node, 2);
+    nodecl_t statement_seq = nodecl_get_children(node, 0);
+    nodecl_t internal_functions = nodecl_get_children(node, 1);
 
     if (!nodecl_is_null(internal_functions))
     {
@@ -587,9 +649,9 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         internal_error("C/C++ functions only have one statement", 0);
     }
 
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t statement = nodecl_get_children(statement_seq, 1);
 
-    scope_entry_t* symbol = nodecl_get_symbol(name);
+    scope_entry_t* symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(symbol == NULL || symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
 
     visitor->current_sym = symbol;
@@ -695,24 +757,6 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     NODECL_WALK(visitor, statement);
 }
 
-static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    indent(visitor);
-    fprintf(visitor->file, "{\n");
-    visitor->indent_level++;
-    nodecl_t statement_seq = nodecl_get_children(node, 0);
-
-    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
-    ERROR_CONDITION(scope_symbol != NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
-
-    define_local_entities_in_trees(visitor, statement_seq, scope_symbol->decl_context.current_scope);
-
-    NODECL_WALK(visitor, statement_seq);
-
-    visitor->indent_level--;
-    indent(visitor);
-    fprintf(visitor->file, "}\n");
-}
 
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -732,6 +776,11 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_nodecl_top_level = NODECL_VISITOR_FUN(codegen_top_level);
     NODECL_VISITOR(&codegen_visitor)->visit_function_code = NODECL_VISITOR_FUN(codegen_function_code);
     NODECL_VISITOR(&codegen_visitor)->visit_compound_statement = NODECL_VISITOR_FUN(codegen_compound_statement);
+    NODECL_VISITOR(&codegen_visitor)->visit_expression_statement = NODECL_VISITOR_FUN(codegen_expression_statement);
+    NODECL_VISITOR(&codegen_visitor)->visit_assignment = NODECL_VISITOR_FUN(codegen_assignment);
+    NODECL_VISITOR(&codegen_visitor)->visit_add = NODECL_VISITOR_FUN(codegen_add);
+    NODECL_VISITOR(&codegen_visitor)->visit_symbol = NODECL_VISITOR_FUN(codegen_symbol);
+    NODECL_VISITOR(&codegen_visitor)->visit_integer_literal = NODECL_VISITOR_FUN(codegen_integer_literal);
 
     nodecl_t wrap = { a };
     nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, wrap);
