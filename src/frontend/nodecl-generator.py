@@ -487,6 +487,44 @@ def generate_routines_impl(rule_map):
 
        print "nodecl_t nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
        print "{"
+       # Inline check
+       i = 0
+       for subrule in rhs_rule.subtrees:
+          subrule_ref = RuleRef(subrule[1])
+          first_set = subrule_ref.first();
+
+          print "{"
+          print "AST checked_tree = %s.tree;" % (param_name_list[i])
+          if not subrule_ref.is_opt():
+              print "if (checked_tree == NULL)"
+              print "{"
+              print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s\\n\", 0);" % (i, key)
+              print "}"
+          if subrule_ref.is_opt():
+             print "if (checked_tree != NULL)"
+             print "{"
+          if subrule_ref.is_seq():
+             print " if (ASTType(checked_tree) != AST_NODE_LIST)"
+             print " {"
+             print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s\\n\", 0);" % (i, key)
+             print " }"
+             print "AST it, list = checked_tree;"
+             print "for_each_element(list, it)"
+             print "{"
+             print     "checked_tree = ASTSon1(it);"
+          checks = map(lambda x : "(ASTType(checked_tree) != %s)" % (x), first_set)
+          print "if (%s)" % (string.join(checks, "\n&& "))
+          print "{"
+          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s\\n\", ast_print_node_type(ASTType(checked_tree)));" % (i, key)
+          print "}"
+          if subrule_ref.is_seq():
+             print "}"
+          if subrule_ref.is_opt():
+             print "}"
+          i = i + 1
+          print "}"
+
+       # Build the node
        print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
