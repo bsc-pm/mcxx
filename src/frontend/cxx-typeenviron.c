@@ -77,7 +77,7 @@ static void system_v_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
 
-    nodecl_output_t expr = array_type_get_array_size_expr(t);
+    nodecl_t expr = array_type_get_array_size_expr(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
@@ -398,7 +398,7 @@ static void system_v_generic_sizeof(type_t* t)
 static void cxx_abi_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
-    nodecl_output_t expr = array_type_get_array_size_expr(t);
+    nodecl_t expr = array_type_get_array_size_expr(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);

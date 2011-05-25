@@ -1668,7 +1668,7 @@ static char check_template_argument_list(AST argument_list, decl_context_t decl_
                 memset(&gather_info, 0, sizeof(gather_info));
 
                 type_t* simple_type_info = NULL;
-                nodecl_output_t dummy_nodecl_output = nodecl_null();
+                nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                         decl_context, &dummy_nodecl_output);
 
@@ -1709,7 +1709,7 @@ char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t**
                         gather_decl_spec_t gather_info;
                         memset(&gather_info, 0, sizeof(gather_info));
 
-                        nodecl_output_t dummy_nodecl_output = nodecl_null();
+                        nodecl_t dummy_nodecl_output = nodecl_null();
                         gather_type_spec_information(type_spec, computed_type, &gather_info, decl_context, &dummy_nodecl_output);
                     }
                     return 1;
@@ -1799,7 +1799,7 @@ static char check_type_specifier(AST type_id, decl_context_t decl_context)
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
 
-                nodecl_output_t dummy_nodecl_output = nodecl_null();
+                nodecl_t dummy_nodecl_output = nodecl_null();
                 gather_type_spec_information(type_id, &type_info, &gather_info, decl_context, &dummy_nodecl_output);
                 return 1;
             }

@@ -171,6 +171,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
+    SYMBOL_KIND(SK_SCOPE, "<<scoping symbol>>")  \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
 #ifdef FORTRAN_SUPPORT
@@ -340,7 +341,7 @@ struct scope_entry_tag
     //  - initialization of const objects
     //  - enumerator values
     struct AST_tag* language_dependent_value;
-    nodecl_output_t value;
+    nodecl_t value;
 
     // File and line where this simbol was signed up
     const char *file;

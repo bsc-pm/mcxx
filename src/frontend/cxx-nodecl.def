@@ -15,11 +15,11 @@ statement : statement-but-object-init
 
 statement-but-object-init: AST_EMPTY_STATEMENT()
           | AST_EXPRESSION_STATEMENT([nest]expression)
-          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt)
+          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
           | AST_DO_STATEMENT([statement]statement, [condition]expression)
-          | AST_WHILE_STATEMENT([condition]expression, [statement]statement)
-          | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement)
-          | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt)
+          | AST_WHILE_STATEMENT([condition]expression, [statement]statement) symbol
+          | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement) symbol
+          | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt) symbol
           | AST_LABELED_STATEMENT([label]name, [statement]statement)
           | AST_SWITCH_STATEMENT([switch]expression, [statement]statement)
           | AST_DEFAULT_STATEMENT([statement]statement)

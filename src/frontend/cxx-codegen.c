@@ -3,43 +3,37 @@
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-prettyprint.h"
+#include "cxx-nodecl-visitor.h"
 #include <string.h>
 
-typedef struct codegen_context_tag
+typedef
+struct nodecl_codegen_visitor_tag
 {
-    scope_entry_t* current_function;
-    int indent_level;
+    // Base visitor
+    nodecl_external_visitor_t _base_visitor;
+
+    // Codegen
     FILE *file;
-} codegen_context_t;
+    int indent_level;
+    scope_entry_t* current_sym;
+} nodecl_codegen_visitor_t;
 
-static scope_entry_t* get_symbol_of_name(AST a)
+static void indent(nodecl_codegen_visitor_t* v)
 {
-    ERROR_CONDITION(a == NULL, "Invalid tree", 0);
-    scope_entry_t* result = expression_get_symbol(a);
-
-    ERROR_CONDITION(result == NULL, "Invalid symbol", 0);
-    return result;
-}
-
-static void indent(codegen_context_t *ctx)
-{
-    int k = ctx->indent_level;
-
     int i;
-    for (i = 0; i < k; i++)
+    for (i = 0; i < v->indent_level; i++)
     {
         // FIXME - Make this configurable
-        fprintf(ctx->file, "  ");
+        fprintf(v->file, "  ");
     }
 }
 
-
 static void walk_type_for_symbols(
-        codegen_context_t *ctx,
+        nodecl_codegen_visitor_t *ctx,
         type_t* t,
         char needs_def, 
-        void symbol_to_declare(codegen_context_t*, scope_entry_t*),
-        void symbol_to_define(codegen_context_t*, scope_entry_t*))
+        void symbol_to_declare(nodecl_codegen_visitor_t*, scope_entry_t*),
+        void symbol_to_define(nodecl_codegen_visitor_t*, scope_entry_t*))
 {
     if (t == NULL)
         return;
@@ -107,15 +101,13 @@ static void walk_type_for_symbols(
     }
 }
 
-static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol);
-static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol);
-static void declare_symbol_if_local(codegen_context_t *ctx, scope_entry_t* symbol);
-static void define_symbol_if_local(codegen_context_t *ctx, scope_entry_t* symbol);
-static void declare_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* symbol);
-static void define_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* symbol);
+static void declare_symbol(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol);
+static void define_symbol(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol);
+static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol);
+static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol);
 
 static void codegen_type_of_symbol(
-        codegen_context_t *ctx,
+        nodecl_codegen_visitor_t *ctx,
         type_t* t,
         char needs_def)
 {
@@ -123,33 +115,54 @@ static void codegen_type_of_symbol(
 }
 
 static void codegen_type_of_symbol_only_nonlocal(
-        codegen_context_t *ctx,
+        nodecl_codegen_visitor_t *ctx,
         type_t* t,
         char needs_def)
 {
     walk_type_for_symbols(ctx, t, needs_def, declare_symbol_if_nonlocal, define_symbol_if_nonlocal);
 }
 
-UNUSED_PARAMETER static void codegen_type_of_symbol_only_local(
-        codegen_context_t *ctx,
-        type_t* t,
-        char needs_def)
+static void define_local_entities_in_trees(nodecl_codegen_visitor_t* ctx, nodecl_t node, scope_t* current_scope)
 {
-    walk_type_for_symbols(ctx, t, needs_def, declare_symbol_if_local, define_symbol_if_local);
-}
-
-static void define_nonlocal_entities_in_trees(codegen_context_t* ctx, AST tree)
-{
-    if (tree == NULL)
+    if (nodecl_is_null(node))
         return;
 
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        define_nonlocal_entities_in_trees(ctx, ast_get_child(tree, i));
+        define_local_entities_in_trees(ctx, nodecl_get_children(node, i), current_scope);
     }
 
-    scope_entry_t* entry = expression_get_symbol(tree);
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    if (entry != NULL
+            && entry->type_information != NULL)
+    {
+        codegen_type_of_symbol(ctx, entry->type_information, /* needs def */ 1);
+        if (current_scope == entry->decl_context.current_scope)
+        {
+            define_symbol(ctx, entry);
+        }
+    }
+
+    type_t* type = nodecl_get_type(node);
+    if (type != NULL)
+    {
+        codegen_type_of_symbol(ctx, type, /* needs def */ 1);
+    }
+}
+
+static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* ctx, nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        define_nonlocal_entities_in_trees(ctx, nodecl_get_children(node, i));
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
             && entry->type_information != NULL)
     {
@@ -157,7 +170,7 @@ static void define_nonlocal_entities_in_trees(codegen_context_t* ctx, AST tree)
         define_symbol_if_nonlocal(ctx, entry);
     }
 
-    type_t* type = expression_get_type(tree);
+    type_t* type = nodecl_get_type(node);
     if (type != NULL)
     {
         codegen_type_of_symbol_only_nonlocal(ctx, type, /* needs def */ 1);
@@ -189,10 +202,9 @@ static void run_clear_list(void)
     _clear_list = NULL;
 }
 
-static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
+static void define_symbol(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol)
 {
     ERROR_CONDITION(symbol == NULL, "Invalid symbol", 0);
-
 
     if (symbol->do_not_print)
         return;
@@ -204,7 +216,6 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
         case SK_VARIABLE:
             {
                 declare_symbol(ctx, symbol);
-                symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                 break;
             }
         case SK_TYPEDEF:
@@ -219,26 +230,8 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
                 fprintf(ctx->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
                             symbol->decl_context, symbol->symbol_name));
                 break;
-            }
-        case SK_ENUM:
-            {
-                // Do nothing if already defined
-                if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
-                    return;
 
-                indent(ctx);
-                C_LANGUAGE()
-                {
-                    // the symbol will be already called 'struct/union X' in C
-                    fprintf(ctx->file, "%s {\n", symbol->symbol_name);
-                }
-                CXX_LANGUAGE()
-                {
-                    fprintf(ctx->file, "enum %s {\n", symbol->symbol_name);
-                }
-
-                codegen_context_t new_ctx = *ctx;
-                new_ctx.indent_level++;
+                ctx->indent_level++;
 
                 int i;
                 for (i = 0; i < enum_type_get_num_enumerators(symbol->type_information); i++)
@@ -248,10 +241,12 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
                     {
                         fprintf(ctx->file, ",\n");
                     }
-                    indent(&new_ctx);
+                    indent(ctx);
                     fprintf(ctx->file, "%s", enumerator->symbol_name);
                     enumerator->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                 }
+
+                ctx->indent_level--;
 
                 fprintf(ctx->file, "\n");
                 indent(ctx);
@@ -366,26 +361,25 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
                     scope_entry_t* entry = class_type_get_member_num(symbol->type_information, i);
                     access_specifier_t access_spec = entry->entity_specs.access;
 
-                    codegen_context_t new_ctx = *ctx;
                     CXX_LANGUAGE()
                     {
-                        new_ctx.indent_level += 1;
+                        ctx->indent_level += 1;
                         if (current_access_spec != access_spec)
                         {
                             current_access_spec = access_spec;
 
-                            indent(&new_ctx);
+                            indent(ctx);
                             if (current_access_spec == AS_PUBLIC)
                             {
-                                fprintf(new_ctx.file, "public:\n");
+                                fprintf(ctx->file, "public:\n");
                             }
                             else if (current_access_spec == AS_PRIVATE)
                             {
-                                fprintf(new_ctx.file, "private:\n");
+                                fprintf(ctx->file, "private:\n");
                             }
                             else if (current_access_spec == AS_PROTECTED)
                             {
-                                fprintf(new_ctx.file, "protected:\n");
+                                fprintf(ctx->file, "protected:\n");
                             }
                             else
                             {
@@ -394,8 +388,14 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
                         }
                     }
 
-                    new_ctx.indent_level += 1;
-                    declare_symbol(&new_ctx, entry);
+                    ctx->indent_level += 1;
+                    declare_symbol(ctx, entry);
+                    ctx->indent_level--;
+
+                    CXX_LANGUAGE()
+                    {
+                        ctx->indent_level--;
+                    }
                 }
 
                 indent(ctx);
@@ -412,7 +412,7 @@ static void define_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
     symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 }
 
-static void declare_symbol(codegen_context_t *ctx, scope_entry_t* symbol)
+static void declare_symbol(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol)
 {
     // Do nothing if already defined or declared
     if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED
@@ -538,23 +538,7 @@ static char is_local_symbol(scope_entry_t* entry)
                 || entry->decl_context.current_scope->kind == FUNCTION_SCOPE);
 }
 
-static void declare_symbol_if_local(codegen_context_t *ctx, scope_entry_t* symbol)
-{
-    if (is_local_symbol(symbol))
-    {
-        declare_symbol(ctx, symbol);
-    }
-}
-
-static void define_symbol_if_local(codegen_context_t *ctx, scope_entry_t* symbol)
-{
-    if (is_local_symbol(symbol))
-    {
-        define_symbol(ctx, symbol);
-    }
-}
-
-static void declare_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* symbol)
+static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol)
 {
     if (!is_local_symbol(symbol))
     {
@@ -562,7 +546,7 @@ static void declare_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* sy
     }
 }
 
-static void define_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* symbol)
+static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *ctx, scope_entry_t* symbol)
 {
     if (!is_local_symbol(symbol))
     {
@@ -570,23 +554,48 @@ static void define_symbol_if_nonlocal(codegen_context_t *ctx, scope_entry_t* sym
     }
 }
 
-UNUSED_PARAMETER static const char* codegen_expression(codegen_context_t *ctx UNUSED_PARAMETER, AST expression, decl_context_t decl_context UNUSED_PARAMETER)
+UNUSED_PARAMETER static const char* codegen_expression(nodecl_codegen_visitor_t *ctx UNUSED_PARAMETER, AST expression, decl_context_t decl_context UNUSED_PARAMETER)
 {
     return prettyprint_in_buffer(expression);
 }
 
-static const char* codegen_expression_list(codegen_context_t *ctx UNUSED_PARAMETER, AST expression, decl_context_t decl_context UNUSED_PARAMETER)
+#if 0
+static const char* codegen_expression_list(nodecl_codegen_visitor_t *ctx UNUSED_PARAMETER, AST expression, decl_context_t decl_context UNUSED_PARAMETER)
 {
     return cxx_list_handler_in_buffer(expression);
 }
+#endif
 
-static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement_seq UNUSED_PARAMETER)
+static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
-    scope_entry_t* symbol = ctx->current_function;
+    fprintf(stderr, "WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
+}
 
-    ERROR_CONDITION(symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
+static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t name = nodecl_get_children(node, 0);
+    nodecl_t statement_seq = nodecl_get_children(node, 1);
+    nodecl_t internal_functions = nodecl_get_children(node, 2);
 
-    codegen_type_of_symbol(ctx, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
+    if (!nodecl_is_null(internal_functions))
+    {
+        internal_error("C/C++ does not have internal functions", 0);
+    }
+
+    if (!nodecl_is_null(nodecl_get_children(statement_seq, 0)))
+    {
+        internal_error("C/C++ functions only have one statement", 0);
+    }
+
+    nodecl_t statement = nodecl_get_children(node, 1);
+
+    scope_entry_t* symbol = nodecl_get_symbol(name);
+    ERROR_CONDITION(symbol == NULL || symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
+
+    visitor->current_sym = symbol;
+
+    codegen_type_of_symbol(visitor, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
+
     int i;
     int num_params = function_type_get_num_parameters(symbol->type_information);
     if (function_type_get_has_ellipsis(symbol->type_information))
@@ -594,23 +603,11 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement
 
     for (i = 0; i < num_params; i++)
     {
-        codegen_type_of_symbol(ctx, function_type_get_parameter_type_num(symbol->type_information, i), /* needs_def */ 1);
+        codegen_type_of_symbol(visitor, function_type_get_parameter_type_num(symbol->type_information, i), /* needs_def */ 1);
     }
 
-    AST statement = NULL;
-    if (statement_seq != NULL)
-    {
-        AST head = ASTSon0(statement_seq);
-        ERROR_CONDITION(head != NULL, "C/C++ only has a single statement as the body of the function", 0);
+    define_nonlocal_entities_in_trees(visitor, statement);
 
-        statement = ASTSon1(statement_seq);
-    }
-
-    define_nonlocal_entities_in_trees(ctx, statement);
-
-    // char first_declaration = (symbol->entity_specs.codegen_status != CODEGEN_STATUS_DECLARED);
-    // TODO - Namespaces
-    // +1 because it could be zero which is undefined
     const char* argument_names[symbol->entity_specs.num_related_symbols + 1];
     memset(argument_names, 0, sizeof(argument_names));
 
@@ -652,14 +649,15 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement
             }
             else
             {
-                char c[256];
-                snprintf(c, 255, "__attribute__((%s(%s))) ", 
-                        symbol->entity_specs.gcc_attributes[i].attribute_name,
-                        codegen_expression_list(ctx, symbol->entity_specs.gcc_attributes[i].expression_list, symbol->decl_context)
-                            );
-                c[255] = '\0';
+                internal_error("Attribute Not yet implemented", 0);
+                // char c[256];
+                // snprintf(c, 255, "__attribute__((%s(%s))) ", 
+                //         symbol->entity_specs.gcc_attributes[i].attribute_name,
+                //         codegen_expression_list(ctx, symbol->entity_specs.gcc_attributes[i].expression_list, symbol->decl_context)
+                //             );
+                // c[255] = '\0';
 
-                gcc_attributes = strappend(gcc_attributes, c);
+                // gcc_attributes = strappend(gcc_attributes, c);
             }
         }
     }
@@ -691,48 +689,52 @@ static void codegen_function_def_top_level(codegen_context_t *ctx, AST statement
         }
     }
 
-    indent(ctx);
-    fprintf(ctx->file, "%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec);
+    indent(visitor);
+    fprintf(visitor->file, "%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec);
+
+    NODECL_WALK(visitor, statement);
 }
 
-void c_cxx_codegen_translation_unit(FILE* f, AST a, scope_link_t* sl UNUSED_PARAMETER)
+static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    ERROR_CONDITION(ASTType(a) != AST_NODECL_TOP_LEVEL, "Invalid tree", 0);
-    AST tree = ASTSon0(a);
+    indent(visitor);
+    fprintf(visitor->file, "{\n");
+    visitor->indent_level++;
+    nodecl_t statement_seq = nodecl_get_children(node, 0);
 
-    codegen_context_t ctx;
-    memset(&ctx, 0, sizeof(ctx));
+    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
+    ERROR_CONDITION(scope_symbol != NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
 
-    ctx.file = f;
-    ctx.indent_level = 0;
+    define_local_entities_in_trees(visitor, statement_seq, scope_symbol->decl_context.current_scope);
 
-    AST it;
-    for_each_element(tree, it)
-    {
-        AST top_level = ASTSon1(it);
+    NODECL_WALK(visitor, statement_seq);
 
-        if (ASTType(top_level) == AST_OBJECT_INIT)
-        {
-            // scope_entry_t* symbol = get_symbol_of_name(ASTSon0(top_level));
-            // AST init = ASTSon1(tree);
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "}\n");
+}
 
-            // codegen_object_init_top_level(ctx, symbol, init);
-        }
-        else if (ASTType(top_level) == AST_FUNCTION_CODE)
-        {
-            scope_entry_t* symbol = get_symbol_of_name(ASTSon0(top_level));
+static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t list = nodecl_get_children(node, 0);
+    NODECL_WALK(visitor, list);
+}
 
-            codegen_context_t new_ctx = ctx;
-            new_ctx.current_function = symbol;
-            AST statement_seq = ASTSon1(top_level);
+void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARAMETER)
+{
+    nodecl_codegen_visitor_t codegen_visitor;
+    nodecl_init_walker((nodecl_external_visitor_t*)&codegen_visitor, not_implemented_yet);
 
-            codegen_function_def_top_level(&new_ctx, statement_seq);
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
-    }
+    codegen_visitor.file = f;
+    codegen_visitor.indent_level = 0;
+    codegen_visitor.current_sym = NULL;
+
+    NODECL_VISITOR(&codegen_visitor)->visit_nodecl_top_level = NODECL_VISITOR_FUN(codegen_top_level);
+    NODECL_VISITOR(&codegen_visitor)->visit_function_code = NODECL_VISITOR_FUN(codegen_function_code);
+    NODECL_VISITOR(&codegen_visitor)->visit_compound_statement = NODECL_VISITOR_FUN(codegen_compound_statement);
+
+    nodecl_t wrap = { a };
+    nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, wrap);
 
     run_clear_list();
 }

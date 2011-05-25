@@ -314,7 +314,7 @@ namespace TL
             {
                 decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
             }
-            nodecl_output_t dummy_nodecl_output = { NULL };
+            nodecl_t dummy_nodecl_output = { NULL };
             build_scope_statement_seq_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
             if (do_not_check_expression)
             {
@@ -517,7 +517,7 @@ namespace TL
 
         if (a != NULL)
         {
-            nodecl_output_t dummy_nodecl_output = { NULL };
+            nodecl_t dummy_nodecl_output = { NULL };
             build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
         }
 
@@ -571,7 +571,7 @@ namespace TL
         }
         
         // Fix the context for the user (the reference tree is unused in this function actually...)
-        nodecl_output_t dummy_nodecl_output = { NULL };
+        nodecl_t dummy_nodecl_output = { NULL };
         decl_context_t decl_context = class_type_get_inner_context(get_actual_class_type(class_type._type_info));
         build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
                 class_type._type_info, &dummy_nodecl_output);
@@ -697,7 +697,7 @@ namespace TL
         AST type_specifier_seq = ASTSon0(type_id);
         AST abstract_decl = ASTSon1(type_id);
 
-        nodecl_output_t dummy_nodecl_output = { NULL };
+        nodecl_t dummy_nodecl_output = { NULL };
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                 decl_context, &dummy_nodecl_output);
 
@@ -742,7 +742,7 @@ namespace TL
             gather_decl_spec_t gather_info;
             memset(&gather_info, 0, sizeof(gather_info));
 
-            nodecl_output_t dummy_nodecl_output = { NULL };
+            nodecl_t dummy_nodecl_output = { NULL };
             build_scope_decl_specifier_seq(type_spec, &gather_info, &type_info,
                     decl_context, &dummy_nodecl_output);
 

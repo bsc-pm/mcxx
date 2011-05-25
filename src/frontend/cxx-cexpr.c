@@ -321,7 +321,7 @@ static void get_proper_suffix(char is_signed, uint64_t value, const char** suffi
     }
 }
 
-nodecl_output_t const_value_to_nodecl(const_value_t* v)
+nodecl_t const_value_to_nodecl(const_value_t* v)
 {
     if (v->value == 0)
     {

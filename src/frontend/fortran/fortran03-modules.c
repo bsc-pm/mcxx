@@ -1312,8 +1312,8 @@ static int get_type(void *datum,
         // At the moment we do not store the decl_context
         // Hopefully this will be enough
         decl_context_t decl_context = CURRENT_COMPILED_FILE->global_decl_context;
-        nodecl_output_t lower_bound_nodecl = { lower_bound };
-        nodecl_output_t upper_bound_nodecl = { upper_bound };
+        nodecl_t lower_bound_nodecl = { lower_bound };
+        nodecl_t upper_bound_nodecl = { upper_bound };
         *pt = get_array_type_bounds(element_type, lower_bound_nodecl, upper_bound_nodecl, decl_context);
         insert_map_ptr(handle, current_oid, *pt);
     }

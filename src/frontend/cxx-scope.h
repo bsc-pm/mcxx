@@ -165,8 +165,11 @@ LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(sc
 // Internal use only
 LIBMCXX_EXTERN scope_t* _new_scope(void);
 
+// Fake symbol representing a scope
+LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
+
 // Debug use mainly
-const char* symbol_kind_name(scope_entry_t* entry);
+LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 
 MCXX_END_DECLS
 

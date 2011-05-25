@@ -902,7 +902,7 @@ namespace TL
                 if (template_header != NULL)
                 {
                     decl_context_t templated_context;
-                    nodecl_output_t dummy_nodecl_output = { NULL };
+                    nodecl_t dummy_nodecl_output = { NULL };
                     build_scope_template_header(template_header, decl_context, &templated_context, &dummy_nodecl_output);
                     // Replace the current context with the templated one, so
                     // parsing does not fail later
@@ -947,7 +947,7 @@ namespace TL
                 std::cerr << " - type_id '" << AST_t(type_id).prettyprint() << "'" << std::endl;
                 std::cerr << " - type_specifier_seq '" << AST_t(type_specifier_seq).prettyprint() << "'" << std::endl;
                 std::cerr << " - abstract_decl '" << AST_t(abstract_decl).prettyprint() << "'" << std::endl;
-                nodecl_output_t dummy_nodecl_output = { NULL };
+                nodecl_t dummy_nodecl_output = { NULL };
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                         decl_context, &dummy_nodecl_output);
 

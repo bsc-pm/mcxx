@@ -1,5 +1,6 @@
 #include "fortran03-typeutils.h"
 #include "fortran03-prettyprint.h"
+#include "cxx-nodecl-decls.h"
 #include "cxx-limits.h"
 #include "cxx-utils.h"
 #include <string.h>
@@ -15,8 +16,8 @@ const char* fortran_print_type_str(type_t* t)
     }
 
     struct array_spec_tag {
-        nodecl_output_t lower;
-        nodecl_output_t upper;
+        nodecl_t lower;
+        nodecl_t upper;
         char is_undefined;
     } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { nodecl_null(), nodecl_null(), 0 }  };
 
@@ -98,7 +99,7 @@ const char* fortran_print_type_str(type_t* t)
     }
     else if (is_fortran_character_type(t))
     {
-        nodecl_output_t length = array_type_get_array_size_expr(t);
+        nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
                 nodecl_is_null(length) ? "*" : fortran_prettyprint_in_buffer(nodecl_get_ast(length)));

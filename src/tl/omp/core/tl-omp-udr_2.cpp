@@ -346,7 +346,7 @@ namespace TL
                 AST type_specifier_seq = ASTSon0(type_id);
                 AST abstract_decl = ASTSon1(type_id);
                 
-                nodecl_output_t dummy_nodecl_output = { NULL };
+                nodecl_t dummy_nodecl_output = { NULL };
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                         decl_context, &dummy_nodecl_output);
 

@@ -400,43 +400,17 @@ def generate_routines_header(rule_map):
    print "#define CXX_NODECL_OUTPUT_H"
    print ""
    print "#include \"cxx-macros.h\""
-   print "#include \"cxx-nodecl-output-decls.h\""
+   print "#include \"cxx-nodecl.h\""
    print "#include \"cxx-scope-fwd.h\""
    print "#include \"cxx-type-fwd.h\""
    print "#include \"cxx-cexpr-fwd.h\""
    print ""
    print "MCXX_BEGIN_DECLS"
-   print """
-nodecl_output_t nodecl_null(void);
-char nodecl_is_null(nodecl_output_t t);
-
-AST nodecl_get_ast(nodecl_output_t t);
-
-nodecl_output_t nodecl_copy(nodecl_output_t t);
-
-char nodecl_is_constant(nodecl_output_t t);
-void nodecl_set_constant(nodecl_output_t t, const_value_t* cval);
-const_value_t* nodecl_get_constant(nodecl_output_t t);
-
-const char* nodecl_get_text(nodecl_output_t t);
-type_t* nodecl_get_type(nodecl_output_t t);
-
-const char* nodecl_get_filename(nodecl_output_t t);
-int nodecl_get_line(nodecl_output_t t);
-
-char nodecl_is_value_dependent(nodecl_output_t t);
-void nodecl_set_is_value_dependent(nodecl_output_t t, char is_value_dependent);
-
-// 'list' parameter can be a 'nodecl_null()'
-nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t element);
-
-// Either list1 or list2 can be 'nodecl_null()'
-nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2);
-"""
+   print ""
 
    for i in range(1, 7):
-        params = map(lambda x : "nodecl_output_t element%d" % (x) , range(0, i))
-        print "nodecl_output_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
+        params = map(lambda x : "nodecl_t element%d" % (x) , range(0, i))
+        print "nodecl_t nodecl_make_list_%d(%s);" % (i, string.join(params, ", "))
    print ""
    classes = {}
    for rule_name in rule_map:
@@ -445,7 +419,7 @@ nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2
            if rhs.__class__ == ASTStructure:
                classes[(rhs.tree_kind[4:]).lower()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
-       param_list_nodecl = map(lambda x : "nodecl_output_t", rhs_rule.subtrees)
+       param_list_nodecl = map(lambda x : "nodecl_t", rhs_rule.subtrees)
        if rhs_rule.needs_symbol:
            param_list_nodecl.append("scope_entry_t*");
        if rhs_rule.needs_type:
@@ -457,7 +431,7 @@ nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2
        param_list_nodecl.append("const char* filename");
        param_list_nodecl.append("int line");
 
-       print "nodecl_output_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
+       print "nodecl_t nodecl_make_%s(%s);" % (key, string.join(param_list_nodecl, ", "))
    print ""
    print "MCXX_END_DECLS"
    print ""
@@ -473,121 +447,10 @@ def generate_routines_impl(rule_map):
    print "#include \"cxx-utils.h\""
    print "#include <stdlib.h>"
    print ""
-   print \
-"""
-nodecl_output_t nodecl_null(void)
-{
-    nodecl_output_t result = { NULL };
-    return result;
-}
-
-char nodecl_is_null(nodecl_output_t t)
-{
-    return t.tree == NULL;
-}
-
-AST nodecl_get_ast(nodecl_output_t t)
-{
-    return t.tree;
-}
-
-const char* nodecl_get_text(nodecl_output_t t)
-{
-    return ASTText(t.tree);
-}
-
-type_t* nodecl_get_type(nodecl_output_t t)
-{
-    return expression_get_type(t.tree);
-}
-
-nodecl_output_t nodecl_copy(nodecl_output_t t)
-{
-    nodecl_output_t result = { ast_copy(t.tree) };
-    return result;
-}
-
-char nodecl_is_constant(nodecl_output_t t)
-{
-    return expression_is_constant(t.tree);
-}
-
-const_value_t* nodecl_get_constant(nodecl_output_t t)
-{
-    return expression_get_constant(t.tree);
-}
-
-void nodecl_set_constant(nodecl_output_t t, const_value_t* cval)
-{
-    expression_set_constant(t.tree, cval);
-}
-
-char nodecl_is_value_dependent(nodecl_output_t t)
-{
-    return expression_is_value_dependent(t.tree);
-}
-
-void nodecl_set_is_value_dependent(nodecl_output_t t, char is_value_dependent)
-{
-    return expression_set_is_value_dependent(t.tree, is_value_dependent);
-}
-
-const char* nodecl_get_filename(nodecl_output_t t)
-{
-    return ASTFileName(t.tree);
-}
-
-int nodecl_get_line(nodecl_output_t t)
-{
-    return ASTLine(t.tree);
-}
-
-nodecl_output_t nodecl_concat_lists(nodecl_output_t list1, nodecl_output_t list2)
-{
-    if (list1.tree == NULL)
-        return list2;
-
-    if (list2.tree == NULL)
-        return list1;
-
-    if (ASTType(list1.tree) == AST_NODE_LIST
-            && ASTType(list2.tree) == AST_NODE_LIST)
-    {
-        nodecl_output_t result;
-        result.tree = ast_list_concat(list1.tree, list2.tree);
-        return result;
-    }
-
-    internal_error("Invalid trees when appending two nodecl_output_t", 0);
-    nodecl_output_t result = { NULL };
-    return result;
-}
-nodecl_output_t nodecl_append_to_list(nodecl_output_t list, nodecl_output_t element)
-{
-    if (element.tree == NULL)
-    {
-        return list;
-    }
-    if (list.tree == NULL)
-    {
-        nodecl_output_t result = { ASTListLeaf(element.tree) };
-        return result;
-    }
-    else
-    {
-        nodecl_output_t result = { ASTList(list.tree, element.tree) };
-        return result;
-    }
-}
-nodecl_output_t nodecl_make_list_1(nodecl_output_t element0)
-{
-    return nodecl_append_to_list(nodecl_null(), element0);
-}
-"""
    for i in range(2, 7):
-        params = map(lambda x : "nodecl_output_t element%d" % (x) , range(0, i))
+        params = map(lambda x : "nodecl_t element%d" % (x) , range(0, i))
         args = map(lambda x : "element%d" % (x) , range(0, i))
-        print "nodecl_output_t nodecl_make_list_%d(%s)" % (i, string.join(params, ", "))
+        print "nodecl_t nodecl_make_list_%d(%s)" % (i, string.join(params, ", "))
         print "{"
         print "  return nodecl_append_to_list(nodecl_make_list_%d(%s), %s);" % (i-1, string.join(args[:-1], ", "), args[-1])
         print "}"
@@ -608,7 +471,7 @@ nodecl_output_t nodecl_make_list_1(nodecl_output_t element0)
                i = i + 1
            param_name = pattern % i
            param_name_list.append(param_name)
-           param_list_nodecl.append("nodecl_output_t %s" % (param_name))
+           param_list_nodecl.append("nodecl_t %s" % (param_name))
        if rhs_rule.needs_symbol:
            param_list_nodecl.append("scope_entry_t* symbol");
        if rhs_rule.needs_type:
@@ -622,9 +485,9 @@ nodecl_output_t nodecl_make_list_1(nodecl_output_t element0)
        if not param_list_nodecl:
            raise Exception("Empty list!")
 
-       print "nodecl_output_t nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
+       print "nodecl_t nodecl_make_%s(%s)" % (key, string.join(param_list_nodecl, ", "))
        print "{"
-       print "  nodecl_output_t result = nodecl_null();"
+       print "  nodecl_t result = nodecl_null();"
        num_children = len(rhs_rule.subtrees)
        if num_children == 0:
           print "  result.tree = ASTLeaf(%s, filename, line, NULL);" % (rhs_rule.tree_kind)
@@ -653,7 +516,7 @@ def generate_c_visitor_decl(rule_map):
 #define CXX_NODECL_VISITOR_H
 
 #include "cxx-macros.h"
-#include "cxx-ast.h"
+#include "cxx-nodecl-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -670,13 +533,17 @@ struct nodecl_external_visitor_tag
             if rhs.__class__ == ASTStructure:
                 node_kind.add(rhs.tree_kind[4:].lower())
     for node in node_kind:
-        print "void (*visit_%s)(nodecl_external_visitor_t*, AST a);" % ( node )
+        print "void (*visit_%s)(nodecl_external_visitor_t*, nodecl_t a);" % ( node )
 
     print """
 };
 
-void nodecl_walk(nodecl_external_visitor_t* external_visitor, AST node);
-void nodecl_init_walker(nodecl_external_visitor_t* external_visitor, void (*default_visit)(nodecl_external_visitor_t*, AST));
+void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t node);
+void nodecl_init_walker(nodecl_external_visitor_t* external_visitor, void (*default_visit)(nodecl_external_visitor_t*, nodecl_t));
+
+#define NODECL_VISITOR_FUN(_x) (void (*)(nodecl_external_visitor_t* visitor, nodecl_t a))(_x)
+#define NODECL_VISITOR(_x) ((nodecl_external_visitor_t*)(_x))
+#define NODECL_WALK(v, tree) nodecl_walk(NODECL_VISITOR(v), tree)
 
 MCXX_END_DECLS
 
@@ -690,12 +557,14 @@ def generate_c_visitor_def(rule_map):
 #include "cxx-nodecl-visitor.h"
 #include "cxx-utils.h"
 
-void nodecl_walk(nodecl_external_visitor_t* external_visitor, AST tree)
+void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
 {
+    AST tree = nodecl_get_ast(n);
     if (tree == NULL)
         return;
     switch (ASTType(tree))
     {
+        case AST_NODE_LIST: { AST it; for_each_element(tree, it) { AST elem = ASTSon1(it); nodecl_walk(external_visitor, _nodecl_wrap(elem)); } break; }
 """
     node_kind = set([])
     for rule_name in rule_map:
@@ -704,14 +573,14 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, AST tree)
             if rhs.__class__ == ASTStructure:
                 node_kind.add((rhs.tree_kind, rhs.tree_kind[4:].lower()))
     for node in node_kind:
-        print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, tree); break; }" % (node[0], node[1], node[1])
+        print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
        default:
            { internal_error("Unexpected tree kind '%s'\\n", ast_print_node_type(ASTType(tree))); }
     }
 }
 
-void nodecl_init_walker(nodecl_external_visitor_t* external_visitor, void (*default_visitor)(nodecl_external_visitor_t*, AST))
+void nodecl_init_walker(nodecl_external_visitor_t* external_visitor, void (*default_visitor)(nodecl_external_visitor_t*, nodecl_t))
 {
 """
     for node in node_kind:

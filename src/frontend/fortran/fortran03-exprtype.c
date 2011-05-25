@@ -1805,12 +1805,12 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
 
     int length = strlen(literal);
 
-    nodecl_output_t one = nodecl_make_integer_literal(
+    nodecl_t one = nodecl_make_integer_literal(
             get_signed_int_type(), 
             const_value_get_one(4, 1), 
             ASTFileName(expr),
             ASTLine(expr));
-    nodecl_output_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
+    nodecl_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
             const_value_get(length, 4, 1), 
             ASTFileName(expr),
             ASTLine(expr));
@@ -2333,8 +2333,8 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     if (is_pointer_to_fortran_character_type(t2))
         t1 = pointer_type_get_pointee_type(t2);
 
-    nodecl_output_t length1 = array_type_get_array_size_expr(t1);
-    nodecl_output_t length2 = array_type_get_array_size_expr(t2);
+    nodecl_t length1 = array_type_get_array_size_expr(t1);
+    nodecl_t length2 = array_type_get_array_size_expr(t2);
 
     type_t* char1 = array_type_get_element_type(t1);
     type_t* char2 = array_type_get_element_type(t2);
@@ -2346,11 +2346,11 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     if (!nodecl_is_null(length1)
             && !nodecl_is_null(length2))
     {
-        nodecl_output_t lower = nodecl_make_integer_literal(
+        nodecl_t lower = nodecl_make_integer_literal(
                 get_signed_int_type(), 
                 const_value_get_one(4, 1), 
                 NULL, 0);
-        nodecl_output_t upper = 
+        nodecl_t upper = 
             nodecl_make_add(
                     nodecl_copy(length1),
                     nodecl_copy(length2),

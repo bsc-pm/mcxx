@@ -125,7 +125,7 @@ namespace TL
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        nodecl_output_t n = { array_expr._ast };
+        nodecl_t n = { array_expr._ast };
 // FIXME - This requires a nodecl
         type_t* array_to = get_array_type(result_type, n, decl_context);
 
@@ -138,8 +138,8 @@ namespace TL
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        nodecl_output_t l = { lower_bound._ast };
-        nodecl_output_t u = { upper_bound._ast };
+        nodecl_t l = { lower_bound._ast };
+        nodecl_t u = { upper_bound._ast };
         type_t* array_to = get_array_type_bounds(result_type, l, u, decl_context);
 
         return Type(array_to);

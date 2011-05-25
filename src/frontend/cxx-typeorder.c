@@ -53,7 +53,7 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
             return 0;
         }
 
-        nodecl_output_t expr_size = array_type_get_array_size_expr(t);
+        nodecl_t expr_size = array_type_get_array_size_expr(t);
 
         if (nodecl_is_constant(expr_size))
         {

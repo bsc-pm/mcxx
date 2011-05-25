@@ -157,8 +157,8 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   cxx-nodecl.h \
   cxx-nodecl.c \
-  cxx-nodecl-output-fwd.h \
-  cxx-nodecl-output-decls.h \
+  cxx-nodecl-fwd.h \
+  cxx-nodecl-decls.h \
   cxx-nodecl-checker.h \
   cxx-nodecl-checker.c \
   cxx-nodecl-output.h \

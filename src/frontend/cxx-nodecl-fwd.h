@@ -5,8 +5,8 @@
 
 MCXX_BEGIN_DECLS
 
-struct nodecl_output_tag;
-typedef struct nodecl_output_tag nodecl_output_t;
+struct nodecl_tag;
+typedef struct nodecl_tag nodecl_t;
 
 MCXX_END_DECLS
 

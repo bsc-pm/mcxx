@@ -1237,7 +1237,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 }
                 if (!is_undefined)
                 {
-                    nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                    nodecl_t lower_bound = nodecl_make_integer_literal(
                             get_signed_int_type(),
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
                             ASTFileName(len), ASTLine(len));
@@ -1632,8 +1632,8 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         AST lower_bound_tree = ASTSon0(array_spec_item);
         AST upper_bound_tree = ASTSon1(array_spec_item);
 
-        nodecl_output_t lower_bound = nodecl_null();
-        nodecl_output_t upper_bound = nodecl_null();
+        nodecl_t lower_bound = nodecl_null();
+        nodecl_t upper_bound = nodecl_null();
 
         if (lower_bound_tree != NULL
                 && (ASTType(lower_bound_tree) != AST_SYMBOL
@@ -2719,7 +2719,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                         {
                             fortran_check_expression(char_length, decl_context);
 
-                            nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                            nodecl_t lower_bound = nodecl_make_integer_literal(
                                     get_signed_int_type(),
                                     const_value_get_one(type_get_size(get_signed_int_type()), 1),
                                     ASTFileName(char_length), ASTLine(char_length));
@@ -3802,7 +3802,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 {
                     fortran_check_expression(char_length, decl_context);
 
-                    nodecl_output_t lower_bound = nodecl_make_integer_literal(
+                    nodecl_t lower_bound = nodecl_make_integer_literal(
                             get_signed_int_type(),
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
                             ASTFileName(char_length), ASTLine(char_length));

@@ -152,12 +152,12 @@ LIBMCXX_EXTERN type_t* get_lvalue_reference_type(type_t* t);
 LIBMCXX_EXTERN type_t* get_rvalue_reference_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_array_type(type_t* element_type, 
-        nodecl_output_t size_of_array, 
+        nodecl_t size_of_array, 
         decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* get_array_type_bounds(type_t*, 
-        nodecl_output_t lower_bound, 
-        nodecl_output_t upper_bound, 
+        nodecl_t lower_bound, 
+        nodecl_t upper_bound, 
         decl_context_t decl_context);
 
 LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
@@ -378,13 +378,13 @@ LIBMCXX_EXTERN type_t* pointer_to_member_type_get_class_type(type_t *t);
 LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t);
 
 LIBMCXX_EXTERN type_t* array_type_get_element_type(type_t* t);
-LIBMCXX_EXTERN nodecl_output_t array_type_get_array_size_expr(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_array_size_expr(type_t* t);
 LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(type_t* t);
 
 
 LIBMCXX_EXTERN char array_type_is_unknown_size(type_t* t);
-LIBMCXX_EXTERN nodecl_output_t array_type_get_array_lower_bound(type_t* t);
-LIBMCXX_EXTERN nodecl_output_t array_type_get_array_upper_bound(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_array_lower_bound(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
 

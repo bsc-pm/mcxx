@@ -353,14 +353,14 @@ struct array_tag
 {
     // Whole size. If the array is created using lower and upper boundaries
     // this one is upper - lower + 1
-    nodecl_output_t whole_size;
+    nodecl_t whole_size;
     // This is always zero in C
     // It may be non zero in Fortran
-    nodecl_output_t lower_bound; 
+    nodecl_t lower_bound; 
 
     // This is the upper bound. If the array is created using the size of the
     // array, this is always whole_size - 1
-    nodecl_output_t upper_bound;
+    nodecl_t upper_bound;
 
     // Scope of the array size expressions
     decl_context_t array_expr_decl_context;
@@ -1131,7 +1131,7 @@ static dependent_name_part_t* get_dependent_nested_part(
     }
     else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
     {
-        nodecl_output_t dummy_nodecl_output;
+        nodecl_t dummy_nodecl_output;
         result->name = get_conversion_function_name(decl_context, nested_part, 
                 &result->related_type, &dummy_nodecl_output);
     }
@@ -2054,16 +2054,16 @@ static void init_qualification_hash(void)
 }
 
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_output_t *whole_size, nodecl_output_t *lower_bound, nodecl_output_t *upper_bound, decl_context_t* decl_context);
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context);
 
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_output_t whole_size, nodecl_output_t lower_bound, nodecl_output_t upper_bound, decl_context_t decl_context);
+        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
-        nodecl_output_t whole_size = nodecl_null();
-        nodecl_output_t lower_bound = nodecl_null();
-        nodecl_output_t upper_bound = nodecl_null();
+        nodecl_t whole_size = nodecl_null();
+        nodecl_t lower_bound = nodecl_null();
+        nodecl_t upper_bound = nodecl_null();
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
@@ -2463,7 +2463,7 @@ type_t* get_array_type_str(type_t* element_type UNUSED_PARAMETER,
 
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_output_t *whole_size, nodecl_output_t *lower_bound, nodecl_output_t *upper_bound, decl_context_t* decl_context)
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -2476,7 +2476,7 @@ static void _get_array_type_components(type_t* array_type,
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_output_t whole_size, nodecl_output_t lower_bound, nodecl_output_t upper_bound, decl_context_t decl_context)
+        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -2525,7 +2525,7 @@ static type_t* _get_array_type(type_t* element_type,
     if (!nodecl_is_null(whole_size))
     {
         struct {
-            nodecl_output_t *nodecl;
+            nodecl_t *nodecl;
             char* pred;
             _size_t* value;
         } data[] = 
@@ -2658,7 +2658,7 @@ static type_t* _get_array_type(type_t* element_type,
     return result;
 }
 
-static nodecl_output_t get_zero_tree(const char *filename, int line) 
+static nodecl_t get_zero_tree(const char *filename, int line) 
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
             const_value_get_zero(type_get_size(get_signed_int_type()), 0), 
@@ -2666,7 +2666,7 @@ static nodecl_output_t get_zero_tree(const char *filename, int line)
             line);
 }
 
-static nodecl_output_t get_one_tree(const char *filename, int line)
+static nodecl_t get_one_tree(const char *filename, int line)
 {
     return nodecl_make_integer_literal(get_signed_int_type(), 
             const_value_get_one(type_get_size(get_signed_int_type()), 0), 
@@ -2674,14 +2674,14 @@ static nodecl_output_t get_one_tree(const char *filename, int line)
             line);
 }
 
-type_t* get_array_type(type_t* element_type, nodecl_output_t whole_size, decl_context_t decl_context)
+type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t decl_context)
 {
-    nodecl_output_t lower_bound = nodecl_null(); 
-    nodecl_output_t upper_bound = nodecl_null(); 
-    if (nodecl_is_null(whole_size))
+    nodecl_t lower_bound = nodecl_null(); 
+    nodecl_t upper_bound = nodecl_null(); 
+    if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        nodecl_output_t t = nodecl_copy(whole_size);
+        nodecl_t t = nodecl_copy(whole_size);
 
         upper_bound = nodecl_make_minus(
                 nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
@@ -2695,18 +2695,18 @@ type_t* get_array_type(type_t* element_type, nodecl_output_t whole_size, decl_co
 }
 
 type_t* get_array_type_bounds(type_t* element_type,
-        nodecl_output_t lower_bound,
-        nodecl_output_t upper_bound,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
         decl_context_t decl_context)
 {
-    nodecl_output_t whole_size = nodecl_null();
+    nodecl_t whole_size = nodecl_null();
     lower_bound = nodecl_copy(lower_bound);
     upper_bound = nodecl_copy(upper_bound);
 
     if (!nodecl_is_null(lower_bound)
             && !nodecl_is_null(upper_bound))
     {
-        nodecl_output_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
         whole_size = 
             nodecl_make_add(
@@ -5132,7 +5132,7 @@ type_t* array_type_get_element_type(type_t* t)
     return t->array->element_type;
 }
 
-nodecl_output_t array_type_get_array_size_expr(type_t* t)
+nodecl_t array_type_get_array_size_expr(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     t = advance_over_typedefs(t);
@@ -5148,7 +5148,7 @@ char array_type_is_unknown_size(type_t* t)
     return nodecl_is_null(t->array->whole_size);
 }
 
-nodecl_output_t array_type_get_array_lower_bound(type_t* t)
+nodecl_t array_type_get_array_lower_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have lower bound", 0);
@@ -5157,7 +5157,7 @@ nodecl_output_t array_type_get_array_lower_bound(type_t* t)
     return t->array->lower_bound;
 }
 
-nodecl_output_t array_type_get_array_upper_bound(type_t* t)
+nodecl_t array_type_get_array_upper_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
     ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have upper bound", 0);
@@ -7853,7 +7853,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
     if ((*set)[length] == NULL)
     {
 
-        nodecl_output_t integer_literal = nodecl_make_integer_literal(
+        nodecl_t integer_literal = nodecl_make_integer_literal(
                 get_signed_int_type(),
                 const_value_get(length, type_get_size(get_signed_int_type()), 0),
                 NULL, 0);
