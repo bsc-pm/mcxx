@@ -10782,7 +10782,9 @@ static char check_designation(AST designation, decl_context_t decl_context)
     return 1;
 }
 
-type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t* designated_type)
+type_t* get_designated_type(AST designation, decl_context_t decl_context, 
+        type_t* designated_type, 
+        nodecl_output_t (**fun)(nodecl_output_t, nodecl_output_t, const char*, int))
 {
     // This is currently for C99 only, so no need to check too many things on the C++ part
     
@@ -10824,12 +10826,20 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
 
                         if (!ok)
                         {
-                            fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
-                                ast_location(current_designator),
-                                prettyprint_in_buffer(current_designator),
-                                print_decl_type_str(designated_type, decl_context, ""));
-                            designated_type = get_signed_int_type();
+                            if (!checking_ambiguity())
+                            {
+                                fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                                        ast_location(current_designator),
+                                        prettyprint_in_buffer(current_designator),
+                                        print_decl_type_str(designated_type, decl_context, ""));
+                                designated_type = get_error_type();
+                            }
                         }
+                    }
+
+                    if (fun != NULL)
+                    {
+                        *fun = nodecl_make_field_designator;
                     }
                     break;
                 }
@@ -10841,11 +10851,19 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
                     }
                     else
                     {
-                        fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
-                                ast_location(current_designator),
-                                prettyprint_in_buffer(current_designator),
-                                print_decl_type_str(designated_type, decl_context, ""));
-                        return get_signed_int_type();
+                        if (!checking_ambiguity())
+                        {
+                            fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                                    ast_location(current_designator),
+                                    prettyprint_in_buffer(current_designator),
+                                    print_decl_type_str(designated_type, decl_context, ""));
+                            designated_type = get_error_type();
+                        }
+                    }
+
+                    if (fun != NULL)
+                    {
+                        *fun = nodecl_make_index_designator;
                     }
                     break;
                 }
@@ -10903,6 +10921,8 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     if (!is_dependent_expr_type(t))
                     {
                         expression_set_type(initializer, expression_get_type(ASTSon1(expression_list)));
+
+                        expression_set_nodecl(initializer, expression_get_nodecl(ASTSon1(expression_list)));
                         // Do nothing else
                         return 1;
                     }
@@ -10931,10 +10951,13 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
                         if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
                         {
-                            fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
-                                    ast_location(initializer_clause));
+                            if (!checking_ambiguity())
+                            {
+                                fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                        ast_location(initializer_clause));
+                            }
 
-                            type_in_context = get_signed_int_type();
+                            type_in_context = get_error_type();
                         }
                         else
                         {
@@ -10966,6 +10989,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             if (faulty)
                 return 0;
 
+
             if (is_class_type(declared_type))
             {
                 expression_set_type(initializer, declared_type);
@@ -10985,6 +11009,21 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         length, decl_context);
                 expression_set_type(initializer, list_array);
             }
+            // FIXME - Vector???
+
+            nodecl_output_t nodecl_initializer_list = nodecl_null();
+            for_each_element(expression_list, iter)
+            {
+                AST current_init = ASTSon1(iter);
+                nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list,
+                        expression_get_nodecl(current_init));
+            }
+
+            nodecl_output_t nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list,
+                    expression_get_type(initializer), 
+                    ASTFileName(initializer), 
+                    ASTLine(initializer));
+            expression_set_nodecl(initializer, nodecl_output);
         }
         return 1;
     }
@@ -11103,6 +11142,40 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         ensure_not_deleted(decl_context, initializer, conversors[i]);
                     }
                 }
+
+                nodecl_output_t nodecl_arguments = nodecl_null();
+                i = 0;
+                for_each_element(expression_list, iter)
+                {
+                    AST expr = ASTSon1(iter);
+
+                    nodecl_output_t nodecl_current = expression_get_nodecl(expr);
+
+                    if (conversors[i] != NULL)
+                    {
+                        nodecl_current = 
+                            nodecl_make_function_call(
+                                    nodecl_make_symbol(conversors[i], ASTFileName(expr), ASTLine(expr)),
+                                    nodecl_make_list_1(nodecl_current),
+                                    actual_type_of_conversor(conversors[i]),
+                                    ASTFileName(expr), ASTLine(expr));
+                    }
+
+                    nodecl_arguments = nodecl_append_to_list(nodecl_arguments,
+                            nodecl_current);
+
+                    i++;
+                }
+
+                expression_set_type(initializer, declared_type);
+
+                nodecl_output_t nodecl_output = nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
+                        nodecl_arguments,
+                        declared_type,
+                        ASTFileName(initializer), ASTLine(initializer));
+
+                expression_set_nodecl(initializer, nodecl_output);
                 return 1;
             }
         }
@@ -11171,6 +11244,42 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         ensure_not_deleted(decl_context, initializer, conversors[i]);
                     }
                 }
+
+                nodecl_output_t nodecl_arguments = nodecl_null();
+                i = 0;
+                for_each_element(expression_list, iter)
+                {
+                    AST expr = ASTSon1(iter);
+
+                    nodecl_output_t nodecl_current = expression_get_nodecl(expr);
+
+                    if (conversors[i] != NULL)
+                    {
+                        nodecl_current = 
+                            nodecl_make_function_call(
+                                    nodecl_make_symbol(conversors[i], ASTFileName(expr), ASTLine(expr)),
+                                    nodecl_make_list_1(nodecl_current),
+                                    actual_type_of_conversor(conversors[i]),
+                                    ASTFileName(expr), ASTLine(expr));
+                    }
+
+                    nodecl_arguments = nodecl_append_to_list(nodecl_arguments,
+                            nodecl_current);
+
+                    i++;
+                }
+
+                expression_set_type(initializer, declared_type);
+
+                nodecl_output_t nodecl_output = nodecl_make_function_call(
+                        nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
+                        nodecl_make_structured_literal(nodecl_arguments,
+                            specialized_std_initializer,
+                            ASTFileName(initializer), ASTLine(initializer)),
+                        declared_type,
+                        ASTFileName(initializer), ASTLine(initializer));
+
+                expression_set_nodecl(initializer, nodecl_output);
                 return 1;
             }
         }
@@ -11184,7 +11293,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
             if (prev != NULL)
             {
-                //Ticket #593.
+                // FIXME - Vector types arrive here for some unknown reason. See ticket #593
                 fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;
@@ -11195,13 +11304,15 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             {
                 expression_set_type(expression_list, expression_get_type(initializer_clause));
                 expression_set_constant(expression_list, expression_get_constant(initializer_clause));
+
+                expression_set_nodecl(initializer, expression_get_nodecl(initializer_clause));
                 return 1;
             }
         }
         else
         {
             // Empty is OK
-            // FIXME: We should compute the constant value
+            // FIXME: We should compute the default value
             expression_set_type(expression_list, declared_type);
             return 1;
         }
@@ -11219,7 +11330,8 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
             {
                 check_expression_impl_(initializer, decl_context);
 
-                char result = !expression_is_error(initializer);
+                char result = !expression_is_error(initializer)
+                    && !is_error_type(declared_type);
                 if (result)
                 {
                     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
@@ -11272,6 +11384,15 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                     {
                         ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
+
+                        nodecl_output_t nodecl_output = expression_get_nodecl(initializer);
+                        nodecl_output = nodecl_make_function_call(
+                                nodecl_make_symbol(conversor, ASTFileName(initializer), ASTLine(initializer)),
+                                nodecl_make_list_1(nodecl_output),
+                                actual_type_of_conversor(conversor),
+                                ASTFileName(initializer), ASTLine(initializer));
+
+                        expression_set_nodecl(initializer, nodecl_output);
                     }
                 }
 
@@ -11290,13 +11411,22 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
 
                 AST initializer_clause = ASTSon1(initializer);
 
-                type_t* designated_type = get_designated_type(designation, decl_context, declared_type);
+                nodecl_output_t (*nodecl_fun)(nodecl_output_t, nodecl_output_t, const char*, int) = NULL;
+                type_t* designated_type = get_designated_type(designation, decl_context, declared_type, &nodecl_fun);
 
                 char result = check_initializer_clause(initializer_clause, decl_context, designated_type);
+
                 if (result)
                 {
                     expression_set_type(initializer, expression_get_type(initializer_clause));
+
+                    nodecl_output_t nodecl_output = nodecl_fun(
+                            expression_get_nodecl(designation),
+                            expression_get_nodecl(initializer_clause),
+                            ASTFileName(initializer), ASTLine(initializer));
+                    expression_set_nodecl(initializer, nodecl_output);
                 }
+
                 return result;
                 break;
             }
@@ -11310,13 +11440,33 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                 {
                     scope_entry_list_t* member = get_member_of_class_type(declared_type, symbol, decl_context);
 
-                    result = check_initializer_clause(initializer_clause, decl_context, 
-                            entry_list_head(member)->type_information);
-                    entry_list_free(member);
-
-                    if (result)
+                    if (member != NULL)
                     {
-                        expression_set_type(initializer, expression_get_type(initializer_clause));
+                        scope_entry_t* entry = entry_list_head(member);
+                        result = check_initializer_clause(initializer_clause, decl_context, 
+                                entry->type_information);
+                        entry_list_free(member);
+
+                        if (result)
+                        {
+                            expression_set_type(initializer, expression_get_type(initializer_clause));
+
+                            nodecl_output_t nodecl_output = nodecl_make_field_designator(
+                                    nodecl_make_symbol(entry, ASTFileName(initializer), ASTLine(initializer)),
+                                    expression_get_nodecl(initializer_clause),
+                                    ASTFileName(initializer), ASTLine(initializer));
+                            expression_set_nodecl(initializer, nodecl_output);
+                        }
+                    }
+                    else
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            fprintf(stderr, "%s: warning: '%s' is not a field of type '%s' is not valid\n",
+                                    ast_location(initializer),
+                                    prettyprint_in_buffer(symbol),
+                                    print_decl_type_str(declared_type, decl_context, ""));
+                        }
                     }
                 }
                 else

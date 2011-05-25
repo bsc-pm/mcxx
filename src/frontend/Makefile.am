@@ -163,6 +163,8 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-checker.c \
   cxx-nodecl-output.h \
   cxx-nodecl-output.c \
+  cxx-nodecl-visitor.h \
+  cxx-nodecl-visitor.c \
   cxx-codegen.c \
   cxx-codegen.h \
   libmcxx-common.h \
@@ -262,14 +264,9 @@ BUILT_SOURCES += c99-parser.h
 
 EXTRA_DIST += gen-symbol-attrs.py
 EXTRA_DIST += cxx-entity-specs.def
-BUILT_SOURCES += cxx-entity-specs.h
 
 EXTRA_DIST += nodecl-generator.py
 EXTRA_DIST += cxx-nodecl.def
-
-BUILT_SOURCES += cxx-nodecl-checker.c
-BUILT_SOURCES += cxx-nodecl-output.c
-BUILT_SOURCES += cxx-nodecl-output.h
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -434,18 +431,34 @@ endif
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
 
-CLEANFILES += cxx-entity-specs.h
+CLEANFILES    += cxx-entity-specs.h
+BUILT_SOURCES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > $@
 
-CLEANFILES += cxx-nodecl-checker.c
-cxx-nodecl-checker.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+NODECL_DEPS = $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+
+CLEANFILES    += cxx-nodecl-checker.c
+BUILT_SOURCES += cxx-nodecl-checker.c
+cxx-nodecl-checker.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > $@
 
-CLEANFILES += cxx-nodecl-output.c
-cxx-nodecl-output.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+CLEANFILES    += cxx-nodecl-output.c
+BUILT_SOURCES += cxx-nodecl-output.c
+cxx-nodecl-output.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_impl > $@
 
-CLEANFILES += cxx-nodecl-output.h
-cxx-nodecl-output.h : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+CLEANFILES    += cxx-nodecl-output.h
+BUILT_SOURCES += cxx-nodecl-output.h
+cxx-nodecl-output.h : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_header > $@
+
+CLEANFILES    += cxx-nodecl-visitor.h
+BUILT_SOURCES += cxx-nodecl-visitor.h
+cxx-nodecl-visitor.h : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_decl > $@
+
+CLEANFILES    += cxx-nodecl-visitor.c
+BUILT_SOURCES += cxx-nodecl-visitor.c
+cxx-nodecl-visitor.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_def > $@
