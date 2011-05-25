@@ -7,7 +7,7 @@ top-level : function-code
 name : AST_SYMBOL() symbol
 type : AST_TYPE() type
 
-function-code : AST_FUNCTION_CODE([name]name, [statements]statement-seq, [internal_functions]function-code-opt)
+function-code : AST_FUNCTION_CODE([statements]statement-seq, [internal_functions]function-code-opt) symbol
 object-init : AST_OBJECT_INIT() symbol
 
 statement : statement-but-object-init
