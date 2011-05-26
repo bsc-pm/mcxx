@@ -1024,8 +1024,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
         {
             new_decl_context.decl_flags &= (~DF_NO_DECLARATORS);
         }
+        nodecl_t nodecl_decl_specifier = nodecl_null();
         build_scope_decl_specifier_seq(ASTSon0(a), &gather_info, &simple_type_info,
-                new_decl_context, nodecl_output);
+                new_decl_context, &nodecl_decl_specifier);
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl_specifier);
     }
     else
     {
@@ -1087,10 +1089,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             type_t* declarator_type = NULL;
 
             // This will create the symbol if it is unqualified
+            nodecl_t nodecl_declarator = nodecl_null();
             compute_declarator_type(declarator, &current_gather_info, 
-                    simple_type_info, &declarator_type, decl_context, nodecl_output);
+                    simple_type_info, &declarator_type, decl_context, &nodecl_declarator);
+            nodecl_t nodecl_declarator_name = nodecl_null();
             scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
-                    &current_gather_info, decl_context, nodecl_output);
+                    &current_gather_info, decl_context, &nodecl_declarator_name);
 
             ERROR_CONDITION(entry == NULL, "Declaration '%s' in '%s' did not declare anything!", 
                     prettyprint_in_buffer(a),
@@ -1143,7 +1147,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
 
                     entry->language_dependent_value = initializer;
+                    entry->value = expression_get_nodecl(initializer);
 
+                    *nodecl_output = nodecl_concat_lists(
+                            *nodecl_output,
+                            nodecl_make_list_1(nodecl_make_object_init(entry, 
+                                    ASTFileName(initializer), ASTLine(initializer)))); 
                     {
                         ast_set_link_to_child(init_declarator, LANG_INITIALIZER, initializer);
                         ast_set_link_to_child(init_declarator, LANG_DECLARATOR, declarator);
@@ -1160,6 +1169,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         {
                             check_zero_args_constructor(declarator_type, decl_context, declarator);
                         }
+
+                        // FIXME - Set a ->value here???
                     }
                 }
                 if (!current_gather_info.is_extern)
@@ -9724,8 +9735,7 @@ static void build_scope_goto_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_goto_statement(nodecl_make_symbol(sym_label, ASTFileName(a), ASTLine(a)), 
-                ASTFileName(a), ASTLine(a)));
+            nodecl_make_goto_statement(sym_label, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -9748,8 +9758,7 @@ static void build_scope_labeled_statement(AST a,
     *nodecl_output = 
         nodecl_append_to_list(
                 nodecl_null(),
-                nodecl_make_labeled_statement(nodecl_make_symbol(sym_label, ASTFileName(label), ASTLine(label)), 
-                    nodecl_statement, ASTFileName(a), ASTLine(a)));
+                nodecl_make_labeled_statement(nodecl_statement, sym_label, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -9868,6 +9877,8 @@ static void build_scope_try_block(AST a,
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, exception_declaration, block_context);
 
             type_t* declarator_type = NULL;
+
+            nodecl_t exception_name = nodecl_null();
             if (declarator != NULL)
             {
                 dummy = nodecl_null();
@@ -9875,16 +9886,18 @@ static void build_scope_try_block(AST a,
                         block_context, &dummy);
 
                 dummy = nodecl_null();
-                /* scope_entry_t* entry = */ build_scope_declarator_name(declarator,
+                scope_entry_t* entry = build_scope_declarator_name(declarator,
                         declarator_type, &gather_info, block_context, &dummy);
+
+                exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
             }
 
-            nodecl_t nodecl_type = nodecl_make_type(declarator_type, NULL, 0);
             nodecl_t nodecl_catch_statement = nodecl_null();
             build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_statement);
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
-                    nodecl_make_catch_handler(nodecl_type, nodecl_catch_statement, 
+                    nodecl_make_catch_handler(exception_name, nodecl_catch_statement, 
+                        declarator_type,
                         ASTFileName(exception_declaration), 
                         ASTLine(exception_declaration)));
         }
@@ -10003,7 +10016,7 @@ static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context,
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
 
-    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_clause(nodecl_argument, ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pragma_custom_line(AST a, 
@@ -10044,7 +10057,7 @@ static void build_scope_pragma_custom_line(AST a,
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 
-    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_pragma_custom_line(nodecl_parameter, nodecl_clauses, ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
@@ -10061,7 +10074,7 @@ static void build_scope_pragma_custom_directive(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTFileName(a), ASTLine(a)));
+            nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTText(a), ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_construct_statement(AST a, 
@@ -10082,7 +10095,7 @@ static void build_scope_pragma_custom_construct_statement(AST a,
 
     *nodecl_output = nodecl_append_to_list(
             nodecl_null(),
-            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement, ASTFileName(a), ASTLine(a)));
+            nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement, ASTText(a), ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_construct_declaration(AST a, 
@@ -10101,7 +10114,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line.tree);
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_get_ast(nodecl_pragma_line));
 
         entry_list_iterator_next(it);
     }
@@ -10129,7 +10142,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line.tree);
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_get_ast(nodecl_pragma_line));
 
         entry_list_iterator_next(it);
     }

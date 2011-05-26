@@ -20,13 +20,13 @@ statement-but-object-init: AST_EMPTY_STATEMENT()
           | AST_WHILE_STATEMENT([condition]expression, [statement]statement) symbol
           | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement) symbol
           | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt) symbol
-          | AST_LABELED_STATEMENT([label]name, [statement]statement)
+          | AST_LABELED_STATEMENT([statement]statement) symbol
           | AST_SWITCH_STATEMENT([switch]expression, [statement]statement)
           | AST_DEFAULT_STATEMENT([statement]statement)
-          | AST_CASE_STATEMENT([label]name, [statement]statement)
+          | AST_CASE_STATEMENT([case]expression, [statement]statement)
           | AST_BREAK_STATEMENT()
           | AST_CONTINUE_STATEMENT()
-          | AST_GOTO_STATEMENT([label]name)
+          | AST_GOTO_STATEMENT() symbol
           | AST_RETURN_STATEMENT([value]expression))
           | pragma-directive
           | pragma-construct
@@ -41,14 +41,15 @@ any : statement-but-object-init
 
 loop-control: AST_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
-pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line)
-pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt)
-pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt)
+pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
+pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt) text
+pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
 pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
-pragma-construct : AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement)
+pragma-construct : AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement) text
 
 c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
-catch-handler : AST_CATCH_HANDLER([type]type, [statement]statement)
+
+catch-handler : AST_CATCH_HANDLER([name]object-init-opt, [statement]statement) type
 
 # FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : AST_ALLOCATE_STATEMENT()

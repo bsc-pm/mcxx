@@ -9615,19 +9615,27 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         {
             accessed_type = pointer_type_get_pointee_type(no_ref(accessed_type));
 
-            nodecl_t nodecl_accessed = nodecl_make_derreference(
-                    expression_get_nodecl(class_expr),
-                    accessed_type,
-                    ASTFileName(class_expr), ASTLine(class_expr));
+            nodecl_t nodecl_accessed = 
+                nodecl_make_parenthesized_expression(
+                        nodecl_make_derreference(
+                            expression_get_nodecl(class_expr),
+                            expression_get_type(class_expr),
+                            ASTFileName(class_expr), ASTLine(class_expr)),
+                        accessed_type,
+                        ASTFileName(class_expr), ASTLine(class_expr));
             expression_set_nodecl(class_expr, nodecl_accessed);
         }
         else if (is_array_type(no_ref(accessed_type)))
         {
             accessed_type = array_type_get_element_type(no_ref(accessed_type));
 
-            nodecl_t nodecl_accessed = nodecl_make_derreference(
-                    expression_get_nodecl(class_expr),
-                    accessed_type, ASTFileName(class_expr), ASTLine(class_expr));
+            nodecl_t nodecl_accessed = 
+                nodecl_make_parenthesized_expression(
+                        nodecl_make_derreference(
+                            expression_get_nodecl(class_expr),
+                            expression_get_type(class_expr),
+                            ASTFileName(class_expr), ASTLine(class_expr)),
+                        accessed_type, ASTFileName(class_expr), ASTLine(class_expr));
             expression_set_nodecl(class_expr, nodecl_accessed);
         }
         else if (IS_CXX_LANGUAGE
@@ -11638,9 +11646,13 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
 
         expression_set_nodecl(expression,
                 nodecl_make_offset(
-                    nodecl_make_derreference(
-                        expression_get_nodecl(lhs),
-                        lvalue_ref(pointed_lhs_type), ASTFileName(lhs), ASTLine(lhs)),
+                    nodecl_make_parenthesized_expression(
+                        nodecl_make_derreference(
+                            expression_get_nodecl(lhs),
+                            expression_get_type(lhs),
+                            ASTFileName(lhs), ASTLine(lhs)),
+                        lvalue_ref(pointed_lhs_type), 
+                        ASTFileName(lhs), ASTLine(lhs)),
                     expression_get_nodecl(rhs),
                     expression_get_type(expression), ASTFileName(expression), ASTLine(expression)));
         return;
@@ -11955,6 +11967,8 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
                     expression_set_constant(initializer, expression_get_constant(initializer_clause));
 
                     expression_set_is_value_dependent(initializer, expression_is_value_dependent(initializer_clause));
+
+                    expression_set_nodecl(initializer, expression_get_nodecl(initializer_clause));
                 }
                 break;
             }
