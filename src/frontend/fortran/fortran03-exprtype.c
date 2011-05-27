@@ -84,7 +84,7 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_MINUS, check_minus_op) \
  STATEMENT_HANDLER(AST_MUL, check_mult_op) \
  STATEMENT_HANDLER(AST_NEG, check_neg_op) \
- STATEMENT_HANDLER(AST_NOT, check_not_op) \
+ STATEMENT_HANDLER(AST_LOGICAL_NOT, check_not_op) \
  STATEMENT_HANDLER(AST_OCTAL_LITERAL, check_octal_literal) \
  STATEMENT_HANDLER(AST_PARENTHESIZED_EXPRESSION, check_parenthesized_expression) \
  STATEMENT_HANDLER(AST_PLUS, check_plus_op) \
@@ -1746,7 +1746,7 @@ static char* unary_expression_attr[] =
 {
     [AST_PLUS]       = LANG_IS_PLUS_OP,
     [AST_NEG]        = LANG_IS_NEGATE_OP,
-    [AST_NOT]        = LANG_IS_NOT_OP,
+    [AST_LOGICAL_NOT]        = LANG_IS_NOT_OP,
 };
 
 static void common_unary_check(AST expr, decl_context_t decl_context) 
@@ -2505,7 +2505,7 @@ static operand_map_t operand_map[] =
     HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>"),
     HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>="),
     // Unary logical
-    HANDLER_MAP(AST_NOT, logical_unary, const_unary_not, ".operator..not."),
+    HANDLER_MAP(AST_LOGICAL_NOT, logical_unary, const_unary_not, ".operator..not."),
     // Binary logical
     HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv."),
     HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv."),
@@ -2697,7 +2697,7 @@ const char* operator_names[] =
     [AST_LOWER_OR_EQUAL_THAN] = "<=",
     [AST_GREATER_THAN] = ">",
     [AST_GREATER_OR_EQUAL_THAN] = ">=",
-    [AST_NOT] = ".NOT.",
+    [AST_LOGICAL_NOT] = ".NOT.",
     [AST_LOGICAL_EQUAL] = ".EQV.",
     [AST_LOGICAL_DIFFERENT] = ".NEQV.",
     [AST_LOGICAL_AND] = ".AND.",

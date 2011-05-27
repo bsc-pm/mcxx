@@ -647,7 +647,7 @@ static char* unary_expression_attr[] =
     [AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
     [AST_PLUS]       = LANG_IS_PLUS_OP,
     [AST_NEG]        = LANG_IS_NEGATE_OP,
-    [AST_NOT]        = LANG_IS_NOT_OP,
+    [AST_LOGICAL_NOT]        = LANG_IS_NOT_OP,
     [AST_BITWISE_NOT] = LANG_IS_COMPLEMENT_OP
 };
 
@@ -1185,7 +1185,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_REFERENCE :
         case AST_PLUS :
         case AST_NEG :
-        case AST_NOT :
+        case AST_LOGICAL_NOT :
         case AST_BITWISE_NOT :
             {
                 const_value_t* val = NULL;
@@ -5728,7 +5728,7 @@ static type_t* compute_operator_not_type(AST expression,
         else 
             return get_error_type();
 
-        nodecl_t nodecl_output = nodecl_make_not(
+        nodecl_t nodecl_output = nodecl_make_logical_not(
                 expression_get_nodecl(op),
                 expression_get_type(expression), ASTFileName(expression), ASTLine(expression));
         expression_set_nodecl(expression, nodecl_output);
@@ -5775,7 +5775,7 @@ static type_t* compute_operator_not_type(AST expression,
     {
         if (selected_operator->entity_specs.is_builtin)
         {
-            nodecl_t nodecl_output = nodecl_make_not(
+            nodecl_t nodecl_output = nodecl_make_logical_not(
                     expression_get_nodecl(op),
                     expression_get_type(expression), ASTFileName(expression), ASTLine(expression));
             expression_set_nodecl(expression, nodecl_output);
@@ -5931,7 +5931,7 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [AST_REFERENCE]             = OPERATOR_FUNCT_INIT(compute_operator_reference_type),
     [AST_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
     [AST_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
-    [AST_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
+    [AST_LOGICAL_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
     [AST_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
@@ -9616,13 +9616,10 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             accessed_type = pointer_type_get_pointee_type(no_ref(accessed_type));
 
             nodecl_t nodecl_accessed = 
-                nodecl_make_parenthesized_expression(
                         nodecl_make_derreference(
                             expression_get_nodecl(class_expr),
-                            expression_get_type(class_expr),
-                            ASTFileName(class_expr), ASTLine(class_expr)),
-                        accessed_type,
-                        ASTFileName(class_expr), ASTLine(class_expr));
+                            accessed_type,
+                            ASTFileName(class_expr), ASTLine(class_expr));
             expression_set_nodecl(class_expr, nodecl_accessed);
         }
         else if (is_array_type(no_ref(accessed_type)))
@@ -9630,12 +9627,10 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             accessed_type = array_type_get_element_type(no_ref(accessed_type));
 
             nodecl_t nodecl_accessed = 
-                nodecl_make_parenthesized_expression(
                         nodecl_make_derreference(
                             expression_get_nodecl(class_expr),
-                            expression_get_type(class_expr),
-                            ASTFileName(class_expr), ASTLine(class_expr)),
-                        accessed_type, ASTFileName(class_expr), ASTLine(class_expr));
+                            accessed_type,
+                            ASTFileName(class_expr), ASTLine(class_expr));
             expression_set_nodecl(class_expr, nodecl_accessed);
         }
         else if (IS_CXX_LANGUAGE
@@ -11646,11 +11641,8 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
 
         expression_set_nodecl(expression,
                 nodecl_make_offset(
-                    nodecl_make_parenthesized_expression(
-                        nodecl_make_derreference(
-                            expression_get_nodecl(lhs),
-                            expression_get_type(lhs),
-                            ASTFileName(lhs), ASTLine(lhs)),
+                    nodecl_make_derreference(
+                        expression_get_nodecl(lhs),
                         lvalue_ref(pointed_lhs_type), 
                         ASTFileName(lhs), ASTLine(lhs)),
                     expression_get_nodecl(rhs),

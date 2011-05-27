@@ -2187,7 +2187,7 @@ unary_operator : '*'
 }
 | '!'
 {
-	$$ = AST_NOT;
+	$$ = AST_LOGICAL_NOT;
 }
 | '~'
 {

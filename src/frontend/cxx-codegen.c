@@ -5,6 +5,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-nodecl-visitor.h"
 #include <string.h>
+#include <limits.h>
 
 typedef
 struct nodecl_codegen_visitor_tag
@@ -668,13 +669,126 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     }
 }
 
+// We return negative numbers because it is easier to list them in descending priority order
+// so we want the first one to be the most 
+static int get_rank(nodecl_t op)
+{
+    switch (ASTType(nodecl_get_ast(op)))
+    {
+        case AST_STRING_LITERAL:
+        case AST_FLOATING_LITERAL:
+        case AST_BOOLEAN_LITERAL:
+        case AST_STRUCTURED_LITERAL:
+        case AST_PARENTHESIZED_EXPRESSION:
+        case AST_BUILTIN:
+            {
+                return -1;
+            }
+        case AST_ARRAY_SUBSCRIPT:
+        case AST_FUNCTION_CALL:
+        case AST_CLASS_MEMBER_ACCESS:
+        case AST_TYPEID:
+            {
+                return -2;
+            }
+       case AST_PREINCREMENT:
+       case AST_PREDECREMENT:
+       case AST_REFERENCE:
+       case AST_DERREFERENCE:
+       case AST_PLUS:
+       case AST_NEG:
+       case AST_LOGICAL_NOT:
+       case AST_BITWISE_NOT:
+       case AST_SIZEOF:
+            // case AST_NEW
+            // case AST_DELETE
+            // case AST_ALIGNOF
+            // case AST_REAL
+            // case AST_IMAG
+            // case AST_LABEL_ADDR
+            {
+                return -3;
+            }
+            // This one is special as we keep several casts in a single node
+        case AST_CAST:
+            {
+                if (IS_C_LANGUAGE
+                        || strcmp(nodecl_get_text(op), "C") == 0)
+                {
+                    return -4;
+                }
+                else
+                {
+                    // These casts are postfix expressions actually
+                    // static_cast, dynamic_cast, reinterpret_cast, const_cast
+                    return -2;
+                }
+            }
+       case AST_POINTER_TO_MEMBER:
+            return -5;
+       case AST_MUL:
+       case AST_DIV:
+       case AST_MOD:
+            return -6;
+       case AST_ADD:
+       case AST_MINUS:
+            return -7;
+       case AST_SHL:
+       case AST_SHR:
+            return -8;
+       case AST_LOWER_THAN:
+       case AST_LOWER_OR_EQUAL_THAN:
+       case AST_GREATER_THAN:
+       case AST_GREATER_OR_EQUAL_THAN:
+            return -9;
+       case AST_EQUAL:
+       case AST_DIFFERENT:
+            return -10;
+       case AST_BITWISE_AND:
+            return -11;
+       case AST_BITWISE_XOR:
+            return -12;
+       case AST_BITWISE_OR:
+            return -13;
+       case AST_LOGICAL_AND:
+            return -14;
+       case AST_LOGICAL_OR:
+            return -15;
+       case AST_CONDITIONAL_EXPRESSION:
+            return -16;
+       case AST_ASSIGNMENT:
+       case AST_MUL_ASSIGNMENT :
+       case AST_DIV_ASSIGNMENT:
+       case AST_ADD_ASSIGNMENT:
+       case AST_SUB_ASSIGNMENT:
+       case AST_SHL_ASSIGNMENT:
+       case AST_SHR_ASSIGNMENT:
+       case AST_BITWISE_AND_ASSIGNMENT:
+       case AST_BITWISE_OR_ASSIGNMENT:
+       case AST_BITWISE_XOR_ASSIGNMENT:
+       case AST_THROW_EXPRESSION:
+            return -17;
+       default:
+            return INT_MIN;
+    }
+}
+
+
+// We do not keep parentheses in C/C++ so we may need to restore some of them
+static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
+{
+    // It does not have known lower priority
+    char rank_current = get_rank(current_operator);
+    char rank_operand = get_rank(operand);
+    return rank_operand < rank_current;
+}
 
 // Expressions
 
 #define OPERATOR_TABLE \
     PREFIX_UNARY_EXPRESSION(plus, "+") \
     PREFIX_UNARY_EXPRESSION(neg, "-") \
-    PREFIX_UNARY_EXPRESSION(not, "!") \
+    PREFIX_UNARY_EXPRESSION(logical_not, "!") \
     PREFIX_UNARY_EXPRESSION(bitwise_not, "~") \
     PREFIX_UNARY_EXPRESSION(derreference, "*") \
     PREFIX_UNARY_EXPRESSION(reference, "&") \
@@ -719,14 +833,32 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
         nodecl_t rhs = nodecl_get_children(node, 0); \
+        char needs_parentheses = operand_has_lower_priority(node, rhs); \
         fprintf(visitor->file, "%s", _operand); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
         NODECL_WALK(visitor, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
     }
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
         nodecl_t rhs = nodecl_get_children(node, 0); \
+        char needs_parentheses = operand_has_lower_priority(node, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
         NODECL_WALK(visitor, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
         fprintf(visitor->file, "%s", _operand); \
     }
 #define BINARY_EXPRESSION(_name, _operand) \
@@ -734,9 +866,27 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     { \
         nodecl_t lhs = nodecl_get_children(node, 0); \
         nodecl_t rhs = nodecl_get_children(node, 1); \
+        char needs_parentheses = operand_has_lower_priority(node, lhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
         NODECL_WALK(visitor, lhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
         fprintf(visitor->file, "%s", _operand); \
+        needs_parentheses = operand_has_lower_priority(node, lhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
         NODECL_WALK(visitor, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
     }
 OPERATOR_TABLE
 #undef POSTFIX_UNARY_EXPRESSION
@@ -1293,3 +1443,4 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     run_clear_list();
 }
 
+#undef OPERATOR_TABLE

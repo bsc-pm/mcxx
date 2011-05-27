@@ -1009,7 +1009,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
             // Check literal values
             return equivalent_expression_trees(left_tree, right_tree);
         case AST_PLUS :
-        case AST_NOT :
+        case AST_LOGICAL_NOT :
         case AST_NEG :
         case AST_BITWISE_NOT :
             {

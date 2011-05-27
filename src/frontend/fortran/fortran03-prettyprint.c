@@ -381,7 +381,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NAMELIST_STATEMENT, namelist_statement_handler, NULL),
     NODE_HANDLER(AST_NEG, unary_operator_handler, "-"),
     NODE_HANDLER(AST_NODE_LIST, sequence_handler, NULL),
-    NODE_HANDLER(AST_NOT, unary_operator_handler, ".NOT."),
+    NODE_HANDLER(AST_LOGICAL_NOT, unary_operator_handler, ".NOT."),
     NODE_HANDLER(AST_NULLIFY_STATEMENT, nullify_statement_handler, NULL),
     NODE_HANDLER(AST_OCTAL_LITERAL, simple_text_handler, NULL),
     NODE_HANDLER(AST_OPEN_STATEMENT, open_statement_handler, NULL),

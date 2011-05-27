@@ -2491,7 +2491,7 @@ rel_op : TOK_EQUAL
 ;
 and_operand : not_op level_4_expr
 {
-    $$ = ASTMake1(AST_NOT, $2, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_LOGICAL_NOT, $2, $1.token_file, $1.token_line, NULL);
 }
 | level_4_expr
 ;
