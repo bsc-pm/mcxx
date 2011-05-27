@@ -20,6 +20,7 @@ struct nodecl_codegen_visitor_tag
     // Minor details during codegen
     char in_condition;
     char initializer;
+    char in_expression_list;
 } nodecl_codegen_visitor_t;
 
 static void indent(nodecl_codegen_visitor_t* v)
@@ -656,6 +657,16 @@ static void walk_list(nodecl_codegen_visitor_t *visitor, nodecl_t node, const ch
     }
 }
 
+// Special case for expression lists where top level comma operators demmand
+// additional parentheses
+static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node)
+{
+    char old = visitor->in_expression_list;
+    visitor->in_expression_list = 1;
+    walk_list(visitor, node, ", ");
+    visitor->in_expression_list = old;
+}
+
 // Codegen
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
@@ -872,8 +883,51 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION(mod_assignment, " %= ") \
     BINARY_EXPRESSION(class_member_access, ".") \
-    BINARY_EXPRESSION(offset, ".*") \
-    BINARY_EXPRESSION(comma, ", ") 
+    BINARY_EXPRESSION(offset, ".*") 
+
+// comma operator is special
+static void codegen_comma(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    // Set this where a comma is not allowed in top level
+    if (visitor->in_expression_list)
+    {
+        fprintf(visitor->file, "(");
+    }
+
+    int old = visitor->in_expression_list;
+    visitor->in_expression_list = 0;
+
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    NODECL_WALK(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    fprintf(visitor->file, "%s", ", "); 
+    needs_parentheses = operand_has_lower_priority(node, rhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    NODECL_WALK(visitor, rhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+
+    visitor->in_expression_list = old;
+
+    if (visitor->in_expression_list)
+    {
+        fprintf(visitor->file, ")");
+    }
+}
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
@@ -957,7 +1011,7 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     if (!nodecl_is_null(placement))
     {
         fprintf(visitor->file, "(");
-        walk_list(visitor, placement, ", ");
+        walk_expression_list(visitor, placement);
         fprintf(visitor->file, ") ");
     }
 
@@ -988,13 +1042,22 @@ static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
             || strcmp(cast_kind, "C") == 0)
     {
         fprintf(visitor->file, "(%s)", print_type_str(t, visitor->current_sym->decl_context));
+        char needs_parentheses = operand_has_lower_priority(node, nest);
+        if (needs_parentheses)
+        {
+            fprintf(visitor->file, "(");
+        }
         NODECL_WALK(visitor, nest);
+        if (needs_parentheses)
+        {
+            fprintf(visitor->file, ")");
+        }
     }
     else
     {
         fprintf(visitor->file, "%s<%s>(", cast_kind, print_type_str(t, visitor->current_sym->decl_context));
         NODECL_WALK(visitor, nest);
-        fprintf(visitor->file, ")", print_type_str(t, visitor->current_sym->decl_context));
+        fprintf(visitor->file, ")");
     }
 }
 
@@ -1014,9 +1077,18 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
     {
         case ORDINARY_CALL:
             {
+                char needs_parentheses = operand_has_lower_priority(node, called_entity);
+                if (needs_parentheses)
+                {
+                    fprintf(visitor->file, "(");
+                }
                 NODECL_WALK(visitor, called_entity);
+                if (needs_parentheses)
+                {
+                    fprintf(visitor->file, ")");
+                }
                 fprintf(visitor->file, "(");
-                walk_list(visitor, arguments, ", ");
+                walk_expression_list(visitor, arguments);
                 fprintf(visitor->file, ")");
                 break;
             }
@@ -1024,7 +1096,7 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
             {
                 // Do not print what is being called
                 fprintf(visitor->file, "(");
-                walk_list(visitor, arguments, ", ");
+                walk_expression_list(visitor, arguments);
                 fprintf(visitor->file, ")");
                 break;
             }
@@ -1580,6 +1652,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+    NODECL_VISITOR(&codegen_visitor)->visit_comma = codegen_visitor_fun(codegen_comma);
 
     nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, _nodecl_wrap(a));
 
