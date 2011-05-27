@@ -4,6 +4,8 @@ import sys
 import string
 import re
 
+NODECL_PREFIX="NODECL_"
+
 def loadlines(f):
     lines = f.readlines()
     result = []
@@ -51,8 +53,8 @@ def parse_rules(f):
         (rule_name, rule_rhs) = r
         rule_map[rule_name] = [] 
         for rhs in rule_rhs:
-            # Assume this is an AST name
-            if (rhs[0:4] == "AST_"):
+            # Assume this is a NODECL_ name
+            if (rhs[0:len(NODECL_PREFIX)] == NODECL_PREFIX):
                 i = rhs.find("(")
                 if i < 0:
                     raise Exception("invalid syntax, expecting (")
@@ -79,9 +81,9 @@ def parse_rules(f):
                         ast_args_3.append((r_label, r_ref))
                         i = i + 1
                         
-                    rule_map[rule_name].append( ASTStructure(tree_ast, ast_args_3, needs_symbol, needs_type, needs_text, needs_cval) )
+                    rule_map[rule_name].append( NodeclStructure(tree_ast, ast_args_3, needs_symbol, needs_type, needs_text, needs_cval) )
                 else:
-                    rule_map[rule_name].append( ASTStructure(tree_ast, [], needs_symbol, needs_type, needs_text, needs_cval) )
+                    rule_map[rule_name].append( NodeclStructure(tree_ast, [], needs_symbol, needs_type, needs_text, needs_cval) )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
     return rule_map
@@ -90,7 +92,7 @@ def parse_rules(f):
 class Variable:
     pass
 
-class ASTStructure(Variable):
+class NodeclStructure(Variable):
     def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval):
         self.tree_kind = tree_kind
         self.subtrees = subtrees
@@ -266,8 +268,8 @@ def get_all_class_names(rule_map):
     for rule_name in rule_map:
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
-            if rhs.__class__ == ASTStructure:
-                classes.add(from_underscore_to_camel_case(rhs.tree_kind[4:]))
+            if rhs.__class__ == NodeclStructure:
+                classes.add(from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):]))
     return classes
 
 def generate_nodecl_classes_fwd_decls(rule_map):
@@ -345,8 +347,8 @@ def generate_nodecl_classes_specs(rule_map):
    for rule_name in rule_map:
        rule_rhs = rule_map[rule_name]
        for rhs in rule_rhs:
-           if rhs.__class__ == ASTStructure:
-               classes[from_underscore_to_camel_case(rhs.tree_kind[4:])] = rhs.subtrees
+           if rhs.__class__ == NodeclStructure:
+               classes[from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):])] = rhs.subtrees
    for (class_name, subtrees) in classes.iteritems():
        print "void %s::accept(BaseNodeclVisitor& visitor)" % (class_name)
        print "{"
@@ -373,7 +375,7 @@ def generate_nodecl_classes_specs(rule_map):
            for kind in first_set:
                  print "       case %s: " % (kind)
                  print "       {"
-                 print "           %s t(%s);" % (from_underscore_to_camel_case(kind[4:]), tree_name)
+                 print "           %s t(%s);" % (from_underscore_to_camel_case(kind[len(NODECL_PREFIX):]), tree_name)
                  print "           t.accept(visitor);"
                  print "           break;"
                  print "       }"
@@ -416,8 +418,8 @@ def generate_routines_header(rule_map):
    for rule_name in rule_map:
        rule_rhs = rule_map[rule_name]
        for rhs in rule_rhs:
-           if rhs.__class__ == ASTStructure:
-               classes[(rhs.tree_kind[4:]).lower()] = rhs
+           if rhs.__class__ == NodeclStructure:
+               classes[(rhs.tree_kind[len(NODECL_PREFIX):]).lower()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
        param_list_nodecl = map(lambda x : "nodecl_t", rhs_rule.subtrees)
        if rhs_rule.needs_symbol:
@@ -459,8 +461,8 @@ def generate_routines_impl(rule_map):
    for rule_name in rule_map:
        rule_rhs = rule_map[rule_name]
        for rhs in rule_rhs:
-           if rhs.__class__ == ASTStructure:
-               classes[(rhs.tree_kind[4:]).lower()] = rhs
+           if rhs.__class__ == NodeclStructure:
+               classes[(rhs.tree_kind[len(NODECL_PREFIX):]).lower()] = rhs
    for (key, rhs_rule) in classes.iteritems() :
        param_list_nodecl = []
        param_name_list = []
@@ -568,8 +570,8 @@ struct nodecl_external_visitor_tag
     for rule_name in rule_map:
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
-            if rhs.__class__ == ASTStructure:
-                node_kind.add(rhs.tree_kind[4:].lower())
+            if rhs.__class__ == NodeclStructure:
+                node_kind.add(rhs.tree_kind[len(NODECL_PREFIX):].lower())
     for node in node_kind:
         print "void (*visit_%s)(nodecl_external_visitor_t*, nodecl_t a);" % ( node )
 
@@ -608,8 +610,8 @@ void nodecl_walk(nodecl_external_visitor_t* external_visitor, nodecl_t n)
     for rule_name in rule_map:
         rule_rhs = rule_map[rule_name]
         for rhs in rule_rhs:
-            if rhs.__class__ == ASTStructure:
-                node_kind.add((rhs.tree_kind, rhs.tree_kind[4:].lower()))
+            if rhs.__class__ == NodeclStructure:
+                node_kind.add((rhs.tree_kind, rhs.tree_kind[len(NODECL_PREFIX):].lower()))
     for node in node_kind:
         print "       case %s: { if (external_visitor->visit_%s != NULL) external_visitor->visit_%s(external_visitor, n); break; }" % (node[0], node[1], node[1])
     print """
@@ -626,6 +628,18 @@ void nodecl_init_walker(nodecl_external_visitor_t* external_visitor, void (*defa
     print """
 }
 """
+
+def generate_asttypes(rule_map):
+    node_kind = set([])
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                node_kind.add(rhs.tree_kind)
+    l = list(node_kind)
+    l.sort()
+    for kind_name in l:
+        print kind_name
 
 # MAIN
 
@@ -654,5 +668,7 @@ elif op_mode == "c_visitor_decl":
     generate_c_visitor_decl(rule_map)
 elif op_mode == "c_visitor_def":
     generate_c_visitor_def(rule_map)
+elif op_mode == "asttype_nodecl":
+    generate_asttypes(rule_map)
 else:    
     raise Exception("Invalid op_mode %s" % (op_mode))

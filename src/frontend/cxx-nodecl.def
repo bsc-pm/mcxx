@@ -1,154 +1,154 @@
-nodecl : AST_NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
+nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
           | builtin
           | pragma-directive
 
-name : AST_SYMBOL() symbol
-type : AST_TYPE() type
+name : NODECL_SYMBOL() symbol
+type : NODECL_TYPE() type
 
-function-code : AST_FUNCTION_CODE([statements]statement-seq, [internal_functions]function-code-opt) symbol
-object-init : AST_OBJECT_INIT() symbol
+function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [internal_functions]function-code-opt) symbol
+object-init : NODECL_OBJECT_INIT() symbol
 
 statement : statement-but-object-init
           | object-init
 
-statement-but-object-init: AST_EMPTY_STATEMENT()
-          | AST_EXPRESSION_STATEMENT([nest]expression)
-          | AST_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
-          | AST_DO_STATEMENT([statement]statement, [condition]expression)
-          | AST_WHILE_STATEMENT([condition]expression, [statement]statement) symbol
-          | AST_FOR_STATEMENT([loop_header]loop-control, [statement]statement) symbol
-          | AST_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt) symbol
-          | AST_LABELED_STATEMENT([statement]statement) symbol
-          | AST_SWITCH_STATEMENT([switch]expression, [statement]statement)
-          | AST_DEFAULT_STATEMENT([statement]statement)
-          | AST_CASE_STATEMENT([case]expression, [statement]statement)
-          | AST_BREAK_STATEMENT()
-          | AST_CONTINUE_STATEMENT()
-          | AST_GOTO_STATEMENT() symbol
-          | AST_RETURN_STATEMENT([value]expression))
+statement-but-object-init: NODECL_EMPTY_STATEMENT()
+          | NODECL_EXPRESSION_STATEMENT([nest]expression)
+          | NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
+          | NODECL_DO_STATEMENT([statement]statement, [condition]expression)
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement) symbol
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement) symbol
+          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt) symbol
+          | NODECL_LABELED_STATEMENT([statement]statement) symbol
+          | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement)
+          | NODECL_DEFAULT_STATEMENT([statement]statement)
+          | NODECL_CASE_STATEMENT([case]expression, [statement]statement)
+          | NODECL_BREAK_STATEMENT()
+          | NODECL_CONTINUE_STATEMENT()
+          | NODECL_GOTO_STATEMENT() symbol
+          | NODECL_RETURN_STATEMENT([value]expression))
           | pragma-directive
           | pragma-construct
           | c-cxx-only-statements
           | fortran-only-statements
 
-builtin: AST_BUILTIN([components]any-seq-opt) text
+builtin: NODECL_BUILTIN([components]any-seq-opt) text
 
 any : statement-but-object-init
     | expression
     | type
 
-loop-control: AST_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
+loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
 
-pragma-directive: AST_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
-pragma-line: AST_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt) text
-pragma-custom-clause: AST_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
-pragma-clause-arg: AST_PRAGMA_CLAUSE_ARG() text
-pragma-construct : AST_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement) text
+pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
+pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt) text
+pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
+pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
+pragma-construct : NODECL_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement) text
 
-c-cxx-only-statements : AST_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
 
-catch-handler : AST_CATCH_HANDLER([name]object-init-opt, [statement]statement) type
+catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement) type
 
 # FIXME - Document these. Some of them could be simplified further
-fortran-only-statements : AST_ALLOCATE_STATEMENT()
-                        | AST_ARITHMETIC_IF_STATEMENT()
-                        | AST_ASSIGNED_GOTO_STATEMENT()
-                        | AST_CLOSE_STATEMENT()
-                        | AST_COMPUTED_GOTO_STATEMENT()
-                        | AST_DEALLOCATE_STATEMENT()
-                        | AST_IO_STATEMENT()
-                        | AST_LABEL_ASSIGN_STATEMENT()
-                        | AST_NULLIFY_STATEMENT()
-                        | AST_OPEN_STATEMENT()
-                        | AST_PRINT_STATEMENT()
-                        | AST_READ_STATEMENT()
-                        | AST_STOP_STATEMENT()
-                        | AST_PAUSE_STATEMENT()
-                        | AST_WRITE_STATEMENT()
+fortran-only-statements : NODECL_ALLOCATE_STATEMENT()
+                        | NODECL_ARITHMETIC_IF_STATEMENT()
+                        | NODECL_ASSIGNED_GOTO_STATEMENT()
+                        | NODECL_CLOSE_STATEMENT()
+                        | NODECL_COMPUTED_GOTO_STATEMENT()
+                        | NODECL_DEALLOCATE_STATEMENT()
+                        | NODECL_IO_STATEMENT()
+                        | NODECL_LABEL_ASSIGN_STATEMENT()
+                        | NODECL_NULLIFY_STATEMENT()
+                        | NODECL_OPEN_STATEMENT()
+                        | NODECL_PRINT_STATEMENT()
+                        | NODECL_READ_STATEMENT()
+                        | NODECL_STOP_STATEMENT()
+                        | NODECL_PAUSE_STATEMENT()
+                        | NODECL_WRITE_STATEMENT()
 
-literal : AST_INTEGER_LITERAL() type const_value
-    | AST_FLOATING_LITERAL() type text
-    | AST_COMPLEX_LITERAL([real]expression, [imag]expression) type
-    | AST_BOOLEAN_LITERAL() type const_value
+literal : NODECL_INTEGER_LITERAL() type const_value
+    | NODECL_FLOATING_LITERAL() type text
+    | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
+    | NODECL_BOOLEAN_LITERAL() type const_value
     | string-literal
     | structured-literal
 
-string-literal: AST_STRING_LITERAL() type text
+string-literal: NODECL_STRING_LITERAL() type text
  
 expression : literal
            | name
-           | AST_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
-           | AST_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
-           | AST_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
-           | AST_PLUS([rhs]expression) type
-           | AST_NEG([rhs]expression) type
-           | AST_MUL([lhs]expression, [rhs]expression) type
-           | AST_POWER([lsh]expression, [rhs]expression) type
-           | AST_DIV([lhs]expression, [rhs]expression) type
-           | AST_MOD([lhs]expression, [rhs]expression) type
-           | AST_ADD([lhs]expression, [rhs]expression) type
-           | AST_MINUS([lhs]expression, [rhs]expression) type
-           | AST_CONCAT([lhs]expression, [rhs]expression) type
-           | AST_EQUAL([lhs]expression, [rhs]expression) type
-           | AST_DIFFERENT([lhs]expression, [rhs]expression) type
-           | AST_LOWER_THAN([lhs]expression, [rhs]expression) type
-           | AST_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
-           | AST_GREATER_THAN([lhs]expression, [rhs]expression) type
-           | AST_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
-           | AST_LOGICAL_NOT([rhs]expression) type
-           | AST_LOGICAL_AND([lhs] expression, [rhs] expression) type
-           | AST_LOGICAL_OR([lhs] expression, [rhs] expression) type
-           | AST_BITWISE_NOT([rhs]expression) type
-           | AST_BITWISE_AND([lhs] expression, [rhs] expression) type
-           | AST_BITWISE_OR([lhs] expression, [rhs] expression) type
-           | AST_BITWISE_XOR([lhs] expression, [rhs] expression) type
-           | AST_SHL([lhs] expression, [rhs] expression) type
-           | AST_SHR([lhs] expression, [rhs] expression) type
-           | AST_ASSIGNMENT([lhs] expression, [rhs] expression) type
-           | AST_PARENTHESIZED_EXPRESSION([nest]expression) type
-           | AST_DERREFERENCE([rhs]expression) type
-           | AST_CAST([rhs]expression) type text
+           | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
+           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
+           | NODECL_PLUS([rhs]expression) type
+           | NODECL_NEG([rhs]expression) type
+           | NODECL_MUL([lhs]expression, [rhs]expression) type
+           | NODECL_POWER([lsh]expression, [rhs]expression) type
+           | NODECL_DIV([lhs]expression, [rhs]expression) type
+           | NODECL_MOD([lhs]expression, [rhs]expression) type
+           | NODECL_ADD([lhs]expression, [rhs]expression) type
+           | NODECL_MINUS([lhs]expression, [rhs]expression) type
+           | NODECL_CONCAT([lhs]expression, [rhs]expression) type
+           | NODECL_EQUAL([lhs]expression, [rhs]expression) type
+           | NODECL_DIFFERENT([lhs]expression, [rhs]expression) type
+           | NODECL_LOWER_THAN([lhs]expression, [rhs]expression) type
+           | NODECL_LOWER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
+           | NODECL_GREATER_THAN([lhs]expression, [rhs]expression) type
+           | NODECL_GREATER_OR_EQUAL_THAN([lhs]expression, [rhs]expression) type
+           | NODECL_LOGICAL_NOT([rhs]expression) type
+           | NODECL_LOGICAL_AND([lhs] expression, [rhs] expression) type
+           | NODECL_LOGICAL_OR([lhs] expression, [rhs] expression) type
+           | NODECL_BITWISE_NOT([rhs]expression) type
+           | NODECL_BITWISE_AND([lhs] expression, [rhs] expression) type
+           | NODECL_BITWISE_OR([lhs] expression, [rhs] expression) type
+           | NODECL_BITWISE_XOR([lhs] expression, [rhs] expression) type
+           | NODECL_SHL([lhs] expression, [rhs] expression) type
+           | NODECL_SHR([lhs] expression, [rhs] expression) type
+           | NODECL_ASSIGNMENT([lhs] expression, [rhs] expression) type
+           | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type
+           | NODECL_DERREFERENCE([rhs]expression) type
+           | NODECL_CAST([rhs]expression) type text
            | c-cxx-expressions
            | object-init
            | builtin
 
-structured-literal: AST_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
+structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
 
-initializer-item : AST_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
-designator: AST_FIELD_DESIGNATOR([field]name, [next]designator-opt)
-          | AST_INDEX_DESIGNATOR([index]expression, [next]designator-opt)
+initializer-item : NODECL_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
+designator: NODECL_FIELD_DESIGNATOR([field]name, [next]designator-opt)
+          | NODECL_INDEX_DESIGNATOR([index]expression, [next]designator-opt)
 
-argument : AST_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+argument : NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
          | expression
 
 subscript : expression
-          | AST_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
+          | NODECL_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
 
-c-cxx-expressions : AST_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
-                  | AST_REFERENCE([rhs]expression) type
-                  | AST_COMMA([rhs]expression, [lhs]expression) type
-                  | AST_THROW_EXPRESSION([rhs]expression) type
-                  | AST_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type
-                  | AST_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
-                  | AST_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type
-                  | AST_PREINCREMENT([rhs]expression) type
-                  | AST_POSTINCREMENT([rhs]expression) type
-                  | AST_PREDECREMENT([rhs]expression) type
-                  | AST_POSTDECREMENT([rhs]expression) type
-                  | AST_SIZEOF([type]type) type
-                  | AST_OFFSET([base]expression, [offset]expression) type
-                  | AST_TYPEID([arg]type-or-expr) type
+c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
+                  | NODECL_REFERENCE([rhs]expression) type
+                  | NODECL_COMMA([rhs]expression, [lhs]expression) type
+                  | NODECL_THROW_EXPRESSION([rhs]expression) type
+                  | NODECL_POINTER_TO_MEMBER([lhs]expression, [rhs]expression) type
+                  | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
+                  | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_ADD_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_SUB_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_SHL_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_SHR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_BITWISE_AND_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_BITWISE_OR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_BITWISE_XOR_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_MOD_ASSIGNMENT([lhs] expression, [rhs] expression) type
+                  | NODECL_PREINCREMENT([rhs]expression) type
+                  | NODECL_POSTINCREMENT([rhs]expression) type
+                  | NODECL_PREDECREMENT([rhs]expression) type
+                  | NODECL_POSTDECREMENT([rhs]expression) type
+                  | NODECL_SIZEOF([type]type) type
+                  | NODECL_OFFSET([base]expression, [offset]expression) type
+                  | NODECL_TYPEID([arg]type-or-expr) type
 
 type-or-expr : type
              | expression

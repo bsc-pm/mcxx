@@ -202,7 +202,6 @@ EXTRA_DIST += cxx-lexer.l
 # AST node types
 AST_NODE_TYPE_FILES =
 AST_NODE_TYPE_FILES += cxx-asttype-all.def
-AST_NODE_TYPE_FILES += cxx-asttype-nodecl.def
 AST_NODE_TYPE_FILES += cxx-asttype-base.def
 AST_NODE_TYPE_FILES += cxx-asttype-extensions.def
 AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
@@ -213,8 +212,11 @@ AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
 AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
+# Generated
+AST_NODE_TYPE_FILES_GEN = 
+AST_NODE_TYPE_FILES_GEN += cxx-asttype-nodecl.def
 
-EXTRA_DIST += $(AST_NODE_TYPE_FILES)
+EXTRA_DIST += $(AST_NODE_TYPE_FILES) $(AST_NODE_TYPE_FILES_GEN)
 
 EXTRA_DIST += cxx-attrnames.def
 
@@ -322,8 +324,8 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	)
 
 CLEANFILES += cxx-asttype.def
-cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES))
-	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) $(srcdir)/cxx-asttype-all.def
+cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
+	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) -I $(builddir) $(srcdir)/cxx-asttype-all.def
 
 CLEANFILES += cxx-attrnames.h
 cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
@@ -462,3 +464,8 @@ CLEANFILES    += cxx-nodecl-visitor.c
 BUILT_SOURCES += cxx-nodecl-visitor.c
 cxx-nodecl-visitor.c : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_def > $@
+
+CLEANFILES    += cxx-asttype-nodecl.def
+BUILT_SOURCES += cxx-asttype-nodecl.def
+cxx-asttype-nodecl.def : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def asttype_nodecl > $@

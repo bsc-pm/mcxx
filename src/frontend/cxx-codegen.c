@@ -147,7 +147,7 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
         codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
         if (current_scope == entry->decl_context.current_scope)
         {
-            if (ASTType(nodecl_get_ast(node)) != AST_OBJECT_INIT)
+            if (ASTType(nodecl_get_ast(node)) != NODECL_OBJECT_INIT)
             {
                 define_symbol(visitor, entry);
             }
@@ -515,7 +515,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     {
                         // We only need = if the initializer is a structured one
                         // and this is C++03, in C++1x syntax { } is always allowed
-                        if (ASTType(nodecl_get_ast(symbol->value)) == AST_STRUCTURED_LITERAL)
+                        if (ASTType(nodecl_get_ast(symbol->value)) == NODECL_STRUCTURED_LITERAL)
                         {
                             fprintf(visitor->file, "%s", " = ");
                         }
@@ -675,42 +675,42 @@ static int get_rank(nodecl_t op)
 {
     switch (ASTType(nodecl_get_ast(op)))
     {
-        case AST_STRING_LITERAL:
-        case AST_FLOATING_LITERAL:
-        case AST_BOOLEAN_LITERAL:
-        case AST_STRUCTURED_LITERAL:
-        case AST_PARENTHESIZED_EXPRESSION:
-        case AST_BUILTIN:
+        case NODECL_STRING_LITERAL:
+        case NODECL_FLOATING_LITERAL:
+        case NODECL_BOOLEAN_LITERAL:
+        case NODECL_STRUCTURED_LITERAL:
+        case NODECL_PARENTHESIZED_EXPRESSION:
+        case NODECL_BUILTIN:
             {
                 return -1;
             }
-        case AST_ARRAY_SUBSCRIPT:
-        case AST_FUNCTION_CALL:
-        case AST_CLASS_MEMBER_ACCESS:
-        case AST_TYPEID:
+        case NODECL_ARRAY_SUBSCRIPT:
+        case NODECL_FUNCTION_CALL:
+        case NODECL_CLASS_MEMBER_ACCESS:
+        case NODECL_TYPEID:
             {
                 return -2;
             }
-       case AST_PREINCREMENT:
-       case AST_PREDECREMENT:
-       case AST_REFERENCE:
-       case AST_DERREFERENCE:
-       case AST_PLUS:
-       case AST_NEG:
-       case AST_LOGICAL_NOT:
-       case AST_BITWISE_NOT:
-       case AST_SIZEOF:
-            // case AST_NEW
-            // case AST_DELETE
-            // case AST_ALIGNOF
-            // case AST_REAL
-            // case AST_IMAG
-            // case AST_LABEL_ADDR
+       case NODECL_PREINCREMENT:
+       case NODECL_PREDECREMENT:
+       case NODECL_REFERENCE:
+       case NODECL_DERREFERENCE:
+       case NODECL_PLUS:
+       case NODECL_NEG:
+       case NODECL_LOGICAL_NOT:
+       case NODECL_BITWISE_NOT:
+       case NODECL_SIZEOF:
+            // case NODECL_NEW
+            // case NODECL_DELETE
+            // case NODECL_ALIGNOF
+            // case NODECL_REAL
+            // case NODECL_IMAG
+            // case NODECL_LABEL_ADDR
             {
                 return -3;
             }
             // This one is special as we keep several casts in a single node
-        case AST_CAST:
+        case NODECL_CAST:
             {
                 if (IS_C_LANGUAGE
                         || strcmp(nodecl_get_text(op), "C") == 0)
@@ -724,49 +724,49 @@ static int get_rank(nodecl_t op)
                     return -2;
                 }
             }
-       case AST_POINTER_TO_MEMBER:
+       case NODECL_POINTER_TO_MEMBER:
             return -5;
-       case AST_MUL:
-       case AST_DIV:
-       case AST_MOD:
+       case NODECL_MUL:
+       case NODECL_DIV:
+       case NODECL_MOD:
             return -6;
-       case AST_ADD:
-       case AST_MINUS:
+       case NODECL_ADD:
+       case NODECL_MINUS:
             return -7;
-       case AST_SHL:
-       case AST_SHR:
+       case NODECL_SHL:
+       case NODECL_SHR:
             return -8;
-       case AST_LOWER_THAN:
-       case AST_LOWER_OR_EQUAL_THAN:
-       case AST_GREATER_THAN:
-       case AST_GREATER_OR_EQUAL_THAN:
+       case NODECL_LOWER_THAN:
+       case NODECL_LOWER_OR_EQUAL_THAN:
+       case NODECL_GREATER_THAN:
+       case NODECL_GREATER_OR_EQUAL_THAN:
             return -9;
-       case AST_EQUAL:
-       case AST_DIFFERENT:
+       case NODECL_EQUAL:
+       case NODECL_DIFFERENT:
             return -10;
-       case AST_BITWISE_AND:
+       case NODECL_BITWISE_AND:
             return -11;
-       case AST_BITWISE_XOR:
+       case NODECL_BITWISE_XOR:
             return -12;
-       case AST_BITWISE_OR:
+       case NODECL_BITWISE_OR:
             return -13;
-       case AST_LOGICAL_AND:
+       case NODECL_LOGICAL_AND:
             return -14;
-       case AST_LOGICAL_OR:
+       case NODECL_LOGICAL_OR:
             return -15;
-       case AST_CONDITIONAL_EXPRESSION:
+       case NODECL_CONDITIONAL_EXPRESSION:
             return -16;
-       case AST_ASSIGNMENT:
-       case AST_MUL_ASSIGNMENT :
-       case AST_DIV_ASSIGNMENT:
-       case AST_ADD_ASSIGNMENT:
-       case AST_SUB_ASSIGNMENT:
-       case AST_SHL_ASSIGNMENT:
-       case AST_SHR_ASSIGNMENT:
-       case AST_BITWISE_AND_ASSIGNMENT:
-       case AST_BITWISE_OR_ASSIGNMENT:
-       case AST_BITWISE_XOR_ASSIGNMENT:
-       case AST_THROW_EXPRESSION:
+       case NODECL_ASSIGNMENT:
+       case NODECL_MUL_ASSIGNMENT :
+       case NODECL_DIV_ASSIGNMENT:
+       case NODECL_ADD_ASSIGNMENT:
+       case NODECL_SUB_ASSIGNMENT:
+       case NODECL_SHL_ASSIGNMENT:
+       case NODECL_SHR_ASSIGNMENT:
+       case NODECL_BITWISE_AND_ASSIGNMENT:
+       case NODECL_BITWISE_OR_ASSIGNMENT:
+       case NODECL_BITWISE_XOR_ASSIGNMENT:
+       case NODECL_THROW_EXPRESSION:
             return -17;
        default:
             return INT_MIN;
@@ -1396,7 +1396,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     codegen_visitor.indent_level = 0;
     codegen_visitor.current_sym = NULL;
 
-    NODECL_VISITOR(&codegen_visitor)->visit_nodecl_top_level = codegen_visitor_fun(codegen_top_level);
+    NODECL_VISITOR(&codegen_visitor)->visit_top_level = codegen_visitor_fun(codegen_top_level);
     NODECL_VISITOR(&codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
     NODECL_VISITOR(&codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(&codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);

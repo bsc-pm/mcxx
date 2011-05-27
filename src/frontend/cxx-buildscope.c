@@ -286,7 +286,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
 
-    translation_unit->nodecl = nodecl_make_nodecl_top_level(nodecl, ASTFileName(a), ASTLine(a));
+    translation_unit->nodecl = nodecl_make_top_level(nodecl, ASTFileName(a), ASTLine(a));
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree, 
