@@ -76,6 +76,7 @@
 #include "cxx-nodecl.h"
 #include "cxx-nodecl-checker.h"
 #include "cxx-limits.h"
+#include "cxx-diagnostic.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "cxx-codegen.h"
@@ -1733,6 +1734,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             {
                 if (strlen(argument) > strlen("-W"))
                 {
+                    if (!dry_run)
+                    {
+                        if (strcmp(argument, "-Werror") == 0)
+                        {
+                            CURRENT_CONFIGURATION->warnings_as_errors = 1;
+                        }
+                    }
                     add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
@@ -2710,6 +2718,8 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
 {
+    diagnostics_reset();
+
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
@@ -2737,6 +2747,20 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 translation_unit->input_filename,
                 parsed_filename,
                 timing_elapsed(&timing_semantic));
+    }
+
+    if (diagnostics_get_error_count() != 0)
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    if (CURRENT_CONFIGURATION->warnings_as_errors)
+    {
+        info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
+        if (diagnostics_get_warn_count() != 0)
+        {
+            exit(EXIT_FAILURE);
+        }
     }
 
     check_tree(translation_unit->parsed_tree);

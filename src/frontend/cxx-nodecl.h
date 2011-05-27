@@ -16,7 +16,7 @@ AST nodecl_get_ast(nodecl_t t);
 nodecl_t nodecl_copy(nodecl_t t);
 
 // Children
-nodecl_t nodecl_get_children(nodecl_t n, int i);
+nodecl_t nodecl_get_child(nodecl_t n, int i);
  
 // Constant values
 char nodecl_is_constant(nodecl_t t);

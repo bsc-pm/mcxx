@@ -9535,12 +9535,15 @@ static void build_scope_expression_statement(AST a,
         nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
-    if (!check_expression(expr, decl_context)
-            && CURRENT_CONFIGURATION->strict_typecheck)
+    if (!check_expression(expr, decl_context))
     {
-        internal_error("Could not check expression '%s' at '%s'\n",
-                prettyprint_in_buffer(ASTSon0(a)),
-                ast_location(ASTSon0(a)));
+        if (CURRENT_CONFIGURATION->strict_typecheck)
+        {
+            internal_error("Could not check expression '%s' at '%s'\n",
+                    prettyprint_in_buffer(ASTSon0(a)),
+                    ast_location(ASTSon0(a)));
+        }
+        return;
     }
 
     if (expression_get_type(expr) != NULL)

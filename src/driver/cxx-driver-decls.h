@@ -292,6 +292,9 @@ typedef struct compilation_configuration_tag
     char disable_openmp;
 	char force_language;
 
+    // -Werror
+    char warnings_as_errors;
+
     debug_options_t debug_options;
     
     // Source language information

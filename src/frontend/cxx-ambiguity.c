@@ -1010,8 +1010,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        char do_failure = 1;
-
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
@@ -1019,19 +1017,14 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
             {
                 case AST_EXPRESSION_STATEMENT :
                     {
-                        if (do_failure)
-                        {
-                            AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
-                            // This will output some informational messages that might
-                            // help solving this ambiguity
-                            expression_clear_computed_info(ambiguous_tree_as_expr);
-                            check_expression_statement(ambiguous_tree_as_expr, decl_context);
-                        }
-                        else
-                        {
-                            choose_option(a, i);
-                        }
-                        break;
+                        AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
+                        // This will output some informational messages that might
+                        // help solving this ambiguity
+                        expression_clear_computed_info(ambiguous_tree_as_expr);
+                        check_expression_statement(ambiguous_tree_as_expr, decl_context);
+                        // Best effort
+                        choose_option(a, i);
+                        return;
                     }
                 default:
                     {
@@ -1039,9 +1032,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                     }
             }
         }
-
-        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
@@ -2424,7 +2414,9 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                         // help solving this ambiguity
                         expression_clear_computed_info(ambiguous_tree_as_expr);
                         check_expression_statement(ambiguous_tree_as_expr, decl_context);
-                        break;
+                        // Best effort
+                        choose_option(a, i);
+                        return;
                     }
                 default:
                     {
@@ -2432,9 +2424,6 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                     }
             }
         }
-
-        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
@@ -3012,10 +3001,11 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             {
                 expression_clear_computed_info(ASTSon2(current_condition));
                 current_check = check_expression(ASTSon2(current_condition), decl_context);
+                // Best effort
+                choose_option(a, i);
+                return;
             }
         }
-        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {

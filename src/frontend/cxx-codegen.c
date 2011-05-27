@@ -136,7 +136,7 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        define_local_entities_in_trees(visitor, nodecl_get_children(node, i), current_scope);
+        define_local_entities_in_trees(visitor, nodecl_get_child(node, i), current_scope);
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -175,7 +175,7 @@ static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor,
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        define_nonlocal_entities_in_trees(visitor, nodecl_get_children(node, i));
+        define_nonlocal_entities_in_trees(visitor, nodecl_get_child(node, i));
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -694,6 +694,11 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     }
 }
 
+static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
+}
+
 // We return negative numbers because it is easier to list them in descending priority order
 // so we want the first one to be the most 
 static int get_rank(nodecl_t op)
@@ -873,7 +878,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
-        nodecl_t rhs = nodecl_get_children(node, 0); \
+        nodecl_t rhs = nodecl_get_child(node, 0); \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         fprintf(visitor->file, "%s", _operand); \
         if (needs_parentheses) \
@@ -889,7 +894,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
-        nodecl_t rhs = nodecl_get_children(node, 0); \
+        nodecl_t rhs = nodecl_get_child(node, 0); \
         char needs_parentheses = operand_has_lower_priority(node, rhs); \
         if (needs_parentheses) \
         { \
@@ -905,8 +910,8 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
 #define BINARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
-        nodecl_t lhs = nodecl_get_children(node, 0); \
-        nodecl_t rhs = nodecl_get_children(node, 1); \
+        nodecl_t lhs = nodecl_get_child(node, 0); \
+        nodecl_t rhs = nodecl_get_child(node, 1); \
         char needs_parentheses = operand_has_lower_priority(node, lhs); \
         if (needs_parentheses) \
         { \
@@ -936,7 +941,7 @@ OPERATOR_TABLE
 
 static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t nest = nodecl_get_children(node, 0);
+    nodecl_t nest = nodecl_get_child(node, 0);
     fprintf(visitor->file, "(");
     NODECL_WALK(visitor, nest);
     fprintf(visitor->file, ")");
@@ -944,8 +949,8 @@ static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, 
 
 static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t initializer = nodecl_get_children(node, 0);
-    nodecl_t placement = nodecl_get_children(node, 1);
+    nodecl_t initializer = nodecl_get_child(node, 0);
+    nodecl_t placement = nodecl_get_child(node, 1);
 
     fprintf(visitor->file, "new ");
 
@@ -973,10 +978,30 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
+static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const char* cast_kind = nodecl_get_text(node);
+    type_t* t = nodecl_get_type(node);
+    nodecl_t nest = nodecl_get_child(node, 0);
+
+    if (IS_C_LANGUAGE
+            || strcmp(cast_kind, "C") == 0)
+    {
+        fprintf(visitor->file, "(%s)", print_type_str(t, visitor->current_sym->decl_context));
+        NODECL_WALK(visitor, nest);
+    }
+    else
+    {
+        fprintf(visitor->file, "%s<%s>(", cast_kind, print_type_str(t, visitor->current_sym->decl_context));
+        NODECL_WALK(visitor, nest);
+        fprintf(visitor->file, ")", print_type_str(t, visitor->current_sym->decl_context));
+    }
+}
+
 static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t called_entity = nodecl_get_children(node, 0);
-    nodecl_t arguments = nodecl_get_children(node, 1);
+    nodecl_t called_entity = nodecl_get_child(node, 0);
+    nodecl_t arguments = nodecl_get_child(node, 1);
 
     enum call_kind
     {
@@ -1013,8 +1038,8 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
 // Statements
 static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t name = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 0);
+    nodecl_t name = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 0);
     type_t* type = nodecl_get_type(node);
 
     indent(visitor);
@@ -1040,9 +1065,9 @@ static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
 static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement = nodecl_get_children(node, 0);
-    nodecl_t catch_handlers = nodecl_get_children(node, 0);
-    nodecl_t any_catch_handler = nodecl_get_children(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 0);
+    nodecl_t catch_handlers = nodecl_get_child(node, 0);
+    nodecl_t any_catch_handler = nodecl_get_child(node, 0);
     indent(visitor);
     fprintf(visitor->file, "try\n");
 
@@ -1060,8 +1085,8 @@ static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
 static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t pragma_line = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t pragma_line = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
 
     indent(visitor);
 
@@ -1077,7 +1102,7 @@ static void codegen_pragma_clause_arg(nodecl_codegen_visitor_t* visitor, nodecl_
 
 static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t arguments = nodecl_get_children(node, 0);
+    nodecl_t arguments = nodecl_get_child(node, 0);
 
     fprintf(visitor->file, " %s", nodecl_get_text(node));
 
@@ -1091,8 +1116,8 @@ static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, node
 
 static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t parameters = nodecl_get_children(node, 0);
-    nodecl_t clauses = nodecl_get_children(node, 1);
+    nodecl_t parameters = nodecl_get_child(node, 0);
+    nodecl_t clauses = nodecl_get_child(node, 1);
 
     fprintf(visitor->file, " %s", nodecl_get_text(node));
 
@@ -1108,7 +1133,7 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t pragma_line = nodecl_get_children(node, 0);
+    nodecl_t pragma_line = nodecl_get_child(node, 0);
 
     indent(visitor);
     fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
@@ -1118,7 +1143,7 @@ static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, n
 
 static void codegen_return_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t expression = nodecl_get_children(node, 0);
+    nodecl_t expression = nodecl_get_child(node, 0);
 
     indent(visitor);
     fprintf(visitor->file, "return ");
@@ -1150,8 +1175,8 @@ static void codegen_continue_statement(nodecl_codegen_visitor_t* visitor, nodecl
 
 static void codegen_case_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t expression = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t expression = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
 
     indent(visitor);
     fprintf(visitor->file, "case ");
@@ -1163,7 +1188,7 @@ static void codegen_case_statement(nodecl_codegen_visitor_t* visitor, nodecl_t n
 
 static void codegen_default_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement = nodecl_get_children(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 0);
 
     indent(visitor);
     fprintf(visitor->file, "default :\n");
@@ -1173,8 +1198,8 @@ static void codegen_default_statement(nodecl_codegen_visitor_t* visitor, nodecl_
 
 static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t expression = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t expression = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
 
     indent(visitor);
     fprintf(visitor->file, "switch (");
@@ -1195,7 +1220,7 @@ static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t
 static void codegen_labeled_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* label_sym = nodecl_get_symbol(node);
-    nodecl_t statement = nodecl_get_children(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 0);
 
     indent(visitor);
     fprintf(visitor->file, "%s : ", label_sym->symbol_name);
@@ -1208,9 +1233,9 @@ static void codegen_labeled_statement(nodecl_codegen_visitor_t* visitor, nodecl_
 
 static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t condition = nodecl_get_children(node, 0);
-    nodecl_t then = nodecl_get_children(node, 1);
-    nodecl_t _else = nodecl_get_children(node, 2);
+    nodecl_t condition = nodecl_get_child(node, 0);
+    nodecl_t then = nodecl_get_child(node, 1);
+    nodecl_t _else = nodecl_get_child(node, 2);
 
     indent(visitor);
 
@@ -1240,8 +1265,8 @@ static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_
 
 static void codegen_for_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t loop_control = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t loop_control = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
 
     indent(visitor);
     fprintf(visitor->file, "for (");
@@ -1255,9 +1280,9 @@ static void codegen_for_statement(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
 static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t init = nodecl_get_children(node, 0);
-    nodecl_t cond = nodecl_get_children(node, 1);
-    nodecl_t next = nodecl_get_children(node, 2);
+    nodecl_t init = nodecl_get_child(node, 0);
+    nodecl_t cond = nodecl_get_child(node, 1);
+    nodecl_t next = nodecl_get_child(node, 2);
 
     int old = visitor->in_condition;
     visitor->in_condition = 1;
@@ -1278,8 +1303,8 @@ static void codegen_empty_statement(nodecl_codegen_visitor_t* visitor,
 
 static void codegen_do_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement = nodecl_get_children(node, 0);
-    nodecl_t condition = nodecl_get_children(node, 1);
+    nodecl_t statement = nodecl_get_child(node, 0);
+    nodecl_t condition = nodecl_get_child(node, 1);
 
     indent(visitor);
     fprintf(visitor->file, "do\n");
@@ -1296,8 +1321,8 @@ static void codegen_do_statement(nodecl_codegen_visitor_t* visitor, nodecl_t nod
 
 static void codegen_while_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t condition = nodecl_get_children(node, 0);
-    nodecl_t statement = nodecl_get_children(node, 1);
+    nodecl_t condition = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
 
     indent(visitor);
     fprintf(visitor->file, "while (");
@@ -1317,7 +1342,7 @@ static void codegen_while_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
 
 static void codegen_expression_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t expression = nodecl_get_children(node, 0);
+    nodecl_t expression = nodecl_get_child(node, 0);
     indent(visitor);
     NODECL_WALK(visitor, expression);
     fprintf(visitor->file, ";\n");
@@ -1328,7 +1353,7 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     indent(visitor);
     fprintf(visitor->file, "{\n");
     visitor->indent_level++;
-    nodecl_t statement_seq = nodecl_get_children(node, 0);
+    nodecl_t statement_seq = nodecl_get_child(node, 0);
 
     scope_entry_t* scope_symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
@@ -1355,20 +1380,20 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 // Function code
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement_seq = nodecl_get_children(node, 0);
-    nodecl_t internal_functions = nodecl_get_children(node, 1);
+    nodecl_t statement_seq = nodecl_get_child(node, 0);
+    nodecl_t internal_functions = nodecl_get_child(node, 1);
 
     if (!nodecl_is_null(internal_functions))
     {
         internal_error("C/C++ does not have internal functions", 0);
     }
 
-    if (!nodecl_is_null(nodecl_get_children(statement_seq, 0)))
+    if (!nodecl_is_null(nodecl_get_child(statement_seq, 0)))
     {
         internal_error("C/C++ functions only have one statement", 0);
     }
 
-    nodecl_t statement = nodecl_get_children(statement_seq, 1);
+    nodecl_t statement = nodecl_get_child(statement_seq, 1);
 
     scope_entry_t* symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(symbol == NULL || symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
@@ -1481,7 +1506,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 // Top level
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t list = nodecl_get_children(node, 0);
+    nodecl_t list = nodecl_get_child(node, 0);
     NODECL_WALK(visitor, list);
 }
 
@@ -1515,6 +1540,8 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_add = codegen_visitor_fun(codegen_add);
     NODECL_VISITOR(&codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
     NODECL_VISITOR(&codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
+    NODECL_VISITOR(&codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
+    NODECL_VISITOR(&codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(&codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
     NODECL_VISITOR(&codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
     NODECL_VISITOR(&codegen_visitor)->visit_for_statement = codegen_visitor_fun(codegen_for_statement);
@@ -1543,6 +1570,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
     NODECL_VISITOR(&codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
     NODECL_VISITOR(&codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
+    NODECL_VISITOR(&codegen_visitor)->visit_cast = codegen_visitor_fun(codegen_cast);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
     NODECL_VISITOR(&codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);

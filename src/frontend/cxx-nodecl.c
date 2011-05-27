@@ -123,7 +123,7 @@ nodecl_t _nodecl_wrap(AST a)
     return n;
 }
 
-nodecl_t nodecl_get_children(nodecl_t n, int i)
+nodecl_t nodecl_get_child(nodecl_t n, int i)
 {
     return _nodecl_wrap(ast_get_child(n.tree, i));
 }
