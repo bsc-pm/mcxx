@@ -5,7 +5,6 @@
 #include "cxx-prettyprint.h"
 #include "cxx-nodecl-visitor.h"
 #include <string.h>
-#include <limits.h>
 
 typedef
 struct nodecl_codegen_visitor_tag
@@ -28,7 +27,7 @@ static void indent(nodecl_codegen_visitor_t* v)
     int i;
     for (i = 0; i < v->indent_level; i++)
     {
-        // FIXME - Make this configurable
+        // FIXME - Make this spacing configurable
         fprintf(v->file, "  ");
     }
 }
@@ -437,6 +436,13 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                 break;
             }
+        case SK_FUNCTION:
+            {
+                // Functions are not defined but only declared
+                declare_symbol(visitor, symbol);
+                symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                break;
+            }
         default:
             {
                 internal_error("I do not know how to define a %s\n", symbol_kind_name(symbol));
@@ -583,6 +589,18 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         symbol->decl_context, symbol->symbol_name));
                 break;
             }
+        case SK_FUNCTION:
+            {
+                walk_type_for_symbols(visitor,
+                        symbol->type_information,
+                        0,
+                        declare_symbol,
+                        define_symbol);
+                indent(visitor);
+                fprintf(visitor->file, "%s;\n", print_decl_type_str(symbol->type_information, 
+                            symbol->decl_context, symbol->symbol_name));
+                break;
+            }
         default:
             {
                 internal_error("Do not know how to declare a %s\n", symbol_kind_name(symbol));
@@ -641,7 +659,7 @@ static void walk_list(nodecl_codegen_visitor_t *visitor, nodecl_t node, const ch
 // Codegen
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
-    fprintf(stderr, "WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
+    internal_error("WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
 }
 
 static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -649,7 +667,14 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     scope_entry_t* entry = nodecl_get_symbol(node);
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
 
-    fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+    CXX_LANGUAGE()
+    {
+        fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+    }
+    C_LANGUAGE()
+    {
+        fprintf(visitor->file, "%s", entry->symbol_name);
+    }
 }
 
 static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -675,7 +700,9 @@ static int get_rank(nodecl_t op)
 {
     switch (ASTType(nodecl_get_ast(op)))
     {
+        case NODECL_SYMBOL:
         case NODECL_STRING_LITERAL:
+        case NODECL_INTEGER_LITERAL:
         case NODECL_FLOATING_LITERAL:
         case NODECL_BOOLEAN_LITERAL:
         case NODECL_STRUCTURED_LITERAL:
@@ -688,20 +715,24 @@ static int get_rank(nodecl_t op)
         case NODECL_FUNCTION_CALL:
         case NODECL_CLASS_MEMBER_ACCESS:
         case NODECL_TYPEID:
+        case NODECL_POSTINCREMENT:
+        case NODECL_POSTDECREMENT:
             {
                 return -2;
             }
-       case NODECL_PREINCREMENT:
-       case NODECL_PREDECREMENT:
-       case NODECL_REFERENCE:
-       case NODECL_DERREFERENCE:
-       case NODECL_PLUS:
-       case NODECL_NEG:
-       case NODECL_LOGICAL_NOT:
-       case NODECL_BITWISE_NOT:
-       case NODECL_SIZEOF:
-            // case NODECL_NEW
-            // case NODECL_DELETE
+        case NODECL_REFERENCE:
+        case NODECL_DERREFERENCE:
+        case NODECL_PLUS:
+        case NODECL_NEG:
+        case NODECL_LOGICAL_NOT:
+        case NODECL_BITWISE_NOT:
+        case NODECL_SIZEOF:
+        case NODECL_NEW:
+        case NODECL_DELETE:
+        case NODECL_PREINCREMENT:
+        case NODECL_PREDECREMENT:
+            // FIXME: Missing GCC nodes 
+            // FIXME: Do we want them or we can use builtins?
             // case NODECL_ALIGNOF
             // case NODECL_REAL
             // case NODECL_IMAG
@@ -724,53 +755,60 @@ static int get_rank(nodecl_t op)
                     return -2;
                 }
             }
-       case NODECL_POINTER_TO_MEMBER:
+            // This is a pointer to member
+        case NODECL_OFFSET:
             return -5;
-       case NODECL_MUL:
-       case NODECL_DIV:
-       case NODECL_MOD:
+        case NODECL_MUL:
+        case NODECL_DIV:
+        case NODECL_MOD:
             return -6;
-       case NODECL_ADD:
-       case NODECL_MINUS:
+        case NODECL_ADD:
+        case NODECL_MINUS:
             return -7;
-       case NODECL_SHL:
-       case NODECL_SHR:
+        case NODECL_SHL:
+        case NODECL_SHR:
             return -8;
-       case NODECL_LOWER_THAN:
-       case NODECL_LOWER_OR_EQUAL_THAN:
-       case NODECL_GREATER_THAN:
-       case NODECL_GREATER_OR_EQUAL_THAN:
+        case NODECL_LOWER_THAN:
+        case NODECL_LOWER_OR_EQUAL_THAN:
+        case NODECL_GREATER_THAN:
+        case NODECL_GREATER_OR_EQUAL_THAN:
             return -9;
-       case NODECL_EQUAL:
-       case NODECL_DIFFERENT:
+        case NODECL_EQUAL:
+        case NODECL_DIFFERENT:
             return -10;
-       case NODECL_BITWISE_AND:
+        case NODECL_BITWISE_AND:
             return -11;
-       case NODECL_BITWISE_XOR:
+        case NODECL_BITWISE_XOR:
             return -12;
-       case NODECL_BITWISE_OR:
+        case NODECL_BITWISE_OR:
             return -13;
-       case NODECL_LOGICAL_AND:
+        case NODECL_LOGICAL_AND:
             return -14;
-       case NODECL_LOGICAL_OR:
+        case NODECL_LOGICAL_OR:
             return -15;
-       case NODECL_CONDITIONAL_EXPRESSION:
+        case NODECL_CONDITIONAL_EXPRESSION:
             return -16;
-       case NODECL_ASSIGNMENT:
-       case NODECL_MUL_ASSIGNMENT :
-       case NODECL_DIV_ASSIGNMENT:
-       case NODECL_ADD_ASSIGNMENT:
-       case NODECL_SUB_ASSIGNMENT:
-       case NODECL_SHL_ASSIGNMENT:
-       case NODECL_SHR_ASSIGNMENT:
-       case NODECL_BITWISE_AND_ASSIGNMENT:
-       case NODECL_BITWISE_OR_ASSIGNMENT:
-       case NODECL_BITWISE_XOR_ASSIGNMENT:
-       case NODECL_THROW_EXPRESSION:
+        case NODECL_ASSIGNMENT:
+        case NODECL_MUL_ASSIGNMENT :
+        case NODECL_DIV_ASSIGNMENT:
+        case NODECL_ADD_ASSIGNMENT:
+        case NODECL_SUB_ASSIGNMENT:
+        case NODECL_SHL_ASSIGNMENT:
+        case NODECL_SHR_ASSIGNMENT:
+        case NODECL_BITWISE_AND_ASSIGNMENT:
+        case NODECL_BITWISE_OR_ASSIGNMENT:
+        case NODECL_BITWISE_XOR_ASSIGNMENT:
+        case NODECL_THROW:
             return -17;
-       default:
-            return INT_MIN;
+        case NODECL_COMMA:
+            return -18;
+        default:
+            // Lowest priority possible. This is a conservative approach that
+            // will work always albeit it will introduce some unnecessary
+            // parentheses for unknown expressions
+            return -1000;
     }
+    return -1000;
 }
 
 
@@ -778,8 +816,8 @@ static int get_rank(nodecl_t op)
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
 {
     // It does not have known lower priority
-    char rank_current = get_rank(current_operator);
-    char rank_operand = get_rank(operand);
+    int rank_current = get_rank(current_operator);
+    int rank_operand = get_rank(operand);
     return rank_operand < rank_current;
 }
 
@@ -794,6 +832,9 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     PREFIX_UNARY_EXPRESSION(reference, "&") \
     PREFIX_UNARY_EXPRESSION(preincrement, "++") \
     PREFIX_UNARY_EXPRESSION(predecrement, "--") \
+    PREFIX_UNARY_EXPRESSION(delete, "delete ") \
+    PREFIX_UNARY_EXPRESSION(delete_array, "delete[] ") \
+    PREFIX_UNARY_EXPRESSION(throw, "throw ") \
     POSTFIX_UNARY_EXPRESSION(postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(postdecrement, "--") \
     BINARY_EXPRESSION(add, " + ") \
@@ -826,7 +867,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION(mod_assignment, " %= ") \
     BINARY_EXPRESSION(class_member_access, ".") \
-    BINARY_EXPRESSION(pointer_to_member, ".*") \
+    BINARY_EXPRESSION(offset, ".*") \
     BINARY_EXPRESSION(comma, ", ") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
@@ -877,7 +918,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
             fprintf(visitor->file, ")"); \
         } \
         fprintf(visitor->file, "%s", _operand); \
-        needs_parentheses = operand_has_lower_priority(node, lhs); \
+        needs_parentheses = operand_has_lower_priority(node, rhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, "("); \
@@ -899,6 +940,74 @@ static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, 
     fprintf(visitor->file, "(");
     NODECL_WALK(visitor, nest);
     fprintf(visitor->file, ")");
+}
+
+static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t initializer = nodecl_get_children(node, 0);
+    nodecl_t placement = nodecl_get_children(node, 1);
+
+    fprintf(visitor->file, "new ");
+
+    if (!nodecl_is_null(placement))
+    {
+        fprintf(visitor->file, "(");
+        walk_list(visitor, placement, ", ");
+        fprintf(visitor->file, ") ");
+    }
+
+    type_t* t = nodecl_get_type(node);
+    ERROR_CONDITION(!is_pointer_type(t), "Invalid type for NODECL_NEW", 0);
+
+    t = pointer_type_get_pointee_type(t);
+
+    // Maybe there is no symbol!!!
+    fprintf(visitor->file, "%s", print_type_str(t, visitor->current_sym->decl_context));
+
+    if (!nodecl_is_null(initializer))
+    {
+        int old_initializer = visitor->initializer;
+        visitor->initializer = 1;
+        NODECL_WALK(visitor, initializer);
+        visitor->initializer = old_initializer;
+    }
+}
+
+static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t called_entity = nodecl_get_children(node, 0);
+    nodecl_t arguments = nodecl_get_children(node, 1);
+
+    enum call_kind
+    {
+        INVALID_CALL = 0,
+        ORDINARY_CALL,
+        CONSTRUCTOR_INITIALIZATION
+    } kind = ORDINARY_CALL;
+
+    switch (kind)
+    {
+        case ORDINARY_CALL:
+            {
+                NODECL_WALK(visitor, called_entity);
+                fprintf(visitor->file, "(");
+                walk_list(visitor, arguments, ", ");
+                fprintf(visitor->file, ")");
+                break;
+            }
+        case CONSTRUCTOR_INITIALIZATION:
+            {
+                // Do not print what is being called
+                fprintf(visitor->file, "(");
+                walk_list(visitor, arguments, ", ");
+                fprintf(visitor->file, ")");
+                break;
+            }
+        default:
+            {
+                internal_error("Unhandled function call kind", 0);
+            }
+    }
 }
 
 // Statements
@@ -1288,6 +1397,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         if (symbol->entity_specs.related_symbols[i] != NULL)
         {
             argument_names[i] = symbol->entity_specs.related_symbols[i]->symbol_name;
+            symbol->entity_specs.related_symbols[i]->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+            add_to_clear_list(symbol->entity_specs.related_symbols[i]);
         }
     }
 
@@ -1427,6 +1538,11 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_try_block = codegen_visitor_fun(codegen_try_block);
     NODECL_VISITOR(&codegen_visitor)->visit_catch_handler = codegen_visitor_fun(codegen_catch_handler);
     NODECL_VISITOR(&codegen_visitor)->visit_parenthesized_expression = codegen_visitor_fun(codegen_parenthesized_expression);
+    NODECL_VISITOR(&codegen_visitor)->visit_new = codegen_visitor_fun(codegen_new);
+    NODECL_VISITOR(&codegen_visitor)->visit_delete = codegen_visitor_fun(codegen_delete);
+    NODECL_VISITOR(&codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
+    NODECL_VISITOR(&codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
+    NODECL_VISITOR(&codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
     NODECL_VISITOR(&codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);
@@ -1436,7 +1552,6 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
-
 
     nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, _nodecl_wrap(a));
 

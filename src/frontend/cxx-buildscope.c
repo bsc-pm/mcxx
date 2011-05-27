@@ -58,6 +58,7 @@
 #include "cxx-parser.h"
 #include "c99-parser.h"
 #include "cxx-limits.h"
+#include "cxx-diagnostic.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -702,7 +703,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST expression = ASTSon2(asm_operand);
                     if (!check_expression(expression, decl_context))
                     {
-                        fprintf(stderr, "%s: warning: assembler operand '%s' could not be checked\n",
+                        error_printf("%s: error: assembler operand '%s' could not be checked\n",
                                 ast_location(expression),
                                 prettyprint_in_buffer(expression));
                     }
@@ -950,7 +951,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
 
     if (!check_expression(constant_expr, decl_context))
     {
-        fprintf(stderr, "%s: warning: static_assert expression is invalid\n",
+        error_printf("%s: error: static_assert expression is invalid\n",
                 ast_location(a));
     }
 
@@ -958,7 +959,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     {
         if (!expression_is_constant(constant_expr))
         {
-            fprintf(stderr, "%s: warning: static_assert expression is not constant\n",
+            error_printf("%s: error: static_assert expression is not constant\n",
                     ast_location(a));
         }
         else
@@ -2048,7 +2049,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         {
             // This is a local class
             scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
-            if (is_dependent_type(enclosing_function->type_information))
+            if (enclosing_function != NULL
+                    && is_dependent_type(enclosing_function->type_information))
             {
                 set_is_dependent_type(class_entry->type_information, 1);
             }
@@ -4464,7 +4466,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         if (!is_integral_type(*declarator_type)
                 && !is_floating_type(*declarator_type))
         {
-            fprintf(stderr, "%s: warning: 'mode' attribute is only valid for integral or floating types\n",
+            error_printf("%s: error: 'mode' attribute is only valid for integral or floating types\n",
                     ast_location(a));
         }
         else
@@ -4721,7 +4723,7 @@ static void set_array_type(type_t** declarator_type,
     {
         if (!check_expression(constant_expr, decl_context))
         {
-            fprintf(stderr, "%s: warning: could not check array size expression '%s'\n",
+            error_printf("%s: error: could not check array size expression '%s'\n",
                     ast_location(constant_expr),
                     prettyprint_in_buffer(constant_expr));
 
@@ -4735,7 +4737,7 @@ static void set_array_type(type_t** declarator_type,
             if (decl_context.current_scope->kind == NAMESPACE_SCOPE
                     || decl_context.current_scope->kind == CLASS_SCOPE)
             {
-                fprintf(stderr, "%s: warning: declaring a variable sized object in a scope not allowing them\n",
+                error_printf("%s: error: declaring a variable sized object in a scope not allowing them\n",
                         ast_location(constant_expr));
             }
 
@@ -4863,7 +4865,7 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (!check_expression(default_argument, decl_context))
             {
-                fprintf(stderr, "%s: warning: could not check default argument expression '%s'\n",
+                error_printf("%s: error: could not check default argument expression '%s'\n",
                         ast_location(default_argument),
                         prettyprint_in_buffer(default_argument));
 
@@ -7062,7 +7064,7 @@ static void build_scope_nontype_template_parameter(AST a,
     {
         if (!check_expression(default_expression, template_context))
         {
-            fprintf(stderr, "%s: warning: could not check default argument of template parameter '%s'\n",
+            error_printf("%s: error: could not check default argument of template parameter '%s'\n",
                     ast_location(default_expression),
                     prettyprint_in_buffer(default_expression));
         }
@@ -7314,7 +7316,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
 
                             if (!check_expression(expression, block_context))
                             {
-                                fprintf(stderr, "%s: warning: could not check expression for constructor '%s'\n",
+                                error_printf("%s: error: could not check expression for constructor '%s'\n",
                                         ast_location(expression),
                                         prettyprint_in_buffer(expression));
                             }
@@ -8714,7 +8716,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST expression = ASTSon1(declarator);
                         if (!check_expression(expression, decl_context))
                         {
-                            fprintf(stderr, "%s: warning: could not check bitfield size expression '%s'\n",
+                            error_printf("%s: error: could not check bitfield size expression '%s'\n",
                                     ast_location(expression),
                                     prettyprint_in_buffer(expression));
                         }
@@ -9405,7 +9407,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
         if (check_initialization(initializer, decl_context, entry->type_information))
         {
-            fprintf(stderr, "%s: warning: initializer '%s' could not be checked\n",
+            error_printf("%s: error: initializer '%s' could not be checked\n",
                     ast_location(initializer),
                     prettyprint_in_buffer(initializer));
         }
@@ -9418,7 +9420,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             standard_conversion_t dummy;
             if (!standard_conversion_between_types(&dummy, entry->type_information, get_bool_type()))
             {
-                fprintf(stderr, "%s: warning: value of type '%s' where a scalar was expected\n",
+                error_printf("%s: error: value of type '%s' where a scalar was expected\n",
                         ast_location(a),
                         print_type_str(entry->type_information, decl_context));
             }
@@ -9435,7 +9437,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
                             &ambiguous_conversion, &conversor))
                 {
-                    fprintf(stderr, "%s: warning: value of type '%s' cannot be converted to 'bool' type\n",
+                    error_printf("%s: error: value of type '%s' cannot be converted to 'bool' type\n",
                             ast_location(a),
                             print_type_str(entry->type_information, decl_context));
                 }
@@ -9464,7 +9466,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     {
         if (!check_expression(ASTSon2(a), decl_context))
         {
-            fprintf(stderr, "%s: warning: condition '%s' could not be checked\n",
+            error_printf("%s: error: condition '%s' could not be checked\n",
                     ast_location(ASTSon2(a)),
                     prettyprint_in_buffer(ASTSon2(a)));
         }
@@ -9645,7 +9647,7 @@ static void build_scope_for_statement(AST a,
     {
         if (!check_expression(expression, block_context))
         {
-            fprintf(stderr, "%s: warning: could not check iterating expression '%s'\n",
+            error_printf("%s: error: could not check iterating expression '%s'\n",
                     ast_location(expression),
                     prettyprint_in_buffer(expression));
         }
@@ -9933,7 +9935,7 @@ static void build_scope_do_statement(AST a,
     build_scope_statement(statement, decl_context, &nodecl_statement);
     if (!check_expression(expression, decl_context))
     {
-        fprintf(stderr, "%s: warning: could not check do expression '%s'\n",
+        error_printf("%s: error: could not check do expression '%s'\n",
                 ast_location(expression),
                 prettyprint_in_buffer(expression));
     }

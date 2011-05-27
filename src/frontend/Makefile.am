@@ -167,6 +167,8 @@ libmcxx_la_SOURCES = \
   cxx-nodecl-visitor.c \
   cxx-codegen.c \
   cxx-codegen.h \
+  cxx-diagnostic.c \
+  cxx-diagnostic.h \
   libmcxx-common.h \
   $(END)
 

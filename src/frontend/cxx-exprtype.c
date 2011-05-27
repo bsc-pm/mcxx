@@ -46,6 +46,7 @@
 #include "cxx-cuda.h"
 #include "cxx-entrylist.h"
 #include "cxx-limits.h"
+#include "cxx-diagnostic.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -1345,7 +1346,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     expression_set_error(expression);
                 }
                 expression_set_nodecl(expression,
-                        nodecl_make_throw_expression(expression_get_nodecl(ASTSon0(expression)), 
+                        nodecl_make_throw(expression_get_nodecl(ASTSon0(expression)), 
                             get_throw_expr_type(), ASTFileName(expression), ASTLine(expression)));
                 break;
             }
@@ -1472,7 +1473,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         // This is not valid here
                         if (!checking_ambiguity())
                         {
-                            fprintf(stderr, "%s: warning: invalid '%s' type, it names a template-name\n",
+                            error_printf("%s: error: invalid '%s' type, it names a template-name\n",
                                     ast_location(type_specifier_seq),
                                     prettyprint_in_buffer(type_specifier_seq));
                         }
@@ -1537,7 +1538,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         // This is not valid here
                         if (!checking_ambiguity())
                         {
-                            fprintf(stderr, "%s: warning: invalid '%s' type-name, it names a template-name\n",
+                            error_printf("%s: error: invalid '%s' type-name, it names a template-name\n",
                                     ast_location(type_specifier_seq),
                                     prettyprint_in_buffer(type_specifier_seq));
                         }
@@ -1917,9 +1918,10 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
                            if (!(*c != '\0'
                                        && *err == '\0'))
                            {
-                               running_error("%s: error: %s does not seem a valid character literal\n", 
+                               error_printf("%s: error: %s does not seem a valid character literal\n", 
                                        ast_location(expr),
                                        prettyprint_in_buffer(expr));
+                               return get_error_type();
                            }
                            break;
                        }
@@ -1941,9 +1943,10 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
                             if (!(*c != '\0'
                                         && *err == '\0'))
                             {
-                                running_error("%s: error: %s does not seem a valid character literal\n", 
+                                error_printf("%s: error: %s does not seem a valid character literal\n", 
                                         ast_location(expr),
                                         prettyprint_in_buffer(expr));
+                               return get_error_type();
                             }
                             break;
                         }
@@ -2157,9 +2160,11 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                         {
                                             char ill_literal[11];
                                             strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                            running_error("%s: error: invalid universal literal name '%s'", 
+                                            error_printf("%s: error: invalid universal literal name '%s'", 
                                                     ast_location(expr),
                                                     ill_literal);
+                                            *length = -1;
+                                            return;
                                         }
 
                                         literal++;
@@ -2174,9 +2179,11 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     char c[3];
 
                                     strncpy(c, beginning_of_escape, 3);
-                                    running_error("%s: error: invalid escape sequence '%s'\n",
+                                    error_printf("%s: error: invalid escape sequence '%s'\n",
                                             ast_location(expr),
                                             c);
+                                    *length = -1;
+                                    return;
                                 }
                         }
                         break;
@@ -2212,6 +2219,10 @@ static type_t *string_literal_type(AST expr)
     int length = 0;
 
     compute_length_of_literal_string(expr, &length, &is_wchar);
+    if (length < 0)
+    {
+        return get_error_type();
+    }
 
     DEBUG_CODE()
     {
@@ -2600,29 +2611,31 @@ static char filter_only_nonmembers(scope_entry_t* e)
 
 static void error_message_delete_call(decl_context_t decl_context, AST expr, scope_entry_t* entry)
 {
-    running_error("%s: error: call to deleted function '%s'\n",
+    error_printf("%s: error: call to deleted function '%s'\n",
             ast_location(expr),
             print_decl_type_str(entry->type_information, decl_context,
                 get_qualified_symbol_name(entry, decl_context)));
 }
 
-static void ensure_not_deleted(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+static char function_has_been_deleted(decl_context_t decl_context, AST expr, scope_entry_t* entry)
 {
-    if (entry->entity_specs.is_deleted)
+    char c = entry->entity_specs.is_deleted;
+    if (c)
     {
         error_message_delete_call(decl_context, expr, entry);
     }
+    return c;
 }
 
 static void error_message_overload_failed(decl_context_t decl_context, AST expr, candidate_t* candidates)
 {
-    fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
+    error_printf("%s: error: overload call to '%s' failed\n",
             ast_location(expr),
             prettyprint_in_buffer(expr));
 
     if (candidates != NULL)
     {
-        fprintf(stderr, "%s: note: candidates are\n", ast_location(expr));
+        info_printf("%s: info: candidates are\n", ast_location(expr));
 
         candidate_t* it = candidates;
         while (it != NULL)
@@ -2647,7 +2660,7 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
     }
     else
     {
-        fprintf(stderr, "%s: note: no candidate functions\n", ast_location(expr));
+        info_printf("%s: info: no candidate functions\n", ast_location(expr));
     }
 }
 
@@ -2722,11 +2735,17 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
-        ensure_not_deleted(decl_context, expr, overloaded_call);
+        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        {
+            return get_error_type();
+        }
 
         if (conversors[0] != NULL)
         {
-            ensure_not_deleted(decl_context, expr, conversors[0]);
+            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            {
+                return get_error_type();
+            }
 
             ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
@@ -2740,7 +2759,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         }
         if (conversors[1] != NULL)
         {
-            ensure_not_deleted(decl_context, expr, conversors[1]);
+            if (function_has_been_deleted(decl_context, expr, conversors[1]))
+            {
+                return get_error_type();
+            }
 
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
@@ -2854,7 +2876,10 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
-        ensure_not_deleted(decl_context, expr, overloaded_call);
+        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        {
+            return get_error_type();
+        }
 
         nodecl_t nodecl_argument = expression_get_nodecl(op);
 
@@ -2868,7 +2893,10 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (conversors[0] != NULL)
         {
-            ensure_not_deleted(decl_context, expr, conversors[0]);
+            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            {
+                return get_error_type();
+            }
 
             ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
@@ -5980,7 +6008,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
         expression_set_error(expression);
         if(!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
+            error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
                     prettyprint_in_buffer(lhs), print_type_str(expression_get_type(lhs), decl_context),
@@ -6014,7 +6042,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
         expression_set_error(expression);
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: unary %s cannot be applied to operand '%s' (of type '%s')\n",
+            error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
                     prettyprint_in_buffer(op), print_type_str(expression_get_type(op), decl_context));
@@ -6275,7 +6303,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, const_value_t** 
     if (expression_is_error(expr)
             && !checking_ambiguity())
     {
-        fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
+        error_printf("%s: error: symbol '%s' not found in current scope\n",
                 ast_location(expr), ASTText(expr));
     }
 }
@@ -6422,7 +6450,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid class template-id '%s' named in an expression\n", 
+                    error_printf("%s: error: invalid class template-id '%s' named in an expression\n", 
                             ast_location(expr),
                             prettyprint_in_buffer(expr));
                 }
@@ -6503,7 +6531,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
+                error_printf("%s: error: expression '%s' is invalid since '%s' has type '%s'\n",
                         ast_location(expr),
                         prettyprint_in_buffer(expr),
                         prettyprint_in_buffer(subscripted_expr),
@@ -6576,12 +6604,20 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
                 return;
             }
 
-            ensure_not_deleted(decl_context, expr, overloaded_call);
+            if (function_has_been_deleted(decl_context, expr, overloaded_call))
+            {
+                expression_set_error(expr);
+                return;
+            }
 
             nodecl_t subscript_expr_nodecl = expression_get_nodecl(subscript_expr);
             if (conversors[1] != NULL)
             {
-                ensure_not_deleted(decl_context, expr, conversors[1]);
+                if (function_has_been_deleted(decl_context, expr, conversors[1]))
+                {
+                    expression_set_error(expr);
+                    return;
+                }
 
                 ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
@@ -6610,7 +6646,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
     if (!checking_ambiguity())
     {
-        fprintf(stderr, "%s: warning: in '%s' operator[] cannot be applied to '%s' of type '%s'\n",
+        error_printf("%s: error: in '%s' operator[] cannot be applied to '%s' of type '%s'\n",
                 ast_location(expr),
                 prettyprint_in_buffer(expr),
                 prettyprint_in_buffer(subscripted_expr),
@@ -7127,7 +7163,9 @@ static void check_conditional_expression_impl(AST expression,
                 return;
             }
 
-            ensure_not_deleted(decl_context, expression, overloaded_call);
+            if (function_has_been_deleted(decl_context, expression, overloaded_call))
+            {
+            }
 
             // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
             // but writing it twice in the loop should be harmless
@@ -7138,7 +7176,11 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (conversors[k] != NULL)
                 {
-                    ensure_not_deleted(decl_context, expression, conversors[k]);
+                    if (function_has_been_deleted(decl_context, expression, conversors[k]))
+                    {
+                        expression_set_error(expression);
+                        return;
+                    }
 
                     ASTAttrSetValueType(ops[k], 
                             LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
@@ -7283,7 +7325,7 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
+            error_printf("%s: error: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
                     "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
                     ast_location(expression),
                     prettyprint_in_buffer(first_op), print_type_str(expression_get_type(first_op), decl_context),
@@ -7358,7 +7400,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
         // This is not valid here
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: invalid '%s' type-name, it names a template-name\n",
+            error_printf("%s: error: invalid '%s' type-name, it names a template-name\n",
                     ast_location(type_specifier_seq),
                     prettyprint_in_buffer(type_specifier_seq));
         }
@@ -7412,6 +7454,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
         arguments[1] = get_size_t_type();
 
         char has_dependent_placement_args = 0;
+
+        nodecl_t nodecl_placement = nodecl_null();
 
         int i = 2; 
         if (new_placement != NULL)
@@ -7488,7 +7532,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
+                    error_printf("%s: error: no suitable '%s' has been found in the scope\n",
                             ast_location(new_expr),
                             prettyprint_in_buffer(called_operation_new_tree));
                 }
@@ -7547,17 +7591,17 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     }
                     argument_call = strappend(argument_call, ")");
 
-                    fprintf(stderr, "%s: warning: no suitable '%s' found for new-expression '%s'\n",
+                    error_printf("%s: error: no suitable '%s' found for new-expression '%s'\n",
                             ast_location(new_expr),
                             argument_call,
                             prettyprint_in_buffer(new_expr));
-                    fprintf(stderr, "%s: note: candidates are:\n", ast_location(new_expr));
+                    info_printf("%s: info: candidates are:\n", ast_location(new_expr));
                     for (it = entry_list_iterator_begin(operator_new_list);
                             !entry_list_iterator_end(it);
                             entry_list_iterator_next(it))
                     {
                         scope_entry_t* candidate_op = entry_list_iterator_current(it);
-                        fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
+                        info_printf("%s: info:    %s\n", ast_location(new_expr),
                                 print_decl_type_str(candidate_op->type_information, decl_context, 
                                     get_qualified_symbol_name(candidate_op, decl_context)));
                     }
@@ -7568,10 +7612,16 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                 return;
             }
 
-            ensure_not_deleted(decl_context, new_expr, chosen_operator_new);
+            if (function_has_been_deleted(decl_context, new_expr, chosen_operator_new))
+            {
+                expression_set_error(new_expr);
+                return;
+            }
 
             ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
+
+            nodecl_t nodecl_placement_args = nodecl_null();
 
             // Store conversions
             if (new_placement != NULL)
@@ -7587,19 +7637,35 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     {
                         AST current_expr = ASTSon1(iter);
 
+                        nodecl_t nodecl_expr = expression_get_nodecl(current_expr);
+
                         if (conversors[i] != NULL)
                         {
-                            ensure_not_deleted(decl_context, new_expr, conversors[i]);
+                            if (function_has_been_deleted(decl_context, new_expr, conversors[i]))
+                            {
+                                expression_set_error(new_expr);
+                                return;
+                            }
 
                             ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                             ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+
+                            nodecl_expr = nodecl_make_function_call(
+                                    nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
+                                    nodecl_make_list_1(nodecl_expr),
+                                    actual_type_of_conversor(conversors[i]),
+                                    ASTFileName(current_expr), ASTLine(current_expr));
                         }
+
+                        nodecl_placement = nodecl_append_to_list(nodecl_placement_args,
+                                nodecl_expr);
 
                         i++;
                     }
                 }
             }
 
+            nodecl_t nodecl_init = nodecl_null();
 
             if (is_pointer_to_class_type(declarator_type))
             {
@@ -7650,7 +7716,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     {
                         if (!checking_ambiguity())
                         {
-                            fprintf(stderr, "%s: warning: no suitable constructor of type '%s' "
+                            error_printf("%s: error: no suitable constructor of type '%s' "
                                     "found for new-initializer '%s'\n",
                                     ast_location(new_expr),
                                     print_decl_type_str(class_type, decl_context, ""),
@@ -7661,11 +7727,17 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                         return;
                     }
 
-                    ensure_not_deleted(decl_context, new_expr, chosen_constructor);
+                    if (function_has_been_deleted(decl_context, new_expr, chosen_constructor))
+                    {
+                        expression_set_error(new_expr);
+                        return;
+                    }
 
                     // FIXME - This does not belong to the expression!
                     ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+
+                    nodecl_t nodecl_argument_list = nodecl_null();
 
                     // Store conversions
                     if (new_initializer != NULL)
@@ -7680,18 +7752,38 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                             {
                                 AST current_expr = ASTSon1(iter);
 
+                                nodecl_t nodecl_current_argument = expression_get_nodecl(current_expr);
+
                                 if (conversors[i] != NULL)
                                 {
-                                    ensure_not_deleted(decl_context, new_expr, conversors[i]);
+                                    if (function_has_been_deleted(decl_context, new_expr, conversors[i]))
+                                    {
+                                        expression_set_error(new_expr);
+                                        return;
+                                    }
 
                                     ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                                     ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+
+                                    nodecl_current_argument = nodecl_make_function_call(
+                                            nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
+                                            nodecl_make_list_1(nodecl_current_argument),
+                                            actual_type_of_conversor(conversors[i]),
+                                            ASTFileName(current_expr), ASTLine(current_expr));
                                 }
 
+                                nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, 
+                                        nodecl_current_argument);
                                 i++;
                             }
                         }
                     }
+
+                    nodecl_init = nodecl_make_function_call(
+                            nodecl_make_symbol(chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)),
+                            nodecl_argument_list,
+                            get_void_type(), // Constructors return void
+                            ASTFileName(new_expr), ASTLine(new_expr));
                 }
                 else 
                 {
@@ -7701,9 +7793,20 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     return;
                 }
             }
+            else
+            {
+                if (new_initializer != NULL)
+                {
+                    nodecl_init = expression_get_nodecl(new_initializer);
+                }
+            }
+
+            nodecl_t nodecl_new = nodecl_make_new(nodecl_init, nodecl_placement, declarator_type, ASTFileName(new_expr), ASTLine(new_expr));
 
             expression_set_type(new_expr, declarator_type);
             expression_set_is_lvalue(new_expr, 0);
+            expression_set_nodecl(new_expr, nodecl_new);
+
             return;
         }
         else 
@@ -7865,8 +7968,10 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
             }
             else
             {
-                running_error("%s: error: cannot delete an incomplete class type\n",
+                error_printf("%s: error: cannot delete an incomplete class type\n",
                         ast_location(expression));
+                expression_set_error(expression);
+                return;
             }
         }
         else
@@ -7882,7 +7987,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
+                error_printf("%s: error: no suitable '%s' has been found in the scope\n",
                         ast_location(expression),
                         prettyprint_in_buffer(operation_delete_name));
             }
@@ -7915,7 +8020,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
 
         if (chosen == NULL)
         {
-            fprintf(stderr, "%s: warning: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
+            error_printf("%s: error: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
                     ast_location(expression),
                     prettyprint_in_buffer(operation_delete_name),
                     print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
@@ -7930,8 +8035,30 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
         }
     }
 
+    nodecl_t nodecl_delete = nodecl_null();
+    if (!is_dependent_expr_type(deleted_expr_type))
+    {
+        if (!is_array_delete)
+        {
+            nodecl_delete = nodecl_make_delete(
+                    expression_get_nodecl(deleted_expression), 
+                    get_void_type(),
+                    ASTFileName(expression), ASTLine(expression));
+        }
+        else
+        {
+            nodecl_delete = nodecl_make_delete_array(
+                    expression_get_nodecl(deleted_expression), 
+                    get_void_type(),
+                    ASTFileName(expression), ASTLine(expression));
+        }
+
+        expression_set_nodecl(expression, nodecl_delete);
+    }
+
     expression_set_type(expression, get_void_type());
     expression_set_is_lvalue(expression, 0);
+
 }
 
 static void check_explicit_type_conversion_common(type_t* type_info, 
@@ -8013,7 +8140,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: cannot cast to type '%s' in '%s'\n",
+                    error_printf("%s: error: cannot cast to type '%s' in '%s'\n",
                             ast_location(expr),
                             print_decl_type_str(type_info, decl_context, ""),
                             prettyprint_in_buffer(expr));
@@ -8022,7 +8149,11 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                 return;
             }
 
-            ensure_not_deleted(decl_context, expr, constructor);
+            if (function_has_been_deleted(decl_context, expr, constructor))
+            {
+                expression_set_error(expr);
+                return;
+            }
 
             int k = 0;
             if (expression_list != NULL)
@@ -8034,7 +8165,11 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 
                     if (conversors[k] != NULL)
                     {
-                        ensure_not_deleted(decl_context, expression, conversors[k]);
+                        if (function_has_been_deleted(decl_context, expression, conversors[k]))
+                        {
+                            expression_set_error(expr);
+                            return;
+                        }
 
                         ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
@@ -8433,7 +8568,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                     if (!checking_ambiguity())
                     {
-                        fprintf(stderr, "%s: warning: function '%s' has not been declared, assuming it to be like '%s'\n", 
+                        error_printf("%s: error: function '%s' has not been declared, assuming it to be like '%s'\n", 
                                 ast_location(called_expression),
                                 prettyprint_in_buffer(called_expression),
                                 print_decl_type_str(expression_get_type(called_expression), decl_context, name));
@@ -8546,7 +8681,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             }
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: cannot call '%s' since its type '%s' is neither a function or a pointer to function\n",
+                error_printf("%s: error: cannot call '%s' since its type '%s' is neither a function or a pointer to function\n",
                         ast_location(called_expression),
                         prettyprint_in_buffer(called_expression),
                         print_type_str(expression_get_type(called_expression), decl_context));
@@ -8573,7 +8708,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: call with %d arguments for a function with %d parameters\n",
+                    error_printf("%s: error: call with %d arguments for a function with %d parameters\n",
                             ast_location(whole_function_call),
                             num_explicit_arguments,
                             function_type_get_num_parameters(proper_function_type));
@@ -8594,7 +8729,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: call with %d arguments for a function with at least %d parameters\n",
+                    error_printf("%s: error: call with %d arguments for a function with at least %d parameters\n",
                             ast_location(whole_function_call),
                             num_explicit_arguments,
                             min_arguments);
@@ -8625,7 +8760,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 {
                     if (!checking_ambiguity())
                     {
-                        fprintf(stderr, "%s: warning: argument %d of type '%s' cannot be "
+                        error_printf("%s: error: argument %d of type '%s' cannot be "
                                 "converted to type '%s' of parameter\n",
                                 ast_location(arg),
                                 i,
@@ -8686,7 +8821,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         }
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: entity '%s' cannot be called\n", 
+            error_printf("%s: error: entity '%s' cannot be called\n", 
                     ast_location(called_expression), 
                     prettyprint_in_buffer(called_expression));
         }
@@ -9063,7 +9198,10 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
     if (overloaded_call != NULL)
     {
-        ensure_not_deleted(decl_context, whole_function_call, overloaded_call);
+        if (function_has_been_deleted(decl_context, whole_function_call, overloaded_call))
+        {
+            return 0;
+        }
 
         // Update the unresolved call
         DEBUG_CODE()
@@ -9086,7 +9224,10 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                 if (conversors[arg_i] != NULL)
                 {
-                    ensure_not_deleted(decl_context, argument, conversors[arg_i]);
+                    if (function_has_been_deleted(decl_context, argument, conversors[arg_i]))
+                    {
+                        return 0;
+                    }
 
                     ASTAttrSetValueType(argument, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(argument, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[arg_i]));
@@ -9397,7 +9538,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
             // This is not valid here
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: invalid '%s' typename, it names a template-name\n",
+                error_printf("%s: error: invalid '%s' typename, it names a template-name\n",
                         ast_location(type_specifier),
                         prettyprint_in_buffer(type_specifier));
             }
@@ -9642,7 +9783,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: '->' cannot be applied to '%s' (of type '%s')\n",
+                error_printf("%s: error: '->' cannot be applied to '%s' (of type '%s')\n",
                         ast_location(class_expr),
                         prettyprint_in_buffer(class_expr),
                         print_type_str(no_ref(accessed_type), decl_context));
@@ -9715,7 +9856,11 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             return;
         }
 
-        ensure_not_deleted(decl_context, member_access, selected_operator_arrow);
+        if (function_has_been_deleted(decl_context, member_access, selected_operator_arrow))
+        {
+            expression_set_error(member_access);
+            return;
+        }
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
@@ -9742,7 +9887,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s cannot be applied to '%s' (of type '%s')\n",
+            error_printf("%s: error: '%s cannot be applied to '%s' (of type '%s')\n",
                     ast_location(class_expr),
                     operator_arrow ? "->" : ".",
                     prettyprint_in_buffer(class_expr),
@@ -9783,7 +9928,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a member/field of type '%s'\n",
+            error_printf("%s: error: '%s' is not a member/field of type '%s'\n",
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression),
                     print_type_str(no_ref(accessed_type), decl_context));
@@ -9828,7 +9973,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: '%s' is not a member of type '%s'\n",
+                    error_printf("%s: error: '%s' is not a member of type '%s'\n",
                             ast_location(id_expression),
                             prettyprint_in_buffer(id_expression),
                             print_type_str(no_ref(accessed_type), decl_context));
@@ -9935,7 +10080,7 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, const_valu
     if (expression_is_error(expr)
             && !checking_ambiguity())
     {
-        fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
+        error_printf("%s: error: symbol '%s' not found in current scope\n",
                 ast_location(expr), prettyprint_in_buffer(expr));
     }
 }
@@ -10123,14 +10268,22 @@ static void check_postoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        ensure_not_deleted(decl_context, expr, overloaded_call);
+        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        {
+            expression_set_error(expr);
+            return;
+        }
 
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
-            ensure_not_deleted(decl_context, expr, conversors[0]);
+            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            {
+                expression_set_error(expr);
+                return;
+            }
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
 
@@ -10240,14 +10393,22 @@ static void check_preoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        ensure_not_deleted(decl_context, expr, overloaded_call);
+        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        {
+            expression_set_error(expr);
+            return;
+        }
 
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
-            ensure_not_deleted(decl_context, expr, conversors[0]);
+            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            {
+                expression_set_error(expr);
+                return;
+            }
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
 
@@ -10627,10 +10788,11 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
             if (entry_list != NULL)
                 entry_list_free(entry_list);
 
-            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+            error_printf("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
+            return NULL;
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
@@ -10644,10 +10806,11 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
             if (entry_list != NULL)
                 entry_list_free(entry_list);
 
-            running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
+            error_printf("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
+            return NULL;
         }
 
         typeid_sym = entry_list_head(entry_list);
@@ -10678,10 +10841,11 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
             if (!mandatory)
                 return NULL;
 
-            running_error("%s: error: namespace 'std' not found when looking up 'std::initializer_list' (because of '%s'). \n"
+            error_printf("%s: error: namespace 'std' not found when looking up 'std::initializer_list' (because of '%s'). \n"
                     "Maybe you need '#include <initializer_list>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
+            return NULL;
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
@@ -10697,10 +10861,11 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
             if (!mandatory)
                 return NULL;
 
-            running_error("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
+            error_printf("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
                     "Maybe you need '#include <initializer_list>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
+            return NULL;
         }
 
         initializer_list_sym = entry_list_head(entry_list);
@@ -10726,7 +10891,13 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    type_t* typeid_type = get_user_defined_type(get_typeid_symbol(decl_context, expr));
+    scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
+    if (typeid_type_class == NULL)
+    {
+        expression_set_error(expr);
+        return;
+    }
+    type_t* typeid_type = get_user_defined_type(typeid_type_class);
     expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
 
@@ -10752,7 +10923,14 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    type_t* typeid_type = get_user_defined_type(get_typeid_symbol(decl_context, expr));
+    scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
+    if (typeid_type_class == NULL)
+    {
+        expression_set_error(expr);
+        return;
+    }
+
+    type_t* typeid_type = get_user_defined_type(typeid_type_class);
     expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
 
@@ -10831,7 +11009,7 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context,
                         {
                             if (!checking_ambiguity())
                             {
-                                fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                                error_printf("%s: error: designator '%s' of type '%s' is not valid\n",
                                         ast_location(current_designator),
                                         prettyprint_in_buffer(current_designator),
                                         print_decl_type_str(designated_type, decl_context, ""));
@@ -10856,7 +11034,7 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context,
                     {
                         if (!checking_ambiguity())
                         {
-                            fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                            error_printf("%s: error: designator '%s' of type '%s' is not valid\n",
                                     ast_location(current_designator),
                                     prettyprint_in_buffer(current_designator),
                                     print_decl_type_str(designated_type, decl_context, ""));
@@ -10895,9 +11073,9 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     && !is_vector_type(declared_type)
                     && !is_dependent_type(declared_type))
             {
-                fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
+                error_printf("%s: error: brace initialization can only be used with\n",
                         ast_location(initializer));
-                fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
+                error_printf("%s: error: array types, struct, class, union or vector types\n",
                         ast_location(initializer));
             }
 
@@ -10956,7 +11134,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         {
                             if (!checking_ambiguity())
                             {
-                                fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                error_printf("%s: error: too many initializers for aggregated data type\n",
                                         ast_location(initializer_clause));
                             }
 
@@ -11048,8 +11226,9 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
             if (num_args == MCXX_MAX_FUNCTION_CALL_ARGUMENTS)
             {
-                running_error("%s: error: too many elements in initializer-list\n",
+                error_printf("%s: error: too many elements in initializer-list\n",
                         ast_location(expr));
+                return 0;
             }
 
             check_expression_impl_(expr, decl_context);
@@ -11073,6 +11252,10 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
         int num_ctors = class_type_get_num_constructors(get_actual_class_type(declared_type));
 
         scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
+        if (std_initializer_list_template == NULL)
+        {
+            return 0;
+        }
 
         char has_initializer_list_ctor = 0;
 
@@ -11128,7 +11311,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                    error_printf("%s: error: invalid initializer for type '%s'\n", 
                             ast_location(initializer),
                             print_type_str(declared_type, decl_context));
                 }
@@ -11136,13 +11319,19 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             }
             else
             {
-                ensure_not_deleted(decl_context, initializer, constructor);
+                if (function_has_been_deleted(decl_context, initializer, constructor))
+                {
+                    return 0;
+                }
                 int i;
                 for (i = 0; i < num_args; i++)
                 {
                     if (conversors[i] != NULL)
                     {
-                        ensure_not_deleted(decl_context, initializer, conversors[i]);
+                        if (function_has_been_deleted(decl_context, initializer, conversors[i]))
+                        {
+                            return 0;
+                        }
                     }
                 }
 
@@ -11230,7 +11419,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                    error_printf("%s: error: invalid initializer for type '%s'\n", 
                             ast_location(initializer),
                             print_type_str(declared_type, decl_context));
                 }
@@ -11238,13 +11427,20 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             }
             else
             {
-                ensure_not_deleted(decl_context, initializer, constructor);
+                if (function_has_been_deleted(decl_context, initializer, constructor))
+                {
+                    return 0;
+                }
+
                 int i = 0;
                 for (i = 0; i < num_args; i++)
                 {
                     if (conversors[i] != NULL)
                     {
-                        ensure_not_deleted(decl_context, initializer, conversors[i]);
+                        if (function_has_been_deleted(decl_context, initializer, conversors[i]))
+                        {
+                            return 0;
+                        }
                     }
                 }
 
@@ -11297,7 +11493,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             if (prev != NULL)
             {
                 // FIXME - Vector types arrive here for some unknown reason. See ticket #593
-                fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
+                error_printf("%s: error: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;
             }
@@ -11374,7 +11570,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                             {
                                 if (!checking_ambiguity())
                                 {
-                                    fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
+                                    error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
                                             ast_location(initializer),
                                             prettyprint_in_buffer(initializer),
                                             print_decl_type_str(initializer_expr_type, decl_context, ""),
@@ -11465,7 +11661,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                     {
                         if (!checking_ambiguity())
                         {
-                            fprintf(stderr, "%s: warning: '%s' is not a field of type '%s' is not valid\n",
+                            error_printf("%s: error: '%s' is not a field of type '%s' is not valid\n",
                                     ast_location(initializer),
                                     prettyprint_in_buffer(symbol),
                                     print_decl_type_str(declared_type, decl_context, ""));
@@ -11476,7 +11672,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                 {
                     if (!checking_ambiguity())
                     {
-                        fprintf(stderr, "%s: warning: gcc-style initializer clause but type is not a struct/union/class\n",
+                        error_printf("%s: error: gcc-style initializer clause but type is not a struct/union/class\n",
                                 ast_location(initializer));
                     }
                 }
@@ -11616,7 +11812,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+                error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
                         ast_location(expression),
                         print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(pointed_lhs_type), decl_context));
             }
@@ -11733,7 +11929,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' does not have class type\n",
+            error_printf("%s: error: '%s' does not have class type\n",
                     ast_location(lhs), prettyprint_in_buffer(lhs));
         }
         expression_set_error(expression);
@@ -11743,7 +11939,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a pointer to member\n",
+            error_printf("%s: error: '%s' is not a pointer to member\n",
                     ast_location(rhs), prettyprint_in_buffer(rhs));
         }
         expression_set_error(expression);
@@ -11761,7 +11957,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
+            error_printf("%s: error: pointer to member of type '%s' is not compatible with an object of type '%s'\n",
                     ast_location(expression),
                     print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         }
@@ -11818,7 +12014,7 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
                 && !is_dependent_type(declared_type) 
                 && (initializer_num > 0))
         {
-            fprintf(stderr, "%s: warning: too many initializers in parenthesized initializer of non class type\n",
+            error_printf("%s: error: too many initializers in parenthesized initializer of non class type\n",
                     ast_location(initializer_list));
         }
 
@@ -11857,7 +12053,7 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: parenthesized initializer '%s' has type '%s' not convertible to '%s'\n",
+                error_printf("%s: error: parenthesized initializer '%s' has type '%s' not convertible to '%s'\n",
                         ast_location(single_initializer_expr),
                         prettyprint_in_buffer(single_initializer_expr),
                         print_decl_type_str(argument_types[0], decl_context, ""),
@@ -11898,14 +12094,17 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: no suitable constructor for type '%s'\n",
+                error_printf("%s: error: no suitable constructor for type '%s'\n",
                         ast_location(initializer_list),
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             return 0;
         }
 
-        ensure_not_deleted(decl_context, initializer_list, constructor);
+        if (function_has_been_deleted(decl_context, initializer_list, constructor))
+        {
+            return 0;
+        }
 
         int k = 0;
         for_each_element(initializer_list, iterator)
@@ -11914,7 +12113,10 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
 
             if (conversors[k] != NULL)
             {
-                ensure_not_deleted(decl_context, initializer, conversors[k]);
+                if (function_has_been_deleted(decl_context, initializer, conversors[k]))
+                {
+                    return 0;
+                }
 
                 ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
@@ -12476,9 +12678,11 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
 
             if (is_incomplete_type(t))
             {
-                running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                error_printf("%s: error: sizeof of incomplete type '%s'\n", 
                         ast_location(sizeof_expression),
                         print_type_str(t, decl_context));
+                expression_set_error(expr);
+                return;
             }
 
             char is_const_expr = 0;
@@ -12593,9 +12797,11 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
 
         if (is_incomplete_type(declarator_type))
         {
-            running_error("%s: error: sizeof of incomplete type '%s'\n", 
+            error_printf("%s: error: sizeof of incomplete type '%s'\n", 
                     ast_location(type_id),
                     print_type_str(declarator_type, decl_context));
+            expression_set_error(expr);
+            return;
         }
 
         if (!CURRENT_CONFIGURATION->disable_sizeof)
@@ -12730,9 +12936,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
 
     if (entry_list == NULL)
     {
-        running_error("%s: error: pseudo-destructor '%s' not found", 
+        error_printf("%s: error: pseudo-destructor '%s' not found", 
                 ast_location(pseudo_destructor_name),
                 prettyprint_in_buffer(pseudo_destructor_name));
+        expression_set_error(expression);
+        return;
     }
 
     scope_entry_list_iterator_t *it = NULL;
@@ -12749,9 +12957,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
                 && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
                 && entry->kind != SK_GCC_BUILTIN_TYPE)
         {
-            running_error("%s: error: pseudo-destructor '%s' does not name a type", 
+            error_printf("%s: error: pseudo-destructor '%s' does not name a type", 
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
     }
     entry_list_iterator_free(it);
@@ -12805,9 +13015,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
 
         if (new_name == NULL)
         {
-            running_error("%s: error: pseudo-destructor '%s' does not refer to any type-name",
+            error_printf("%s: error: pseudo-destructor '%s' does not refer to any type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
 
         scope_entry_t* new_name_entry = entry_list_head(new_name);
@@ -12816,9 +13028,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
         if (!equivalent_types(get_user_defined_type(new_name_entry), 
                     get_user_defined_type(entry)))
         {
-            running_error("%s: error: pseudo-destructor '%s' does not match the type-name",
+            error_printf("%s: error: pseudo-destructor '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
     }
     else if (ASTType(destructor_id) == AST_DESTRUCTOR_TEMPLATE_ID)
@@ -12826,9 +13040,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
         // This must be a class
         if (entry->kind != SK_CLASS)
         {
-            running_error("%s: error: pseudo-destructor '%s' does not refer to a class",
+            error_printf("%s: error: pseudo-destructor '%s' does not refer to a class",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
 
         AST template_id = ASTSon0(destructor_id);
@@ -12838,9 +13054,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
 
         if (new_name == NULL)
         {
-            running_error("%s: error: pseudo-destructor template-id '%s' does not refer to any type-name",
+            error_printf("%s: error: pseudo-destructor template-id '%s' does not refer to any type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
 
         scope_entry_t* new_name_entry = entry_list_head(new_name);
@@ -12849,9 +13067,11 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
         if (!equivalent_types(get_user_defined_type(entry), 
                     get_user_defined_type(new_name_entry)))
         {
-            running_error("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
+            error_printf("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
+            expression_set_error(expression);
+            return;
         }
     }
 
@@ -12955,10 +13175,12 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                 // No lookup for this type, just check that this is an array
                 if (!is_array_type(current_type))
                 {
-                    running_error("%s: error: invalid designator '%s' for non-array type '%s'\n",
+                    error_printf("%s: error: invalid designator '%s' for non-array type '%s'\n",
                             ast_location(expression),
                             prettyprint_in_buffer(name),
                             print_type_str(current_type, decl_context));
+                    expression_set_error(expression);
+                    return;
                 }
 
                 AST const_expr = ASTSon0(name);
@@ -12971,9 +13193,11 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
 
                 if (!expression_is_constant(const_expr))
                 {
-                    running_error("%s: error: expression '%s' should be constant\n",
+                    error_printf("%s: error: expression '%s' should be constant\n",
                             ast_location(const_expr),
                             prettyprint_in_buffer(const_expr));
+                    expression_set_error(expression);
+                    return;
                 }
 
                 current_type = array_type_get_element_type(current_type);
@@ -12987,27 +13211,33 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
 
             if (!is_class_type(current_type))
             {
-                running_error("%s: error: __builtin_offsetof applied to '%s' which is not struct/class/union\n",
+                error_printf("%s: error: __builtin_offsetof applied to '%s' which is not struct/class/union\n",
                         ast_location(expression),
                         print_type_str(current_type, decl_context));
+                expression_set_error(expression);
+                return;
             }
 
             scope_entry_list_t* member_list = get_member_of_class_type(current_type, name, decl_context);
             if (member_list == NULL)
             {
-                running_error("%s: error: '%s' is not a member of type '%s'\n",
+                error_printf("%s: error: '%s' is not a member of type '%s'\n",
                         ast_location(expression),
                         prettyprint_in_buffer(name),
                         print_type_str(current_type, decl_context));
+                expression_set_error(expression);
+                return;
             }
 
             scope_entry_t* member = entry_list_head(member_list);
             if (entry_list_size(member_list) > 1
                     || member->kind != SK_VARIABLE)
             {
-                running_error("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 
+                error_printf("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 
                         ast_location(expression),
                         prettyprint_in_buffer(name));
+                expression_set_error(expression);
+                return;
             }
 
             entry_list_free(member_list);
@@ -13177,7 +13407,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: array section '%s' is invalid since '%s' has type '%s'\n",
+            error_printf("%s: error: array section '%s' is invalid since '%s' has type '%s'\n",
                     ast_location(expression),
                     prettyprint_in_buffer(expression),
                     prettyprint_in_buffer(postfix_expression),
@@ -13221,7 +13451,7 @@ static void check_shaping_expression(AST expression, decl_context_t decl_context
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: shaping expression '%s' cannot be converted to 'int'\n",
+                error_printf("%s: error: shaping expression '%s' cannot be converted to 'int'\n",
                         ast_location(current_expr),
                         prettyprint_in_buffer(current_expr));
             }
@@ -13242,7 +13472,7 @@ static void check_shaping_expression(AST expression, decl_context_t decl_context
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: shaped expression '%s' does not have pointer type\n",
+            error_printf("%s: error: shaped expression '%s' does not have pointer type\n",
                     ast_location(shaped_expr),
                     prettyprint_in_buffer(shaped_expr));
         }
@@ -13253,7 +13483,7 @@ static void check_shaping_expression(AST expression, decl_context_t decl_context
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: shaped expression '%s' has type 'void*' which is invalid\n",
+            error_printf("%s: error: shaped expression '%s' has type 'void*' which is invalid\n",
                     ast_location(shaped_expr),
                     prettyprint_in_buffer(shaped_expr));
         }
@@ -13361,7 +13591,7 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     {
         if (class_type_get_num_constructors(get_actual_class_type(class_type)) != 0)
         {
-            fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
+            error_printf("%s: error: no default constructor for '%s' type\n",
                     ast_location(declarator),
                     print_decl_type_str(class_type, decl_context, ""));
         }
@@ -13369,7 +13599,10 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     }
     else
     {
-        ensure_not_deleted(decl_context, declarator, chosen_constructor);
+        if (function_has_been_deleted(decl_context, declarator, chosen_constructor))
+        {
+            return 0;
+        }
 
         ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
