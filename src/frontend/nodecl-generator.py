@@ -387,6 +387,7 @@ def generate_nodecl_classes_specs(rule_map):
                print "   {"
                pass
            if rule_ref.is_seq():
+               print "{"
                print "   ASTIterator it = %s.get_list_iterator();" % (tree_name)
                print "   while (!it.end())"
                print "   {"
@@ -411,6 +412,7 @@ def generate_nodecl_classes_specs(rule_map):
            i = i + 1         
            if rule_ref.is_seq():
                print "    it.next();"
+               print "}"
                print "}"
            if rule_ref.is_nullable():
                print "}"

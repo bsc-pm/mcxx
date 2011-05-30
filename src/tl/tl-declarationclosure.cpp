@@ -276,8 +276,7 @@ namespace TL
         if (declared_symbol.is_variable()
                 || declared_symbol.is_typedef()
                 || (!declared_entities.empty()
-                    && declared_entities[0].get_declared_symbol().is_typedef())
-                || declared_symbol.is_created_after_typedef())
+                    && declared_entities[0].get_declared_symbol().is_typedef()))
         {
             // Print everything, both the decl-spec and the
             // declarators only when the current entity is a

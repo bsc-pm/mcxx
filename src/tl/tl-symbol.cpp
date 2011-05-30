@@ -336,11 +336,6 @@ namespace TL
         return _symbol->entity_specs.is_builtin;
     }
 
-    bool Symbol::is_created_after_typedef() const
-    {
-        return _symbol->entity_specs.after_typedef;
-    }
-
     AST_t Symbol::get_definition_tree() const
     {
         return _symbol->entity_specs.definition_tree;
