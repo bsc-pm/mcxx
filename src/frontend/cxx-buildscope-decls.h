@@ -64,6 +64,7 @@ struct gather_decl_spec_tag {
     char is_explicit;
     char is_complex;
     char is_overriden_type;
+    char emit_always;
 
     // This type-spec defines (not just declares!) a new type which is
     // accessible through this symbol

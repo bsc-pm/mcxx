@@ -718,10 +718,10 @@ static void insert_extra_attr_data(sqlite3* handle, scope_entry_t* symbol, const
 
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr)
 {
-    insert_ast(handle, gcc_attr->expression_list);
+    insert_ast(handle, nodecl_get_ast(gcc_attr->expression_list));
     char *name_and_tree = sqlite3_mprintf("%s|%lld", 
             gcc_attr->attribute_name,
-            P2LL(gcc_attr->expression_list));
+            P2LL(nodecl_get_ast(gcc_attr->expression_list)));
     char *insert_extra_attr = sqlite3_mprintf("INSERT INTO attributes(symbol, name, value) VALUES(%lld, " Q ", " Q ");",
            P2LL(symbol), name, name_and_tree); 
     run_query(handle, insert_extra_attr);
@@ -823,7 +823,7 @@ static int get_extra_gcc_attrs(void *datum,
             "Too many gcc attributes", 0);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].attribute_name = uniquestr(attr_name);
     p->symbol->entity_specs.gcc_attributes[p->symbol->entity_specs.num_gcc_attributes-1].expression_list = 
-        load_ast(p->handle, safe_atoll(tree));
+        _nodecl_wrap(load_ast(p->handle, safe_atoll(tree)));
 
     free(attr_value);
 

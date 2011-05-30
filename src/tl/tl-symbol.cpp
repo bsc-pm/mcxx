@@ -367,7 +367,7 @@ namespace TL
 
             if (current_gcc_attr == str)
             {
-                return _symbol->entity_specs.gcc_attributes[i].expression_list;
+                return nodecl_get_ast(_symbol->entity_specs.gcc_attributes[i].expression_list);
             }
         }
 

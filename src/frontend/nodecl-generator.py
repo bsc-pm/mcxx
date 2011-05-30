@@ -170,34 +170,38 @@ class RuleRef(Variable):
     def is_seq(self):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         return is_seq
-    def is_nullable(self, already_seen = []):
-        already_seen.append(self)
+    def is_nullable(self, _already_seen = []):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        already_seen = _already_seen[:]
         if is_opt:
             return True
-        if self in already_seen:
+        if rule_ref in already_seen:
            return False
+        already_seen.append(rule_ref)
         rule_set = rule_map[rule_ref]
         for rhs in rule_set:
-          if rhs.is_nullable(already_seen[:]):
+          if rhs.is_nullable(already_seen):
             return True
         return False
-    def first(self, already_seen = []) :
-        if self in already_seen:
-           return set([])
-        already_seen.append(self)
+    def first(self, _already_seen = []) :
+        already_seen = _already_seen[:]
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        if rule_ref in already_seen:
+           return set([])
+        already_seen.append(rule_ref)
         rule_set = rule_map[rule_ref]
         s = set([])
         for rhs in rule_set:
-            s = s.union(rhs.first(already_seen[:]))
+            s = s.union(rhs.first(already_seen))
         return s
     def check_code(self, tree_expr):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         first_set = self.first()
+        if not first_set:
+            raise Exception("First set can't be empty!")
         if is_seq:
-           print "AST it;"
-           print "for_each_element(%s, it)" % (tree_expr)
+           print "AST it, list = %s;" % (tree_expr)
+           print "for_each_element(list, it)" 
            print "{"
            print "   AST e = ASTSon1(it);"
            print "   switch (ASTType(e))"

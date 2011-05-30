@@ -1,7 +1,7 @@
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
-          | builtin
+          | builtin-decl
           | pragma-directive
 
 name : NODECL_SYMBOL() symbol
@@ -32,11 +32,16 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | pragma-construct
           | c-cxx-only-statements
           | fortran-only-statements
+          | builtin-decl
 
-builtin: NODECL_BUILTIN([components]any-seq-opt) text
+builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
+builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text
+
+any-list: NODECL_ANY_LIST([list]any-seq-opt)
 
 any : statement-but-object-init
     | expression
+    | any-list
     | type
 
 loop-control: NODECL_LOOP_CONTROL([init]expression-opt, [cond]expression-opt, [next]expression-opt)
@@ -112,13 +117,13 @@ expression : literal
            | NODECL_CAST([rhs]expression) type text
            | c-cxx-expressions
            | object-init
-           | builtin
+           | builtin-expr
 
 structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
 
-initializer-item : NODECL_INITIALIZER_ITEM([designator]designator-opt, [value]expression)
-designator: NODECL_FIELD_DESIGNATOR([field]name, [next]designator-opt)
-          | NODECL_INDEX_DESIGNATOR([index]expression, [next]designator-opt)
+initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
+          | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
+          | expression
 
 argument : NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
          | expression

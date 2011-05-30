@@ -127,6 +127,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
+    nodecl_t nodecl_expression_list = nodecl_null();
     /*
      * Vector support
      */
@@ -148,6 +149,8 @@ static void gather_one_gcc_attribute(const char* attribute_name,
 
                 gather_info->vector_size = vector_size;
                 gather_info->is_vector = 1;
+
+                nodecl_expression_list = nodecl_make_list_1(expression_get_nodecl(argument));
             }
             else
             {
@@ -190,6 +193,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                 // that (oh, miracle!) is the same as a SPU
                 gather_info->is_vector = 1;
                 gather_info->vector_size = 16;
+
+                nodecl_expression_list = 
+                    nodecl_make_list_1(nodecl_make_string_literal(get_void_type(), "vector__", ASTFileName(argument), ASTLine(argument)));
             }
         }
     }
@@ -208,6 +214,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         if (ASTType(argument) == AST_SYMBOL)
         {
             const char *size_mode = ASTText(argument);
+
+            nodecl_expression_list = 
+                nodecl_make_list_1(nodecl_make_string_literal(get_void_type(), size_mode, ASTFileName(argument), ASTLine(argument)));
 
             // FIXME - Can a vector mode start with two underscores ?
             if (size_mode[0] != 'V')
@@ -421,6 +430,10 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_inline = 1;
     }
+    else if (strcmp(attribute_name, "used") == 0)
+    {
+        gather_info->emit_always = 1;
+    }
     // CUDA attributes
     else if (CURRENT_CONFIGURATION->enable_cuda)
     {
@@ -456,7 +469,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     gather_info->num_gcc_attributes++;
 
     current_gcc_attribute->attribute_name = uniquestr(attribute_name);
-    current_gcc_attribute->expression_list = expression_list;
+    current_gcc_attribute->expression_list = nodecl_expression_list;
 }
 
 void gather_gcc_attribute(AST attribute, 

@@ -1,6 +1,7 @@
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
+#include <stdlib.h>
 
 nodecl_t nodecl_null(void)
 {
@@ -69,6 +70,14 @@ int nodecl_get_line(nodecl_t t)
     return ASTLine(t.tree);
 }
 
+const char* nodecl_get_locus(nodecl_t t)
+{
+    char c[256];
+    snprintf(c, 255, "%s:%d", nodecl_get_filename(t), nodecl_get_line(t));
+    c[255] = '\0';
+    return uniquestr(c);
+}
+
 nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2)
 {
     if (list1.tree == NULL)
@@ -126,4 +135,28 @@ nodecl_t _nodecl_wrap(AST a)
 nodecl_t nodecl_get_child(nodecl_t n, int i)
 {
     return _nodecl_wrap(ast_get_child(n.tree, i));
+}
+
+nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
+{
+    AST list = nodecl_get_ast(n);
+    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Cannot unpack non-list node", 0);
+    AST it;
+    int num_elements = 0;
+    for_each_element(list, it)
+    {
+        num_elements++;
+    }
+
+    nodecl_t* output = calloc(num_elements, sizeof(*output));
+
+    num_elements = 0;
+    for_each_element(list, it)
+    {
+        output[num_elements] = _nodecl_wrap(ASTSon1(it));
+        num_elements++;
+    }
+
+    *num_items = num_elements;
+    return output;
 }

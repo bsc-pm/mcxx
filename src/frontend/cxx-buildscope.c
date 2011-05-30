@@ -603,7 +603,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin(
+                            nodecl_make_builtin_decl(
                                 nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "unknown-pragma", ASTFileName(a), ASTLine(a)));
                 break;
@@ -644,7 +644,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin(
+                            nodecl_make_builtin_decl(
                                 nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "pp-comment", ASTFileName(a), ASTLine(a)));
                 break;
@@ -653,7 +653,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin(
+                            nodecl_make_builtin_decl(
                                 nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "pp-token", ASTFileName(a), ASTLine(a)));
                 break;
@@ -662,7 +662,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             {
                 *nodecl_output = 
                     nodecl_make_list_1(
-                            nodecl_make_builtin(
+                            nodecl_make_builtin_decl(
                                 nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "verbatim", ASTFileName(a), ASTLine(a)));
                 break;
@@ -722,11 +722,13 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                                 ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
-                    nodecl_t nodecl_asm_param = nodecl_make_builtin(
-                            nodecl_make_list_3(
-                                nodecl_identifier,
-                                nodecl_constraint,
-                                expression_get_nodecl(expression)),
+                    nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
+                            nodecl_make_any_list(
+                                nodecl_make_list_3(
+                                    nodecl_constraint,
+                                    expression_get_nodecl(expression),
+                                    nodecl_identifier), 
+                                ASTFileName(asm_operand), ASTLine(asm_operand)),
                             "gcc-asm-operand", 
                             ASTFileName(asm_operand), ASTLine(asm_operand));
 
@@ -742,16 +744,20 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
         }
     }
 
-    *nodecl_output = nodecl_make_builtin(
-            nodecl_make_list_4(
-                nodecl_make_string_literal(get_void_type(), 
-                    ASTText(ASTSon0(asm_parms)), 
-                    ASTFileName(ASTSon0(asm_parms)), 
-                    ASTLine(ASTSon0(asm_parms))),
-                nodecl_asm_params[0],
-                nodecl_asm_params[1],
-                nodecl_asm_params[2]),
+    nodecl_t nodecl_gcc_asm = nodecl_make_builtin_decl(
+            nodecl_make_any_list(
+                nodecl_make_list_4(
+                    nodecl_make_string_literal(get_void_type(), 
+                        ASTText(ASTSon0(asm_parms)), 
+                        ASTFileName(ASTSon0(asm_parms)), 
+                        ASTLine(ASTSon0(asm_parms))),
+                    nodecl_make_any_list(nodecl_asm_params[0], ASTFileName(a), ASTLine(a)),
+                    nodecl_make_any_list(nodecl_asm_params[1], ASTFileName(a), ASTLine(a)),
+                    nodecl_make_any_list(nodecl_asm_params[2], ASTFileName(a), ASTLine(a))),
+                ASTFileName(a), ASTLine(a)),
             "gcc-asm-definition", ASTFileName(a), ASTLine(a));
+
+    *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
 
 // It simply disambiguates
@@ -1116,7 +1122,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 if (entry->defined
                         && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION))
                 {
-                    fprintf(stderr, "%s: error: redefined entity '%s', first declared in '%s:%d'\n",
+                    error_printf("%s: error: redefined entity '%s', first declared in '%s:%d'\n",
                             ast_location(declarator),
                             get_qualified_symbol_name(entry, decl_context),
                             entry->file,
@@ -1150,10 +1156,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     entry->language_dependent_value = initializer;
                     entry->value = expression_get_nodecl(initializer);
 
-                    *nodecl_output = nodecl_concat_lists(
-                            *nodecl_output,
-                            nodecl_make_list_1(nodecl_make_object_init(entry, 
-                                    ASTFileName(initializer), ASTLine(initializer)))); 
                     {
                         ast_set_link_to_child(init_declarator, LANG_INITIALIZER, initializer);
                         ast_set_link_to_child(init_declarator, LANG_DECLARATOR, declarator);
@@ -1174,14 +1176,25 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // FIXME - Set a ->value here???
                     }
                 }
-                if (!current_gather_info.is_extern)
+                if (!current_gather_info.is_extern
+                        || current_gather_info.emit_always)
                 {
                     if (!entry->entity_specs.is_member
                             || (entry->entity_specs.is_static 
                                 && decl_context.current_scope->kind != CLASS_SCOPE))
                     {
+                        // Define the symbol
                         entry->defined = 1;
                         entry->point_of_definition = get_enclosing_declaration(init_declarator);
+
+                        if (decl_context.current_scope->kind == NAMESPACE_SCOPE)
+                        {
+                            // Add an explicit initialization of this entity at namespace scope
+                            *nodecl_output = nodecl_concat_lists(
+                                    *nodecl_output,
+                                    nodecl_make_list_1(nodecl_make_object_init(entry, 
+                                            ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                        }
                     }
                 }
             }
@@ -10183,7 +10196,7 @@ static void build_scope_upc_synch_statement(AST a,
             nodecl_null(),
             nodecl_expression);
 
-    *nodecl_output = nodecl_make_builtin(nodecl_expression, attr_name, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_builtin_decl(nodecl_expression, attr_name, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_upc_forall_statement(AST a, 
@@ -10280,7 +10293,7 @@ static void build_scope_upc_forall_statement(AST a,
     ast_set_link_to_child(a, UPC_FORALL_AFFINITY, affinity);
     ast_set_link_to_child(a, UPC_FORALL_BODY_STATEMENT, statement);
 
-    *nodecl_output = nodecl_make_builtin(nodecl_list, UPC_IS_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_builtin_decl(nodecl_list, UPC_IS_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
 }
 
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }

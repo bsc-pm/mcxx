@@ -305,8 +305,8 @@ enum intent_kind_tag
 enum codegen_status_tag
 {
     CODEGEN_STATUS_NONE = 0,
-    CODEGEN_STATUS_DECLARED,
-    CODEGEN_STATUS_DEFINED
+    CODEGEN_STATUS_DECLARED = 1,
+    CODEGEN_STATUS_DEFINED = 2
 };
 typedef enum codegen_status_tag codegen_status_t;
 

@@ -2,7 +2,6 @@
 #include "cxx-utils.h"
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
-#include "cxx-prettyprint.h"
 #include "cxx-nodecl-visitor.h"
 #include <string.h>
 
@@ -17,10 +16,24 @@ struct nodecl_codegen_visitor_tag
     int indent_level;
     scope_entry_t* current_sym;
 
-    // Minor details during codegen
     char in_condition;
     char initializer;
 } nodecl_codegen_visitor_t;
+
+
+typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
+typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
+
+// This is safer than using the macro directly as it will warn us against wrong types
+// while the macro does not
+static inline nodecl_visitor_fun_t codegen_visitor_fun(codegen_visitor_fun_t p)
+{
+    return NODECL_VISITOR_FUN(p);
+}
+static inline void codegen_walk(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    NODECL_WALK(visitor, node);
+}
 
 static void indent(nodecl_codegen_visitor_t* v)
 {
@@ -202,6 +215,7 @@ static void add_to_clear_list(scope_entry_t* entry)
 
 static void run_clear_list(void)
 {
+#if 0
     if (_clear_list != NULL)
     {
         scope_entry_list_iterator_t* it = entry_list_iterator_begin(_clear_list);
@@ -216,6 +230,7 @@ static void run_clear_list(void)
     }
     entry_list_free(_clear_list);
     _clear_list = NULL;
+#endif
 }
 
 static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
@@ -423,6 +438,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                     visitor->indent_level += 1;
                     declare_symbol(visitor, entry);
+                    // This has been already defined here
+                    entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                     visitor->indent_level--;
 
                     CXX_LANGUAGE()
@@ -452,6 +469,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
     symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 }
 
+static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node);
+
 static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
     // Do nothing if already defined or declared
@@ -477,7 +496,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     decl_specifiers = strappend(decl_specifiers, "static ");
                 }
-                if (symbol->entity_specs.is_extern)
+                else if (symbol->entity_specs.is_extern)
                 {
                     decl_specifiers = strappend(decl_specifiers, "extern ");
                 }
@@ -528,7 +547,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     }
 
                     visitor->initializer = 1;
-                    NODECL_WALK(visitor, symbol->value);
+                    codegen_walk(visitor, symbol->value);
                     visitor->initializer = 0;
                 }
 
@@ -596,9 +615,85 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         0,
                         declare_symbol,
                         define_symbol);
+
+                const char* decl_spec_seq = "";
+                if (symbol->entity_specs.is_static
+                        && !symbol->entity_specs.is_member)
+                {
+                    decl_spec_seq = strappend(decl_spec_seq, "static ");
+                }
+                if (symbol->entity_specs.is_extern)
+                {
+                    decl_spec_seq = strappend(decl_spec_seq, "extern ");
+                }
+                if (symbol->entity_specs.is_inline)
+                {
+                    decl_spec_seq = strappend(decl_spec_seq, "inline ");
+                }
+
+                const char* gcc_attributes = "";
+                int i;
+                for (i = 0; i < MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL; i++)
+                {
+                    if (symbol->entity_specs.gcc_attributes[i].attribute_name != NULL)
+                    {
+                        if (nodecl_is_null(symbol->entity_specs.gcc_attributes[i].expression_list))
+                        {
+                            char c[256];
+                            snprintf(c, 255, " __attribute__((%s))", symbol->entity_specs.gcc_attributes[i].attribute_name);
+                            c[255] = '\0';
+
+                            gcc_attributes = strappend(gcc_attributes, c);
+                        }
+                        else
+                        {
+                            // We print the expression in a temporary file
+                            nodecl_codegen_visitor_t str_visitor = *visitor;
+
+                            char *attribute_expr_list = NULL;
+                            size_t size = 0;
+                            FILE* temporal_stream = open_memstream(&attribute_expr_list, &size);
+
+                            str_visitor.file = temporal_stream;
+                            walk_expression_list(&str_visitor, symbol->entity_specs.gcc_attributes[i].expression_list);
+                            fclose(str_visitor.file);
+
+                            char c[256];
+                            snprintf(c, 255, " __attribute__((%s(%s)))", 
+                                    symbol->entity_specs.gcc_attributes[i].attribute_name,
+                                    attribute_expr_list
+                                    );
+                            c[255] = '\0';
+
+                            gcc_attributes = strappend(gcc_attributes, c);
+                        }
+                    }
+                }
+
+                const char* declarator = print_decl_type_str(symbol->type_information,
+                        symbol->decl_context,
+                        symbol->symbol_name);
+
+                const char* exception_spec = "";
+                CXX_LANGUAGE()
+                {
+                    if (!symbol->entity_specs.any_exception)
+                    {
+                        exception_spec = " throw (";
+                        for (i = 0; i < symbol->entity_specs.num_exceptions; i++)
+                        {
+                            if (i != 0)
+                            {
+                                exception_spec = strappend(exception_spec, ", ");
+                            }
+                            exception_spec = strappend(exception_spec, print_type_str(symbol->entity_specs.exceptions[i], symbol->decl_context));
+                        }
+                        exception_spec = strappend(exception_spec, " )");
+                    }
+                }
+
                 indent(visitor);
-                fprintf(visitor->file, "%s;\n", print_decl_type_str(symbol->type_information, 
-                            symbol->decl_context, symbol->symbol_name));
+                fprintf(visitor->file, "%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, gcc_attributes);
                 break;
             }
         default:
@@ -613,7 +708,8 @@ static char is_local_symbol(scope_entry_t* entry)
 {
     return entry != NULL
         && (entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE);
+                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE
+                || (entry->entity_specs.is_member && !entry->entity_specs.is_static));
 }
 
 static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
@@ -646,7 +742,7 @@ static void walk_list(nodecl_codegen_visitor_t *visitor, nodecl_t node, const ch
     for_each_element(list, it)
     {
         AST current = ASTSon1(it);
-        NODECL_WALK(visitor, _nodecl_wrap(current));
+        codegen_walk(visitor, _nodecl_wrap(current));
 
         // If we are not the last
         if (it != list)
@@ -677,7 +773,7 @@ static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t nod
             fprintf(visitor->file, "(");
         }
 
-        NODECL_WALK(visitor, _nodecl_wrap(current));
+        codegen_walk(visitor, _nodecl_wrap(current));
 
         if (ASTType(current) == NODECL_COMMA)
         {
@@ -748,7 +844,7 @@ static int get_rank(nodecl_t op)
         case NODECL_BOOLEAN_LITERAL:
         case NODECL_STRUCTURED_LITERAL:
         case NODECL_PARENTHESIZED_EXPRESSION:
-        case NODECL_BUILTIN:
+        case NODECL_BUILTIN_EXPR:
             {
                 return -1;
             }
@@ -923,7 +1019,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
         { \
             fprintf(visitor->file, "("); \
         } \
-        NODECL_WALK(visitor, rhs); \
+        codegen_walk(visitor, rhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, ")"); \
@@ -938,7 +1034,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
         { \
             fprintf(visitor->file, "("); \
         } \
-        NODECL_WALK(visitor, rhs); \
+        codegen_walk(visitor, rhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, ")"); \
@@ -955,7 +1051,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
         { \
             fprintf(visitor->file, "("); \
         } \
-        NODECL_WALK(visitor, lhs); \
+        codegen_walk(visitor, lhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, ")"); \
@@ -966,7 +1062,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
         { \
             fprintf(visitor->file, "("); \
         } \
-        NODECL_WALK(visitor, rhs); \
+        codegen_walk(visitor, rhs); \
         if (needs_parentheses) \
         { \
             fprintf(visitor->file, ")"); \
@@ -981,7 +1077,7 @@ static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, 
 {
     nodecl_t nest = nodecl_get_child(node, 0);
     fprintf(visitor->file, "(");
-    NODECL_WALK(visitor, nest);
+    codegen_walk(visitor, nest);
     fprintf(visitor->file, ")");
 }
 
@@ -1011,8 +1107,56 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     {
         int old_initializer = visitor->initializer;
         visitor->initializer = 1;
-        NODECL_WALK(visitor, initializer);
+        codegen_walk(visitor, initializer);
         visitor->initializer = old_initializer;
+    }
+}
+
+static void codegen_sizeof(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    fprintf(visitor->file, "sizeof(%s)", print_type_str(t, CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+static void codegen_conditional_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t cond = nodecl_get_child(node, 0);
+    nodecl_t then = nodecl_get_child(node, 1);
+    nodecl_t _else = nodecl_get_child(node, 2);
+
+    if (operand_has_lower_priority(node, cond))
+    {
+        fprintf(visitor->file, "(");
+    }
+    codegen_walk(visitor, cond);
+    if (operand_has_lower_priority(node, cond))
+    {
+        fprintf(visitor->file, ")");
+    }
+
+    fprintf(visitor->file, " ? ");
+
+    if (operand_has_lower_priority(node, then))
+    {
+        fprintf(visitor->file, "(");
+    }
+    codegen_walk(visitor, then);
+    if (operand_has_lower_priority(node, then))
+    {
+        fprintf(visitor->file, ")");
+    }
+
+    fprintf(visitor->file, " : ");
+
+    if (operand_has_lower_priority(node, _else))
+    {
+        fprintf(visitor->file, "(");
+    }
+    codegen_walk(visitor, _else);
+    if (operand_has_lower_priority(node, _else))
+    {
+        fprintf(visitor->file, ")");
     }
 }
 
@@ -1031,7 +1175,7 @@ static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         {
             fprintf(visitor->file, "(");
         }
-        NODECL_WALK(visitor, nest);
+        codegen_walk(visitor, nest);
         if (needs_parentheses)
         {
             fprintf(visitor->file, ")");
@@ -1040,7 +1184,7 @@ static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     else
     {
         fprintf(visitor->file, "%s<%s>(", cast_kind, print_type_str(t, visitor->current_sym->decl_context));
-        NODECL_WALK(visitor, nest);
+        codegen_walk(visitor, nest);
         fprintf(visitor->file, ")");
     }
 }
@@ -1066,7 +1210,7 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 {
                     fprintf(visitor->file, "(");
                 }
-                NODECL_WALK(visitor, called_entity);
+                codegen_walk(visitor, called_entity);
                 if (needs_parentheses)
                 {
                     fprintf(visitor->file, ")");
@@ -1091,6 +1235,148 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
 }
 
+static void codegen_any_list_sep(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* separator)
+{
+    nodecl_t any_list = nodecl_get_child(node, 0);
+    walk_list(visitor, any_list, separator);
+}
+
+static void codegen_any_list(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t any_list = nodecl_get_child(node, 0);
+    codegen_walk(visitor, any_list);
+}
+
+static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const char* builtin_name = nodecl_get_text(node);
+    nodecl_t any_list_holder = nodecl_get_child(node, 0);
+    nodecl_t any_list = nodecl_get_child(any_list_holder, 0);
+    if (strcmp(builtin_name, "gcc-asm-definition") == 0)
+    {
+        indent(visitor);
+        // FIXME - We are missing __volatile__ keyword
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+
+        ERROR_CONDITION(num_items != 4, "Invalid number of items for gcc-asm-definition", 0);
+
+        fprintf(visitor->file, "__asm__ (");
+        codegen_walk(visitor, unpacked_list[0]); // string-literal
+        fprintf(visitor->file, " : ");
+        codegen_any_list_sep(visitor, unpacked_list[1], ", "); // gcc-asm-operand
+        fprintf(visitor->file, " : ");
+        codegen_any_list_sep(visitor, unpacked_list[2], ", "); // gcc-asm-operand
+        fprintf(visitor->file, " : ");
+        codegen_any_list_sep(visitor, unpacked_list[3], ", "); // gcc-asm-operand
+        fprintf(visitor->file, ");");
+
+        free(unpacked_list);
+    }
+    else if (strcmp(builtin_name, "gcc-asm-operand") == 0)
+    {
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+
+        nodecl_t identifier = nodecl_null();
+        nodecl_t string_literal = nodecl_null();
+        nodecl_t expression = nodecl_null();
+        if (num_items == 3)
+        {
+            string_literal = unpacked_list[0];
+            expression = unpacked_list[1];
+            identifier = unpacked_list[2];
+        }
+        else if (num_items == 2)
+        {
+            expression = unpacked_list[1];
+            string_literal = unpacked_list[0];
+        }
+        else
+        {
+            internal_error("Invalid gcc-asm-operand builtin", 0);
+        }
+
+        if (!nodecl_is_null(identifier))
+        {
+            fprintf(visitor->file, "[");
+            codegen_walk(visitor, identifier);
+            fprintf(visitor->file, "]");
+        }
+        codegen_walk(visitor, string_literal); // string-literal
+        fprintf(visitor->file, "(");
+        codegen_walk(visitor, expression); // expression
+        fprintf(visitor->file, ")");
+
+        free(unpacked_list);
+    }
+    else
+    {
+        internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
+    }
+}
+
+static void codegen_structured_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t items = nodecl_get_child(node, 0);
+
+    fprintf(visitor->file, "{ ");
+    walk_expression_list(visitor, items);
+    fprintf(visitor->file, " }");
+}
+
+static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t field = nodecl_get_child(node, 0);
+    nodecl_t next = nodecl_get_child(node, 1);
+
+    fprintf(visitor->file, ".");
+    codegen_walk(visitor, field);
+
+    if (ASTType(nodecl_get_ast(field)) != NODECL_FIELD_DESIGNATOR
+            && ASTType(nodecl_get_ast(field)) != NODECL_INDEX_DESIGNATOR)
+    {
+        fprintf(visitor->file, " = ");
+    }
+    codegen_walk(visitor, next);
+}
+
+static void codegen_index_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t _index = nodecl_get_child(node, 0);
+    nodecl_t next = nodecl_get_child(node, 1);
+
+    fprintf(visitor->file, "[");
+    codegen_walk(visitor, _index);
+    fprintf(visitor->file, "]");
+
+    if (ASTType(nodecl_get_ast(_index)) != NODECL_FIELD_DESIGNATOR
+            && ASTType(nodecl_get_ast(_index)) != NODECL_INDEX_DESIGNATOR)
+    {
+        fprintf(visitor->file, " = ");
+    }
+    codegen_walk(visitor, next);
+}
+
+static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t subscripted = nodecl_get_child(node, 0);
+    nodecl_t subscript = nodecl_get_child(node, 1);
+
+    if (operand_has_lower_priority(node, subscripted))
+    {
+    fprintf(visitor->file, "(");
+    }
+    codegen_walk(visitor, subscripted);
+    if (operand_has_lower_priority(node, subscripted))
+    {
+    fprintf(visitor->file, ")");
+    }
+    fprintf(visitor->file, "[");
+    codegen_walk(visitor, subscript);
+    fprintf(visitor->file, "]");
+}
+
 // Statements
 static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -1110,13 +1396,13 @@ static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t no
     {
         int old = visitor->in_condition;
         visitor->in_condition = 1;
-        NODECL_WALK(visitor, name);
+        codegen_walk(visitor, name);
         visitor->in_condition = old;
     }
 
     fprintf(visitor->file, ")");
 
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
 }
 
 static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1127,15 +1413,15 @@ static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     indent(visitor);
     fprintf(visitor->file, "try\n");
 
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
 
-    NODECL_WALK(visitor, catch_handlers);
+    codegen_walk(visitor, catch_handlers);
 
     if (!nodecl_is_null(any_catch_handler))
     {
         indent(visitor);
         fprintf(visitor->file, "catch (...)\n");
-        NODECL_WALK(visitor, any_catch_handler);
+        codegen_walk(visitor, any_catch_handler);
     }
 }
 
@@ -1147,8 +1433,8 @@ static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, n
     indent(visitor);
 
     fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
-    NODECL_WALK(visitor, pragma_line);
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, pragma_line);
+    codegen_walk(visitor, statement);
 }
 
 static void codegen_pragma_clause_arg(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1184,7 +1470,7 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
         fprintf(visitor->file, ")");
     }
 
-    NODECL_WALK(visitor, clauses);
+    codegen_walk(visitor, clauses);
 }
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1193,7 +1479,7 @@ static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, n
 
     indent(visitor);
     fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
-    NODECL_WALK(visitor, pragma_line);
+    codegen_walk(visitor, pragma_line);
     fprintf(visitor->file, "\n");
 }
 
@@ -1204,7 +1490,7 @@ static void codegen_return_statement(nodecl_codegen_visitor_t* visitor, nodecl_t
     indent(visitor);
     fprintf(visitor->file, "return ");
 
-    NODECL_WALK(visitor, expression);
+    codegen_walk(visitor, expression);
 
     fprintf(visitor->file, ";\n");
 }
@@ -1236,10 +1522,10 @@ static void codegen_case_statement(nodecl_codegen_visitor_t* visitor, nodecl_t n
 
     indent(visitor);
     fprintf(visitor->file, "case ");
-    NODECL_WALK(visitor, expression);
+    codegen_walk(visitor, expression);
     fprintf(visitor->file, " :\n");
 
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
 }
 
 static void codegen_default_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1249,7 +1535,7 @@ static void codegen_default_statement(nodecl_codegen_visitor_t* visitor, nodecl_
     indent(visitor);
     fprintf(visitor->file, "default :\n");
 
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
 }
 
 static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1263,13 +1549,13 @@ static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t
     int old_indent = visitor->indent_level;
     visitor->indent_level = 0;
     visitor->in_condition = 1;
-    NODECL_WALK(visitor, expression);
+    codegen_walk(visitor, expression);
     visitor->indent_level = old_indent;
     visitor->in_condition = old;
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level += 2;
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
     visitor->indent_level -= 2;
 }
 
@@ -1283,7 +1569,7 @@ static void codegen_labeled_statement(nodecl_codegen_visitor_t* visitor, nodecl_
 
     int old = visitor->indent_level;
     visitor->indent_level = 0;
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
     visitor->indent_level = old;
 }
 
@@ -1300,13 +1586,13 @@ static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_
     int old_indent = visitor->indent_level;
     visitor->indent_level = 0;
     visitor->in_condition = 1;
-    NODECL_WALK(visitor, condition);
+    codegen_walk(visitor, condition);
     visitor->indent_level = old_indent;
     visitor->in_condition = old;
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level++;
-    NODECL_WALK(visitor, then);
+    codegen_walk(visitor, then);
     visitor->indent_level--;
 
     if (!nodecl_is_null(_else))
@@ -1314,7 +1600,7 @@ static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_
         indent(visitor);
         fprintf(visitor->file, "else\n");
         visitor->indent_level++;
-        NODECL_WALK(visitor, _else);
+        codegen_walk(visitor, _else);
         visitor->indent_level--;
     }
 }
@@ -1326,11 +1612,11 @@ static void codegen_for_statement(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     indent(visitor);
     fprintf(visitor->file, "for (");
-    NODECL_WALK(visitor, loop_control);
+    codegen_walk(visitor, loop_control);
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level++;
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
     visitor->indent_level--;
 }
 
@@ -1342,11 +1628,11 @@ static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t nod
 
     int old = visitor->in_condition;
     visitor->in_condition = 1;
-    NODECL_WALK(visitor, init);
+    codegen_walk(visitor, init);
     fprintf(visitor->file, "; ");
-    NODECL_WALK(visitor, cond);
+    codegen_walk(visitor, cond);
     fprintf(visitor->file, "; ");
-    NODECL_WALK(visitor, next);
+    codegen_walk(visitor, next);
     visitor->in_condition = old;
 }
 
@@ -1366,12 +1652,12 @@ static void codegen_do_statement(nodecl_codegen_visitor_t* visitor, nodecl_t nod
     fprintf(visitor->file, "do\n");
 
     visitor->indent_level++;
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
     visitor->indent_level--;
 
     indent(visitor);
     fprintf(visitor->file, "while (");
-    NODECL_WALK(visitor, condition);
+    codegen_walk(visitor, condition);
     fprintf(visitor->file, ");\n");
 }
 
@@ -1386,13 +1672,13 @@ static void codegen_while_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
     int old_indent = visitor->indent_level;
     visitor->indent_level = 0;
     visitor->in_condition = 1;
-    NODECL_WALK(visitor, condition);
+    codegen_walk(visitor, condition);
     visitor->indent_level = old_indent;
     visitor->in_condition = old;
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level++;
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
     visitor->indent_level--;
 }
 
@@ -1400,7 +1686,7 @@ static void codegen_expression_statement(nodecl_codegen_visitor_t* visitor, node
 {
     nodecl_t expression = nodecl_get_child(node, 0);
     indent(visitor);
-    NODECL_WALK(visitor, expression);
+    codegen_walk(visitor, expression);
     fprintf(visitor->file, ";\n");
 }
 
@@ -1416,7 +1702,7 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
 
     define_local_entities_in_trees(visitor, statement_seq, scope_symbol->decl_context.current_scope);
 
-    NODECL_WALK(visitor, statement_seq);
+    codegen_walk(visitor, statement_seq);
 
     visitor->indent_level--;
     indent(visitor);
@@ -1503,25 +1789,35 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     {
         if (symbol->entity_specs.gcc_attributes[i].attribute_name != NULL)
         {
-            if (symbol->entity_specs.gcc_attributes[i].expression_list == NULL)
+            if (nodecl_is_null(symbol->entity_specs.gcc_attributes[i].expression_list))
             {
                 char c[256];
-                snprintf(c, 255, "__attribute__((%s)) ", symbol->entity_specs.gcc_attributes[i].attribute_name);
+                snprintf(c, 255, " __attribute__((%s))", symbol->entity_specs.gcc_attributes[i].attribute_name);
                 c[255] = '\0';
 
                 gcc_attributes = strappend(gcc_attributes, c);
             }
             else
             {
-                internal_error("Attribute Not yet implemented", 0);
-                // char c[256];
-                // snprintf(c, 255, "__attribute__((%s(%s))) ", 
-                //         symbol->entity_specs.gcc_attributes[i].attribute_name,
-                //         codegen_expression_list(visitor, symbol->entity_specs.gcc_attributes[i].expression_list, symbol->decl_context)
-                //             );
-                // c[255] = '\0';
+                // We print the expression in a temporary file
+                nodecl_codegen_visitor_t str_visitor = *visitor;
 
-                // gcc_attributes = strappend(gcc_attributes, c);
+                char *attribute_expr_list = NULL;
+                size_t size = 0;
+                FILE* temporal_stream = open_memstream(&attribute_expr_list, &size);
+
+                str_visitor.file = temporal_stream;
+                walk_expression_list(&str_visitor, symbol->entity_specs.gcc_attributes[i].expression_list);
+                fclose(str_visitor.file);
+
+                char c[256];
+                snprintf(c, 255, " __attribute__((%s(%s)))", 
+                        symbol->entity_specs.gcc_attributes[i].attribute_name,
+                        attribute_expr_list
+                        );
+                c[255] = '\0';
+
+                gcc_attributes = strappend(gcc_attributes, c);
             }
         }
     }
@@ -1556,24 +1852,32 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     indent(visitor);
     fprintf(visitor->file, "%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec);
 
-    NODECL_WALK(visitor, statement);
+    codegen_walk(visitor, statement);
 }
 
 // Top level
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t list = nodecl_get_child(node, 0);
-    NODECL_WALK(visitor, list);
+    codegen_walk(visitor, list);
 }
 
-typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
-typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
-
-// This is safer than using the macro directly as it will warn us against wrong types
-// while the macro does not
-static inline nodecl_visitor_fun_t codegen_visitor_fun(codegen_visitor_fun_t p)
+char* c_cxx_codegen_to_str(AST a, scope_link_t* sl UNUSED_PARAMETER)
 {
-    return NODECL_VISITOR_FUN(p);
+    char *result = NULL;
+    size_t size = 0;
+    FILE* temporal_stream = open_memstream(&result, &size);
+
+    c_cxx_codegen_translation_unit(temporal_stream, a, sl);
+
+    fclose(temporal_stream);
+
+    return result;
+}
+
+char* c_cxx_nodecl_codegen_to_str(nodecl_t n, scope_link_t* sl)
+{
+    return c_cxx_codegen_to_str(nodecl_get_ast(n), sl);
 }
 
 // External interface
@@ -1627,6 +1931,15 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
     NODECL_VISITOR(&codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
     NODECL_VISITOR(&codegen_visitor)->visit_cast = codegen_visitor_fun(codegen_cast);
+    NODECL_VISITOR(&codegen_visitor)->visit_sizeof = codegen_visitor_fun(codegen_sizeof);
+    NODECL_VISITOR(&codegen_visitor)->visit_conditional_expression = codegen_visitor_fun(codegen_conditional_expression);
+    NODECL_VISITOR(&codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin);
+    NODECL_VISITOR(&codegen_visitor)->visit_builtin_expr = codegen_visitor_fun(codegen_builtin);
+    NODECL_VISITOR(&codegen_visitor)->visit_any_list = codegen_visitor_fun(codegen_any_list);
+    NODECL_VISITOR(&codegen_visitor)->visit_structured_literal = codegen_visitor_fun(codegen_structured_literal);
+    NODECL_VISITOR(&codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
+    NODECL_VISITOR(&codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
+    NODECL_VISITOR(&codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
     NODECL_VISITOR(&codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);
@@ -1637,7 +1950,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 
-    nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, _nodecl_wrap(a));
+    codegen_walk(&codegen_visitor, _nodecl_wrap(a));
 
     run_clear_list();
 }

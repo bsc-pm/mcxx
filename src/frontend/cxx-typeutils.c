@@ -42,6 +42,7 @@
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
 #include "cxx-entrylist.h"
+#include "cxx-codegen.h"
 
 #include "red_black_tree.h"
 
@@ -2546,7 +2547,6 @@ static type_t* _get_array_type(type_t* element_type,
                 *(data[i].pred) = 1;
                 *(data[i].value) = const_value_cast_to_8(
                         nodecl_get_constant(*(data[i].nodecl)));
-                ast_free(nodecl_get_ast(*(data[i].nodecl)));
             }
         }
     }
@@ -5784,7 +5784,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                // result = prettyprint_in_buffer(simple_type->typeof_expr);
                 result = get_qualified_symbol_name(simple_type->dependent_entry,
                         decl_context);
 
@@ -6212,7 +6211,10 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 else
                 {
-                    const char* whole_size = strappend("[", prettyprint_in_buffer(nodecl_get_ast(type_info->array->whole_size)));
+                    char* whole_size_str = c_cxx_nodecl_codegen_to_str(type_info->array->whole_size, NULL);
+
+                    const char* whole_size = strappend("[", whole_size_str);
+                    free(whole_size_str);
                     whole_size = strappend(whole_size, "]");
 
                     (*right) = strappend((*right), whole_size);

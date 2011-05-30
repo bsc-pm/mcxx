@@ -85,6 +85,9 @@ unsigned long long expression_info_sizeof(void)
 
 static expression_info_t* expression_get_expression_info_noalloc(AST expr)
 {
+    if (expr == NULL)
+        return NULL;
+
     expression_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
     return p;
 }
@@ -6507,7 +6510,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
         nodecl_t nodecl_output = nodecl_make_array_subscript(
                 expression_get_nodecl(subscripted_expr), 
-                expression_get_nodecl(subscript_expr), 
+                nodecl_make_list_1(expression_get_nodecl(subscript_expr)),
                 t, ASTFileName(expr), ASTLine(expr));
         expression_set_nodecl(expr, nodecl_output);
         return;
@@ -6520,7 +6523,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
         nodecl_t nodecl_output = nodecl_make_array_subscript(
                 expression_get_nodecl(subscripted_expr), 
-                expression_get_nodecl(subscript_expr), 
+                nodecl_make_list_1(expression_get_nodecl(subscript_expr)), 
                 t, ASTFileName(expr), ASTLine(expr));
         expression_set_nodecl(expr, nodecl_output);
         return;
@@ -12744,7 +12747,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
         case AST_GCC_ALIGNOF:
             {
                 expression_set_nodecl(expr, 
-                        nodecl_make_builtin(
+                        nodecl_make_builtin_expr(
                             nodecl_make_list_1(nodecl_make_type(t, NULL, 0)),
                             ast_print_node_type(ASTType(expr)), ASTFileName(expr), ASTLine(expr)));
                 break;
@@ -12868,7 +12871,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
         case AST_UPC_LOCALSIZEOF_TYPEID:
         {
             expression_set_nodecl(expr, 
-                    nodecl_make_builtin(
+                    nodecl_make_builtin_expr(
                         nodecl_make_list_1(nodecl_make_type(declarator_type, NULL, 0)),
                         ast_print_node_type(ASTType(expr)), ASTFileName(expr), ASTLine(expr)));
             break;
