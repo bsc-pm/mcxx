@@ -459,6 +459,20 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             gather_info->cuda.is_constant = 1;
         }
     }
+    else
+    {
+        // Unknown attribute, keep its arguments as a literal list
+        if (expression_list != NULL)
+        {
+            AST it;
+            for_each_element(expression_list, it)
+            {
+                AST expr = ASTSon1(it);
+                nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list, 
+                        nodecl_make_string_literal(get_void_type(), prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
+            }
+        }
+    }
 
     // Save it in the gather_info structure
     if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)

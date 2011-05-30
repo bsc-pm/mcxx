@@ -5814,13 +5814,6 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     entry->kind = SK_TYPEDEF;
     entry->type_information = declarator_type;
 
-    if ((is_named_class_type(declarator_type)
-            || is_named_enumerated_type(declarator_type))
-            && (named_type_get_symbol(declarator_type)->entity_specs.is_anonymous))
-    {
-        named_type_get_symbol(declarator_type)->symbol_name = entry->symbol_name;
-    }
-
     return entry;
 }
 
@@ -6108,6 +6101,9 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     }
     else
     {
+        // Merge inline attribute
+        entry->entity_specs.is_inline |= gather_info->is_inline;
+
         // An existing function was found
         CXX_LANGUAGE()
         {

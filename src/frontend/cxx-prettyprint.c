@@ -45,6 +45,7 @@
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-prettyprint-internal.h"
+#include "cxx-diagnostic.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-prettyprint.h"
@@ -765,7 +766,7 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
     if (hnd == NULL)
     {
-        internal_error("Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
+        error_printf("Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
         return;
     }
     else

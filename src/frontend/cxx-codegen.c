@@ -17,6 +17,7 @@ struct nodecl_codegen_visitor_tag
     scope_entry_t* current_sym;
 
     char in_condition;
+    nodecl_t condition_top;
     char initializer;
 } nodecl_codegen_visitor_t;
 
@@ -968,6 +969,13 @@ static int get_rank(nodecl_t op)
     return -1000;
 }
 
+static char is_bitwise_bin_operator(node_t n)
+{
+    return n == NODECL_BITWISE_AND
+        || n == NODECL_BITWISE_OR
+        || n == NODECL_BITWISE_XOR;
+}
+
 
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
@@ -976,7 +984,17 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
-    // Comma is such a special operator, if a comma has another comma as an operand, it must have lower priority
+    node_t current_kind = ASTType(nodecl_get_ast(current_operator));
+    node_t operand_kind = ASTType(nodecl_get_ast(operand));
+
+    if (is_bitwise_bin_operator(current_kind) // &
+            && is_bitwise_bin_operator(operand_kind)) // |
+    {
+        // For the sake of clarity
+        // a | b & c  -> a | (b & c)
+        return 1;
+    }
+
     return rank_operand < rank_current;
 }
 
@@ -1014,17 +1032,17 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(bitwise_xor, " ^ ") \
     BINARY_EXPRESSION(shl, " << ") \
     BINARY_EXPRESSION(shr, " >> ") \
-    BINARY_EXPRESSION(assignment, " = ") \
-    BINARY_EXPRESSION(mul_assignment, " *= ") \
-    BINARY_EXPRESSION(div_assignment, " /= ") \
-    BINARY_EXPRESSION(add_assignment, " += ") \
-    BINARY_EXPRESSION(sub_assignment, " -= ") \
-    BINARY_EXPRESSION(shl_assignment, " <<= ") \
-    BINARY_EXPRESSION(shr_assignment, " >>= ") \
-    BINARY_EXPRESSION(bitwise_and_assignment, " &= ") \
-    BINARY_EXPRESSION(bitwise_or_assignment, " |= ") \
-    BINARY_EXPRESSION(bitwise_xor_assignment, " ^= ") \
-    BINARY_EXPRESSION(mod_assignment, " %= ") \
+    BINARY_EXPRESSION_ASSIG(assignment, " = ") \
+    BINARY_EXPRESSION_ASSIG(mul_assignment, " *= ") \
+    BINARY_EXPRESSION_ASSIG(div_assignment, " /= ") \
+    BINARY_EXPRESSION_ASSIG(add_assignment, " += ") \
+    BINARY_EXPRESSION_ASSIG(sub_assignment, " -= ") \
+    BINARY_EXPRESSION_ASSIG(shl_assignment, " <<= ") \
+    BINARY_EXPRESSION_ASSIG(shr_assignment, " >>= ") \
+    BINARY_EXPRESSION_ASSIG(bitwise_and_assignment, " &= ") \
+    BINARY_EXPRESSION_ASSIG(bitwise_or_assignment, " |= ") \
+    BINARY_EXPRESSION_ASSIG(bitwise_xor_assignment, " ^= ") \
+    BINARY_EXPRESSION_ASSIG(mod_assignment, " %= ") \
     BINARY_EXPRESSION(class_member_access, ".") \
     BINARY_EXPRESSION(offset, ".*") \
     BINARY_EXPRESSION(comma, ", ") 
@@ -1088,10 +1106,46 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
             fprintf(visitor->file, ")"); \
         } \
     }
+#define BINARY_EXPRESSION_ASSIG(_name, _operand) \
+    static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
+    { \
+        if (visitor->in_condition && visitor->condition_top.tree == node.tree) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
+        nodecl_t lhs = nodecl_get_child(node, 0); \
+        nodecl_t rhs = nodecl_get_child(node, 1); \
+        char needs_parentheses = operand_has_lower_priority(node, lhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
+        codegen_walk(visitor, lhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
+        fprintf(visitor->file, "%s", _operand); \
+        needs_parentheses = operand_has_lower_priority(node, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, "("); \
+        } \
+        codegen_walk(visitor, rhs); \
+        if (needs_parentheses) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
+        if (visitor->in_condition && visitor->condition_top.tree == node.tree) \
+        { \
+            fprintf(visitor->file, ")"); \
+        } \
+    }
 OPERATOR_TABLE
 #undef POSTFIX_UNARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+#undef BINARY_EXPRESSION_ASSIG
 
 static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -1427,10 +1481,16 @@ static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
     else
     {
-        int old = visitor->in_condition;
+        int old_condition = visitor->in_condition;
+        nodecl_t old_condition_top = visitor->condition_top;
+
         visitor->in_condition = 1;
+        visitor->condition_top = name;
+
         codegen_walk(visitor, name);
-        visitor->in_condition = old;
+
+        visitor->condition_top = old_condition_top;
+        visitor->in_condition = old_condition;
     }
 
     fprintf(visitor->file, ")");
@@ -1578,13 +1638,20 @@ static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t
 
     indent(visitor);
     fprintf(visitor->file, "switch (");
-    int old = visitor->in_condition;
+    nodecl_t old_condition_top = visitor->condition_top;
+    int old_condition = visitor->in_condition;
     int old_indent = visitor->indent_level;
+
     visitor->indent_level = 0;
     visitor->in_condition = 1;
+    visitor->condition_top = expression;
+
     codegen_walk(visitor, expression);
+
     visitor->indent_level = old_indent;
-    visitor->in_condition = old;
+    visitor->in_condition = old_condition;
+    visitor->condition_top = old_condition_top;
+
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level += 2;
@@ -1615,13 +1682,20 @@ static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_
     indent(visitor);
 
     fprintf(visitor->file, "if (");
-    int old = visitor->in_condition;
+    int old_condition = visitor->in_condition;
     int old_indent = visitor->indent_level;
+    nodecl_t old_condition_top = visitor->condition_top;
+
     visitor->indent_level = 0;
     visitor->in_condition = 1;
+    visitor->condition_top = condition;
+
     codegen_walk(visitor, condition);
+
     visitor->indent_level = old_indent;
-    visitor->in_condition = old;
+    visitor->in_condition = old_condition;
+    visitor->condition_top = old_condition_top;
+
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level++;
@@ -1659,12 +1733,23 @@ static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t nod
     nodecl_t cond = nodecl_get_child(node, 1);
     nodecl_t next = nodecl_get_child(node, 2);
 
+    // No condition top as "for((i=0); ...)" looks unnecessary ugly
     int old = visitor->in_condition;
     visitor->in_condition = 1;
+
     codegen_walk(visitor, init);
     fprintf(visitor->file, "; ");
+
+    nodecl_t old_condition_top = visitor->condition_top;
+    visitor->condition_top = cond;
+
+    // But it is desirable for the condition in "for( ... ; (i = x) ; ...)"
     codegen_walk(visitor, cond);
     fprintf(visitor->file, "; ");
+
+    visitor->condition_top = old_condition_top;
+
+    // Here we do not care about parentheses "for ( ... ; ... ; i = i + 1)"
     codegen_walk(visitor, next);
     visitor->in_condition = old;
 }
@@ -1702,12 +1787,15 @@ static void codegen_while_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
     indent(visitor);
     fprintf(visitor->file, "while (");
     int old = visitor->in_condition;
+    nodecl_t old_condition_top = visitor->condition_top;
     int old_indent = visitor->indent_level;
     visitor->indent_level = 0;
     visitor->in_condition = 1;
+    visitor->condition_top = condition;
     codegen_walk(visitor, condition);
     visitor->indent_level = old_indent;
     visitor->in_condition = old;
+    visitor->condition_top = old_condition_top;
     fprintf(visitor->file, ")\n");
 
     visitor->indent_level++;
@@ -2006,6 +2094,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
     NODECL_VISITOR(&codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);
 #define POSTFIX_UNARY_EXPRESSION(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
 #define BINARY_EXPRESSION(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
+#define BINARY_EXPRESSION_ASSIG(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)
     OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
