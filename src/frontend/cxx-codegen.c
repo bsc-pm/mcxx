@@ -20,7 +20,6 @@ struct nodecl_codegen_visitor_tag
     // Minor details during codegen
     char in_condition;
     char initializer;
-    char in_expression_list;
 } nodecl_codegen_visitor_t;
 
 static void indent(nodecl_codegen_visitor_t* v)
@@ -661,10 +660,36 @@ static void walk_list(nodecl_codegen_visitor_t *visitor, nodecl_t node, const ch
 // additional parentheses
 static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node)
 {
-    char old = visitor->in_expression_list;
-    visitor->in_expression_list = 1;
-    walk_list(visitor, node, ", ");
-    visitor->in_expression_list = old;
+    if (nodecl_is_null(node))
+        return;
+
+    AST list = nodecl_get_ast(node);
+
+    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Invalid node kind", 0);
+
+    AST it;
+    for_each_element(list, it)
+    {
+        AST current = ASTSon1(it);
+
+        if (ASTType(current) == NODECL_COMMA)
+        {
+            fprintf(visitor->file, "(");
+        }
+
+        NODECL_WALK(visitor, _nodecl_wrap(current));
+
+        if (ASTType(current) == NODECL_COMMA)
+        {
+            fprintf(visitor->file, ")");
+        }
+
+        // If we are not the last
+        if (it != list)
+        {
+            fprintf(visitor->file, ", ");
+        }
+    }
 }
 
 // Codegen
@@ -834,6 +859,8 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     // It does not have known lower priority
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
+
+    // Comma is such a special operator, if a comma has another comma as an operand, it must have lower priority
     return rank_operand < rank_current;
 }
 
@@ -883,51 +910,8 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION(mod_assignment, " %= ") \
     BINARY_EXPRESSION(class_member_access, ".") \
-    BINARY_EXPRESSION(offset, ".*") 
-
-// comma operator is special
-static void codegen_comma(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    // Set this where a comma is not allowed in top level
-    if (visitor->in_expression_list)
-    {
-        fprintf(visitor->file, "(");
-    }
-
-    int old = visitor->in_expression_list;
-    visitor->in_expression_list = 0;
-
-    nodecl_t lhs = nodecl_get_child(node, 0); 
-    nodecl_t rhs = nodecl_get_child(node, 1); 
-    char needs_parentheses = operand_has_lower_priority(node, lhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, "("); 
-    } 
-    NODECL_WALK(visitor, lhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, ")"); 
-    } 
-    fprintf(visitor->file, "%s", ", "); 
-    needs_parentheses = operand_has_lower_priority(node, rhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, "("); 
-    } 
-    NODECL_WALK(visitor, rhs); 
-    if (needs_parentheses) 
-    { 
-        fprintf(visitor->file, ")"); 
-    } 
-
-    visitor->in_expression_list = old;
-
-    if (visitor->in_expression_list)
-    {
-        fprintf(visitor->file, ")");
-    }
-}
+    BINARY_EXPRESSION(offset, ".*") \
+    BINARY_EXPRESSION(comma, ", ") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
@@ -1652,7 +1636,6 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl UNUSED_PARA
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
-    NODECL_VISITOR(&codegen_visitor)->visit_comma = codegen_visitor_fun(codegen_comma);
 
     nodecl_walk((nodecl_external_visitor_t*)&codegen_visitor, _nodecl_wrap(a));
 
