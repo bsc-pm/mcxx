@@ -628,7 +628,14 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
                 if (symbol->entity_specs.is_inline)
                 {
-                    decl_spec_seq = strappend(decl_spec_seq, "inline ");
+                    C_LANGUAGE()
+                    {
+                        decl_spec_seq = strappend(decl_spec_seq, "__inline ");
+                    }
+                    CXX_LANGUAGE()
+                    {
+                        decl_spec_seq = strappend(decl_spec_seq, "inline ");
+                    }
                 }
 
                 const char* gcc_attributes = "";
@@ -670,6 +677,19 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     }
                 }
 
+                char* asm_specification = "";
+                if (symbol->entity_specs.asm_specification != NULL)
+                {
+                    nodecl_codegen_visitor_t str_visitor = *visitor;
+
+                    size_t size = 0;
+                    FILE* temporal_stream = open_memstream(&asm_specification, &size);
+
+                    str_visitor.file = temporal_stream;
+                    codegen_walk(&str_visitor, _nodecl_wrap(symbol->entity_specs.asm_specification));
+                    fclose(str_visitor.file);
+                }
+
                 const char* declarator = print_decl_type_str(symbol->type_information,
                         symbol->decl_context,
                         symbol->symbol_name);
@@ -693,7 +713,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 indent(visitor);
-                fprintf(visitor->file, "%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, gcc_attributes);
+                fprintf(visitor->file, "%s%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, gcc_attributes, asm_specification);
                 break;
             }
         default:
@@ -1310,6 +1330,19 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
         free(unpacked_list);
     }
+    else if (strcmp(builtin_name, "gcc-asm-spec") == 0)
+    {
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+
+        ERROR_CONDITION(num_items != 1, "Invalid tree for gcc-asm-spec", 0);
+
+        fprintf(visitor->file, " __asm(");
+        codegen_walk(visitor, unpacked_list[0]);
+        fprintf(visitor->file, ")");
+
+        free(unpacked_list);
+    }
     else
     {
         internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
@@ -1781,45 +1814,73 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
     if (symbol->entity_specs.is_inline)
     {
-        decl_spec_seq = strappend(decl_spec_seq, "inline ");
+        C_LANGUAGE()
+        {
+            decl_spec_seq = strappend(decl_spec_seq, "__inline ");
+        }
+        CXX_LANGUAGE()
+        {
+            decl_spec_seq = strappend(decl_spec_seq, "inline ");
+        }
     }
 
     const char* gcc_attributes = "";
+    int num_attrs = 0;
     for (i = 0; i < MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL; i++)
     {
         if (symbol->entity_specs.gcc_attributes[i].attribute_name != NULL)
+            num_attrs++;
+    }
+    for (i = 0; i < num_attrs; i++)
+    {
+        const char* separator = " ";
+        // if ((i + 1) == num_attrs)
+        //     separator = "";
+
+        if (nodecl_is_null(symbol->entity_specs.gcc_attributes[i].expression_list))
         {
-            if (nodecl_is_null(symbol->entity_specs.gcc_attributes[i].expression_list))
-            {
-                char c[256];
-                snprintf(c, 255, " __attribute__((%s))", symbol->entity_specs.gcc_attributes[i].attribute_name);
-                c[255] = '\0';
+            char c[256];
+            snprintf(c, 255, "__attribute__((%s))%s", symbol->entity_specs.gcc_attributes[i].attribute_name, separator);
+            c[255] = '\0';
 
-                gcc_attributes = strappend(gcc_attributes, c);
-            }
-            else
-            {
-                // We print the expression in a temporary file
-                nodecl_codegen_visitor_t str_visitor = *visitor;
-
-                char *attribute_expr_list = NULL;
-                size_t size = 0;
-                FILE* temporal_stream = open_memstream(&attribute_expr_list, &size);
-
-                str_visitor.file = temporal_stream;
-                walk_expression_list(&str_visitor, symbol->entity_specs.gcc_attributes[i].expression_list);
-                fclose(str_visitor.file);
-
-                char c[256];
-                snprintf(c, 255, " __attribute__((%s(%s)))", 
-                        symbol->entity_specs.gcc_attributes[i].attribute_name,
-                        attribute_expr_list
-                        );
-                c[255] = '\0';
-
-                gcc_attributes = strappend(gcc_attributes, c);
-            }
+            gcc_attributes = strappend(gcc_attributes, c);
         }
+        else
+        {
+            // We print the expression in a temporary file
+            nodecl_codegen_visitor_t str_visitor = *visitor;
+
+            char *attribute_expr_list = NULL;
+            size_t size = 0;
+            FILE* temporal_stream = open_memstream(&attribute_expr_list, &size);
+
+            str_visitor.file = temporal_stream;
+            walk_expression_list(&str_visitor, symbol->entity_specs.gcc_attributes[i].expression_list);
+            fclose(str_visitor.file);
+
+            char c[256];
+            snprintf(c, 255, " __attribute__((%s(%s)))%s", 
+                    symbol->entity_specs.gcc_attributes[i].attribute_name,
+                    attribute_expr_list,
+                    separator
+                    );
+            c[255] = '\0';
+
+            gcc_attributes = strappend(gcc_attributes, c);
+        }
+    }
+
+    char* asm_specification = "";
+    if (symbol->entity_specs.asm_specification != NULL)
+    {
+        nodecl_codegen_visitor_t str_visitor = *visitor;
+
+        size_t size = 0;
+        FILE* temporal_stream = open_memstream(&asm_specification, &size);
+
+        str_visitor.file = temporal_stream;
+        codegen_walk(&str_visitor, _nodecl_wrap(symbol->entity_specs.asm_specification));
+        fclose(str_visitor.file);
     }
 
     const char* declarator = get_declaration_string_internal(symbol->type_information,
@@ -1850,7 +1911,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
 
     indent(visitor);
-    fprintf(visitor->file, "%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec);
+    fprintf(visitor->file, "%s%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec, asm_specification);
 
     codegen_walk(visitor, statement);
 }

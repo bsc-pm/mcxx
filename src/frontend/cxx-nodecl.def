@@ -16,14 +16,14 @@ statement : statement-but-object-init
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
           | NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
-          | NODECL_DO_STATEMENT([statement]statement, [condition]expression)
-          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement) symbol
-          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement) symbol
-          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement, [else]statement-opt) symbol
-          | NODECL_LABELED_STATEMENT([statement]statement) symbol
-          | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement)
-          | NODECL_DEFAULT_STATEMENT([statement]statement)
-          | NODECL_CASE_STATEMENT([case]expression, [statement]statement)
+          | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) symbol
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) symbol
+          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) symbol
+          | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
+          | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
+          | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
+          | NODECL_CASE_STATEMENT([case]expression, [statement]statement-seq)
           | NODECL_BREAK_STATEMENT()
           | NODECL_CONTINUE_STATEMENT()
           | NODECL_GOTO_STATEMENT() symbol
@@ -50,11 +50,11 @@ pragma-directive: NODECL_PRAGMA_CUSTOM_DIRECTIVE([pragma_line]pragma-line) text
 pragma-line: NODECL_PRAGMA_CUSTOM_LINE([parameters]pragma-clause-arg-seq-opt, [clauses]pragma-custom-clause-seq-opt) text
 pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-seq-opt) text
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
-pragma-construct : NODECL_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement) text
+pragma-construct : NODECL_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement-seq) text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement, [catch_handlers]catch-handler-seq, [any]statement-opt)
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq, [any]statement-seq-opt)
 
-catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement) type
+catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 # FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : NODECL_ALLOCATE_STATEMENT()

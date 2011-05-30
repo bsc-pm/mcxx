@@ -1875,37 +1875,43 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
     type_t* result = NULL;
     if (*literal != 'L')
     {
+        result = get_wchar_t_type();
+        literal++;
+    }
+    else
+    {
         result = get_char_type();
+    }
 
-        // literal[0] is the quote
-        uint64_t value = 0;
-        if (literal[1] != '\\')
+    // literal[0] is the quote
+    uint64_t value = 0;
+    if (literal[1] != '\\')
+    {
+        value = literal[1];
+    }
+    else
+    {
+        switch (literal[2])
         {
-            value = literal[1];
-        }
-        else
-        {
-            switch (literal[2])
-            {
-                case '\'': { value = literal[2]; break; }
-                case 'a' : { value = '\a'; break; }
-                case 'b' : { value = '\b'; break; }
-                case 'e' : { value = '\e'; break; } // This is a gcc extension
-                case 'f' : { value = '\f'; break; }
-                case 'n' : { value = '\n'; break; }
-                case 'r' : { value = '\r'; break; }
-                case 't' : { value = '\t'; break; }
-                case 'v' : { value = '\v'; break; }
-                case '\\': { value = '\\'; break; }
-                case '\"': { value = '\"'; break; }
-                case '0': 
-                case '1': 
-                case '2': 
-                case '3': 
-                case '4': 
-                case '5': 
-                case '6': 
-                case '7': 
+            case '\'': { value = literal[2]; break; }
+            case 'a' : { value = '\a'; break; }
+            case 'b' : { value = '\b'; break; }
+            case 'e' : { value = '\e'; break; } // This is a gcc extension
+            case 'f' : { value = '\f'; break; }
+            case 'n' : { value = '\n'; break; }
+            case 'r' : { value = '\r'; break; }
+            case 't' : { value = '\t'; break; }
+            case 'v' : { value = '\v'; break; }
+            case '\\': { value = '\\'; break; }
+            case '\"': { value = '\"'; break; }
+            case '0': 
+            case '1': 
+            case '2': 
+            case '3': 
+            case '4': 
+            case '5': 
+            case '6': 
+            case '7': 
                        {
                            int i;
                            char c[32] = { 0 };
@@ -1928,45 +1934,37 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
                            }
                            break;
                        }
-                case 'x':
-                        {
-                            int i;
-                            char c[32] = { 0 };
-                            // Copy until the quote
-                            // Note literal_value is '\x000' so the number
-                            // starts at literal_value[3]
-                            for (i = 3; literal[i] != '\'' && literal[i] != '\0' ; i++)
-                            {
-                                c[i - 3] = literal[i];
-                            }
+            case 'x':
+                       {
+                           int i;
+                           char c[32] = { 0 };
+                           // Copy until the quote
+                           // Note literal_value is '\x000' so the number
+                           // starts at literal_value[3]
+                           for (i = 3; literal[i] != '\'' && literal[i] != '\0' ; i++)
+                           {
+                               c[i - 3] = literal[i];
+                           }
 
-                            char * err = NULL;
-                            value = strtol(c, &err, 16);
+                           char * err = NULL;
+                           value = strtol(c, &err, 16);
 
-                            if (!(*c != '\0'
-                                        && *err == '\0'))
-                            {
-                                error_printf("%s: error: %s does not seem a valid character literal\n", 
-                                        ast_location(expr),
-                                        prettyprint_in_buffer(expr));
+                           if (!(*c != '\0'
+                                       && *err == '\0'))
+                           {
+                               error_printf("%s: error: %s does not seem a valid character literal\n", 
+                                       ast_location(expr),
+                                       prettyprint_in_buffer(expr));
                                return get_error_type();
-                            }
-                            break;
-                        }
-                default:
-                    internal_error("Unhandled char literal '%s'", literal);
-            }
+                           }
+                           break;
+                       }
+            default:
+                       internal_error("Unhandled char literal '%s'", literal);
         }
+    }
 
-        // TODO - We need to know if char is signed or not
-        *val = const_value_get(value, type_get_size(get_char_type()), /* sign */ 0);
-    }
-    else
-    {
-        result = get_wchar_t_type();
-        // We do not evaluate wide chars as we need something more powerful
-        // here
-    }
+    *val = const_value_get(value, type_get_size(result), /* sign */ 0);
 
     return result;
 }

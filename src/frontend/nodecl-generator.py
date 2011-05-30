@@ -200,6 +200,7 @@ class RuleRef(Variable):
         if not first_set:
             raise Exception("First set can't be empty!")
         if is_seq:
+           print "{"
            print "AST it, list = %s;" % (tree_expr)
            print "for_each_element(list, it)" 
            print "{"
@@ -219,6 +220,7 @@ class RuleRef(Variable):
            print "           break;"
            print "        }"
            print "   }"
+           print "}"
            print "}"
         else:
            for first_item in first_set:

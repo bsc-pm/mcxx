@@ -1083,11 +1083,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     && ASTType(init_declarator) != AST_GCC_INIT_DECLARATOR,
                     "Invalid node", 0);
 
-            if (ASTType(init_declarator) == AST_GCC_INIT_DECLARATOR
-                    && ASTSon3(init_declarator) != NULL)
+            AST asm_specification = NULL;
+            if (ASTType(init_declarator) == AST_GCC_INIT_DECLARATOR)
             {
-                AST attribute_list = ASTSon3(init_declarator);
-                gather_gcc_attribute_list(attribute_list, &current_gather_info, decl_context);
+                if (ASTSon3(init_declarator) != NULL)
+                {
+                    AST attribute_list = ASTSon3(init_declarator);
+                    gather_gcc_attribute_list(attribute_list, &current_gather_info, decl_context);
+                }
+                asm_specification = ASTSon2(init_declarator);
             }
 
             AST declarator = ASTSon0(init_declarator);
@@ -1197,6 +1201,25 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
                     }
                 }
+            }
+
+            // GCC weird stuff
+            if (asm_specification != NULL)
+            {
+                nodecl_t asm_spec = nodecl_make_builtin_decl(
+                        nodecl_make_any_list(
+                            nodecl_make_list_1(
+                                nodecl_make_string_literal(
+                                    get_void_type(),
+                                    ASTText(ASTSon0(asm_specification)), 
+                                    ASTFileName(ASTSon0(asm_specification)), 
+                                    ASTLine(ASTSon0(asm_specification)))),
+                            ASTFileName(asm_specification), 
+                            ASTLine(asm_specification)),
+                        "gcc-asm-spec",
+                        ASTFileName(asm_specification), 
+                        ASTLine(asm_specification));
+                entry->entity_specs.asm_specification = nodecl_get_ast(asm_spec);
             }
 
             if (declared_symbols != NULL)
@@ -7654,6 +7677,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 entry->line);
     }
 
+    // Inline may be added in a function definition
+    entry->entity_specs.is_inline |= gather_info.is_inline;
+
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
     entry->defined = 1;
@@ -9372,8 +9398,7 @@ static void build_scope_compound_statement(AST a,
         call_destructors_of_classes(block_context, &nodecl_destructors);
     }
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, new_scope_symbol(block_context), 
                 ASTFileName(a), ASTLine(a)));
 }
@@ -9514,8 +9539,7 @@ static void build_scope_while_statement(AST a,
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, ASTSon0(a));
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, ASTSon1(a));
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(), 
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_while_statement(nodecl_condition, nodecl_statement, new_scope_symbol(block_context), ASTFileName(a), ASTLine(a)));
 }
 
@@ -9570,9 +9594,7 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 
-    *nodecl_output = 
-        nodecl_append_to_list(
-                nodecl_null(), 
+    *nodecl_output = nodecl_make_list_1(
                 nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
 }
 
@@ -9606,8 +9628,7 @@ static void build_scope_if_else_statement(AST a,
     ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_branch);
     ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_branch);
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, new_scope_symbol(block_context),
                 ASTFileName(a), ASTLine(a)));
 }
@@ -9684,8 +9705,7 @@ static void build_scope_for_statement(AST a,
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ASTFileName(a), ASTLine(a));
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(), 
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
                 new_scope_symbol(block_context), 
                 ASTFileName(a), ASTLine(a)));
@@ -9713,8 +9733,7 @@ static void build_scope_switch_statement(AST a,
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, condition);
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
@@ -9751,8 +9770,7 @@ static void build_scope_goto_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_GOTO_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_GOTO_STATEMENT_LABEL, label);
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_goto_statement(sym_label, ASTFileName(a), ASTLine(a)));
 }
 
@@ -9774,8 +9792,7 @@ static void build_scope_labeled_statement(AST a,
     ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 
     *nodecl_output = 
-        nodecl_append_to_list(
-                nodecl_null(),
+        nodecl_make_list_1(
                 nodecl_make_labeled_statement(nodecl_statement, sym_label, ASTFileName(a), ASTLine(a)));
 }
 
@@ -9791,8 +9808,7 @@ static void build_scope_default_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_DEFAULT_STATEMENT_BODY, statement);
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
@@ -9817,8 +9833,7 @@ static void build_scope_case_statement(AST a,
     ast_set_link_to_child(a, LANG_CASE_EXPRESSION, constant_expression);
     ast_set_link_to_child(a, LANG_CASE_STATEMENT_BODY, statement);
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_case_statement(expression_get_nodecl(constant_expression), nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
@@ -9843,8 +9858,7 @@ static void build_scope_return_statement(AST a,
     ASTAttrSetValueType(a, LANG_RETURN_STATEMENT_HAS_EXPRESSION, tl_type_t, tl_bool(expression != NULL));
 
     *nodecl_output = 
-        nodecl_append_to_list(
-                nodecl_null(),
+        nodecl_make_list_1(
                 nodecl_make_return_statement(expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
 }
 
@@ -9960,8 +9974,7 @@ static void build_scope_do_statement(AST a,
     ast_set_link_to_child(a, LANG_DO_STATEMENT_BODY, statement);
     ast_set_link_to_child(a, LANG_DO_STATEMENT_EXPRESSION, expression);
 
-    *nodecl_output = nodecl_append_to_list(nodecl_null(),
-            nodecl_make_do_statement(nodecl_statement, 
+    *nodecl_output = nodecl_make_list_1(nodecl_make_do_statement(nodecl_statement, 
                 expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
 }
 
@@ -9976,8 +9989,7 @@ static void build_scope_empty_statement(AST a,
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
 }
 
@@ -9991,8 +10003,7 @@ static void build_scope_break(AST a,
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_break_statement(ASTFileName(a), ASTLine(a)));
 }
 
@@ -10007,8 +10018,7 @@ static void build_scope_continue(AST a,
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_continue_statement(ASTFileName(a), ASTLine(a)));
 }
 
@@ -10090,8 +10100,7 @@ static void build_scope_pragma_custom_directive(AST a,
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_pragma_custom_directive(nodecl_pragma_line, ASTText(a), ASTFileName(a), ASTLine(a)));
 }
 
@@ -10111,8 +10120,7 @@ static void build_scope_pragma_custom_construct_statement(AST a,
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_LINE, ASTSon0(a));
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_STATEMENT, ASTSon1(a));
 
-    *nodecl_output = nodecl_append_to_list(
-            nodecl_null(),
+    *nodecl_output = nodecl_make_list_1(
             nodecl_make_pragma_custom_construct(nodecl_pragma_line, nodecl_statement, ASTText(a), ASTFileName(a), ASTLine(a)));
 }
 
@@ -10192,9 +10200,7 @@ static void build_scope_upc_synch_statement(AST a,
                 const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
     }
 
-    nodecl_expression = nodecl_append_to_list(
-            nodecl_null(),
-            nodecl_expression);
+    nodecl_expression = nodecl_make_list_1(nodecl_expression);
 
     *nodecl_output = nodecl_make_builtin_decl(nodecl_expression, attr_name, ASTFileName(a), ASTLine(a));
 }

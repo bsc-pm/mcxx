@@ -97,3 +97,4 @@ static_array(typeof(gather_gcc_attribute_t), MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
 AST|all|definition_tree|The tree where this function or class has been defined
 typeof(codegen_status_t)|all|codegen_status|Status during codegen
 array(AST)|all|pragmas|Pragmas related to this symbol (in nodecl representation)
+AST|all|asm_specification|__asm specification of GCC (in nodecl representation)
