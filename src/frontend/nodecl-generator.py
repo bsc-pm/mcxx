@@ -100,7 +100,9 @@ class NodeclStructure(Variable):
         self.needs_type = needs_type
         self.needs_text = needs_text
         self.needs_cval = needs_cval
-    def first(self) :
+    def is_nullable(self, already_seen = []):
+        return False
+    def first(self, already_seen = []) :
         return set([self.tree_kind])
     def check_code(self, tree_expr):
         print "case %s :" % (self.tree_kind)
@@ -119,7 +121,7 @@ class NodeclStructure(Variable):
 
            current_rule = RuleRef(rule_ref)
 
-           if current_rule.is_opt():
+           if current_rule.is_nullable():
                print "if (ASTSon%d(%s) != NULL)" % (i,tree_expr) 
                print "{"
            else:
@@ -146,7 +148,7 @@ class NodeclStructure(Variable):
                print "       }"
                print "   }"
 
-           if (current_rule.is_opt()):
+           if (current_rule.is_nullable()):
                print "}"
 
            i = i + 1
@@ -168,12 +170,27 @@ class RuleRef(Variable):
     def is_seq(self):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         return is_seq
-    def first(self) :
+    def is_nullable(self, already_seen = []):
+        already_seen.append(self)
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        if is_opt:
+            return True
+        if self in already_seen:
+           return False
+        rule_set = rule_map[rule_ref]
+        for rhs in rule_set:
+          if rhs.is_nullable(already_seen[:]):
+            return True
+        return False
+    def first(self, already_seen = []) :
+        if self in already_seen:
+           return set([])
+        already_seen.append(self)
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         rule_set = rule_map[rule_ref]
         s = set([])
         for rhs in rule_set:
-            s = s.union(rhs.first())
+            s = s.union(rhs.first(already_seen[:]))
         return s
     def check_code(self, tree_expr):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
@@ -359,7 +376,7 @@ def generate_nodecl_classes_specs(rule_map):
        for subtree in subtrees:
            rule_ref = RuleRef(subtree[1])
            tree_name = "children[%d]" % (i)
-           if rule_ref.is_opt():
+           if rule_ref.is_nullable():
                print "   if (%s.is_valid())" % (tree_name)
                print "   {"
                pass
@@ -389,7 +406,7 @@ def generate_nodecl_classes_specs(rule_map):
            if rule_ref.is_seq():
                print "    it.next();"
                print "}"
-           if rule_ref.is_opt():
+           if rule_ref.is_nullable():
                print "}"
        print "    visitor.visit_postorder(*this);"
        print "}"
@@ -497,12 +514,12 @@ def generate_routines_impl(rule_map):
 
           print "{"
           print "AST checked_tree = %s.tree;" % (param_name_list[i])
-          if not subrule_ref.is_opt():
+          if not subrule_ref.is_nullable():
               print "if (checked_tree == NULL)"
               print "{"
               print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s\\n\", 0);" % (i, key)
               print "}"
-          if subrule_ref.is_opt():
+          if subrule_ref.is_nullable():
              print "if (checked_tree != NULL)"
              print "{"
           if subrule_ref.is_seq():
@@ -521,7 +538,7 @@ def generate_routines_impl(rule_map):
           print "}"
           if subrule_ref.is_seq():
              print "}"
-          if subrule_ref.is_opt():
+          if subrule_ref.is_nullable():
              print "}"
           i = i + 1
           print "}"
