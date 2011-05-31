@@ -1250,6 +1250,20 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             int src_size = src_expr_type.get_size();
             int dst_size = dst_expr_type.get_size();
 
+            DEBUG_CODE()
+            {
+                std::cerr << "SIMD: SMP conversion from "
+                    << "'" <<  src_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                    << "(" << src_size << ")"
+                    << " to "
+                    << "'" <<  dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                    << "(" << dst_size << ")"
+                    << ": "
+                    << ast.prettyprint()
+                    << std::endl
+                    ;
+            }
+
             //Example: From float to char
             if (src_size > dst_size)
             {
@@ -1371,9 +1385,10 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
                 else
                 {
-                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
                             src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                            ast.prettyprint().c_str());
                 }
 
                 //Replicating expressions
@@ -1494,17 +1509,19 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
                 else
                 {
-                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
                             src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                            ast.prettyprint().c_str());
                 }
             }
             //Example: From char to float
             else
             {
-                running_error("Conversion in HLT SIMD from '%s' to '%s' is not supported yet",
-                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
-                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
+                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                        ast.prettyprint().c_str());
             }
         }
         else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))

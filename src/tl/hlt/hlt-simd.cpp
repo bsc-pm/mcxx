@@ -25,6 +25,7 @@
 #include "tl-simd.hpp"
 #include "tl-datareference.hpp"
 #include "uniquestr.h"
+#include "cxx-utils.h"
 #include <sstream>
 
 using namespace TL::HLT;
@@ -271,8 +272,20 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
 
                     if (first_op_size != second_op_size)
                     {
+                        DEBUG_CODE()
+                        {
+                            std::cerr << "SIMD: Implicit conversion from"
+                                << "'" <<  first_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                << " to "
+                                << "'" <<  second_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                << ": "
+                                << ast.prettyprint()
+                                << std::endl
+                                ;
+                        }
+
                         Source target_expr_src;
-                        if ((first_op_size > second_op_size) || expr.is_assignment())
+                        if (expr.is_assignment())//(first_op_size > second_op_size) || expr.is_assignment())
                         {
                             target_expr_src 
                                 << recursive_prettyprint(first_op.get_ast(), data)
@@ -326,6 +339,18 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     Expression casted_expr = expr.get_casted_expression();
                     Type cast_type = expr.get_type();
                     Type casted_expr_type = casted_expr.get_type();
+
+                    DEBUG_CODE()
+                    {
+                        std::cerr << "SIMD: Explicit conversion from "
+                            << "'" <<  casted_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                            << " to "
+                            << "'" <<  cast_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                            << ": "
+                            << ast.prettyprint()
+                            << std::endl
+                            ;
+                    }
 
                     if (cast_type.is_valid())
                     {

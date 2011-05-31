@@ -889,16 +889,17 @@ static void parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_
 
 static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
+    {
+        token_fprintf(f, a, pt_ctx, "template ");
+    }
+
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     double_colon_handler(f, a, pt_ctx);
 
     if (ASTSon1(a) != NULL)
     {
-        if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
-        {
-            token_fprintf(f, a, pt_ctx, "template ");
-        }
 
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }

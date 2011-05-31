@@ -5784,13 +5784,27 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                result = get_qualified_symbol_name(simple_type->dependent_entry,
-                        decl_context);
+                // result = prettyprint_in_buffer(simple_type->typeof_expr);
+                char is_dependent = 0;
+                int max_qualif_level = 0;
+                result = get_fully_qualified_symbol_name(simple_type->dependent_entry, 
+                        decl_context,
+                        &is_dependent,
+                        &max_qualif_level);
+
+                if (is_dependent)
+                {
+                    result = strappend("typename ", result);
+                }
 
                 dependent_name_part_t* parts = simple_type->dependent_parts;
                 while (parts != NULL)
                 {
                     result = strappend(result, "::");
+                    if (parts->template_arguments != NULL && is_dependent)
+                    {
+                        result = strappend(result, "template ");
+                    }
                     result = strappend(result, parts->name);
 
                     if (parts->template_arguments != NULL)
