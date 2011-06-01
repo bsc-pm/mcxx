@@ -35,7 +35,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | builtin-decl
 
 builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
-builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text
+builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text type
 
 any-list: NODECL_ANY_LIST([list]any-seq-opt)
 

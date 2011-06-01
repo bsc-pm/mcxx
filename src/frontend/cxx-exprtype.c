@@ -12757,7 +12757,9 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
                 expression_set_nodecl(expr, 
                         nodecl_make_builtin_expr(
                             nodecl_make_list_1(nodecl_make_type(t, NULL, 0)),
-                            ast_print_node_type(ASTType(expr)), ASTFileName(expr), ASTLine(expr)));
+                            get_size_t_type(), 
+                            ast_print_node_type(ASTType(expr)), 
+                            ASTFileName(expr), ASTLine(expr)));
                 break;
             }
         default:
@@ -12881,7 +12883,9 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             expression_set_nodecl(expr, 
                     nodecl_make_builtin_expr(
                         nodecl_make_list_1(nodecl_make_type(declarator_type, NULL, 0)),
-                        ast_print_node_type(ASTType(expr)), ASTFileName(expr), ASTLine(expr)));
+                        get_size_t_type(),
+                        ast_print_node_type(ASTType(expr)), 
+                        ASTFileName(expr), ASTLine(expr)));
             break;
         }
         default:
