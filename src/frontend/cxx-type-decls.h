@@ -29,6 +29,7 @@
 #ifndef CXX_TYPE_DECLS_H
 #define CXX_TYPE_DECLS_H
 
+#include "cxx-scope-fwd.h"
 #include "cxx-type-fwd.h"
 
 #include "libmcxx-common.h"
@@ -93,7 +94,7 @@ struct standard_conversion_tag
 struct dependent_name_part_tag
 {
     const char* name;
-    struct template_argument_list_tag* template_arguments;
+    template_parameter_list_t* template_parameters;
     struct type_tag* related_type;
     struct dependent_name_part_tag* next;
 };

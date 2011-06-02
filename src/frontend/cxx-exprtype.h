@@ -70,7 +70,7 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         decl_context_t decl_context,
         const char *filename,
         int line,
-        template_argument_list_t *explicit_template_arguments
+        template_parameter_list_t *explicit_template_parameters
         );
 
 LIBMCXX_EXTERN type_t* expression_get_type(AST expr);

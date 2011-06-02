@@ -230,17 +230,20 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
          */
         if (is_template_specialized_type(class_type))
         {
-            template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(class_type);
+            internal_error("Not yet implemented", 0);
+#if 0
+            template_parameter_list* arg_list = template_specialized_type_get_template_parameters(class_type);
             int i;
             for (i = 0; i < arg_list->num_arguments; i++)
             {
-                template_argument_t* arg = arg_list->argument_list[i];
+                template_parameter_t* arg = arg_list->argument_list[i];
                 if (arg->kind == TAK_TYPE
                         || arg->kind == TAK_TEMPLATE)
                 {
                     compute_associated_scopes_rec( associated_scopes, arg->type);
                 }
             }
+#endif
         }
 
         // Nothing else to be done

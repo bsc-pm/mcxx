@@ -79,6 +79,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         type_map_t** template_map, 
         int *num_items_template_map)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     // This is the primary template
     template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
 
@@ -89,9 +91,9 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     template_parameter_list_t* update_template_parameters = calloc(1, sizeof(*update_template_parameters));
     // Update the template parameters
     int i;
-    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    for (i = 0; i < template_parameters->num_parameters; i++)
     {
-        template_parameter_t* template_parameter = template_parameters->template_parameters[i];
+        template_parameter_t* template_parameter = template_parameters->parameters[i];
 
         template_parameter_t* updated_template_parameter = calloc(1, sizeof(*updated_template_parameter));
 
@@ -101,20 +103,20 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
         if (updated_template_parameter->has_default_argument)
         {
-            updated_template_parameter->default_template_argument 
-                = calloc(1, sizeof(*updated_template_parameter->default_template_argument));
-            template_argument_t* default_template_argument = updated_template_parameter->default_template_argument;
+            updated_template_parameter->default_template_parameter 
+                = calloc(1, sizeof(*updated_template_parameter->default_template_parameter));
+            template_parameter_t* default_template_parameter = updated_template_parameter->default_template_parameter;
 
-            default_template_argument->nesting = template_parameter->entry->entity_specs.template_parameter_nesting;
-            default_template_argument->position = template_parameter->entry->entity_specs.template_parameter_position;
+            default_template_parameter->nesting = template_parameter->entry->entity_specs.template_parameter_nesting;
+            default_template_parameter->position = template_parameter->entry->entity_specs.template_parameter_position;
 
             switch (template_parameter->kind)
             {
                 case TPK_TYPE:
                     {
-                        default_template_argument->kind = TAK_TYPE;
-                        default_template_argument->type = update_type_for_instantiation(
-                                template_parameter->default_template_argument->type,
+                        default_template_parameter->kind = TAK_TYPE;
+                        default_template_parameter->type = update_type_for_instantiation(
+                                template_parameter->default_template_parameter->type,
                                 context_of_being_instantiated,
                                 filename, line);
 
@@ -122,22 +124,22 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                     }
                 case TPK_TEMPLATE:
                     {
-                        default_template_argument->kind = TAK_TEMPLATE;
-                        default_template_argument->type = update_type_for_instantiation(
-                                template_parameter->default_template_argument->type,
+                        default_template_parameter->kind = TAK_TEMPLATE;
+                        default_template_parameter->type = update_type_for_instantiation(
+                                template_parameter->default_template_parameter->type,
                                 context_of_being_instantiated,
                                 filename, line);
                         break;
                     }
                 case TPK_NONTYPE:
                     {
-                        default_template_argument->kind = TAK_NONTYPE;
-                        default_template_argument->type = update_type_for_instantiation(
-                                template_parameter->default_template_argument->type,
+                        default_template_parameter->kind = TAK_NONTYPE;
+                        default_template_parameter->type = update_type_for_instantiation(
+                                template_parameter->default_template_parameter->type,
                                 context_of_being_instantiated,
                                 filename, line);
-                        default_template_argument->expression = template_parameter->default_template_argument->expression;
-                        default_template_argument->expression_context = context_of_being_instantiated;
+                        default_template_parameter->expression = template_parameter->default_template_parameter->expression;
+                        default_template_parameter->expression_context = context_of_being_instantiated;
                         break;
                     }
                 default:
@@ -148,8 +150,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
             }
         }
 
-        P_LIST_ADD(update_template_parameters->template_parameters,
-                update_template_parameters->num_template_parameters,
+        P_LIST_ADD(update_template_parameters->parameters,
+                update_template_parameters->num_parameters,
                 updated_template_parameter);
     }
 
@@ -221,6 +223,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     }
 
     return new_member;
+#endif
 }
 
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
@@ -234,6 +237,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         int *num_items_enum_map
         )
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
@@ -438,7 +443,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
-                    template_argument_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
+                    template_parameter_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
 
                     // FIXME - Update class type internal class info -> trees, at least
                     new_member->type_information = 
@@ -502,19 +507,19 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                         // We are not using update_type because it would reask
                         // a new specialization to the wrong template type
-                        template_argument_list_t *template_args =
-                            template_specialized_type_get_template_arguments(member_of_template->type_information);
+                        template_parameter_list_t *template_args =
+                            template_specialized_type_get_template_parameters(member_of_template->type_information);
 
                         template_parameter_list_t *template_params =
                             template_specialized_type_get_template_parameters(member_of_template->type_information);
 
-                        template_argument_list_t* new_template_args = calloc(1, sizeof(*new_template_args));
+                        template_parameter_list_t* new_template_args = calloc(1, sizeof(*new_template_args));
 
                         for  (i = 0; i < template_args->num_arguments; i++)
                         {
-                            template_argument_t *template_arg = template_args->argument_list[i];
+                            template_parameter_t *template_arg = template_args->argument_list[i];
 
-                            template_argument_t *new_template_arg = calloc(1, sizeof(*new_template_arg));
+                            template_parameter_t *new_template_arg = calloc(1, sizeof(*new_template_arg));
 
                             new_template_arg->kind = template_arg->kind;
 
@@ -745,6 +750,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 internal_error("Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
             }
     }
+#endif
 }
 
 static void instantiate_bases(
@@ -780,11 +786,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_body = ast_copy_for_instantiation(instantiation_body);
     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
 
-    decl_context_t template_parameters_context = new_template_context(named_class->decl_context);
+    decl_context_t template_parameters_context = named_class->decl_context;
     // Clear the template nesting level, if we are instantiating it is conceptually 0
     template_parameters_context.decl_flags &= ~DF_TEMPLATE;
     template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
-    template_parameters_context.template_nesting = 0;
     // Empty template parameters
     template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context.template_parameters));
 
@@ -797,6 +802,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         fprintf(stderr, "INSTANTIATION: Injecting template parameters\n");
     }
+
+    internal_error("Not implemented yet", 0);
 
     int i;
     for (i = 0; i < unification_set->num_deductions; i++)
@@ -813,13 +820,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             //         current_deduction->parameter_nesting,
             //         current_deduction->parameter_position);
 
-            char tpl_param_name[256] = { 0 };
-
-            snprintf(tpl_param_name, 255, ".tpl_%d_%d",
-                    current_deduction->parameter_nesting,
-                    current_deduction->parameter_position);
-            scope_entry_t* param_symbol = new_symbol(template_parameters_context,
-                    template_parameters_context.template_scope, tpl_param_name);
+            // const char* tpl_param_name = NULL;
+            scope_entry_t* param_symbol = calloc(1, sizeof(*param_symbol));
+            param_symbol->decl_context = template_parameters_context;
 
             switch (current_deduction->kind)
             {
@@ -827,7 +830,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                     {
                         // We use a typedef
                         param_symbol->kind = SK_TYPEDEF;
-                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->entity_specs.is_template_parameter = 1;
                         param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
                         break;
@@ -836,7 +839,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                     {
                         // The template type has to be used here
                         param_symbol->kind = SK_TEMPLATE;
-                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->entity_specs.is_template_parameter = 1;
                         // These are always kept as named types in the compiler
                         param_symbol->type_information = 
                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
@@ -846,7 +849,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 case TPK_NONTYPE :
                     {
                         param_symbol->kind = SK_VARIABLE;
-                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->entity_specs.is_template_parameter = 1;
                         param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
                         if (expression_is_constant(current_deduction->deduced_parameters[0]->expression))
@@ -1194,27 +1197,27 @@ void instantiate_template_function(scope_entry_t* entry,
     template_parameter_list_t *template_parameters 
         = template_specialized_type_get_template_parameters(template_specialized_type);
 
-    template_argument_list_t *template_arguments
-        = template_specialized_type_get_template_arguments(template_specialized_type);
+    template_parameter_list_t *template_parameters
+        = template_specialized_type_get_template_parameters(template_specialized_type);
 
     // FIXME: Does this hold when in C++0x we allow default template parameters in functions?
-    ERROR_CONDITION(template_arguments->num_arguments != template_parameters->num_template_parameters,
+    ERROR_CONDITION(template_parameters->num_arguments != template_parameters->num_parameters,
             "Mismatch between template arguments and parameters! %d != %d\n", 
-            template_arguments->num_arguments,
-            template_parameters->num_template_parameters);
+            template_parameters->num_arguments,
+            template_parameters->num_parameters);
 
     // Inject template arguments
     int i;
-    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    for (i = 0; i < template_parameters->num_parameters; i++)
     {
-        template_parameter_t* template_param = template_parameters->template_parameters[i];
-        template_argument_t* template_argument = template_arguments->argument_list[i];
+        template_parameter_t* template_param = template_parameters->parameters[i];
+        template_parameter_t* template_parameter = template_parameters->argument_list[i];
 
         switch (template_param->kind)
         {
             case TPK_TYPE:
                 {
-                    ERROR_CONDITION(template_argument->kind != TAK_TYPE,
+                    ERROR_CONDITION(template_parameter->kind != TAK_TYPE,
                             "Mismatch between template argument kind and template parameter kind", 0);
 
                     scope_entry_t* injected_type = new_symbol(template_parameters_context,
@@ -1223,17 +1226,17 @@ void instantiate_template_function(scope_entry_t* entry,
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "Injecting typedef '%s' for type '%s'\n", injected_type->symbol_name, 
-                                print_declarator(template_argument->type));
+                                print_declarator(template_parameter->type));
                     }
 
                     injected_type->kind = SK_TYPEDEF;
-                    injected_type->entity_specs.is_template_argument = 1;
-                    injected_type->type_information = template_argument->type;
+                    injected_type->entity_specs.is_template_parameter = 1;
+                    injected_type->type_information = template_parameter->type;
                     break;
                 }
             case TPK_TEMPLATE:
                 {
-                    ERROR_CONDITION(template_argument->kind != TAK_TEMPLATE,
+                    ERROR_CONDITION(template_parameter->kind != TAK_TEMPLATE,
                             "Mismatch between template argument kind and template parameter kind", 0);
 
                     scope_entry_t* injected_type = new_symbol(template_parameters_context, 
@@ -1245,26 +1248,26 @@ void instantiate_template_function(scope_entry_t* entry,
                     }
 
                     injected_type->kind = SK_TEMPLATE;
-                    injected_type->entity_specs.is_template_argument = 1;
+                    injected_type->entity_specs.is_template_parameter = 1;
                     injected_type->type_information = 
-                        named_type_get_symbol(template_argument->type)->type_information;
+                        named_type_get_symbol(template_parameter->type)->type_information;
                     break;
                 }
             case TPK_NONTYPE:
                 {
-                    ERROR_CONDITION(template_argument->kind != TAK_NONTYPE,
+                    ERROR_CONDITION(template_parameter->kind != TAK_NONTYPE,
                             "Mismatch between template argument kind and template parameter kind", 0);
 
                     scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
                     injected_nontype->kind = SK_VARIABLE;
-                    injected_nontype->entity_specs.is_template_argument = 1;
-                    injected_nontype->type_information = template_argument->type;
+                    injected_nontype->entity_specs.is_template_parameter = 1;
+                    injected_nontype->type_information = template_parameter->type;
 
                     injected_nontype->expression_value =
                         const_value_to_tree(
-                                expression_get_constant(template_argument->expression));
+                                expression_get_constant(template_parameter->expression));
 
                     DEBUG_CODE()
                     {
@@ -1595,16 +1598,18 @@ static AST get_type_id_tree_of_type(type_t* t, decl_context_t decl_context, cons
 
 
 static AST get_template_id_of_entry(scope_entry_t* entry, 
-        template_argument_list_t* template_arguments,
+        template_parameter_list_t* template_parameters,
         decl_context_t decl_context,
         const char* filename, int line)
 {
-    AST template_argument_list = NULL;
+    internal_error("Not yet implemented", 0);
+#if 0
+    AST template_parameter_list = NULL;
 
     int i;
-    for (i = 0; i < template_arguments->num_arguments; i++)
+    for (i = 0; i < template_parameters->num_arguments; i++)
     {
-        template_argument_t* template_arg = template_arguments->argument_list[i];
+        template_parameter_t* template_arg = template_parameters->argument_list[i];
 
         switch (template_arg->kind)
         {
@@ -1614,7 +1619,7 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
                             ASTMake1(AST_EXPRESSION, template_arg->expression, filename, line, NULL),
                             filename, line, NULL);
 
-                    template_argument_list = ast_append_to_list(template_argument_list, arg);
+                    template_parameter_list = ast_append_to_list(template_parameter_list, arg);
                     break;
                 }
             case TAK_TYPE:
@@ -1623,7 +1628,7 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
                             get_type_id_tree_of_type(template_arg->type, decl_context, filename, line),
                             filename, line, NULL);
 
-                    template_argument_list = ast_append_to_list(template_argument_list, arg);
+                    template_parameter_list = ast_append_to_list(template_parameter_list, arg);
                     break;
                 }
             case TAK_TEMPLATE:
@@ -1639,10 +1644,11 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
     AST template_id = 
         ASTMake2(AST_TEMPLATE_ID, 
                 ASTLeaf(AST_SYMBOL, filename, line, entry->symbol_name),
-                template_argument_list,
+                template_parameter_list,
                 filename, line, NULL);
 
     return template_id;
+#endif
 }
 
 static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_context, 
@@ -1657,8 +1663,8 @@ static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_cont
     }
     else
     {
-        template_argument_list_t* template_args 
-            = template_specialized_type_get_template_arguments(entry->type_information);
+        template_parameter_list_t* template_args 
+            = template_specialized_type_get_template_parameters(entry->type_information);
         return get_template_id_of_entry(entry, template_args, decl_context, filename, line);
     }
 }
@@ -1674,7 +1680,7 @@ static AST get_tree_name_of_symbol(scope_entry_t* entry, decl_context_t decl_con
             && is_template_specialized_type(entry->type_information))
     {
         return get_template_id_of_entry(entry, 
-                template_specialized_type_get_template_arguments(entry->type_information),
+                template_specialized_type_get_template_parameters(entry->type_information),
                 decl_context, filename, line);
     }
     else

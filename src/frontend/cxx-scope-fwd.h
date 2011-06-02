@@ -14,11 +14,8 @@ typedef struct decl_context_tag decl_context_t;
 struct template_parameter_tag;
 typedef struct template_parameter_tag template_parameter_t;
 
-struct template_argument_tag;
-typedef struct template_argument_tag template_argument_t;
-
-struct template_argument_list_tag;
-typedef struct template_argument_list_tag template_argument_list_t;
+struct template_parameter_value_tag;
+typedef struct template_parameter_value_tag template_parameter_value_t; 
 
 struct template_parameter_list_tag;
 typedef struct template_parameter_list_tag template_parameter_list_t;

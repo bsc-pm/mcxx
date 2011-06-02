@@ -239,10 +239,10 @@ namespace TL
 
         if (_decl_context.template_parameters != NULL)
         {
-            for (int i = 0; i < _decl_context.template_parameters->num_template_parameters; i++)
+            for (int i = 0; i < _decl_context.template_parameters->num_parameters; i++)
             {
                 result.append(TemplateParameter(
-                            _decl_context.template_parameters->template_parameters[i]
+                            _decl_context.template_parameters->parameters[i]
                             ));
             }
         }

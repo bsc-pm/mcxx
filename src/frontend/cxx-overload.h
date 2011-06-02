@@ -49,7 +49,7 @@ LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, s
         char *ambiguous_conversion, scope_entry_t** conversor);
 
 LIBMCXX_EXTERN scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         struct type_tag* target_type,
         decl_context_t decl_context,
         const char *filename,

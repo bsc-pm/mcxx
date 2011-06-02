@@ -161,10 +161,12 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
 static char is_less_or_equal_specialized_template_function_common_(type_t* f1, type_t* f2,
         decl_context_t decl_context, deduction_set_t** deduction_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion,
         char is_template_class)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     if (is_conversion)
     {
         return is_less_or_equal_specialized_template_conversion_function(f1, f2,
@@ -224,12 +226,12 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         deduction_flags.do_not_allow_conversions = 1;
     }
 
-    if (!deduce_template_arguments_common(
+    if (!deduce_template_parameters_common(
                 template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
                 &deduction_result, filename, line,
-                explicit_template_arguments,
+                explicit_template_parameters,
                 deduction_flags))
     {
         DEBUG_CODE()
@@ -240,12 +242,12 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     }
 
     // Now check that the updated types match exactly
-    template_argument_list_t* deduced_template_argument_list = 
-        build_template_argument_list_from_deduction_set(deduction_result);
+    template_parameter_list_t* deduced_template_parameter_list = 
+        build_template_parameter_list_from_deduction_set(deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(
+    decl_context_t updated_context = update_context_with_template_parameters(
             decl_context,
-            deduced_template_argument_list);
+            deduced_template_parameter_list);
 
     for (i = 0; i < num_arguments; i++)
     {
@@ -301,12 +303,15 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     }
 
     return 1;
+#endif
 }
 
 char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
         decl_context_t decl_context UNUSED_PARAMETER,
         deduction_set_t** deduction_set, const char *filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION(!is_named_class_type(c1)
             || !is_named_class_type(c2)
             || !is_template_specialized_type(get_actual_class_type(c1))
@@ -326,7 +331,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             c1_parameters, 1);
 
     set_as_template_specialized_type(faked_type_1,
-            template_specialized_type_get_template_arguments(get_actual_class_type(c1)),
+            template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
             // Can be NULL if c1 is a full specialization
             template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
             template_specialized_type_get_related_template_type(get_actual_class_type(c1)));
@@ -337,10 +342,11 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
             named_type_get_symbol(c1)->decl_context, 
             deduction_set, 
-            /* explicit_template_arguments */ NULL,
+            /* explicit_template_parameters */ NULL,
             filename, line,
             /* is_conversion */ 0,
             /* is_template_class */ 1);
+#endif
 }
 
 static char is_less_or_equal_specialized_template_conversion_function(
@@ -348,6 +354,8 @@ static char is_less_or_equal_specialized_template_conversion_function(
         decl_context_t decl_context, deduction_set_t** deduction_set,
         const char *filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEORDER: Computing whether one function is less or equal specialized than the other\n");
@@ -391,12 +399,12 @@ static char is_less_or_equal_specialized_template_conversion_function(
     template_parameter_list_t* template_parameters = 
         template_specialized_type_get_template_parameters(f1);
 
-    if (!deduce_template_arguments_common(
+    if (!deduce_template_parameters_common(
                 template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
                 &deduction_result, filename, line,
-                /* explicit_template_arguments */ NULL,
+                /* explicit_template_parameters */ NULL,
                 deduction_flags_empty()))
     {
         DEBUG_CODE()
@@ -407,11 +415,11 @@ static char is_less_or_equal_specialized_template_conversion_function(
     }
 
     // Now check that the updated types match exactly
-    template_argument_list_t* deduced_template_argument_list = 
-        build_template_argument_list_from_deduction_set(deduction_result);
+    template_parameter_list_t* deduced_template_parameter_list = 
+        build_template_parameter_list_from_deduction_set(deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
-            deduced_template_argument_list);
+    decl_context_t updated_context = update_context_with_template_parameters(decl_context,
+            deduced_template_parameter_list);
 
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, 0);
@@ -466,16 +474,17 @@ static char is_less_or_equal_specialized_template_conversion_function(
     }
 
     return 1;
+#endif
 }
 
 
 char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
         decl_context_t decl_context, deduction_set_t** deduction_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion)
 {
     return is_less_or_equal_specialized_template_function_common_(
             f1, f2, decl_context, deduction_set, 
-            explicit_template_arguments, 
+            explicit_template_parameters, 
             filename, line, is_conversion, /* is_template_class */ 0);
 }

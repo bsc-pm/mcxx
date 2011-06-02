@@ -381,13 +381,13 @@ namespace TL
         {
             template_parameter_list_t* result = (template_parameter_list_t*) calloc(1, sizeof(*result));
 
-            result->num_template_parameters = tpl_list.size();
-            result->template_parameters = 
-                (template_parameter_t**) calloc(result->num_template_parameters, sizeof(*result->template_parameters));
+            result->num_parameters = tpl_list.size();
+            result->parameters = 
+                (template_parameter_t**) calloc(result->num_parameters, sizeof(*result->parameters));
 
-            for (int i = 0; i < result->num_template_parameters; i++)
+            for (int i = 0; i < result->num_parameters; i++)
             {
-                result->template_parameters[i] = tpl_list[i].get_internal_template_parameter();
+                result->parameters[i] = tpl_list[i].get_internal_template_parameter();
             }
 
             return result;

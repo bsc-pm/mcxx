@@ -46,7 +46,6 @@ LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_co
 LIBMCXX_EXTERN decl_context_t new_function_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_class_context(decl_context_t enclosing_decl_context, 
         scope_entry_t* class_entry);
-LIBMCXX_EXTERN decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
 // Used only in TL
 LIBMCXX_EXTERN decl_context_t decl_context_empty();
@@ -116,28 +115,14 @@ LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_
 // Class scopes
 LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, const char* name);
 
-// LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
-//         struct AST_tag* template_id,
-//         struct type_tag* template_type,
-//         decl_context_t template_arguments_context,
-//         char *valid);
-LIBMCXX_EXTERN template_argument_list_t* get_template_arguments_from_syntax(
-        struct AST_tag* template_arguments_list,
-        decl_context_t template_arguments_context,
-        int nesting_level);
-
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
-        decl_context_t template_arguments_context,
+        decl_context_t template_parameters_context,
         const char* filename, int line);
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
         const char* filename, int line);
-
-LIBMCXX_EXTERN decl_context_t update_context_with_template_arguments(
-        decl_context_t context,
-        template_argument_list_t* given_template_args);
 
 // Other stuff
 LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
@@ -170,6 +155,14 @@ LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
 
 // Debug use mainly
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
+
+LIBMCXX_EXTERN int template_parameters_nesting(decl_context_t);
+
+LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
+        AST template_parameters_list_tree,
+        decl_context_t template_parameters_context);
+
+LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
 
 MCXX_END_DECLS
 

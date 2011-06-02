@@ -70,7 +70,6 @@ static decl_context_t load_decl_context(sqlite3* handle, sqlite3_int64 oid);
     "namespace_scope, " \
     "global_scope, " \
     "block_scope, " \
-    "template_scope, " \
     "class_scope, " \
     "function_scope, " \
     "prototype_scope, " \
@@ -897,7 +896,6 @@ static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_con
             insert_scope(handle, decl_context.namespace_scope),
             insert_scope(handle, decl_context.global_scope),
             insert_scope(handle, decl_context.block_scope),
-            insert_scope(handle, decl_context.template_scope),
             insert_scope(handle, decl_context.class_scope),
             insert_scope(handle, decl_context.function_scope),
             insert_scope(handle, decl_context.prototype_scope),
@@ -1127,11 +1125,10 @@ static int get_decl_context_(void *datum,
     p->namespace_scope = load_scope(handle, safe_atoll(values[1]));
     p->global_scope = load_scope(handle, safe_atoll(values[2]));
     p->block_scope = load_scope(handle, safe_atoll(values[3]));
-    p->template_scope = load_scope(handle, safe_atoll(values[4]));
-    p->class_scope = load_scope(handle, safe_atoll(values[5]));
-    p->function_scope = load_scope(handle, safe_atoll(values[6]));
-    p->prototype_scope = load_scope(handle, safe_atoll(values[7]));
-    p->current_scope = load_scope(handle, safe_atoll(values[8]));
+    p->class_scope = load_scope(handle, safe_atoll(values[4]));
+    p->function_scope = load_scope(handle, safe_atoll(values[5]));
+    p->prototype_scope = load_scope(handle, safe_atoll(values[6]));
+    p->current_scope = load_scope(handle, safe_atoll(values[7]));
 
     return 0;
 }

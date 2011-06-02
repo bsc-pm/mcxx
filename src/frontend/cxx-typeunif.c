@@ -63,6 +63,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
         decl_context_t decl_context, const char *filename, int line,
         deduction_flags_t flags)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     cv_qualifier_t cv_qualif_1 = CV_NONE;
     cv_qualifier_t cv_qualif_2 = CV_NONE;
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualif_1);
@@ -313,16 +315,16 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 }
             }
 
-            template_argument_list_t *targ_list_1 
-                = template_specialized_type_get_template_arguments(get_actual_class_type(t1));
-            template_argument_list_t *targ_list_2 
-                = template_specialized_type_get_template_arguments(get_actual_class_type(t2));
+            template_parameter_list_t *targ_list_1 
+                = template_specialized_type_get_template_parameters(get_actual_class_type(t1));
+            template_parameter_list_t *targ_list_2 
+                = template_specialized_type_get_template_parameters(get_actual_class_type(t2));
 
             int i;
             for (i = 0; i < targ_list_1->num_arguments; i++)
             {
-                template_argument_t* current_arg_1 = targ_list_1->argument_list[i];
-                template_argument_t* current_arg_2 = targ_list_2->argument_list[i];
+                template_parameter_t* current_arg_1 = targ_list_1->argument_list[i];
+                template_parameter_t* current_arg_2 = targ_list_2->argument_list[i];
 
                 switch (current_arg_1->kind)
                 {
@@ -541,6 +543,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
 
         return;
     }
+#endif
 }
 
 static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
@@ -1158,8 +1161,8 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     }
     scope_entry_list_t* overloaded_set = unresolved_overloaded_type_get_overload_set(t2);
 
-    template_argument_list_t* explicit_template_arguments 
-        = unresolved_overloaded_type_get_explicit_template_arguments(t2);
+    template_parameter_list_t* explicit_template_parameters 
+        = unresolved_overloaded_type_get_explicit_template_parameters(t2);
 
     char is_template = 0;
 
@@ -1190,9 +1193,9 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
             if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
                         /* num_arguments */ 0, specialization_type, template_parameters,
                         decl_context, &deduction_result, filename, line, 
-                        explicit_template_arguments))
+                        explicit_template_parameters))
             {
-                template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
+                template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
                         deduction_result);
 
                 // Now get a specialized template type for this

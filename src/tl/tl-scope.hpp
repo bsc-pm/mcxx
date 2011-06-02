@@ -162,7 +162,7 @@ namespace TL
               */
             bool is_template_scope() const
             {
-                return _decl_context.current_scope->kind == TEMPLATE_SCOPE;
+                return false;
             }
 
             //! Creates a scope after a reference to Object

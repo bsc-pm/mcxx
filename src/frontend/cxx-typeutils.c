@@ -444,7 +444,7 @@ struct type_tag
     // For unresolved overload function types 
     // (kind == TK_OVERLOAD)
     scope_entry_list_t* overload_set;
-    template_argument_list_t* explicit_template_argument_list;
+    template_parameter_list_t* explicit_template_parameter_list;
 
     // Braced list type
     braced_list_info_t* braced_type;
@@ -460,12 +460,8 @@ struct type_tag
     type_t* original_type;
     // For template specialized parameters
     // --> char is_template_specialized_type;
-    template_argument_list_t* template_arguments;
-    type_t* related_template_type;
-    // It is not obvious why do we need this, but it is for
-    // checking that unification actually succeed
-    // It is only NON-null for complete types
     template_parameter_list_t* template_parameters;
+    type_t* related_template_type;
 
     // (kind == TK_COMPUTED)
     computed_function_type_t compute_type_function;
@@ -1110,10 +1106,9 @@ static dependent_name_part_t* get_dependent_nested_part(
 
         result->name = ASTText(sym);
 
-        result->template_arguments = get_template_arguments_from_syntax(
+        result->template_parameters = get_template_parameters_from_syntax(
                 ASTSon1(nested_part),
-                decl_context,
-                *nesting_level);
+                decl_context);
         (*nesting_level)++;
     }
     else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
@@ -1123,10 +1118,9 @@ static dependent_name_part_t* get_dependent_nested_part(
 
         if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
         {
-            result->template_arguments = get_template_arguments_from_syntax(
+            result->template_parameters = get_template_parameters_from_syntax(
                     ASTSon1(nested_part),
-                    decl_context,
-                    *nesting_level);
+                    decl_context);
             (*nesting_level)++;
         }
     }
@@ -1184,7 +1178,7 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
 
             if (is_template_specialized_type(entry->type_information))
             {
-                result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+                result->template_parameters = template_specialized_type_get_template_parameters(entry->type_information);
             }
 
             if (enclosing != NULL)
@@ -1399,47 +1393,49 @@ enum class_kind_t class_type_get_class_kind(type_t* t)
     return t->type->class_info->class_kind;
 }
 
-static template_argument_list_t* compute_arguments_primary(template_parameter_list_t* template_parameter_list)
+static template_parameter_list_t* compute_arguments_primary(template_parameter_list_t* template_parameter_list)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     int i;
 
-    template_argument_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
-    for (i = 0; i < template_parameter_list->num_template_parameters; i++)
+    for (i = 0; i < template_parameter_list->num_parameters; i++)
     {
-        template_parameter_t* template_parameter = template_parameter_list->template_parameters[i];
+        template_parameter_t* template_parameter = template_parameter_list->parameters[i];
 
-        template_argument_t* new_template_argument = counted_calloc(1, sizeof(*new_template_argument), &_bytes_due_to_type_system);
+        template_parameter_t* new_template_parameter = counted_calloc(1, sizeof(*new_template_parameter), &_bytes_due_to_type_system);
 
         switch (template_parameter->kind)
         {
             case TPK_TYPE :
                 {
-                    new_template_argument->kind = TAK_TYPE;
-                    new_template_argument->type = get_user_defined_type(template_parameter->entry);
+                    new_template_parameter->kind = TAK_TYPE;
+                    new_template_parameter->type = get_user_defined_type(template_parameter->entry);
 
                     break;
                 }
             case TPK_TEMPLATE :
                 {
-                    new_template_argument->kind = TAK_TEMPLATE;
-                    new_template_argument->type = get_user_defined_type(template_parameter->entry);
+                    new_template_parameter->kind = TAK_TEMPLATE;
+                    new_template_parameter->type = get_user_defined_type(template_parameter->entry);
 
                     break;
                 }
             case TPK_NONTYPE :
                 {
-                    new_template_argument->kind = TAK_NONTYPE;
-                    new_template_argument->type = template_parameter->entry->type_information;
+                    new_template_parameter->kind = TAK_NONTYPE;
+                    new_template_parameter->type = template_parameter->entry->type_information;
 
                     // Fake an expression
-                    new_template_argument->expression = ASTLeaf(AST_SYMBOL, 
+                    new_template_parameter->expression = ASTLeaf(AST_SYMBOL, 
                             template_parameter->entry->file,
                             template_parameter->entry->line,
                             template_parameter->entry->symbol_name);
-                    new_template_argument->expression_context = template_parameter->entry->decl_context;
+                    new_template_parameter->expression_context = template_parameter->entry->decl_context;
 
-                    if (!check_expression(new_template_argument->expression,
+                    if (!check_expression(new_template_parameter->expression,
                                 template_parameter->entry->decl_context))
                     {
                         internal_error("Created nontype template argument could not be checked", 0);
@@ -1453,13 +1449,14 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
                 }
         }
 
-        new_template_argument->position = template_parameter->entry->entity_specs.template_parameter_position;
-        new_template_argument->nesting = template_parameter->entry->entity_specs.template_parameter_nesting;
+        new_template_parameter->position = template_parameter->entry->entity_specs.template_parameter_position;
+        new_template_parameter->nesting = template_parameter->entry->entity_specs.template_parameter_nesting;
 
-        P_LIST_ADD(result->argument_list, result->num_arguments, new_template_argument);
+        P_LIST_ADD(result->argument_list, result->num_arguments, new_template_parameter);
     }
 
     return result;
+#endif
 }
 
 static type_t* _get_duplicated_function_type(type_t* function_type);
@@ -1499,11 +1496,11 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_symbol->file = filename;
 
     primary_type->info->is_template_specialized_type = 1;
-    primary_type->template_arguments = compute_arguments_primary(template_parameter_list);
+    primary_type->template_parameters = compute_arguments_primary(template_parameter_list);
     primary_type->template_parameters = template_parameter_list;
     primary_type->related_template_type = type_info;
 
-    if (template_parameter_list->num_template_parameters != 0)
+    if (template_parameter_list->num_parameters != 0)
     {
         set_is_dependent_type(primary_type, 1);
     }
@@ -1521,8 +1518,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 
 
 void set_as_template_specialized_type(type_t* type_to_specialize, 
-        template_argument_list_t * template_arguments, 
-        template_parameter_list_t* template_parameters,
+        template_parameter_list_t * template_parameters, 
         type_t* template_type)
 {
     ERROR_CONDITION(!is_function_type(type_to_specialize)
@@ -1534,10 +1530,8 @@ void set_as_template_specialized_type(type_t* type_to_specialize,
     }
 
     type_to_specialize->info->is_template_specialized_type = 1;
-    type_to_specialize->template_arguments = template_arguments;
-    type_to_specialize->related_template_type = template_type;
-    // This one can be NULL
     type_to_specialize->template_parameters = template_parameters;
+    type_to_specialize->related_template_type = template_type;
 }
 
 char is_template_type(type_t* t)
@@ -1570,19 +1564,19 @@ int template_type_get_nesting_level(type_t* t)
 
     template_parameter_list_t *template_parameters = template_type_get_template_parameters(t);
 
-    ERROR_CONDITION(template_parameters->num_template_parameters == 0,
+    ERROR_CONDITION(template_parameters->num_parameters == 0,
             "Invalid template parameters", 0);
 
     // Use the first one since all template parameters will be in the same nesting 
     int nesting 
-        = template_parameters->template_parameters[0]->entry->entity_specs.template_parameter_nesting;
+        = template_parameters->parameters[0]->entry->entity_specs.template_parameter_nesting;
 
     // Sanity check
     int i;
-    for (i = 1; i < template_parameters->num_template_parameters; i++)
+    for (i = 1; i < template_parameters->num_parameters; i++)
     {
         // They must agree
-        ERROR_CONDITION( (template_parameters->template_parameters[i]->entry->entity_specs.template_parameter_nesting
+        ERROR_CONDITION( (template_parameters->parameters[i]->entry->entity_specs.template_parameter_nesting
                     != nesting),
                 "Invalid template parameters, their nesting is not the same", 0);
     }
@@ -1596,20 +1590,22 @@ type_t* template_type_get_primary_type(type_t* t)
     return t->type->primary_specialization;
 }
 
-static char same_template_argument_list(
-        template_argument_list_t* template_argument_list_1,
-        template_argument_list_t* template_argument_list_2)
+static char same_template_parameter_list(
+        template_parameter_list_t* template_parameter_list_1,
+        template_parameter_list_t* template_parameter_list_2)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION (
-            (template_argument_list_1->num_arguments !=
-            template_argument_list_2->num_arguments),
+            (template_parameter_list_1->num_arguments !=
+            template_parameter_list_2->num_arguments),
             "Argument lists should match", 0);
 
     int i;
-    for (i = 0; i < template_argument_list_1->num_arguments; i++)
+    for (i = 0; i < template_parameter_list_1->num_arguments; i++)
     {
-        template_argument_t* targ_1 = template_argument_list_1->argument_list[i];
-        template_argument_t* targ_2 = template_argument_list_2->argument_list[i];
+        template_parameter_t* targ_1 = template_parameter_list_1->argument_list[i];
+        template_parameter_t* targ_2 = template_parameter_list_2->argument_list[i];
 
         ERROR_CONDITION(targ_1->kind != targ_2->kind,
                 "They should be of the same kind", 0);
@@ -1660,14 +1656,17 @@ static char same_template_argument_list(
     }
 
     return 1;
+#endif
 }
 
-char has_dependent_template_arguments(template_argument_list_t* template_arguments)
+char has_dependent_template_parameters(template_parameter_list_t* template_parameters)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     int i;
-    for (i = 0; i < template_arguments->num_arguments; i++)
+    for (i = 0; i < template_parameters->num_arguments; i++)
     {
-        template_argument_t* curr_argument = template_arguments->argument_list[i];
+        template_parameter_t* curr_argument = template_parameters->argument_list[i];
 
         if (curr_argument->kind == TAK_TYPE)
         {
@@ -1693,10 +1692,11 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
         }
     }
     return 0;
+#endif
 }
 
 type_t* template_type_get_matching_specialized_type(type_t* t,
-        template_argument_list_t* template_argument_list,
+        template_parameter_list_t* template_parameter_list,
         decl_context_t decl_context)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
@@ -1714,8 +1714,8 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
         type_t* specialization = template_type_get_specialization_num(t, i);
 
         scope_entry_t* entry = named_type_get_symbol(specialization);
-        template_argument_list_t* arguments = 
-            template_specialized_type_get_template_arguments(entry->type_information);
+        template_parameter_list_t* arguments = 
+            template_specialized_type_get_template_parameters(entry->type_information);
 
         DEBUG_CODE()
         {
@@ -1726,10 +1726,10 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
                     entry->line);
         }
 
-        if (same_template_argument_list(template_argument_list, arguments)
+        if (same_template_parameter_list(template_parameter_list, arguments)
                 // If this template type is 0-parameterized, the primary never matches
                 && !(specialization == template_type_get_primary_type(t)
-                    && template_type_get_template_parameters(t)->num_template_parameters == 0))
+                    && template_type_get_template_parameters(t)->num_parameters == 0))
         {
             DEBUG_CODE()
             {
@@ -1741,7 +1741,7 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
 
             if (BITMAP_TEST(decl_context.decl_flags, DF_UPDATE_TEMPLATE_ARGUMENTS))
             {
-               entry->type_information->template_arguments = template_argument_list;
+               entry->type_information->template_parameters = template_parameter_list;
             }
 
             return specialization;
@@ -1751,14 +1751,16 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
 }
 
 type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_argument_list_t* template_argument_list,
+        template_parameter_list_t* template_parameter_list,
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
         decl_context_t decl_context, 
         int line, const char* filename)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* existing_spec = template_type_get_matching_specialized_type(t, 
-            template_argument_list, 
+            template_parameter_list, 
             decl_context);
 
     if (existing_spec != NULL)
@@ -1766,7 +1768,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         return existing_spec;
     }
 
-    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
+    char has_dependent_temp_args = has_dependent_template_parameters(template_parameter_list);
 
     type_t* specialized_type = after_type;
 
@@ -1791,7 +1793,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     else if (primary_symbol->kind == SK_FUNCTION)
     {
         decl_context_t updated_context 
-            = update_context_with_template_arguments(primary_symbol->decl_context, template_argument_list);
+            = update_context_with_template_parameters(primary_symbol->decl_context, template_parameter_list);
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
 
         // If we cannot update the type, give up, as probably this is SFINAE 
@@ -1811,7 +1813,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     // State that this is a template specialized type
     specialized_type->info->is_template_specialized_type = 1;
-    specialized_type->template_arguments = template_argument_list;
+    specialized_type->template_parameters = template_parameter_list;
     // This can be NULL
     specialized_type->template_parameters = template_parameters;
     specialized_type->related_template_type = t;
@@ -1878,17 +1880,18 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     }
 
     return get_user_defined_type(specialized_symbol);
+#endif
 }
 
 
 type_t* template_type_get_specialized_type(type_t* t, 
-        template_argument_list_t* template_argument_list,
+        template_parameter_list_t* template_parameter_list,
         template_parameter_list_t *template_parameters, 
         decl_context_t decl_context, 
         int line, const char* filename)
 {
     return template_type_get_specialized_type_after_type(t,
-            template_argument_list,
+            template_parameter_list,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
             decl_context,
@@ -1934,8 +1937,8 @@ void template_type_update_template_parameters(type_t* t, template_parameter_list
 
     template_parameter_list_t *template_parameters = t->type->template_parameter_list;
 
-    ERROR_CONDITION(template_parameters->num_template_parameters 
-            != new_template_parameters->num_template_parameters,
+    ERROR_CONDITION(template_parameters->num_parameters 
+            != new_template_parameters->num_parameters,
             "Template parameters should be of the same length", 0);
 
     DEBUG_CODE()
@@ -1945,20 +1948,21 @@ void template_type_update_template_parameters(type_t* t, template_parameter_list
 
     int i;
 
-    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    for (i = 0; i < template_parameters->num_parameters; i++)
     {
-        template_parameter_t* template_parameter = template_parameters->template_parameters[i];
-        template_parameter_t* new_template_parameter = new_template_parameters->template_parameters[i];
+        template_parameter_t* template_parameter = template_parameters->parameters[i];
+        template_parameter_t* new_template_parameter = new_template_parameters->parameters[i];
 
         ERROR_CONDITION ((new_template_parameter->kind != template_parameter->kind),
                         "Template parameter kinds do not match", 0);
 
-        if (new_template_parameter->has_default_argument
-                && !template_parameter->has_default_argument)
+        template_parameter_value_t* default_argument = template_parameters->arguments[i];
+        template_parameter_value_t* new_default_argument = new_template_parameters->arguments[i];
+
+        if (new_default_argument != NULL
+                && default_argument == NULL)
         {
-            // Update the template parameter
-            template_parameter->has_default_argument = 1;
-            template_parameter->default_template_argument = new_template_parameter->default_template_argument;
+            template_parameters->arguments[i] = new_default_argument;
         }
     }
 }
@@ -1968,11 +1972,11 @@ char is_template_specialized_type(type_t* t)
     return (t != NULL && t->info->is_template_specialized_type);
 }
 
-template_argument_list_t* template_specialized_type_get_template_arguments(type_t* t)
+template_parameter_list_t* template_specialized_type_get_template_parameters(type_t* t)
 {
     ERROR_CONDITION(!is_template_specialized_type(t),
             "This is not a template specialized type", 0);
-    return t->template_arguments;
+    return t->template_parameters;
 }
 
 type_t* template_specialized_type_get_related_template_type(type_t* t)
@@ -1989,14 +1993,6 @@ void template_specialized_type_update_template_parameters(type_t* t, template_pa
             "This is not a template specialized type", 0);
 
     t->template_parameters = template_parameters;
-}
-
-template_parameter_list_t* template_specialized_type_get_template_parameters(type_t* t)
-{
-    ERROR_CONDITION(!is_template_specialized_type(t),
-            "This is not a template specialized type", 0);
-
-    return t->template_parameters;
 }
 
 type_t* get_complex_type(type_t* t)
@@ -4296,7 +4292,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
     return still_compatible;
 }
 
-static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments);
+static const char* get_template_parameters_list_str(template_parameter_list_t* template_parameters);
 
 // FIXME - This function looks rather similar to update_dependent_typename, can
 // we abstract them away?
@@ -4386,7 +4382,7 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
             }
-            if (dependent_parts->template_arguments != NULL)
+            if (dependent_parts->template_parameters != NULL)
             {
                 DEBUG_CODE()
                 {
@@ -4406,7 +4402,7 @@ static type_t* advance_dependent_typename_aux(
                         dependent_parts->name);
             }
 
-            if (dependent_parts->template_arguments == NULL)
+            if (dependent_parts->template_parameters == NULL)
             {
                 DEBUG_CODE()
                 {
@@ -4436,11 +4432,11 @@ static type_t* advance_dependent_typename_aux(
                         dependent_parts->name);
             }
 
-            template_argument_list_t* template_arguments = dependent_parts->template_arguments;
+            template_parameter_list_t* template_parameters = dependent_parts->template_parameters;
 
             type_t* specialized_type = template_type_get_specialized_type(
                     template_type,
-                    template_arguments,
+                    template_parameters,
                     template_type_get_template_parameters(template_type),
                     class_context, 
                     // They should not be needed
@@ -4510,7 +4506,7 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
         }
-        if (dependent_parts->template_arguments != NULL)
+        if (dependent_parts->template_parameters != NULL)
         {
             DEBUG_CODE()
             {
@@ -4544,7 +4540,7 @@ static type_t* advance_dependent_typename_aux(
                     dependent_parts->name);
         }
 
-        if (dependent_parts->template_arguments == NULL)
+        if (dependent_parts->template_parameters == NULL)
         {
             DEBUG_CODE()
             {
@@ -4576,7 +4572,7 @@ static type_t* advance_dependent_typename_aux(
 
         type_t* specialized_type = template_type_get_specialized_type(
                 template_type,
-                dependent_parts->template_arguments,
+                dependent_parts->template_parameters,
                 template_type_get_template_parameters(template_type),
                 class_context, 
                 // They should not be needed
@@ -4658,7 +4654,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             fprintf(stderr, "%s%s%s",
                     part->name,
-                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->template_parameters == NULL ? "" : get_template_parameters_list_str(part->template_parameters),
                     part->next == NULL ? "" : "::");
             part = part->next;
         }
@@ -4668,7 +4664,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             fprintf(stderr, "%s%s%s",
                     part->name,
-                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->template_parameters == NULL ? "" : get_template_parameters_list_str(part->template_parameters),
                     part->next == NULL ? "" : "::");
             part = part->next;
         }
@@ -4689,16 +4685,16 @@ static char syntactic_comparison_of_dependent_parts(
             return 0;
         }
 
-        if ((dependent_parts_1->template_arguments == NULL
-                    && dependent_parts_2->template_arguments != NULL)
-                || (dependent_parts_1->template_arguments != NULL
-                    && dependent_parts_2->template_arguments == NULL))
+        if ((dependent_parts_1->template_parameters == NULL
+                    && dependent_parts_2->template_parameters != NULL)
+                || (dependent_parts_1->template_parameters != NULL
+                    && dependent_parts_2->template_parameters == NULL))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has template arguments while %s does not\n",
-                        dependent_parts_1->template_arguments != NULL ? "first" : "second",
-                        dependent_parts_1->template_arguments == NULL ? "first" : "second");
+                        dependent_parts_1->template_parameters != NULL ? "first" : "second",
+                        dependent_parts_1->template_parameters == NULL ? "first" : "second");
             }
             return 0;
         }
@@ -4735,16 +4731,16 @@ static char syntactic_comparison_of_dependent_parts(
             }
         }
 
-        if (dependent_parts_1->template_arguments != NULL
-                    && dependent_parts_2->template_arguments != NULL)
+        if (dependent_parts_1->template_parameters != NULL
+                    && dependent_parts_2->template_parameters != NULL)
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEUTILS: Need to compare template arguments\n");
             }
 
-            if (!same_template_argument_list(dependent_parts_1->template_arguments,
-                        dependent_parts_2->template_arguments))
+            if (!same_template_parameter_list(dependent_parts_1->template_parameters,
+                        dependent_parts_2->template_parameters))
             {
                 DEBUG_CODE()
                 {
@@ -5784,6 +5780,8 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
+                internal_error("Not yet implemented", 0);
+#if 0
                 // result = prettyprint_in_buffer(simple_type->typeof_expr);
                 char is_dependent = 0;
                 int max_qualif_level = 0;
@@ -5801,19 +5799,19 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 while (parts != NULL)
                 {
                     result = strappend(result, "::");
-                    if (parts->template_arguments != NULL && is_dependent)
+                    if (parts->template_parameters != NULL && is_dependent)
                     {
                         result = strappend(result, "template ");
                     }
                     result = strappend(result, parts->name);
 
-                    if (parts->template_arguments != NULL)
+                    if (parts->template_parameters != NULL)
                     {
                         result = strappend(result, "< ");
                         int i;
-                        for (i = 0; i < parts->template_arguments->num_arguments; i++)
+                        for (i = 0; i < parts->template_parameters->num_arguments; i++)
                         {
-                            template_argument_t * template_arg = parts->template_arguments->argument_list[i];
+                            template_parameter_t * template_arg = parts->template_parameters->argument_list[i];
 
                             switch (template_arg->kind)
                             {
@@ -5842,7 +5840,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                                     }
                             }
 
-                            if ((i + 1) < parts->template_arguments->num_arguments)
+                            if ((i + 1) < parts->template_parameters->num_arguments)
                             {
                                 result = strappend(result, ", ");
                             }
@@ -5860,6 +5858,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 }
 
                 break;
+#endif
             }
         case STK_TEMPLATE_TYPE:
             {
@@ -6436,36 +6435,38 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 }
 
 // Prints the template arguments, this routine is for debugging
-static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
+static const char* get_template_parameters_list_str(template_parameter_list_t* template_parameters)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     const char* result = "";
     result = strappend(result, "< ");
     int i;
-    for (i = 0; i < template_arguments->num_arguments; i++)
+    for (i = 0; i < template_parameters->num_arguments; i++)
     {
-        template_argument_t* template_argument = 
-            template_arguments->argument_list[i];
+        template_parameter_t* template_parameter = 
+            template_parameters->argument_list[i];
 
         char c[256];
         snprintf(c, 255, "[[%d, %d]] ", 
-                template_argument->nesting,
-                template_argument->position);
+                template_parameter->nesting,
+                template_parameter->position);
 
         result = strappend(result, uniquestr(c));
 
-        switch (template_argument->kind)
+        switch (template_parameter->kind)
         {
             case TAK_TYPE:
             case TAK_TEMPLATE:
                 {
                     result = strappend(result, 
-                            print_declarator(template_argument->type));
+                            print_declarator(template_parameter->type));
                     break;
                 }
             case TAK_NONTYPE:
                 {
                     result = strappend(result, 
-                            prettyprint_in_buffer(template_argument->expression));
+                            prettyprint_in_buffer(template_parameter->expression));
                     break;
                 }
             default:
@@ -6475,7 +6476,7 @@ static const char* get_template_arguments_list_str(template_argument_list_t* tem
                     break;
                 }
         }
-        if ((i + 1) < template_arguments->num_arguments)
+        if ((i + 1) < template_parameters->num_arguments)
         {
             result = strappend(result, ", ");
         }
@@ -6483,6 +6484,7 @@ static const char* get_template_arguments_list_str(template_argument_list_t* tem
     result = strappend(result, "> ");
 
     return result;
+#endif
 }
 
 const char* get_named_type_name(scope_entry_t* entry)
@@ -6577,19 +6579,19 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_CLASS :
             {
-                const char *template_arguments = "";
+                const char *template_parameters = "";
                 {
                     type_t* actual_class = type_info;
                     if (actual_class->info->is_template_specialized_type
-                            && actual_class->template_arguments != NULL)
+                            && actual_class->template_parameters != NULL)
                     {
-                        template_arguments = get_template_arguments_list_str(
-                                actual_class->template_arguments);
+                        template_parameters = get_template_parameters_list_str(
+                                actual_class->template_parameters);
                     }
                 }
 
                 char c[256] = { 0 };
-                snprintf(c, 255, "class <anonymous>%s %p", template_arguments, type_info);
+                snprintf(c, 255, "class <anonymous>%s %p", template_parameters, type_info);
                 result = strappend(result, c);
             }
             break;
@@ -6619,10 +6621,10 @@ static const char* get_builtin_type_name(type_t* type_info)
                     result = strappend(result, "::");
                     result = strappend(result, parts->name);
 
-                    if (parts->template_arguments != NULL)
+                    if (parts->template_parameters != NULL)
                     {
                         result = strappend(result, 
-                                get_template_arguments_list_str(parts->template_arguments));
+                                get_template_parameters_list_str(parts->template_parameters));
                     }
 
                     parts = parts->next;
@@ -6787,35 +6789,37 @@ const char* print_declarator(type_t* printed_declarator)
                     tmp_result = strappend(tmp_result, "function");
 
                     if (printed_declarator->info->is_template_specialized_type
-                            && printed_declarator->template_arguments != NULL)
+                            && printed_declarator->template_parameters != NULL)
                     {
+                        internal_error("Not yet implemented", 0);
+#if 0
                         tmp_result = strappend(tmp_result, "< ");
-                        for (i = 0; i < printed_declarator->template_arguments->num_arguments; i++)
+                        for (i = 0; i < printed_declarator->template_parameters->num_arguments; i++)
                         {
-                            template_argument_t* template_argument = 
-                                printed_declarator->template_arguments->argument_list[i];
+                            template_parameter_t* template_parameter = 
+                                printed_declarator->template_parameters->argument_list[i];
 
                             char c[256];
                             snprintf(c, 255, "[[%d, %d]] ", 
-                                    template_argument->nesting,
-                                    template_argument->position);
+                                    template_parameter->nesting,
+                                    template_parameter->position);
 
                             tmp_result = strappend(tmp_result, uniquestr(c));
 
-                            switch (template_argument->kind)
+                            switch (template_parameter->kind)
                             {
                                 case TAK_TYPE:
                                 case TAK_TEMPLATE:
                                     {
                                         tmp_result = strappend(tmp_result, 
-                                                print_declarator(template_argument->type));
+                                                print_declarator(template_parameter->type));
 
                                         break;
                                     }
                                 case TAK_NONTYPE:
                                     {
                                         tmp_result = strappend(tmp_result, 
-                                                prettyprint_in_buffer(template_argument->expression));
+                                                prettyprint_in_buffer(template_parameter->expression));
                                         break;
                                     }
                                 default:
@@ -6825,12 +6829,13 @@ const char* print_declarator(type_t* printed_declarator)
                                         break;
                                     }
                             }
-                            if ((i + 1) < printed_declarator->template_arguments->num_arguments)
+                            if ((i + 1) < printed_declarator->template_parameters->num_arguments)
                             {
                                 tmp_result = strappend(tmp_result, ", ");
                             }
                         }
                         tmp_result = strappend(tmp_result, " >");
+#endif
                     }
                     
                     tmp_result = strappend(tmp_result, " (");
@@ -7642,7 +7647,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
 }
 
 type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
-        template_argument_list_t* explicit_template_arguments)
+        template_parameter_list_t* explicit_template_parameters)
 {
     type_t* result = new_empty_type();
 
@@ -7651,7 +7656,7 @@ type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
     result->unqualified_type = result;
     // Use a smarter approach for this one
     result->overload_set = entry_list_copy(overload_set);
-    result->explicit_template_argument_list = explicit_template_arguments;
+    result->explicit_template_parameter_list = explicit_template_parameters;
 
     return result;
 }
@@ -7669,11 +7674,11 @@ scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t)
     return entry_list_copy(t->overload_set);
 }
 
-template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t)
+template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_parameters(type_t* t)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
-    return t->explicit_template_argument_list;
+    return t->explicit_template_parameter_list;
 }
 
 scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, int line, const char* filename)
@@ -7684,7 +7689,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
         return NULL;
 
     scope_entry_t* entry = entry_list_head(t->overload_set);
-    template_argument_list_t *argument_list = t->explicit_template_argument_list;
+    template_parameter_list_t *argument_list = t->explicit_template_parameter_list;
 
     if (entry->kind != SK_TEMPLATE)
     {

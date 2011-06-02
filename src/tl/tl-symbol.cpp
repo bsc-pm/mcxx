@@ -320,8 +320,7 @@ namespace TL
 
     bool Symbol::has_template_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == TEMPLATE_SCOPE;
+        return false;
     }
 
     bool Symbol::has_prototype_scope() const

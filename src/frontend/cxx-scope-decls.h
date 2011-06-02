@@ -130,13 +130,9 @@ struct decl_context_tag
     // Current block scope, if any
     struct scope_tag* block_scope;
 
-    // Current template_scope, if any
-    struct scope_tag* template_scope;
     // Template parameter information without taking
     // into account the current scope
     struct template_parameter_list_tag *template_parameters;
-    // Template nesting level
-    int template_nesting;
 
     // Current class scope, if any
     struct scope_tag* class_scope;
@@ -211,47 +207,30 @@ typedef enum {
 
 #undef BITMAP
 
-enum template_argument_kind
-{
-    TAK_UNDEFINED = 0,
-    TAK_NONTYPE, // an nontype template argument (basically an int or pointer)
-    TAK_TYPE, // a type template argument (the common case)
-    TAK_TEMPLATE // template template argument (not very usual)
-};
-
-struct template_argument_tag
-{
-    // Kind of the template argument
-    enum template_argument_kind kind;
-
-    // Argument tree. Used for nontype template arguments
-    struct AST_tag* expression;
-    decl_context_t expression_context;
-
-    // If the template argument is a type template argument (or a template
-    // template one) the type should be here
-    struct type_tag* type;
-
-    // This argument was implicitly defined by default template argument
-    char implicit;
-
-    // "Identifier" of this template argument
-    int position;
-    int nesting;
-};
-
-// List of template arguments
-struct template_argument_list_tag {
-    int num_arguments;
-    template_argument_t** argument_list;
-};
-
 enum template_parameter_kind
 {
     TPK_UNKNOWN = 0,
     TPK_NONTYPE, // template <int N> <-- 'N'
     TPK_TYPE, // template <class T> <-- 'T'
     TPK_TEMPLATE // template <template <typename Q> class V > <-- 'V'
+};
+
+struct template_parameter_value_tag
+{
+    // This eases some checks
+    enum template_parameter_kind kind;
+
+    // All template parameters can have this value
+    // - Type and template will have the argument
+    // - Nontype will have the related type of the template parameter
+    struct type_tag* type;
+
+    // Argument tree. Used only for nontype template parameters
+    struct AST_tag* expression;
+    decl_context_t expression_context;
+
+    // Template, states that this is a default argument of a template parameter
+    char is_default;
 };
 // A template parameter
 //
@@ -260,19 +239,15 @@ struct template_parameter_tag
 {
     // Kind of the parameter
     enum template_parameter_kind kind;
-
-    // The related symbol associated to this parameter it may be faked if the
-    // symbol did not have name, we are mainly interested in their type
     scope_entry_t* entry;
-
-    char has_default_argument;
-    template_argument_t* default_template_argument;
 };
 
 struct template_parameter_list_tag
 {
-    int num_template_parameters;
-    template_parameter_t** template_parameters;
+    int num_parameters;
+    template_parameter_t** parameters;
+    template_parameter_value_t** arguments;
+    struct template_parameter_list_tag* enclosing;
 };
 
 // Access specifier, saved but not enforced by the compiler
@@ -379,7 +354,6 @@ enum scope_kind
     PROTOTYPE_SCOPE, // Scope of a prototype
     BLOCK_SCOPE, // Corresponds to the scope of a compound statement
     CLASS_SCOPE, // Class scope
-    TEMPLATE_SCOPE // Template scope, where template parameters live
 };
 
 // This is the scope

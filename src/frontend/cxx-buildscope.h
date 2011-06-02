@@ -41,11 +41,11 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN const char* get_operator_function_name(struct AST_tag* declarator_id);
-LIBMCXX_EXTERN void build_scope_template_arguments(
+LIBMCXX_EXTERN void build_scope_template_parameters(
         decl_context_t lookup_context, 
         decl_context_t argument_context, 
         struct AST_tag* class_head_id, 
-        template_argument_list_t** template_arguments);
+        template_parameter_list_t** template_parameters);
 LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info, 
         struct type_tag** type_info, decl_context_t dctx,
         nodecl_t* nodecl_output);

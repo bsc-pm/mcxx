@@ -264,7 +264,7 @@ void build_ternary_builtin_operators(type_t* t1,
         type_t* (*result_type)(type_t**, type_t**, type_t**));
 
 static type_t* check_template_function(scope_entry_list_t* entry_list,
-        AST template_id, decl_context_t decl_context, char *dependent_template_arguments);
+        AST template_id, decl_context_t decl_context, char *dependent_template_parameters);
 
 scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_set_t* builtin_operators)
 {
@@ -328,7 +328,7 @@ static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         type_t** argument_types, int num_arguments, decl_context_t decl_context,
         const char* filename, int line,
-        template_argument_list_t* explicit_template_arguments)
+        template_parameter_list_t* explicit_template_parameters)
 {
     // We have to expand the template
     type_t* specialization_type = template_type_get_primary_type(entry->type_information);
@@ -343,9 +343,9 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     if (deduce_arguments_from_call_to_specific_template_function(argument_types,
                 num_arguments, specialization_type, template_parameters,
                 decl_context, &deduction_result, filename, line, 
-                explicit_template_arguments))
+                explicit_template_parameters))
     {
-        template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
+        template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
                 deduction_result);
 
         // Now get a specialized template type for this
@@ -416,7 +416,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         decl_context_t decl_context,
         const char *filename,
         int line,
-        template_argument_list_t *explicit_template_arguments
+        template_parameter_list_t *explicit_template_parameters
         )
 {
     scope_entry_list_t* overload_set = NULL;
@@ -432,7 +432,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         {
             scope_entry_t* specialized_symbol = expand_template_given_arguments(entry,
                     argument_types, num_arguments, decl_context, filename, line,
-                    explicit_template_arguments);
+                    explicit_template_parameters);
 
             if (specialized_symbol != NULL)
             {
@@ -2851,7 +2851,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             nonmember_entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
-            /* explicit_template_arguments */ NULL);
+            /* explicit_template_parameters */ NULL);
     entry_list_free(nonmember_entry_list);
 
     scope_entry_list_iterator_t *it = NULL;
@@ -4740,7 +4740,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                 scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
                         unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
+                        unresolved_overloaded_type_get_explicit_template_parameters(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
@@ -4873,7 +4873,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                 scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
                         unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
+                        unresolved_overloaded_type_get_explicit_template_parameters(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
@@ -6200,7 +6200,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             {
                 if (!is_dependent_type(entry->type_information))
                 {
-                    if (!entry->entity_specs.is_template_argument)
+                    if (!entry->entity_specs.is_template_parameter)
                     {
                         expression_set_type(expr, lvalue_ref(entry->type_information));
                         expression_set_is_lvalue(expr, 1);
@@ -6213,7 +6213,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
                     if (!entry->entity_specs.is_parameter
                             && (is_const_qualified_type(entry->type_information)
-                                || entry->entity_specs.is_template_argument)
+                                || entry->entity_specs.is_template_parameter)
                             && entry->language_dependent_value != NULL)
                     {
                         if (val != NULL
@@ -6334,7 +6334,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         }
     }
 
-    char dependent_template_arguments = 0;
+    char dependent_template_parameters = 0;
 
     if (ASTType(unqualified_object) == AST_TEMPLATE_ID)
     {
@@ -6342,7 +6342,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         {
             type_t* solved = check_template_function(result_list, 
                     unqualified_object, decl_context, 
-                    &dependent_template_arguments);
+                    &dependent_template_parameters);
             entry_list_free(result_list);
 
             if (solved != NULL)
@@ -6353,7 +6353,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 // standard.
                 expression_set_is_lvalue(expr, 1);
             }
-            else if (dependent_template_arguments)
+            else if (dependent_template_parameters)
             {
                 expression_set_dependent(expr);
             }
@@ -6404,7 +6404,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
 
             if (!entry->entity_specs.is_parameter
                     && (is_const_qualified_type(entry->type_information)
-                        || entry->entity_specs.is_template_argument)
+                        || entry->entity_specs.is_template_parameter)
                     && entry->language_dependent_value != NULL)
             {
                 if (val != NULL
@@ -6575,7 +6575,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
                     /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
                     ASTFileName(expr), ASTLine(expr),
-                    /* explicit_template_arguments */ NULL);
+                    /* explicit_template_parameters */ NULL);
             entry_list_free(operator_subscript_list);
 
             candidate_t* candidate_set = NULL;
@@ -8922,8 +8922,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                     ast_location(called_expression));
         }
 
-        template_argument_list_t* explicit_template_arguments = 
-            unresolved_overloaded_type_get_explicit_template_arguments(expression_get_type(called_expression));
+        template_parameter_list_t* explicit_template_parameters = 
+            unresolved_overloaded_type_get_explicit_template_parameters(expression_get_type(called_expression));
         
         // These might include template_types that we have to "unfold" properly
         scope_entry_list_t* first_candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(called_expression));
@@ -8931,7 +8931,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
-                explicit_template_arguments);
+                explicit_template_parameters);
         entry_list_free(first_candidates);
 
         // Now check the form of the call in order to fill the implicit argument type
@@ -9048,7 +9048,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
-                /* explicit_template_arguments */ NULL);
+                /* explicit_template_parameters */ NULL);
         entry_list_free(first_set_candidates);
 
         int num_surrogate_functions = 0;
@@ -9992,23 +9992,23 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         else if (ASTType(id_expression) == AST_OPERATOR_FUNCTION_ID_TEMPLATE
                 || ASTType(id_expression) == AST_TEMPLATE_ID)
         {
-            char dependent_template_arguments = 0;
+            char dependent_template_parameters = 0;
             type_t* solved = check_template_function(entry_list, id_expression, decl_context,
-                    &dependent_template_arguments);
+                    &dependent_template_parameters);
 
             if (solved != NULL)
             {
                 expression_set_type(member_access, solved);
                 return;
             }
-            else if (dependent_template_arguments)
+            else if (dependent_template_parameters)
             {
                 expression_set_dependent(member_access);
                 return;
             }
             else
             {
-                // solved == NULL && !dependent_template_arguments 
+                // solved == NULL && !dependent_template_parameters 
                 expression_set_error(member_access);
                 return;
             }
@@ -10066,7 +10066,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                 || entry->kind == SK_TEMPLATE)
         {
             expression_set_type(member_access, get_unresolved_overloaded_type(entry_list, 
-                        /* explicit_template_arguments */ NULL));
+                        /* explicit_template_parameters */ NULL));
             ok = 1;
         }
     }
@@ -10093,9 +10093,9 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, const_valu
 
 static type_t* check_template_function(scope_entry_list_t* entry_list,
         AST template_id, decl_context_t decl_context, 
-        char *dependent_template_arguments)
+        char *dependent_template_parameters)
 {
-    *dependent_template_arguments = 0;
+    *dependent_template_parameters = 0;
     ERROR_CONDITION(entry_list == NULL,
             "This list cannot be NULL", 0);
 
@@ -10143,24 +10143,25 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
     scope_entry_t* primary_symbol = 
         named_type_get_symbol(template_type_get_primary_type(entry->type_information));
 
+
     if (primary_symbol->entity_specs.is_member
             && is_dependent_type(primary_symbol->entity_specs.class_type))
     {
-        *dependent_template_arguments = 1;
+        *dependent_template_parameters = 1;
         return NULL;
     }
 
     // Now we have to solve the template function
-    template_argument_list_t* template_arguments = get_template_arguments_from_syntax(
-            ASTSon1(template_id), decl_context, nesting_level);
+    template_parameter_list_t* template_parameters = get_template_parameters_from_syntax(
+            ASTSon1(template_id), decl_context);
 
-    if (has_dependent_template_arguments(template_arguments))
+    if (has_dependent_template_parameters(template_parameters))
     {
-        *dependent_template_arguments = 1;
+        *dependent_template_parameters = 1;
         return NULL;
     }
 
-    return get_unresolved_overloaded_type(entry_list, template_arguments);
+    return get_unresolved_overloaded_type(entry_list, template_parameters);
 }
 
 static void check_template_id_expr(AST expr, decl_context_t decl_context)
@@ -10176,10 +10177,10 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
         return;
     }
 
-    char dependent_template_arguments = 0;
+    char dependent_template_parameters = 0;
 
     type_t* solved = check_template_function(entry_list, expr, decl_context,
-            &dependent_template_arguments);
+            &dependent_template_parameters);
 
     char ok = 0;
     if (solved != NULL)
@@ -10191,7 +10192,7 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
         expression_set_is_lvalue(expr, 1);
         ok = 1;
     } 
-    else if (dependent_template_arguments)
+    else if (dependent_template_parameters)
     {
         // This might well be a function template name but with wrong template-parameters
         // because of type dependency. So give it a second chance
@@ -10234,7 +10235,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
                 NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(expr), ASTLine(expr),
-                /* explicit_template_arguments */ NULL);
+                /* explicit_template_parameters */ NULL);
         entry_list_free(operator_entry_list);
     }
 
@@ -10246,7 +10247,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, argument_types, num_arguments,
             decl_context,
-            ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+            ASTFileName(expr), ASTLine(expr), /* explicit_template_parameters */ NULL);
     entry_list_free(entry_list);
 
     scope_entry_list_t* old_overload_set = overload_set;
@@ -10357,7 +10358,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
                 NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(expr), ASTLine(expr),
-                /* explicit_template_arguments */ NULL);
+                /* explicit_template_parameters */ NULL);
         entry_list_free(operator_entry_list);
     }
 
@@ -10371,7 +10372,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, argument_types, num_arguments,
             decl_context,
-            ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+            ASTFileName(expr), ASTLine(expr), /* explicit_template_parameters */ NULL);
     entry_list_free(entry_list);
 
     scope_entry_list_t* old_overload_set = overload_set;
@@ -11064,6 +11065,8 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context,
 
 static char check_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
 
     AST expression_list = ASTSon0(initializer);
@@ -11399,8 +11402,8 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             template_parameter_list_t* template_parameters = 
                 template_type_get_template_parameters(std_initializer_list_template->type_information);
 
-            template_argument_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
-            template_argument_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
+            template_parameter_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
+            template_parameter_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
             argument->kind = TAK_TYPE;
             argument->type = initializer_list_type;
 
@@ -11529,6 +11532,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
     }
 
     return 0;
+#endif
 }
 
 char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)

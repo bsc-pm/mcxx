@@ -273,7 +273,8 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         char is_implicit_argument,
         const char* filename, int line)
 {
-
+    internal_error("Not yet implemented", 0);
+#if 0
     fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
             print_declarator(orig));
     fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
@@ -291,11 +292,11 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 && equivalent_types(template_specialized_type_get_related_template_type(dest), 
                     std_initializer_list_template->type_information))
         {
-            template_argument_list_t* template_arguments = template_specialized_type_get_template_arguments(dest);
+            template_parameter_list_t* template_parameters = template_specialized_type_get_template_parameters(dest);
 
-            ERROR_CONDITION( (template_arguments->num_arguments == 0), 
+            ERROR_CONDITION( (template_parameters->num_arguments == 0), 
                     "Invalid template argument for std::init_list", 0);
-            type_t* new_dest = template_arguments->argument_list[0]->type;
+            type_t* new_dest = template_parameters->argument_list[0]->type;
 
 
             int i;
@@ -433,6 +434,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     filename, line);
         }
     }
+#endif
 }
 
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -441,6 +443,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         char is_implicit_argument,
         const char* filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "ICS: Computing ICS from '%s' -> '%s'\n", 
@@ -482,7 +486,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
         scope_entry_t* solved_function = address_of_overloaded_function(
                 unresolved_set,
-                unresolved_overloaded_type_get_explicit_template_arguments(orig),
+                unresolved_overloaded_type_get_explicit_template_parameters(orig),
                 dest,
                 decl_context,
                 filename,
@@ -680,13 +684,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_argument_list_t* template_arguments = 
-                    build_template_argument_list_from_deduction_set(deduction_result);
+                template_parameter_list_t* template_parameters = 
+                    build_template_parameter_list_from_deduction_set(deduction_result);
 
                 type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        template_arguments,
+                        template_parameters,
                         template_parameters,
                         decl_context, line, filename);
 
@@ -857,13 +861,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_argument_list_t* template_arguments = 
-                    build_template_argument_list_from_deduction_set(deduction_result);
+                template_parameter_list_t* template_parameters = 
+                    build_template_parameter_list_from_deduction_set(deduction_result);
 
                 type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        template_arguments,
+                        template_parameters,
                         template_parameters,
                         decl_context, line, filename); 
 
@@ -1007,6 +1011,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
         }
     }
+#endif
 }
 
 static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -1764,7 +1769,7 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
                         named_type_get_symbol(template_type_get_primary_type(
                                 template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
                         decl_context, &deduction_set, 
-                        /* explicit_template_arguments */ NULL,
+                        /* explicit_template_parameters */ NULL,
                         filename, line, /* is_conversion */ 0))
             {
                 DEBUG_CODE()
@@ -2088,7 +2093,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
 }
 
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         type_t* target_type,
         decl_context_t decl_context,
         const char *filename,
@@ -2266,13 +2271,13 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
                 deduction_set_t* deduced_arguments = NULL;
 
-                if (deduce_template_arguments_common(
+                if (deduce_template_parameters_common(
                             template_parameters,
                             argument_types, num_argument_types,
                             parameter_types, 
                             decl_context,
                             &deduced_arguments, filename, line,
-                            explicit_template_arguments,
+                            explicit_template_parameters,
                             deduction_flags_empty()))
                 {
                     DEBUG_CODE()
@@ -2283,7 +2288,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                                 current_fun->symbol_name);
                     }
 
-                    template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
+                    template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
                             deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
                             argument_list, template_parameters,
@@ -2369,7 +2374,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                         most_specialized->type_information,
                         decl_context,
                         &deduction_set, 
-                        /* explicit_template_arguments */ NULL,
+                        /* explicit_template_parameters */ NULL,
                         filename, line, /* is_conversion */ 0))
             {
                 // if (!(a<=b)) it2 means that a > b
@@ -2392,7 +2397,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             current->type_information,
                             decl_context,
                             &deduction_set, 
-                            /* explicit_template_arguments */ NULL,
+                            /* explicit_template_parameters */ NULL,
                             filename, line, /* is_conversion */ 0))
                 {
                     DEBUG_CODE()
@@ -2502,7 +2507,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
             NULL, argument_types, num_arguments,
             decl_context,
-            filename, line, /* explicit_template_arguments */ NULL);
+            filename, line, /* explicit_template_parameters */ NULL);
 
     scope_entry_t* augmented_conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));

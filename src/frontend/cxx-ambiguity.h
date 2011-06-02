@@ -54,7 +54,7 @@ LIBMCXX_EXTERN void solve_ambiguous_exception_decl(AST exception_decl, decl_cont
 LIBMCXX_EXTERN void solve_ambiguous_type_specifier(AST type_specifier, decl_context_t decl_context);
 
 // These two are misleading, should be 'check_' instead of 'solve_'
-LIBMCXX_EXTERN char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context_t decl_context);
+LIBMCXX_EXTERN char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_context_t decl_context);
 LIBMCXX_EXTERN char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context);

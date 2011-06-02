@@ -745,9 +745,9 @@ namespace TL
         }
 
         int i;
-        for (i = 0; i < template_parameters->num_template_parameters; i++)
+        for (i = 0; i < template_parameters->num_parameters; i++)
         {
-            template_parameter_t* template_parameter = template_parameters->template_parameters[i];
+            template_parameter_t* template_parameter = template_parameters->parameters[i];
 
             result.append(template_parameter);
         }

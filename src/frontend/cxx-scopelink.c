@@ -85,15 +85,15 @@ decl_context_t scope_link_get_global_decl_context(scope_link_t* sl)
 
 void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
 {
+    if (a == NULL || decl_context.current_scope == NULL)
+        return;
+
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPELINK: Linking node '%s' with scope '%p'\n", 
                 ast_location(a),
                 decl_context.current_scope);
     }
-
-    if (a == NULL)
-        return;
 
 
     rb_red_blk_node *node = rb_tree_query(sl->h, a);

@@ -92,18 +92,6 @@ void print_scope(decl_context_t decl_context)
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
-    scope_t* template_scope = decl_context.template_scope;
-    int k = 0;
-    while (template_scope != NULL)
-    {
-        PRINT_INDENTED_LINE(stderr, global_indent + k, "[TEMPLATE_SCOPE - %p]\n", 
-               template_scope);
-        print_scope_full(template_scope, global_indent + k + 1);
-
-        ++k;
-        template_scope = template_scope->contained_in;
-    }
-
     scope_t* st = decl_context.current_scope;
     if (st == NULL)
         return;
@@ -257,15 +245,16 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type is specialized:\n");
 
-        template_argument_list_t* arguments = 
-            template_specialized_type_get_template_arguments(entry->type_information);
+#if 0
+        template_parameter_list_t* arguments = 
+            template_specialized_type_get_template_parameters(entry->type_information);
 
         if (arguments != NULL)
         {
             int j;
             for (j = 0; j < arguments->num_arguments; j++)
             {
-                template_argument_t* current_argument = arguments->argument_list[j];
+                template_parameter_t* current_argument = arguments->argument_list[j];
 
                 char* argument_kind[] =
                 {
@@ -296,6 +285,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         {
             PRINT_INDENTED_LINE(stderr, global_indent + 2, "%s", "Invalid template arguments!!!\n");
         }
+#endif
 
         if (is_class_type(entry->type_information))
         {

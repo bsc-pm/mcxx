@@ -53,8 +53,10 @@ type_t* solve_class_template(decl_context_t decl_context,
         const char *filename,
         int line)
 {
-    template_argument_list_t* specialized
-        = template_specialized_type_get_template_arguments(
+    internal_error("Not yet implemented", 0);
+#if 0
+    template_parameter_list_t* specialized
+        = template_specialized_type_get_template_parameters(
                 get_actual_class_type(specialized_type));
 
     int i;
@@ -101,8 +103,8 @@ type_t* solve_class_template(decl_context_t decl_context,
             continue;
         }
 
-        template_argument_list_t *arguments = 
-            template_specialized_type_get_template_arguments(
+        template_parameter_list_t *arguments = 
+            template_specialized_type_get_template_parameters(
                     get_actual_class_type(current_specialized_type));
 
         // It is supposed that this will hold in correct code
@@ -170,6 +172,7 @@ type_t* solve_class_template(decl_context_t decl_context,
     {
         return NULL;
     }
+#endif
 }
 
 // This function assumes that only one minimum will exist
@@ -330,7 +333,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     g,
                     decl_context, 
                     /* deduction_set */ NULL,
-                    /* explicit_template_arguments */ NULL, 
+                    /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
         {
@@ -381,7 +384,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     g,
                     decl_context, 
                     /* deduction_set */ NULL,
-                    /* explicit_template_arguments */ NULL, 
+                    /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
         {
@@ -474,10 +477,12 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
 }
 
 scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         type_t* function_type, decl_context_t decl_context,
         const char *filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     deduction_set_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
@@ -508,7 +513,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
                     extended_function_type,
                     decl_context,
                     &feasible_deduction,
-                    explicit_template_arguments,
+                    explicit_template_parameters,
                     filename, line, 
                     primary_symbol->entity_specs.is_conversion))
         {
@@ -571,15 +576,16 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     ERROR_CONDITION((selected_deduction == NULL), "Selected deduction cannot be NULL", 0);
 
     // Build the specialized type
-    template_argument_list_t* template_arguments = 
-        build_template_argument_list_from_deduction_set(selected_deduction);
+    template_parameter_list_t* template_parameters = 
+        build_template_parameter_list_from_deduction_set(selected_deduction);
 
     type_t* result_specialized = template_type_get_specialized_type(
             template_specialized_type_get_related_template_type(
                 named_type_get_symbol(result)->type_information
                 ),
-            template_arguments, /* no template parameters */ NULL,
+            template_parameters, /* no template parameters */ NULL,
             decl_context, line, filename);
 
     return named_type_get_symbol(result_specialized);
+#endif
 }
