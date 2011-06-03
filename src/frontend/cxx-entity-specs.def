@@ -47,7 +47,6 @@ bool|all|is_destructor|This is a destructor
 bool|all|is_explicit|This constructor has been marked as explicit
 bool|all|is_surrogate_function|This function is a surrogate fake symbol created during overload resolution
 bool|all|is_anonymous|This is an unnamed entity used for structs and enums
-bool|all|is_template_parameter|This is a template argument
 bool|all|is_user_declared|This specialization of template has been user declared
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function

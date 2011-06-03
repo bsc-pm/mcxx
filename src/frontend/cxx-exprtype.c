@@ -336,7 +336,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     type_t* specialized_function_type = specialization_symbol->type_information;
 
     template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_parameters(specialized_function_type);
+        template_specialized_type_get_template_arguments(specialized_function_type);
 
     deduction_set_t* deduction_result = NULL;
 
@@ -346,13 +346,13 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
                 explicit_template_parameters))
     {
         template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
+                template_parameters,
                 deduction_result);
 
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                argument_list, template_parameters,
-                decl_context, line, filename);
+                argument_list, decl_context, line, filename);
 
         if (named_specialization_type == NULL)
         {
@@ -4740,7 +4740,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                 scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
                         unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_parameters(rhs_type),
+                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
@@ -4873,7 +4873,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                 scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
                         unresolved_set,
-                        unresolved_overloaded_type_get_explicit_template_parameters(rhs_type),
+                        unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
@@ -8923,7 +8923,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         }
 
         template_parameter_list_t* explicit_template_parameters = 
-            unresolved_overloaded_type_get_explicit_template_parameters(expression_get_type(called_expression));
+            unresolved_overloaded_type_get_explicit_template_arguments(expression_get_type(called_expression));
         
         // These might include template_types that we have to "unfold" properly
         scope_entry_list_t* first_candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(called_expression));
@@ -11065,8 +11065,6 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context,
 
 static char check_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
 
     AST expression_list = ASTSon0(initializer);
@@ -11402,18 +11400,20 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             template_parameter_list_t* template_parameters = 
                 template_type_get_template_parameters(std_initializer_list_template->type_information);
 
-            template_parameter_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
-            template_parameter_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
-            argument->kind = TAK_TYPE;
+            // Get a specialization of std::initializer_list<T> [ T <- initializer_list_type ]
+            template_parameter_value_t* argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
+            argument->kind = TPK_TYPE;
             argument->type = initializer_list_type;
 
-            P_LIST_ADD(argument_list->argument_list, argument_list->num_arguments, argument);
+            template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
+            updated_template_parameters->arguments[0] = argument;
 
             type_t* specialized_std_initializer = 
                 template_type_get_specialized_type(std_initializer_list_template->type_information,
-                        argument_list, template_parameters,
-                        decl_context, ASTLine(initializer), ASTFileName(initializer));
+                        updated_template_parameters, decl_context, 
+                        ASTLine(initializer), ASTFileName(initializer));
 
+            // Now solve the constructor using this specialization
             // Should it be a const T&  ?
             arg_list[0] = specialized_std_initializer;
             num_args = 1;
@@ -11532,7 +11532,6 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
     }
 
     return 0;
-#endif
 }
 
 char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)

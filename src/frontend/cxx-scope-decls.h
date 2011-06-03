@@ -102,15 +102,11 @@ enum decl_flags_tag
     DF_PARAMETER_DECLARATION = BITMAP(10),
     // States that the lookup should ignore injected class-names
     DF_NO_INJECTED_CLASS_NAME = BITMAP(11),
-    // Updates template arguments for a given specialization, used
-    // only when defining an already declared template specialization
-    // (since we want the names to be updated)
-    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(12),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(13),
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
     // Explicit instantiation
-    DF_EXPLICIT_INSTANTIATION = BITMAP(14)
+    DF_EXPLICIT_INSTANTIATION = BITMAP(13)
 } decl_flags_t;
 
 #undef BITMAP
@@ -231,6 +227,11 @@ struct template_parameter_value_tag
 
     // Template, states that this is a default argument of a template parameter
     char is_default;
+
+    // This symbol is null until lookup finds a template parameter and
+    // discovers it has this value Then a fake symbol is created to represent
+    // such value and is kept here
+    scope_entry_t* entry;
 };
 // A template parameter
 //

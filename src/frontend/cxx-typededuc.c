@@ -57,9 +57,6 @@ char deduce_template_parameters_common(
         template_parameter_list_t* explicit_template_parameters,
         deduction_flags_t flags)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
-
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEDEDUC: Trying to deduce template arguments for template\n");
@@ -105,9 +102,8 @@ char deduce_template_parameters_common(
     int num_deduction_slots = 0;
     if (explicit_template_parameters != NULL)
     {
-        updated_context = update_context_with_template_parameters(
-                decl_context,
-                explicit_template_parameters);
+        /* If we are given explicit template arguments register them in the deduction result */
+        updated_context.template_parameters = explicit_template_parameters;
 
         DEBUG_CODE()
         {
@@ -115,12 +111,11 @@ char deduce_template_parameters_common(
         }
         int j;
         deduction_set_t *explicit_deductions = counted_calloc(1, sizeof(*explicit_deductions), &_bytes_typededuc);
-        /* If we are given explicit template arguments sign in them in the deduction result already */
-        for (j = 0; j < explicit_template_parameters->num_arguments; j++)
+        for (j = 0; j < explicit_template_parameters->num_parameters; j++)
         {
             // Note:  nesting must match
             template_parameter_t* current_template_parameter = template_parameters->parameters[j];
-            template_parameter_t* current_template_parameter = explicit_template_parameters->argument_list[j];
+            template_parameter_value_t* current_explicit_template_argument = explicit_template_parameters->arguments[j];
 
             deduction_t* deduction_item = get_unification_item_template_parameter(&explicit_deductions,
                     current_template_parameter->entry);
@@ -131,7 +126,7 @@ char deduce_template_parameters_common(
             {
                 case TPK_TEMPLATE:
                     {
-                        if (current_template_parameter->kind != TAK_TEMPLATE)
+                        if (current_explicit_template_argument->kind != TPK_TEMPLATE)
                         {
                             DEBUG_CODE()
                             {
@@ -141,12 +136,12 @@ char deduce_template_parameters_common(
                             (*deduced_arguments) = counted_calloc(1, sizeof(*(*deduced_arguments)), &_bytes_typededuc);
                             return 0;
                         }
-                        current_deduced_parameter->type = current_template_parameter->type;
+                        current_deduced_parameter->type = current_explicit_template_argument->type;
                         break;
                     }
                 case TPK_TYPE :
                     {
-                        if (current_template_parameter->kind != TAK_TYPE)
+                        if (current_explicit_template_argument->kind != TPK_TYPE)
                         {
                             DEBUG_CODE()
                             {
@@ -156,12 +151,12 @@ char deduce_template_parameters_common(
                             (*deduced_arguments) = counted_calloc(1, sizeof(*(*deduced_arguments)), &_bytes_typededuc);
                             return 0;
                         }
-                        current_deduced_parameter->type = current_template_parameter->type;
+                        current_deduced_parameter->type = current_explicit_template_argument->type;
                         break;
                     }
                 case TPK_NONTYPE:
                     {
-                        if (current_template_parameter->kind != TAK_NONTYPE)
+                        if (current_explicit_template_argument->kind != TPK_NONTYPE)
                         {
                             DEBUG_CODE()
                             {
@@ -171,8 +166,8 @@ char deduce_template_parameters_common(
                             (*deduced_arguments) = counted_calloc(1, sizeof(*(*deduced_arguments)), &_bytes_typededuc);
                             return 0;
                         }
-                        current_deduced_parameter->expression = current_template_parameter->expression;
-                        current_deduced_parameter->decl_context = current_template_parameter->expression_context;
+                        current_deduced_parameter->expression = current_explicit_template_argument->expression;
+                        current_deduced_parameter->decl_context = current_explicit_template_argument->expression_context;
                         // Note that here we are using the type of the
                         // parameter which it is the one ruling here
                         current_deduced_parameter->type = current_template_parameter->entry->type_information;
@@ -348,7 +343,8 @@ char deduce_template_parameters_common(
         {
             if (!c[i])
             {
-                if (!template_parameters->parameters[i]->has_default_argument)
+                if (template_parameters->arguments[i] == NULL
+                        || !template_parameters->arguments[i]->is_default)
                 {
                     DEBUG_CODE()
                     {
@@ -364,8 +360,8 @@ char deduce_template_parameters_common(
                     }
                     // C++0x
                     // FIXME: Allocate a deduction for it
-                    template_parameter_t* default_template_parameter 
-                        = template_parameters->parameters[i]->default_template_parameter;
+                    template_parameter_value_t* default_template_parameter 
+                        = template_parameters->arguments[i];
 
                     deduced_parameter_t *default_deduced_parameter = counted_calloc(1, sizeof(*default_deduced_parameter), &_bytes_typededuc);
                     default_deduced_parameter->type = default_template_parameter->type;
@@ -513,8 +509,11 @@ char deduce_template_parameters_common(
     // For nontype template parameters its type could have to be updated
     // since unification has not done it
     {
-        template_parameter_list_t* deduced_template_args = build_template_parameter_list_from_deduction_set((*deduced_arguments));
-        updated_context = update_context_with_template_parameters(decl_context, deduced_template_args);
+        template_parameter_list_t* deduced_template_parameters 
+            = build_template_parameter_list_from_deduction_set(
+                    template_parameters,
+                    (*deduced_arguments));
+        updated_context.template_parameters = deduced_template_parameters;
 
         for (i = 0; i < (*deduced_arguments)->num_deductions; i++)
         {
@@ -612,7 +611,6 @@ char deduce_template_parameters_common(
 
     // Seems a fine deduction
     return 1;
-#endif
 }
 
 char deduce_arguments_of_conversion(
@@ -623,8 +621,6 @@ char deduce_arguments_of_conversion(
         deduction_set_t **deduction_result,
         const char *filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     scope_entry_t* specialized_symbol = named_type_get_symbol(specialized_named_type);
 
     ERROR_CONDITION(specialized_symbol->kind != SK_FUNCTION, 
@@ -689,11 +685,10 @@ char deduce_arguments_of_conversion(
     // Now check that the updated types match exactly or can be converted
     // accordingly to the standard for the case of function calls
     template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(*deduction_result);
+        build_template_parameter_list_from_deduction_set(template_parameters, *deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_parameters(
-            specialized_symbol->decl_context,
-            deduced_template_parameter_list);
+    decl_context_t updated_context = specialized_symbol->decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     type_t* original_parameter_type = (*parameter_types);
     type_t* updated_type = 
@@ -729,7 +724,6 @@ char deduce_arguments_of_conversion(
     }
 
     return 1;
-#endif
 }
 
 char deduce_arguments_from_call_to_specific_template_function(type_t** call_argument_types,
@@ -740,8 +734,6 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         const char* filename, int line,
         template_parameter_list_t* explicit_template_parameters)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     scope_entry_t* specialized_symbol = named_type_get_symbol(specialized_named_type);
 
     ERROR_CONDITION(specialized_symbol->kind != SK_FUNCTION, 
@@ -902,11 +894,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     // Now check that the updated types match exactly or can be converted
     // accordingly to the standard for the case of function calls
     template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(*deduction_result);
+        build_template_parameter_list_from_deduction_set(template_parameters, *deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_parameters(
-            specialized_symbol->decl_context,
-            deduced_template_parameter_list);
+    decl_context_t updated_context = specialized_symbol->decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     for (i = 0; i < relevant_arguments; i++)
     {
@@ -948,7 +939,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
             scope_entry_t* solved_function = solved_function = address_of_overloaded_function(
                     unresolved_set,
-                    unresolved_overloaded_type_get_explicit_template_parameters(unresolved_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     updated_context,
                     filename, line);
@@ -1199,19 +1190,18 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     }
 
     return 1;
-#endif
 }
 
 template_parameter_list_t* build_template_parameter_list_from_deduction_set(
+        template_parameter_list_t* template_parameters,
         deduction_set_t* deduction_set)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEDEDUC: Creating template argument list after deduction set\n");
     }
-    template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_typededuc);
+    template_parameter_list_t* result = duplicate_template_argument_list(template_parameters);
+    int nesting = get_template_nesting_of_template_parameters(template_parameters);
 
     int i;
     for (i = 0; i < deduction_set->num_deductions; i++)
@@ -1221,49 +1211,46 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
         ERROR_CONDITION(current_deduction->num_deduced_parameters != 1,
                 "Bad deduction", 0);
 
-        template_parameter_t* argument = counted_calloc(1, sizeof(*argument), &_bytes_typededuc);
-
-        argument->position = current_deduction->parameter_position;
-        argument->nesting = current_deduction->parameter_nesting;
+        template_parameter_value_t* argument = counted_calloc(1, sizeof(*argument), &_bytes_typededuc);
 
         switch (current_deduction->kind)
         {
             case TPK_TYPE:
                 {
-                    argument->kind = TAK_TYPE;
+                    argument->kind = TPK_TYPE;
                     argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' type template parameter updated to '%s'\n",
-                                argument->position,
-                                argument->nesting,
+                                current_deduction->parameter_position,
+                                nesting,
                                 print_declarator(argument->type));
                     }
                 }
                 break;
             case TPK_TEMPLATE:
                 {
-                    argument->kind = TAK_TEMPLATE;
+                    argument->kind = TPK_TEMPLATE;
                     argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' template template parameter\n",
-                                argument->position,
-                                argument->nesting);
+                                current_deduction->parameter_position,
+                                nesting);
                     }
                 }
                 break;
             case TPK_NONTYPE:
                 {
-                    argument->kind = TAK_NONTYPE;
+                    argument->kind = TPK_NONTYPE;
                     argument->expression = current_deduction->deduced_parameters[0]->expression;
                     argument->expression_context = current_deduction->deduced_parameters[0]->decl_context;
                     argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter updated to '%s'\n",
-                                argument->position,
-                                argument->nesting,
+                                current_deduction->parameter_position,
+                                nesting,
                                 prettyprint_in_buffer(argument->expression));
                     }
                 }
@@ -1274,7 +1261,7 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
                 }
         }
 
-        P_LIST_ADD(result->argument_list, result->num_arguments, argument);
+        result->arguments[current_deduction->parameter_position] = argument;
     }
     DEBUG_CODE()
     {
@@ -1282,5 +1269,4 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
     }
 
     return result;
-#endif
 }

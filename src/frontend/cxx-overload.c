@@ -273,8 +273,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         char is_implicit_argument,
         const char* filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
             print_declarator(orig));
     fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
@@ -292,12 +290,11 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 && equivalent_types(template_specialized_type_get_related_template_type(dest), 
                     std_initializer_list_template->type_information))
         {
-            template_parameter_list_t* template_parameters = template_specialized_type_get_template_parameters(dest);
+            template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(dest);
 
-            ERROR_CONDITION( (template_parameters->num_arguments == 0), 
+            ERROR_CONDITION( (template_parameters->num_parameters == 0), 
                     "Invalid template argument for std::init_list", 0);
-            type_t* new_dest = template_parameters->argument_list[0]->type;
-
+            type_t* new_dest = template_parameters->arguments[0]->type;
 
             int i;
             int num_types = braced_list_type_get_num_types(orig);
@@ -434,7 +431,6 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                     filename, line);
         }
     }
-#endif
 }
 
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -443,8 +439,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         char is_implicit_argument,
         const char* filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "ICS: Computing ICS from '%s' -> '%s'\n", 
@@ -486,7 +480,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
         scope_entry_t* solved_function = address_of_overloaded_function(
                 unresolved_set,
-                unresolved_overloaded_type_get_explicit_template_parameters(orig),
+                unresolved_overloaded_type_get_explicit_template_arguments(orig),
                 dest,
                 decl_context,
                 filename,
@@ -662,7 +656,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 type_t* specialization_function = get_user_defined_type(conv_funct);
                 // Get its template parameters
                 template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_parameters(conv_funct->type_information);
+                    = template_specialized_type_get_template_arguments(conv_funct->type_information);
 
                 deduction_set_t* deduction_result = NULL;
                 // Now deduce the arguments
@@ -684,14 +678,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_parameter_list_t* template_parameters = 
-                    build_template_parameter_list_from_deduction_set(deduction_result);
+                template_parameter_list_t* deduced_template_parameters = 
+                    build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
                 type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        template_parameters,
-                        template_parameters,
+                        deduced_template_parameters,
                         decl_context, line, filename);
 
                 if (named_specialization_type == NULL)
@@ -834,7 +827,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 type_t* specialization_function = get_user_defined_type(constructor);
                 // Get its template parameters
                 template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_parameters(constructor->type_information);
+                    = template_specialized_type_get_template_arguments(constructor->type_information);
 
                 deduction_set_t* deduction_result = NULL;
                 // Now deduce the arguments
@@ -861,14 +854,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 // If the deduction succeeded just get a specialization and use it for the whole
                 // conversion
-                template_parameter_list_t* template_parameters = 
-                    build_template_parameter_list_from_deduction_set(deduction_result);
+                template_parameter_list_t* deduced_template_parameters = 
+                    build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
                 type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
-                        template_parameters,
-                        template_parameters,
+                        deduced_template_parameters,
                         decl_context, line, filename); 
 
                 if (named_specialization_type == NULL)
@@ -1011,7 +1003,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
         }
     }
-#endif
 }
 
 static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context, 
@@ -2289,10 +2280,10 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     }
 
                     template_parameter_list_t* argument_list = build_template_parameter_list_from_deduction_set(
+                            template_parameters,
                             deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            argument_list, template_parameters,
-                            decl_context, line, filename);
+                            argument_list, decl_context, line, filename);
 
                     if (named_specialization_type != NULL)
                     {

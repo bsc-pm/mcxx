@@ -61,6 +61,7 @@ LIBMCXX_EXTERN char deduce_arguments_of_conversion(
         const char *filename, int line);
 
 LIBMCXX_EXTERN template_parameter_list_t* build_template_parameter_list_from_deduction_set(
+        template_parameter_list_t* template_parameters,
         deduction_set_t* deduction_set);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);

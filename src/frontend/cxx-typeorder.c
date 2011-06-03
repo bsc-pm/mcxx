@@ -165,8 +165,6 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         const char *filename, int line, char is_conversion,
         char is_template_class)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     if (is_conversion)
     {
         return is_less_or_equal_specialized_template_conversion_function(f1, f2,
@@ -217,7 +215,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     // Try to deduce types of template type F1 using F2
 
     template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_parameters(f1);
+        template_specialized_type_get_template_arguments(f1);
 
     deduction_flags_t deduction_flags = deduction_flags_empty();
 
@@ -243,11 +241,10 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
 
     // Now check that the updated types match exactly
     template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(deduction_result);
+        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_parameters(
-            decl_context,
-            deduced_template_parameter_list);
+    decl_context_t updated_context = decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     for (i = 0; i < num_arguments; i++)
     {
@@ -303,15 +300,12 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     }
 
     return 1;
-#endif
 }
 
 char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
         decl_context_t decl_context UNUSED_PARAMETER,
         deduction_set_t** deduction_set, const char *filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     ERROR_CONDITION(!is_named_class_type(c1)
             || !is_named_class_type(c2)
             || !is_template_specialized_type(get_actual_class_type(c1))
@@ -331,7 +325,6 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             c1_parameters, 1);
 
     set_as_template_specialized_type(faked_type_1,
-            template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
             // Can be NULL if c1 is a full specialization
             template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
             template_specialized_type_get_related_template_type(get_actual_class_type(c1)));
@@ -346,7 +339,6 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             filename, line,
             /* is_conversion */ 0,
             /* is_template_class */ 1);
-#endif
 }
 
 static char is_less_or_equal_specialized_template_conversion_function(
@@ -354,8 +346,6 @@ static char is_less_or_equal_specialized_template_conversion_function(
         decl_context_t decl_context, deduction_set_t** deduction_set,
         const char *filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEORDER: Computing whether one function is less or equal specialized than the other\n");
@@ -397,7 +387,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
     // Try to deduce types of template type F1 using F2
 
     template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_parameters(f1);
+        template_specialized_type_get_template_arguments(f1);
 
     if (!deduce_template_parameters_common(
                 template_parameters,
@@ -416,10 +406,10 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
     // Now check that the updated types match exactly
     template_parameter_list_t* deduced_template_parameter_list = 
-        build_template_parameter_list_from_deduction_set(deduction_result);
+        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_parameters(decl_context,
-            deduced_template_parameter_list);
+    decl_context_t updated_context = decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, 0);
@@ -474,7 +464,6 @@ static char is_less_or_equal_specialized_template_conversion_function(
     }
 
     return 1;
-#endif
 }
 
 

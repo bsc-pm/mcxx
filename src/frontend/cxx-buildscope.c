@@ -152,22 +152,27 @@ static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl
 
 static void build_scope_template_parameter_list(AST a, 
         template_parameter_list_t* template_parameters,
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output);
 static void build_scope_template_parameter(AST a, 
         template_parameter_list_t* template_parameter_list, 
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output);
 static void build_scope_nontype_template_parameter(AST a,
         template_parameter_list_t* template_parameter_list,
+        int nesting,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 static void build_scope_type_template_parameter(AST a,
         template_parameter_list_t* template_parameter_list,
+        int nesting,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 static void build_scope_template_template_parameter(AST a,
         template_parameter_list_t* template_parameter_list,
+        int nesting,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
@@ -2102,7 +2107,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         class_entry = entry;
         class_type = class_entry->type_information;
 
-
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
         if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_INSTANTIATION)
@@ -2116,6 +2120,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression));
         }
+
+        // Update template parameters only if not defined
+        if (is_template_specialized_type(class_entry->type_information)
+                && !class_entry->defined)
+        {
+            template_specialized_type_update_template_parameters(class_entry->type_information,
+                    decl_context.template_parameters);
+        }
     }
 
     ERROR_CONDITION(class_entry == NULL,
@@ -2124,9 +2136,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     if (is_template_specialized_type(class_type) 
             && !class_entry->defined)
     {
-        // Only update this when the class has not already been defined
-        template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
-
         // State this symbol has been created by the code and not by the type system
         class_entry->entity_specs.is_user_declared = 1;
     }
@@ -2323,7 +2332,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
         fprintf(stderr, "BUILDSCOPE: Typename is a dependent entity -> returning a dependent type\n");
     }
 
-    if (template_parameters_nesting(decl_context))
+    if (get_template_nesting_of_context(decl_context))
     {
         internal_error("Dependent typename '%s' not resolved outside of template scope (%s)\n", 
                 prettyprint_in_buffer(a), ast_location(a));
@@ -3916,17 +3925,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         {
             if (is_unqualified_id_expression(class_id_expression))
             {
-                class_entry_list = query_in_scope_flags(decl_context,
-                        class_id_expression, 
-                        DF_UPDATE_TEMPLATE_ARGUMENTS);
+                class_entry_list = query_in_scope(decl_context,
+                        class_id_expression);
             }
             else
             {
                 // If the template specialization was already declared
                 // we want to update its template arguments properly
-                class_entry_list = query_id_expression_flags(decl_context,
-                        class_id_expression,
-                        DF_UPDATE_TEMPLATE_ARGUMENTS);
+                class_entry_list = query_id_expression(decl_context,
+                        class_id_expression);
             }
         }
 
@@ -4012,16 +4019,29 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         class_entry->line);
             }
 
+            if (class_entry->defined)
+            {
+                running_error("%s: class '%s' already defined in %s:%d\n",
+                        ast_location(class_id_expression),
+                        get_qualified_symbol_name(class_entry, class_entry->decl_context),
+                        class_entry->file,
+                        class_entry->line);
+            }
+
             // Check the enclosing namespace scope
             // This is only valid if the scope of the entry is an inlined namespace of the current one
-            if(is_template_specialized_type(class_entry->type_information)
-                    && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
-                    && !is_inline_namespace_of(class_entry->decl_context, decl_context))
+            if(is_template_specialized_type(class_entry->type_information))
             {
+                if ((class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                        && !is_inline_namespace_of(class_entry->decl_context, decl_context))
+                {
+                    running_error("%s: specialization of '%s' in different namespace from definition\n",
+                            ast_location(class_id_expression),
+                            prettyprint_in_buffer(class_id_expression));
+                }
 
-                running_error("%s: specialization of '%s' in different namespace from definition\n",
-                        ast_location(class_id_expression),
-                        prettyprint_in_buffer(class_id_expression));
+                template_specialized_type_update_template_parameters(class_entry->type_information,
+                        decl_context.template_parameters);
             }
 
             // Update the template_scope
@@ -4306,8 +4326,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         }
     }
 
-
-    // If the class had a name, it is completely defined here
     class_entry->defined = 1;
     class_entry->point_of_definition = get_enclosing_declaration(a);
     
@@ -4345,8 +4363,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // Save the template parameters
     if (is_template_specialized_type(class_type))
     {
-        template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
-
         // State this symbol has been created by the code and not by the type system
         class_entry->entity_specs.is_user_declared = 1;
     }
@@ -6458,7 +6474,10 @@ void build_scope_template_header(AST template_parameter_list,
     (*template_context).template_parameters = counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
     (*template_context).template_parameters->enclosing = decl_context.template_parameters;
 
-    build_scope_template_parameter_list(template_parameter_list, (*template_context).template_parameters, 
+    int nesting = get_template_nesting_of_context(decl_context) + 1;
+    build_scope_template_parameter_list(template_parameter_list, 
+            (*template_context).template_parameters, 
+            nesting,
             (*template_context), nodecl_output);
 }
 
@@ -6713,6 +6732,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
  */
 static void build_scope_template_parameter_list(AST a, 
         template_parameter_list_t* template_parameters,
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -6725,6 +6745,7 @@ static void build_scope_template_parameter_list(AST a,
 
         build_scope_template_parameter(template_parameter_tree, 
                 template_parameters, 
+                nesting,
                 template_context,
                 nodecl_output);
     }
@@ -6735,6 +6756,7 @@ static void build_scope_template_parameter_list(AST a,
  */
 static void build_scope_template_parameter(AST a, 
         template_parameter_list_t* template_parameter_list, 
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -6742,23 +6764,23 @@ static void build_scope_template_parameter(AST a,
     {
         case AST_GCC_PARAMETER_DECL :
             // We are ignoring here attributes
-            build_scope_nontype_template_parameter(a, template_parameter_list, template_context, nodecl_output);
+            build_scope_nontype_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         case AST_PARAMETER_DECL :
-            build_scope_nontype_template_parameter(a, template_parameter_list, template_context, nodecl_output);
+            build_scope_nontype_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         case AST_TYPE_PARAMETER_CLASS :
         case AST_TYPE_PARAMETER_TYPENAME :
-            build_scope_type_template_parameter(a, template_parameter_list, template_context, nodecl_output);
+            build_scope_type_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         case AST_TYPE_PARAMETER_TEMPLATE :
-            build_scope_template_template_parameter(a, template_parameter_list, template_context, nodecl_output);
+            build_scope_template_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         case AST_AMBIGUITY :
             // The ambiguity here is parameter_class vs parameter_decl
             solve_parameter_declaration_vs_type_parameter_class(a, template_context);
             // Restart this routine
-            build_scope_template_parameter(a, template_parameter_list, template_context, nodecl_output);
+            build_scope_template_parameter(a, template_parameter_list, nesting, template_context, nodecl_output);
             break;
         default :
             internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
@@ -6767,6 +6789,7 @@ static void build_scope_template_parameter(AST a,
 
 static void build_scope_template_template_parameter(AST a,
         template_parameter_list_t* template_parameters,
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -6783,7 +6806,7 @@ static void build_scope_template_template_parameter(AST a,
             sizeof(*template_params_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
-            template_params_context, nodecl_output);
+            /* nesting */ 1, template_params_context, nodecl_output);
 
     ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_TEMPLATE_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
@@ -6802,7 +6825,7 @@ static void build_scope_template_template_parameter(AST a,
         char artificial_template_param_name[256];
 
         sprintf(artificial_template_param_name, 
-                " <template-template-param-%d-%d> ", template_parameters_nesting(template_context), template_parameters->num_parameters);
+                " <template-template-param-%d-%d> ", nesting, template_parameters->num_parameters);
 
         template_parameter_name = uniquestr(artificial_template_param_name);
     }
@@ -6828,7 +6851,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 
     new_entry->entity_specs.is_template_parameter = 1;
-    new_entry->entity_specs.template_parameter_nesting = template_parameters_nesting(template_context);
+    new_entry->entity_specs.template_parameter_nesting = nesting;
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // This is a faked class type
@@ -6901,6 +6924,7 @@ static void build_scope_template_template_parameter(AST a,
 
 static void build_scope_type_template_parameter(AST a,
         template_parameter_list_t* template_parameters,
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -6931,7 +6955,7 @@ static void build_scope_type_template_parameter(AST a,
             fprintf(stderr, "[%d] Registering type template-parameter '%s' with nesting %d\n",
                     template_parameters->num_parameters,
                     ASTText(name), 
-                    template_parameters_nesting(template_context));
+                    nesting);
         }
         // Note that we sign it in the template_scope !
         template_parameter_name = ASTText(name);
@@ -6945,7 +6969,7 @@ static void build_scope_type_template_parameter(AST a,
     else
     {
         char template_param_name[256];
-        sprintf(template_param_name, " <type-template-param-%d-%d> ", template_parameters_nesting(template_context), 
+        sprintf(template_param_name, " <type-template-param-%d-%d> ", nesting, 
                 template_parameters->num_parameters);
         template_parameter_name = uniquestr(template_param_name);
 
@@ -6965,7 +6989,7 @@ static void build_scope_type_template_parameter(AST a,
     new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
     new_entry->entity_specs.is_template_parameter = 1;
-    new_entry->entity_specs.template_parameter_nesting = template_parameters_nesting(template_context);
+    new_entry->entity_specs.template_parameter_nesting = nesting;
     new_entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     template_parameter_t* template_parameter = counted_calloc(1, sizeof(*template_parameter), &_bytes_used_buildscope);
@@ -7012,6 +7036,7 @@ static void build_scope_type_template_parameter(AST a,
 
 static void build_scope_nontype_template_parameter(AST a,
         template_parameter_list_t* template_parameters,
+        int nesting,
         decl_context_t template_context,
         nodecl_t* nodecl_output)
 {
@@ -7059,7 +7084,7 @@ static void build_scope_nontype_template_parameter(AST a,
         char template_param_name[256];
 
         sprintf(template_param_name, " <nontype-template-param-%d-%d> ", 
-                template_parameters_nesting(template_context), 
+                nesting, 
                 template_parameters->num_parameters);
         template_parameter_name = uniquestr(template_param_name);
     }
@@ -7073,7 +7098,7 @@ static void build_scope_nontype_template_parameter(AST a,
     entry->kind = SK_TEMPLATE_PARAMETER;
     entry->type_information = declarator_type;
     entry->entity_specs.is_template_parameter = 1;
-    entry->entity_specs.template_parameter_nesting = template_parameters_nesting(template_context);
+    entry->entity_specs.template_parameter_nesting = nesting;
     entry->entity_specs.template_parameter_position = template_parameters->num_parameters;
 
     // Save its symbol

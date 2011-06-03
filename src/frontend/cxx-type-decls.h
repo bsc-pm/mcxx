@@ -94,7 +94,7 @@ struct standard_conversion_tag
 struct dependent_name_part_tag
 {
     const char* name;
-    template_parameter_list_t* template_parameters;
+    template_parameter_list_t* template_arguments;
     struct type_tag* related_type;
     struct dependent_name_part_tag* next;
 };

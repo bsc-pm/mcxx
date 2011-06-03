@@ -53,10 +53,8 @@ type_t* solve_class_template(decl_context_t decl_context,
         const char *filename,
         int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     template_parameter_list_t* specialized
-        = template_specialized_type_get_template_parameters(
+        = template_specialized_type_get_template_arguments(
                 get_actual_class_type(specialized_type));
 
     int i;
@@ -82,10 +80,6 @@ type_t* solve_class_template(decl_context_t decl_context,
 
         // We do not want these for instantiation purposes
         if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_user_declared)
-        // if (class_type_is_incomplete_independent(
-        //             get_actual_class_type(current_specialized_type))
-        //         || class_type_is_incomplete_dependent(
-        //             get_actual_class_type(current_specialized_type)))
         {
             DEBUG_CODE()
             {
@@ -104,11 +98,11 @@ type_t* solve_class_template(decl_context_t decl_context,
         }
 
         template_parameter_list_t *arguments = 
-            template_specialized_type_get_template_parameters(
+            template_specialized_type_get_template_arguments(
                     get_actual_class_type(current_specialized_type));
 
         // It is supposed that this will hold in correct code
-        ERROR_CONDITION((arguments->num_arguments != specialized->num_arguments),
+        ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
             "Template argument lists are not of equal length", 0);
 
         deduction_set_t* deduction_result = NULL;
@@ -172,7 +166,6 @@ type_t* solve_class_template(decl_context_t decl_context,
     {
         return NULL;
     }
-#endif
 }
 
 // This function assumes that only one minimum will exist
@@ -481,8 +474,6 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         type_t* function_type, decl_context_t decl_context,
         const char *filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     deduction_set_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
@@ -576,16 +567,19 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     ERROR_CONDITION((selected_deduction == NULL), "Selected deduction cannot be NULL", 0);
 
     // Build the specialized type
+    template_parameter_list_t* primary_template_parameters = 
+        template_type_get_template_parameters(
+                template_specialized_type_get_related_template_type(
+                    named_type_get_symbol(result)->type_information));
     template_parameter_list_t* template_parameters = 
-        build_template_parameter_list_from_deduction_set(selected_deduction);
+        build_template_parameter_list_from_deduction_set(primary_template_parameters, selected_deduction);
 
     type_t* result_specialized = template_type_get_specialized_type(
             template_specialized_type_get_related_template_type(
                 named_type_get_symbol(result)->type_information
                 ),
-            template_parameters, /* no template parameters */ NULL,
+            template_parameters, 
             decl_context, line, filename);
 
     return named_type_get_symbol(result_specialized);
-#endif
 }

@@ -156,7 +156,8 @@ LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
 // Debug use mainly
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 
-LIBMCXX_EXTERN int template_parameters_nesting(decl_context_t);
+LIBMCXX_EXTERN int get_template_nesting_of_context(decl_context_t);
+LIBMCXX_EXTERN int get_template_nesting_of_template_parameters(template_parameter_list_t*);
 
 LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
         AST template_parameters_list_tree,

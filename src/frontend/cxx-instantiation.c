@@ -1664,7 +1664,7 @@ static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_cont
     else
     {
         template_parameter_list_t* template_args 
-            = template_specialized_type_get_template_parameters(entry->type_information);
+            = template_specialized_type_get_template_arguments(entry->type_information);
         return get_template_id_of_entry(entry, template_args, decl_context, filename, line);
     }
 }
@@ -1680,7 +1680,7 @@ static AST get_tree_name_of_symbol(scope_entry_t* entry, decl_context_t decl_con
             && is_template_specialized_type(entry->type_information))
     {
         return get_template_id_of_entry(entry, 
-                template_specialized_type_get_template_parameters(entry->type_information),
+                template_specialized_type_get_template_arguments(entry->type_information),
                 decl_context, filename, line);
     }
     else

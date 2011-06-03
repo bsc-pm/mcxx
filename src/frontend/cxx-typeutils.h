@@ -108,7 +108,7 @@ LIBMCXX_EXTERN type_t* get_complex_type(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
         template_parameter_list_t* explicit_template_parameters);
-LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_parameters(type_t* t);
+LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, int line, const char* filename);
@@ -458,12 +458,10 @@ LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameter_list,
         decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t, 
-        template_parameter_list_t * template_parameter_list,
-        template_parameter_list_t *template_parameters, 
+        template_parameter_list_t * template_parameters,
         decl_context_t decl_context, 
         int line, const char* filename);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
-        template_parameter_list_t* template_parameter_list,
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
         decl_context_t decl_context, 
@@ -480,10 +478,10 @@ LIBMCXX_EXTERN scope_entry_t* template_type_get_related_symbol(type_t* t);
 LIBMCXX_EXTERN void template_type_update_template_parameters(type_t* t, template_parameter_list_t*);
 
 LIBMCXX_EXTERN template_parameter_list_t* template_specialized_type_get_template_parameters(type_t* t);
+LIBMCXX_EXTERN template_parameter_list_t* template_specialized_type_get_template_arguments(type_t* t);
 
 LIBMCXX_EXTERN type_t* template_specialized_type_get_related_template_type(type_t* t);
 
-LIBMCXX_EXTERN template_parameter_list_t* template_specialized_type_get_template_parameters(type_t* t);
 LIBMCXX_EXTERN void template_specialized_type_update_template_parameters(type_t* t, template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t, 
