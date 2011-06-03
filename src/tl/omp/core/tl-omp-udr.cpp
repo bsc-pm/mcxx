@@ -1784,6 +1784,8 @@ namespace TL
 
                     if (valid)
                     {
+                        internal_error("Not yet implemented", 0);
+#if 0
                         template_argument_list_t* template_arguments =
                             template_specialized_type_get_template_arguments(solved_sym.get_type().get_internal_type());
 
@@ -1857,6 +1859,7 @@ namespace TL
                                 viable_udr.append(new_udr);
                             }
                         }
+#endif
                     }
                 }
             }

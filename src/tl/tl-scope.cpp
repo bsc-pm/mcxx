@@ -242,7 +242,8 @@ namespace TL
             for (int i = 0; i < _decl_context.template_parameters->num_parameters; i++)
             {
                 result.append(TemplateParameter(
-                            _decl_context.template_parameters->parameters[i]
+                            _decl_context.template_parameters,
+                            i
                             ));
             }
         }

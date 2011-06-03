@@ -377,22 +377,6 @@ namespace TL
         }
 
 
-        static template_parameter_list_t* convert_list_of_template_parameters(ObjectList<TemplateParameter> tpl_list)
-        {
-            template_parameter_list_t* result = (template_parameter_list_t*) calloc(1, sizeof(*result));
-
-            result->num_parameters = tpl_list.size();
-            result->parameters = 
-                (template_parameter_t**) calloc(result->num_parameters, sizeof(*result->parameters));
-
-            for (int i = 0; i < result->num_parameters; i++)
-            {
-                result->parameters[i] = tpl_list[i].get_internal_template_parameter();
-            }
-
-            return result;
-        }
-
         DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
             : _dep_expr(dep_expr), _kind(kind)
         {

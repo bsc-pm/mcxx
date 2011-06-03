@@ -747,9 +747,7 @@ namespace TL
         int i;
         for (i = 0; i < template_parameters->num_parameters; i++)
         {
-            template_parameter_t* template_parameter = template_parameters->parameters[i];
-
-            result.append(template_parameter);
+            result.append(TemplateParameter(template_parameters, i));
         }
 
         return result;
@@ -758,11 +756,11 @@ namespace TL
     ObjectList<TemplateArgument> Type::get_template_arguments() const
     {
         ObjectList<TemplateArgument> result;
-        template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
+        template_parameter_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
 
-        for (int i = 0; i < arg_list->num_arguments; i++)
+        for (int i = 0; i < arg_list->num_parameters; i++)
         {
-            result.append(TemplateArgument(arg_list->argument_list[i]));
+            result.append(TemplateArgument(arg_list, i));
         }
 
         return result;
