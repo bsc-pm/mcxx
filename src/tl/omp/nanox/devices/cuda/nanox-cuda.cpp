@@ -563,9 +563,16 @@ void DeviceCUDA::create_outline(
 		running_error("Invalid typename for struct args", 0);
 	}
 
-	arguments_struct_definition
-		<< struct_typename_sym.get_point_of_declaration().prettyprint();
+	// Check if we have already printed the argument's struct definition in the CUDA file
+	if (_taskSymbols.count(struct_typename_sym.get_name()) == 0)
+	{
+		arguments_struct_definition
+			<< struct_typename_sym.get_point_of_declaration().prettyprint();
 
+		// Keep record of which argument's struct definitions have been printed to the CUDA file
+		// in order to avoid repeating them
+		_taskSymbols.insert(struct_typename_sym.get_name());
+	}
 	// outline_name
 	outline_name
 		<< gpu_outline_name(task_name)
