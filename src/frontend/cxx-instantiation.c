@@ -237,8 +237,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         int *num_items_enum_map
         )
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
@@ -450,7 +448,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         named_type_get_symbol(
                                 template_type_get_specialized_type(template_type,
                                     tpl_arg_empty,
-                                    tpl_empty,
                                     context_of_being_instantiated,
                                     new_member->line, new_member->file))->type_information;
 
@@ -468,6 +465,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 }
                 else
                 {
+                    internal_error("Not yet implemented", 0);
+
+#if 0
                     type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
                     type_t* primary_template = template_type_get_primary_type(template_type);
 
@@ -515,9 +515,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                         template_parameter_list_t* new_template_args = calloc(1, sizeof(*new_template_args));
 
-                        for  (i = 0; i < template_args->num_arguments; i++)
+                        for  (i = 0; i < template_args->num_parameters; i++)
                         {
-                            template_parameter_t *template_arg = template_args->argument_list[i];
+                            template_parameter_value_t *template_arg = template_args->arguments[i];
 
                             template_parameter_t *new_template_arg = calloc(1, sizeof(*new_template_arg));
 
@@ -581,6 +581,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 get_actual_class_type(being_instantiated),
                                 named_type_get_symbol(new_template_specialized_type));
                     }
+#endif
                 }
                 break;
             }
@@ -750,7 +751,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 internal_error("Unexpected member kind=%s\n", symbol_kind_name(member_of_template));
             }
     }
-#endif
 }
 
 static void instantiate_bases(
@@ -787,106 +787,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
 
     decl_context_t template_parameters_context = named_class->decl_context;
-    // Clear the template nesting level, if we are instantiating it is conceptually 0
-    template_parameters_context.decl_flags &= ~DF_TEMPLATE;
-    template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
-    // Empty template parameters
-    template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context.template_parameters));
 
     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
             named_class);
 
     class_type_set_inner_context(named_class->type_information, inner_decl_context);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Injecting template parameters\n");
-    }
-
-    internal_error("Not implemented yet", 0);
-
-    int i;
-    for (i = 0; i < unification_set->num_deductions; i++)
-    {
-        deduction_t* current_deduction = unification_set->deduction_list[i];
-
-        ERROR_CONDITION(current_deduction->num_deduced_parameters != 1,
-                "Number of deduced parameters is not 1!", 0);
-
-        int j;
-        for (j = 0; j < current_deduction->num_deduced_parameters; j++)
-        {
-            // const char* deduced_parameter_name = get_name_of_template_parameter(selected_template_parameters,
-            //         current_deduction->parameter_nesting,
-            //         current_deduction->parameter_position);
-
-            // const char* tpl_param_name = NULL;
-            scope_entry_t* param_symbol = calloc(1, sizeof(*param_symbol));
-            param_symbol->decl_context = template_parameters_context;
-
-            switch (current_deduction->kind)
-            {
-                case TPK_TYPE :
-                    {
-                        // We use a typedef
-                        param_symbol->kind = SK_TYPEDEF;
-                        param_symbol->entity_specs.is_template_parameter = 1;
-                        param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
-
-                        break;
-                    }
-                case TPK_TEMPLATE :
-                    {
-                        // The template type has to be used here
-                        param_symbol->kind = SK_TEMPLATE;
-                        param_symbol->entity_specs.is_template_parameter = 1;
-                        // These are always kept as named types in the compiler
-                        param_symbol->type_information = 
-                            named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
-
-                        break;
-                    }
-                case TPK_NONTYPE :
-                    {
-                        param_symbol->kind = SK_VARIABLE;
-                        param_symbol->entity_specs.is_template_parameter = 1;
-                        param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
-
-                        if (expression_is_constant(current_deduction->deduced_parameters[0]->expression))
-                        {
-                            param_symbol->language_dependent_value = 
-                                const_value_to_tree(
-                                        expression_get_constant(current_deduction->deduced_parameters[0]->expression));
-                            param_symbol->value = const_value_to_nodecl(
-                                    expression_get_constant(param_symbol->language_dependent_value));
-                        }
-                        else
-                        {
-                            param_symbol->language_dependent_value = current_deduction->deduced_parameters[0]->expression;
-                            param_symbol->value = expression_get_nodecl(param_symbol->language_dependent_value);
-                        }
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Invalid parameter kind", 0);
-                    }
-            }
-        }
-
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Template parameters injected\n");
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Injected context\n");
-        print_scope(inner_decl_context);
-        fprintf(stderr, "INSTANTIATION: End of injected context \n");
-    }
 
     if (instantiation_base_clause != NULL)
     {
@@ -962,6 +867,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", num_members);
     }
+    int i;
     for (i = 0; i < num_members; i++)
     {
         scope_entry_t* member = class_type_get_member_num(get_actual_class_type(selected_template), i);
