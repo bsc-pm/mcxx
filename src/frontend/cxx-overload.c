@@ -2097,6 +2097,18 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 overload_set != NULL ? entry_list_head(overload_set)->symbol_name : "<overload set empty>",
                 filename, line);
     }
+
+    // If the set is a singleton, try first a simpler approach
+    if (entry_list_size(overload_set) == 1)
+    {
+        scope_entry_t* item = entry_list_head(overload_set);
+        standard_conversion_t sc;
+        if (standard_conversion_between_types(&sc, item->type_information, target_type))
+        {
+            return item;
+        }
+    }
+
     // Check sanity of the target type
     if (!is_pointer_type(target_type)
             && !is_pointer_to_member_type(target_type)
@@ -2109,7 +2121,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     type_t* functional_type = NULL;
     scope_entry_t *class_type = NULL;
 
-    if (is_pointer_type(target_type))
+    if (is_pointer_to_function_type(target_type))
     {
         functional_type = pointer_type_get_pointee_type(target_type);
     }
@@ -2129,6 +2141,10 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
     if (!is_function_type(functional_type))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Type '%s' is not a function type\n", print_declarator(target_type));
+        }
         return NULL;
     }
 

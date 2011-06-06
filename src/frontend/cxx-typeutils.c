@@ -1830,6 +1830,8 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     specialized_symbol->kind = primary_symbol->kind;
     specialized_symbol->type_information = specialized_type;
     specialized_symbol->decl_context = primary_symbol->decl_context;
+    // Fix the template arguments
+    specialized_symbol->decl_context.template_parameters = template_arguments;
 
     specialized_symbol->line = line;
     specialized_symbol->file = filename;
@@ -1971,7 +1973,6 @@ void template_specialized_type_update_template_parameters(type_t* t, template_pa
 {
     ERROR_CONDITION(!is_template_specialized_type(t),
             "This is not a template specialized type", 0);
-
     t->template_parameters = template_parameters;
 }
 

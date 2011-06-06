@@ -34,6 +34,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
+#include "cxx-typededuc.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
@@ -762,7 +763,7 @@ static void instantiate_bases(
 // Using typesystem
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
-        deduction_set_t* unification_set,
+        deduction_set_t* deduction_set,
         const char *filename, int line)
 {
     DEBUG_CODE()
@@ -780,16 +781,23 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     class_type_get_instantiation_trees(get_actual_class_type(selected_template), 
             &instantiation_body, &instantiation_base_clause);
 
-    // template_parameter_list_t* selected_template_parameters 
-    //     = template_specialized_type_get_template_parameters(get_actual_class_type(selected_template));
-
     instantiation_body = ast_copy_for_instantiation(instantiation_body);
     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
 
-    decl_context_t template_parameters_context = named_class->decl_context;
+    // Update the template parameter with the deduced template parameters
+    decl_context_t instantiation_context = named_class->decl_context;
+    instantiation_context.template_parameters = 
+        build_template_parameter_list_from_deduction_set(
+                template_specialized_type_get_template_parameters(get_actual_class_type(selected_template)),
+                deduction_set);
 
-    decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
+    template_specialized_type_update_template_parameters(named_class->type_information,
+            instantiation_context.template_parameters);
+
+    decl_context_t inner_decl_context = new_class_context(instantiation_context, 
             named_class);
+
+    named_class->decl_context = instantiation_context;
 
     class_type_set_inner_context(named_class->type_information, inner_decl_context);
 

@@ -160,3 +160,17 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
     *num_items = num_elements;
     return output;
 }
+
+nodecl_t nodecl_list_head(nodecl_t list)
+{
+    ERROR_CONDITION(nodecl_is_null(list), "Invalid list", 0);
+    AST a = nodecl_get_ast(list);
+    ERROR_CONDITION(ASTType(a) != AST_NODE_LIST, "Cannot get head of non list", 0);
+    AST it;
+    for_each_element(a, it)
+    {
+        AST head = ASTSon1(it);
+        return _nodecl_wrap(head);
+    }
+    return nodecl_null();
+}

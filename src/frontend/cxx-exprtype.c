@@ -6238,7 +6238,20 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                expression_set_type(expr, get_unresolved_overloaded_type(result, /* template args */ NULL));
+                type_t* t = get_unresolved_overloaded_type(result, /* template_args */ NULL);
+                scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
+                        decl_context, ASTLine(expr), ASTFileName(expr));
+                if (simplified == NULL)
+                {
+                    expression_set_type(expr, t);
+                }
+                else
+                {
+                    expression_set_type(expr, lvalue_ref(simplified->type_information));
+                    nodecl_t nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
+                    expression_set_is_lvalue(expr, 1);
+                    expression_set_nodecl(expr, nodecl_output);
+                }
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
             {
@@ -6440,7 +6453,20 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         }
         else if (entry->kind == SK_FUNCTION)
         {
-            expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+            type_t* t = get_unresolved_overloaded_type(result_list, /* template_args */ NULL);
+            scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
+                    decl_context, ASTLine(expr), ASTFileName(expr));
+            if (simplified == NULL)
+            {
+                expression_set_type(expr, t);
+            }
+            else
+            {
+                expression_set_type(expr, lvalue_ref(simplified->type_information));
+                nodecl_t nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
+                expression_set_is_lvalue(expr, 1);
+                expression_set_nodecl(expr, nodecl_output);
+            }
         }
         else if (entry->kind == SK_TEMPLATE)
         {
@@ -8189,21 +8215,74 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(constructor));
         }
+        // If it is not a class cannot have more than 1 argument
+        else if (num_arguments > 1)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: explicit type cast to non-class type '%s' has too many elements\n",
+                        ast_location(expr),
+                        print_decl_type_str(type_info, decl_context, ""));
+            }
+            expression_set_error(expr);
+            return;
+        }
+        else 
+        {
+            if (num_arguments == 1)
+            {
+                if (expression_is_constant(ASTSon1(expression_list))
+                        && is_integral_type(type_info))
+                {
+                    expression_set_constant(
+                            expr,
+                            const_value_cast_to_bytes(
+                                expression_get_constant(ASTSon1(expression_list)),
+                                type_get_size(type_info),
+                                /* sign */ is_signed_integral_type(type_info)));
+                }
+                expression_set_nodecl(expr,
+                        nodecl_make_cast(expression_get_nodecl(ASTSon1(expression_list)),
+                            type_info,
+                            "C",
+                            ASTFileName(expr), ASTLine(expr)));
+            }
+            else if (num_arguments == 0)
+            {
+                if (is_integral_type(type_info))
+                {
+                    expression_set_nodecl(expr,
+                            nodecl_make_integer_literal(type_info,
+                                const_value_get_zero(type_get_size(type_info), /* signed */ 0),
+                                ASTFileName(expr), ASTLine(expr)));
+                }
+                else if (is_floating_type(type_info))
+                {
+                    expression_set_nodecl(expr,
+                            nodecl_make_floating_literal(type_info,
+                                "0.0", ASTFileName(expr), ASTLine(expr)));
+                }
+                else if (is_pointer_type(type_info)
+                        || is_pointer_to_member_type(type_info))
+                {
+                    expression_set_nodecl(expr,
+                            nodecl_make_integer_literal(type_info,
+                                const_value_get_zero(type_get_size(type_info), /* signed */ 0),
+                                ASTFileName(expr), ASTLine(expr)));
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
 
         expression_set_type(expr, type_info);
         expression_set_is_lvalue(expr, 0);
-
-        if (num_arguments == 1
-                && expression_is_constant(ASTSon1(expression_list))
-                && is_integral_type(type_info))
-        {
-            expression_set_constant(
-                    expr,
-                    const_value_cast_to_bytes(
-                        expression_get_constant(ASTSon1(expression_list)),
-                            type_get_size(type_info),
-                            /* sign */ is_signed_integral_type(type_info)));
-        }
 
         // Everything might have a non dependent type but it might carry a
         // dependent value
@@ -9604,17 +9683,21 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
                             /* sign */ is_signed_integral_type(declarator_type)));
             }
 
-            expression_set_is_value_dependent(expr,
-                    expression_is_value_dependent(casted_expression));
-
             expression_set_is_lvalue(expr, is_lvalue);
 
-            nodecl_t nodecl_output = nodecl_make_cast(
-                    expression_get_nodecl(casted_expression), 
-                    declarator_type,
-                    cast_kind,
-                    ASTFileName(expr), ASTLine(expr));
-            expression_set_nodecl(expr, nodecl_output);
+            if (expression_is_value_dependent(casted_expression))
+            {
+                expression_set_is_value_dependent(expr, 1);
+            }
+            else
+            {
+                nodecl_t nodecl_output = nodecl_make_cast(
+                        expression_get_nodecl(casted_expression), 
+                        declarator_type,
+                        cast_kind,
+                        ASTFileName(expr), ASTLine(expr));
+                expression_set_nodecl(expr, nodecl_output);
+            }
         }
     }
     else

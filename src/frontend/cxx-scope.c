@@ -257,6 +257,7 @@ decl_context_t new_global_context(void)
     result.current_scope = result.namespace_scope;
 
     global_scope_namespace->related_decl_context = result;
+    global_scope_namespace->decl_context = result;
 
     return result;
 }
@@ -3446,7 +3447,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
     const char* result = "";
 
     // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "< ");
+    result = strappend(result, "<");
     template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
 
     int i;
@@ -3465,6 +3466,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
             continue;
         }
 
+        const char* argument_str = NULL;
         switch (argument->kind)
         {
             // Print the type
@@ -3476,12 +3478,12 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
                     abstract_declaration = 
                         get_declaration_string_internal(argument->type, decl_context, "", "", 0, 0, NULL, 0);
 
-                    result = strappend(result, abstract_declaration);
+                    argument_str = abstract_declaration;
                     break;
                 }
             case TPK_NONTYPE:
                 {
-                    result = strappend(result, prettyprint_in_buffer(argument->expression));
+                    argument_str = prettyprint_in_buffer(argument->expression);
                     break;
                 }
             default:
@@ -3490,6 +3492,15 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
                     break;
                 }
         }
+
+        if (result[strlen(result) - 1] == '<'
+               && argument_str != NULL
+               && argument_str[0] == ':')
+        {
+            result = strappend(result, " ");
+        }
+
+        result = strappend(result, argument_str);
     }
 
     if (result[strlen(result) - 1] == '>')

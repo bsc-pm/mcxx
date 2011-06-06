@@ -47,6 +47,9 @@ void nodecl_set_is_value_dependent(nodecl_t, char is_value_dependent);
 // 'list' parameter can be a 'nodecl_null()'
 nodecl_t nodecl_append_to_list(nodecl_t list, nodecl_t element);
 
+// Returns the head of the list
+nodecl_t nodecl_list_head(nodecl_t list);
+
 // Either list1 or list2 can be 'nodecl_null()'
 nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2);
 

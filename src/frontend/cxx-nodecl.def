@@ -27,7 +27,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_BREAK_STATEMENT()
           | NODECL_CONTINUE_STATEMENT()
           | NODECL_GOTO_STATEMENT() symbol
-          | NODECL_RETURN_STATEMENT([value]expression))
+          | NODECL_RETURN_STATEMENT([value]expression-opt)
           | pragma-directive
           | pragma-construct
           | c-cxx-only-statements
@@ -134,7 +134,7 @@ subscript : expression
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
                   | NODECL_REFERENCE([rhs]expression) type
                   | NODECL_COMMA([rhs]expression, [lhs]expression) type
-                  | NODECL_THROW([rhs]expression) type
+                  | NODECL_THROW([rhs]expression-opt) type
                   | NODECL_VIRTUAL_FUNCTION_CALL([called] expression, [arguments] argument-seq) type
                   | NODECL_MUL_ASSIGNMENT([lhs] expression, [rhs] expression) type
                   | NODECL_DIV_ASSIGNMENT([lhs] expression, [rhs] expression) type

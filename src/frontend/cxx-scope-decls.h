@@ -378,8 +378,8 @@ struct scope_tag
     scope_entry_t** use_namespace;
 
     // Only valid for NAMESPACE_SCOPE, CLASS_SCOPE and BLOCK_SCOPE
-    // they contain the namespace symbol (if any), the class symbol
-    // and the function symbol (this last is unused)
+    // they contain the namespace symbol, the class symbol
+    // and the function symbol
     scope_entry_t* related_entry;
 };
 

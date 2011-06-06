@@ -609,7 +609,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_any_list(
+                                    nodecl_make_list_1(
+                                        nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a))), 
+                                    ASTFileName(a), ASTLine(a)),
                                 "unknown-pragma", ASTFileName(a), ASTLine(a)));
                 break;
             }
@@ -2332,7 +2335,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
         fprintf(stderr, "BUILDSCOPE: Typename is a dependent entity -> returning a dependent type\n");
     }
 
-    if (get_template_nesting_of_context(decl_context))
+    if (get_template_nesting_of_context(decl_context) == 0)
     {
         internal_error("Dependent typename '%s' not resolved outside of template scope (%s)\n", 
                 prettyprint_in_buffer(a), ast_location(a));
@@ -4028,10 +4031,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         class_entry->line);
             }
 
-            // Check the enclosing namespace scope
-            // This is only valid if the scope of the entry is an inlined namespace of the current one
-            if(is_template_specialized_type(class_entry->type_information))
+            if (is_template_specialized_type(class_entry->type_information))
             {
+                // Check the enclosing namespace scope
+                // This is only valid if the scope of the entry is an inlined namespace of the current one
                 if ((class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                         && !is_inline_namespace_of(class_entry->decl_context, decl_context))
                 {
@@ -7921,14 +7924,16 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
-    // Create nodecl
-    nodecl_t nodecl_function_def = nodecl_make_function_code(
-            nodecl_make_list_1(body_nodecl), 
-            /* internal_functions */ nodecl_null(),
-            entry,
-            ASTFileName(a), ASTLine(a));
-
-    *nodecl_output = nodecl_make_list_1(nodecl_function_def);
+    // Create nodecl (only if not dependent)
+    if (!is_dependent_type(entry->type_information))
+    {
+        nodecl_t nodecl_function_def = nodecl_make_function_code(
+                nodecl_make_list_1(body_nodecl), 
+                /* internal_functions */ nodecl_null(),
+                entry,
+                ASTFileName(a), ASTLine(a));
+        *nodecl_output = nodecl_make_list_1(nodecl_function_def);
+    }
 
     return entry;
 }
@@ -9520,7 +9525,15 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, ASTSon2(a));
 
-        *nodecl_output = expression_get_nodecl(ASTSon2(a));
+        if (!nodecl_is_null(expression_get_nodecl(ASTSon2(a))))
+        {
+            *nodecl_output = expression_get_nodecl(ASTSon2(a));
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_string_literal(get_void_type(), 
+                    "<dependent expression>", ASTFileName(a), ASTLine(a));
+        }
     }
 }
 
@@ -9601,8 +9614,18 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 
-    *nodecl_output = nodecl_make_list_1(
+    if (!nodecl_is_null(expression_get_nodecl(expr)))
+    {
+        *nodecl_output = nodecl_make_list_1(
                 nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_expression_statement(
+                    nodecl_make_string_literal(get_void_type(), "<dependent expression>", ASTFileName(expr), ASTLine(expr)),
+                    ASTFileName(expr), ASTLine(expr)));
+    }
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9664,14 +9687,23 @@ static void build_scope_for_statement(AST a,
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_context, &nodecl_loop_init, /* declared_symbols */ NULL);
+        if (!nodecl_is_null(nodecl_loop_init))
+        {
+            nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
+        }
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         build_scope_expression_statement(for_init_statement, block_context, NULL, &nodecl_loop_init);
+        nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
+        // Get the expression itself instead of an expression statement
+        nodecl_loop_init = nodecl_get_child(nodecl_loop_init, 0); 
     }
     else if (ASTType(for_init_statement) == AST_EMPTY_STATEMENT)
     {
-        build_scope_statement(for_init_statement, decl_context, &nodecl_loop_init);
+        build_scope_statement(for_init_statement, block_context, &nodecl_loop_init);
+        // Make it empty
+        nodecl_loop_init = nodecl_null();
     }
     else
     {
@@ -9695,7 +9727,15 @@ static void build_scope_for_statement(AST a,
                     ast_location(expression),
                     prettyprint_in_buffer(expression));
         }
-        nodecl_loop_iter = expression_get_nodecl(expression);
+        if (!nodecl_is_null(expression_get_nodecl(expression)))
+        {
+            nodecl_loop_iter = expression_get_nodecl(expression);
+        }
+        else
+        {
+            nodecl_loop_iter = nodecl_make_string_literal(get_void_type(), 
+                    "<dependent expression>", ASTFileName(a), ASTLine(a));
+        }
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, expression, block_context);
     }
 
