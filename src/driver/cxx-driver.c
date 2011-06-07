@@ -2500,9 +2500,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
-                // FIXME - Testing purposes
-                CURRENT_CONFIGURATION->disable_nodecl = 1;
-
                 if (!CURRENT_CONFIGURATION->disable_nodecl)
                 {
                     // We should ensure we can do this
