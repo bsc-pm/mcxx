@@ -17,6 +17,8 @@
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include "cxx-limits.h"
+#include "cxx-nodecl.h"
+#include "cxx-nodecl-output.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -305,10 +307,12 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         char is_function);
 static void build_scope_program_body(AST program_body, 
         decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t));
+        char (*allowed_statement)(AST a, decl_context_t),
+        nodecl_t* nodecl_output);
 static void build_scope_program_body_module(AST program_body, 
         decl_context_t decl_context,
-        char (*allowed_statement)(AST a, decl_context_t));
+        char (*allowed_statement)(AST a, decl_context_t),
+        nodecl_t* nodecl_output);
 
 static char allow_all_statements(AST a UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
@@ -350,7 +354,8 @@ static void build_scope_main_program_unit(AST program_unit,
     if (program_body == NULL)
         return;
 
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+    nodecl_t nodecl_body = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
@@ -391,7 +396,8 @@ static void build_scope_function_program_unit(AST program_unit,
     if (program_body == NULL)
         return;
 
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+    nodecl_t nodecl_body = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
@@ -440,7 +446,8 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     if (program_body == NULL)
         return;
 
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements);
+    nodecl_t nodecl_body = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
@@ -477,7 +484,8 @@ static void build_scope_module_program_unit(AST program_unit,
 
     *program_unit_symbol = new_entry;
 
-    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements);
+    nodecl_t nodecl_body = nodecl_null();
+    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
@@ -713,7 +721,8 @@ static char statement_is_executable(AST statement);
 static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_context);
 
 static void build_scope_program_body_module(AST program_body, decl_context_t decl_context,
-        char (*allowed_statement)(AST, decl_context_t))
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output)
 {
     AST program_unit_stmts = ASTSon0(program_body);
     AST internal_subprograms = ASTSon1(program_body);
@@ -738,7 +747,11 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
                         ast_location(stmt));
             }
 
-            fortran_build_scope_statement(stmt, decl_context);
+            nodecl_t nodecl_statement = nodecl_null();
+            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
+
+            *nodecl_output = nodecl_concat_lists(*nodecl_output,
+                    nodecl_statement);
         }
     }
 
@@ -751,7 +764,8 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 }
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context,
-        char (*allowed_statement)(AST, decl_context_t))
+        char (*allowed_statement)(AST, decl_context_t),
+        nodecl_t* nodecl_output)
 {
     AST program_part = ASTSon0(program_body);
     AST program_unit_stmts = ASTSon0(program_part);
@@ -792,7 +806,10 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
                 seen_internal_subprograms = 1;
             }
 
-            fortran_build_scope_statement(stmt, decl_context);
+            nodecl_t nodecl_statement = nodecl_null();
+            fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
+
+            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_statement);
         }
     }
 
@@ -810,7 +827,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
     ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, internal_subprograms);
 }
 
-typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t);
+typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
 
 typedef
 enum statement_kind_tag
@@ -923,7 +940,7 @@ typedef struct build_scope_statement_handler_tag
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
-    static void _handler(AST, decl_context_t);
+    static void _handler(AST, decl_context_t, nodecl_t*);
 STATEMENT_HANDLER_TABLE
 #undef STATEMENT_HANDLER
 
@@ -1002,7 +1019,7 @@ static char statement_is_nonexecutable(AST statement)
 }
 #endif
 
-void fortran_build_scope_statement(AST statement, decl_context_t decl_context)
+void fortran_build_scope_statement(AST statement, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     init_statement_array();
 
@@ -1025,7 +1042,7 @@ void fortran_build_scope_statement(AST statement, decl_context_t decl_context)
     }
     else
     {
-        (handler->handler)(statement, decl_context);
+        (handler->handler)(statement, decl_context, nodecl_output);
     }
 }
 
@@ -1746,7 +1763,7 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
     return array_type;
 }
 
-static void build_scope_access_stmt(AST a, decl_context_t decl_context)
+static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
@@ -1860,7 +1877,7 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
+static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST allocatable_decl_list = ASTSon0(a);
     AST it;
@@ -1909,7 +1926,7 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_allocate_stmt(AST a, decl_context_t decl_context)
+static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST type_spec = ASTSon0(a);
     AST allocation_list = ASTSon1(a);
@@ -1966,12 +1983,12 @@ static void unsupported_construct(AST a, const char* name)
             name);
 }
 
-static void build_scope_allstop_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_allstop_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "ALLSTOP");
 }
 
-static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context)
+static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST numeric_expr = ASTSon0(a);
     fprintf(stderr, "%s: warning: deprecated arithmetic-if statement\n", 
@@ -1979,7 +1996,7 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context)
     fortran_check_expression(numeric_expr, decl_context);
 }
 
-static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
+static void build_scope_expression_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -2007,19 +2024,19 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);
 }
 
-static void build_scope_associate_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_associate_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "ASSOCIATE");
 }
 
-static void build_scope_asynchronous_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_asynchronous_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "ASYNCHRONOUS");
 }
 
 static void build_scope_input_output_item_list(AST input_output_item_list, decl_context_t decl_context);
 
-static void build_io_stmt(AST a, decl_context_t decl_context)
+static void build_io_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST io_spec_list = ASTSon0(a);
     handle_opt_value_list(a, io_spec_list, decl_context);
@@ -2050,7 +2067,7 @@ static scope_entry_t* query_common_name(decl_context_t decl_context, const char*
     return result;
 }
 
-static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     AST language_binding_spec = ASTSon0(a);
     AST bind_entity_list = ASTSon1(a);
@@ -2089,12 +2106,13 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_co
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_block_construct(AST a, decl_context_t decl_context)
+static void build_scope_block_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     decl_context_t new_context = fortran_new_block_context(decl_context);
 
     AST block = ASTSon1(a);
-    fortran_build_scope_statement(block, new_context);
+    nodecl_t nodecl_body = nodecl_null();
+    fortran_build_scope_statement(block, new_context, &nodecl_body);
 
     if (block != NULL)
     {
@@ -2105,20 +2123,22 @@ static void build_scope_block_construct(AST a, decl_context_t decl_context)
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 }
 
-static void build_scope_case_construct(AST a, decl_context_t decl_context)
+static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
     AST statement = ASTSon1(a);
 
     fortran_check_expression(expr, decl_context);
-    fortran_build_scope_statement(statement, decl_context);
+
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, expr);
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 }
 
-static void build_scope_case_statement(AST a, decl_context_t decl_context)
+static void build_scope_case_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST case_selector = ASTSon0(a);
     AST statement = ASTSon1(a);
@@ -2145,21 +2165,23 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context)
         }
     }
 
-    fortran_build_scope_statement(statement, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_CASE_EXPRESSION, case_selector);
     ast_set_link_to_child(a, LANG_CASE_STATEMENT_BODY, statement);
 }
 
-static void build_scope_default_statement(AST a, decl_context_t decl_context)
+static void build_scope_default_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST statement = ASTSon0(a);
 
-    fortran_build_scope_statement(statement, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 }
 
-static void build_scope_compound_statement(AST a, decl_context_t decl_context)
+static void build_scope_compound_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST it;
 
@@ -2168,20 +2190,21 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context)
     {
         AST statement = ASTSon1(it);
 
-        fortran_build_scope_statement(statement, decl_context);
+        nodecl_t nodecl_statement = nodecl_null();
+        fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, list);
 }
 
-static void build_scope_close_stmt(AST a, decl_context_t decl_context)
+static void build_scope_close_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST close_spec_list = ASTSon0(a);
     handle_opt_value_list(a, close_spec_list, decl_context);
 }
 
-static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "CODIMENSION");
 }
@@ -2193,7 +2216,7 @@ static scope_entry_t* new_common(decl_context_t decl_context, const char* common
     return common_sym;
 }
 
-static void build_scope_common_stmt(AST a, decl_context_t decl_context)
+static void build_scope_common_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST common_block_item_list = ASTSon0(a);
 
@@ -2286,20 +2309,20 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context)
+static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     fprintf(stderr, "%s: warning: deprecated computed-goto statement\n", 
             ast_location(a));
     fortran_check_expression(ASTSon1(a), decl_context);
 }
 
-static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     fprintf(stderr, "%s: warning: deprecated assigned-goto statement\n", 
             ast_location(a));
 }
 
-static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     fprintf(stderr, "%s: warning: deprecated label-assignment statement\n", 
             ast_location(a));
@@ -2348,32 +2371,33 @@ static scope_entry_t* query_label(AST label,
     return new_label;
 }
 
-static void build_scope_labeled_stmt(AST a, decl_context_t decl_context)
+static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
     AST statement = ASTSon1(a);
 
     query_label(label, decl_context, /* is_definition */ 1);
     // Sign in the label
-    fortran_build_scope_statement(statement, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
     ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 }
 
-static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for continue
     ASTAttrSetValueType(a, LANG_IS_EMPTY_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_critical_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_critical_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "CRITICAL");
 }
 
-static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for cycle
     ASTAttrSetValueType(a, LANG_IS_CONTINUE_STATEMENT, tl_type_t, tl_bool(1));
@@ -2428,7 +2452,7 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
     }
 }
 
-static void build_scope_data_stmt(AST a, decl_context_t decl_context)
+static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST data_stmt_set_list = ASTSon0(a);
 
@@ -2462,7 +2486,7 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_deallocate_stmt(AST a, decl_context_t decl_context)
+static void build_scope_deallocate_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST allocate_object_list = ASTSon0(a);
     AST dealloc_opt_list = ASTSon1(a);
@@ -2500,7 +2524,7 @@ static void build_scope_deallocate_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
+static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST derived_type_stmt = ASTSon0(a);
     AST derived_type_body = ASTSon1(a);
@@ -2775,7 +2799,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
+static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST array_name_dim_spec_list = ASTSon0(a);
     AST it;
@@ -2822,7 +2846,7 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_do_construct(AST a, decl_context_t decl_context)
+static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST loop_control = ASTSon0(a);
     AST block = ASTSon1(a);
@@ -2850,7 +2874,8 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
     if (stride != NULL)
         fortran_check_expression(stride, decl_context);
 
-    fortran_build_scope_statement(block, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_FORTRAN_DO_INIT, assig);
@@ -2858,7 +2883,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
     ast_set_link_to_child(a, LANG_FORTRAN_DO_STRIDE, stride);
 }
 
-static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // AST name = ASTSon0(a);
     // AST dummy_arg_list = ASTSon1(a);
@@ -2868,12 +2893,12 @@ static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PAR
     unsupported_statement(a, "ENTRY");
 }
 
-static void build_scope_enum_def(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_enum_def(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_construct(a, "ENUM");
 }
 
-static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context)
+static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST equivalence_set_list = ASTSon0(a);
 
@@ -2898,13 +2923,13 @@ static void build_scope_equivalence_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for exit
     ASTAttrSetValueType(a, LANG_IS_BREAK_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_external_stmt(AST a, decl_context_t decl_context)
+static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST name_list = ASTSon0(a);
     AST it;
@@ -2941,38 +2966,42 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_forall_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_forall_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_construct(a, "FORALL");
 }
 
-static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "FORALL");
 }
 
-static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing in FORMAT
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for GOTO at the moment
 }
 
-static void build_scope_if_construct(AST a, decl_context_t decl_context)
+static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST logical_expr = ASTSon0(a);
     AST then_statement = ASTSon1(a);
     AST else_statement = ASTSon2(a);
 
     fortran_check_expression(logical_expr, decl_context);
-    fortran_build_scope_statement(then_statement, decl_context);
+
+    nodecl_t nodecl_then = nodecl_null();
+    fortran_build_scope_statement(then_statement, decl_context, &nodecl_then);
+
+    nodecl_t nodecl_else = nodecl_null();
     if (else_statement != NULL)
     {
-        fortran_build_scope_statement(else_statement, decl_context);
+        fortran_build_scope_statement(else_statement, decl_context, &nodecl_else);
     }
 
     ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
@@ -2981,7 +3010,7 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context)
     ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_statement);
 }
 
-static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
+static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST implicit_spec_list = ASTSon0(a);
     if (implicit_spec_list == NULL)
@@ -3068,12 +3097,12 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "IMPORT");
 }
 
-static void build_scope_intent_stmt(AST a, decl_context_t decl_context)
+static void build_scope_intent_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST intent_spec = ASTSon0(a);
     AST dummy_arg_name_list = ASTSon1(a);
@@ -3109,7 +3138,7 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_interface_block(AST a, decl_context_t decl_context)
+static void build_scope_interface_block(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST interface_stmt = ASTSon0(a);
     AST interface_specification_seq = ASTSon1(a);
@@ -3234,7 +3263,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     AST intrinsic_list = ASTSon0(a);
 
@@ -3256,12 +3285,12 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "LOCK");
 }
 
-static void build_scope_namelist_stmt(AST a, decl_context_t decl_context)
+static void build_scope_namelist_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST namelist_item_list = ASTSon0(a);
 
@@ -3310,7 +3339,7 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_nullify_stmt(AST a, decl_context_t decl_context)
+static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST pointer_object_list = ASTSon0(a);
 
@@ -3332,13 +3361,13 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_open_stmt(AST a, decl_context_t decl_context)
+static void build_scope_open_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST connect_spec_list = ASTSon0(a);
     handle_opt_value_list(a, connect_spec_list, decl_context);
 }
 
-static void build_scope_optional_stmt(AST a, decl_context_t decl_context)
+static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST name_list = ASTSon0(a);
     AST it;
@@ -3358,7 +3387,7 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
+static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST named_constant_def_list = ASTSon0(a);
 
@@ -3393,7 +3422,7 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
+static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST pointer_decl_list = ASTSon0(a);
     AST it;
@@ -3467,24 +3496,24 @@ static void build_scope_input_output_item_list(AST input_output_item_list, decl_
     }
 }
 
-static void build_scope_print_stmt(AST a, decl_context_t decl_context)
+static void build_scope_print_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST input_output_item_list = ASTSon1(a);
 
     build_scope_input_output_item_list(input_output_item_list, decl_context);
 }
 
-static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "PROCEDURE");
 }
 
-static void build_scope_protected_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_protected_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "PROTECTED");
 }
 
-static void build_scope_read_stmt(AST a, decl_context_t decl_context)
+static void build_scope_read_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST io_control_spec_list = ASTSon0(a);
     handle_opt_value_list(a, io_control_spec_list, decl_context);
@@ -3495,7 +3524,7 @@ static void build_scope_read_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_return_stmt(AST a, decl_context_t decl_context)
+static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST int_expr = ASTSon1(a);
     if (int_expr != NULL)
@@ -3506,7 +3535,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     AST saved_entity_list = ASTSon0(a);
 
@@ -3549,12 +3578,12 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_select_type_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_select_type_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "SELECT TYPE");
 }
 
-static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context)
+static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST name = ASTSon0(a);
     AST dummy_arg_name_list = ASTSon1(a);
@@ -3612,7 +3641,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
+static void build_scope_stop_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST stop_code = ASTSon0(a);
     if (stop_code != NULL)
@@ -3623,7 +3652,7 @@ static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_STOP_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_pause_stmt(AST a, decl_context_t decl_context)
+static void build_scope_pause_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     fprintf(stderr, "%s: warning: deprecated PAUSE statement\n",
             ast_location(a));
@@ -3635,22 +3664,22 @@ static void build_scope_pause_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "SYNC ALL");
 }
 
-static void build_scope_sync_images_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_sync_images_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "SYNC IMAGES");
 }
 
-static void build_scope_sync_memory_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_sync_memory_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "SYNC MEMORY");
 }
 
-static void build_scope_target_stmt(AST a, decl_context_t decl_context)
+static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST target_decl_list = ASTSon0(a);
 
@@ -3708,7 +3737,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context)
+static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -3964,7 +3993,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "UNLOCK");
 }
@@ -4043,7 +4072,7 @@ static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_
     }
 }
 
-static void build_scope_use_stmt(AST a, decl_context_t decl_context)
+static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST module_nature = NULL;
     AST module_name = NULL;
@@ -4236,7 +4265,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_value_stmt(AST a, decl_context_t decl_context)
+static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST name_list = ASTSon0(a);
 
@@ -4263,7 +4292,7 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
+static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST name_list = ASTSon0(a);
 
@@ -4298,12 +4327,12 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     unsupported_statement(a, "WAIT");
 }
 
-static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_context)
+static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (a == NULL)
         return;
@@ -4312,11 +4341,13 @@ static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_cont
     for_each_element(a, it)
     {
         AST statement = ASTSon1(it);
-        fortran_build_scope_statement(statement, decl_context);
+
+        nodecl_t nodecl_statement = nodecl_null();
+        fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
     }
 }
 
-static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, decl_context_t decl_context)
+static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (mask_elsewhere_part_seq == NULL)
         return;
@@ -4332,11 +4363,12 @@ static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, dec
         AST expr = ASTSon0(masked_elsewhere_stmt);
         fortran_check_expression(expr, decl_context);
 
-        build_scope_where_body_construct_seq(where_body_construct_seq, decl_context);
+        nodecl_t nodecl_statement = nodecl_null();
+        build_scope_where_body_construct_seq(where_body_construct_seq, decl_context, &nodecl_statement);
     }
 }
 
-static void build_scope_where_construct(AST a, decl_context_t decl_context)
+static void build_scope_where_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST where_construct_stmt = ASTSon0(a);
     AST mask_expr = ASTSon1(where_construct_stmt);
@@ -4345,26 +4377,30 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context)
     AST where_construct_body = ASTSon1(a);
 
     AST main_where_body = ASTSon0(where_construct_body);
-    build_scope_where_body_construct_seq(main_where_body, decl_context);
+    nodecl_t nodecl_body = nodecl_null();
+    build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
 
     AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
-    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context);
+    nodecl_t nodecl_elsewhere = nodecl_null();
+    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere);
     
     // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
 
     AST elsewhere_body = ASTSon3(where_construct_body);
-    build_scope_where_body_construct_seq(elsewhere_body, decl_context);
+    nodecl_t nodecl_elsewhere_body = nodecl_null();
+    build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
 }
 
-static void build_scope_where_stmt(AST a, decl_context_t decl_context)
+static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST mask_expr = ASTSon0(a);
     fortran_check_expression(mask_expr, decl_context);
     AST where_assignment_stmt = ASTSon1(a);
-    build_scope_expression_stmt(where_assignment_stmt, decl_context);
+    nodecl_t nodecl_expression = nodecl_null();
+    build_scope_expression_stmt(where_assignment_stmt, decl_context, &nodecl_expression);
 }
 
-static void build_scope_while_stmt(AST a, decl_context_t decl_context)
+static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
     AST block = ASTSon1(a);
@@ -4377,14 +4413,15 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context)
                 ast_location(expr));
     }
 
-    fortran_build_scope_statement(block, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, expr);
     ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, block);
 }
 
-static void build_scope_write_stmt(AST a, decl_context_t decl_context)
+static void build_scope_write_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     handle_opt_value_list(a, ASTSon0(a), decl_context);
 
@@ -4395,13 +4432,14 @@ static void build_scope_write_stmt(AST a, decl_context_t decl_context)
     }
 }
 
-static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context)
+static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST statement = ASTSon1(a);
-    fortran_build_scope_statement(statement, decl_context);
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 }
 
-static void build_scope_pragma_custom_dir(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_pragma_custom_dir(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for directives
 }

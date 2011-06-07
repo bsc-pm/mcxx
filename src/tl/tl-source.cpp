@@ -335,7 +335,8 @@ namespace TL
             scope_link_t* scope_link,
             AST a)
     {
-        fortran_build_scope_statement(a, decl_context);
+        nodecl_t nodecl_output = nodecl_null();
+        fortran_build_scope_statement(a, decl_context, &nodecl_output);
         scope_link_set(scope_link, a, decl_context);
 
         return AST_t(a);

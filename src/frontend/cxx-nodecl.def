@@ -85,7 +85,7 @@ string-literal: NODECL_STRING_LITERAL() type text
 expression : literal
            | name
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
-           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
+           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
