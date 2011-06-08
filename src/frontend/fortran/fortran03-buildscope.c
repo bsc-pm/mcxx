@@ -562,6 +562,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         entry->entity_specs.is_implicit_basic_type = 0;
     }
 
+    char function_has_type_spec = 0;
     if (prefix != NULL)
     {
         AST it;
@@ -588,6 +589,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                     entry->entity_specs.is_implicit_basic_type = 0;
                     entry->type_information = return_type;
                 }
+
+                function_has_type_spec = 1;
             }
             else if (strcasecmp(prefix_spec_str, "elemental") == 0)
             {
@@ -648,35 +651,62 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         }
     }
 
+    AST result = NULL;
     if (suffix != NULL)
     {
-        scope_entry_t* result_sym = NULL;
         // AST binding_spec = ASTSon0(suffix);
-        AST result = ASTSon1(suffix);
+        result = ASTSon1(suffix);
+    }
 
-        if (result != NULL)
+    scope_entry_t* result_sym = NULL;
+    if (result != NULL)
+    {
+        if (!is_function)
         {
-            if (!is_function)
-            {
-                running_error("%s: error: RESULT is only valid for FUNCTION statement\n",
-                        ast_location(result));
-            }
-
-            result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
-
-            result_sym->kind = SK_VARIABLE;
-            result_sym->file = ASTFileName(result);
-            result_sym->line = ASTLine(result);
-            result_sym->entity_specs.is_result = 1;
-
-            result_sym->type_information = return_type;
-
-            return_type = get_indirect_type(result_sym);
-
-            P_LIST_ADD(entry->entity_specs.related_symbols,
-                    entry->entity_specs.num_related_symbols,
-                    result_sym);
+            running_error("%s: error: RESULT is only valid for FUNCTION statement\n",
+                    ast_location(result));
         }
+
+        result_sym = get_symbol_for_name(decl_context, result, ASTText(result));
+
+        result_sym->kind = SK_VARIABLE;
+        result_sym->file = ASTFileName(result);
+        result_sym->line = ASTLine(result);
+        result_sym->entity_specs.is_result = 1;
+
+        result_sym->type_information = return_type;
+
+        return_type = get_indirect_type(result_sym);
+
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                result_sym);
+    }
+    else
+    {
+        // Invent a symbol and make it a variable, so when the function name is
+        // used as a variable we'll use this symbol instead. This eases lots of
+        // things
+        result_sym = calloc(1, sizeof(*result_sym));
+        result_sym->symbol_name = entry->symbol_name;
+        result_sym->decl_context = decl_context;
+        result_sym->kind = SK_VARIABLE;
+        result_sym->file = entry->file;
+        result_sym->line = entry->line;
+        result_sym->entity_specs.is_result = 1;
+
+        result_sym->type_information = return_type;
+        result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
+
+        // Add it as an explicit unknown symbol because we want it to be
+        // updated with a later IMPLICIT
+        add_unknown_symbol(decl_context, result_sym);
+
+        return_type = get_indirect_type(result_sym);
+
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                result_sym);
     }
 
     // Try to come up with a sensible type for this entity

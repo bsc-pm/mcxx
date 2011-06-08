@@ -174,3 +174,8 @@ nodecl_t nodecl_list_head(nodecl_t list)
     }
     return nodecl_null();
 }
+
+node_t nodecl_get_kind(nodecl_t n)
+{
+    return ASTType(nodecl_get_ast(n));
+}

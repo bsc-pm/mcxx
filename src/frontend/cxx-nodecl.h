@@ -39,6 +39,9 @@ const char* nodecl_get_filename(nodecl_t);
 int nodecl_get_line(nodecl_t);
 const char* nodecl_get_locus(nodecl_t);
 
+// Kind of node
+node_t nodecl_get_kind(nodecl_t);
+
 // FIXME - Should this be here?
 // C++ value dependency
 char nodecl_is_value_dependent(nodecl_t);

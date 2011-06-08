@@ -302,11 +302,27 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
 
             nodecl_t nodecl_ac_value = nodecl_null();
             check_ac_value_list(implied_do_ac_value, new_context, &nodecl_ac_value);
+
+            nodecl_t nodecl_implied_do = 
+                nodecl_make_implied_do(
+                        nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
+                        nodecl_make_subscript_triplet(nodecl_lower, 
+                            nodecl_upper, 
+                            nodecl_stride, 
+                            ASTFileName(implied_do_control), 
+                            ASTLine(implied_do_control)),
+                        nodecl_ac_value,
+                        ASTFileName(implied_do_control), 
+                        ASTLine(implied_do_control));
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
             nodecl_t nodecl_expr = nodecl_null();
             fortran_check_expression_impl_(ac_value, decl_context, &nodecl_expr);
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
         }
 
         if (is_error_type(expression_get_type(ac_value)))
@@ -338,9 +354,13 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
     check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value);
 
     expression_set_type(expr, expression_get_type(ac_value_list));
+
+    *nodecl_output = nodecl_make_structured_literal(nodecl_ac_value,
+            expression_get_type(ac_value_list), 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_substring(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
     type_t* subscripted_type = expression_get_type(ASTSon0(expr));
 
@@ -386,9 +406,15 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t* nod
     synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
 
     expression_set_type(expr, synthesized_type);
+
+    *nodecl_output = nodecl_make_array_subscript(
+            nodecl_subscripted,
+            nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr)),
+            synthesized_type,
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
     char symbol_is_invalid = 0;
 
@@ -420,6 +446,19 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t* no
     AST it;
     for_each_element(subscript_list, it)
     {
+        num_subscripts++;
+    }
+
+    nodecl_t nodecl_indexes[num_subscripts];
+    int i;
+    for (i = 0; i < num_subscripts; i++)
+    {
+        nodecl_indexes[i] = nodecl_null();
+    }
+
+    num_subscripts = 0;
+    for_each_element(subscript_list, it)
+    {
         AST subscript = ASTSon1(it);
 
         if (ASTType(subscript) == AST_SUBSCRIPT_TRIPLET)
@@ -441,15 +480,20 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t* no
             // maybe we will in the future
             if (!symbol_is_invalid)
             {
-                synthesized_type = get_array_type_bounds(synthesized_type, nodecl_null(), nodecl_null(), decl_context);
+                // FIXME - Stride may imply an array with smaller sizer (rank is unaffected)
+                synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
             }
 
-            // FIXME - Mark subscript triplets
+            nodecl_indexes[num_subscripts] = nodecl_make_subscript_triplet(
+                    nodecl_lower,
+                    nodecl_upper,
+                    nodecl_stride,
+                    ASTFileName(subscript),
+                    ASTLine(subscript));
         }
         else
         {
-            nodecl_t nodecl_expr = nodecl_null();
-            fortran_check_expression_impl_(subscript, decl_context, &nodecl_expr);
+            fortran_check_expression_impl_(subscript, decl_context, &nodecl_indexes[num_subscripts]);
         }
         num_subscripts++;
     }
@@ -483,12 +527,24 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t* no
     ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(expr, LANG_SUBSCRIPTED_EXPRESSION, ASTSon0(expr));
     ast_set_link_to_child(expr, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expr));
+
+    nodecl_t nodecl_list = nodecl_null();
+    for (i = num_subscripts-1; i >= 0; i--)
+    {
+        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
+    }
+
+    *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
+            nodecl_list,
+            synthesized_type,
+            ASTFileName(expr),
+            ASTLine(expr));
 }
 
 static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    nodecl_t nodecl_expr = nodecl_null();
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
+    nodecl_t nodecl_subscripted = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_subscripted);
 
     if (is_error_type(expression_get_type(ASTSon0(expr))))
     {
@@ -501,13 +557,13 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
     if (is_fortran_array_type(subscripted_type)
             || is_pointer_to_fortran_array_type(subscripted_type))
     {
-        check_array_ref_(expr, decl_context, nodecl_output);
+        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
     else if (is_fortran_character_type(get_rank0_type(subscripted_type))
             || is_pointer_to_fortran_character_type(get_rank0_type(subscripted_type)))
     {
-        check_substring(expr, decl_context, nodecl_output);
+        check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
 
@@ -2161,15 +2217,33 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             ASTLine(expr));
 }
 
-static char function_has_result(scope_entry_t* entry)
+static char function_has_named_result(scope_entry_t* entry)
 {
     int i;
     for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
     {
-        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
+        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result
+                && strcasecmp(entry->entity_specs.related_symbols[i]->symbol_name, entry->symbol_name) != 0)
             return 1;
     }
     return 0;
+}
+
+static scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
+{
+    scope_entry_t* result = NULL;
+
+    int i;
+    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+    {
+        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
+        {
+            result = entry->entity_specs.related_symbols[i];
+            break;
+        }
+    }
+
+    return result;
 }
 
 static char is_name_of_funtion_call(AST expr)
@@ -2229,6 +2303,40 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         }
     }
 
+    if (entry->kind == SK_FUNCTION)
+    {
+        // This must act as a variable
+        if (!is_name_of_funtion_call(expr)
+                && !is_name_in_actual_arg_spec_list(expr))
+        {
+            // FIXME: This is not exactly OK here, we may be passing a function
+            // name as a variable to another function
+            type_t* return_type = NULL; 
+            if (is_function_type(entry->type_information))
+                return_type = function_type_get_return_type(entry->type_information);
+            if (return_type == NULL
+                    || function_has_named_result(entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
+                            ast_location(expr),
+                            fortran_prettyprint_in_buffer(expr));
+                }
+                expression_set_error(expr);
+                return;
+            }
+
+            // Update to the result symbol
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Reference to function name '%s' where a variable is expected, using result symbol\n",
+                        entry->symbol_name);
+            }
+            entry = function_get_result_symbol(entry);
+        }
+    }
+
     if (entry->kind == SK_VARIABLE)
     {
         // It might happen that dummy arguments/result do not have any implicit
@@ -2284,31 +2392,9 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        if (is_name_of_funtion_call(expr)
-                || is_name_in_actual_arg_spec_list(expr))
-        {
-            expression_set_type(expr, entry->type_information);
-        }
-        else
-        {
-            // This must act as a variable
-            type_t* return_type = NULL; 
-            if (is_function_type(entry->type_information))
-                return_type = function_type_get_return_type(entry->type_information);
-            if (return_type == NULL
-                    || function_has_result(entry))
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
-                            ast_location(expr),
-                            fortran_prettyprint_in_buffer(expr));
-                }
-                expression_set_error(expr);
-                return;
-            }
-            expression_set_type(expr, function_type_get_return_type(entry->type_information));
-        }
+        ERROR_CONDITION (!is_name_of_funtion_call(expr) && !is_name_in_actual_arg_spec_list(expr), 
+                "Invalid occurrence of a function name", 0);
+        expression_set_type(expr, entry->type_information);
         expression_set_symbol(expr, entry);
     }
     else

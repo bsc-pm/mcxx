@@ -242,7 +242,7 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
         codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
         if (current_scope == entry->decl_context.current_scope)
         {
-            if (ASTType(nodecl_get_ast(node)) != NODECL_OBJECT_INIT)
+            if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
             {
                 define_symbol(visitor, entry);
             }
@@ -687,7 +687,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     {
                         // We only need = if the initializer is a structured one
                         // and this is C++03, in C++1x syntax { } is always allowed
-                        if (ASTType(nodecl_get_ast(symbol->value)) == NODECL_STRUCTURED_LITERAL)
+                        if (nodecl_get_kind(symbol->value) == NODECL_STRUCTURED_LITERAL)
                         {
                             fprintf(visitor->file, "%s", " = ");
                         }
@@ -1017,7 +1017,7 @@ static void walk_expression_unpacked_list(nodecl_codegen_visitor_t *visitor, nod
 // Codegen
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
-    internal_error("WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
+    internal_error("WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(nodecl_get_kind(node)));
 }
 
 static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1176,7 +1176,7 @@ static int get_rank_kind(node_t n, const char* text)
 
 static int get_rank(nodecl_t n)
 {
-    return get_rank_kind(ASTType(nodecl_get_ast(n)), nodecl_get_text(n));
+    return get_rank_kind(nodecl_get_kind(n), nodecl_get_text(n));
 }
 
 static char is_bitwise_bin_operator(node_t n)
@@ -1194,8 +1194,8 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     int rank_current = get_rank(current_operator);
     int rank_operand = get_rank(operand);
 
-    node_t current_kind = ASTType(nodecl_get_ast(current_operator));
-    node_t operand_kind = ASTType(nodecl_get_ast(operand));
+    node_t current_kind = nodecl_get_kind(current_operator);
+    node_t operand_kind = nodecl_get_kind(operand);
 
     if (is_bitwise_bin_operator(current_kind) // &
             && is_bitwise_bin_operator(operand_kind)) // |
@@ -1680,8 +1680,8 @@ static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t
     fprintf(visitor->file, ".");
     codegen_walk(visitor, field);
 
-    if (ASTType(nodecl_get_ast(field)) != NODECL_FIELD_DESIGNATOR
-            && ASTType(nodecl_get_ast(field)) != NODECL_INDEX_DESIGNATOR)
+    if (nodecl_get_kind(field) != NODECL_FIELD_DESIGNATOR
+            && nodecl_get_kind(field) != NODECL_INDEX_DESIGNATOR)
     {
         fprintf(visitor->file, " = ");
     }
@@ -1697,8 +1697,8 @@ static void codegen_index_designator(nodecl_codegen_visitor_t* visitor, nodecl_t
     codegen_walk(visitor, _index);
     fprintf(visitor->file, "]");
 
-    if (ASTType(nodecl_get_ast(_index)) != NODECL_FIELD_DESIGNATOR
-            && ASTType(nodecl_get_ast(_index)) != NODECL_INDEX_DESIGNATOR)
+    if (nodecl_get_kind(_index) != NODECL_FIELD_DESIGNATOR
+            && nodecl_get_kind(_index) != NODECL_INDEX_DESIGNATOR)
     {
         fprintf(visitor->file, " = ");
     }

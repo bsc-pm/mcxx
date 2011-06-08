@@ -85,7 +85,7 @@ string-literal: NODECL_STRING_LITERAL() type text
 expression : literal
            | name
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
-           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript) type
+           | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
@@ -124,12 +124,17 @@ structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) t
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
           | expression
+          | implied-do
+
+implied-do: NODECL_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
 
 argument : NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
          | expression
 
 subscript : expression
-          | NODECL_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
+          | subscript-triplet
+
+subscript-triplet : NODECL_SUBSCRIPT_TRIPLET([lower]expression-opt, [upper]expression-opt, [stride]expression-opt)
 
 c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]expression, [false]expression) type
                   | NODECL_REFERENCE([rhs]expression) type

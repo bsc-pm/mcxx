@@ -6532,10 +6532,30 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         expression_set_type(expr, t);
         expression_set_is_lvalue(expr, 1);
 
-        nodecl_t nodecl_output = nodecl_make_array_subscript(
-                expression_get_nodecl(subscripted_expr), 
-                expression_get_nodecl(subscript_expr),
-                t, ASTFileName(expr), ASTLine(expr));
+        // Special case for multidimensional array accesses (to match that of Fortran)
+        nodecl_t nodecl_subscripted = expression_get_nodecl(subscripted_expr);
+
+        nodecl_t nodecl_output = nodecl_null();
+        if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
+        {
+            nodecl_output = nodecl_make_array_subscript(
+                    expression_get_nodecl(subscripted_expr), 
+                    nodecl_make_list_1(expression_get_nodecl(subscript_expr)),
+                    t, ASTFileName(expr), ASTLine(expr));
+        }
+        else
+        {
+            nodecl_t nodecl_indexed = nodecl_get_child(nodecl_subscripted, 0);
+            nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
+
+            nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
+                    expression_get_nodecl(subscript_expr));
+
+            nodecl_output = nodecl_make_array_subscript(
+                    nodecl_indexed,
+                    nodecl_subscript_list,
+                    t, ASTFileName(expr), ASTLine(expr));
+        }
         expression_set_nodecl(expr, nodecl_output);
         return;
     }
