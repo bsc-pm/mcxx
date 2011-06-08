@@ -23,7 +23,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
-          | NODECL_CASE_STATEMENT([case]expression, [statement]statement-seq)
+          | NODECL_CASE_STATEMENT([case]case-expression-seq, [statement]statement-seq)
           | NODECL_BREAK_STATEMENT()
           | NODECL_CONTINUE_STATEMENT()
           | NODECL_GOTO_STATEMENT() symbol
@@ -33,6 +33,9 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | c-cxx-only-statements
           | fortran-only-statements
           | builtin-decl
+
+case-expression : expression
+                | subscript-triplet
 
 builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
 builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text type
@@ -55,23 +58,6 @@ pragma-construct : NODECL_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [sta
 c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq, [any]statement-seq-opt)
 
 catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
-
-# FIXME - Document these. Some of them could be simplified further
-fortran-only-statements : NODECL_ALLOCATE_STATEMENT()
-                        | NODECL_ARITHMETIC_IF_STATEMENT()
-                        | NODECL_ASSIGNED_GOTO_STATEMENT()
-                        | NODECL_CLOSE_STATEMENT()
-                        | NODECL_COMPUTED_GOTO_STATEMENT()
-                        | NODECL_DEALLOCATE_STATEMENT()
-                        | NODECL_IO_STATEMENT()
-                        | NODECL_LABEL_ASSIGN_STATEMENT()
-                        | NODECL_NULLIFY_STATEMENT()
-                        | NODECL_OPEN_STATEMENT()
-                        | NODECL_PRINT_STATEMENT()
-                        | NODECL_READ_STATEMENT()
-                        | NODECL_STOP_STATEMENT()
-                        | NODECL_PAUSE_STATEMENT()
-                        | NODECL_WRITE_STATEMENT()
 
 literal : NODECL_INTEGER_LITERAL() type const_value
     | NODECL_FLOATING_LITERAL() type text
@@ -124,12 +110,15 @@ structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) t
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
           | expression
-          | implied-do
+          | fortran-implied-do
 
-implied-do: NODECL_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
+fortran-implied-do: NODECL_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
 
-argument : NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+argument : named-pair
          | expression
+
+named-pair: NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+
 
 subscript : expression
           | subscript-triplet
@@ -164,3 +153,23 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 
 type-or-expr : type
              | expression
+
+# FIXME - Document these. Some of them could be simplified further
+fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [options]named-pair-seq-opt)
+                        | NODECL_ARITHMETIC_IF_STATEMENT([expr]expression, [lower]name, [equal]name, [upper]name)
+                        | NODECL_ASSIGNED_GOTO_STATEMENT([index]name, [label_seq]name-seq)
+                        | NODECL_OPEN_STATEMENT([io_items] fortran-io-items)
+                        | NODECL_CLOSE_STATEMENT([io_items] fortran-io-items)
+                        | NODECL_COMPUTED_GOTO_STATEMENT([label_seq]name-seq, [index] expression)
+                        | NODECL_DEALLOCATE_STATEMENT([items]expression-seq, [options]named-pair-seq-opt)
+                        | NODECL_IO_STATEMENT([io_spec_list]named-pair-seq, [io_items]fortran-io-items-opt) text
+                        | NODECL_LABEL_ASSIGN_STATEMENT([label_var]name, [value]expression)
+                        | NODECL_NULLIFY_STATEMENT([items]expression-seq)
+                        | NODECL_PRINT_STATEMENT([io_items]fortran-io-items)
+                        | NODECL_READ_STATEMENT([io_spec_list]named-pair-seq, [io_items]fortran-io-items-opt)
+                        | NODECL_WRITE_STATEMENT([io_spec_list]named-pair-seq, [io_items]fortran-io-items-opt)
+                        | NODECL_STOP_STATEMENT([stop_code]expression-opt)
+
+fortran-io-items : expression
+           | fortran-implied-do
+

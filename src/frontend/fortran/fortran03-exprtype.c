@@ -2229,22 +2229,6 @@ static char function_has_named_result(scope_entry_t* entry)
     return 0;
 }
 
-static scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
-{
-    scope_entry_t* result = NULL;
-
-    int i;
-    for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
-    {
-        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
-        {
-            result = entry->entity_specs.related_symbols[i];
-            break;
-        }
-    }
-
-    return result;
-}
 
 static char is_name_of_funtion_call(AST expr)
 {

@@ -51,6 +51,8 @@ LIBMF03_EXTERN void build_scope_program_unit(AST program_unit,
         decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol);
 
+LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // FORTRAN03_BUILDSCOPE_H
