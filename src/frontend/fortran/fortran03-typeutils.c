@@ -164,10 +164,6 @@ const char* fortran_print_type_str(type_t* t)
         result = strappend(result, ")");
     }
 
-    // if (is_character)
-    // {
-    // }
-
     return result;
 }
 

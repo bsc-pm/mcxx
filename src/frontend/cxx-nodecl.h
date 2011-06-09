@@ -33,6 +33,7 @@ void nodecl_set_type(nodecl_t, type_t*);
 
 // Symbol
 scope_entry_t* nodecl_get_symbol(nodecl_t);
+void nodecl_set_symbol(nodecl_t, scope_entry_t*);
 
 // Location
 const char* nodecl_get_filename(nodecl_t);

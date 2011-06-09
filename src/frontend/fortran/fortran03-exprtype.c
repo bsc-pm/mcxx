@@ -412,6 +412,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
             nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr)),
             synthesized_type,
             ASTFileName(expr), ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
 }
 
 static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
@@ -539,6 +540,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
             synthesized_type,
             ASTFileName(expr),
             ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
 }
 
 static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -819,6 +821,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
             nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
             expression_get_type(expr),
             ASTFileName(expr), ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, entry);
 }
 
 static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2350,13 +2353,15 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 
         *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
 
-        if (entry->entity_specs.is_parameter)
+        if (entry->entity_specs.is_parameter
+                && !entry->entity_specs.is_value)
         {
             *nodecl_output = 
                 nodecl_make_derreference(
                         *nodecl_output,
                         entry->type_information,
                         ASTFileName(expr), ASTLine(expr));
+            nodecl_set_symbol(*nodecl_output, entry);
         }
 
         if (is_pointer_type(entry->type_information))
@@ -2366,6 +2371,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
                         *nodecl_output,
                         pointer_type_get_pointee_type(entry->type_information),
                         ASTFileName(expr), ASTLine(expr));
+            nodecl_set_symbol(*nodecl_output, entry);
         }
     }
     else if (entry->kind == SK_UNDEFINED)
@@ -2592,6 +2598,12 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
     ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
+            "A reference to a pointer entity must be derreferenced", 0);
+
+    // Get the inner part of the derreference
+    nodecl_lvalue = nodecl_get_child(nodecl_lvalue, 0);
 
     *nodecl_output = nodecl_make_assignment(
             nodecl_lvalue,

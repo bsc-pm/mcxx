@@ -1058,7 +1058,6 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
 }
 
 // We return negative numbers because it is easier to list them in descending priority order
-// so we want the first one to be the most 
 static int get_rank_kind(node_t n, const char* text)
 {
     switch (n)
@@ -1719,9 +1718,17 @@ static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t 
     {
     fprintf(visitor->file, ")");
     }
-    fprintf(visitor->file, "[");
-    codegen_walk(visitor, subscript);
-    fprintf(visitor->file, "]");
+
+    // We keep a list instead of a single dimension for multidimensional arrays
+    // alla Fortran
+    AST subscript_list = nodecl_get_ast(subscript);
+    AST it;
+    for_each_element(subscript_list, it)
+    {
+        fprintf(visitor->file, "[");
+        codegen_walk(visitor, _nodecl_wrap(ASTSon1(it)));
+        fprintf(visitor->file, "]");
+    }
 }
 
 // Statements

@@ -126,6 +126,11 @@ scope_entry_t* nodecl_get_symbol(nodecl_t node)
     return expression_get_symbol(node.tree);
 }
 
+void nodecl_set_symbol(nodecl_t node, scope_entry_t* entry)
+{
+    return expression_set_symbol(node.tree, entry);
+}
+
 nodecl_t _nodecl_wrap(AST a)
 {
     nodecl_t n = { a };

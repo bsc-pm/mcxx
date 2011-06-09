@@ -19,6 +19,7 @@
 #include "cxx-limits.h"
 #include "cxx-nodecl.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-pragma.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -44,7 +45,8 @@ void fortran_initialize_translation_unit_scope(translation_unit_t* translation_u
 }
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 
 void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
@@ -55,23 +57,30 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 
     scope_link_set(translation_unit->scope_link, a, decl_context);
 
+    nodecl_t nodecl_program_units = nodecl_null();
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-        build_scope_program_unit_seq(list, decl_context);
+        build_scope_program_unit_seq(list, decl_context, &nodecl_program_units);
     }
+
+    translation_unit->nodecl = nodecl_make_top_level(nodecl_program_units, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     AST it;
     for_each_element(program_unit_seq, it)
     {
+        nodecl_t nodecl_top_level_items = nodecl_null();
         build_scope_program_unit(ASTSon1(it), 
                 decl_context, 
                 new_program_unit_context,
-                NULL);
+                NULL, &nodecl_top_level_items);
+        *nodecl_output = nodecl_concat_lists(*nodecl_output,
+                nodecl_top_level_items);
     }
 }
 
@@ -233,17 +242,20 @@ static scope_entry_t* get_symbol_for_name_untyped(decl_context_t decl_context, A
 }
 
 static void build_scope_main_program_unit(AST program_unit, decl_context_t
-        program_unit_context, scope_entry_t** program_unit_symbol);
+        program_unit_context, scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output);
 static void build_scope_subroutine_program_unit(AST program_unit,
-        decl_context_t program_unit_context, scope_entry_t**
-        program_unit_symbol);
+        decl_context_t program_unit_context, scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output);
 static void build_scope_function_program_unit(AST program_unit, decl_context_t
-        program_unit_context, scope_entry_t** program_unit_symbol);
+        program_unit_context, scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output);
 static void build_scope_module_program_unit(AST program_unit, decl_context_t
-        program_unit_context, scope_entry_t** program_unit_symbol);
+        program_unit_context, scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output);
 static void build_scope_block_data_program_unit(AST program_unit,
-        decl_context_t program_unit_context, scope_entry_t**
-        program_unit_symbol);
+        decl_context_t program_unit_context, scope_entry_t** program_unit_symbol, 
+        nodecl_t* nodecl_output);
 
 static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
         decl_context_t decl_context,
@@ -252,7 +264,8 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
 void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context,
         decl_context_t (*new_context)(decl_context_t),
-        scope_entry_t** program_unit_symbol)
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     decl_context_t program_unit_context = new_context(decl_context);
 
@@ -263,27 +276,27 @@ void build_scope_program_unit(AST program_unit,
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
-                build_scope_main_program_unit(program_unit, program_unit_context, &_program_unit_symbol);
+                build_scope_main_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
-                build_scope_subroutine_program_unit(program_unit, program_unit_context, &_program_unit_symbol);
+                build_scope_subroutine_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_FUNCTION_PROGRAM_UNIT:
             {
-                build_scope_function_program_unit(program_unit, program_unit_context, &_program_unit_symbol);
+                build_scope_function_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_MODULE_PROGRAM_UNIT :
             {
-                build_scope_module_program_unit(program_unit, program_unit_context, &_program_unit_symbol);
+                build_scope_module_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         case AST_BLOCK_DATA_PROGRAM_UNIT:
             {
-                build_scope_block_data_program_unit(program_unit, program_unit_context, &_program_unit_symbol);
+                build_scope_block_data_program_unit(program_unit, program_unit_context, &_program_unit_symbol, nodecl_output);
                 break;
             }
         default:
@@ -313,11 +326,13 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 static void build_scope_program_body(AST program_body, 
         decl_context_t decl_context,
         char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms);
 static void build_scope_program_body_module(AST program_body, 
         decl_context_t decl_context,
         char (*allowed_statement)(AST a, decl_context_t),
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms);
 
 static char allow_all_statements(AST a UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
@@ -327,7 +342,8 @@ static char allow_all_statements(AST a UNUSED_PARAMETER,
 
 static void build_scope_main_program_unit(AST program_unit, 
         decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol)
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
@@ -360,16 +376,24 @@ static void build_scope_main_program_unit(AST program_unit,
         return;
 
     nodecl_t nodecl_body = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
     ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+
+    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
+            nodecl_body,
+            nodecl_internal_subprograms,
+            program_sym,
+            ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_function_program_unit(AST program_unit, 
         decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol)
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
@@ -402,16 +426,24 @@ static void build_scope_function_program_unit(AST program_unit,
         return;
 
     nodecl_t nodecl_body = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
     ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+
+    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
+            nodecl_body,
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_subroutine_program_unit(AST program_unit, 
         decl_context_t program_unit_context, 
-        scope_entry_t** program_unit_symbol)
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
@@ -452,16 +484,24 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         return;
 
     nodecl_t nodecl_body = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body);
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
     ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+
+    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
+            nodecl_body,
+            nodecl_internal_subprograms,
+            new_entry,
+            ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
         decl_context_t program_unit_context,
-        scope_entry_t** program_unit_symbol)
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(program_unit_symbol == NULL, "Invalid parameter", 0)
     DEBUG_CODE()
@@ -490,7 +530,21 @@ static void build_scope_module_program_unit(AST program_unit,
     *program_unit_symbol = new_entry;
 
     nodecl_t nodecl_body = nodecl_null();
-    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body);
+    nodecl_t nodecl_internal_subprograms = nodecl_null();
+    build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+
+    // This is a bit strange
+    // If a module does not contain any procedure we need to remember it appeared (use a NODECL_OBJECT_INIT)
+    // otherwise use the procedures instead
+    if (nodecl_is_null(nodecl_internal_subprograms))
+    {
+        *nodecl_output = nodecl_make_list_1(
+                nodecl_make_object_init(new_entry, ASTFileName(program_unit), ASTLine(program_unit)));
+    }
+    else
+    {
+        *nodecl_output = nodecl_internal_subprograms;
+    }
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
@@ -505,8 +559,10 @@ static void build_scope_module_program_unit(AST program_unit,
 
 static void build_scope_block_data_program_unit(AST program_unit,
         decl_context_t program_unit_context UNUSED_PARAMETER,
-        scope_entry_t** program_unit_symbol UNUSED_PARAMETER)
+        scope_entry_t** program_unit_symbol UNUSED_PARAMETER,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
+    // FIXME
     // Do nothing with these
     DEBUG_CODE()
     {
@@ -515,6 +571,8 @@ static void build_scope_block_data_program_unit(AST program_unit,
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_BLOCK_DATA, tl_type_t, tl_bool(1));
+
+    internal_error("BLOCK DATA not yet implemented", 0);
 }
 
 static type_t* gather_type_from_declaration_type_spec_(AST a, 
@@ -731,7 +789,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 }
 
 static void build_scope_internal_subprograms(AST internal_subprograms, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
     if (internal_subprograms == NULL)
         return;
@@ -741,10 +800,14 @@ static void build_scope_internal_subprograms(AST internal_subprograms,
     {
         AST internal_subprogram = ASTSon1(it);
         scope_entry_t* subprogram_sym = NULL;
+        nodecl_t nodecl_internal_program = nodecl_null();
         build_scope_program_unit(internal_subprogram, 
                 decl_context, 
                 new_internal_program_unit_context,
-                &subprogram_sym);
+                &subprogram_sym,
+                &nodecl_internal_program);
+
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_internal_program);
 
         // Add the symbol to the current scope
         scope_t* current_scope = decl_context.current_scope;
@@ -757,7 +820,8 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 
 static void build_scope_program_body_module(AST program_body, decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms)
 {
     AST program_unit_stmts = ASTSon0(program_body);
     AST internal_subprograms = ASTSon1(program_body);
@@ -790,7 +854,7 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
         }
     }
 
-    build_scope_internal_subprograms(internal_subprograms, decl_context);
+    build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
 
     clear_unknown_symbols(decl_context);
 
@@ -800,7 +864,8 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context,
         char (*allowed_statement)(AST, decl_context_t),
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        nodecl_t* nodecl_internal_subprograms)
 {
     AST program_part = ASTSon0(program_body);
     AST program_unit_stmts = ASTSon0(program_part);
@@ -836,7 +901,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
                 // Make sure all symbols seen so far have basic type
                 clear_unknown_symbols(decl_context);
 
-                build_scope_internal_subprograms(internal_subprograms, decl_context);
+                build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
                 seen_executables = 1;
                 seen_internal_subprograms = 1;
             }
@@ -844,7 +909,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
             nodecl_t nodecl_statement = nodecl_null();
             fortran_build_scope_statement(stmt, decl_context, &nodecl_statement);
 
-            *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_statement);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
         }
     }
 
@@ -854,7 +919,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
     }
     if (!seen_internal_subprograms)
     {
-        build_scope_internal_subprograms(internal_subprograms, decl_context);
+        build_scope_internal_subprograms(internal_subprograms, decl_context, nodecl_internal_subprograms);
         seen_internal_subprograms = 1;
     }
 
@@ -2008,10 +2073,9 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, alloc_opt_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_allocate_statement(nodecl_allocate_list, 
+    *nodecl_output = nodecl_make_allocate_statement(nodecl_allocate_list, 
                 nodecl_opt_value,
-                ASTFileName(a), ASTLine(a)));
+                ASTFileName(a), ASTLine(a));
 }
 
 static void unsupported_statement(AST a, const char* name)
@@ -2050,13 +2114,12 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     scope_entry_t* equal_label = query_label(equal, decl_context, /* is_definition */ 0);
     scope_entry_t* upper_label = query_label(upper, decl_context, /* is_definition */ 0);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_arithmetic_if_statement(
+    *nodecl_output = nodecl_make_arithmetic_if_statement(
                 expression_get_nodecl(numeric_expr),
                 nodecl_make_symbol(lower_label, ASTFileName(lower), ASTLine(lower)),
                 nodecl_make_symbol(equal_label, ASTFileName(equal), ASTLine(equal)),
                 nodecl_make_symbol(upper_label, ASTFileName(upper), ASTLine(upper)),
-                ASTFileName(a), ASTLine(a)));
+                ASTFileName(a), ASTLine(a));
 
 }
 
@@ -2087,10 +2150,9 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_expression_statement(expression_get_nodecl(expr), 
+    *nodecl_output = nodecl_make_expression_statement(expression_get_nodecl(expr), 
                 ASTFileName(expr),
-                ASTLine(expr)));
+                ASTLine(expr));
 }
 
 static void build_scope_associate_construct(AST a, 
@@ -2203,12 +2265,8 @@ static void build_scope_block_construct(AST a,
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_compound_statement(nodecl_body, nodecl_null(), 
-                    new_scope_symbol(new_context),
-                    ASTFileName(a), ASTLine(a))
-                );
+    *nodecl_output = nodecl_make_compound_statement(nodecl_body, nodecl_null(),
+            new_scope_symbol(new_context), ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2225,12 +2283,11 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context, nodec
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, expr);
     ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_switch_statement(
-                expression_get_nodecl(expr),
-                nodecl_statement,
-                ASTFileName(a),
-                ASTLine(a)));
+    *nodecl_output = nodecl_make_switch_statement(
+            expression_get_nodecl(expr),
+            nodecl_statement,
+            ASTFileName(a),
+            ASTLine(a));
 }
 
 static void build_scope_case_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2289,8 +2346,7 @@ static void build_scope_default_statement(AST a, decl_context_t decl_context, no
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a)));
+    *nodecl_output = nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_compound_statement(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2452,12 +2508,11 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
 
     fortran_check_expression(ASTSon1(a), decl_context);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_computed_goto_statement(
+    *nodecl_output = nodecl_make_computed_goto_statement(
             nodecl_label_list,
             expression_get_nodecl(ASTSon1(a)),
             ASTFileName(a),
-            ASTLine(a)));
+            ASTLine(a));
 }
 
 static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
@@ -2480,12 +2535,11 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
     }
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_assigned_goto_statement(
+    *nodecl_output = nodecl_make_assigned_goto_statement(
             nodecl_make_symbol(label_var, ASTFileName(a), ASTLine(a)),
             nodecl_label_list,
             ASTFileName(a),
-            ASTLine(a)));
+            ASTLine(a));
 }
 
 static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
@@ -2501,13 +2555,11 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
-    *nodecl_output = 
-        nodecl_make_list_1(
-                nodecl_make_label_assign_statement(
-                    nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
-                    expression_get_nodecl(literal_const),
-                    ASTFileName(a),
-                    ASTLine(a)));
+    *nodecl_output = nodecl_make_label_assign_statement(
+            nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
+            expression_get_nodecl(literal_const),
+            ASTFileName(a),
+            ASTLine(a));
 }
 
 static scope_entry_t* query_label(AST label, 
@@ -2568,8 +2620,7 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
     ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
     ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_labeled_statement(nodecl_statement, label_sym, ASTFileName(a), ASTLine(a)));
+    *nodecl_output = nodecl_make_labeled_statement(nodecl_statement, label_sym, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
@@ -2736,11 +2787,10 @@ static void build_scope_deallocate_stmt(AST a,
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, dealloc_opt_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_deallocate_statement(nodecl_expr_list, 
-                nodecl_opt_value, 
-                ASTFileName(a), 
-                ASTLine(a)));
+    *nodecl_output = nodecl_make_deallocate_statement(nodecl_expr_list, 
+            nodecl_opt_value, 
+            ASTFileName(a), 
+            ASTLine(a));
 }
 
 static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -3111,14 +3161,14 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     ast_set_link_to_child(a, LANG_FORTRAN_DO_UPPER, upper);
     ast_set_link_to_child(a, LANG_FORTRAN_DO_STRIDE, stride);
 
-    *nodecl_output = nodecl_make_list_1(nodecl_make_for_statement(
-                nodecl_make_loop_control(nodecl_lower, 
-                    nodecl_upper, 
-                    nodecl_stride, 
-                    ASTFileName(loop_control), ASTLine(loop_control)),
-                nodecl_statement,
-                new_scope_symbol(decl_context),
-                ASTFileName(a), ASTLine(a)));
+    *nodecl_output = nodecl_make_for_statement(
+            nodecl_make_loop_control(nodecl_lower, 
+                nodecl_upper, 
+                nodecl_stride, 
+                ASTFileName(loop_control), ASTLine(loop_control)),
+            nodecl_statement,
+            new_scope_symbol(decl_context),
+            ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -3229,13 +3279,18 @@ static void build_scope_forall_stmt(AST a UNUSED_PARAMETER,
     unsupported_statement(a, "FORALL");
 }
 
-static void build_scope_format_stmt(AST a UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
+static void build_scope_format_stmt(AST a,
+        decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    // FIXME - TODO - XXX - We should sign in format in its label!
-    // Do nothing in FORMAT
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
+
+    AST label = ASTSon0(a);
+    AST format = ASTSon1(a);
+
+    // Keep the format in the label
+    scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
+    label_sym->value = nodecl_make_string_literal(get_void_type(), ASTText(format), ASTFileName(format), ASTLine(format));
 }
 
 static void build_scope_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3465,11 +3520,14 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
                     || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
             {
+                // Unused
+                nodecl_t nodecl_program_unit = nodecl_null();
                 scope_entry_t* interface_sym = NULL;
                 build_scope_program_unit(interface_specification, 
                         decl_context, 
                         new_program_unit_context, 
-                        &interface_sym);
+                        &interface_sym,
+                        &nodecl_program_unit);
 
                 if (generic_spec != NULL)
                 {
@@ -4763,21 +4821,28 @@ static void build_scope_write_stmt(AST a, decl_context_t decl_context, nodecl_t*
    *nodecl_output = nodecl_make_write_statement(nodecl_opt_value, nodecl_io_items, ASTFileName(a), ASTLine(a));
 }
 
+void fortran_build_scope_statement_pragma(AST a, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output, 
+        void* info UNUSED_PARAMETER)
+{
+    fortran_build_scope_statement(a, decl_context, nodecl_output);
+}
+
 static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    AST statement = ASTSon1(a);
-    nodecl_t nodecl_statement = nodecl_null();
-    fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
-
-    // *nodecl_output = nodecl_make_pragma_custom_construct(
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    common_build_scope_pragma_custom_construct(a, decl_context, nodecl_output, &nodecl_pragma_line, fortran_build_scope_statement_pragma, NULL);
+    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_STATEMENT, ASTSon1(a));
 }
 
-static void build_scope_pragma_custom_dir(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Do nothing for directives
+    common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
 }
 
-typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t);
+typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t, nodecl_t*);
 
 typedef struct opt_value_map_tag
 {
@@ -4858,7 +4923,7 @@ static int opt_value_map_compare(const void* v1, const void* v2)
     return strcasecmp(p1->name, p2->name);
 }
 
-static void handle_opt_value(AST io_stmt, AST opt_value, decl_context_t decl_context)
+static void handle_opt_value(AST io_stmt, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     opt_value_map_t key;
     key.name = ASTText(opt_value);
@@ -4874,7 +4939,7 @@ static void handle_opt_value(AST io_stmt, AST opt_value, decl_context_t decl_con
     ERROR_CONDITION(elem == NULL, "Invalid opt-value '%s' at %s\n", key.name, ast_location(opt_value));
     ERROR_CONDITION(elem->handler == NULL, "Invalid handler for opt-value '%s'\n", key.name);
 
-    (elem->handler)(io_stmt, opt_value, decl_context);
+    (elem->handler)(io_stmt, opt_value, decl_context, nodecl_output);
 }
 
 static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4895,7 +4960,9 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_
     for_each_element(opt_value_list, it)
     {
         AST opt_value = ASTSon1(it);
-        handle_opt_value(io_stmt, opt_value, decl_context);
+        nodecl_t nodecl_opt_value = nodecl_null();
+        handle_opt_value(io_stmt, opt_value, decl_context, &nodecl_opt_value);
+        *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_opt_value);
     }
 }
 
@@ -4973,13 +5040,15 @@ static char opt_common_logical_variable(AST value, decl_context_t decl_context, 
     return 1;
 }
 
-static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ACCESS");
+
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACCESS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
@@ -4989,90 +5058,117 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
         fprintf(stderr, "%s: warning: specifier 'ACQUIRED LOCK' requires a logical variable\n",
                 ast_location(value));
     }
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACQUIRED LOCK", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ACTION");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACTION", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_const_character_expr(value, decl_context, "ADVANCE");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ADVANCE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ASYNCHRONOUS");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ASYNCHRONOUS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "BLANK");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "BLANK", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "DECIMAL");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "DECIMAL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "DELIM");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "DELIM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ENCODING");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ENCODING", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER, 
         AST opt_value UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        nodecl_t* nodecl_output)
 {
-    // Do nothing
+    AST label = ASTSon0(opt_value);
+    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    *nodecl_output = nodecl_make_fortran_io_spec(
+            nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
+            "EOR", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_err_handler(AST io_stmt UNUSED_PARAMETER, 
         AST opt_value UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        nodecl_t* nodecl_output)
 {
-    // Do nothing
+    AST label = ASTSon0(opt_value);
+    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    *nodecl_output = nodecl_make_fortran_io_spec(
+            nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
+            "ERR", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_end_handler(AST io_stmt UNUSED_PARAMETER, 
         AST opt_value UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        nodecl_t* nodecl_output)
 {
-    // Do nothing
+    AST label = ASTSon0(opt_value);
+    scope_entry_t* entry = query_label(label, decl_context, /* is_definition */ 0);
+    *nodecl_output = nodecl_make_fortran_io_spec(
+            nodecl_make_symbol(entry, ASTFileName(label), ASTLine(label)), 
+            "END", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ERRMSG");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ERRMSG", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "EXIST");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "EXIST", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FILE");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FILE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     if (!(ASTType(value) == AST_SYMBOL
@@ -5089,63 +5185,73 @@ static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
                     ast_location(value));
         }
     }
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FMT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FORM");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FORM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "FORMATTED");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "ID");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ID", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "IOMSG");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "IOMSG", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "IOSTAT");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "IOSTAT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "MOLD", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "NAMED");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NAMED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NEWUNIT");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NEWUNIT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NEXTREC");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NEXTREC", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, ASTText(value));
@@ -5156,125 +5262,148 @@ static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
                 ast_location(value),
                 ASTText(value));
     }
+    *nodecl_output = nodecl_make_fortran_io_spec(
+            nodecl_make_symbol(entry, ASTFileName(value), ASTLine(value)), 
+            "NML", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "NUMBER");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NUMBER", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "OPENED");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "OPENED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "PAD");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "PAD", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_logical_variable(value, decl_context, "PENDING");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "PENDING", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "POS");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "POS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "POSITION");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "POSITION", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "READ");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "READ", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "READWRITE");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "READWRITE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "REC");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "REC", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_expr(value, decl_context, "RECL");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "RECL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "ROUND");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ROUND", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "SEQUENTIAL");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SEQUENTIAL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "SIGN");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SIGN", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "SIGN");
+    opt_common_int_expr(value, decl_context, "SIZE");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SIZE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SOURCE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_int_variable(value, decl_context, "STAT");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STAT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "STATUS");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STATUS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "STREAM");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STREAM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "UNFORMATTED");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "UNFORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
+    // If it is not 'UNIT = *'
     if (!(ASTType(value) == AST_SYMBOL
             && strcmp(ASTText(value), "*") == 0))
     {
@@ -5288,13 +5417,15 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
             fprintf(stderr, "%s: warning: specifier UNIT requires a character variable or a scalar integer expression\n",
                     ast_location(value));
         }
+        *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "UNIT", ASTFileName(opt_value), ASTLine(opt_value));
     }
 }
 
-static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context)
+static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
     opt_common_character_expr(value, decl_context, "WRITE");
+    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "WRITE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static int get_position_in_io_spec_list(AST value)
@@ -5312,7 +5443,7 @@ static int get_position_in_io_spec_list(AST value)
     return n;
 }
 
-static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value_ambig, decl_context_t decl_context)
+static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value_ambig, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // This ambiguous io spec handler exists because of the definition of io-control-spec
     //
@@ -5448,7 +5579,7 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_
     if (!bad)
     {
         // Not opt_value_ambig anymore
-        handle_opt_value(io_stmt, opt_value_ambig, decl_context);
+        handle_opt_value(io_stmt, opt_value_ambig, decl_context, nodecl_output);
     }
     else
     {

@@ -444,6 +444,11 @@ const_value_t* integer_type_get_maximum(type_t* t)
     return NULL;
 }
 
+int const_value_get_bytes(const_value_t* val)
+{
+    return val->num_bytes;
+}
+
 #define OP(_opname) const_value_##opname
 
 #define BINOP_FUN(_opname, _binop) \

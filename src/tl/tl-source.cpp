@@ -775,10 +775,12 @@ namespace TL
     {
         decl_context_t (*new_context_fun)(decl_context_t) = NULL;
 
+        nodecl_t nodecl_output = nodecl_null();
         build_scope_program_unit(a, 
                 decl_context, 
                 new_context_fun,
-                NULL);
+                NULL,
+                &nodecl_output);
 
         return AST_t(a);
     }
