@@ -218,12 +218,12 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
 
-        if (decl_context.current_scope->related_entry != NULL)
-        {
-            P_LIST_ADD_ONCE( decl_context.current_scope->related_entry->entity_specs.related_symbols,
-                    decl_context.current_scope->related_entry->entity_specs.num_related_symbols,
-                    result);
-        }
+        // if (decl_context.current_scope->related_entry != NULL)
+        // {
+        //     P_LIST_ADD_ONCE( decl_context.current_scope->related_entry->entity_specs.related_symbols,
+        //             decl_context.current_scope->related_entry->entity_specs.num_related_symbols,
+        //             result);
+        // }
 
         add_unknown_symbol(decl_context, result);
     }
@@ -310,14 +310,14 @@ void build_scope_program_unit(AST program_unit,
         *program_unit_symbol = _program_unit_symbol;
     }
 
-    if (decl_context.current_scope->related_entry != NULL
-            && _program_unit_symbol != NULL)
-    {
-        scope_entry_t* sym = decl_context.current_scope->related_entry;
-        P_LIST_ADD_ONCE(sym->entity_specs.related_symbols, 
-                sym->entity_specs.num_related_symbols, 
-                _program_unit_symbol);
-    }
+    // if (decl_context.current_scope->related_entry != NULL
+    //         && _program_unit_symbol != NULL)
+    // {
+    //     scope_entry_t* sym = decl_context.current_scope->related_entry;
+    //     P_LIST_ADD_ONCE(sym->entity_specs.related_symbols, 
+    //             sym->entity_specs.num_related_symbols, 
+    //             _program_unit_symbol);
+    // }
 }
 
 static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
@@ -421,17 +421,29 @@ static void build_scope_function_program_unit(AST program_unit,
     new_entry->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = new_entry;
 
-    AST program_body = ASTSon1(program_unit);
-    if (program_body == NULL)
-        return;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    AST program_body = ASTSon1(program_unit);
+    if (program_body != NULL)
+    {
+        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
+        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+    }
+
+    int i, num_params = new_entry->entity_specs.num_related_symbols;
+    for (i = 0; i < num_params; i++)
+    {
+        // This happens because nobody uses these dummies (or
+        // result) symbols and their undefined state remains
+        // Fix them to be plain variables
+        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        {
+            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+        }
+    }
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
@@ -471,6 +483,9 @@ static void build_scope_subroutine_program_unit(AST program_unit,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
 
+    // It is void but it is not implicit
+    new_entry->entity_specs.is_implicit_basic_type = 0;
+
     *program_unit_symbol = new_entry;
 
     insert_alias(program_unit_context.current_scope->contained_in, new_entry,
@@ -479,17 +494,29 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     new_entry->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = new_entry;
 
-    AST program_body = ASTSon1(program_unit);
-    if (program_body == NULL)
-        return;
-
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    AST program_body = ASTSon1(program_unit);
+    if (program_body != NULL)
+    {
+        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
+        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+    }
+
+    int i, num_params = new_entry->entity_specs.num_related_symbols;
+    for (i = 0; i < num_params; i++)
+    {
+        // This happens because nobody uses these dummies (or
+        // result) symbols and their undefined state remains
+        // Fix them to be plain variables
+        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        {
+            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+        }
+    }
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
@@ -745,7 +772,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 entry->entity_specs.num_related_symbols,
                 result_sym);
     }
-    else
+    else if (is_function)
     {
         // Invent a symbol and make it a variable, so when the function name is
         // used as a variable we'll use this symbol instead. This eases lots of
@@ -3056,14 +3083,14 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
-    if (decl_context.current_scope->related_entry != NULL)
-    {
-        scope_entry_t* entry = decl_context.current_scope->related_entry;
+    // if (decl_context.current_scope->related_entry != NULL)
+    // {
+    //     scope_entry_t* entry = decl_context.current_scope->related_entry;
 
-        P_LIST_ADD_ONCE(entry->entity_specs.related_symbols, 
-                entry->entity_specs.num_related_symbols,
-                class_name);
-    }
+    //     P_LIST_ADD_ONCE(entry->entity_specs.related_symbols, 
+    //             entry->entity_specs.num_related_symbols,
+    //             class_name);
+    // }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
@@ -3520,21 +3547,25 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
                     || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
             {
-                // Unused
                 nodecl_t nodecl_program_unit = nodecl_null();
-                scope_entry_t* interface_sym = NULL;
+                scope_entry_t* procedure_sym = NULL;
                 build_scope_program_unit(interface_specification, 
                         decl_context, 
                         new_program_unit_context, 
-                        &interface_sym,
+                        &procedure_sym,
                         &nodecl_program_unit);
 
                 if (generic_spec != NULL)
                 {
                     P_LIST_ADD(related_symbols,
                             num_related_symbols,
-                            interface_sym);
+                            procedure_sym);
                 }
+
+                // Insert this symbol to the enclosing context
+                insert_entry(decl_context.current_scope, procedure_sym);
+                // And update its context to be the enclosing one
+                procedure_sym->decl_context = decl_context;
             }
             else
             {
@@ -4443,13 +4474,13 @@ static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_
         }
     }
 
-    scope_entry_t* related_entry = decl_context.current_scope->related_entry;
-    if (related_entry != NULL)
-    {
-        P_LIST_ADD(related_entry->entity_specs.related_symbols,
-                related_entry->entity_specs.num_related_symbols,
-                current_symbol);
-    }
+    // scope_entry_t* related_entry = decl_context.current_scope->related_entry;
+    // if (related_entry != NULL)
+    // {
+    //     P_LIST_ADD(related_entry->entity_specs.related_symbols,
+    //             related_entry->entity_specs.num_related_symbols,
+    //             current_symbol);
+    // }
 }
 
 static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5695,7 +5726,7 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 
 scope_entry_t* function_get_result_symbol(scope_entry_t* entry)
 {
-    scope_entry_t* result = NULL;
+    scope_entry_t* result = entry;
 
     int i;
     for (i = 0; i < entry->entity_specs.num_related_symbols; i++)

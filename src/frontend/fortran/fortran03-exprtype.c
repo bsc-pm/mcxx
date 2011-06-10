@@ -1057,7 +1057,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    ASTAttrSetValueType(expr, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
    char c[64];
-   snprintf(c, 63, "%s_%d", floating_text, kind);
+   snprintf(c, 63, "%s", floating_text);
    c[63] = '\0';
 
    *nodecl_output = nodecl_make_floating_literal(t, uniquestr(c), ASTFileName(expr), ASTLine(expr));
@@ -1222,7 +1222,7 @@ static void check_called_symbol(
 {
     if (symbol != NULL
             && symbol->kind == SK_VARIABLE
-            && is_void_type(symbol->type_information))
+            && symbol->entity_specs.is_implicit_basic_type)
     {
         // Upgrade the symbol to a function with unknown arguments
         symbol->kind = SK_FUNCTION;
@@ -1232,6 +1232,7 @@ static void check_called_symbol(
             return_type = NULL;
 
         symbol->type_information = get_nonproto_function_type(return_type, 0);
+        symbol->entity_specs.is_implicit_basic_type = 0;
     }
 
     if (symbol == NULL
@@ -1753,12 +1754,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             &called_symbol
             );
 
-    ERROR_CONDITION(called_symbol == NULL, "Invalid symbol called returned by check_called_symbol", 0);
+    // ERROR_CONDITION(called_symbol == NULL, "Invalid symbol called returned by check_called_symbol", 0);
     ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
 
     if (is_error_type(result_type))
     {
         expression_set_error(expr);
+        return;
     }
     else
     {
@@ -1785,11 +1787,19 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             nodecl_t nodecl_argument_spec = nodecl_null();
             if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
             {
+                char no_argument_info = 0;
                 scope_entry_t* parameter = NULL;
                 if (keyword == NULL)
                 {
                     ERROR_CONDITION(parameter_index < 0, "Invalid index", 0);
-                    parameter = called_symbol->entity_specs.related_symbols[parameter_index];
+                    if (called_symbol->entity_specs.num_related_symbols <= parameter_index)
+                    {
+                        no_argument_info = 1;
+                    }
+                    else
+                    {
+                        parameter = called_symbol->entity_specs.related_symbols[parameter_index];
+                    }
                     parameter_index++;
                 }
                 else
@@ -1806,35 +1816,43 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                     }
                     parameter_index = -1;
                 }
-                ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
 
                 nodecl_t nodecl_argument = nodecl_null();
                 fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
 
-                nodecl_argument_spec = nodecl_make_named_pair_spec(
-                        nodecl_make_symbol(parameter, ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec)),
-                        nodecl_argument,
-                        ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec));
+                if (no_argument_info)
+                {
+                    nodecl_argument_spec = nodecl_argument;
+                }
+                else
+                {
+                    ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
+                    nodecl_argument_spec = nodecl_make_named_pair_spec(
+                            nodecl_make_symbol(parameter, ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec)),
+                            nodecl_argument,
+                            ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec));
+                }
             }
             else
             {
-                nodecl_argument_spec = nodecl_make_named_pair_spec(
-                        nodecl_null(),
-                        nodecl_make_builtin_expr(
-                            nodecl_make_any_list(
-                                nodecl_make_list_1(
-                                    nodecl_make_string_literal(get_void_type(), 
-                                        /* label */ ASTText(ASTSon0(actual_arg)), 
-                                        ASTFileName(ASTSon0(actual_arg)), 
-                                        ASTLine(ASTSon0(actual_arg)))),
-                                ASTFileName(ASTSon0(actual_arg)), 
-                                ASTLine(ASTSon0(actual_arg)) ),
-                            get_void_type(),
-                            "fortran-alternate-result",
-                            ASTFileName(actual_arg),
-                            ASTLine(actual_arg)),
-                        ASTFileName(actual_arg),
-                        ASTLine(actual_arg) );
+                internal_error("Alternate return not implemented yet", 0);
+                // nodecl_argument_spec = nodecl_make_named_pair_spec(
+                //         nodecl_null(),
+                //         nodecl_make_builtin_expr(
+                //             nodecl_make_any_list(
+                //                 nodecl_make_list_1(
+                //                     nodecl_make_string_literal(get_void_type(), 
+                //                         /* label */ ASTText(ASTSon0(actual_arg)), 
+                //                         ASTFileName(ASTSon0(actual_arg)), 
+                //                         ASTLine(ASTSon0(actual_arg)))),
+                //                 ASTFileName(ASTSon0(actual_arg)), 
+                //                 ASTLine(ASTSon0(actual_arg)) ),
+                //             get_void_type(),
+                //             "fortran-alternate-result",
+                //             ASTFileName(actual_arg),
+                //             ASTLine(actual_arg)),
+                //         ASTFileName(actual_arg),
+                //         ASTLine(actual_arg) );
             }
 
             nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_argument_spec);
@@ -2382,8 +2400,12 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        ERROR_CONDITION (!is_name_of_funtion_call(expr) && !is_name_in_actual_arg_spec_list(expr), 
-                "Invalid occurrence of a function name", 0);
+        if (!is_name_of_funtion_call(expr) 
+                && !is_name_in_actual_arg_spec_list(expr))
+        {
+            expression_set_error(expr);
+            return;
+        }
         expression_set_type(expr, entry->type_information);
         expression_set_symbol(expr, entry);
     }

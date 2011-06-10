@@ -229,6 +229,61 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
     }
 }
 
+static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+    indent(visitor);
+    if (entry->entity_specs.is_recursive)
+    {
+        fprintf(visitor->file, "RECURSIVE ");
+    }
+    if (entry->entity_specs.is_pure)
+    {
+        fprintf(visitor->file, "PURE ");
+    }
+    if (entry->entity_specs.is_elemental)
+    {
+        fprintf(visitor->file, "ELEMENTAL ");
+    }
+
+    fprintf(visitor->file, "%s %s(", 
+            is_function ? "FUNCTION" : "SUBROUTINE",
+            entry->symbol_name);
+    int i, num_params = entry->entity_specs.num_related_symbols;
+    // In a function the last one is the result
+    if (is_function)
+    {
+        ERROR_CONDITION(num_params <= 0, "Invalid number of parameters %d in function", num_params);
+        num_params--;
+    }
+    for (i = 0; i < num_params; i++)
+    {
+        if (i != 0)
+        {
+            fprintf(visitor->file, ", ");
+        }
+        fprintf(visitor->file, "%s", entry->entity_specs.related_symbols[i]->symbol_name);
+    }
+    fprintf(visitor->file, ")");
+    if (is_function)
+    {
+        scope_entry_t* result = entry->entity_specs.related_symbols[num_params];
+        ERROR_CONDITION(!result->entity_specs.is_result, "This is not the result symbol!", 0);
+        if (strcmp(result->symbol_name, entry->symbol_name) != 0)
+        {
+            fprintf(visitor->file, " RESULT(%s)", result->symbol_name);
+        }
+    }
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    indent(visitor);
+    fprintf(visitor->file, "END SUBROUTINE %s\n", entry->symbol_name);
+}
+
+
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
@@ -268,6 +323,30 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 {
                     attribute_list = strappend(attribute_list, ", PARAMETER");
                 }
+                if (entry->entity_specs.is_parameter)
+                {
+                    switch (entry->entity_specs.intent_kind)
+                    {
+                        case INTENT_IN:
+                            {
+                                attribute_list = strappend(attribute_list, ", INTENT(IN)");
+                                break;
+                            }
+                        case INTENT_OUT:
+                            {
+                                attribute_list = strappend(attribute_list, ", INTENT(OUT)");
+                                break;
+                            }
+                        case INTENT_INOUT:
+                            {
+                                attribute_list = strappend(attribute_list, ", INTENT(INOUT)");
+                                break;
+                            }
+                        default:
+                            {
+                            }
+                    }
+                }
 
                 if (!nodecl_is_null(entry->value))
                 {
@@ -290,6 +369,54 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             }
         case SK_COMMON:
             {
+                break;
+            }
+        case SK_FUNCTION:
+            {
+                if (function_type_get_lacking_prototype(entry->type_information))
+                {
+                    indent(visitor);
+
+                    if (function_type_get_return_type(entry->type_information) != NULL)
+                    {
+                        const char* type_spec = NULL;
+                        const char* array_specifier = NULL;
+                        codegen_type(visitor, function_type_get_return_type(entry->type_information), 
+                                &type_spec, &array_specifier);
+                        fprintf(visitor->file, "%s, EXTERNAL :: %s\n", type_spec, entry->symbol_name);
+                    }
+                    else
+                    {
+                        fprintf(visitor->file, "EXTERNAL :: %s\n", entry->symbol_name);
+                    }
+                }
+                else
+                {
+                    indent(visitor);
+                    fprintf(visitor->file, "INTERFACE\n");
+
+                    visitor->indent_level++;
+                    codegen_procedure_declaration_header(visitor, entry);
+
+                    scope_entry_t* old = visitor->current_sym;
+                    visitor->current_sym = entry;
+                    int i, num_params = entry->entity_specs.num_related_symbols;
+                    visitor->indent_level++;
+                    indent(visitor);
+                    fprintf(visitor->file, "IMPLICIT NONE\n");
+                    for (i = 0; i < num_params; i++)
+                    {
+                        declare_symbol(visitor, entry->entity_specs.related_symbols[i]);
+                    }
+                    visitor->indent_level--;
+                    visitor->current_sym = old;
+
+                    codegen_procedure_declaration_footer(visitor, entry);
+                    visitor->indent_level--;
+
+                    indent(visitor);
+                    fprintf(visitor->file, "END INTERFACE\n");
+                }
                 break;
             }
         case SK_CLASS:
@@ -343,6 +470,61 @@ static void declare_everything_needed(nodecl_codegen_visitor_t* visitor, nodecl_
     declare_symbols_rec(visitor, node);
 }
 
+static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry, nodecl_t statement_seq, nodecl_t internal_subprograms)
+{
+    visitor->indent_level++;
+
+    indent(visitor);
+    fprintf(visitor->file, "IMPLICIT NONE\n");
+
+    if (entry->kind == SK_FUNCTION)
+    {
+        int i, num_params = entry->entity_specs.num_related_symbols;
+        for (i = 0; i < num_params; i++)
+        {
+            declare_symbol(visitor, entry->entity_specs.related_symbols[i]);
+        }
+    }
+
+    declare_everything_needed(visitor, statement_seq);
+
+    codegen_walk(visitor, statement_seq);
+    visitor->indent_level--;
+
+    if (!nodecl_is_null(internal_subprograms))
+    {
+        indent(visitor);
+        fprintf(visitor->file, "CONTAINS\n");
+
+        visitor->indent_level++;
+        codegen_walk(visitor, internal_subprograms);
+        visitor->indent_level--;
+    }
+}
+
+static void codegen_empty_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
+{
+    indent(visitor);
+    fprintf(visitor->file, "CONTINUE\n");
+}
+
+static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    int kind = type_get_size(t);
+
+    // Make this customizable
+    if (kind == 4)
+    {
+        fprintf(visitor->file, "%s", nodecl_get_text(node));
+    }
+    else
+    {
+        fprintf(visitor->file, "%s_%d", nodecl_get_text(node), kind);
+    }
+}
+
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -356,34 +538,23 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     {
         case SK_PROGRAM:
             {
+                // If it is __MAIN__ do not print the name
                 const char* program_name = entry->symbol_name[0] == '_' ? "" : entry->symbol_name;
                 fprintf(visitor->file, "PROGRAM %s\n", program_name);
                 visitor->indent_level++;
-                declare_everything_needed(visitor, statement_seq);
-                codegen_walk(visitor, statement_seq);
-                visitor->indent_level--;
 
-                if (!nodecl_is_null(internal_subprograms))
-                {
-                    indent(visitor);
-                    fprintf(visitor->file, "CONTAINS\n");
-
-                    visitor->indent_level++;
-                    codegen_walk(visitor, internal_subprograms);
-                    visitor->indent_level--;
-                }
+                codegen_procedure(visitor, entry, statement_seq, internal_subprograms);
 
                 fprintf(visitor->file, "END PROGRAM %s\n", program_name);
                 break;
             }
-        // case SK_FUNCTION:
-        //     {
-        //         break;
-        //     }
-        // case SK_SUBROUTINE:
-        //     {
-        //         break;
-        //     }
+        case SK_FUNCTION:
+            {
+                codegen_procedure_declaration_header(visitor, entry);
+                codegen_procedure(visitor, entry, statement_seq, internal_subprograms);
+                codegen_procedure_declaration_footer(visitor, entry);
+                break;
+            }
         default:
             {
                 internal_error("Unexpected symbol kind %s", symbol_kind_name(entry));
@@ -590,6 +761,42 @@ static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t 
     fprintf(visitor->file, ")");
 }
 
+static void codegen_named_pair_spec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t name = nodecl_get_child(node, 0);
+    nodecl_t expr = nodecl_get_child(node, 1);
+
+    if (!nodecl_is_null(name))
+    {
+        fprintf(visitor->file, "%s = ", nodecl_get_symbol(name)->symbol_name);
+    }
+
+    codegen_walk(visitor, expr);
+}
+
+static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t called = nodecl_get_child(node, 0);
+    nodecl_t arguments = nodecl_get_child(node, 1);
+
+    scope_entry_t* entry = nodecl_get_symbol(called);
+
+    ERROR_CONDITION(entry == NULL, "Invalid symbol in call", 0);
+
+    char is_call = (function_type_get_return_type(entry->type_information) == NULL);
+
+    if (is_call)
+    {
+        fprintf(visitor->file, "CALL ");
+    }
+
+    codegen_walk(visitor, called);
+
+    fprintf(visitor->file, "(");
+    codegen_comma_separated_list(visitor, arguments);
+    fprintf(visitor->file, ")");
+}
+
 // FIXME - Fortran 2003 blocks
 static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -620,6 +827,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef BINARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
     NODECL_VISITOR(codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
     NODECL_VISITOR(codegen_visitor)->visit_assignment = codegen_visitor_fun(codegen_assignment);
     NODECL_VISITOR(codegen_visitor)->visit_equal = codegen_visitor_fun(codegen_equal);
@@ -628,6 +836,9 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_reference = codegen_visitor_fun(codegen_reference);
     NODECL_VISITOR(codegen_visitor)->visit_parenthesized_expression = codegen_visitor_fun(codegen_parenthesized_expression);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
+    NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
+    NODECL_VISITOR(codegen_visitor)->visit_named_pair_spec = codegen_visitor_fun(codegen_named_pair_spec);
+    NODECL_VISITOR(codegen_visitor)->visit_empty_statement = codegen_visitor_fun(codegen_empty_statement);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)
