@@ -218,13 +218,6 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
 
-        // if (decl_context.current_scope->related_entry != NULL)
-        // {
-        //     P_LIST_ADD_ONCE( decl_context.current_scope->related_entry->entity_specs.related_symbols,
-        //             decl_context.current_scope->related_entry->entity_specs.num_related_symbols,
-        //             result);
-        // }
-
         add_unknown_symbol(decl_context, result);
     }
 
@@ -309,15 +302,6 @@ void build_scope_program_unit(AST program_unit,
     {
         *program_unit_symbol = _program_unit_symbol;
     }
-
-    // if (decl_context.current_scope->related_entry != NULL
-    //         && _program_unit_symbol != NULL)
-    // {
-    //     scope_entry_t* sym = decl_context.current_scope->related_entry;
-    //     P_LIST_ADD_ONCE(sym->entity_specs.related_symbols, 
-    //             sym->entity_specs.num_related_symbols, 
-    //             _program_unit_symbol);
-    // }
 }
 
 static scope_entry_t* new_procedure_symbol(decl_context_t decl_context, 
@@ -372,16 +356,23 @@ static void build_scope_main_program_unit(AST program_unit,
     *program_unit_symbol = program_sym;
 
     AST program_body = ASTSon1(program_unit);
-    if (program_body == NULL)
-        return;
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
-    build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
+    if (program_body != NULL)
+    {
+        build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
+        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+    }
+
+    if (nodecl_is_null(nodecl_body))
+    {
+        nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
+
+    }
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
@@ -431,6 +422,12 @@ static void build_scope_function_program_unit(AST program_unit,
         ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
         ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+    }
+
+    if (nodecl_is_null(nodecl_body))
+    {
+        nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
+
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -504,6 +501,12 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
         ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
+    }
+
+    if (nodecl_is_null(nodecl_body))
+    {
+        nodecl_body = nodecl_make_list_1(nodecl_make_empty_statement(ASTFileName(program_unit), ASTLine(program_unit)));
+
     }
 
     int i, num_params = new_entry->entity_specs.num_related_symbols;
@@ -628,6 +631,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                     ast_location(name), 
                     ASTText(name));
         }
+        // It can't be redefined anymore
+        entry->entity_specs.is_module_procedure = 0;
     }
 
     if (entry == NULL)
@@ -727,7 +732,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_name, ASTText(dummy_arg_name));
 
-            // dummy_arg->kind = SK_VARIABLE;
+            // Note that we do not set the exact kind of the dummy argument as
+            // it might be a function. If left SK_UNDEFINED, we later fix them
+            // to SK_VARIABLE
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
@@ -2427,8 +2434,6 @@ static void build_scope_common_stmt(AST a,
 {
     AST common_block_item_list = ASTSon0(a);
 
-    scope_entry_t* current_sym = decl_context.current_scope->related_entry;
-
     AST it;
     for_each_element(common_block_item_list, it)
     {
@@ -2445,13 +2450,6 @@ static void build_scope_common_stmt(AST a,
             common_sym = new_common(decl_context, common_name_str);
             common_sym->file = ASTFileName(a);
             common_sym->line = ASTLine(a);
-
-            if (current_sym != NULL)
-            {
-                P_LIST_ADD_ONCE(current_sym->entity_specs.related_symbols, 
-                        current_sym->entity_specs.num_related_symbols,
-                        common_sym);
-            }
         }
 
         AST it2;
@@ -2506,10 +2504,6 @@ static void build_scope_common_stmt(AST a,
                         /* array_spec_kind */ NULL);
                 sym->type_information = array_type;
             }
-
-            P_LIST_ADD(common_sym->entity_specs.related_symbols, 
-                    common_sym->entity_specs.num_related_symbols,
-                    sym);
         }
     }
 
@@ -3083,15 +3077,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
-    // if (decl_context.current_scope->related_entry != NULL)
-    // {
-    //     scope_entry_t* entry = decl_context.current_scope->related_entry;
-
-    //     P_LIST_ADD_ONCE(entry->entity_specs.related_symbols, 
-    //             entry->entity_specs.num_related_symbols,
-    //             class_name);
-    // }
-
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
@@ -3608,14 +3593,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
                     generic_spec_sym->entity_specs.num_related_symbols,
                     related_symbols[i]);
         }
-
-        scope_entry_t* current_symbol = decl_context.current_scope->related_entry;
-        if (current_symbol != NULL)
-        {
-            P_LIST_ADD_ONCE(current_symbol->entity_specs.related_symbols, 
-                    current_symbol->entity_specs.num_related_symbols,
-                    generic_spec_sym);
-        }
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
@@ -3655,8 +3632,6 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
 {
     AST namelist_item_list = ASTSon0(a);
 
-    scope_entry_t* current_symbol = decl_context.current_scope->related_entry;
-
     AST it;
     for_each_element(namelist_item_list, it)
     {
@@ -3673,13 +3648,6 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         new_namelist->kind = SK_NAMELIST;
         new_namelist->file = ASTFileName(a);
         new_namelist->line = ASTLine(a);
-
-        if (current_symbol != NULL)
-        {
-            P_LIST_ADD(current_symbol->entity_specs.related_symbols,
-                    current_symbol->entity_specs.num_related_symbols,
-                    new_namelist);
-        }
 
         AST it2;
         for_each_element(namelist_group_object_list, it2)
@@ -4427,11 +4395,15 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     return sym_in_module;
 }
 
-static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_context, const char* aliased_name)
+static void insert_symbol_from_module(scope_entry_t* entry, 
+        decl_context_t decl_context, 
+        const char* aliased_name, 
+        scope_entry_t* module_symbol)
 {
     ERROR_CONDITION(aliased_name == NULL, "Invalid alias name", 0);
 
-    // Why do we duplicate instead of insert_entry or insert_alias
+    // Why do we duplicate instead of insert_entry or insert_alias?
+    //
     // The reason is that we need to know this symbol comes from a module
     // and its precise USE name, not the original symbol name
     scope_entry_t* current_symbol = NULL;
@@ -4444,7 +4416,7 @@ static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_
         *current_symbol = *entry;
         current_symbol->symbol_name = aliased_name;
 
-        current_symbol->entity_specs.is_from_module = 1;
+        current_symbol->entity_specs.from_module = module_symbol;
     }
     else
     {
@@ -4459,7 +4431,7 @@ static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_
         *current_symbol = *entry;
         current_symbol->symbol_name = aliased_name;
 
-        current_symbol->entity_specs.is_from_module = 1;
+        current_symbol->entity_specs.from_module = module_symbol;
 
         // Now fix what cannot be shared
         current_symbol->entity_specs.num_related_symbols = 0;
@@ -4473,14 +4445,6 @@ static void insert_symbol_from_module(scope_entry_t* entry, decl_context_t decl_
                     entry->entity_specs.related_symbols[i]);
         }
     }
-
-    // scope_entry_t* related_entry = decl_context.current_scope->related_entry;
-    // if (related_entry != NULL)
-    // {
-    //     P_LIST_ADD(related_entry->entity_specs.related_symbols,
-    //             related_entry->entity_specs.num_related_symbols,
-    //             current_symbol);
-    // }
 }
 
 static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4586,7 +4550,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                             module_symbol->symbol_name);
                 }
 
-                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
+                insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
 
                 // "USE M, C => A, D => A" is valid so we avoid adding twice
                 // 'A' in the list (it would be harmless, though)
@@ -4618,7 +4582,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
             }
             if (!found)
             {
-                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
+                insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
             }
         }
     }
@@ -4648,7 +4612,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name));
+                        insert_symbol_from_module(sym_in_module, decl_context, get_name_of_generic_spec(local_name), module_symbol);
                         break;
                     }
                 default:
@@ -4668,7 +4632,7 @@ static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* n
                                     module_symbol->symbol_name);
                         }
 
-                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name);
+                        insert_symbol_from_module(sym_in_module, decl_context, sym_in_module->symbol_name, module_symbol);
                         break;
                     }
             }

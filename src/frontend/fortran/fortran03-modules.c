@@ -890,7 +890,7 @@ static sqlite3_int64 insert_scope(sqlite3* handle, scope_t* scope)
 static void insert_decl_context(sqlite3* handle, scope_entry_t* symbol, decl_context_t decl_context)
 {
     char *insert_decl_context_query = sqlite3_mprintf("INSERT INTO decl_context (oid, " DECL_CONTEXT_FIELDS ") "
-            "VALUES (%lld, %d, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld);",
+            "VALUES (%lld, %d, %lld, %lld, %lld, %lld, %lld, %lld, %lld);",
             P2LL(symbol),
             decl_context.decl_flags,
             insert_scope(handle, decl_context.namespace_scope),

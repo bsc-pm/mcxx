@@ -74,6 +74,26 @@ static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAME
     internal_error("WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
 }
 
+static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* entry = nodecl_get_symbol(node);
+
+    switch (entry->kind)
+    {
+        case SK_MODULE:
+            {
+                // If the FE generates this it means we found a module with no functions
+                fprintf(visitor->file, "! Module %s\n", entry->symbol_name);
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected symbol %s\n", symbol_kind_name(entry));
+                break;
+            }
+    }
+}
+
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t list = nodecl_get_child(node, 0);
@@ -279,8 +299,10 @@ static void codegen_procedure_declaration_header(nodecl_codegen_visitor_t* visit
 
 static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
+    char is_function = (function_type_get_return_type(entry->type_information) != NULL);
+
     indent(visitor);
-    fprintf(visitor->file, "END SUBROUTINE %s\n", entry->symbol_name);
+    fprintf(visitor->file, "END %s %s\n", (is_function ? "FUNCTION" : "SUBROUTINE"), entry->symbol_name);
 }
 
 
@@ -820,6 +842,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
     NODECL_VISITOR(codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
     NODECL_VISITOR(codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);
 #define BINARY_EXPRESSION(_name, _) PREFIX_UNARY_EXPRESSION(_name, _)

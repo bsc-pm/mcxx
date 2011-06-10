@@ -7,7 +7,7 @@ top-level : function-code
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
 
-function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [internal_functions]function-code-opt) symbol
+function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [internal_functions]function-code-seq-opt) symbol
 object-init : NODECL_OBJECT_INIT() symbol
 
 statement : statement-but-object-init

@@ -47,8 +47,9 @@ BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h
 BUILT_SOURCES += tl-lexer-tokens.hpp
 
 BUILT_SOURCES += tl-nodecl-visitor.hpp
-BUILT_SOURCES += tl-nodecl-ast.hpp
-BUILT_SOURCES += tl-nodecl-ast.cpp
+BUILT_SOURCES += tl-nodecl-visitor.cpp
+BUILT_SOURCES += tl-nodecl.hpp
+BUILT_SOURCES += tl-nodecl.cpp
 
 CLEANFILES =
 CLEANFILES += tl-lexer-tokens.hpp
@@ -85,8 +86,9 @@ libtl_la_SOURCES = \
     tl-ast.hpp \
     tl-ast.cpp \
     tl-nodecl-visitor.hpp \
-    tl-nodecl-ast.hpp \
-    tl-nodecl-ast.cpp \
+    tl-nodecl-visitor.cpp \
+    tl-nodecl.hpp \
+    tl-nodecl.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
 	tl-scopelink.hpp \
@@ -193,12 +195,18 @@ tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
 
 NODECL_DEPS=$(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def
 
-tl-nodecl-ast.hpp : $(NODECL_DEPS)
+CLEANFILES += tl-nodecl.hpp
+tl-nodecl.hpp : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_header > $@
-tl-nodecl-ast.cpp : $(NODECL_DEPS)
+CLEANFILES += tl-nodecl.cpp
+tl-nodecl.cpp : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_impl > $@
+CLEANFILES += tl-nodecl-visitor.hpp
 tl-nodecl-visitor.hpp : $(NODECL_DEPS)
 	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_visitor_decl > $@
+CLEANFILES += tl-nodecl-visitor.cpp
+tl-nodecl-visitor.cpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_visitor_impl > $@
 
 libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 libtl_la_LIBADD = \
