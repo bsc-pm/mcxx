@@ -3003,11 +3003,10 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
     {
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
-            char current_check = 0;
             AST current_condition = ast_get_ambiguity(a, i);
             if (ASTSon0(current_condition) == NULL)
             {
-                current_check = check_for_expression(ASTSon2(current_condition), decl_context);
+                check_for_expression(ASTSon2(current_condition), decl_context);
             }
         }
         running_error("%s: error: cannot continue due to serious semantic problems in '%s'",

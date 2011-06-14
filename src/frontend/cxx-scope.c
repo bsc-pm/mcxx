@@ -3883,6 +3883,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
     const char* result = uniquestr(entry->symbol_name);
 
+    char current_has_template_arguments = 0;
+
     if (entry->kind == SK_TEMPLATE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
@@ -3900,8 +3902,11 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && template_specialized_type_get_template_arguments(entry->type_information) != NULL
             && template_specialized_type_get_template_arguments(entry->type_information)->num_arguments > 0)
     {
+        current_has_template_arguments = 1;
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
         result = strappend(result, template_arguments);
+
+        (*is_dependent) |= is_dependent_type(entry->type_information);
     }
 
     if (entry->entity_specs.is_member)
@@ -3913,10 +3918,19 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         (*max_qualif_level)++;
 
+        char prev_is_dependent = 0;
         const char* class_qualification = 
-            get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
+            get_fully_qualified_symbol_name(class_symbol, decl_context, &prev_is_dependent, max_qualif_level);
 
         class_qualification = strappend(class_qualification, "::");
+
+        if (prev_is_dependent
+                && current_has_template_arguments)
+        {
+            class_qualification = strappend(class_qualification, "template ");
+        }
+
+        (*is_dependent) |= prev_is_dependent;
 
         result = strappend(class_qualification, result);
     } 

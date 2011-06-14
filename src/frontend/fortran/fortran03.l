@@ -266,7 +266,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     char start_of_new_file = 0;
     char return_of_a_file = 0;
     char system_header_file = 0;
-    char extern_c_block = 0;
+    // char extern_c_block = 0;
     while (*directive == ' '
             || isdigit(*directive))
     {
@@ -296,7 +296,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
                 }
             case 4:
                 {
-                    extern_c_block = 1;
+                    // extern_c_block = 1;
                     break;
                 }
             default:

@@ -470,7 +470,7 @@ Source SpecificFunctionInfo::get_declaration(
         static_inline_spec << "static ";
     }
 
-    if (((_spec_func_kind == NAIVE) && scalar_func_sym.is_inline())
+    if (((_spec_func_kind == NAIVE)) //Naive functions are always inline //&& scalar_func_sym.is_inline())
             || ((_spec_func_kind == SIMD) && simd_func_sym.is_inline())
             || ((_spec_func_kind == COMPILER_DEFAULT) && simd_func_sym.is_inline())
             || ((_spec_func_kind == ARCH_DEFAULT) && _arch_default_symbol.is_static()))

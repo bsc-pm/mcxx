@@ -149,15 +149,17 @@ Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::
 
     Source static_inline_spec;
 
-    if (func_sym.is_static())
-    {
+    
+//    if (func_sym.is_static())
+//    {
         static_inline_spec << "static ";
-    }
+//    }
 
-    if (func_sym.is_inline())
-    {
+        
+//    if (func_sym.is_inline())
+//    {
         static_inline_spec << "inline ";
-    }
+//    }
 
     Source func_src, func_body_src, parameter_decl_list;
     func_src
@@ -169,6 +171,214 @@ Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::
         << func_body_src
         << "}"
         ;
+
+
+/*
+*  Gcc does not generate the best assembler code when 
+*  EXTRACT (the worst) and MIX (worse) are used:
+*
+*  movaps %xmm0,%xmm4       <-- This movement is not necessary
+*  movss  (%r15),%xmm0
+*  movss  %xmm4,0x40(%rsp)
+*  callq  400a50 <expf@plt>
+*  ...
+*  movss  0x40(%rsp),%xmm4  <-- because %xmm4 is not read.
+*
+*  Better code:
+*  movss  %xmm0,0x40(%rsp)
+*  movss  (%r15),%xmm0
+*  callq  400a50 <expf@plt>
+*  ...
+*  movss  0x40(%rsp),%xmm4
+*
+*/
+
+//MIX VERSION
+/*   
+    //Function arguments and Unions
+    ObjectList<Type>::iterator it;
+    for (i = 0, it = type_param_list.begin();
+            it != type_param_list.end();
+            i++, it++)
+    {
+        std::stringstream param_name;
+        param_name << "a" << i
+            ;
+
+        Type param_vec_type = it->basic_type()
+            .get_vector_to(_width);
+
+        parameter_decl_list.append_with_separator(
+            param_vec_type.get_simple_declaration(
+                    scope, param_name.str()),
+            ",");
+    }
+
+    Source vec_elemnts_src;
+    int vec_elemnts = _width/func_ret_type.basic_type().get_size();
+    vec_elemnts_src << vec_elemnts;
+
+    //Last union from the arguments + result union
+    func_body_src
+        << "union u_return{"
+        << func_ret_type.get_simple_declaration(scope, "v") << ";"
+        << func_ret_type.basic_type().get_array_to(
+                vec_elemnts_src.parse_expression(
+                    func_sym.get_point_of_declaration(), _sl), scope)
+        .get_simple_declaration(scope, "w") << ";"
+        << "};"
+
+        << "union u_return _result;"
+        ;
+
+
+    for (i=0; i<vec_elemnts; i++)
+    {
+        Source scalar_ops, params;
+
+        func_body_src
+            << "_result.w[" << i << "] = " << func_sym.get_name() 
+            << "("
+            << scalar_ops
+            << ");"
+            ;
+
+        for (j = 0, it = type_param_list.begin();
+                it != type_param_list.end();
+                j++, it++)
+        {
+            TL::Type param_type = *it;
+            std::stringstream param;
+
+            if (param_type.is_signed_int()
+                    || param_type.is_unsigned_int())
+            {
+                param << "__builtin_ia32_vec_ext_v4si(";
+            }
+            else if (param_type.is_signed_long_long_int()
+                    || param_type.is_unsigned_long_long_int())
+            {
+                param << "__builtin_ia32_vec_ext_v2di(";
+            }
+ 
+            else if (param_type.is_float())
+            {
+                param << "__builtin_ia32_vec_ext_v4sf(";
+            }
+            else
+            {
+                running_error("Extract instruction is not available for type '%s'. Waiting for next SSE or AVX version.",
+                        param_type.get_declaration(scope,"").c_str());
+            }
+
+            param
+                << "a" << j 
+                << ","
+                << i
+                << ")"
+                ;
+
+            params.append_with_separator(param.str(), ",");
+        }
+
+        scalar_ops.append_with_separator(params, ",");
+    }
+
+    func_body_src << "return _result.v;";
+    return func_src;
+*/
+
+
+//EXTRACT VERSION
+    /*
+    //Function arguments and Unions
+    ObjectList<Type>::iterator it;
+    for (i = 0, it = type_param_list.begin();
+            it != type_param_list.end();
+            i++, it++)
+    {
+        std::stringstream param_name;
+        param_name << "a" << i
+            ;
+
+        Type param_vec_type = it->basic_type()
+            .get_vector_to(_width);
+
+        parameter_decl_list.append_with_separator(
+            param_vec_type.get_simple_declaration(
+                    scope, param_name.str()),
+            ",");
+    }
+
+    int vec_elemns = _width/func_ret_type.basic_type().get_size();
+
+    //Last union from the arguments + result union
+    Source func_ret_type_src, scalar_ops;
+
+    func_ret_type_src
+        << func_ret_type.basic_type().get_vector_to(_width)
+        .get_declaration(scope, "");
+
+    func_body_src
+        << "return (" << func_ret_type_src << ")"
+        << "{" << scalar_ops << "};"
+        ;
+
+
+    for (i=0; i<vec_elemns; i++)
+    {
+        Source scalar_op, params;
+
+        scalar_op
+            << func_sym.get_name()
+            << "(" << params << ")"
+            ;
+
+        for (j = 0, it = type_param_list.begin();
+                it != type_param_list.end();
+                j++, it++)
+        {
+            TL::Type param_type = *it;
+            std::stringstream param;
+
+            if (param_type.is_signed_int()
+                    || param_type.is_unsigned_int())
+            {
+                param << "__builtin_ia32_vec_ext_v4si(";
+            }
+            else if (param_type.is_signed_long_long_int()
+                    || param_type.is_unsigned_long_long_int())
+            {
+                param << "__builtin_ia32_vec_ext_v2di(";
+            }
+ 
+            else if (param_type.is_float())
+            {
+                param << "__builtin_ia32_vec_ext_v4sf(";
+            }
+            else
+            {
+                running_error("Extract instruction is not available for type '%s'. Waiting for next SSE or AVX version.",
+                        param_type.get_declaration(scope,"").c_str());
+            }
+
+            param
+                << "a" << j
+                << ","
+                << i
+                << ")"
+                ;
+
+            params.append_with_separator(param.str(), ",");
+        }
+
+        scalar_ops.append_with_separator(scalar_op, ",");
+    }
+
+    return func_src;
+*/
+
+//UNIONS VERSION
 
     //Function arguments and Unions
     ObjectList<Type>::iterator it;
@@ -198,24 +408,24 @@ Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::
             ;
     }
 
-    Source vec_size_src;
-    int vec_size = _width/func_ret_type.basic_type().get_size();
-    vec_size_src << vec_size;
+    Source vec_elemnts_src;
+    int vec_elemnts = _width/func_ret_type.basic_type().get_size();
+    vec_elemnts_src << vec_elemnts;
 
     //Last union from the arguments + result union
     func_body_src
         << "union u_return{"
         << func_ret_type.get_simple_declaration(scope, "v") << ";"
         << func_ret_type.basic_type().get_array_to(
-                vec_size_src.parse_expression(
+                vec_elemnts_src.parse_expression(
                     func_sym.get_point_of_declaration(), _sl), scope)
            .get_simple_declaration(scope, "w") << ";"
-        << "};"
+           << "};"
 
-        << "union u_return _result;"
-        ;
+           << "union u_return _result;"
+           ;
 
-    for (i=0; i<vec_size; i++)
+    for (i=0; i<vec_elemnts; i++)
     {
         Source scalar_ops;
         
@@ -240,6 +450,7 @@ Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::
     }
 
     func_body_src << "return _result.v;";
+    
 
     return func_src;
 }
@@ -252,7 +463,23 @@ Source ReplaceSrcSMP::replace_simd_function(const Symbol& func_sym, const std::s
     }        
 
     this->add_replacement(func_sym, simd_func_name);
-    Source result = this->replace(func_sym.get_point_of_definition());
+    
+    Source result;
+   
+    if (func_sym.is_static())
+    {
+        result << "static ";
+    }
+
+    if (func_sym.is_inline())
+    {
+        result << "inline ";
+    }
+
+    result 
+        <<  this->replace(func_sym.get_point_of_definition())
+        ;
+
     return result;
 }
 
@@ -572,12 +799,54 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 //Conditional Expression: a ? b : c
                 else if (expr.is_conditional())
                 {
-                    Expression cond_exp(expr.get_condition_expression());
-                    Expression true_exp(expr.get_true_expression());
-                    Expression false_exp(expr.get_false_expression());
+                    Expression cond_expr(expr.get_condition_expression());
+                    Expression true_expr(expr.get_true_expression());
+                    Expression false_expr(expr.get_false_expression());
 
-                    if (true_exp.get_type().is_vector() && false_exp.get_type().is_vector())
+                    Type true_type = true_expr.get_type();
+                    Type false_type = false_expr.get_type();
+
+                    if (true_type.is_vector() && false_type.is_vector())
                     {
+                        true_type = true_type.basic_type();
+                        false_type = false_type.basic_type();
+
+                        if (true_type.is_integral_type()
+                                && false_type.is_integral_type())
+                        {
+                            result
+                                << "__builtin_ia32_pblendvb128(";
+                        }
+                        else if (true_type.is_float() 
+                                && false_type.is_float())
+                        {
+                            result
+                                << "__builtin_ia32_blendvps(";
+                        }
+                        else if (true_type.is_double())
+                        {
+                            result
+                                << "__builtin_ia32_blendvpd(";
+                        }
+                        else
+                        {
+                            running_error("Type is not supported in a conditional Expression", 0);
+                        }
+
+                        result
+                            << recursive_prettyprint(false_expr.get_ast(), data)
+                            << ","
+                            << recursive_prettyprint(true_expr.get_ast(), data)
+                            << ","
+                            << "((" << true_type.get_vector_to(_this->_width).get_declaration(_this->_sl.get_scope(ast), "") << ")("
+                            << recursive_prettyprint(cond_expr.get_ast(), data)
+                            << ")))"
+                            ;
+
+                        return uniquestr(result.get_source().c_str());
+
+                        //First Implementation
+                        /*
                         std::string integer_casting = get_integer_casting(true_exp.get_ast(), true_exp.get_type(), false_exp.get_type());
 
                         result 
@@ -595,6 +864,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                             ;
 
                             return uniquestr(result.get_source().c_str());
+                        */
                     }
                 }
                 else if (expr.is_binary_operation())
@@ -980,6 +1250,20 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             int src_size = src_expr_type.get_size();
             int dst_size = dst_expr_type.get_size();
 
+            DEBUG_CODE()
+            {
+                std::cerr << "SIMD: SMP conversion from "
+                    << "'" <<  src_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                    << "(" << src_size << ")"
+                    << " to "
+                    << "'" <<  dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                    << "(" << dst_size << ")"
+                    << ": "
+                    << ast.prettyprint()
+                    << std::endl
+                    ;
+            }
+
             //Example: From float to char
             if (src_size > dst_size)
             {
@@ -1101,9 +1385,10 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
                 else
                 {
-                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
                             src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                            ast.prettyprint().c_str());
                 }
 
                 //Replicating expressions
@@ -1224,17 +1509,19 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
                 }
                 else
                 {
-                    running_error("Conversion from '%s' to '%s' is not supported yet.\n", 
+                    running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
                             src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
-                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                            dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                            ast.prettyprint().c_str());
                 }
             }
             //Example: From char to float
             else
             {
-                running_error("Conversion in HLT SIMD from '%s' to '%s' is not supported yet",
-                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
-                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str());
+                running_error("Conversion from '%s' to '%s' is not supported yet: %s.", 
+                        src_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(), 
+                        dst_expr_type.get_declaration(_this->_sl.get_scope(ast), "").c_str(),
+                        ast.prettyprint().c_str());
             }
         }
         else if (ast.has_attribute(LANG_HLT_SIMD_EPILOG))

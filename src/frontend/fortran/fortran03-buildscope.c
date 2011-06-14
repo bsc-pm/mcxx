@@ -2660,13 +2660,13 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context)
                 entry->defined = 1;
 
                 AST char_length = NULL;
-                AST initialization = NULL;
+                // AST initialization = NULL;
                 if (entity_decl_specs != NULL)
                 {
                     AST array_spec = ASTSon0(entity_decl_specs);
                     AST coarray_spec = ASTSon1(entity_decl_specs);
                     char_length = ASTSon2(entity_decl_specs);
-                    initialization = ASTSon3(entity_decl_specs);
+                    // initialization = ASTSon3(entity_decl_specs);
 
                     if (array_spec != NULL)
                     {
