@@ -39,6 +39,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-nodecl.h"
 #include "cxx-nodecl-output.h"
+#include "cxx-diagnostic.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -345,8 +346,10 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
     if (type_spec != NULL)
     {
-        running_error("%s: sorry: type specifier in array constructors not supported\n",
+        error_printf("%s: error: type specifier in array constructors not supported\n",
                 ast_location(type_spec));
+        expression_set_error(expr);
+        return;
     }
 
     AST ac_value_list = ASTSon1(ac_spec);
@@ -375,9 +378,14 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     if (num_subscripts != 1)
     {
-        running_error("%s: error: invalid number of subscripts (%d) in substring expression\n",
-                ast_location(expr),
-                num_subscripts);
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid number of subscripts (%d) in substring expression\n",
+                    ast_location(expr),
+                    num_subscripts);
+        }
+        expression_set_error(expr);
+        return;
     }
 
     AST subscript = ASTSon1(subscript_list);
@@ -388,8 +396,13 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     if (stride != NULL)
     {
-        running_error("%s: error: a stride is not valid in a substring expression\n",
-                ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: a stride is not valid in a substring expression\n",
+                    ast_location(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     nodecl_t nodecl_lower = nodecl_null();
@@ -426,16 +439,16 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
 
     scope_entry_t* symbol = expression_get_symbol(ASTSon0(expr));
     if (symbol == NULL
-            || (!is_array_type(symbol->type_information)
-                && !is_pointer_to_array_type(symbol->type_information)))
+            || (!is_array_type(no_ref(symbol->type_information))
+                && !is_pointer_to_array_type(no_ref(symbol->type_information))))
     {
         symbol_is_invalid = 1;
     }
     else
     {
         array_type = symbol->type_information;
-        if (is_pointer_to_array_type(symbol->type_information))
-            array_type = pointer_type_get_pointee_type(symbol->type_information);
+        if (is_pointer_to_array_type(no_ref(symbol->type_information)))
+            array_type = pointer_type_get_pointee_type(no_ref(symbol->type_information));
 
         synthesized_type = get_rank0_type(array_type);
         rank_of_type = get_rank_of_type(array_type);
@@ -503,7 +516,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array name\n",
+            error_printf("%s: error: data reference '%s' does not designate an array name\n",
                     ast_location(expr), fortran_prettyprint_in_buffer(ASTSon0(expr)));
         }
         expression_set_error(expr);
@@ -514,7 +527,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: mismatch in subscripts of array reference, expecting %d got %d\n",
+            error_printf("%s: error: mismatch in subscripts of array reference, expecting %d got %d\n",
                     ast_location(expr),
                     get_rank_of_type(symbol->type_information),
                     num_subscripts);
@@ -556,14 +569,14 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
 
     type_t* subscripted_type = expression_get_type(ASTSon0(expr));
 
-    if (is_fortran_array_type(subscripted_type)
-            || is_pointer_to_fortran_array_type(subscripted_type))
+    if (is_fortran_array_type(no_ref(subscripted_type))
+            || is_pointer_to_fortran_array_type(no_ref(subscripted_type)))
     {
         check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
-    else if (is_fortran_character_type(get_rank0_type(subscripted_type))
-            || is_pointer_to_fortran_character_type(get_rank0_type(subscripted_type)))
+    else if (is_fortran_character_type(get_rank0_type(no_ref(subscripted_type)))
+            || is_pointer_to_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))
     {
         check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
@@ -571,7 +584,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nod
 
     if (!checking_ambiguity())
     {
-        fprintf(stderr, "%s: warning: invalid entity '%s' for subscript expression\n",
+        error_printf("%s: error: invalid entity '%s' for subscript expression\n",
                 ast_location(expr),
                 fortran_prettyprint_in_buffer(ASTSon0(expr)));
     }
@@ -698,8 +711,8 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    type_t* real_part_type = expression_get_type(real_part);
-    type_t* imag_part_type = expression_get_type(imag_part);
+    type_t* real_part_type = no_ref(expression_get_type(real_part));
+    type_t* imag_part_type = no_ref(expression_get_type(imag_part));
 
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
@@ -736,9 +749,14 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
     }
     else
     {
-        running_error("%s: error: invalid complex constant '%s'\n", 
-                ast_location(expr),
-                fortran_prettyprint_in_buffer(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid complex constant '%s'\n", 
+                    ast_location(expr),
+                    fortran_prettyprint_in_buffer(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
@@ -755,7 +773,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_base = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_base);
 
-    type_t* t = expression_get_type(ASTSon0(expr));
+    type_t* t = no_ref(expression_get_type(ASTSon0(expr)));
 
     if (is_error_type(t))
     {
@@ -768,7 +786,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' does not denote a derived type\n",
+            error_printf("%s: error: '%s' does not denote a derived type\n",
                     ast_location(expr),
                     fortran_prettyprint_in_buffer(ASTSon0(expr)));
         }
@@ -791,7 +809,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a component of '%s'\n",
+            error_printf("%s: error: '%s' is not a component of '%s'\n",
                     ast_location(expr),
                     field,
                     fortran_print_type_str(class_type));
@@ -851,7 +869,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
         scope_entry_t* sym = query_name_with_locus(decl_context, expr, p);
         if (sym == NULL
                 || sym->kind != SK_VARIABLE
-                || !is_const_qualified_type(sym->type_information))
+                || !is_const_qualified_type(no_ref(sym->type_information)))
         {
             if (!checking_ambiguity())
             {
@@ -925,7 +943,12 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     AST type_param_spec_list = ASTSon1(derived_type_spec);
     if (type_param_spec_list != NULL)
     {
-        running_error("%s: sorry: derived types with type parameters not supported\n", ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: sorry: derived types with type parameters not supported\n", ast_location(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     AST derived_name = ASTSon0(derived_type_spec);
@@ -936,7 +959,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a derived-type-name\n",
+            error_printf("%s: error: '%s' is not a derived-type-name\n",
                     ast_location(expr),
                     ASTText(derived_name));
         }
@@ -949,6 +972,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     nodecl_t nodecl_initializer_list = nodecl_null();
 
     int member_index = 0;
+    int component_position = 1;
     if (component_spec_list != NULL)
     {
         AST it;
@@ -963,7 +987,13 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
             {
                 if (member_index < 0)
                 {
-                    running_error("%s: error: component specifier lacks a component name", ast_location(component_spec));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: component specifier at position %d lacks a component name", ast_location(component_spec),
+                                component_position);
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
 
                 member = class_type_get_nonstatic_data_member_num(entry->type_information, member_index);
@@ -978,10 +1008,15 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                 member = query_name_in_class(class_context, field);
                 if (member == NULL)
                 {
-                    running_error("%s: error: '%s' is not a component of '%s'\n",
-                            ast_location(expr),
-                            field,
-                            fortran_print_type_str(entry->type_information));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: component specifier '%s' is not a component of '%s'\n",
+                                ast_location(expr),
+                                field,
+                                fortran_print_type_str(entry->type_information));
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
 
                 member_index = -1;
@@ -996,6 +1031,8 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     ASTFileName(component_spec), ASTLine(component_spec));
 
             nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
+
+            component_position++;
         }
     }
 
@@ -1240,7 +1277,7 @@ static void check_called_symbol(
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
+            error_printf("%s: error: in %s, '%s' does not designate a procedure\n",
                     ast_location(location),
                     !is_call_stmt ? "function reference" : "CALL statement",
                     fortran_prettyprint_in_buffer(procedure_designator));
@@ -1252,9 +1289,14 @@ static void check_called_symbol(
     if (inside_context_of_symbol(decl_context, symbol)
             && !symbol->entity_specs.is_recursive)
     {
-        running_error("%s: error: cannot call recursively '%s'\n",
-                ast_location(location),
-                fortran_prettyprint_in_buffer(procedure_designator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: cannot call recursively '%s'\n",
+                    ast_location(location),
+                    fortran_prettyprint_in_buffer(procedure_designator));
+        }
+        *result_type = get_error_type();
+        return;
     }
 
     actual_argument_info_t temp_argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
@@ -1290,7 +1332,7 @@ static void check_called_symbol(
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic '%s' not implemented\n", 
+                error_printf("%s: error: call to intrinsic '%s' not implemented\n", 
                         ast_location(location),
                         strtoupper(symbol->symbol_name));
             }
@@ -1322,7 +1364,7 @@ static void check_called_symbol(
             
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
+                error_printf("%s: error: call to intrinsic %s%s failed\n", 
                         ast_location(location),
                         strtoupper(symbol->symbol_name),
                         actual_arguments_str);
@@ -1365,7 +1407,7 @@ static void check_called_symbol(
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
+                    error_printf("%s: error: mismatch of ranks in call to elemental intrinsic '%s'\n",
                             ast_location(location),
                             strtoupper(symbol->symbol_name));
                 }
@@ -1391,7 +1433,7 @@ static void check_called_symbol(
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
+                    error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
                             ast_location(location),
                             fortran_prettyprint_in_buffer(procedure_designator));
                 }
@@ -1435,17 +1477,27 @@ static void check_called_symbol(
                 }
                 if (position < 0)
                 {
-                    running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
-                            ast_location(location), 
-                            temp_argument_types[i].keyword,
-                            symbol->symbol_name);
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
+                                ast_location(location), 
+                                temp_argument_types[i].keyword,
+                                symbol->symbol_name);
+                    }
+                    *result_type = get_error_type();
+                    return;
                 }
             }
 
             if (argument_info_items[position].type != NULL)
             {
-                running_error("%s: error: argument keyword '%s' specified more than once\n",
-                        ast_location(location), temp_argument_types[i].keyword);
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: argument keyword '%s' specified more than once\n",
+                            ast_location(location), temp_argument_types[i].keyword);
+                }
+                *result_type = get_error_type();
+                return;
             }
             argument_info_items[position].type = temp_argument_types[i].type;
         }
@@ -1469,10 +1521,15 @@ static void check_called_symbol(
                     }
                     else 
                     {
-                        running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
-                                ast_location(location),
-                                related_sym->symbol_name,
-                                symbol->symbol_name);
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
+                                    ast_location(location),
+                                    related_sym->symbol_name,
+                                    symbol->symbol_name);
+                        }
+                        *result_type = get_error_type();
+                        return;
                     }
                 }
             }
@@ -1481,9 +1538,12 @@ static void check_called_symbol(
         if (!function_type_get_lacking_prototype(symbol->type_information) 
                 && num_completed_arguments > function_type_get_num_parameters(symbol->type_information))
         {
-            fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
-                    ast_location(location),
-                    symbol->symbol_name);
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: too many actual arguments in function reference to '%s'\n",
+                        ast_location(location),
+                        symbol->symbol_name);
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1539,7 +1599,7 @@ static void check_called_symbol(
                 {
                     if (!checking_ambiguity())
                     {
-                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
+                        error_printf("%s: error: type mismatch in argument %d between the "
                                 "real argument %s and the dummy argument %s\n",
                                 ast_location(location),
                                 i + 1,
@@ -1573,8 +1633,11 @@ static void check_called_symbol(
     {
         if (!is_call_stmt)
         {
-            fprintf(stderr, "%s: warning: invalid function reference to a SUBROUTINE\n",
-                    ast_location(location));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
+                        ast_location(location));
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1584,8 +1647,11 @@ static void check_called_symbol(
     {
         if (is_call_stmt)
         {
-            fprintf(stderr, "%s: warning: invalid CALL statement to a FUNCTION\n",
-                    ast_location(location));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
+                        ast_location(location));
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1659,9 +1725,10 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             }
             else if (with_keyword) // keyword == NULL
             {
-                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
+                error_printf("%s: error: in function call, '%s' argument requires a keyword\n",
                         ast_location(actual_arg_spec),
                         fortran_prettyprint_in_buffer(actual_arg_spec));
+                return;
             }
 
             AST actual_arg = ASTSon1(actual_arg_spec);
@@ -1680,8 +1747,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             {
                 if (!is_call_stmt)
                 {
-                    running_error("%s: error: only CALL statement allows an alternate return\n",
-                            ast_location(actual_arg_spec));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: only CALL statement allows an alternate return\n",
+                                ast_location(actual_arg_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
                 if (!seen_alternate_return)
                 {
@@ -1689,8 +1761,13 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 }
                 else
                 {
-                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
-                            ast_location(actual_arg_spec));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: in a procedure reference an alternate return must be at the last position\n", 
+                                ast_location(actual_arg_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
             }
         }
@@ -1884,8 +1961,9 @@ static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUS
 
 static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    running_error("%s: sorry: image references not supported\n", 
+    error_printf("%s: sorry: image references not supported\n", 
             ast_location(expr));
+    expression_set_error(expr);
 }
 
 static void check_logical_and(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2072,8 +2150,11 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
         }
         if (*literal != '_')
         {
-            running_error("%s: error: KIND specifier is too long\n",
-                    ast_location(expr));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: KIND specifier is too long\n",
+                        ast_location(expr));
+            }
             expression_set_error(expr);
             return;
         }
@@ -2081,7 +2162,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: ignoring KIND=%s of character-literal\n",
+            warn_printf("%s: warning: ignoring KIND=%s of character-literal\n",
                     kind,
                     ast_location(expr));
         }
@@ -2130,7 +2211,12 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     int num_actual_arguments = 1;
@@ -2199,7 +2285,12 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     int num_actual_arguments = 2;
@@ -2282,7 +2373,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: unknown entity '%s'\n",
+            error_printf("%s: error: unknown entity '%s'\n",
                     ast_location(expr),
                     fortran_prettyprint_in_buffer(expr));
         }
@@ -2297,10 +2388,10 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
             entry->kind = SK_FUNCTION;
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
         }
-        else if (is_name_in_actual_arg_spec_list(expr))
-        {
-            // If we are an actual argument do not change our status
-        }
+        // else if (is_name_in_actual_arg_spec_list(expr))
+        // {
+        //     // If we are an actual argument do not change our status
+        // }
         else
         {
             // Otherwise we are a variable
@@ -2317,7 +2408,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
             // FIXME: This is not exactly OK here, we may be passing a function
             // name as a variable to another function
             type_t* return_type = NULL; 
-            if (is_function_type(entry->type_information))
+            if (is_function_type(no_ref(entry->type_information)))
                 return_type = function_type_get_return_type(entry->type_information);
             if (return_type == NULL
                     || function_has_named_result(entry))
@@ -2350,7 +2441,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: entity '%s' does not have any IMPLICIT type\n",
+                error_printf("%s: error: entity '%s' does not have any IMPLICIT type\n",
                         ast_location(expr),
                         fortran_prettyprint_in_buffer(expr));
             }
@@ -2361,7 +2452,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
 
-        if (is_const_qualified_type(entry->type_information)
+        if (is_const_qualified_type(no_ref(entry->type_information))
                 && entry->language_dependent_value != NULL
                 && expression_is_constant(entry->language_dependent_value))
         {
@@ -2371,18 +2462,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 
         *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
 
-        if (entry->entity_specs.is_parameter
-                && !entry->entity_specs.is_value)
-        {
-            *nodecl_output = 
-                nodecl_make_derreference(
-                        *nodecl_output,
-                        entry->type_information,
-                        ASTFileName(expr), ASTLine(expr));
-            nodecl_set_symbol(*nodecl_output, entry);
-        }
-
-        if (is_pointer_type(entry->type_information))
+        if (is_pointer_type(no_ref(entry->type_information)))
         {
             *nodecl_output = 
                 nodecl_make_derreference(
@@ -2422,6 +2502,9 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 {
+    lvalue_type = no_ref(lvalue_type);
+    rvalue_type = no_ref(rvalue_type);
+
     if (is_pointer_type(lvalue_type))
     {
         lvalue_type = pointer_type_get_pointee_type(lvalue_type);
@@ -2530,7 +2613,7 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: cannot assign to a variable of type '%s' a value of type '%s'\n",
+            error_printf("%s: error: cannot assign to a variable of type '%s' a value of type '%s'\n",
                     ast_location(expr),
                     fortran_print_type_str(lvalue_type),
                     fortran_print_type_str(rvalue_type));
@@ -2606,10 +2689,13 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
     }
     if (sym == NULL
             || sym->kind != SK_VARIABLE
-            || !is_pointer_type(sym->type_information))
+            || !is_pointer_type(no_ref(sym->type_information)))
     {
-        fprintf(stderr, "%s: warning: left hand of pointer assignment is not a pointer data-reference\n",
-                ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: left hand of pointer assignment is not a pointer data-reference\n",
+                    ast_location(expr));
+        }
         expression_set_error(expr);
         return;
     }
@@ -2703,6 +2789,9 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context, nodec
 
 static type_t* common_kind(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     ERROR_CONDITION(!is_scalar_type(t1)
             || !is_scalar_type(t2), "One of the types is not scalar", 0);
 
@@ -2727,6 +2816,9 @@ static type_t* second_type(type_t* t1 UNUSED_PARAMETER, type_t* t2)
 
 static type_t* combine_character_array(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_to_fortran_character_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_to_fortran_character_type(t2))
@@ -2776,6 +2868,7 @@ static type_t* logical_type(type_t* t1 UNUSED_PARAMETER, type_t* t2 UNUSED_PARAM
 
 static char is_logical_type(type_t* t1)
 {
+    t1 = no_ref(t1);
     return is_bool_type(t1);
 }
 
@@ -2809,6 +2902,7 @@ static operand_types_t arithmetic_binary[] =
 
 static char is_fortran_character_type_or_pointer_to(type_t* t)
 {
+    t = no_ref(t);
     return is_pointer_to_fortran_character_type(t)
         || is_fortran_character_type(t);
 }
@@ -2953,6 +3047,9 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         nodecl_t nodecl_rhs,
         nodecl_t* nodecl_output)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     // Remove pointer, which is actually only used for data refs
     if (is_pointer_type(lhs_type))
         lhs_type = pointer_type_get_pointee_type(lhs_type);
@@ -3058,7 +3155,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
+                    error_printf("%s: error: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
                             ast_location(expr),
                             fortran_print_type_str(lhs_type),
                             fortran_print_type_str(rhs_type),
@@ -3070,7 +3167,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid operand types %s for intrinsic unary operator '%s'\n",
+                    error_printf("%s: error: invalid operand types %s for intrinsic unary operator '%s'\n",
                             ast_location(expr),
                             fortran_print_type_str(rhs_type),
                             get_operator_for_expr(expr));
@@ -3137,6 +3234,9 @@ static const char * get_operator_for_expr(AST expr)
 
 static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     if (!is_fortran_array_type(lhs_type)
             && !is_fortran_array_type(rhs_type))
     {
@@ -3170,6 +3270,9 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     if (is_fortran_array_type(lhs_type))
     {
         // They should have the same rank and shape so it does not matter very much which one we use, right?
@@ -3288,6 +3391,9 @@ static void const_bin_or(AST expr, AST lhs, AST rhs)
 
 type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_type(t2))
@@ -3318,6 +3424,9 @@ type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
 
 type_t* common_type_of_equality_operation(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_type(t2))

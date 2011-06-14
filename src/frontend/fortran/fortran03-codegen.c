@@ -107,6 +107,9 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         type_t* t, const char** type_specifier, const char **array_specifier)
 {
     (*type_specifier) = "";
+
+    t = no_ref(t);
+
     char is_pointer = 0;
     if (is_pointer_type(t))
     {
@@ -481,7 +484,8 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL)
+    if (entry != NULL
+            && entry->kind != SK_SCOPE)
     {
         declare_symbol(visitor, entry);
     }
@@ -524,10 +528,76 @@ static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* 
     }
 }
 
+static void codegen_fortran_io_spec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "%s = ", nodecl_get_text(node));
+
+    nodecl_t nodecl_value = nodecl_get_child(node, 0);
+    codegen_walk(visitor, nodecl_value);
+}
+
+static void codegen_print_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "PRINT ");
+
+    nodecl_t nodecl_format = nodecl_get_child(node, 0);
+    nodecl_t nodecl_io_spec = nodecl_get_child(node, 1);
+
+    codegen_walk(visitor, nodecl_format);
+
+    if (!nodecl_is_null(nodecl_io_spec))
+    {
+        fprintf(visitor->file, ", ");
+        codegen_comma_separated_list(visitor, nodecl_io_spec);
+    }
+
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_empty_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
 {
     indent(visitor);
     fprintf(visitor->file, "CONTINUE\n");
+}
+
+static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
+{
+    nodecl_t nodecl_condition = nodecl_get_child(node, 0);
+    nodecl_t nodecl_then = nodecl_get_child(node, 1);
+    nodecl_t nodecl_else = nodecl_get_child(node, 2);
+
+    indent(visitor);
+    fprintf(visitor->file, "IF (");
+    codegen_walk(visitor, nodecl_condition);
+    fprintf(visitor->file, ")");
+
+    if ((nodecl_get_kind(nodecl_then) != AST_COMPOUND_STATEMENT)
+            || !nodecl_is_null(nodecl_else))
+    {
+        fprintf(visitor->file, " THEN\n");
+
+        visitor->indent_level++;
+        codegen_walk(visitor, nodecl_then);
+        visitor->indent_level--;
+
+        if (!nodecl_is_null(nodecl_else))
+        {
+            indent(visitor);
+            fprintf(visitor->file, "ELSE\n");
+
+            visitor->indent_level++;
+            codegen_walk(visitor, nodecl_else);
+            visitor->indent_level--;
+        }
+
+        indent(visitor);
+        fprintf(visitor->file, "END IF\n");
+    }
+    else
+    {
+        codegen_walk(visitor, nodecl_then);
+    }
 }
 
 static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -753,6 +823,11 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     fprintf(visitor->file, "%s", entry->symbol_name);
 }
 
+static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
+}
+
 static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     const_value_t* value = nodecl_get_constant(node);
@@ -849,6 +924,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     OPERATOR_TABLE
 #undef BINARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
+    NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
     NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
     NODECL_VISITOR(codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
@@ -862,6 +938,10 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
     NODECL_VISITOR(codegen_visitor)->visit_named_pair_spec = codegen_visitor_fun(codegen_named_pair_spec);
     NODECL_VISITOR(codegen_visitor)->visit_empty_statement = codegen_visitor_fun(codegen_empty_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
+
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_io_spec = codegen_visitor_fun(codegen_fortran_io_spec);
+    NODECL_VISITOR(codegen_visitor)->visit_print_statement = codegen_visitor_fun(codegen_print_statement);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)

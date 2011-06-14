@@ -2749,21 +2749,36 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 timing_elapsed(&timing_semantic));
     }
 
-    if (diagnostics_get_error_count() != 0)
-    {
-        exit(EXIT_FAILURE);
-    }
+    char there_were_errors = (diagnostics_get_error_count() != 0);
 
     if (CURRENT_CONFIGURATION->warnings_as_errors)
     {
         info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
-        if (diagnostics_get_warn_count() != 0)
-        {
-            exit(EXIT_FAILURE);
-        }
+        there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
     }
 
+    if (there_were_errors)
+    {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Frontend diagnosed errors for file '%s'. Ending compilation process\n", translation_unit->input_filename);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    timing_t timing_check_tree;
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Checking tree consistency\n");
+    }
+    timing_start(&timing_check_tree);
     check_tree(translation_unit->parsed_tree);
+    timing_end(&timing_check_tree);
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Tree consistency verified in %.2f seconds\n",
+                timing_elapsed(&timing_semantic));
+    }
 }
 
 static const char* codegen_translation_unit(translation_unit_t* translation_unit, 

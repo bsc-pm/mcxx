@@ -20,6 +20,7 @@
 #include "cxx-nodecl.h"
 #include "cxx-nodecl-output.h"
 #include "cxx-pragma.h"
+#include "cxx-diagnostic.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -725,7 +726,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
             if (strcmp(ASTText(dummy_arg_name), "*") == 0)
             {
-                fprintf(stderr, "%s: warning: deprecated alternate return in procedure declaration\n",
+                warn_printf("%s: warning: deprecated alternate return in procedure declaration\n",
                         ast_location(dummy_arg_name));
                 continue;
             }
@@ -737,6 +738,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
             // to SK_VARIABLE
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
+            // Get a reference to its type (it will be properly updated later)
+            dummy_arg->type_information = get_lvalue_reference_type(dummy_arg->type_information);
             dummy_arg->entity_specs.is_parameter = 1;
             dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
 
@@ -771,7 +774,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         result_sym->line = ASTLine(result);
         result_sym->entity_specs.is_result = 1;
 
-        result_sym->type_information = return_type;
+        result_sym->type_information = get_lvalue_reference_type(return_type);
 
         return_type = get_indirect_type(result_sym);
 
@@ -792,7 +795,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         result_sym->line = entry->line;
         result_sym->entity_specs.is_result = 1;
 
-        result_sym->type_information = return_type;
+        result_sym->type_information = get_lvalue_reference_type(return_type);
         result_sym->entity_specs.is_implicit_basic_type = !function_has_type_spec;
 
         // Add it as an explicit unknown symbol because we want it to be
@@ -1374,7 +1377,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
                 {
-                    fprintf(stderr, "%s: warning: KIND of CHARACTER ignored, defaulting to 1\n",
+                    warn_printf("%s: warning: KIND of CHARACTER ignored, defaulting to 1\n",
                             ast_location(a));
                 }
                 if (len == NULL)
@@ -1994,8 +1997,8 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
                 ASTText(name));
     }
     
-    if (is_fortran_array_type(entry->type_information)
-            || is_pointer_to_fortran_array_type(entry->type_information))
+    if (is_fortran_array_type(no_ref(entry->type_information))
+            || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
     {
         running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
                 ast_location(a),
@@ -2040,8 +2043,8 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
                     ASTText(name));
         }
 
-        if (!is_fortran_array_type(entry->type_information)
-                && !is_pointer_to_fortran_array_type(entry->type_information))
+        if (!is_fortran_array_type(no_ref(entry->type_information))
+                && !is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
         {
             running_error("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
                     ast_location(name),
@@ -2094,7 +2097,7 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
             scope_entry_t* entry = expression_get_symbol(data_ref);
 
             if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(entry->type_information))
+                    && !is_pointer_type(no_ref(entry->type_information)))
             {
                 running_error("%s: error: only ALLOCATABLE or POINTER can be used in an ALLOCATE statement\n", 
                         ast_location(a));
@@ -2140,7 +2143,7 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     AST equal = ASTSon1(label_set);
     AST upper = ASTSon2(label_set);
 
-    fprintf(stderr, "%s: warning: deprecated arithmetic-if statement\n", 
+    warn_printf("%s: warning: deprecated arithmetic-if statement\n", 
             ast_location(a));
     fortran_check_expression(numeric_expr, decl_context);
 
@@ -2177,6 +2180,10 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
     {
         expression_set_type(a, expression_get_type(expr));
         expression_set_is_lvalue(a, expression_is_lvalue(a));
+
+        *nodecl_output = nodecl_make_expression_statement(expression_get_nodecl(expr), 
+                ASTFileName(expr),
+                ASTLine(expr));
     }
 
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
@@ -2184,9 +2191,6 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);
 
-    *nodecl_output = nodecl_make_expression_statement(expression_get_nodecl(expr), 
-                ASTFileName(expr),
-                ASTLine(expr));
 }
 
 static void build_scope_associate_construct(AST a, 
@@ -2490,8 +2494,8 @@ static void build_scope_common_stmt(AST a,
 
             if (array_spec != NULL)
             {
-                if (is_fortran_array_type(sym->type_information)
-                        || is_pointer_to_fortran_array_type(sym->type_information))
+                if (is_fortran_array_type(no_ref(sym->type_information))
+                        || is_pointer_to_fortran_array_type(no_ref(sym->type_information)))
                 {
                     running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
                             ast_location(a),
@@ -2512,7 +2516,7 @@ static void build_scope_common_stmt(AST a,
 
 static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    fprintf(stderr, "%s: warning: deprecated computed-goto statement\n", 
+    warn_printf("%s: warning: deprecated computed-goto statement\n", 
             ast_location(a));
     AST label_list = ASTSon0(a);
     nodecl_t nodecl_label_list = nodecl_null();
@@ -2538,7 +2542,7 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
 
 static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    fprintf(stderr, "%s: warning: deprecated assigned-goto statement\n", 
+    warn_printf("%s: warning: deprecated assigned-goto statement\n", 
             ast_location(a));
 
     scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
@@ -2565,7 +2569,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
 
 static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    fprintf(stderr, "%s: warning: deprecated label-assignment statement\n", 
+    warn_printf("%s: warning: deprecated label-assignment statement\n", 
             ast_location(a));
 
     AST literal_const = ASTSon0(a);
@@ -2794,7 +2798,7 @@ static void build_scope_deallocate_stmt(AST a,
             scope_entry_t* entry = expression_get_symbol(data_ref);
 
             if (!entry->entity_specs.is_allocatable
-                    && !is_pointer_type(entry->type_information))
+                    && !is_pointer_type(no_ref(entry->type_information)))
             {
                 running_error("%s: error: only ALLOCATABLE or POINTER can be used in a DEALLOCATE statement\n", 
                         ast_location(a));
@@ -3023,7 +3027,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                     if (char_length != NULL)
                     {
-                        if (!is_fortran_character_type(entry->type_information))
+                        if (!is_fortran_character_type(no_ref(entry->type_information)))
                         {
                             running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
                         }
@@ -3092,17 +3096,17 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (is_fortran_array_type(entry->type_information)
-                || is_pointer_to_fortran_array_type(entry->type_information))
+        if (is_fortran_array_type(no_ref(entry->type_information))
+                || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
         {
             running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
                     ast_location(name),
                     ASTText(name));
         }
 
-        char is_pointer = is_pointer_type(entry->type_information);
+        char is_pointer = is_pointer_type(no_ref(entry->type_information));
 
-        if (is_pointer_type(entry->type_information))
+        if (is_pointer_type(no_ref(entry->type_information)))
         {
             entry->type_information = pointer_type_get_pointee_type(entry->type_information);
         }
@@ -3145,9 +3149,9 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
         AST do_loop_var = ASTSon0(assig);
         scope_entry_t* sym = expression_get_symbol(do_loop_var);
         if (sym != NULL
-                && !is_integer_type(sym->type_information))
+                && !is_integer_type(no_ref(sym->type_information)))
         {
-            fprintf(stderr, "%s: warning: loop variable '%s' should be of integer type\n",
+            warn_printf("%s: warning: loop variable '%s' should be of integer type\n",
                     ast_location(a),
                     fortran_prettyprint_in_buffer(do_loop_var));
         }
@@ -3225,7 +3229,7 @@ static void build_scope_equivalence_stmt(AST a,
     }
 
     // We are not keeping enough information yet
-    fprintf(stderr, "%s: warning: EQUIVALENCE statement may not be honoured\n",
+    warn_printf("%s: warning: EQUIVALENCE statement may not be honoured\n",
             ast_location(a));
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
@@ -3252,7 +3256,7 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
 
         if (!entry->entity_specs.is_extern)
         {
-            if (is_void_type(entry->type_information))
+            if (is_void_type(no_ref(entry->type_information)))
             {
                 // We do not know it, set a type like one of a PROCEDURE
                 entry->type_information = get_nonproto_function_type(NULL, 0);
@@ -3612,7 +3616,7 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         if (entry == NULL
                 || !entry->entity_specs.is_builtin)
         {
-            fprintf(stderr, "%s: warning: name '%s' is not known as an intrinsic\n", 
+            warn_printf("%s: warning: name '%s' is not known as an intrinsic\n", 
                     ast_location(name),
                     ASTText(name));
         }
@@ -3682,7 +3686,7 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
 
         scope_entry_t* sym = expression_get_symbol(pointer_object);
 
-        if (!is_pointer_type(sym->type_information))
+        if (!is_pointer_type(no_ref(sym->type_information)))
         {
             running_error("%s: error: '%s' does not designate a POINTER\n",
                     ast_location(a),
@@ -3743,7 +3747,7 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (is_void_type(entry->type_information))
+        if (is_void_type(no_ref(entry->type_information)))
         {
             running_error("%s: error: unknown entity '%s' in PARAMETER statement\n",
                     ast_location(name),
@@ -3780,7 +3784,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (is_pointer_type(entry->type_information))
+        if (is_pointer_type(no_ref(entry->type_information)))
         {
             running_error("%s: error: entity '%s' has already the POINTER attribute\n",
                     ast_location(a),
@@ -3789,8 +3793,8 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         if (array_spec != NULL)
         {
-            if (is_fortran_array_type(entry->type_information)
-                    || is_pointer_to_fortran_array_type(entry->type_information))
+            if (is_fortran_array_type(no_ref(entry->type_information))
+                    || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
             {
                 running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
                         ast_location(a),
@@ -3839,14 +3843,20 @@ static void build_scope_input_output_item_list(AST input_output_item_list, decl_
     }
 }
 
+static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 static void build_scope_print_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    AST format = ASTSon0(a);
     AST input_output_item_list = ASTSon1(a);
 
     nodecl_t nodecl_io_items = nodecl_null();
     build_scope_input_output_item_list(input_output_item_list, decl_context, &nodecl_io_items);
 
-    *nodecl_output = nodecl_make_print_statement(nodecl_io_items, ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_format = nodecl_null();
+    opt_fmt_value(format, decl_context, &nodecl_format);
+
+    *nodecl_output = nodecl_make_print_statement(nodecl_get_child(nodecl_format, 0), nodecl_io_items, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -3881,7 +3891,7 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     AST int_expr = ASTSon1(a);
     if (int_expr != NULL)
     {
-        fprintf(stderr, "%s: warning: deprecated RETURN with alternate return\n",
+        warn_printf("%s: warning: deprecated RETURN with alternate return\n",
                 ast_location(a));
         fortran_check_expression(a, decl_context);
     }
@@ -3911,7 +3921,7 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
 
     if (saved_entity_list == NULL)
     {
-        fprintf(stderr, "%s: warning: SAVE statement without saved-entity-list is not properly supported at the moment\n",
+        warn_printf("%s: warning: SAVE statement without saved-entity-list is not properly supported at the moment\n",
                 ast_location(a));
         return;
     }
@@ -3974,7 +3984,7 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
             AST dummy_arg_item = ASTSon1(it);
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_arg_item, ASTText(dummy_arg_item));
 
-            if (!is_scalar_type(dummy_arg->type_information))
+            if (!is_scalar_type(no_ref(dummy_arg->type_information)))
             {
                 running_error("%s: error: dummy argument '%s' of statement function statement\n",
                         ast_location(dummy_arg_item),
@@ -4084,8 +4094,8 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
             if (array_spec != NULL)
             {
-                if (is_fortran_array_type(entry->type_information)
-                        || is_pointer_to_fortran_array_type(entry->type_information))
+                if (is_fortran_array_type(no_ref(entry->type_information))
+                        || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
                 {
                     running_error("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
                             ast_location(a),
@@ -4678,19 +4688,22 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-        if (!entry->entity_specs.is_parameter)
-        {
-            running_error("%s: error: entity '%s' is not a dummy argument\n",
-                    ast_location(name),
-                    entry->symbol_name);
-        }
-
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
 
-        if (!is_volatile_qualified_type(entry->type_information))
+        char is_ref = is_lvalue_reference_type(entry->type_information);
+
+        if (!is_volatile_qualified_type(no_ref(entry->type_information)))
         {
-            entry->type_information = get_volatile_qualified_type(entry->type_information);
+            if (!is_ref)
+            {
+                entry->type_information = get_volatile_qualified_type(entry->type_information);
+            }
+            else
+            {
+                entry->type_information = get_lvalue_reference_type(
+                        get_volatile_qualified_type(no_ref(entry->type_information)));
+            }
         }
         else
         {
@@ -4782,9 +4795,9 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
     fortran_check_expression(expr, decl_context);
 
-    if (!is_bool_type(expression_get_type(expr)))
+    if (!is_bool_type(no_ref(expression_get_type(expr))))
     {
-        fprintf(stderr, "%s: warning: condition of DO WHILE loop is not a logical expression\n",
+        error_printf("%s: error: condition of DO WHILE loop is not a logical expression\n",
                 ast_location(expr));
     }
 
@@ -4964,11 +4977,11 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_
 static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name)
 {
     fortran_check_expression(value, decl_context);
-    if (!is_integer_type(expression_get_type(value))
-            && !(is_pointer_type(expression_get_type(value))
-                && is_integer_type(pointer_type_get_pointee_type(expression_get_type(value)))))
+    if (!is_integer_type(no_ref(expression_get_type(value)))
+            && !(is_pointer_type(no_ref(expression_get_type(value)))
+                && is_integer_type(pointer_type_get_pointee_type(no_ref(expression_get_type(value))))))
     {
-        fprintf(stderr, "%s: warning: specifier %s requires a character expression\n",
+        error_printf("%s: error: specifier %s requires a character expression\n",
                 ast_location(value),
                 opt_name);
         return 0;
@@ -4979,10 +4992,10 @@ static char opt_common_int_expr(AST value, decl_context_t decl_context, const ch
 static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
 {
     fortran_check_expression(value, decl_context);
-    if (!is_fortran_character_type(expression_get_type(value))
-            && !is_pointer_to_fortran_character_type(expression_get_type(value)))
+    if (!is_fortran_character_type(no_ref(expression_get_type(value)))
+            && !is_pointer_to_fortran_character_type(no_ref(expression_get_type(value))))
     {
-        fprintf(stderr, "%s: warning: specifier %s requires a character expression\n",
+        error_printf("%s: error: specifier %s requires a character expression\n",
                 ast_location(value),
                 opt_name);
         return 0;
@@ -5002,11 +5015,11 @@ static char opt_common_int_variable(AST value, decl_context_t decl_context, cons
     { 
         scope_entry_t* sym = expression_get_symbol(value);
         if (sym == NULL
-                || (!is_integer_type(sym->type_information)
-                    && !(is_pointer_type(sym->type_information)
-                        && is_integer_type(pointer_type_get_pointee_type(sym->type_information)))))
+                || (!is_integer_type(no_ref(sym->type_information))
+                    && !(is_pointer_type(no_ref(sym->type_information))
+                        && is_integer_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
         {
-            fprintf(stderr, "%s: warning: specifier %s requires an integer variable\n",
+            error_printf("%s: error: specifier %s requires an integer variable\n",
                     ast_location(value),
                     opt_name);
             return 0;
@@ -5022,11 +5035,11 @@ static char opt_common_logical_variable(AST value, decl_context_t decl_context, 
     { 
         scope_entry_t* sym = expression_get_symbol(value);
         if (sym == NULL
-                || (!is_bool_type(sym->type_information)
-                    && !(is_pointer_type(sym->type_information)
-                        && is_bool_type(pointer_type_get_pointee_type(sym->type_information)))))
+                || (!is_bool_type(no_ref(sym->type_information))
+                    && !(is_pointer_type(no_ref(sym->type_information))
+                        && is_bool_type(pointer_type_get_pointee_type(no_ref(sym->type_information))))))
         {
-            fprintf(stderr, "%s: warning: specifier %s requires a logical variable\n",
+            error_printf("%s: error: specifier %s requires a logical variable\n",
                     ast_location(value),
                     opt_name);
             return 0;
@@ -5048,9 +5061,9 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
     AST value = ASTSon0(opt_value);
     fortran_check_expression(value, decl_context);
     if (expression_get_symbol(value) == NULL
-            || !is_bool_type(expression_get_symbol(value)->type_information))
+            || !is_bool_type(no_ref(expression_get_symbol(value)->type_information)))
     {
-        fprintf(stderr, "%s: warning: specifier 'ACQUIRED LOCK' requires a logical variable\n",
+        error_printf("%s: error: specifier 'ACQUIRED LOCK' requires a logical variable\n",
                 ast_location(value));
     }
     *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACQUIRED LOCK", ASTFileName(opt_value), ASTLine(opt_value));
@@ -5163,9 +5176,8 @@ static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FILE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
-static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    AST value = ASTSon0(opt_value);
     if (!(ASTType(value) == AST_SYMBOL
             && strcmp(ASTText(value), "*") == 0))
     {
@@ -5173,14 +5185,40 @@ static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
 
         type_t* t = expression_get_type(value);
 
-        if (!((is_integer_type(t) && ASTType(value) == AST_DECIMAL_LITERAL)
-                    || is_fortran_character_type(t)))
+        char valid = 1;
+        if (ASTType(value) != AST_DECIMAL_LITERAL)
         {
-            fprintf(stderr, "%s: warning: specifier FMT requires a character expression or a label of a FORMAT statement\n",
-                    ast_location(value));
+            if (!is_fortran_character_type(no_ref(t)))
+            {
+                valid = 0;
+            }
         }
+        else
+        {
+            scope_entry_t* entry = query_label(value, decl_context, /* is_definition */ 0);
+            if (entry == NULL)
+                valid = 0;
+        }
+
+        if (!valid)
+        {
+                error_printf("%s: error: specifier FMT requires a character expression or a label of a FORMAT statement\n",
+                        ast_location(value));
+        }
+        *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FMT", ASTFileName(value), ASTLine(value));
     }
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FMT", ASTFileName(opt_value), ASTLine(opt_value));
+    else
+    {
+        *nodecl_output = nodecl_make_fortran_io_spec(
+                nodecl_make_string_literal(get_void_type(), "*", ASTFileName(value), ASTLine(value)), 
+                "FMT", ASTFileName(value), ASTLine(value));
+    }
+}
+
+static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST value = ASTSon0(opt_value);
+    opt_fmt_value(value, decl_context, nodecl_output);
 }
 
 static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5253,7 +5291,7 @@ static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
     if (entry == NULL
             || entry->kind != SK_NAMELIST)
     {
-        fprintf(stderr, "%s: warning: entity '%s' in NML specifier is not a namelist\n",
+        error_printf("%s: error: entity '%s' in NML specifier is not a namelist\n",
                 ast_location(value),
                 ASTText(value));
     }
@@ -5405,11 +5443,11 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
         fortran_check_expression(value, decl_context);
 
         type_t* t = expression_get_type(value);
-        if (!(is_integer_type(t)
+        if (!(is_integer_type(no_ref(t))
                     || ((expression_get_symbol(value) != NULL)
-                        && is_fortran_character_type(expression_get_symbol(value)->type_information))))
+                        && is_fortran_character_type(no_ref(expression_get_symbol(value)->type_information)))))
         {
-            fprintf(stderr, "%s: warning: specifier UNIT requires a character variable or a scalar integer expression\n",
+            error_printf("%s: error: specifier UNIT requires a character variable or a scalar integer expression\n",
                     ast_location(value));
         }
         *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "UNIT", ASTFileName(opt_value), ASTLine(opt_value));
@@ -5593,7 +5631,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
 
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
-    if (!is_scalar_type(entry->type_information))
+    if (!is_scalar_type(no_ref(entry->type_information)))
         return 0;
 
     if (dummy_arg_name_list != NULL)
@@ -5604,7 +5642,7 @@ static char check_statement_function_statement(AST stmt, decl_context_t decl_con
             AST dummy_name = ASTSon1(it);
             scope_entry_t* dummy_arg = get_symbol_for_name(decl_context, dummy_name, ASTText(dummy_name));
 
-            if (!is_scalar_type(dummy_arg->type_information))
+            if (!is_scalar_type(no_ref(dummy_arg->type_information)))
                 return 0;
         }
     }

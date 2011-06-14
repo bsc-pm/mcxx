@@ -7,6 +7,8 @@
 
 const char* fortran_print_type_str(type_t* t)
 {
+    t = no_ref(t);
+
     const char* result = "";
     char is_pointer = 0;
     if (is_pointer_type(t))
@@ -169,12 +171,16 @@ const char* fortran_print_type_str(type_t* t)
 
 char is_pointer_to_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return (is_pointer_type(t)
             && is_array_type(pointer_type_get_pointee_type(t)));
 }
 
 int get_rank_of_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (!is_fortran_array_type(t)
             && !is_pointer_to_array_type(t))
         return 0;
@@ -196,6 +202,8 @@ int get_rank_of_type(type_t* t)
 
 type_t* get_rank0_type(type_t* t)
 {
+    t = no_ref(t);
+
     while (is_fortran_array_type(t))
     {
         t = array_type_get_element_type(t);
@@ -206,12 +214,16 @@ type_t* get_rank0_type(type_t* t)
 
 char is_fortran_character_type(type_t* t)
 {
+    t = no_ref(t);
+
     return (is_array_type(t)
             && is_character_type(array_type_get_element_type(t)));
 }
 
 char is_pointer_to_fortran_character_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (is_pointer_type(t))
     {
         return is_fortran_character_type(pointer_type_get_pointee_type(t));
@@ -280,6 +292,11 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     {
         return replace_return_type_of_function_type(type_info, basic_type);
     }
+    else if (is_lvalue_reference_type(type_info))
+    {
+        return get_lvalue_reference_type(
+                update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
+    }
     else
     {
         return basic_type;
@@ -304,6 +321,10 @@ char basic_type_is_void(type_t* t)
     {
         return basic_type_is_void(function_type_get_return_type(t));
     }
+    else if (is_lvalue_reference_type(t))
+    {
+        return basic_type_is_void(reference_type_get_referenced_type(t));
+    }
     else if (is_pointer_type(t))
     {
         return basic_type_is_void(pointer_type_get_pointee_type(t));
@@ -314,18 +335,24 @@ char basic_type_is_void(type_t* t)
 
 char is_fortran_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return is_array_type(t)
         && !is_fortran_character_type(t);
 }
 
 char is_pointer_to_fortran_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return is_pointer_type(t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
 }
 
 type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
+    rank0_type = no_ref(rank0_type);
+
     ERROR_CONDITION(!is_scalar_type(rank0_type)
             && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
 
@@ -352,6 +379,8 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
 
 type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
 {
+    scalar_type = no_ref(scalar_type);
+
     ERROR_CONDITION(is_fortran_array_type(scalar_type), "This is not a scalar type!", 0);
 
     if (rank == 0)
@@ -370,6 +399,8 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
 
 char is_fortran_intrinsic_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (is_pointer_type(t))
         t = pointer_type_get_pointee_type(t);
 
@@ -382,6 +413,9 @@ char is_fortran_intrinsic_type(type_t* t)
 
 char are_conformable_types(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (get_rank_of_type(t1) == get_rank_of_type(t2))
         return 1;
     else if (get_rank_of_type(t1) == 1

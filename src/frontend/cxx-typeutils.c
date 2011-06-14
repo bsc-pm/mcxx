@@ -5313,16 +5313,12 @@ type_t* reference_type_get_referenced_type(type_t* t1)
     return t1->pointer->pointee;
 }
 
-// For C, it does nothing
-// For C++, it removes the reference type, returning the referenced type
+// Remove the reference type, returning the referenced type
 type_t* no_ref(type_t* t)
 {
-    CXX_LANGUAGE()
-    {
-        if (is_lvalue_reference_type(t)
-                || is_rvalue_reference_type(t))
-            return reference_type_get_referenced_type(t);
-    }
+    if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
+        return reference_type_get_referenced_type(t);
     return t;
 }
 
