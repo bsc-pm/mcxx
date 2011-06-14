@@ -1380,15 +1380,21 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                     warn_printf("%s: warning: KIND of CHARACTER ignored, defaulting to 1\n",
                             ast_location(a));
                 }
-                if (len == NULL)
-                {
-                    len = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(a), ASTLine(a), "1");
-                }
-                else if (ASTType(len) == AST_SYMBOL
+
+                if (len != NULL
+                        && ASTType(len) == AST_SYMBOL
                         && strcmp(ASTText(len), "*") == 0)
                 {
                     is_undefined = 1;
                 }
+                else 
+                {
+                    if (len == NULL)
+                        len = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(a), ASTLine(a), "1");
+
+                    fortran_check_expression(len, decl_context);
+                }
+
                 if (!is_undefined)
                 {
                     nodecl_t lower_bound = nodecl_make_integer_literal(
@@ -1769,7 +1775,9 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
         AST array_spec_list, decl_context_t decl_context,
         array_spec_kind_t* array_spec_kind)
 {
-    type_t* array_type = basic_type;
+    char was_ref = is_lvalue_reference_type(basic_type);
+
+    type_t* array_type = no_ref(basic_type);
     // explicit-shape-spec   is   [lower:]upper
     // assumed-shape-spec    is   [lower]:
     // deferred-shape-spec   is   :
@@ -1895,6 +1903,11 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
     if (array_spec_kind != NULL)
     {
         *array_spec_kind = kind;
+    }
+
+    if (was_ref)
+    {
+        array_type = get_lvalue_reference_type(array_type);
     }
 
     return array_type;
@@ -2612,16 +2625,15 @@ static scope_entry_t* query_label(AST label,
     else
     {
         new_label = entry_list_head(entry_list);
-        if (new_label->defined
-                && is_definition)
+        if (is_definition)
         {
-            running_error("%s: error: label %s has already been defined in %s:%d\n",
-                    ast_location(label),
-                    new_label->symbol_name,
-                    new_label->file, new_label->line);
-        }
-        else
-        {
+            if (new_label->defined)
+            {
+                running_error("%s: error: label %s has already been defined in %s:%d\n",
+                        ast_location(label),
+                        new_label->symbol_name,
+                        new_label->file, new_label->line);
+            }
             new_label->defined = 1;
         }
     }
@@ -2645,7 +2657,15 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
     ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
     ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 
-    *nodecl_output = nodecl_make_labeled_statement(nodecl_statement, label_sym, ASTFileName(a), ASTLine(a));
+    if (!nodecl_is_null(nodecl_statement))
+    {
+        if (!nodecl_is_list(nodecl_statement))
+        {
+            nodecl_statement = nodecl_make_list_1(nodecl_statement);
+        }
+
+        *nodecl_output = nodecl_make_labeled_statement(nodecl_statement, label_sym, ASTFileName(a), ASTLine(a));
+    }
 }
 
 static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
@@ -3140,7 +3160,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     AST upper = ASTSon1(loop_control);
     AST stride = ASTSon2(loop_control);
 
-    nodecl_t nodecl_lower;
+    nodecl_t nodecl_lower = nodecl_null();
     if (assig != NULL)
     {
         fortran_check_expression(assig, decl_context);
@@ -3156,13 +3176,13 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
                     fortran_prettyprint_in_buffer(do_loop_var));
         }
     }
-    nodecl_t nodecl_upper;
+    nodecl_t nodecl_upper = nodecl_null();
     if (upper != NULL)
     {
         fortran_check_expression(upper, decl_context);
         nodecl_upper = expression_get_nodecl(upper);
     }
-    nodecl_t nodecl_stride;
+    nodecl_t nodecl_stride = nodecl_null();
     if (stride != NULL)
     {
         fortran_check_expression(stride, decl_context);
@@ -3337,6 +3357,16 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
     ast_set_link_to_child(a, LANG_IF_STATEMENT_CONDITION, logical_expr);
     ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_statement);
     ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_statement);
+
+    if (!nodecl_is_list(nodecl_then))
+    {
+        nodecl_then = nodecl_make_list_1(nodecl_then);
+    }
+
+    if (!nodecl_is_list(nodecl_else))
+    {
+        nodecl_else = nodecl_make_list_1(nodecl_else);
+    }
 
     *nodecl_output = nodecl_make_if_else_statement(
             expression_get_nodecl(logical_expr),
@@ -3891,9 +3921,10 @@ static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t
     AST int_expr = ASTSon1(a);
     if (int_expr != NULL)
     {
-        warn_printf("%s: warning: deprecated RETURN with alternate return\n",
+        error_printf("%s: sorry: deprecated RETURN with alternate return is not supported\n",
                 ast_location(a));
         fortran_check_expression(a, decl_context);
+        return;
     }
 
     ERROR_CONDITION(decl_context.current_scope->related_entry == NULL
@@ -4184,6 +4215,25 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         entry->file = ASTFileName(declaration);
         entry->line = ASTLine(declaration);
 
+        if (entry->kind == SK_FUNCTION)
+        {
+            // Update the result (if any) as well
+            // Note that the result variable is never found through normal lookup, it is
+            // only accessible through the function symbol
+            int i, num_symbols = entry->entity_specs.num_related_symbols;
+
+            for (i = 0; i < num_symbols; i++)
+            {
+                scope_entry_t* sym = entry->entity_specs.related_symbols[i];
+                if (sym->entity_specs.is_result)
+                {
+                    sym->type_information = update_basic_type_with_type(sym->type_information, basic_type);
+                    sym->entity_specs.is_implicit_basic_type = 0;
+                    sym->defined = 1;
+                }
+            }
+        }
+
         AST char_length = NULL;
         AST initialization = NULL;
         if (entity_decl_specs != NULL)
@@ -4298,13 +4348,10 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             }
         }
 
-        if (current_attr_spec.is_constant && initialization == NULL)
+        if (current_attr_spec.is_constant 
+                && initialization == NULL)
         {
             running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
-        }
-
-        if (!current_attr_spec.is_constant)
-        {
         }
 
         // FIXME - Should we do something with this attribute?
@@ -5197,7 +5244,13 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
         {
             scope_entry_t* entry = query_label(value, decl_context, /* is_definition */ 0);
             if (entry == NULL)
+            {
                 valid = 0;
+            }
+            else
+            {
+                expression_set_nodecl(value, nodecl_make_symbol(entry, ASTFileName(value), ASTLine(value)));
+            }
         }
 
         if (!valid)

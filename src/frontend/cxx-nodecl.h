@@ -60,6 +60,9 @@ nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2);
 // Wrap (use sparingly)
 nodecl_t _nodecl_wrap(AST);
 
+// States that this nodecl is a list
+char nodecl_is_list(nodecl_t);
+
 // Unpack a list. Do not forget to free the returned pointer
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
 

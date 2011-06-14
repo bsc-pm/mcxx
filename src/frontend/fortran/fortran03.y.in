@@ -4158,8 +4158,9 @@ inquire_spec : TOK_UNIT '=' file_unit_number
 // Note the use of label instead of labeldef
 format_stmt : label TOK_FORMAT FORMAT_SPEC eos
 {
-    $$ = ASTMake2Label(AST_FORMAT_STATEMENT, $1, 
-            ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text),
+    $$ = ASTMake3Label(AST_FORMAT_STATEMENT, $1, 
+            // We keep the label twice for convenience
+            ast_copy($1), ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text),
             $2.token_file, $2.token_line, $2.token_text);
 }
 ;

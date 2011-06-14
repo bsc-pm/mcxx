@@ -365,7 +365,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
 static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
-    type_t* subscripted_type = expression_get_type(ASTSon0(expr));
+    type_t* subscripted_type = no_ref(expression_get_type(ASTSon0(expr)));
 
     AST subscript_list = ASTSon1(expr);
 
@@ -422,7 +422,7 @@ static void check_substring(AST expr, decl_context_t decl_context, nodecl_t node
 
     *nodecl_output = nodecl_make_array_subscript(
             nodecl_subscripted,
-            nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr)),
+            nodecl_make_list_1(nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr))),
             synthesized_type,
             ASTFileName(expr), ASTLine(expr));
     nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
@@ -446,7 +446,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
     }
     else
     {
-        array_type = symbol->type_information;
+        array_type = no_ref(symbol->type_information);
         if (is_pointer_to_array_type(no_ref(symbol->type_information)))
             array_type = pointer_type_get_pointee_type(no_ref(symbol->type_information));
 

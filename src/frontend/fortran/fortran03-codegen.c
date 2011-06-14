@@ -34,13 +34,15 @@ static inline void codegen_walk(nodecl_codegen_visitor_t* visitor, nodecl_t node
     NODECL_WALK(visitor, node);
 }
 
+// FIXME - Make this spacing configurable
+#define INDENT_BLANK "  "
+
 static void indent(nodecl_codegen_visitor_t* v)
 {
     int i;
     for (i = 0; i < v->indent_level; i++)
     {
-        // FIXME - Make this spacing configurable
-        fprintf(v->file, "  ");
+        fprintf(v->file, INDENT_BLANK);
     }
 }
 
@@ -207,10 +209,9 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
     }
     else if (is_fortran_character_type(t))
     {
-        nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                nodecl_is_null(length) ? "*" : fortran_codegen_to_str(length));
+                array_type_is_unknown_size(t) ? "*" : fortran_codegen_to_str(array_type_get_array_upper_bound(t)));
         c[127] = '\0';
         (*type_specifier) = uniquestr(c);
     }
@@ -465,6 +466,23 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 fprintf(visitor->file, "END TYPE %s\n", entry->symbol_name);
                 break;
             }
+        case SK_LABEL:
+            {
+                // This is basically for FORMAT labels
+                if (!nodecl_is_null(entry->value))
+                {
+                    indent(visitor);
+                    fprintf(visitor->file, "%s FORMAT(", entry->symbol_name);
+
+                    int old_indent_level = visitor->indent_level;
+                    visitor->indent_level = 0;
+                    codegen_walk(visitor, entry->value);
+                    visitor->indent_level = old_indent_level;
+
+                    fprintf(visitor->file, ")\n");
+                }
+                break;
+            }
         default:
             {
                 internal_error("Unexpected symbol '%s'\n", symbol_kind_name(entry));
@@ -555,6 +573,22 @@ static void codegen_print_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
     fprintf(visitor->file, "\n");
 }
 
+static void codegen_write_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "WRITE (");
+
+    nodecl_t nodecl_io_spec_list = nodecl_get_child(node, 0);
+    codegen_comma_separated_list(visitor, nodecl_io_spec_list);
+
+    fprintf(visitor->file, ") ");
+
+    nodecl_t nodecl_io_item_list = nodecl_get_child(node, 1);
+    codegen_comma_separated_list(visitor, nodecl_io_item_list);
+
+    fprintf(visitor->file, "\n");
+}
+
 static void codegen_empty_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
 {
     indent(visitor);
@@ -572,32 +606,94 @@ static void codegen_if_else_statement(nodecl_codegen_visitor_t* visitor, nodecl_
     codegen_walk(visitor, nodecl_condition);
     fprintf(visitor->file, ")");
 
-    if ((nodecl_get_kind(nodecl_then) != AST_COMPOUND_STATEMENT)
-            || !nodecl_is_null(nodecl_else))
+    fprintf(visitor->file, " THEN\n");
+
+    visitor->indent_level++;
+    codegen_walk(visitor, nodecl_then);
+    visitor->indent_level--;
+
+    if (!nodecl_is_null(nodecl_else))
     {
-        fprintf(visitor->file, " THEN\n");
+        indent(visitor);
+        fprintf(visitor->file, "ELSE\n");
 
         visitor->indent_level++;
-        codegen_walk(visitor, nodecl_then);
+        codegen_walk(visitor, nodecl_else);
         visitor->indent_level--;
-
-        if (!nodecl_is_null(nodecl_else))
-        {
-            indent(visitor);
-            fprintf(visitor->file, "ELSE\n");
-
-            visitor->indent_level++;
-            codegen_walk(visitor, nodecl_else);
-            visitor->indent_level--;
-        }
-
-        indent(visitor);
-        fprintf(visitor->file, "END IF\n");
     }
-    else
+
+    indent(visitor);
+    fprintf(visitor->file, "END IF\n");
+}
+
+static void codegen_return_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
+{
+    // Note that for functions (not subroutines) we actually 'return F'
+    // however what it must be printed is just 'RETURN'
+    indent(visitor);
+    fprintf(visitor->file, "RETURN\n");
+}
+
+static void codegen_labeled_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* label_sym = nodecl_get_symbol(node);
+
+    indent(visitor);
+    fprintf(visitor->file, "%s", label_sym->symbol_name);
+
+    int old_indent_level = visitor->indent_level;
+    visitor->indent_level = 0;
+    nodecl_t nodecl_statement = nodecl_get_child(node, 0);
+    codegen_walk(visitor, nodecl_statement);
+    visitor->indent_level = old_indent_level;
+}
+
+static void codegen_goto_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* label = nodecl_get_symbol(node);
+    indent(visitor);
+    fprintf(visitor->file, "GOTO %s\n", label->symbol_name);
+}
+
+static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t init = nodecl_get_child(node, 0);
+    nodecl_t cond = nodecl_get_child(node, 1);
+    nodecl_t next = nodecl_get_child(node, 2);
+
+    if (!nodecl_is_null(init))
     {
-        codegen_walk(visitor, nodecl_then);
+        fprintf(visitor->file, " ");
+        codegen_walk(visitor, init);
+
+        if (!nodecl_is_null(cond))
+        {
+            fprintf(visitor->file, ", ");
+            codegen_walk(visitor, cond);
+        }
+        if (!nodecl_is_null(next))
+        {
+            fprintf(visitor->file, ", ");
+            codegen_walk(visitor, next);
+        }
+        else
+        {
+            fprintf(visitor->file, ", 1");
+        }
     }
+}
+
+static void codegen_for_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "DO");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, "\n");
+    visitor->indent_level++;
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "END DO\n");
 }
 
 static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -712,6 +808,27 @@ static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, 
     fprintf(visitor->file, "(");
     codegen_walk(visitor, nest);
     fprintf(visitor->file, ")");
+}
+
+static void codegen_subscript_triplet(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t nodecl_lower = nodecl_get_child(node, 0);
+    nodecl_t nodecl_upper = nodecl_get_child(node, 1);
+    nodecl_t nodecl_strid = nodecl_get_child(node, 2);
+
+    if (!nodecl_is_null(nodecl_lower))
+        codegen_walk(visitor, nodecl_lower);
+
+    fprintf(visitor->file, ":");
+
+    if (!nodecl_is_null(nodecl_upper))
+        codegen_walk(visitor, nodecl_upper);
+
+    if (!nodecl_is_null(nodecl_strid))
+    {
+        fprintf(visitor->file, ":");
+        codegen_walk(visitor, nodecl_strid);
+    }
 }
 
 static type_t* basic_type(type_t* t)
@@ -924,6 +1041,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     OPERATOR_TABLE
 #undef BINARY_EXPRESSION
 #undef PREFIX_UNARY_EXPRESSION
+
+    NODECL_VISITOR(codegen_visitor)->visit_subscript_triplet = codegen_visitor_fun(codegen_subscript_triplet);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
     NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
@@ -939,9 +1058,15 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_named_pair_spec = codegen_visitor_fun(codegen_named_pair_spec);
     NODECL_VISITOR(codegen_visitor)->visit_empty_statement = codegen_visitor_fun(codegen_empty_statement);
     NODECL_VISITOR(codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_return_statement = codegen_visitor_fun(codegen_return_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_labeled_statement = codegen_visitor_fun(codegen_labeled_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_goto_statement = codegen_visitor_fun(codegen_goto_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_for_statement = codegen_visitor_fun(codegen_for_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_loop_control = codegen_visitor_fun(codegen_loop_control);
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_io_spec = codegen_visitor_fun(codegen_fortran_io_spec);
     NODECL_VISITOR(codegen_visitor)->visit_print_statement = codegen_visitor_fun(codegen_print_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_write_statement = codegen_visitor_fun(codegen_write_statement);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)

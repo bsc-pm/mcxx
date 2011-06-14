@@ -184,3 +184,8 @@ node_t nodecl_get_kind(nodecl_t n)
 {
     return ASTType(nodecl_get_ast(n));
 }
+
+char nodecl_is_list(nodecl_t n)
+{
+    return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
+}
