@@ -2804,6 +2804,13 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
             fortran_check_expression(data_stmt_object, decl_context);
             *nodecl_output = nodecl_append_to_list(*nodecl_output, 
                     expression_get_nodecl(data_stmt_object));
+
+            // Set the SAVE attribute
+            scope_entry_t* entry = expression_get_symbol(data_stmt_object);
+            if (entry != NULL)
+            {
+                entry->entity_specs.is_static = 1;
+            }
         }
     }
 }
