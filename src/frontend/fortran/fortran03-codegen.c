@@ -1,5 +1,6 @@
 #include "fortran03-codegen.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-buildscope.h"
 #include "cxx-nodecl-visitor.h"
 #include "cxx-driver-decls.h"
 #include "cxx-utils.h"
@@ -73,7 +74,8 @@ static void codegen_comma_separated_list(nodecl_codegen_visitor_t *visitor, node
 // Codegen
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
-    internal_error("WARNING -> Uninmplemented node! '%s'\n", ast_print_node_type(ASTType(nodecl_get_ast(node))));
+    internal_error("Error -> Uninmplemented node! '%s' at %s\n", ast_print_node_type(ASTType(nodecl_get_ast(node))), 
+            nodecl_get_locus(node));
 }
 
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -106,7 +108,8 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry);
 
 static void codegen_type(nodecl_codegen_visitor_t* visitor, 
-        type_t* t, const char** type_specifier, const char **array_specifier)
+        type_t* t, const char** type_specifier, const char **array_specifier,
+        char is_dummy)
 {
     (*type_specifier) = "";
 
@@ -146,6 +149,9 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         else
         {
             array_spec_list[array_spec_idx].is_undefined = 1;
+
+            // They may have lower bound
+            array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
         }
 
         t = array_type_get_element_type(t);
@@ -240,7 +246,19 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
             }
             else
             {
-                (*array_specifier) = strappend((*array_specifier), ":");
+                if (is_dummy)
+                {
+                    if (!nodecl_is_null(array_spec_list[array_spec_idx].lower))
+                    {
+                        (*array_specifier) = strappend((*array_specifier), fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
+                        (*array_specifier) = strappend((*array_specifier), ":");
+                    }
+                    (*array_specifier) = strappend((*array_specifier), "*");
+                }
+                else
+                {
+                    (*array_specifier) = strappend((*array_specifier), ":");
+                }
             }
             if ((array_spec_idx + 1) <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
             {
@@ -309,7 +327,6 @@ static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visit
     fprintf(visitor->file, "END %s %s\n", (is_function ? "FUNCTION" : "SUBROUTINE"), entry->symbol_name);
 }
 
-
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
@@ -329,7 +346,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 const char* array_specifier = "";
                 const char* initializer = "";
 
-                codegen_type(visitor, entry->type_information, &type_spec, &array_specifier);
+                codegen_type(visitor, entry->type_information, &type_spec, &array_specifier,
+                        /* is_dummy */ entry->entity_specs.is_parameter);
 
                 const char* attribute_list = "";
 
@@ -408,13 +426,41 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                         const char* type_spec = NULL;
                         const char* array_specifier = NULL;
                         codegen_type(visitor, function_type_get_return_type(entry->type_information), 
-                                &type_spec, &array_specifier);
+                                &type_spec, &array_specifier, /* is_dummy */ 0);
                         fprintf(visitor->file, "%s, EXTERNAL :: %s\n", type_spec, entry->symbol_name);
                     }
                     else
                     {
                         fprintf(visitor->file, "EXTERNAL :: %s\n", entry->symbol_name);
                     }
+                }
+                // Statement functions
+                else if (entry->entity_specs.is_stmt_function)
+                {
+                    int i, num_params = entry->entity_specs.num_related_symbols;
+
+                    for (i = 0; i < num_params; i++)
+                    {
+                        scope_entry_t* sym = entry->entity_specs.related_symbols[i];
+                        declare_symbol(visitor, sym);
+                    }
+
+                    indent(visitor);
+                    fprintf(visitor->file, "%s(", entry->symbol_name);
+                    for (i = 0; i < num_params; i++)
+                    {
+                        scope_entry_t* dummy = entry->entity_specs.related_symbols[i];
+                        if (dummy->entity_specs.is_result)
+                            continue;
+
+                        if (i != 0)
+                            fprintf(visitor->file, ", ");
+                        fprintf(visitor->file, "%s", dummy->symbol_name);
+                    }
+
+                    fprintf(visitor->file, ") = ");
+                    codegen_walk(visitor, entry->value);
+                    fprintf(visitor->file, "\n");
                 }
                 else
                 {
@@ -532,6 +578,13 @@ static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* 
 
     declare_everything_needed(visitor, statement_seq);
 
+    scope_entry_t* data_symbol = get_data_symbol_info(entry->decl_context);
+
+    if (data_symbol != NULL)
+    {
+        codegen_walk(visitor, data_symbol->value);
+    }
+
     codegen_walk(visitor, statement_seq);
     visitor->indent_level--;
 
@@ -573,10 +626,10 @@ static void codegen_print_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
     fprintf(visitor->file, "\n");
 }
 
-static void codegen_write_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_write_or_read_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* keyword)
 {
     indent(visitor);
-    fprintf(visitor->file, "WRITE (");
+    fprintf(visitor->file, "%s (", keyword);
 
     nodecl_t nodecl_io_spec_list = nodecl_get_child(node, 0);
     codegen_comma_separated_list(visitor, nodecl_io_spec_list);
@@ -587,6 +640,158 @@ static void codegen_write_statement(nodecl_codegen_visitor_t* visitor, nodecl_t 
     codegen_comma_separated_list(visitor, nodecl_io_item_list);
 
     fprintf(visitor->file, "\n");
+}
+
+static void codegen_write_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_write_or_read_statement(visitor, node, "WRITE");
+}
+
+static void codegen_read_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_write_or_read_statement(visitor, node, "READ");
+}
+
+static void codegen_stop_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "STOP");
+
+    nodecl_t nodecl_code = nodecl_get_child(node, 0);
+
+    if (!nodecl_is_null(nodecl_code))
+    {
+        fprintf(visitor->file, " ");
+        codegen_walk(visitor, nodecl_code);
+    }
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_computed_goto_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "GOTO (");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ") ");
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_allocation_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* keyword)
+{
+    indent(visitor);
+    fprintf(visitor->file, "%s (", keyword);
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+
+    nodecl_t node_fortran_io_spec = nodecl_get_child(node, 1);
+    if (!nodecl_is_null(node_fortran_io_spec))
+    {
+        fprintf(visitor->file, ", ");
+        codegen_comma_separated_list(visitor, node_fortran_io_spec);
+    }
+
+    fprintf(visitor->file, ")\n");
+}
+
+static void codegen_allocate_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_allocation_statement(visitor, node, "ALLOCATE");
+}
+
+static void codegen_deallocate_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_allocation_statement(visitor, node, "DEALLOCATE");
+}
+
+static void codegen_nullify_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "NULLIFY (");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ")\n");
+}
+
+static void codegen_arithmetic_if_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "IF (");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ") ");
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, ", ");
+    codegen_walk(visitor, nodecl_get_child(node, 2));
+    fprintf(visitor->file, ", ");
+    codegen_walk(visitor, nodecl_get_child(node, 3));
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_assigned_goto_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "GOTO ");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, " (");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, ")\n");
+}
+
+static void codegen_label_assign_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "ASSIGN ");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, " TO ");
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_io_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "%s ", nodecl_get_text(node));
+
+    nodecl_t nodecl_io_spec = nodecl_get_child(node, 0);
+    if (!nodecl_is_null(nodecl_io_spec))
+    {
+        fprintf(visitor->file, "(");
+        codegen_comma_separated_list(visitor, nodecl_io_spec);
+        fprintf(visitor->file, ")");
+    }
+
+    nodecl_t nodecl_io_items = nodecl_get_child(node, 0);
+    if (!nodecl_is_null(nodecl_io_items))
+    {
+        if (!nodecl_is_null(nodecl_io_spec))
+        {
+            fprintf(visitor->file, " ");
+        }
+        codegen_comma_separated_list(visitor, nodecl_io_items);
+    }
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_open_close_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* keyword)
+{
+    indent(visitor);
+    fprintf(visitor->file, "%s (", keyword);
+    nodecl_t nodecl_io_spec = nodecl_get_child(node, 0);
+    if (!nodecl_is_null(nodecl_io_spec))
+    {
+        fprintf(visitor->file, "(");
+        codegen_comma_separated_list(visitor, nodecl_io_spec);
+        fprintf(visitor->file, ")");
+    }
+    fprintf(visitor->file, ")\n");
+}
+
+static void codegen_open_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_open_close_statement(visitor, node, "OPEN");
+}
+
+static void codegen_close_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_open_close_statement(visitor, node, "CLOSE");
 }
 
 static void codegen_empty_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
@@ -639,7 +844,7 @@ static void codegen_labeled_statement(nodecl_codegen_visitor_t* visitor, nodecl_
     scope_entry_t* label_sym = nodecl_get_symbol(node);
 
     indent(visitor);
-    fprintf(visitor->file, "%s", label_sym->symbol_name);
+    fprintf(visitor->file, "%s ", label_sym->symbol_name);
 
     int old_indent_level = visitor->indent_level;
     visitor->indent_level = 0;
@@ -681,6 +886,65 @@ static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t nod
             fprintf(visitor->file, ", 1");
         }
     }
+}
+
+static void codegen_while_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "DO WHILE(");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ")\n");
+    visitor->indent_level++;
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "END DO\n");
+}
+
+static void codegen_switch_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "SELECT CASE (");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ")\n");
+    visitor->indent_level += 2;
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    visitor->indent_level -= 2;
+    indent(visitor);
+    fprintf(visitor->file, "END SELECT\n");
+}
+
+static void codegen_case_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "CASE (");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ")\n");
+    visitor->indent_level++;
+
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+}
+
+static void codegen_default_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "CASE DEFAULT\n");
+    visitor->indent_level++;
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
+static void codegen_continue_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
+{
+    indent(visitor);
+    fprintf(visitor->file, "CYCLE\n");
+}
+
+static void codegen_break_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node UNUSED_PARAMETER)
+{
+    indent(visitor);
+    fprintf(visitor->file, "EXIT\n");
 }
 
 static void codegen_for_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -765,7 +1029,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     BINARY_EXPRESSION(lower_than, " < ") \
     BINARY_EXPRESSION(greater_than, " > ") \
     BINARY_EXPRESSION(greater_or_equal_than, " <= ") \
-    BINARY_EXPRESSION(lower_or_equal_than, " => ") \
+    BINARY_EXPRESSION(lower_or_equal_than, " >= ") \
     BINARY_EXPRESSION(logical_and, " .AND. ") \
     BINARY_EXPRESSION(logical_or, " .OR. ") \
     BINARY_EXPRESSION(power, " ** ") \
@@ -902,26 +1166,10 @@ static void codegen_assignment(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
         // Is this a pointer assignment?
         char is_ptr_assignment = 0;
-        if (is_pointer_type(symbol->type_information))
+        if (is_pointer_type(no_ref(symbol->type_information))
+                && (nodecl_get_kind(lhs) != NODECL_DERREFERENCE))
         {
-            if (!symbol->entity_specs.is_parameter
-                    || symbol->entity_specs.is_value)
-            {
-                if (nodecl_get_kind(lhs) != NODECL_DERREFERENCE)
-                {
-                    is_ptr_assignment = 1;
-                }
-            }
-            else
-            {
-                ERROR_CONDITION(nodecl_get_kind(lhs) != NODECL_DERREFERENCE, 
-                        "A dummy argument must be derreferenced unless it is VALUE", 0);
-                nodecl_t n = nodecl_get_child(lhs, 0);
-                if (nodecl_get_kind(n) != NODECL_DERREFERENCE)
-                {
-                    is_ptr_assignment = 1;
-                }
-            }
+            is_ptr_assignment = 1;
         }
 
         if (is_ptr_assignment)
@@ -945,6 +1193,20 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
 
+static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* val = nodecl_get_constant(node);
+
+    if (const_value_is_zero(val))
+    {
+        fprintf(visitor->file, ".FALSE.");
+    }
+    else
+    {
+        fprintf(visitor->file, ".TRUE.");
+    }
+}
+
 static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     const_value_t* value = nodecl_get_constant(node);
@@ -959,6 +1221,22 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     {
         fprintf(visitor->file, "_%d", num_bytes);
     }
+}
+
+static void codegen_complex_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "(");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ", ");
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, ")");
+}
+
+static void codegen_structured_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "(/ ");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, " /)");
 }
 
 static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1011,6 +1289,48 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
     fprintf(visitor->file, ")");
 }
 
+static void codegen_fortran_data(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "DATA ");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, " / ");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, " /\n");
+}
+
+static void codegen_implied_do(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t nodecl_symbol = nodecl_get_child(node, 0);
+    nodecl_t nodecl_range = nodecl_get_child(node, 1);
+    nodecl_t nodecl_expressions = nodecl_get_child(node, 2);
+
+    fprintf(visitor->file, "(");
+    codegen_comma_separated_list(visitor, nodecl_expressions);
+
+    fprintf(visitor->file, ", ");
+
+    codegen_walk(visitor, nodecl_symbol);
+
+    fprintf(visitor->file, " = ");
+
+    nodecl_t nodecl_lower = nodecl_get_child(nodecl_range, 0);
+    nodecl_t nodecl_upper = nodecl_get_child(nodecl_range, 1);
+    nodecl_t nodecl_stride = nodecl_get_child(nodecl_range, 2);
+
+    codegen_walk(visitor, nodecl_lower);
+    fprintf(visitor->file, ", ");
+    codegen_walk(visitor, nodecl_upper);
+
+    if (!nodecl_is_null(nodecl_stride))
+    {
+        fprintf(visitor->file, ", ");
+        codegen_walk(visitor, nodecl_stride);
+    }
+
+    fprintf(visitor->file, ")");
+}
+
 // FIXME - Fortran 2003 blocks
 static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -1044,7 +1364,10 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_subscript_triplet = codegen_visitor_fun(codegen_subscript_triplet);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_structured_literal = codegen_visitor_fun(codegen_structured_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_complex_literal = codegen_visitor_fun(codegen_complex_literal);
     NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
     NODECL_VISITOR(codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
     NODECL_VISITOR(codegen_visitor)->visit_assignment = codegen_visitor_fun(codegen_assignment);
@@ -1062,11 +1385,31 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_labeled_statement = codegen_visitor_fun(codegen_labeled_statement);
     NODECL_VISITOR(codegen_visitor)->visit_goto_statement = codegen_visitor_fun(codegen_goto_statement);
     NODECL_VISITOR(codegen_visitor)->visit_for_statement = codegen_visitor_fun(codegen_for_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_while_statement = codegen_visitor_fun(codegen_while_statement);
     NODECL_VISITOR(codegen_visitor)->visit_loop_control = codegen_visitor_fun(codegen_loop_control);
+    NODECL_VISITOR(codegen_visitor)->visit_switch_statement = codegen_visitor_fun(codegen_switch_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_case_statement = codegen_visitor_fun(codegen_case_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_default_statement = codegen_visitor_fun(codegen_default_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_break_statement = codegen_visitor_fun(codegen_break_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_continue_statement = codegen_visitor_fun(codegen_continue_statement);
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_io_spec = codegen_visitor_fun(codegen_fortran_io_spec);
     NODECL_VISITOR(codegen_visitor)->visit_print_statement = codegen_visitor_fun(codegen_print_statement);
     NODECL_VISITOR(codegen_visitor)->visit_write_statement = codegen_visitor_fun(codegen_write_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_read_statement = codegen_visitor_fun(codegen_read_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_stop_statement = codegen_visitor_fun(codegen_stop_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_computed_goto_statement = codegen_visitor_fun(codegen_computed_goto_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_io_statement = codegen_visitor_fun(codegen_io_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_open_statement = codegen_visitor_fun(codegen_open_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_close_statement = codegen_visitor_fun(codegen_close_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_allocate_statement = codegen_visitor_fun(codegen_allocate_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_deallocate_statement = codegen_visitor_fun(codegen_deallocate_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_nullify_statement = codegen_visitor_fun(codegen_nullify_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_arithmetic_if_statement = codegen_visitor_fun(codegen_arithmetic_if_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_label_assign_statement = codegen_visitor_fun(codegen_label_assign_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_assigned_goto_statement = codegen_visitor_fun(codegen_assigned_goto_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
+    NODECL_VISITOR(codegen_visitor)->visit_implied_do = codegen_visitor_fun(codegen_implied_do);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)
@@ -1108,3 +1451,4 @@ static char* fortran_codegen_to_str(nodecl_t node)
 
     return str;
 }
+

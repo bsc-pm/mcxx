@@ -276,8 +276,6 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
         {
             AST implied_do_ac_value = ASTSon0(ac_value);
 
-            decl_context_t new_context = fortran_new_block_context(decl_context);
-
             AST implied_do_control = ASTSon1(ac_value);
             AST ac_do_variable = ASTSon0(implied_do_control);
             AST lower_bound = ASTSon1(implied_do_control);
@@ -292,17 +290,12 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
             if (stride != NULL)
                 fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
 
-            scope_entry_t* do_variable = new_symbol(new_context, new_context.current_scope,
-                    ASTText(ac_do_variable));
-
-            do_variable->kind = SK_VARIABLE;
-            do_variable->type_information 
-                = get_const_qualified_type(get_signed_int_type());
-            do_variable->file = ASTFileName(ac_do_variable);
-            do_variable->line = ASTLine(ac_do_variable);
+            scope_entry_t* do_variable = query_name_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
 
             nodecl_t nodecl_ac_value = nodecl_null();
-            check_ac_value_list(implied_do_ac_value, new_context, &nodecl_ac_value);
+            check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value);
+
+            expression_set_type(ac_value, expression_get_type(implied_do_ac_value));
 
             nodecl_t nodecl_implied_do = 
                 nodecl_make_implied_do(

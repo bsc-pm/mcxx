@@ -102,6 +102,7 @@ expression : literal
            | NODECL_DERREFERENCE([rhs]expression) type
            | NODECL_CAST([rhs]expression) type text
            | c-cxx-expressions
+           | fortran-expressions
            | object-init
            | builtin-expr
 
@@ -154,7 +155,6 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 type-or-expr : type
              | expression
 
-# FIXME - Document these. Some of them could be simplified further
 fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
                         | NODECL_ARITHMETIC_IF_STATEMENT([expr]expression, [lower]name, [equal]name, [upper]name)
                         | NODECL_ASSIGNED_GOTO_STATEMENT([index]name, [label_seq]name-seq)
@@ -169,6 +169,18 @@ fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [opti
                         | NODECL_READ_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_STOP_STATEMENT([stop_code]expression-opt)
+
+# NODECL_FORTRAN_DATA
+#   This is used only for .data variable which holds the initializations by means
+#   of DATA statements
+# NODECL_FORTRAN_EQUIVALENCE
+#   This is used only for .equivalence variable which holds the equivalence of
+#   data storage
+fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
+                    | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression)
+
+fortran-data-item : expression
+                  | fortran-implied-do
 
 fortran-io-spec: NODECL_FORTRAN_IO_SPEC([value]expression-opt) text
 

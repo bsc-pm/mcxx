@@ -85,9 +85,11 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
     }
 }
 
-static scope_entry_t* get_unknown_symbols_info(decl_context_t decl_context)
+static scope_entry_t* get_special_symbol(decl_context_t decl_context, const char *name)
 {
-    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ".unknown_symbols");
+    ERROR_CONDITION(name == NULL || name[0] != '.', "Name '%s' is not special enough\n", name);
+
+    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
     if (entry_list == NULL)
     {
         return NULL;
@@ -98,17 +100,38 @@ static scope_entry_t* get_unknown_symbols_info(decl_context_t decl_context)
     return unknown_info;
 }
 
-static scope_entry_t* get_or_create_unknown_symbols_info(decl_context_t decl_context)
+
+static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, const char* name)
 {
-    scope_entry_t* unknown_info = get_unknown_symbols_info(decl_context);
+    scope_entry_t* unknown_info = get_special_symbol(decl_context, name);
 
     if (unknown_info == NULL)
     {
-        unknown_info = new_symbol(decl_context, decl_context.current_scope, ".unknown_symbols");
+        unknown_info = new_symbol(decl_context, decl_context.current_scope, name);
         unknown_info->kind = SK_OTHER;
     }
 
     return unknown_info;
+}
+
+static scope_entry_t* get_unknown_symbols_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".unknown_symbols");
+}
+
+static scope_entry_t* get_or_create_unknown_symbols_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".unknown_symbols");
+}
+
+scope_entry_t* get_data_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".data");
+}
+
+static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".data");
 }
 
 static void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
@@ -2003,6 +2026,8 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
 
     scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
+    char was_ref = is_lvalue_reference_type(entry->type_information);
+
     if (entry->kind != SK_VARIABLE)
     {
         running_error("%s: error: invalid entity '%s' in dimension declaration\n", 
@@ -2018,11 +2043,16 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
                 entry->symbol_name);
     }
 
-    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+    type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
             array_spec,
             decl_context,
             /* array_spec_kind */ NULL);
     entry->type_information = array_type;
+
+    if (was_ref)
+    {
+        entry->type_information = get_lvalue_reference_type(entry->type_information);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
@@ -2370,18 +2400,23 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
                     ASTFileName(case_value_range),
                     ASTLine(case_value_range));
 
-            nodecl_append_to_list(nodecl_expr_list, nodecl_triplet);
+            nodecl_expr_list = nodecl_append_to_list(nodecl_expr_list, nodecl_triplet);
         }
         else
         {
             fortran_check_expression(case_value_range, decl_context);
-            nodecl_append_to_list(nodecl_expr_list, 
+            nodecl_expr_list = nodecl_append_to_list(nodecl_expr_list, 
                     expression_get_nodecl(case_value_range));
         }
     }
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    if (!nodecl_is_list(nodecl_statement))
+    {
+        nodecl_statement = nodecl_make_list_1(nodecl_statement);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_CASE_EXPRESSION, case_selector);
@@ -2396,6 +2431,11 @@ static void build_scope_default_statement(AST a, decl_context_t decl_context, no
 
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+
+    if (!nodecl_is_list((nodecl_statement)))
+    {
+        nodecl_statement = nodecl_make_list_1(nodecl_statement);
+    }
 
     *nodecl_output = nodecl_make_default_statement(nodecl_statement, ASTFileName(a), ASTLine(a));
 }
@@ -2515,11 +2555,18 @@ static void build_scope_common_stmt(AST a,
                             sym->symbol_name);
                 }
 
-                type_t* array_type = compute_type_from_array_spec(sym->type_information, 
+                char was_ref = is_lvalue_reference_type(sym->type_information);
+
+                type_t* array_type = compute_type_from_array_spec(no_ref(sym->type_information),
                         array_spec,
                         decl_context,
                         /* array_spec_kind */ NULL);
                 sym->type_information = array_type;
+
+                if (was_ref)
+                {
+                    sym->type_information = get_lvalue_reference_type(sym->type_information);
+                }
             }
         }
     }
@@ -2696,8 +2743,6 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     AST implied_do_object_list = ASTSon0(a);
     AST implied_do_control = ASTSon1(a);
 
-    decl_context_t new_context = fortran_new_block_context(decl_context);
-
     AST io_do_variable = ASTSon0(implied_do_control);
     AST lower_bound = ASTSon1(implied_do_control);
     AST upper_bound = ASTSon2(implied_do_control);
@@ -2715,18 +2760,12 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         nodecl_stride = expression_get_nodecl(stride);
     }
 
-    scope_entry_t* do_variable = new_fortran_symbol(new_context, ASTText(io_do_variable));
+    scope_entry_t* do_variable = query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
 
-    do_variable->kind = SK_VARIABLE;
-    do_variable->type_information 
-        = get_const_qualified_type(get_signed_int_type());
-    do_variable->file = ASTFileName(io_do_variable);
-    do_variable->line = ASTLine(io_do_variable);
-
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, new_context);
+    scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, decl_context);
 
     nodecl_t nodecl_rec = nodecl_null();
-    rec_handler(implied_do_object_list, new_context, &nodecl_rec);
+    rec_handler(implied_do_object_list, decl_context, &nodecl_rec);
 
     *nodecl_output = nodecl_make_implied_do(
             nodecl_make_symbol(do_variable, ASTFileName(io_do_variable), ASTLine(io_do_variable)),
@@ -2737,7 +2776,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
 }
 
 static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_context_t decl_context, 
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+        nodecl_t* nodecl_output)
 {
     AST it2;
     for_each_element(data_stmt_object_list, it2)
@@ -2748,10 +2787,13 @@ static void build_scope_data_stmt_object_list(AST data_stmt_object_list, decl_co
             nodecl_t nodecl_implied_do = nodecl_null();
             generic_implied_do_handler(data_stmt_object, decl_context,
                     build_scope_data_stmt_object_list, &nodecl_implied_do);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
             fortran_check_expression(data_stmt_object, decl_context);
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, 
+                    expression_get_nodecl(data_stmt_object));
         }
     }
 }
@@ -2760,19 +2802,25 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
 {
     AST data_stmt_set_list = ASTSon0(a);
 
+    scope_entry_t* entry = get_or_create_data_symbol_info(decl_context);
+
     AST it;
     for_each_element(data_stmt_set_list, it)
     {
         AST data_stmt_set = ASTSon1(it);
 
         AST data_stmt_object_list = ASTSon0(data_stmt_set);
-        nodecl_t nodecl_item = nodecl_null();
-        build_scope_data_stmt_object_list(data_stmt_object_list, decl_context, &nodecl_item);
+        nodecl_t nodecl_item_set = nodecl_null();
+        build_scope_data_stmt_object_list(data_stmt_object_list, decl_context, &nodecl_item_set);
+
+        nodecl_t nodecl_data_set = nodecl_null();
 
         AST data_stmt_value_list = ASTSon1(data_stmt_set);
         AST it2;
         for_each_element(data_stmt_value_list, it2)
         {
+            nodecl_t nodecl_data = nodecl_null();
+
             AST data_stmt_value = ASTSon1(it2);
             if (ASTType(data_stmt_value) == AST_MUL)
             {
@@ -2780,12 +2828,25 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 // not have to be valid
                 fortran_check_expression(ASTSon0(data_stmt_value), decl_context);
                 fortran_check_expression(ASTSon1(data_stmt_value), decl_context);
+
+                nodecl_data = nodecl_make_mul(
+                        expression_get_nodecl(ASTSon0(data_stmt_value)),
+                        expression_get_nodecl(ASTSon1(data_stmt_value)),
+                        get_void_type(),
+                        ASTFileName(data_stmt_value),
+                        ASTLine(data_stmt_value));
             }
             else
             {
                 fortran_check_expression(data_stmt_value, decl_context);
+                nodecl_data = expression_get_nodecl(data_stmt_value);
             }
+
+            nodecl_data_set = nodecl_append_to_list(nodecl_data_set, nodecl_data);
         }
+
+        entry->value = nodecl_append_to_list(entry->value, 
+                nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
@@ -3016,14 +3077,12 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
                 entry->defined = 1;
 
-                AST char_length = NULL;
-                AST initialization = NULL;
                 if (entity_decl_specs != NULL)
                 {
                     AST array_spec = ASTSon0(entity_decl_specs);
                     AST coarray_spec = ASTSon1(entity_decl_specs);
-                    char_length = ASTSon2(entity_decl_specs);
-                    initialization = ASTSon3(entity_decl_specs);
+                    AST char_length = ASTSon2(entity_decl_specs);
+                    // AST initialization = ASTSon3(entity_decl_specs);
 
                     if (array_spec != NULL)
                     {
@@ -3124,15 +3183,17 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
                     ASTText(name));
         }
 
+        char was_ref = is_lvalue_reference_type(entry->type_information);
+
         char is_pointer = is_pointer_type(no_ref(entry->type_information));
 
         if (is_pointer_type(no_ref(entry->type_information)))
         {
-            entry->type_information = pointer_type_get_pointee_type(entry->type_information);
+            entry->type_information = pointer_type_get_pointee_type(no_ref(entry->type_information));
         }
 
         AST array_spec = ASTSon1(dimension_decl);
-        type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+        type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                 array_spec,
                 decl_context,
                 /* array_spec_kind */ NULL);
@@ -3144,7 +3205,12 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
 
         if (is_pointer)
         {
-            entry->type_information = get_pointer_type(entry->type_information);
+            entry->type_information = get_pointer_type(no_ref(entry->type_information));
+        }
+
+        if (was_ref)
+        {
+            entry->type_information = get_lvalue_reference_type(entry->type_information);
         }
     }
 
@@ -3814,6 +3880,8 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
+        char was_ref = is_lvalue_reference_type(entry->type_information);
+
         if (is_pointer_type(no_ref(entry->type_information)))
         {
             running_error("%s: error: entity '%s' has already the POINTER attribute\n",
@@ -3831,7 +3899,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
                         entry->symbol_name);
             }
 
-            type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+            type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                     array_spec,
                     decl_context,
                     /* array_spec_kind */ NULL);
@@ -3841,7 +3909,12 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         if (entry->kind == SK_UNDEFINED)
             entry->kind = SK_VARIABLE;
 
-        entry->type_information = get_pointer_type(entry->type_information);
+        entry->type_information = get_pointer_type(no_ref(entry->type_information));
+
+        if (was_ref)
+        {
+            entry->type_information = get_lvalue_reference_type(entry->type_information);
+        }
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
@@ -4034,6 +4107,18 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
         }
     }
 
+    // Result symbol (for consistency with remaining functions in the language)
+    scope_entry_t* result_sym = calloc(1, sizeof(*result_sym));
+    result_sym->symbol_name = entry->symbol_name;
+    result_sym->kind = SK_VARIABLE;
+    result_sym->decl_context = decl_context;
+    result_sym->type_information = entry->type_information;
+    result_sym->entity_specs.is_result = 1;
+
+    P_LIST_ADD(entry->entity_specs.related_symbols,
+            entry->entity_specs.num_related_symbols,
+            result_sym);
+
     parameter_info_t parameter_info[1 + num_dummy_arguments];
     memset(parameter_info, 0, sizeof(parameter_info));
 
@@ -4049,6 +4134,9 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
     entry->type_information = new_type;
 
     fortran_check_expression(expr, decl_context);
+
+    // Keep this as the expression of the function
+    entry->value = expression_get_nodecl(expr);
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
@@ -4112,6 +4200,7 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
 
         scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
 
+
         if (ASTType(target_decl_list) == AST_DIMENSION_DECL)
         {
             name = ASTSon0(target_decl);
@@ -4133,11 +4222,18 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
                             entry->symbol_name);
                 }
 
-                type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                char was_ref = is_lvalue_reference_type(entry->type_information);
+
+                type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information),
                         array_spec,
                         decl_context,
                         /* array_spec_kind */ NULL);
                 entry->type_information = array_type;
+
+                if (was_ref)
+                {
+                    entry->type_information = get_lvalue_reference_type(entry->type_information);
+                }
             }
         }
 
@@ -4234,14 +4330,12 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             }
         }
 
-        AST char_length = NULL;
-        AST initialization = NULL;
         if (entity_decl_specs != NULL)
         {
             AST array_spec = ASTSon0(entity_decl_specs);
             AST coarray_spec = ASTSon1(entity_decl_specs);
-            char_length = ASTSon2(entity_decl_specs);
-            initialization = ASTSon3(entity_decl_specs);
+            AST char_length = ASTSon2(entity_decl_specs);
+            AST initialization = ASTSon3(entity_decl_specs);
 
             if (array_spec != NULL)
             {
@@ -4298,6 +4392,26 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                     initialization = ASTSon0(initialization);
                 }
                 fortran_check_expression(initialization, decl_context);
+
+                entry->kind = SK_VARIABLE;
+
+                entry->language_dependent_value = initialization;
+                entry->value = expression_get_nodecl(initialization);
+
+                if (!current_attr_spec.is_constant)
+                {
+                    entry->entity_specs.is_static = 1;
+                }
+                else
+                {
+                    entry->type_information = get_const_qualified_type(entry->type_information);
+                }
+            }
+
+            if (current_attr_spec.is_constant 
+                    && initialization == NULL)
+            {
+                running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
             }
         }
 
@@ -4309,49 +4423,17 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         if (current_attr_spec.is_dimension)
         {
-            type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+            char was_ref = is_lvalue_reference_type(entry->type_information);
+            type_t* array_type = compute_type_from_array_spec(no_ref(entry->type_information), 
                     current_attr_spec.array_spec,
                     decl_context,
                     /* array_spec_kind */ NULL);
             entry->kind = SK_VARIABLE;
             entry->type_information = array_type;
-        }
-
-        if (initialization != NULL)
-        {
-            if (ASTType(initialization) == AST_POINTER_INITIALIZATION)
+            if (was_ref)
             {
-                if (!current_attr_spec.is_pointer)
-                {
-                    running_error("%s: error: no POINTER attribute, required for pointer initialization\n",
-                            ast_location(initialization));
-                }
-                initialization = ASTSon0(initialization);
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
             }
-            fortran_check_expression(initialization, decl_context);
-
-            entry->kind = SK_VARIABLE;
-        }
-
-        if (initialization != NULL)
-        {
-            entry->language_dependent_value = initialization;
-            entry->value = expression_get_nodecl(initialization);
-            entry->kind = SK_VARIABLE;
-            if (!current_attr_spec.is_constant)
-            {
-                entry->entity_specs.is_static = 1;
-            }
-            else
-            {
-                entry->type_information = get_const_qualified_type(entry->type_information);
-            }
-        }
-
-        if (current_attr_spec.is_constant 
-                && initialization == NULL)
-        {
-            running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
         }
 
         // FIXME - Should we do something with this attribute?
@@ -4417,7 +4499,12 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
 
         if (current_attr_spec.is_pointer)
         {
-            entry->type_information = get_pointer_type(entry->type_information);
+            char was_ref = is_lvalue_reference_type(entry->type_information);
+            entry->type_information = get_pointer_type(no_ref(entry->type_information));
+            if (was_ref)
+            {
+                entry->type_information = get_lvalue_reference_type(entry->type_information);
+            }
         }
 
         DEBUG_CODE()

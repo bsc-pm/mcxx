@@ -2540,7 +2540,12 @@ static type_t* _get_array_type(type_t* element_type,
             _undefined_array_types = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
         }
 
-        type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
+        type_t* undefined_array_type = NULL;
+        if (nodecl_is_null(lower_bound)
+                && nodecl_is_null(upper_bound))
+        {
+            undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
+        }
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
@@ -2550,6 +2555,11 @@ static type_t* _get_array_type(type_t* element_type,
             result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
             result->array->element_type = element_type;
             result->array->whole_size = nodecl_null();
+
+            // If we used the hash of array types, these two will be null
+            result->array->lower_bound = lower_bound;
+            result->array->upper_bound = upper_bound;
+
             result->array->array_expr_decl_context = decl_context;
 
             result->info->is_incomplete = 1;
@@ -5125,7 +5135,6 @@ char array_type_is_unknown_size(type_t* t)
 nodecl_t array_type_get_array_lower_bound(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
-    ERROR_CONDITION(array_type_is_unknown_size(t), "Array of unknown size does not have lower bound", 0);
     t = advance_over_typedefs(t);
 
     return t->array->lower_bound;

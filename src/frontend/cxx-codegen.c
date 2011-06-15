@@ -1057,6 +1057,20 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
 
+static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* val = nodecl_get_constant(node);
+
+    if (const_value_is_zero(val))
+    {
+        fprintf(visitor->file, "false");
+    }
+    else
+    {
+        fprintf(visitor->file, "true");
+    }
+}
+
 // We return negative numbers because it is easier to list them in descending priority order
 static int get_rank_kind(node_t n, const char* text)
 {
@@ -2327,6 +2341,7 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl)
     NODECL_VISITOR(&codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
     NODECL_VISITOR(&codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
     NODECL_VISITOR(&codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
+    NODECL_VISITOR(&codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
     NODECL_VISITOR(&codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(&codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
     NODECL_VISITOR(&codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
