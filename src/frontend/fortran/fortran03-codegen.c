@@ -579,10 +579,14 @@ static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* 
     declare_everything_needed(visitor, statement_seq);
 
     scope_entry_t* data_symbol = get_data_symbol_info(entry->decl_context);
-
     if (data_symbol != NULL)
     {
         codegen_walk(visitor, data_symbol->value);
+    }
+    scope_entry_t* equivalence_symbol = get_equivalence_symbol_info(entry->decl_context);
+    if (equivalence_symbol != NULL)
+    {
+        codegen_walk(visitor, equivalence_symbol->value);
     }
 
     codegen_walk(visitor, statement_seq);
@@ -1299,6 +1303,16 @@ static void codegen_fortran_data(nodecl_codegen_visitor_t* visitor, nodecl_t nod
     fprintf(visitor->file, " /\n");
 }
 
+static void codegen_fortran_equivalence(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    indent(visitor);
+    fprintf(visitor->file, "EQUIVALENCE (");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, ", ");
+    codegen_comma_separated_list(visitor, nodecl_get_child(node, 1));
+    fprintf(visitor->file, ")\n");
+}
+
 static void codegen_implied_do(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t nodecl_symbol = nodecl_get_child(node, 0);
@@ -1408,8 +1422,9 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_arithmetic_if_statement = codegen_visitor_fun(codegen_arithmetic_if_statement);
     NODECL_VISITOR(codegen_visitor)->visit_label_assign_statement = codegen_visitor_fun(codegen_label_assign_statement);
     NODECL_VISITOR(codegen_visitor)->visit_assigned_goto_statement = codegen_visitor_fun(codegen_assigned_goto_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
     NODECL_VISITOR(codegen_visitor)->visit_implied_do = codegen_visitor_fun(codegen_implied_do);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_equivalence = codegen_visitor_fun(codegen_fortran_equivalence);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)

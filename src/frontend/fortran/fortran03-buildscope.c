@@ -134,6 +134,16 @@ static scope_entry_t* get_or_create_data_symbol_info(decl_context_t decl_context
     return get_or_create_special_symbol(decl_context, ".data");
 }
 
+scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context)
+{
+    return get_special_symbol(decl_context, ".equivalence");
+}
+
+static scope_entry_t* get_or_create_equivalence_symbol_info(decl_context_t decl_context)
+{
+    return get_or_create_special_symbol(decl_context, ".equivalence");
+}
+
 static void add_unknown_symbol(decl_context_t decl_context, scope_entry_t* entry)
 {
     scope_entry_t* unknown_info = get_or_create_unknown_symbols_info(decl_context);
@@ -3296,6 +3306,8 @@ static void build_scope_equivalence_stmt(AST a,
 {
     AST equivalence_set_list = ASTSon0(a);
 
+    scope_entry_t* equivalence_info = get_or_create_equivalence_symbol_info(decl_context);
+
     AST it;
     for_each_element(equivalence_set_list, it)
     {
@@ -3306,17 +3318,27 @@ static void build_scope_equivalence_stmt(AST a,
 
         fortran_check_expression(equivalence_object, decl_context);
 
+        nodecl_t nodecl_equivalence_set = nodecl_null();
+
         AST it2;
         for_each_element(equivalence_object_list, it2)
         {
             AST equiv_obj = ASTSon1(it2);
             fortran_check_expression(equiv_obj, decl_context);
-        }
-    }
 
-    // We are not keeping enough information yet
-    warn_printf("%s: warning: EQUIVALENCE statement may not be honoured\n",
-            ast_location(a));
+            nodecl_equivalence_set = nodecl_append_to_list(nodecl_equivalence_set, 
+                    expression_get_nodecl(equiv_obj));
+        }
+
+        nodecl_t nodecl_equivalence = nodecl_make_fortran_equivalence(
+                expression_get_nodecl(equivalence_object),
+                nodecl_equivalence_set,
+                ASTFileName(equivalence_set),
+                ASTLine(equivalence_set));
+
+        equivalence_info->value = nodecl_append_to_list(equivalence_info->value, 
+                nodecl_equivalence);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }

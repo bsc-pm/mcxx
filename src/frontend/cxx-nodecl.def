@@ -177,7 +177,7 @@ fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [opti
 #   This is used only for .equivalence variable which holds the equivalence of
 #   data storage
 fortran-expressions : NODECL_FORTRAN_DATA([objects]fortran-data-item-seq, [values]fortran-data-item-seq)
-                    | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression)
+                    | NODECL_FORTRAN_EQUIVALENCE([first]expression, [second]expression-seq)
 
 fortran-data-item : expression
                   | fortran-implied-do

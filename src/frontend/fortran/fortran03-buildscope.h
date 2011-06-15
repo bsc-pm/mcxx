@@ -55,6 +55,7 @@ LIBMF03_EXTERN void build_scope_program_unit(AST program_unit,
 LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);
 
 LIBMF03_EXTERN scope_entry_t* get_data_symbol_info(decl_context_t decl_context_t);
+LIBMF03_EXTERN scope_entry_t* get_equivalence_symbol_info(decl_context_t decl_context);
 
 MCXX_END_DECLS
 
