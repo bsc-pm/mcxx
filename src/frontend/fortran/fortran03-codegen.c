@@ -405,14 +405,55 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                         entry->symbol_name,
                         array_specifier,
                         initializer);
+
+                if (entry->entity_specs.is_in_common)
+                {
+                    declare_symbol(visitor, entry->entity_specs.in_common);
+                }
                 break;
             }
         case SK_NAMELIST:
-            {
-                break;
-            }
         case SK_COMMON:
             {
+                int i, num_symbols = entry->entity_specs.num_related_symbols;
+                for (i = 0; i < num_symbols; i++)
+                {
+                    scope_entry_t* common_member = entry->entity_specs.related_symbols[i];
+                    declare_symbol(visitor, common_member);
+                }
+
+                const char* keyword = NULL;
+                const char* symbol_name = NULL;
+                if (entry->kind == SK_NAMELIST)
+                {
+                    keyword = "NAMELIST";
+                    symbol_name = entry->symbol_name;
+                }
+                else // COMMON
+                {
+                    keyword = "NAMELIST";
+                    // Ignore ".common."
+                    symbol_name = entry->symbol_name + strlen(".common.");
+                }
+
+                indent(visitor);
+                fprintf(visitor->file, "%s / %s / ", keyword, symbol_name);
+                for (i = 0; i < num_symbols; i++)
+                {
+                    scope_entry_t* common_member = entry->entity_specs.related_symbols[i];
+                    if (i != 0)
+                        fprintf(visitor->file, ", ");
+
+                    fprintf(visitor->file, "%s", common_member->symbol_name);
+                }
+                fprintf(visitor->file, "\n");
+
+                if (entry->kind == SK_NAMELIST
+                        && entry->entity_specs.is_static)
+                {
+                    indent(visitor);
+                    fprintf(visitor->file, "SAVE /%s/\n", entry->symbol_name);
+                }
                 break;
             }
         case SK_FUNCTION:

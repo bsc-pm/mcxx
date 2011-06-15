@@ -2578,6 +2578,8 @@ static void build_scope_common_stmt(AST a,
                     sym->type_information = get_lvalue_reference_type(sym->type_information);
                 }
             }
+
+            P_LIST_ADD(common_sym->entity_specs.related_symbols, common_sym->entity_specs.num_related_symbols, sym);
         }
     }
 
@@ -5621,6 +5623,12 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
         }
         *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "UNIT", ASTFileName(opt_value), ASTLine(opt_value));
     }
+    else
+    {
+        *nodecl_output = nodecl_make_fortran_io_spec(
+                nodecl_make_string_literal(get_void_type(), "*", ASTFileName(value), ASTLine(value)),
+                "UNIT", ASTFileName(opt_value), ASTLine(opt_value));
+    }
 }
 
 static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5645,7 +5653,7 @@ static int get_position_in_io_spec_list(AST value)
     return n;
 }
 
-static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value_ambig, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void opt_ambiguous_io_spec_handler(AST io_stmt, AST opt_value_ambig, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // This ambiguous io spec handler exists because of the definition of io-control-spec
     //
@@ -5701,7 +5709,6 @@ static void opt_ambiguous_io_spec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_
     }
 
     int position = get_position_in_io_spec_list(opt_value_ambig);
-
 
     char bad = 0;
     // First item
