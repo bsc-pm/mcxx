@@ -84,6 +84,7 @@ integer|all|template_parameter_position|Position in the template parameter scopi
 integer|all|parameter_position|States the position of this parameter. See is_parameter
 type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
+symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|all|injected_class_referred_symbol|The original class symbol reachable from the injected class name. See is_injected_class_name
 string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception

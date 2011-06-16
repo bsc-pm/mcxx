@@ -17,12 +17,20 @@ struct nodecl_codegen_visitor_tag
     FILE *file;
     int indent_level;
     scope_entry_t* current_sym;
+
+    scope_entry_t* current_module;
+
+    // Ommit interface if we are already in one interface
+    char in_interface;
 } nodecl_codegen_visitor_t;
 
 typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
 typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
 
 static char* fortran_codegen_to_str(nodecl_t node);
+
+static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node);
+static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry);
 
 // This is safer than using the macro directly as it will warn us against wrong types
 // while the macro does not
@@ -78,6 +86,42 @@ static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAME
             nodecl_get_locus(node));
 }
 
+static void codegen_module_header(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    fprintf(visitor->file, "MODULE %s\n", entry->symbol_name);
+
+    int i, num_components = entry->entity_specs.num_related_symbols;
+
+    visitor->indent_level += 2;
+
+    scope_entry_t* previous_sym = visitor->current_sym;
+    visitor->current_sym = entry;
+    for (i = 0; i < num_components; i++)
+    {
+        scope_entry_t* sym = entry->entity_specs.related_symbols[i];
+        if (sym->kind != SK_FUNCTION
+                || sym->entity_specs.is_generic_spec
+                || sym->entity_specs.in_module != visitor->current_module)
+        {
+            declare_symbol(visitor, sym);
+        }
+    }
+    visitor->current_sym = previous_sym;
+    visitor->indent_level -= 1;
+
+    indent(visitor);
+    fprintf(visitor->file, "CONTAINS\n");
+
+    visitor->indent_level += 1;
+
+}
+
+static void codegen_module_footer(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    visitor->indent_level -= 2;
+    fprintf(visitor->file, "END MODULE %s\n", entry->symbol_name);
+}
+
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -87,7 +131,8 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
         case SK_MODULE:
             {
                 // If the FE generates this it means we found a module with no functions
-                fprintf(visitor->file, "! Module %s\n", entry->symbol_name);
+                codegen_module_header(visitor, entry);
+                codegen_module_footer(visitor, entry);
                 break;
             }
         default:
@@ -98,14 +143,57 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
     }
 }
 
+typedef
+struct nodecl_codegen_pre_visitor_tag
+{
+    // Base visitor
+    nodecl_external_visitor_t _base_visitor;
+
+    int num_modules;
+    scope_entry_t** modules;
+} nodecl_codegen_pre_visitor_t;
+
+static void pre_visit_function_code(nodecl_external_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_codegen_pre_visitor_t *pre_visitor = (nodecl_codegen_pre_visitor_t*)visitor;
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+
+    if (entry->entity_specs.in_module != NULL)
+    {
+        P_LIST_ADD_ONCE(pre_visitor->modules,
+                pre_visitor->num_modules,
+                entry->entity_specs.in_module);
+    }
+}
+
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t list = nodecl_get_child(node, 0);
+
+    nodecl_codegen_pre_visitor_t pre_visitor;
+    nodecl_init_walker((nodecl_external_visitor_t*)&pre_visitor, NULL);
+
+    NODECL_VISITOR(&pre_visitor)->visit_function_code = pre_visit_function_code;
+    nodecl_walk((nodecl_external_visitor_t*)&pre_visitor, list);
+
+    int i;
+    for (i = 0; i < pre_visitor.num_modules; i++)
+    {
+        scope_entry_t* old_module = visitor->current_module;
+
+        scope_entry_t* current_module = pre_visitor.modules[i];
+        visitor->current_module = current_module;
+
+        codegen_module_header(visitor, current_module);
+        codegen_walk(visitor, list);
+        codegen_module_footer(visitor, current_module);
+
+        visitor->current_module = old_module;
+    }
+
     codegen_walk(visitor, list);
 }
-
-static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node);
-static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry);
 
 static void codegen_type(nodecl_codegen_visitor_t* visitor, 
         type_t* t, const char** type_specifier, const char **array_specifier,
@@ -458,7 +546,34 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             }
         case SK_FUNCTION:
             {
-                if (function_type_get_lacking_prototype(entry->type_information))
+                if (entry->entity_specs.is_generic_spec)
+                {
+                    indent(visitor);
+                    fprintf(visitor->file, "INTERFACE %s\n", entry->symbol_name);
+                    int i, num_items = entry->entity_specs.num_related_symbols;
+                    visitor->indent_level++;
+                    for (i = 0; i < num_items; i++)
+                    {
+                        scope_entry_t* iface = entry->entity_specs.related_symbols[i];
+
+                        if (iface->entity_specs.in_module == visitor->current_module)
+                        {
+                            indent(visitor);
+                            fprintf(visitor->file, "MODULE PROCEDURE %s\n", iface->symbol_name);
+                        }
+                        else
+                        {
+                            char old_in_interface = visitor->in_interface;
+                            visitor->in_interface = 1;
+                            declare_symbol(visitor, iface);
+                            visitor->in_interface = old_in_interface;
+                        }
+                    }
+                    visitor->indent_level--;
+                    indent(visitor);
+                    fprintf(visitor->file, "END INTERFACE %s\n", entry->symbol_name);
+                }
+                else if (function_type_get_lacking_prototype(entry->type_information))
                 {
                     indent(visitor);
 
@@ -505,10 +620,12 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 }
                 else
                 {
-                    indent(visitor);
-                    fprintf(visitor->file, "INTERFACE\n");
-
-                    visitor->indent_level++;
+                    if (!visitor->in_interface)
+                    {
+                        indent(visitor);
+                        fprintf(visitor->file, "INTERFACE\n");
+                        visitor->indent_level++;
+                    }
                     codegen_procedure_declaration_header(visitor, entry);
 
                     scope_entry_t* old = visitor->current_sym;
@@ -525,10 +642,13 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     visitor->current_sym = old;
 
                     codegen_procedure_declaration_footer(visitor, entry);
-                    visitor->indent_level--;
 
-                    indent(visitor);
-                    fprintf(visitor->file, "END INTERFACE\n");
+                    if (!visitor->in_interface)
+                    {
+                        visitor->indent_level--;
+                        indent(visitor);
+                        fprintf(visitor->file, "END INTERFACE\n");
+                    }
                 }
                 break;
             }
@@ -1011,7 +1131,7 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 
     int kind = type_get_size(t);
 
-    // Make this customizable
+    // FIXME Make this customizable
     if (kind == 4)
     {
         fprintf(visitor->file, "%s", nodecl_get_text(node));
@@ -1028,15 +1148,23 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     nodecl_t statement_seq = nodecl_get_child(node, 0);
     nodecl_t internal_subprograms = nodecl_get_child(node, 1);
 
+    // Module procedures are only printed if we are in the current module
+    if (visitor->current_module != entry->entity_specs.in_module)
+        return;
+
     scope_entry_t* old_sym = visitor->current_sym;
     visitor->current_sym = entry;
+
+    if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
+        return;
+    entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 
     switch (entry->kind)
     {
         case SK_PROGRAM:
             {
                 // If it is __MAIN__ do not print the name
-                const char* program_name = entry->symbol_name[0] == '_' ? "" : entry->symbol_name;
+                const char* program_name = entry->symbol_name[0] == '_' ? "MAIN__" : entry->symbol_name;
                 fprintf(visitor->file, "PROGRAM %s\n", program_name);
                 visitor->indent_level++;
 

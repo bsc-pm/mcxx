@@ -629,6 +629,12 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         const char *name = "POINTER";
         result = insert_type_ref_to(handle, t, name, result);
     }
+    else if (is_lvalue_reference_type(t))
+    {
+        result = insert_type(handle, reference_type_get_referenced_type(t));
+        const char *name = "REFERENCE";
+        result = insert_type_ref_to(handle, t, name, result);
+    }
     else if (is_function_type(t))
     {
         const char *name = "FUNCTION";
@@ -1297,6 +1303,11 @@ static int get_type(void *datum,
     else if (strcmp(kind, "POINTER") == 0)
     {
         *pt = get_pointer_type(load_type(handle, ref));
+        insert_map_ptr(handle, current_oid, *pt);
+    }
+    else if (strcmp(kind, "REFERENCE") == 0)
+    {
+        *pt = get_lvalue_reference_type(load_type(handle, ref));
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "ARRAY") == 0)

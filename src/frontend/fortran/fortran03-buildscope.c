@@ -89,7 +89,10 @@ static scope_entry_t* get_special_symbol(decl_context_t decl_context, const char
 {
     ERROR_CONDITION(name == NULL || name[0] != '.', "Name '%s' is not special enough\n", name);
 
-    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
+    decl_context_t global_context = decl_context;
+    global_context.current_scope = global_context.function_scope;
+
+    scope_entry_list_t* entry_list = query_in_scope_str_flags(global_context, name, DF_ONLY_CURRENT_SCOPE);
     if (entry_list == NULL)
     {
         return NULL;
@@ -236,7 +239,13 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         AST locus, const char* name,
         char no_implicit)
 {
-    scope_entry_t* result = query_name_no_implicit_or_builtin(decl_context, name);
+    scope_entry_t* result = NULL;
+    scope_entry_list_t* entry_list = query_in_scope_str_flags(decl_context, strtolower(name), DF_ONLY_CURRENT_SCOPE);
+    if (entry_list != NULL)
+    {
+        result = entry_list_head(entry_list);
+        entry_list_free(entry_list);
+    }
     if (result == NULL)
     {
         result = new_fortran_symbol(decl_context, name);
@@ -251,6 +260,18 @@ static scope_entry_t* get_symbol_for_name_(decl_context_t decl_context,
         result->entity_specs.is_implicit_basic_type = 1;
         result->file = ASTFileName(locus);
         result->line = ASTLine(locus);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                    module->entity_specs.num_related_symbols,
+                    result);
+
+            result->entity_specs.in_module = module;
+        }
 
         add_unknown_symbol(decl_context, result);
     }
@@ -597,9 +618,9 @@ static void build_scope_module_program_unit(AST program_unit,
     nodecl_t nodecl_internal_subprograms = nodecl_null();
     build_scope_program_body_module(module_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-    // This is a bit strange
-    // If a module does not contain any procedure we need to remember it appeared (use a NODECL_OBJECT_INIT)
-    // otherwise use the procedures instead
+    // This deserves an explanation: if a module does not contain any procedure
+    // we need to remember it appeared (use a NODECL_OBJECT_INIT) otherwise use
+    // the procedures of the module
     if (nodecl_is_null(nodecl_internal_subprograms))
     {
         *nodecl_output = nodecl_make_list_1(
@@ -608,6 +629,18 @@ static void build_scope_module_program_unit(AST program_unit,
     else
     {
         *nodecl_output = nodecl_internal_subprograms;
+    }
+
+    int i, num_symbols = new_entry->entity_specs.num_related_symbols;
+    for (i = 0; i < num_symbols; i++)
+    {
+        // This happens because nobody uses these module entities
+        // symbols and their undefined state remains
+        // Fix them to be plain variables
+        if (new_entry->entity_specs.related_symbols[i]->kind == SK_UNDEFINED)
+        {
+            new_entry->entity_specs.related_symbols[i]->kind = SK_VARIABLE;
+        }
     }
 
     ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
@@ -882,6 +915,18 @@ static void build_scope_internal_subprograms(AST internal_subprograms,
         // Add the symbol to the current scope
         scope_t* current_scope = decl_context.current_scope;
         insert_entry(current_scope, subprogram_sym);
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                    module->entity_specs.num_related_symbols,
+                    subprogram_sym);
+
+            subprogram_sym->entity_specs.in_module = module;
+        }
     }
 }
 
@@ -3723,6 +3768,18 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
                     generic_spec_sym->entity_specs.num_related_symbols,
                     related_symbols[i]);
+        }
+
+        if (decl_context.current_scope->related_entry != NULL
+                && decl_context.current_scope->related_entry->kind == SK_MODULE)
+        {
+            scope_entry_t* module = decl_context.current_scope->related_entry;
+
+            P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                    module->entity_specs.num_related_symbols,
+                    generic_spec_sym);
+
+            generic_spec_sym->entity_specs.in_module = module;
         }
     }
 
