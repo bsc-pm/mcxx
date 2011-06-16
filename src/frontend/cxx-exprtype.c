@@ -6567,7 +6567,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
         nodecl_t nodecl_output = nodecl_make_array_subscript(
                 expression_get_nodecl(subscripted_expr), 
-                expression_get_nodecl(subscript_expr), 
+                nodecl_make_list_1(expression_get_nodecl(subscript_expr)),
                 t, ASTFileName(expr), ASTLine(expr));
         expression_set_nodecl(expr, nodecl_output);
         return;
