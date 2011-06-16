@@ -110,7 +110,11 @@ static scope_entry_t* get_or_create_special_symbol(decl_context_t decl_context, 
 
     if (unknown_info == NULL)
     {
-        unknown_info = new_symbol(decl_context, decl_context.current_scope, name);
+        // Sign it in function scope
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = global_context.function_scope;
+
+        unknown_info = new_symbol(global_context, global_context.current_scope, name);
         unknown_info->kind = SK_OTHER;
     }
 
@@ -465,7 +469,6 @@ static void build_scope_function_program_unit(AST program_unit,
     *program_unit_symbol = new_entry;
 
     new_entry->related_decl_context = program_unit_context;
-    program_unit_context.current_scope->related_entry = new_entry;
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
@@ -544,7 +547,6 @@ static void build_scope_subroutine_program_unit(AST program_unit,
             strappend("._", new_entry->symbol_name));
 
     new_entry->related_decl_context = program_unit_context;
-    program_unit_context.current_scope->related_entry = new_entry;
 
     nodecl_t nodecl_body = nodecl_null();
     nodecl_t nodecl_internal_subprograms = nodecl_null();
@@ -706,6 +708,8 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     {
         entry = new_fortran_symbol(decl_context, ASTText(name));
     }
+
+    decl_context.current_scope->related_entry = entry;
 
     entry->kind = SK_FUNCTION;
     entry->file = ASTFileName(name);

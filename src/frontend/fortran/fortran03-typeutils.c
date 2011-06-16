@@ -57,6 +57,8 @@ const char* fortran_print_type_str(type_t* t)
         const char* type_name = NULL;
         char c[128] = { 0 };
 
+        char is_complex = 0;
+
         if (is_bool_type(t))
         {
             type_name = "LOGICAL";
@@ -78,13 +80,19 @@ const char* fortran_print_type_str(type_t* t)
         else if (is_complex_type(t))
         {
             type_name = "COMPLEX";
+            is_complex = 1;
         }
         else
         {
             internal_error("unreachable code", 0);
         }
 
-        snprintf(c, 127, "%s(%zd)", type_name, type_get_size(t));
+        size_t size = type_get_size(t);
+        // The kind of a complex is half its size
+        if (is_complex)
+            size /= 2;
+
+        snprintf(c, 127, "%s(%zd)", type_name, size);
         c[127] = '\0';
 
         result = uniquestr(c);

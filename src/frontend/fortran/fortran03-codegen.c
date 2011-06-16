@@ -79,6 +79,33 @@ static void codegen_comma_separated_list(nodecl_codegen_visitor_t *visitor, node
     }
 }
 
+static void reverse_codegen_comma_separated_list(nodecl_codegen_visitor_t *visitor, nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    AST list = nodecl_get_ast(node);
+
+    ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Invalid node kind", 0);
+
+    AST it = list;
+
+    while (it != NULL)
+    {
+        AST current = ASTSon1(it);
+
+        // If we are not the last
+        if (it != list)
+        {
+            fprintf(visitor->file, ", ");
+        }
+
+        codegen_walk(visitor, _nodecl_wrap(current));
+
+        it = ASTSon0(it);
+    }
+}
+
 // Codegen
 static void not_implemented_yet(nodecl_external_visitor_t* visitor UNUSED_PARAMETER, nodecl_t node)
 {
@@ -128,11 +155,22 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     switch (entry->kind)
     {
+        // If the FE generates this it means we found a module with no functions
         case SK_MODULE:
             {
-                // If the FE generates this it means we found a module with no functions
+                // This is needed when a module (which had no functions) is
+                // extended with new functions, the tree is scanned first for
+                // functions, but this node is left untouched, so just do
+                // nothing if found after the whole module was already printed
+                if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
+                    return;
+                entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+                scope_entry_t* old_module = visitor->current_module;
+                visitor->current_module = entry;
                 codegen_module_header(visitor, entry);
                 codegen_module_footer(visitor, entry);
+                visitor->current_module = old_module;
                 break;
             }
         default:
@@ -185,6 +223,9 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         scope_entry_t* old_module = visitor->current_module;
 
         scope_entry_t* current_module = pre_visitor.modules[i];
+
+        current_module->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
         visitor->current_module = current_module;
 
         codegen_module_header(visitor, current_module);
@@ -258,6 +299,8 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         const char* type_name = NULL;
         char c[128] = { 0 };
 
+        char is_complex = 0;
+
         if (is_bool_type(t))
         {
             type_name = "LOGICAL";
@@ -279,13 +322,20 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         else if (is_complex_type(t))
         {
             type_name = "COMPLEX";
+            is_complex = 1;
         }
         else
         {
             internal_error("unreachable code", 0);
         }
 
-        snprintf(c, 127, "%s(%zd)", type_name, type_get_size(t));
+        size_t size = type_get_size(t);
+        // The kind of a complex is half its size
+        if (is_complex)
+            size /= 2;
+
+        snprintf(c, 127, "%s(%zd)", type_name, size);
+
         c[127] = '\0';
 
         (*type_specifier) = uniquestr(c);
@@ -558,7 +608,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     {
                         scope_entry_t* iface = entry->entity_specs.related_symbols[i];
 
-                        if (iface->entity_specs.in_module == visitor->current_module)
+                        if (visitor->current_module != NULL
+                               && (iface->entity_specs.in_module == visitor->current_module))
                         {
                             indent(visitor);
                             fprintf(visitor->file, "MODULE PROCEDURE %s\n", iface->symbol_name);
@@ -1424,7 +1475,7 @@ static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t 
     fprintf(visitor->file, "(");
     // We keep a list instead of a single dimension for multidimensional arrays
     // alla Fortran
-    codegen_comma_separated_list(visitor, subscript);
+    reverse_codegen_comma_separated_list(visitor, subscript);
     fprintf(visitor->file, ")");
 }
 
@@ -1466,6 +1517,9 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
 static void codegen_fortran_data(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
+    declare_symbols_rec(visitor, nodecl_get_child(node, 0));
+    declare_symbols_rec(visitor, nodecl_get_child(node, 1));
+
     indent(visitor);
     fprintf(visitor->file, "DATA ");
     codegen_comma_separated_list(visitor, nodecl_get_child(node, 0));
@@ -1476,6 +1530,9 @@ static void codegen_fortran_data(nodecl_codegen_visitor_t* visitor, nodecl_t nod
 
 static void codegen_fortran_equivalence(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
+    declare_symbols_rec(visitor, nodecl_get_child(node, 0));
+    declare_symbols_rec(visitor, nodecl_get_child(node, 1));
+
     indent(visitor);
     fprintf(visitor->file, "EQUIVALENCE (");
     codegen_walk(visitor, nodecl_get_child(node, 0));

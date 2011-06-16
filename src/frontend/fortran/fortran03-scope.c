@@ -135,6 +135,7 @@ decl_context_t new_program_unit_context(decl_context_t decl_context)
     decl_context_t result = new_block_context(decl_context);
     result = new_function_context(result);
     result.implicit_info = allocate_implicit_info_sharing_set(get_default_fortran_implicit());
+    result.current_scope->related_entry = NULL;
 
     return result;
 }
