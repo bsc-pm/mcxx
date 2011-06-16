@@ -172,6 +172,8 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     nodecl_t list = nodecl_get_child(node, 0);
 
     nodecl_codegen_pre_visitor_t pre_visitor;
+    memset(&pre_visitor, 0, sizeof(pre_visitor));
+
     nodecl_init_walker((nodecl_external_visitor_t*)&pre_visitor, NULL);
 
     NODECL_VISITOR(&pre_visitor)->visit_function_code = pre_visit_function_code;
