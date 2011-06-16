@@ -965,7 +965,7 @@ static void add_blank_end(char** line)
 static void add_blank_module_procedure(char** line)
 {
 	char* temp;
-	int  keyword, scanned_length = 0;
+	int scanned_length = 0;
 
 	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
 
@@ -981,13 +981,13 @@ static void add_blank_module_procedure(char** line)
 	BEGIN(MODULE_PROC);
 
 	// This will be MODULE
-	keyword = yylex();
+	yylex();
 	scanned_length += strlen(yytext);
 	strcat(temp, yytext);
 	strcat(temp, " ");
 
 	// This will be PROCEDURE
-	keyword = yylex();
+	yylex();
 	scanned_length += strlen(yytext);
 	strcat(temp, yytext);
 	strcat(temp, " ");
@@ -1235,7 +1235,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 		return;
 	}
 
-	int parenthesis_level;
+	int parenthesis_level = 0;
 
 	// The directive
 	strcat(result, yytext);

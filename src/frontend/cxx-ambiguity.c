@@ -2995,12 +2995,11 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
     {
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
-            char current_check = 0;
             AST current_condition = ast_get_ambiguity(a, i);
             if (ASTSon0(current_condition) == NULL)
             {
                 expression_clear_computed_info(ASTSon2(current_condition));
-                current_check = check_expression(ASTSon2(current_condition), decl_context);
+                check_expression(ASTSon2(current_condition), decl_context);
                 // Best effort
                 choose_option(a, i);
                 return;

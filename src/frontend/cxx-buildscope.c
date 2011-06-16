@@ -3907,13 +3907,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             internal_error("Code unreachable", 0);
     }
 
-    const char* qualification_name = NULL;
-    if (class_id_expression != NULL
-            && is_unqualified_id_expression(class_id_expression))
-    {
-        qualification_name = prettyprint_in_buffer(class_id_expression);
-    }
-
     decl_context_t inner_decl_context;
     // Empty it
     memset(&inner_decl_context, 0, sizeof(inner_decl_context));
