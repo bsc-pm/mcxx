@@ -3445,6 +3445,11 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
+static void build_scope_forall_header(AST a, decl_context_t decl_context, 
+        nodecl_t* loop_control_list, nodecl_t* mask_expr)
+{
+}
+
 // Anyone to implement this? :)
 static void build_scope_forall_construct(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
@@ -3454,11 +3459,23 @@ static void build_scope_forall_construct(AST a,
 }
 
 // Anyone to implement this? :)
-static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, 
-        decl_context_t decl_context UNUSED_PARAMETER, 
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_forall_stmt(AST a, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
 {
-    unsupported_statement(a, "FORALL");
+    AST forall_header = ASTSon0(a);
+    AST forall_assignment_stmts = ASTSon1(a);
+
+    nodecl_t nodecl_mask = nodecl_null();
+    nodecl_t nodecl_loop_control_list = nodecl_null();
+
+    nodecl_t nodecl_statement = nodecl_null();
+    fortran_build_scope_statement(forall_assignment_stmts, decl_context, &nodecl_statement);
+
+    *nodecl_output = nodecl_make_forall(nodecl_loop_control_list, 
+            nodecl_mask, 
+            nodecl_statement,
+            ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_format_stmt(AST a,
@@ -4948,10 +4965,12 @@ static void build_scope_where_body_construct_seq(AST a, decl_context_t decl_cont
 
         nodecl_t nodecl_statement = nodecl_null();
         fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
+
+        *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_statement);
     }
 }
 
-static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (mask_elsewhere_part_seq == NULL)
         return;
@@ -4969,10 +4988,17 @@ static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, dec
 
         nodecl_t nodecl_statement = nodecl_null();
         build_scope_where_body_construct_seq(where_body_construct_seq, decl_context, &nodecl_statement);
+
+        *nodecl_output = nodecl_append_to_list(*nodecl_output,
+                nodecl_make_where_pair(
+                    expression_get_nodecl(expr),
+                    nodecl_statement,
+                    ASTFileName(expr),
+                    ASTLine(expr)));
     }
 }
 
-static void build_scope_where_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_where_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST where_construct_stmt = ASTSon0(a);
     AST mask_expr = ASTSon1(where_construct_stmt);
@@ -4980,28 +5006,49 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
     
     AST where_construct_body = ASTSon1(a);
 
+
     AST main_where_body = ASTSon0(where_construct_body);
     nodecl_t nodecl_body = nodecl_null();
     build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
 
+    nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_where_pair(
+                expression_get_nodecl(mask_expr),
+                nodecl_body, ASTFileName(a), ASTLine(a)));
+
     AST mask_elsewhere_part_seq = ASTSon1(where_construct_body);
-    nodecl_t nodecl_elsewhere = nodecl_null();
-    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere);
+    nodecl_t nodecl_elsewhere_parts = nodecl_null();
+    build_scope_mask_elsewhere_part_seq(mask_elsewhere_part_seq, decl_context, &nodecl_elsewhere_parts);
+
+    nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts, nodecl_elsewhere_parts);
     
     // Do nothing with elsewhere_stmt ASTSon2(where_construct_body)
 
     AST elsewhere_body = ASTSon3(where_construct_body);
     nodecl_t nodecl_elsewhere_body = nodecl_null();
     build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
+
+    nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
+            nodecl_make_list_1(nodecl_make_where_pair(nodecl_null(), nodecl_elsewhere_body, ASTFileName(a), ASTLine(a))));
+
+    *nodecl_output = nodecl_make_where(nodecl_where_parts, ASTFileName(a), ASTLine(a));
 }
 
-static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST mask_expr = ASTSon0(a);
     fortran_check_expression(mask_expr, decl_context);
     AST where_assignment_stmt = ASTSon1(a);
     nodecl_t nodecl_expression = nodecl_null();
     build_scope_expression_stmt(where_assignment_stmt, decl_context, &nodecl_expression);
+
+    *nodecl_output = nodecl_make_where(
+            nodecl_make_list_1(
+                nodecl_make_where_pair(
+                    expression_get_nodecl(mask_expr),
+                    nodecl_make_list_1(nodecl_expression),
+                    ASTFileName(a), ASTLine(a))),
+            ASTFileName(a),
+            ASTLine(a));
 }
 
 static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

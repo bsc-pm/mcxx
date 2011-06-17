@@ -169,6 +169,10 @@ fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [opti
                         | NODECL_READ_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
                         | NODECL_STOP_STATEMENT([stop_code]expression-opt)
+                        | NODECL_WHERE([where_set] where-pair-seq)
+                        | NODECL_FORALL([loop_control] loop-control, [mask] expression-opt, [statement] statement-seq)
+
+where-pair: NODECL_WHERE_PAIR([mask] expression-opt, [statement] statement-seq)
 
 # NODECL_FORTRAN_DATA
 #   This is used only for .data variable which holds the initializations by means
