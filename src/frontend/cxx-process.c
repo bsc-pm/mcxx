@@ -35,7 +35,7 @@
 #include <stdarg.h>
 
 // Compilation options
-compilation_process_t compilation_process = { 0 };
+compilation_process_t compilation_process;
 
 void add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,

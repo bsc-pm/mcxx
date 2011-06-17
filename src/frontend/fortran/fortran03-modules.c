@@ -4,6 +4,7 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
+#include "cxx-driver-fortran.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -41,8 +42,6 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t);
 static type_t* load_type(sqlite3* handle, sqlite3_int64 oid);
 static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_int64 oid);
 static AST load_ast(sqlite3* handle, sqlite3_int64 oid);
-
-static const char *get_path_of_module(const char* module_name, char is_creation);
 
 typedef
 struct module_info_tag module_info_t;
@@ -218,8 +217,9 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     ERROR_CONDITION(module == NULL, "Invalid parameter", 0);
     *module = NULL;
-    const char* filename = get_path_of_module(module_name, /* is_creation */ 0);
 
+    const char* filename = NULL; 
+    driver_fortran_retrieve_module(module_name, &filename);
 
     if (filename == NULL)
     {
@@ -254,7 +254,8 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
 static void create_storage(sqlite3** handle, const char* module_name)
 {
-    const char* filename = get_path_of_module(module_name, /* is_creation */ 1);
+    const char* filename = NULL;
+    driver_fortran_register_module(module_name, &filename);
 
     DEBUG_CODE()
     {
@@ -1017,47 +1018,6 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_int64 oid)
     return result.symbol;
 }
 
-static const char *get_path_of_module(const char* module_name, char is_creation)
-{
-    // We will assume that name is already UTF-8 as we do not support any other
-    // sort of identifier than ASCII
-    const char* filename = strappend(module_name, ".mmod");
-    if (is_creation)
-    {
-        if (CURRENT_CONFIGURATION->module_out_dir != NULL)
-        {
-            return strappend(
-                    strappend(CURRENT_CONFIGURATION->module_out_dir, "/"), 
-                    filename);
-        }
-        else
-        {
-            return strappend("./", filename);
-        }
-    }
-
-    int i;
-    for (i = 0; i < CURRENT_CONFIGURATION->num_module_dirs; i++)
-    {
-        const char* path = strappend(
-                strappend(CURRENT_CONFIGURATION->module_dirs[i], "/"),
-                filename);
-
-        if (access(path, F_OK) == 0)
-        {
-            return path;
-        }
-    }
-
-    // Try current directory
-    const char* path = strappend("./", filename);
-    if (access(path, F_OK) == 0)
-    {
-        return path;
-    }
-
-    return NULL;
-}
 
 typedef
 struct scope_info_tag

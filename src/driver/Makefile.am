@@ -76,6 +76,8 @@ mcxx_SOURCES = \
   cxx-driver.h \
   cxx-driver-utils.c \
   cxx-driver-utils.h \
+  cxx-driver-fortran.c \
+  cxx-driver-fortran.h \
   cxx-profile.c \
   cxx-profile.h \
   cxx-configfile-parser-internal.h \

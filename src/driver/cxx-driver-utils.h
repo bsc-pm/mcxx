@@ -55,7 +55,6 @@ MCXX_BEGIN_DECLS
 // Temporal handling routines
 typedef struct 
 {
-    // FILE* file;
     const char* name;
     char is_dir;
     char is_temporary;
@@ -101,7 +100,7 @@ void run_gdb(void);
 
 // Copy a file
 char copy_file(const char* source, const char* dest);
-// Like rename but works accross filesystems
+// Like rename but works across filesystems
 char move_file(const char* source, const char* dest);
 
 // These four functions add files or directories for deletion at the end of the

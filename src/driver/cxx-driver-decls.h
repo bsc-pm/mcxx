@@ -79,6 +79,13 @@ typedef struct top_level_include_tag
     char system_include;
 } top_level_include_t;
 
+typedef struct module_to_wrap_info_tag
+{
+    const char* module_name;
+    const char* native_file;
+    const char* mercurium_file;
+} module_to_wrap_info_t;
+
 // Represents one translation unit
 typedef struct translation_unit_tag
 {
@@ -95,6 +102,12 @@ typedef struct translation_unit_tag
 
 #ifdef FORTRAN_SUPPORT
     rb_red_blk_tree *module_cache;
+
+    int num_modules_to_wrap;
+    module_to_wrap_info_t** modules_to_wrap;
+
+    int num_module_files_to_hide;
+    const char** module_files_to_hide;
 #endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
@@ -320,10 +333,15 @@ typedef struct compilation_configuration_tag
 
     char disable_intrinsics;
 
+    // Directories where we look for modules
     int num_module_dirs;
     const char** module_dirs;
 
+    // Directory where we generate modules
     const char* module_out_dir;
+
+    // Directory where we unwrap the native modules
+    const char* module_native_dir;
 #endif
     source_kind_t force_source_kind;
 

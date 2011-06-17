@@ -91,6 +91,7 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-nodecl.h"
 #include "fortran03-codegen.h"
+#include "cxx-driver-fortran.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -2571,6 +2572,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
+#ifdef FORTRAN_SUPPORT
+            // Hide all the wrap modules lest they were found by the native compiler
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                    && !CURRENT_CONFIGURATION->do_not_compile)
+            {
+                driver_fortran_hide_mercurium_modules();
+            }
+#endif
+
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
@@ -2580,6 +2590,30 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Do not parse
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
+
+#ifdef FORTRAN_SUPPORT
+            // Restore all the wrap modules for subsequent uses
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                    && !CURRENT_CONFIGURATION->do_not_compile)
+            {
+                driver_fortran_restore_mercurium_modules();
+            }
+#endif
+
+#ifdef FORTRAN_SUPPORT
+            // Wrap all the modules of Fortran, only if native compilation was actually performed
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
+            {
+                if (!CURRENT_CONFIGURATION->do_not_compile)
+                {
+                    driver_fortran_wrap_all_modules();
+                }
+                else
+                {
+                    driver_fortran_discard_all_modules();
+                }
+            }
+#endif
         }
 
         // Restore CUDA flag
@@ -3434,6 +3468,16 @@ static void native_compilation(translation_unit_t* translation_unit,
     int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION->native_compiler_options);
 
     int num_arguments = num_args_compiler;
+
+#ifdef FORTRAN_SUPPORT
+    // This is a directory where we will put the unwrapped native modules
+    if (CURRENT_CONFIGURATION->module_native_dir != NULL)
+    {
+        // -Idir
+        num_arguments += 1;
+    }
+#endif // FORTRAN_SUPPORT
+
     // -c -o output input
     num_arguments += 4;
     // NULL
@@ -3442,26 +3486,47 @@ static void native_compilation(translation_unit_t* translation_unit,
     const char* native_compilation_args[num_arguments];
     memset(native_compilation_args, 0, sizeof(native_compilation_args));
 
-    int i;
-    for (i = 0; i < num_args_compiler; i++)
+    int ipos = 0;
+
+#ifdef FORTRAN_SUPPORT
+    // Force the unwrapped native module dir to be checked first
+    if (CURRENT_CONFIGURATION->module_native_dir != NULL)
     {
-        native_compilation_args[i] = CURRENT_CONFIGURATION->native_compiler_options[i];
+        char c[256];
+        snprintf(c, 255, "-I%s", CURRENT_CONFIGURATION->module_native_dir);
+        c[255] = '\0';
+
+        native_compilation_args[ipos] = uniquestr(c);
+        ipos++;
+    }
+#endif
+
+    {
+        int i;
+        for (i = 0; i < num_args_compiler; i++)
+        {
+            native_compilation_args[ipos] = CURRENT_CONFIGURATION->native_compiler_options[i];
+            ipos++;
+        }
     }
 
     if (!CURRENT_CONFIGURATION->generate_assembler)
     {
-        native_compilation_args[i] = uniquestr("-c");
+        native_compilation_args[ipos] = uniquestr("-c");
+        ipos++;
     }
     else
     {
-        native_compilation_args[i] = uniquestr("-S");
+        native_compilation_args[ipos] = uniquestr("-S");
+        ipos++;
     }
-    i++;
-    native_compilation_args[i] = uniquestr("-o");
-    i++;
-    native_compilation_args[i] = output_object_filename;
-    i++;
-    native_compilation_args[i] = prettyprinted_filename;
+
+    native_compilation_args[ipos] = uniquestr("-o");
+    ipos++;
+    native_compilation_args[ipos] = output_object_filename;
+    ipos++;
+    native_compilation_args[ipos] = prettyprinted_filename;
+    ipos++;
 
     if (CURRENT_CONFIGURATION->verbose)
     {
