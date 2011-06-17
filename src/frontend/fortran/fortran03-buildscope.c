@@ -4643,33 +4643,23 @@ static void insert_symbol_from_module(scope_entry_t* entry,
     // The reason is that we need to know this symbol comes from a module
     // and its precise USE name, not the original symbol name
     scope_entry_t* current_symbol = NULL;
-    if (!entry->entity_specs.is_generic_spec)
+    current_symbol = new_fortran_symbol(decl_context, aliased_name);
+
+    // Copy everything and restore the name
+    *current_symbol = *entry;
+    current_symbol->symbol_name = aliased_name;
+
+    current_symbol->entity_specs.from_module = module_symbol;
+
+    if (strcmp(aliased_name, entry->symbol_name) != 0)
     {
-        current_symbol  = new_fortran_symbol(decl_context, 
-                aliased_name != NULL ? aliased_name : entry->symbol_name);
-
-        // Copy everything and restore the name
-        *current_symbol = *entry;
-        current_symbol->symbol_name = aliased_name;
-
-        current_symbol->entity_specs.from_module = module_symbol;
+        current_symbol->entity_specs.is_renamed = 1;
+        current_symbol->entity_specs.alias_to = entry;
     }
-    else
+
+    if (entry->entity_specs.is_generic_spec)
     {
-        // Generic specifiers must be handled with care as we want to copy them
-        // instead of straight inserting the symbol to avoid modifying the
-        // original symbol from the program unit using this module
-
-        current_symbol = new_fortran_symbol(decl_context,
-                aliased_name != NULL ? aliased_name : entry->symbol_name);
-
-        // Copy everything and restore the name
-        *current_symbol = *entry;
-        current_symbol->symbol_name = aliased_name;
-
-        current_symbol->entity_specs.from_module = module_symbol;
-
-        // Now fix what cannot be shared
+        // Fix what cannot be shared
         current_symbol->entity_specs.num_related_symbols = 0;
         current_symbol->entity_specs.related_symbols = NULL;
 

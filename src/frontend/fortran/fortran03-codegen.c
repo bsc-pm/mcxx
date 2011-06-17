@@ -763,7 +763,8 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && entry->kind != SK_SCOPE)
+            && entry->kind != SK_SCOPE
+            && !entry->entity_specs.from_module)
     {
         declare_symbol(visitor, entry);
     }
@@ -774,9 +775,49 @@ static void declare_everything_needed(nodecl_codegen_visitor_t* visitor, nodecl_
     declare_symbols_rec(visitor, node);
 }
 
+static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        declare_symbols_from_modules_rec(visitor, nodecl_get_child(node, i));
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    if (entry != NULL
+            && entry->kind != SK_SCOPE
+            && entry->entity_specs.from_module)
+    {
+        indent(visitor);
+        if (!entry->entity_specs.is_renamed)
+        {
+            fprintf(visitor->file, "USE %s, ONLY: %s\n", 
+                    entry->entity_specs.from_module->symbol_name,
+                    entry->symbol_name);
+        }
+        else
+        {
+            fprintf(visitor->file, "USE %s, ONLY: %s => %s\n", 
+                    entry->entity_specs.from_module->symbol_name,
+                    entry->symbol_name,
+                    entry->entity_specs.alias_to->symbol_name);
+        }
+    }
+}
+
+static void declare_use_statements(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    declare_symbols_from_modules_rec(visitor, node);
+}
+
 static void codegen_procedure(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry, nodecl_t statement_seq, nodecl_t internal_subprograms)
 {
     visitor->indent_level++;
+
+    declare_use_statements(visitor, statement_seq);
 
     indent(visitor);
     fprintf(visitor->file, "IMPLICIT NONE\n");
