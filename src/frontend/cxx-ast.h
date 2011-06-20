@@ -74,8 +74,12 @@ LIBMCXX_EXTERN void ast_set_type(AST a, node_t node_type);
 LIBMCXX_EXTERN AST ast_get_child(const_AST a, int num_child);
 
 // Sets the children, this one is preferred over ASTSon{0,1,2,3}
-// Note that this sets the parent of new_children
+// Note that this one DOES set the parent of 'new_child' to be 'a'
 LIBMCXX_EXTERN void ast_set_child(AST a, int num_child, AST new_children);
+
+// Sets the children, this one is preferred over ASTSon{0,1,2,3}
+// Note that this one does NOT set the parent of 'new_child' to be 'a'
+void ast_set_child_but_parent(AST a, int num_child, AST new_child);
 
 // Main routine to create a node
 LIBMCXX_EXTERN AST ast_make(node_t type, int num_children, 

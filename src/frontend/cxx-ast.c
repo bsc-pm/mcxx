@@ -270,7 +270,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
     _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
 }
 
-void ast_set_child(AST a, int num_child, AST new_child)
+void ast_set_child_but_parent(AST a, int num_child, AST new_child)
 {
     if (new_child == NULL)
     {
@@ -291,7 +291,14 @@ void ast_set_child(AST a, int num_child, AST new_child)
             // This will widen the node
             ast_reallocate_children(a, num_child, new_child);
         }
+    }
+}
 
+void ast_set_child(AST a, int num_child, AST new_child)
+{
+    ast_set_child_but_parent(a, num_child, new_child);
+    if (new_child != NULL)
+    {
         new_child->parent = a;
     }
 }

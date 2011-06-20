@@ -45,6 +45,7 @@
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
 #include "cxx-printscope.h"
+#include "cxx-codegen.h"
 #include "cxx-entrylist.h"
 #include "red_black_tree.h"
 
@@ -2076,8 +2077,7 @@ static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
         decl_context_t decl_context,
-        const char* filename, int line,
-        char instantiation_update)
+        const char* filename, int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
@@ -2396,8 +2396,7 @@ static type_t* update_dependent_typename(
 
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
-        const char* filename, int line,
-        char instantiation_update)
+        const char* filename, int line)
 {
     ERROR_CONDITION(orig_type == NULL, "Error, type is null", 0);
 
@@ -2583,8 +2582,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
             return get_cv_qualified_type(
                     update_type_aux_(entry->type_information, 
-                        decl_context, filename, line, 
-                        instantiation_update),
+                        decl_context, filename, line),
                     cv_qualif);
         }
         else
@@ -2601,7 +2599,7 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
-        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line, instantiation_update);
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -2616,7 +2614,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -2632,13 +2630,13 @@ static type_t* update_type_aux_(type_t* orig_type,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
-        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line, instantiation_update);
+        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -2664,7 +2662,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* return_type = function_type_get_return_type(orig_type);
         if (return_type != NULL)
         {
-            return_type = update_type_aux_(return_type, decl_context, filename, line, instantiation_update);
+            return_type = update_type_aux_(return_type, decl_context, filename, line);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -2686,7 +2684,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
             param_orig_type = update_type_aux_(param_orig_type, 
-                    decl_context, filename, line, instantiation_update);
+                    decl_context, filename, line);
 
             if (param_orig_type == NULL)
                 return NULL;
@@ -2728,32 +2726,62 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
-        nodecl_t expression = array_type_get_array_size_expr(orig_type);
-        decl_context_t expr_context = array_type_get_array_size_expr_context(orig_type);
+        nodecl_t array_size = array_type_get_array_size_expr(orig_type);
+        decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
 
-        AST updated_expr = nodecl_get_ast(expression);
-        decl_context_t updated_expr_context = expr_context;
-        if (updated_expr != NULL)
+        if (!nodecl_is_null(array_size) 
+                && nodecl_get_kind(array_size) == NODECL_CXX_RAW)
         {
-            updated_expr = ast_copy_for_instantiation(updated_expr);
-            updated_expr_context = decl_context;
-            if (!check_expression(updated_expr, updated_expr_context))
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Updating expression '%s' as it is dependent\n",
+                        c_cxx_codegen_to_str(array_size));
+            }
+
+            // Update the context
+            array_size_context = decl_context;
+
+            // NODECL_CXX_RAW have as its zero-th children a C++ expression tree
+            AST new_array_size = nodecl_get_ast(nodecl_get_child(array_size, 0));
+            new_array_size = ast_copy_for_instantiation(new_array_size);
+            if (!check_expression(new_array_size, array_size_context))
             {
                 running_error("%s: error: could not update array dimension",
-                        ast_location(nodecl_get_ast(expression)));
+                        ast_location(new_array_size));
+            }
+
+            array_size = expression_get_nodecl(new_array_size);
+            if (nodecl_get_kind(array_size) == NODECL_CXX_RAW)
+            {
+                internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
+                        nodecl_get_locus(array_size));
+            }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
+                        c_cxx_codegen_to_str(array_size));
+            }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Not updating expression '%s' (%s) does not seem to be dependent\n",
+                        c_cxx_codegen_to_str(array_size),
+                        ast_print_node_type(nodecl_get_kind(array_size)));
             }
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
         element_type = update_type_aux_(element_type,
-                decl_context, filename, line, instantiation_update);
+                decl_context, filename, line);
 
         if (element_type == NULL)
             return NULL;
 
         type_t* updated_array_type = get_array_type(element_type, 
-                expression_get_nodecl(updated_expr), 
-                updated_expr_context);
+                array_size, 
+                array_size_context);
 
         updated_array_type = get_cv_qualified_type(updated_array_type, cv_qualifier);
 
@@ -2777,7 +2805,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
-                decl_context, filename, line, instantiation_update);
+                decl_context, filename, line);
 
         if (fixed_type == NULL)
         {
@@ -2849,7 +2877,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_type =
-            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line, instantiation_update);
+            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line);
 
         if (updated_type != NULL)
         {
@@ -2882,7 +2910,7 @@ type_t* update_type(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, decl_context,
-            filename, line, /* instantiation_update */ 0);
+            filename, line);
 
     DEBUG_CODE()
     {
@@ -2909,7 +2937,7 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
-            filename, line, /* instantiation_update */ 1);
+            filename, line);
 
     if (result == NULL)
     {

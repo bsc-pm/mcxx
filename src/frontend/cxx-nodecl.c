@@ -189,3 +189,13 @@ char nodecl_is_list(nodecl_t n)
 {
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
+
+nodecl_t nodecl_wrap_cxx_raw_expr(AST expression)
+{
+    // Create a raw tree
+    nodecl_t nodecl_raw = nodecl_make_cxx_raw(ASTFileName(expression), ASTLine(expression));
+    // Note that we do not want this nodecl_raw to become the parent of expression
+    ast_set_child_but_parent(nodecl_get_ast(nodecl_raw), 0, expression);
+
+    return nodecl_raw;
+}

@@ -151,6 +151,10 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt) type
                   | NODECL_DELETE([rhs]expression) type
                   | NODECL_DELETE_ARRAY([rhs]expression) type
+                  | cxx-dependent-expr
+
+# Special node used only to hold a C++ tree found to be value or type dependent
+cxx-dependent-expr: NODECL_CXX_RAW()
 
 type-or-expr : type
              | expression

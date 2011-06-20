@@ -17,7 +17,7 @@ nodecl_t nodecl_copy(nodecl_t t);
 
 // Children
 nodecl_t nodecl_get_child(nodecl_t n, int i);
- 
+
 // Constant values
 char nodecl_is_constant(nodecl_t t);
 void nodecl_set_constant(nodecl_t t, const_value_t* cval);
@@ -43,11 +43,6 @@ const char* nodecl_get_locus(nodecl_t);
 // Kind of node
 node_t nodecl_get_kind(nodecl_t);
 
-// FIXME - Should this be here?
-// C++ value dependency
-char nodecl_is_value_dependent(nodecl_t);
-void nodecl_set_is_value_dependent(nodecl_t, char is_value_dependent);
-
 // 'list' parameter can be a 'nodecl_null()'
 nodecl_t nodecl_append_to_list(nodecl_t list, nodecl_t element);
 
@@ -57,14 +52,20 @@ nodecl_t nodecl_list_head(nodecl_t list);
 // Either list1 or list2 can be 'nodecl_null()'
 nodecl_t nodecl_concat_lists(nodecl_t list1, nodecl_t list2);
 
-// Wrap (use sparingly)
-nodecl_t _nodecl_wrap(AST);
-
 // States that this nodecl is a list
 char nodecl_is_list(nodecl_t);
 
 // Unpack a list. Do not forget to free the returned pointer
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
+
+// Wrap (use sparingly)
+nodecl_t _nodecl_wrap(AST);
+
+// C++ specific stuff
+nodecl_t nodecl_wrap_cxx_raw_expr(AST expression);
+// FIXME - Should this be here?
+char nodecl_is_value_dependent(nodecl_t);
+void nodecl_set_is_value_dependent(nodecl_t, char is_value_dependent);
 
 MCXX_END_DECLS
 

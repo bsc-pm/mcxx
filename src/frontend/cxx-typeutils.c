@@ -2668,14 +2668,34 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        nodecl_t t = nodecl_copy(whole_size);
+        if (nodecl_get_kind(whole_size) != NODECL_CXX_RAW)
+        {
+            nodecl_t t = nodecl_copy(whole_size);
 
-        upper_bound = nodecl_make_minus(
-                nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
-                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                get_signed_int_type(),
-                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+            upper_bound = nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
+                        nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                    get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                    get_signed_int_type(),
+                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+        }
+        else
+        {
+#ifdef FORTRAN_LANGUAGE
+            FORTRAN_LANGUAGE()
+            {
+                internal_error("This should not happen in FORTRAN", 0);
+            }
+#endif
+            AST orig_tree = nodecl_get_ast(nodecl_get_child(whole_size, 0));
+            AST minus_one = 
+                ASTMake2(AST_MINUS, 
+                        ast_copy(orig_tree),
+                        ASTLeaf(AST_DECIMAL_LITERAL, nodecl_get_filename(whole_size), nodecl_get_line(whole_size), "1"),
+                        nodecl_get_filename(whole_size), nodecl_get_line(whole_size), NULL);
+
+            upper_bound = nodecl_wrap_cxx_raw_expr(minus_one);
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
@@ -5763,7 +5783,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                // result = prettyprint_in_buffer(simple_type->typeof_expr);
                 char is_dependent = 0;
                 int max_qualif_level = 0;
                 result = get_fully_qualified_symbol_name(simple_type->dependent_entry, 
@@ -6204,7 +6223,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 else
                 {
-                    char* whole_size_str = c_cxx_nodecl_codegen_to_str(type_info->array->whole_size, NULL);
+                    char* whole_size_str = c_cxx_codegen_to_str(type_info->array->whole_size);
 
                     const char* whole_size = strappend("[", whole_size_str);
                     free(whole_size_str);
@@ -6755,9 +6774,9 @@ const char* print_declarator(type_t* printed_declarator)
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
                 tmp_result = strappend(tmp_result, "[");
-                tmp_result = strappend(tmp_result, prettyprint_in_buffer(nodecl_get_ast(printed_declarator->array->lower_bound)));
+                tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->lower_bound));
                 tmp_result = strappend(tmp_result, ":");
-                tmp_result = strappend(tmp_result, prettyprint_in_buffer(nodecl_get_ast(printed_declarator->array->upper_bound)));
+                tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->upper_bound));
                 tmp_result = strappend(tmp_result, "] of ");
                 printed_declarator = printed_declarator->array->element_type;
                 break;
@@ -7676,12 +7695,12 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     }
 
     // Get a specialization of this template
-    type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-    scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-    type_t* specialized_function_type = specialization_symbol->type_information;
+    // type_t* specialization_type = template_type_get_primary_type(entry->type_information);
+    // scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
+    // type_t* specialized_function_type = specialization_symbol->type_information;
 
-    template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_arguments(specialized_function_type);
+    // template_parameter_list_t* template_parameters = 
+    //     template_specialized_type_get_template_arguments(specialized_function_type);
 
     type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
             argument_list, decl_context, line, filename);

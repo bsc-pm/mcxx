@@ -7,7 +7,6 @@
 #include "libmcxx-common.h"
 
 void c_cxx_codegen_translation_unit(FILE* f, AST a, scope_link_t* sl);
-char* c_cxx_codegen_to_str(AST a, scope_link_t* sl);
-char* c_cxx_nodecl_codegen_to_str(nodecl_t n, scope_link_t* sl);
+char* c_cxx_codegen_to_str(nodecl_t node);
 
 #endif // CXX_CODEGEN_H

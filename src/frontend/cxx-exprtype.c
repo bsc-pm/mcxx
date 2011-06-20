@@ -1481,31 +1481,32 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                                     prettyprint_in_buffer(type_specifier_seq));
                         }
                         expression_set_error(expression);
-                        return;
-                    }
-
-                    type_t* declarator_type = type_info;
-                    compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output); 
-
-                    type_t* type_in_context = declarator_type;
-                    if (is_array_type(type_in_context))
-                    {
-                        type_in_context = array_type_get_element_type(type_in_context);
-                    }
-                    else if (is_vector_type(type_in_context))
-                    {
-                        type_in_context = vector_type_get_element_type(type_in_context);
-                    }
-
-                    check_initializer_list(ASTSon1(expression), decl_context, type_in_context);
-                    if (!expression_is_error(ASTSon1(expression)))
-                    {
-                        expression_set_type(expression, declarator_type);
-                        expression_set_is_lvalue(expression, 0);
                     }
                     else
                     {
-                        expression_set_error(expression);
+                        type_t* declarator_type = type_info;
+                        compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output); 
+
+                        type_t* type_in_context = declarator_type;
+                        if (is_array_type(type_in_context))
+                        {
+                            type_in_context = array_type_get_element_type(type_in_context);
+                        }
+                        else if (is_vector_type(type_in_context))
+                        {
+                            type_in_context = vector_type_get_element_type(type_in_context);
+                        }
+
+                        check_initializer_list(ASTSon1(expression), decl_context, type_in_context);
+                        if (!expression_is_error(ASTSon1(expression)))
+                        {
+                            expression_set_type(expression, declarator_type);
+                            expression_set_is_lvalue(expression, 0);
+                        }
+                        else
+                        {
+                            expression_set_error(expression);
+                        }
                     }
                 }
                 break;
@@ -1546,13 +1547,14 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                                     prettyprint_in_buffer(type_specifier_seq));
                         }
                         expression_set_error(expression);
-                        return;
                     }
+                    else
+                    {
+                        type_t* declarator_type = type_info;
+                        compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output);
 
-                    type_t* declarator_type = type_info;
-                    compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type, decl_context, &dummy_nodecl_output);
-
-                    expression_set_type(expression, declarator_type);
+                        expression_set_type(expression, declarator_type);
+                    }
                 }
                 break;
             }
@@ -1721,6 +1723,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
             fprintf(stderr, "\n");
         }
+    }
+
+    if (expression_is_value_dependent(expression)
+            || is_dependent_expr_type(expression_get_type(expression)))
+    {
+        nodecl_t nodecl_raw = nodecl_wrap_cxx_raw_expr(expression);
+        expression_set_nodecl(expression, nodecl_raw);
     }
 }
 
