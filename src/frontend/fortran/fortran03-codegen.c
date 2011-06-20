@@ -1517,7 +1517,7 @@ static void codegen_assignment(nodecl_codegen_visitor_t* visitor, nodecl_t node)
             operator = " => ";
         }
 
-        fprintf(visitor->file, operator);
+        fprintf(visitor->file, "%s", operator);
 
         codegen_walk(visitor, rhs);
 }
