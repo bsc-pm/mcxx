@@ -285,7 +285,7 @@ static type_t* lvalue_ref(type_t* t)
     return t;
 }
 
-static type_t* actual_type_of_conversor(scope_entry_t* conv)
+type_t* actual_type_of_conversor(scope_entry_t* conv)
 {
     if (conv->entity_specs.is_constructor)
     {

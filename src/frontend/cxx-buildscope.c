@@ -9889,23 +9889,97 @@ static void build_scope_return_statement(AST a,
         nodecl_t* nodecl_output)
 {
     AST expression = ASTSon0(a);
+
+    scope_entry_t* function = decl_context.current_scope->related_entry;
+    ERROR_CONDITION(function->kind != SK_FUNCTION, "Invalid related entry!", 0);
+
+    type_t* return_type = function_type_get_return_type(function->type_information);
+    if (return_type == NULL)
+        return_type = get_void_type();
+
+    nodecl_t nodecl_return = nodecl_null();
+
     if (expression != NULL)
     {
+
+        char valid_expr = 0;
         ast_set_link_to_child(a, LANG_RETURN_EXPRESSION, expression);
-        if (!check_expression(expression, decl_context))
+        if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
-            fprintf(stderr, "%s: could not check return expression '%s'\n",
-                    ast_location(expression),
-                    prettyprint_in_buffer(expression));
+            valid_expr = check_initializer_clause(expression, decl_context, return_type);
+        }
+        else 
+        {
+            valid_expr = check_expression(expression, decl_context);
+        }
+
+        if (is_void_type(return_type))
+        {
+            if (!IS_CXX_LANGUAGE
+                    || !is_void_type(expression_get_type(expression)))
+            {
+                error_printf("%s: error: return with non-void expression in a void function\n", ast_location(a));
+            }
+        }
+
+        if (valid_expr)
+        {
+            nodecl_return = expression_get_nodecl(expression);
+
+            if (!is_dependent_type(return_type)
+                    && !is_dependent_expr_type(expression_get_type(expression)))
+            {
+                CXX_LANGUAGE()
+                {
+                    char ambiguous_conversion = 0;
+                    scope_entry_t* conversor = NULL;
+                    if (!type_can_be_implicitly_converted_to(expression_get_type(expression),
+                                return_type, decl_context, &ambiguous_conversion, &conversor))
+                    {
+                        error_printf("%s: error: cannot convert type '%s' to '%s'\n",
+                                ast_location(expression),
+                                print_type_str(expression_get_type(expression), decl_context),
+                                print_type_str(return_type, decl_context));
+                    }
+
+                    if (conversor != NULL)
+                    {
+                        nodecl_return = nodecl_make_function_call(
+                                nodecl_make_symbol(conversor, ASTFileName(expression), ASTLine(expression)),
+                                nodecl_make_list_1(nodecl_return),
+                                actual_type_of_conversor(conversor),
+                                ASTFileName(expression), ASTLine(expression));
+                    }
+                }
+                C_LANGUAGE()
+                {
+                    standard_conversion_t scs;
+                    if (!standard_conversion_between_types(&scs, expression_get_type(expression), return_type))
+                    {
+                        error_printf("%s: error: invalid returned value of type '%s' in a function returning '%s'\n",
+                                ast_location(expression),
+                                print_type_str(expression_get_type(expression), decl_context),
+                                print_type_str(return_type, decl_context));
+                    }
+                }
+            }
         }
     }
+	else
+	{
+		if (!return_type && NULL
+				&& !is_void_type(return_type))
+		{
+			error_printf("%s: error: return with no expression in a non-void function\n", ast_location(a));
+		}
+	}
 
     ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_RETURN_STATEMENT_HAS_EXPRESSION, tl_type_t, tl_bool(expression != NULL));
 
     *nodecl_output = 
         nodecl_make_list_1(
-                nodecl_make_return_statement(expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
+                nodecl_make_return_statement(nodecl_return, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_try_block(AST a, 

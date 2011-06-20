@@ -107,9 +107,12 @@ LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t d
 LIBMCXX_EXTERN nodecl_t expression_get_nodecl(AST expr);
 LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_t nodecl_output);
 
+LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
+
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig);
+
 
 MCXX_END_DECLS
 
