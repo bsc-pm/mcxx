@@ -1853,9 +1853,14 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
 
         Source builtin_vr_replacement;
 
+        Type casting_type = arg_list[0].get_type();
+
+        //C++
+        if (casting_type.is_reference())
+            casting_type = casting_type.references_to();
+
         builtin_vr_replacement << "*((" 
-            << arg_list[0].get_type()
-                .get_generic_vector_to()
+            << casting_type.get_generic_vector_to()
                 .get_pointer_to()
                 .get_simple_declaration(scope_link.get_scope(ast),"")
             << ") &("

@@ -55,6 +55,7 @@ static std::string _allow_identity_str;
 
 
 static TL::ObjectList<TL::Symbol> builtin_vr_list;
+static TL::ObjectList<TL::Symbol> builtin_iv_list;
 static TL::ObjectList<TL::Symbol> builtin_ve_list;
 static TL::ObjectList<TL::Symbol> builtin_ivve_list;
 static TL::ObjectList<TL::Symbol> builtin_gf_list;
@@ -68,6 +69,54 @@ static void update_identity_flag(const std::string &str)
             _allow_identity,
             "Option 'disable_identity' is a boolean flag");
 }
+
+//__builtin_induction_variable
+static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types,  
+        AST *arguments UNUSED_PARAMETER,
+        int num_arguments)
+{
+    char name[256];
+    int i;
+    char found_match = 0;
+    scope_entry_t* result = NULL;
+
+    if (num_arguments != 1)
+    {
+        internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
+                        overloaded_function->symbol_name);
+    }
+
+    for(i=1; i<builtin_iv_list.size(); i++) 
+    {
+        if (equivalent_types(get_unqualified_type(types[0]),
+                    function_type_get_parameter_type_num(builtin_iv_list[i].get_type()
+                        .get_internal_type(), 0)))
+        {
+            return builtin_iv_list[i].get_internal_symbol();
+        }
+    }
+
+    //No Match: Add a new Symbol to the list.
+    TL::ObjectList<TL::Type> param_type_list;
+    param_type_list.append(types[0]);
+    
+    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result->symbol_name = BUILTIN_IV_NAME;
+    result->kind = SK_FUNCTION;
+    result->type_information = ((TL::Type)types[0])
+        .get_function_returning(param_type_list)
+        .get_internal_type();
+    result->decl_context = builtin_iv_list.at(0).get_internal_symbol()->decl_context;
+    //BUILTIN + MUTABLE = LTYPE!
+    result->entity_specs.is_builtin = 1;
+    result->entity_specs.is_mutable = 1;
+
+    builtin_iv_list.append(TL::Symbol(result));
+
+    return result;
+}
+
 
 //__builtin_vector_reference overload
 static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
@@ -382,6 +431,17 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
 {
     Scope global_scope = scope_link.get_scope(translation_unit);
 
+    //New Artificial Symbol: __builtin_induction_variable
+    Symbol builtin_iv_sym = global_scope.new_artificial_symbol(BUILTIN_IV_NAME);
+    scope_entry_t* builtin_iv_se = builtin_iv_sym.get_internal_symbol();
+    builtin_iv_se->kind = SK_FUNCTION;
+    //BUILTIN + MUTABLE = LTYPE
+    builtin_iv_se->entity_specs.is_builtin = 1;
+    builtin_iv_se->entity_specs.is_mutable = 1;
+    builtin_iv_se->type_information = get_computed_function_type(solve_induction_variable_overload_name);
+    //Artificial Symbol in list[0]
+    builtin_iv_list.append(builtin_iv_sym);
+
     //New Artificial Symbol: __builtin_vector_reference
     Symbol builtin_vr_sym = global_scope.new_artificial_symbol(BUILTIN_VR_NAME);
     scope_entry_t* builtin_vr_se = builtin_vr_sym.get_internal_symbol();
@@ -457,7 +517,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     intel_builtins_src
     //SSE2
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
-        << "char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_packsswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpeqb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpgtb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
@@ -465,6 +525,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         //<< "short int __attribute__((vector_size(16)))    __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpeqw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpgtw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_packssdw128 (int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
 
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
