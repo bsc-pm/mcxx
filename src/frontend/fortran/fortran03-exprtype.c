@@ -2493,6 +2493,8 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     ast_set_link_to_child(expr, LANG_UNQUALIFIED_ID, expr);
 }
 
+static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
+
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 {
     lvalue_type = no_ref(lvalue_type);
@@ -2502,38 +2504,39 @@ static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
     {
         lvalue_type = pointer_type_get_pointee_type(lvalue_type);
     }
-    if (is_fortran_array_type(lvalue_type))
-    {
-        lvalue_type = get_rank0_type(lvalue_type);
-    }
     if (is_pointer_type(rvalue_type))
     {
         rvalue_type = pointer_type_get_pointee_type(rvalue_type);
     }
 
-    if ((is_integer_type(lvalue_type)
-                || is_floating_type(lvalue_type)
-                || is_complex_type(lvalue_type))
-            && (is_integer_type(rvalue_type)
-                || is_floating_type(rvalue_type)
-                || is_complex_type(rvalue_type)))
+    type_t* conf_lhs_type = NULL;
+    type_t* conf_rhs_type = NULL;
+
+    conform_types(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
+
+    if ((is_integer_type(conf_lhs_type)
+                || is_floating_type(conf_lhs_type)
+                || is_complex_type(conf_lhs_type))
+            && (is_integer_type(conf_rhs_type)
+                || is_floating_type(conf_rhs_type)
+                || is_complex_type(conf_rhs_type)))
         return 1;
 
-    if (is_fortran_character_type(lvalue_type)
-            && is_fortran_character_type(rvalue_type)
-            && equivalent_types(array_type_get_element_type(lvalue_type), 
-                array_type_get_element_type(rvalue_type))) 
+    if (is_fortran_character_type(conf_lhs_type)
+            && is_fortran_character_type(conf_rhs_type)
+            && equivalent_types(array_type_get_element_type(conf_lhs_type), 
+                array_type_get_element_type(conf_rhs_type))) 
     {
         return 1;
     }
 
-    if (is_bool_type(lvalue_type)
-            && is_bool_type(rvalue_type))
+    if (is_bool_type(conf_lhs_type)
+            && is_bool_type(conf_rhs_type))
         return 1;
 
-    if (is_class_type(lvalue_type)
-            && is_class_type(rvalue_type)
-            && equivalent_types(lvalue_type, rvalue_type))
+    if (is_class_type(conf_lhs_type)
+            && is_class_type(conf_rhs_type)
+            && equivalent_types(conf_lhs_type, conf_rhs_type))
         return 1;
 
     return 0;
@@ -3028,8 +3031,6 @@ static int compare_map_items(const void* a, const void* b)
 }
 
 static const char * get_operator_for_expr(AST expr);
-
-static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type);
 

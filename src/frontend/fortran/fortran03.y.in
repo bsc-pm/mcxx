@@ -201,6 +201,7 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> array_name_dim_spec
 %type<ast> real_literal_constant
 %type<ast> forall_construct_stmt
+%type<ast> forall_block
 %type<ast> ac_spec
 %type<ast> pointer_stmt
 %type<ast> enumerator_def_stmt
@@ -2689,13 +2690,18 @@ end_where_stmt : labeldef TOK_END TOK_WHERE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
-forall_construct : forall_construct_stmt forall_body_construct_seq end_forall_stmt
+forall_construct : forall_construct_stmt forall_block end_forall_stmt
 {
     $$ = ASTMake3(AST_FORALL_CONSTRUCT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | forall_construct_stmt end_forall_stmt
 {
     $$ = ASTMake3(AST_FORALL_CONSTRUCT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+forall_block : forall_body_construct_seq
+{
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 forall_construct_stmt : labeldef name ':' TOK_FORALL forall_header eos
@@ -2717,11 +2723,11 @@ forall_header : '(' type_spec ':' ':' forall_triplet_spec_list ',' mask_expr ')'
 }
 | '(' type_spec ':' ':' forall_triplet_spec_list ')'
 {
-    $$ = ASTMake3(AST_FORALL_HEADER, $2, NULL, $5, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake3(AST_FORALL_HEADER, $2, $5, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '(' forall_triplet_spec_list ')'
 {
-    $$ = ASTMake3(AST_FORALL_HEADER, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake3(AST_FORALL_HEADER, NULL, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 forall_triplet_spec : name '=' forall_limit ':' forall_limit ':' forall_step

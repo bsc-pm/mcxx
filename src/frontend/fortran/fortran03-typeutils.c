@@ -1,5 +1,5 @@
 #include "fortran03-typeutils.h"
-#include "fortran03-prettyprint.h"
+#include "fortran03-codegen.h"
 #include "cxx-nodecl-decls.h"
 #include "cxx-limits.h"
 #include "cxx-utils.h"
@@ -112,7 +112,7 @@ const char* fortran_print_type_str(type_t* t)
         nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                nodecl_is_null(length) ? "*" : fortran_prettyprint_in_buffer(nodecl_get_ast(length)));
+                nodecl_is_null(length) ? "*" : fortran_codegen_to_str(length));
         c[127] = '\0';
         result = uniquestr(c);
     }
@@ -156,9 +156,9 @@ const char* fortran_print_type_str(type_t* t)
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
-                result = strappend(result, fortran_prettyprint_in_buffer(nodecl_get_ast(array_spec_list[array_spec_idx].lower)));
+                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
                 result = strappend(result, ":");
-                result = strappend(result, fortran_prettyprint_in_buffer(nodecl_get_ast(array_spec_list[array_spec_idx].upper)));
+                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].upper));
             }
             else
             {

@@ -22,12 +22,13 @@ struct nodecl_codegen_visitor_tag
 
     // Ommit interface if we are already in one interface
     char in_interface;
+
+    // Print loop control using colons instead of commas
+    char in_forall;
 } nodecl_codegen_visitor_t;
 
 typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
 typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
-
-static char* fortran_codegen_to_str(nodecl_t node);
 
 static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node);
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry);
@@ -1125,24 +1126,37 @@ static void codegen_loop_control(nodecl_codegen_visitor_t* visitor, nodecl_t nod
     nodecl_t cond = nodecl_get_child(node, 1);
     nodecl_t next = nodecl_get_child(node, 2);
 
+    const char* separator = ", ";
+
+    // Use a colon for ':' in FORALL
+    if (visitor->in_forall)
+    {
+        separator = ":";
+    }
+
     if (!nodecl_is_null(init))
     {
-        fprintf(visitor->file, " ");
+        // Needed for DO but not for FORALL which uses a (
+        if (!visitor->in_forall)
+        {
+            fprintf(visitor->file, " ");
+        }
+
         codegen_walk(visitor, init);
 
         if (!nodecl_is_null(cond))
         {
-            fprintf(visitor->file, ", ");
+            fprintf(visitor->file, "%s", separator);
             codegen_walk(visitor, cond);
         }
         if (!nodecl_is_null(next))
         {
-            fprintf(visitor->file, ", ");
+            fprintf(visitor->file, "%s", separator);
             codegen_walk(visitor, next);
         }
         else
         {
-            fprintf(visitor->file, ", 1");
+            fprintf(visitor->file, "%s1", separator);
         }
     }
 }
@@ -1397,12 +1411,12 @@ static void codegen_comparison(nodecl_codegen_visitor_t* visitor, nodecl_t node,
 
 static void codegen_equal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    codegen_comparison(visitor, node, "==", ".EQV.");
+    codegen_comparison(visitor, node, " == ", " .EQV. ");
 }
 
 static void codegen_different(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    codegen_comparison(visitor, node, "/=", ".NEQV.");
+    codegen_comparison(visitor, node, " /= ", " .NEQV. ");
 }
 
 static void codegen_derreference(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1614,6 +1628,73 @@ static void codegen_implied_do(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     fprintf(visitor->file, ")");
 }
 
+static void codegen_forall(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t loop_control_seq = nodecl_get_child(node, 0);
+    nodecl_t mask = nodecl_get_child(node, 1);
+    nodecl_t statement_seq = nodecl_get_child(node, 2);
+
+    indent(visitor);
+    fprintf(visitor->file, "FORALL (");
+
+    char old_value = visitor->in_forall;
+    visitor->in_forall = 1;
+    codegen_comma_separated_list(visitor, loop_control_seq);
+    visitor->in_forall = old_value;
+
+    if (!nodecl_is_null(mask))
+    {
+        fprintf(visitor->file, ", ");
+        codegen_walk(visitor, mask);
+    }
+
+    fprintf(visitor->file, ")\n");
+
+    visitor->indent_level++;
+    codegen_walk(visitor, statement_seq);
+    visitor->indent_level--;
+
+    indent(visitor);
+    fprintf(visitor->file, "END FORALL\n");
+}
+
+static void codegen_where(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t nodecl_where_set = nodecl_get_child(node, 0);
+
+    int num_where_pairs = 0;
+    nodecl_t* where_pair = nodecl_unpack_list(nodecl_where_set, &num_where_pairs);
+
+    int i;
+    for (i = 0; i < num_where_pairs; i++)
+    {
+        const char* keyword = "WHERE";
+        if (i > 0)
+            keyword = "ELSEWHERE";
+
+        indent(visitor);
+        fprintf(visitor->file, "%s", keyword);
+
+        nodecl_t mask_expr = nodecl_get_child(where_pair[i], 0);
+        nodecl_t statement_seq = nodecl_get_child(where_pair[i], 1);
+
+        if (!nodecl_is_null(mask_expr))
+        {
+            fprintf(visitor->file, " (");
+            codegen_walk(visitor, mask_expr);
+            fprintf(visitor->file, ")");
+        }
+        fprintf(visitor->file, "\n");
+
+        visitor->indent_level++;
+        codegen_walk(visitor, statement_seq);
+        visitor->indent_level--;
+    }
+
+    indent(visitor);
+    fprintf(visitor->file, "END WHERE\n");
+}
+
 // FIXME - Fortran 2003 blocks
 static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -1694,6 +1775,9 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_implied_do = codegen_visitor_fun(codegen_implied_do);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_equivalence = codegen_visitor_fun(codegen_fortran_equivalence);
+
+    NODECL_VISITOR(codegen_visitor)->visit_forall = codegen_visitor_fun(codegen_forall);
+    NODECL_VISITOR(codegen_visitor)->visit_where = codegen_visitor_fun(codegen_where);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)
@@ -1715,7 +1799,7 @@ void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PAR
 }
 
 
-static char* fortran_codegen_to_str(nodecl_t node)
+char* fortran_codegen_to_str(nodecl_t node)
 {
     char *str = NULL;
     size_t size = 0;
