@@ -1301,8 +1301,8 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context)
     }
     else
     {
-        // We would issue a warning but since we are not implementing the
-        // builtins, we just fallback to 4
+        warn_printf("%s: could not compute KIND specifier, assuming 4\n", 
+                ast_location(kind_expr));
         return 4;
     }
 }
