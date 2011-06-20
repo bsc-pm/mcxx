@@ -468,6 +468,35 @@ static void codegen_procedure_declaration_footer(nodecl_codegen_visitor_t* visit
     fprintf(visitor->file, "END %s %s\n", (is_function ? "FUNCTION" : "SUBROUTINE"), entry->symbol_name);
 }
 
+static const char* get_generic_specifier_str(const char *c)
+{
+    const char* const op_prefix = ".operator.";
+    if (strlen(c) > strlen(op_prefix))
+    {
+        if (strncmp(c, op_prefix, strlen(op_prefix)) == 0)
+        {
+            c += strlen(op_prefix);
+
+            // .operator.=
+            if (*c == '='
+                    && *(c + 1) == '\0')
+            {
+                return uniquestr("ASSIGNMENT(=)");
+            }
+            // .operator.XXX
+            else
+            {
+                char t[256];
+                snprintf(t, 255, "OPERATOR(%s)", c);
+                t[255] = '\0';
+
+                return uniquestr(t);
+            }
+        }
+    }
+    return c;
+}
+
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
@@ -536,7 +565,14 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 if (!nodecl_is_null(entry->value))
                 {
                     declare_symbols_rec(visitor, entry->value);
-                    initializer = strappend(" = ", fortran_codegen_to_str(entry->value));
+                    if (is_pointer_type(no_ref(entry->type_information)))
+                    {
+                        initializer = strappend(" => ", fortran_codegen_to_str(entry->value));
+                    }
+                    else
+                    {
+                        initializer = strappend(" = ", fortran_codegen_to_str(entry->value));
+                    }
                 }
 
                 indent(visitor);
@@ -602,7 +638,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 if (entry->entity_specs.is_generic_spec)
                 {
                     indent(visitor);
-                    fprintf(visitor->file, "INTERFACE %s\n", entry->symbol_name);
+                    fprintf(visitor->file, "INTERFACE %s\n", 
+                            get_generic_specifier_str(entry->symbol_name));
                     int i, num_items = entry->entity_specs.num_related_symbols;
                     visitor->indent_level++;
                     for (i = 0; i < num_items; i++)
@@ -625,7 +662,7 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     }
                     visitor->indent_level--;
                     indent(visitor);
-                    fprintf(visitor->file, "END INTERFACE %s\n", entry->symbol_name);
+                    fprintf(visitor->file, "END INTERFACE %s\n", get_generic_specifier_str(entry->symbol_name));
                 }
                 else if (function_type_get_lacking_prototype(entry->type_information))
                 {
@@ -776,6 +813,31 @@ static void declare_everything_needed(nodecl_codegen_visitor_t* visitor, nodecl_
     declare_symbols_rec(visitor, node);
 }
 
+static void codegen_use_statement(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!entry->entity_specs.from_module, "Symbol '%s' must be from module\n", entry->symbol_name);
+
+    if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
+        return;
+
+    indent(visitor);
+    if (!entry->entity_specs.is_renamed)
+    {
+        fprintf(visitor->file, "USE %s, ONLY: %s\n", 
+                entry->entity_specs.from_module->symbol_name,
+                entry->symbol_name);
+    }
+    else
+    {
+        fprintf(visitor->file, "USE %s, ONLY: %s => %s\n", 
+                entry->entity_specs.from_module->symbol_name,
+                entry->symbol_name,
+                entry->entity_specs.alias_to->symbol_name);
+    }
+
+    entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+}
+
 static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     if (nodecl_is_null(node))
@@ -789,22 +851,19 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && entry->kind != SK_SCOPE
-            && entry->entity_specs.from_module)
+            && entry->kind != SK_SCOPE)
     {
-        indent(visitor);
-        if (!entry->entity_specs.is_renamed)
+        if (is_class_type(entry->type_information))
         {
-            fprintf(visitor->file, "USE %s, ONLY: %s\n", 
-                    entry->entity_specs.from_module->symbol_name,
-                    entry->symbol_name);
+            scope_entry_t* class_entry = named_type_get_symbol(entry->type_information);
+            if (class_entry->entity_specs.from_module)
+            {
+                codegen_use_statement(visitor, class_entry);
+            }
         }
-        else
+        if (entry->entity_specs.from_module)
         {
-            fprintf(visitor->file, "USE %s, ONLY: %s => %s\n", 
-                    entry->entity_specs.from_module->symbol_name,
-                    entry->symbol_name,
-                    entry->entity_specs.alias_to->symbol_name);
+            codegen_use_statement(visitor, entry);
         }
     }
 }

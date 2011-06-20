@@ -2558,6 +2558,7 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
 
     AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(lvalue), ast_get_line(lvalue), "=");
 
+    enter_test_expression();
     check_called_symbol(call_sym, 
             decl_context,
             /* location */ expr,
@@ -2569,6 +2570,7 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
             // out
             &result_type,
             entry);
+    leave_test_expression();
 
     ast_free(actual_arguments[0]);
     ast_free(actual_arguments[1]);
@@ -2602,10 +2604,11 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         return;
     }
 
-    char is_defined_assig = 0;
     scope_entry_t* assignment_op = NULL;
-    if (!is_intrinsic_assignment(lvalue_type, rvalue_type)
-            && !(is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, decl_context, &assignment_op)))
+    char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, decl_context, &assignment_op);
+
+    if (!is_defined_assig
+            && !is_intrinsic_assignment(lvalue_type, rvalue_type))
     {
         if (!checking_ambiguity())
         {

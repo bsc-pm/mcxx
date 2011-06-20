@@ -1388,12 +1388,17 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
         running_error("%s: sorry: unsupported generic type-names", ast_location(ASTSon1(a)));
     }
 
-    scope_entry_t* entry = get_symbol_for_name(decl_context, name, ASTText(name));
-
     type_t* result = NULL;
-    if (entry->kind == SK_CLASS)
+
+    scope_entry_t* entry = NULL;
+    scope_entry_list_t* entry_list = query_in_scope_str(decl_context, strtolower(ASTText(name)));
+    if (entry_list != NULL)
     {
-        result = get_user_defined_type(entry);
+        entry = entry_list_head(entry_list);
+        if (entry->kind == SK_CLASS)
+        {
+            result = get_user_defined_type(entry);
+        }
     }
 
     return result;
@@ -3229,6 +3234,19 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
+
+    if (decl_context.current_scope->related_entry != NULL
+            && decl_context.current_scope->related_entry->kind == SK_MODULE)
+    {
+        scope_entry_t* module = decl_context.current_scope->related_entry;
+
+        P_LIST_ADD_ONCE(module->entity_specs.related_symbols,
+                module->entity_specs.num_related_symbols,
+                class_name);
+
+        class_name->entity_specs.in_module = module;
+    }
+
 }
 
 static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4715,7 +4733,7 @@ static scope_entry_t* query_module_for_symbol_name(scope_entry_t* module_symbol,
     return sym_in_module;
 }
 
-static void insert_symbol_from_module(scope_entry_t* entry, 
+static scope_entry_t* insert_symbol_from_module(scope_entry_t* entry, 
         decl_context_t decl_context, 
         const char* aliased_name, 
         scope_entry_t* module_symbol)
@@ -4750,11 +4768,19 @@ static void insert_symbol_from_module(scope_entry_t* entry,
         int i;
         for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
         {
+            scope_entry_t* new_sym = insert_symbol_from_module(
+                    entry->entity_specs.related_symbols[i],
+                    decl_context,
+                    entry->entity_specs.related_symbols[i]->symbol_name,
+                    module_symbol);
+
             P_LIST_ADD(current_symbol->entity_specs.related_symbols,
                     current_symbol->entity_specs.num_related_symbols,
-                    entry->entity_specs.related_symbols[i]);
+                    new_sym);
         }
     }
+
+    return current_symbol;
 }
 
 static void build_scope_use_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)

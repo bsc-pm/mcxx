@@ -677,15 +677,16 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
     {
         const char* name = "CLASS";
 
+        type_t* class_type = get_actual_class_type(t);
         int i = 0;
-        int num_fields = class_type_get_num_nonstatic_data_members(t);
+        int num_fields = class_type_get_num_nonstatic_data_members(class_type);
 
         sqlite3_int64 field_list[num_fields+1];
         memset(field_list, 0, sizeof(field_list));
 
         for (i = 0; i < num_fields; i++)
         {
-            scope_entry_t* field = class_type_get_nonstatic_data_member_num(t, i);
+            scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
 
             field_list[i] = insert_symbol(handle, field);
         }
