@@ -422,8 +422,9 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 << "}"
                 << "nanos_event_t _events[1];"
                 << "_events[0].type = NANOS_POINT;"
-                << "_events[0].info.burst.key = nanos_instr_name_key;"
-                << "_events[0].info.burst.value = nanos_instr_name_value;"
+                << "_events[0].info.point.nkvs = 1"
+                << "_events[0].info.point.key = &nanos_instr_name_key;"
+                << "_events[0].info.point.value = &nanos_instr_name_value;"
                 << "nanos_instrument_events(1, _events);"
                 << "}"
                 ;
