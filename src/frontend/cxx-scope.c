@@ -3469,7 +3469,7 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
-static const char* get_unqualified_template_symbol_name(scope_entry_t* entry, 
+const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context)
 {
     const char* result = "";
@@ -3580,7 +3580,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             && template_specialized_type_get_template_arguments(entry->type_information) != NULL)
     {
         current_has_template_parameters = 1;
-        const char *template_parameters = get_unqualified_template_symbol_name(entry, decl_context);
+        const char *template_parameters = get_template_arguments_str(entry, decl_context);
         result = strappend(result, template_parameters);
 
         (*is_dependent) |= is_dependent_type(entry->type_information);

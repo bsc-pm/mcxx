@@ -229,7 +229,7 @@ struct template_parameter_value_tag
     char is_default;
 
     // This symbol is null until lookup finds a template parameter and
-    // discovers it has this value Then a fake symbol is created to represent
+    // discovers it has this value. Then a fake symbol is created to represent
     // such value and is kept here
     scope_entry_t* entry;
 };

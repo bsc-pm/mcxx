@@ -50,16 +50,6 @@ void nodecl_set_constant(nodecl_t t, const_value_t* cval)
     expression_set_constant(t.tree, cval);
 }
 
-char nodecl_is_value_dependent(nodecl_t t)
-{
-    return expression_is_value_dependent(t.tree);
-}
-
-void nodecl_set_is_value_dependent(nodecl_t t, char is_value_dependent)
-{
-    return expression_set_is_value_dependent(t.tree, is_value_dependent);
-}
-
 const char* nodecl_get_filename(nodecl_t t)
 {
     return ASTFileName(t.tree);

@@ -144,6 +144,18 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
 
+LIBMCXX_EXTERN int get_template_nesting_of_context(decl_context_t);
+LIBMCXX_EXTERN int get_template_nesting_of_template_parameters(template_parameter_list_t*);
+
+LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
+        AST template_parameters_list_tree,
+        decl_context_t template_parameters_context);
+
+LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
+
+LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
+        decl_context_t decl_context);
+
 // Iteration in scopes
 LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(scope_entry_list_t*, void*));
 
@@ -153,17 +165,8 @@ LIBMCXX_EXTERN scope_t* _new_scope(void);
 // Fake symbol representing a scope
 LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
 
-// Debug use mainly
+// Debug functions
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
-
-LIBMCXX_EXTERN int get_template_nesting_of_context(decl_context_t);
-LIBMCXX_EXTERN int get_template_nesting_of_template_parameters(template_parameter_list_t*);
-
-LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
-        AST template_parameters_list_tree,
-        decl_context_t template_parameters_context);
-
-LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
 
 MCXX_END_DECLS
 

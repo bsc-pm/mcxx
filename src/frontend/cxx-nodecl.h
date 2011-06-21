@@ -63,9 +63,6 @@ nodecl_t _nodecl_wrap(AST);
 
 // C++ specific stuff
 nodecl_t nodecl_wrap_cxx_raw_expr(AST expression);
-// FIXME - Should this be here?
-char nodecl_is_value_dependent(nodecl_t);
-void nodecl_set_is_value_dependent(nodecl_t, char is_value_dependent);
 
 MCXX_END_DECLS
 

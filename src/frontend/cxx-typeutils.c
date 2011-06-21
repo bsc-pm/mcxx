@@ -2635,7 +2635,7 @@ static type_t* _get_array_type(type_t* element_type,
 
             if (expression_sizes_ok
                     && !result->info->is_dependent
-                    && nodecl_is_value_dependent(whole_size))
+                    && nodecl_get_kind(whole_size) == NODECL_CXX_RAW)
             {
                 result->info->is_dependent = 1;
             }
