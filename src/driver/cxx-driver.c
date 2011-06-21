@@ -1854,7 +1854,9 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+#ifdef FORTRAN_SUPPORT
     char prescanner_flag = 0;
+#endif
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
 
@@ -1924,9 +1926,11 @@ static void parse_subcommand_arguments(const char* arguments)
             case 'l' : 
                 linker_flag = 1;
                 break;
+#ifdef FORTRAN_SUPPORT
             case 's':
                 prescanner_flag = 1;
                 break;
+#endif
             default:
                 fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
                         compilation_process.exec_basename,
