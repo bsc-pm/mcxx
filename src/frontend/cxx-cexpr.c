@@ -382,6 +382,7 @@ AST const_value_to_tree(const_value_t* v)
 
         // Set ourselves as a constant
         expression_set_constant(v->tree, v);
+        expression_set_nodecl(v->tree, const_value_to_nodecl(v));
     }
 
     return v->tree;

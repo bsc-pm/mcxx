@@ -6242,8 +6242,15 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     }
                     expression_set_dependent(expr);
                 }
-                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
+                if (entry->entity_specs.is_template_parameter)
+                {
+                    expression_set_nodecl(expr, expression_get_nodecl(entry->language_dependent_value));
+                }
+                else
+                {
+                    nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                    expression_set_nodecl(expr, nodecl_output);
+                }
             }
             else if (entry->kind == SK_FUNCTION)
             {

@@ -1881,6 +1881,10 @@ template_parameter_list_t* template_type_get_template_parameters(type_t* t)
     return t->template_parameters;
 }
 
+template_parameter_list_t* template_type_get_template_parameters_of_primary(type_t* t)
+{
+}
+
 int template_type_get_num_specializations(type_t* t)
 {
     ERROR_CONDITION(!is_template_type(t),

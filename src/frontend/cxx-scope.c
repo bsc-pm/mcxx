@@ -3803,7 +3803,8 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     ERROR_CONDITION(parameter_entry == NULL, "Invalid symbol", 0);
 
     template_parameter_value_t* value = current_values[template_parameter_position];
-    if (value != NULL)
+    if (value != NULL
+            && !value->is_default)
     {
         if (value->entry == NULL)
         {
