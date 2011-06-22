@@ -9187,7 +9187,8 @@ static void build_scope_return_statement(AST a,
         if (is_void_type(return_type))
         {
             if (!IS_CXX_LANGUAGE
-                    || !is_void_type(expression_get_type(expression)))
+                    || (!is_dependent_expr_type(expression_get_type(expression))
+                        && !is_void_type(expression_get_type(expression))))
             {
                 fprintf(stderr, "%s: warning: return with non-void expression in a void function\n", ast_location(a));
             }
