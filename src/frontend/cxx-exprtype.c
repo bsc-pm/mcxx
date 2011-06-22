@@ -7462,11 +7462,16 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
 
         for_each_element(list, iter)
         {
+            if (ASTType(iter) == AST_AMBIGUITY)
+            {
+                solve_ambiguous_expression_list(iter, decl_context);
+            }
+
             AST parameter_expr = ASTSon1(iter);
 
-            ASTAttrSetValueType(parameter_expr, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
-
             check_for_expression_impl_(parameter_expr, decl_context);
+
+            ASTAttrSetValueType(parameter_expr, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
 
             if (expression_is_error(parameter_expr))
             {
@@ -10003,6 +10008,11 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             AST iter;
             for_each_element(expression_list, iter)
             {
+                if (ASTType(iter) == AST_AMBIGUITY)
+                {
+                    solve_ambiguous_expression_list(iter, decl_context);
+                }
+
                 AST initializer_clause = ASTSon1(iter);
 
                 type_t* type_in_context = declared_type;

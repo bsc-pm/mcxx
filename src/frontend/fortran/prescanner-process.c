@@ -238,7 +238,7 @@ static void convert_whole_line_comments(void)
 static void join_two_lines(prescanner_t* prescanner, line_t* starting_line, line_t* continuation_line);
 static void join_continuated_lines(prescanner_t* prescanner)
 {
-	int length, code;
+	int code;
 	line_t* iter = file_lines;
 	regex_t match_continuated;
 
@@ -254,7 +254,6 @@ static void join_continuated_lines(prescanner_t* prescanner)
 
 	while (iter != NULL)
 	{
-		length = strlen(iter->line);
 		if (regexec(&match_continuated, iter->line, 0, NULL, 0) == 0)
 		{
 			if (previous_line == NULL)
