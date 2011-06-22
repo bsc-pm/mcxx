@@ -43,10 +43,12 @@ MCXX_BEGIN_DECLS
 LIBMCXX_EXTERN void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
         const char* filename, int line, deduction_flags_t flags);
 LIBMCXX_EXTERN void unificate_two_expressions(deduction_set_t **unif_set, 
-        struct AST_tag* left_tree, decl_context_t left_decl_context, 
-        struct AST_tag* right_tree, decl_context_t right_decl_context, deduction_flags_t flags);
-LIBMCXX_EXTERN char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
-        decl_context_t right_decl_context, deduction_flags_t flags);
+        nodecl_t left_tree, 
+        nodecl_t right_tree, 
+        deduction_flags_t flags);
+LIBMCXX_EXTERN char same_functional_expression(
+        nodecl_t left_tree, nodecl_t right_tree, 
+        deduction_flags_t flags);
 
 LIBMCXX_EXTERN deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
         scope_entry_t* s1);

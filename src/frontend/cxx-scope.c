@@ -2049,25 +2049,28 @@ static template_parameter_value_t* update_template_parameter_value(
 
     result->type = update_type(result->type, decl_context, filename, line);
 
-    if (result->expression != NULL)
+    if (nodecl_is_cxx_raw(result->value))
     {
-        result->expression =
-            ast_copy_for_instantiation(result->expression);
-        result->expression_context = decl_context;
+        AST expr = nodecl_unwrap_cxx_raw(result->value);
+        expr = ast_copy_for_instantiation(expr);
 
-        if(!check_expression(result->expression, result->expression_context))
+        if(!check_expression(expr, decl_context))
         {
             internal_error("Updated nontype template parameter has an invalid expression '%s'", 
-                    prettyprint_in_buffer(result->expression));
+                    prettyprint_in_buffer(expr));
         }
 
-        if (expression_is_constant(result->expression))
+        if (expression_is_constant(expr))
         {
-            result->expression = const_value_to_tree(expression_get_constant(result->expression));
+            result->value = const_value_to_nodecl(expression_get_constant(expr));
         }
-
+        else
+        {
+            result->value = expression_get_nodecl(expr);
+        }
+        
         // Force the type of the expression
-        expression_set_type(result->expression, result->type);
+        nodecl_set_type(result->value, result->type);
     }
 
     return result;
@@ -2729,8 +2732,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
         decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
 
-        if (!nodecl_is_null(array_size) 
-                && nodecl_get_kind(array_size) == NODECL_CXX_RAW)
+        if (nodecl_is_cxx_raw(array_size))
         {
             DEBUG_CODE()
             {
@@ -2742,7 +2744,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             array_size_context = decl_context;
 
             // NODECL_CXX_RAW have as its zero-th children a C++ expression tree
-            AST new_array_size = nodecl_get_ast(nodecl_get_child(array_size, 0));
+            AST new_array_size = nodecl_unwrap_cxx_raw(array_size);
             new_array_size = ast_copy_for_instantiation(new_array_size);
             if (!check_expression(new_array_size, array_size_context))
             {
@@ -2751,7 +2753,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             array_size = expression_get_nodecl(new_array_size);
-            if (nodecl_get_kind(array_size) == NODECL_CXX_RAW)
+            if (nodecl_is_cxx_raw(array_size))
             {
                 internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
                         nodecl_get_locus(array_size));
@@ -2986,20 +2988,20 @@ template_parameter_list_t* get_template_parameters_from_syntax(
                     //     }
                     //     return 0;
                     // }
-                    t_argument->expression = ASTSon0(template_parameter);
-                    t_argument->expression_context = template_parameters_context;
+                    AST expr = ASTSon0(template_parameter);
 
-                    type_t* expr_type = expression_get_type(t_argument->expression);
+                    // FIXME - Maybe this expr has already been checked in another context
+                    check_expression(expr, template_parameters_context);
 
-                    if (expression_is_constant(t_argument->expression))
+                    type_t* expr_type = expression_get_type(expr);
+
+                    t_argument->value = expression_get_nodecl(expr);
+
+                    if (expression_is_constant(expr))
                     {
-                        t_argument->expression = const_value_to_tree(expression_get_constant(t_argument->expression));
+                        t_argument->value = const_value_to_nodecl(expression_get_constant(expr));
                     }
-                    else
-                    {
-                        t_argument->expression = ast_copy_for_instantiation(t_argument->expression);
-                        check_expression(t_argument->expression, template_parameters_context);
-                    }
+
                     t_argument->type = expr_type;
                     t_argument->kind = TPK_NONTYPE;
                     break;
@@ -3512,7 +3514,7 @@ const char* get_template_arguments_str(scope_entry_t* entry,
                 }
             case TPK_NONTYPE:
                 {
-                    argument_str = prettyprint_in_buffer(argument->expression);
+                    argument_str = c_cxx_codegen_to_str(argument->value);
                     break;
                 }
             default:
@@ -3819,8 +3821,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     {
                         value->entry->kind = SK_VARIABLE;
                         value->entry->type_information = value->type;
-                        value->entry->language_dependent_value = value->expression;
-                        value->entry->decl_context = value->expression_context;
+                        value->entry->value = value->value;
                         break;
                     }
                 case TPK_TYPE:

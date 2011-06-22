@@ -1423,18 +1423,9 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                     new_value->kind = TPK_NONTYPE;
                     new_value->type = param->entry->type_information;
 
-                    // Fake an expression
-                    new_value->expression = ASTLeaf(AST_SYMBOL, 
+                    new_value->value = nodecl_make_symbol(param->entry,
                             param->entry->file,
-                            param->entry->line,
-                            param->entry->symbol_name);
-                    new_value->expression_context = param->entry->decl_context;
-
-                    if (!check_expression(new_value->expression, new_value->expression_context))
-                    {
-                        internal_error("Created nontype template argument could not be checked", 0);
-                    }
-
+                            param->entry->line);
                     break;
                 }
             default :
@@ -1614,10 +1605,8 @@ static char same_template_parameter_list(
                 }
             case TPK_NONTYPE:
                 {
-                    if (!same_functional_expression(targ_1->expression,
-                                 targ_1->expression_context,
-                                 targ_2->expression,
-                                 targ_2->expression_context,
+                    if (!same_functional_expression(targ_1->value,
+                                 targ_2->value,
                                  deduction_flags_empty()))
                     {
                         return 0;
@@ -1671,7 +1660,7 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
         }
         else if (curr_argument->kind == TPK_NONTYPE)
         {
-            if (expression_is_value_dependent(curr_argument->expression))
+            if (nodecl_is_cxx_raw(curr_argument->value))
             {
                 return 1;
             }
@@ -1879,10 +1868,6 @@ template_parameter_list_t* template_type_get_template_parameters(type_t* t)
             "This is not a template type", 0);
 
     return t->template_parameters;
-}
-
-template_parameter_list_t* template_type_get_template_parameters_of_primary(type_t* t)
-{
 }
 
 int template_type_get_num_specializations(type_t* t)
@@ -4139,8 +4124,8 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     {
         CXX_LANGUAGE()
         {
-            if (!same_functional_expression(nodecl_get_ast(t1->whole_size), t1->array_expr_decl_context, 
-                        nodecl_get_ast(t2->whole_size), t2->array_expr_decl_context, deduction_flags_empty()))
+            if (!same_functional_expression(t1->whole_size, 
+                        t2->whole_size, deduction_flags_empty()))
                 return 0;
         }
         C_LANGUAGE()
@@ -5828,7 +5813,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                                 case TPK_NONTYPE:
                                     {
                                         result = strappend(result, 
-                                                prettyprint_in_buffer(template_arg->expression));
+                                                c_cxx_codegen_to_str(template_arg->value));
                                         break;
                                     }
                                 case TPK_TEMPLATE:
@@ -6468,7 +6453,7 @@ static const char* get_template_parameters_list_str(template_parameter_list_t* t
             case TPK_NONTYPE:
                 {
                     result = strappend(result, 
-                            prettyprint_in_buffer(template_parameter->expression));
+                            c_cxx_codegen_to_str(template_parameter->value));
                     break;
                 }
             default:
@@ -6818,7 +6803,7 @@ const char* print_declarator(type_t* printed_declarator)
                                 case TPK_NONTYPE:
                                     {
                                         tmp_result = strappend(tmp_result, 
-                                                prettyprint_in_buffer(template_parameter->expression));
+                                                c_cxx_codegen_to_str(template_parameter->value));
                                         break;
                                     }
                                 default:

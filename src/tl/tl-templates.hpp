@@ -162,7 +162,7 @@ namespace TL
 
               You can wrap this tree into an Expression
               */
-            AST_t get_expression() const;
+            DEPRECATED AST_t get_expression() const;
 
             //! States whether the template argument was defined implicitly
             /*! 

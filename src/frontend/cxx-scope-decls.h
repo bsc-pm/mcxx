@@ -222,8 +222,7 @@ struct template_parameter_value_tag
     struct type_tag* type;
 
     // Argument tree. Used only for nontype template parameters
-    struct AST_tag* expression;
-    decl_context_t expression_context;
+    nodecl_t value;
 
     // Template, states that this is a default argument of a template parameter
     char is_default;

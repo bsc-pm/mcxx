@@ -7112,8 +7112,7 @@ static void build_scope_nontype_template_parameter(AST a,
         }
 
         default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
-        default_argument->expression = default_expression;
-        default_argument->expression_context = template_context;
+        default_argument->value = expression_get_nodecl(default_expression);
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_NONTYPE;

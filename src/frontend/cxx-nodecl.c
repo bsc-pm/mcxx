@@ -29,6 +29,11 @@ type_t* nodecl_get_type(nodecl_t t)
     return expression_get_type(t.tree);
 }
 
+void nodecl_set_type(nodecl_t t, type_t* type)
+{
+    return expression_set_type(t.tree, type);
+}
+
 nodecl_t nodecl_copy(nodecl_t t)
 {
     nodecl_t result = { ast_copy(t.tree) };
@@ -186,6 +191,11 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
+char nodecl_is_cxx_raw(nodecl_t n)
+{
+    return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_RAW);
+}
+
 nodecl_t nodecl_wrap_cxx_raw_expr(AST expression)
 {
     // Create a raw tree
@@ -194,4 +204,11 @@ nodecl_t nodecl_wrap_cxx_raw_expr(AST expression)
     ast_set_child_but_parent(nodecl_get_ast(nodecl_raw), 0, expression);
 
     return nodecl_raw;
+}
+
+AST nodecl_unwrap_cxx_raw(nodecl_t n)
+{
+    ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_RAW, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
+
+    return nodecl_get_ast(nodecl_get_child(n, 0));
 }

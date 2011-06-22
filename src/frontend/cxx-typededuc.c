@@ -39,6 +39,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-instantiation.h"
 #include "cxx-entrylist.h"
+#include "cxx-codegen.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -166,8 +167,7 @@ char deduce_template_parameters_common(
                             (*deduced_arguments) = counted_calloc(1, sizeof(*(*deduced_arguments)), &_bytes_typededuc);
                             return 0;
                         }
-                        current_deduced_parameter->expression = current_explicit_template_argument->expression;
-                        current_deduced_parameter->decl_context = current_explicit_template_argument->expression_context;
+                        current_deduced_parameter->value = current_explicit_template_argument->value;
                         // Note that here we are using the type of the
                         // parameter which it is the one ruling here
                         current_deduced_parameter->type = current_template_parameter->entry->type_information;
@@ -365,8 +365,7 @@ char deduce_template_parameters_common(
 
                     deduced_parameter_t *default_deduced_parameter = counted_calloc(1, sizeof(*default_deduced_parameter), &_bytes_typededuc);
                     default_deduced_parameter->type = default_template_parameter->type;
-                    default_deduced_parameter->expression = default_template_parameter->expression;
-                    default_deduced_parameter->decl_context = default_template_parameter->expression_context;
+                    default_deduced_parameter->value = default_template_parameter->value;
 
                     deduction_t* default_deduction = counted_calloc(1, sizeof(*default_deduction), &_bytes_typededuc);
                     default_deduction->kind = template_parameters->parameters[i]->kind;
@@ -477,16 +476,12 @@ char deduce_template_parameters_common(
                         {
 
                             if (!same_functional_expression(
-                                        result_deduced_parameter->expression,
-                                        result_deduced_parameter->decl_context,
-                                        current_deduced_parameter->expression,
-                                        current_deduced_parameter->decl_context,
+                                        result_deduced_parameter->value,
+                                        current_deduced_parameter->value,
                                         flags)
                                     || !same_functional_expression(
-                                        current_deduced_parameter->expression,
-                                        current_deduced_parameter->decl_context,
-                                        result_deduced_parameter->expression,
-                                        result_deduced_parameter->decl_context,
+                                        current_deduced_parameter->value,
+                                        result_deduced_parameter->value,
                                         flags))
                             {
                                 DEBUG_CODE()
@@ -594,7 +589,7 @@ char deduce_template_parameters_common(
                     case TPK_NONTYPE:
                         {
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
-                                    prettyprint_in_buffer(current_deduction->deduced_parameters[j]->expression));
+                                    c_cxx_codegen_to_str(current_deduction->deduced_parameters[j]->value));
                             fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
                                     print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
@@ -1243,15 +1238,14 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
             case TPK_NONTYPE:
                 {
                     argument->kind = TPK_NONTYPE;
-                    argument->expression = current_deduction->deduced_parameters[0]->expression;
-                    argument->expression_context = current_deduction->deduced_parameters[0]->decl_context;
+                    argument->value = current_deduction->deduced_parameters[0]->value;
                     argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter updated to '%s'\n",
                                 current_deduction->parameter_position,
                                 nesting,
-                                prettyprint_in_buffer(argument->expression));
+                                c_cxx_codegen_to_str(argument->value));
                     }
                 }
                 break;

@@ -107,7 +107,8 @@ namespace TL
 
     AST_t TemplateArgument::get_expression() const
     {
-        return AST_t(_tpl_param->arguments[_index]->expression);
+        return AST_t();
+        // return AST_t(_tpl_param->arguments[_index]->expression);
     }
 
     bool TemplateArgument::is_implicit() const

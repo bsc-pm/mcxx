@@ -2486,7 +2486,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
 static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    prettyprint(visitor->file, nodecl_get_ast(nodecl_get_child(node, 0)));
+    prettyprint(visitor->file, nodecl_unwrap_cxx_raw(node));
 }
 
 // Top level
