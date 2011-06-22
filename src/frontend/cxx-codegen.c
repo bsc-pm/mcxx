@@ -107,7 +107,15 @@ static void codegen_move_namespace_from_to(nodecl_codegen_visitor_t* visitor, sc
     for (i = common; i < num_to; i++)
     {
         indent(visitor);
-        fprintf(visitor->file, "namespace %s {\n", namespace_nesting_to[i]->symbol_name);
+        const char* real_name = namespace_nesting_to[i]->symbol_name;
+        //
+        // Anonymous namespace has special properties that we want to preserve
+        if (strcmp(real_name, "(unnamed)") == 0)
+        {
+            real_name = "/* anonymous */";
+        }
+
+        fprintf(visitor->file, "namespace %s {\n", real_name);
         if ((i + 1) < num_from)
         {
             fprintf(visitor->file, " ");
@@ -740,7 +748,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
-                        unmangle_symbol_name(symbol->symbol_name));
+                        unmangle_symbol_name(symbol));
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 indent(visitor);
@@ -1008,7 +1016,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 const char* declarator = print_decl_type_str(symbol->type_information,
                         symbol->decl_context,
-                        unmangle_symbol_name(symbol->symbol_name));
+                        unmangle_symbol_name(symbol));
 
                 const char* exception_spec = "";
                 CXX_LANGUAGE()
@@ -1704,7 +1712,7 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 else
                 {
-                    fprintf(visitor->file, unmangle_symbol_name(called_symbol->symbol_name));
+                    fprintf(visitor->file, unmangle_symbol_name(called_symbol));
                 }
 
                 fprintf(visitor->file, "(");
@@ -2273,9 +2281,10 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
-    // This should be CODEGEN_STATUS_DEFINED
-    entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
 
+    codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
+
+    entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
     define_symbol(visitor, entry);
 }
 
@@ -2299,6 +2308,12 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     scope_entry_t* symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(symbol == NULL || symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
+
+    if (symbol->entity_specs.is_member)
+    {
+        scope_entry_t* class_symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+        define_symbol(visitor, class_symbol);
+    }
 
     codegen_type_of_symbol(visitor, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
 
@@ -2410,9 +2425,33 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         fclose(str_visitor.file);
     }
 
+    const char* qualified_name = unmangle_symbol_name(symbol);
+
+    if (symbol->entity_specs.is_member)
+    {
+        scope_entry_t* class_symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+
+        const char* class_name = class_symbol->symbol_name;
+
+        if (is_template_specialized_type(class_symbol->type_information))
+        {
+            class_name = strappend(class_name, 
+                    get_template_arguments_str(class_symbol, class_symbol->decl_context));
+        }
+
+        qualified_name = strappend(strappend(class_name, "::"), qualified_name);
+    }
+
+    // FIXME: non-template member functions of template classes require special treatment
+    if (is_template_specialized_type(symbol->type_information))
+    {
+        qualified_name = strappend(qualified_name, 
+                get_template_arguments_str(symbol, symbol->decl_context));
+    }
+
     const char* declarator = get_declaration_string_internal(symbol->type_information,
             symbol->decl_context,
-            symbol->symbol_name,
+            qualified_name,
             /* initializer */ "",
             /* semicolon */ 0,
             /* num_parameter_names */ symbol->entity_specs.num_related_symbols,

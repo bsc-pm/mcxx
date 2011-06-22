@@ -3451,7 +3451,8 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
         while (current_scope != NULL)
         {
             if (current_scope->related_entry != NULL
-                    && current_scope->related_entry->symbol_name != NULL)
+                    && current_scope->related_entry->symbol_name != NULL
+                    && strcmp(current_scope->related_entry->symbol_name, "(unnamed)") != 0)
             {
                 const char* nested_name = strappend(current_scope->related_entry->symbol_name, "::");
                 result = strappend(nested_name, result);
@@ -3543,8 +3544,9 @@ const char* get_template_arguments_str(scope_entry_t* entry,
     return result;
 }
 
-const char* unmangle_symbol_name(const char* name)
+const char* unmangle_symbol_name(scope_entry_t* entry)
 {
+    const char* name = entry->symbol_name;
     // constructor A
     if ((strlen(name) > strlen("constructor "))
             && (strncmp(name, "constructor ", strlen("constructor ")) == 0))
@@ -3570,7 +3572,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         entry = entry->entity_specs.injected_class_referred_symbol;
     }
 
-    const char* result = uniquestr(unmangle_symbol_name(entry->symbol_name));
+    const char* result = uniquestr(unmangle_symbol_name(entry));
 
     char current_has_template_parameters = 0;
 
@@ -3809,6 +3811,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
             value->entry->symbol_name = parameter_entry->symbol_name;
             value->entry->decl_context = context;
             value->entry->entity_specs.is_template_parameter = 1;
+
             switch (value->kind)
             {
                 case TPK_NONTYPE:

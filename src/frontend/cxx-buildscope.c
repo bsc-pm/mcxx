@@ -6822,7 +6822,7 @@ static void build_scope_template_template_parameter(AST a,
         char artificial_template_param_name[256];
 
         sprintf(artificial_template_param_name, 
-                " <template-template-param-%d-%d> ", nesting, template_parameters->num_parameters);
+                "__tpl_tpl_param_%d_%d__", nesting, template_parameters->num_parameters);
 
         template_parameter_name = uniquestr(artificial_template_param_name);
     }
@@ -6966,7 +6966,7 @@ static void build_scope_type_template_parameter(AST a,
     else
     {
         char template_param_name[256];
-        sprintf(template_param_name, " <type-template-param-%d-%d> ", nesting, 
+        sprintf(template_param_name, "__type_tpl__param_%d_%d__", nesting, 
                 template_parameters->num_parameters);
         template_parameter_name = uniquestr(template_param_name);
 
@@ -7080,7 +7080,7 @@ static void build_scope_nontype_template_parameter(AST a,
     {
         char template_param_name[256];
 
-        sprintf(template_param_name, " <nontype-template-param-%d-%d> ", 
+        sprintf(template_param_name, "__nontype_tpl_param_%d_%d__", 
                 nesting, 
                 template_parameters->num_parameters);
         template_parameter_name = uniquestr(template_param_name);
@@ -7259,7 +7259,7 @@ static void build_scope_namespace_definition(AST a,
     else
     {
         // Register this namespace if it does not exist in this scope
-        const char* unnamed_namespace = uniquestr("<unnamed>");
+        const char* unnamed_namespace = uniquestr("(unnamed)");
         scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, DF_ONLY_CURRENT_SCOPE);
 
         decl_context_t namespace_context;
