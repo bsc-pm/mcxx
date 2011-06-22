@@ -287,7 +287,10 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
                 || ASTType(postfix_expr) == AST_OPERATOR_FUNCTION_ID);
     }
 
-    if (!_check_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
+    nodecl_t nodecl_argument_list = nodecl_null();
+    if (!_check_functional_expression(expression, postfix_expr, 
+                call_args, decl_context, 
+                might_require_koenig, &nodecl_argument_list))
     {
         expression_set_error(expression);
         return;

@@ -9329,7 +9329,7 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             nodecl_make_expression_statement(
             nodecl_make_function_call(
                     nodecl_make_symbol(class_type_get_destructor(class_type), NULL, 0),
-                    nodecl_null(),
+                    nodecl_make_list_1(nodecl_make_symbol(entry, NULL, 0)),
                     get_void_type(),
                     NULL, 0), NULL, 0);
 

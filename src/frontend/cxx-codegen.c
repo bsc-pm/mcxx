@@ -22,12 +22,14 @@ struct nodecl_codegen_visitor_tag
 
     char in_condition;
     nodecl_t condition_top;
-    char initializer;
+    char in_initializer;
 } nodecl_codegen_visitor_t;
 
 
 typedef void (*codegen_visitor_fun_t)(nodecl_codegen_visitor_t* visitor, nodecl_t node);
 typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
+
+static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, template_parameter_list_t* template_parameters);
 
 // This is safer than using the macro directly as it will warn us against wrong types
 // while the macro does not
@@ -241,6 +243,9 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
             && entry->type_information != NULL)
     {
         codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
+
+        define_local_entities_in_trees(visitor, entry->value, current_scope);
+
         if (current_scope == entry->decl_context.current_scope)
         {
             if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
@@ -281,6 +286,8 @@ static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor,
     {
         codegen_type_of_symbol_only_nonlocal(visitor, entry->type_information, /* needs def */ 1);
         define_symbol_if_nonlocal(visitor, entry);
+
+        define_nonlocal_entities_in_trees(visitor, entry->value);
     }
 
     type_t* type = nodecl_get_type(node);
@@ -412,6 +419,14 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     fprintf(visitor->file, "{\n");
                 }
                 access_specifier_t default_access_spec = AS_UNKNOWN;
+
+                int num_members = class_type_get_num_members(symbol->type_information);
+                for (i = 0; i < num_members; i++)
+                {
+                    scope_entry_t* member = class_type_get_member_num(symbol->type_information, i);
+                    codegen_type_of_symbol(visitor, member->type_information, /* needs_def */ 1);
+                }
+
                 CXX_LANGUAGE()
                 {
                     char is_template_specialized = 0;
@@ -487,40 +502,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                             indent(visitor);
                             fprintf(visitor->file, "template <");
-
-                            for (i = 0; i < template_parameters->num_parameters; i++)
-                            {
-                                if (i != 0)
-                                    fprintf(visitor->file, ", ");
-
-                                template_parameter_t* tpl = template_parameters->parameters[i];
-
-                                switch (tpl->kind)
-                                {
-                                    case TPK_TYPE:
-                                        {
-                                            fprintf(visitor->file, "typename %s", tpl->entry->symbol_name);
-                                            break;
-                                        }
-                                    case TPK_NONTYPE:
-                                        {
-                                            fprintf(visitor->file, "%s", 
-                                                    print_decl_type_str(tpl->entry->type_information, tpl->entry->decl_context, 
-                                                        tpl->entry->symbol_name));
-                                            break;
-                                        }
-                                    case TPK_TEMPLATE:
-                                        {
-                                            internal_error("Not implemented yet\n", tpl->kind);
-                                            break;
-                                        }
-                                    default:
-                                        {
-                                            internal_error("Invalid template parameter kind %s\n", tpl->kind);
-                                        }
-                                }
-                            }
-
+                            codegen_template_parameters(visitor, template_parameters);
                             fprintf(visitor->file, ">\n");
                         }
                     }
@@ -588,7 +570,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
 
                 access_specifier_t current_access_spec = default_access_spec;
-                int num_members = class_type_get_num_members(symbol->type_information);
+                num_members = class_type_get_num_members(symbol->type_information);
                 for (i = 0; i < num_members; i++)
                 {
                     scope_entry_t* member = class_type_get_member_num(symbol->type_information, i);
@@ -689,9 +671,10 @@ static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, templ
                 }
             case TPK_TEMPLATE:
                 {
-                    fprintf(visitor->file, "template ");
                     type_t* template_type = symbol->type_information;
+                    fprintf(visitor->file, "template <");
                     codegen_template_parameters(visitor, template_type_get_template_parameters(template_type));
+                    fprintf(visitor->file, "> ");
                     fprintf(visitor->file, " class %s", symbol->symbol_name);
                     break;
                 }
@@ -757,7 +740,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
-                        symbol->symbol_name);
+                        unmangle_symbol_name(symbol->symbol_name));
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 indent(visitor);
@@ -771,19 +754,33 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     {
                         fprintf(visitor->file, "%s", " = ");
                     }
+
+                    char equal_is_needed = 0;
                     CXX03_LANGUAGE()
                     {
                         // We only need = if the initializer is a structured one
                         // and this is C++03, in C++1x syntax { } is always allowed
-                        if (nodecl_get_kind(symbol->value) == NODECL_STRUCTURED_LITERAL)
+                        equal_is_needed = 1;
+                        if (nodecl_get_kind(symbol->value) == NODECL_FUNCTION_CALL)
                         {
-                            fprintf(visitor->file, "%s", " = ");
+                            scope_entry_t* called_sym = nodecl_get_symbol(nodecl_get_child(symbol->value, 0));
+                            if (called_sym->entity_specs.is_constructor
+                                    && equivalent_types(called_sym->entity_specs.class_type, 
+                                        no_ref(symbol->type_information)))
+                            {
+                                equal_is_needed = 0;
+                            }
                         }
                     }
 
-                    visitor->initializer = 1;
+                    if (equal_is_needed)
+                    {
+                        fprintf(visitor->file, "%s", " = ");
+                    }
+
+                    visitor->in_initializer = 1;
                     codegen_walk(visitor, symbol->value);
-                    visitor->initializer = 0;
+                    visitor->in_initializer = 0;
                 }
 
                 if (!visitor->in_condition)
@@ -803,6 +800,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 CXX_LANGUAGE()
                 {
                     char is_template_specialized = 0;
+                    char is_primary_template = 0;
 
                     type_t* template_type = NULL;
                     type_t* primary_template = NULL;
@@ -815,6 +813,15 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         primary_template = template_type_get_primary_type(template_type);
                         primary_symbol = named_type_get_symbol(primary_template);
                         declare_symbol(visitor, primary_symbol);
+
+                        if (primary_symbol != symbol)
+                        {
+                            declare_symbol(visitor, primary_symbol);
+                        }
+                        else
+                        {
+                            is_primary_template = 1;
+                        }
                     }
 
 
@@ -848,8 +855,14 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         }
                         else
                         {
+                            ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+                            template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
+                                    symbol->type_information);
+
                             indent(visitor);
-                            fprintf(visitor->file, "// Not independent template ???\n");
+                            fprintf(visitor->file, "template <");
+                            codegen_template_parameters(visitor, template_parameters);
+                            fprintf(visitor->file, ">\n");
                         }
                     }
 
@@ -903,13 +916,14 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
                         declare_symbol(visitor, primary_symbol);
 
-                        indent(visitor);
                         if (primary_symbol != symbol)
                         {
+                            indent(visitor);
                             fprintf(visitor->file, "template <>\n");
                         }
                         else
                         {
+                            indent(visitor);
                             fprintf(visitor->file, "template <");
                             template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
                             codegen_template_parameters(visitor, template_parameters);
@@ -994,7 +1008,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 const char* declarator = print_decl_type_str(symbol->type_information,
                         symbol->decl_context,
-                        symbol->symbol_name);
+                        unmangle_symbol_name(symbol->symbol_name));
 
                 const char* exception_spec = "";
                 CXX_LANGUAGE()
@@ -1531,10 +1545,10 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     if (!nodecl_is_null(initializer))
     {
-        int old_initializer = visitor->initializer;
-        visitor->initializer = 1;
+        int old_initializer = visitor->in_initializer;
+        visitor->in_initializer = 1;
         codegen_walk(visitor, initializer);
-        visitor->initializer = old_initializer;
+        visitor->in_initializer = old_initializer;
     }
 }
 
@@ -1632,10 +1646,16 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
     if (called_symbol != NULL)
     {
         if (called_symbol->kind == SK_FUNCTION
-                && called_symbol->entity_specs.is_member
-                && !called_symbol->entity_specs.is_static)
+                && called_symbol->entity_specs.is_member)
         {
-            kind = NONSTATIC_MEMBER_CALL;
+            if (called_symbol->entity_specs.is_constructor)
+            {
+                kind = CONSTRUCTOR_INITIALIZATION;
+            }
+            else if (!called_symbol->entity_specs.is_static)
+            {
+                kind = NONSTATIC_MEMBER_CALL;
+            }
         }
     }
 
@@ -1684,7 +1704,7 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 else
                 {
-                    fprintf(visitor->file, called_symbol->symbol_name);
+                    fprintf(visitor->file, unmangle_symbol_name(called_symbol->symbol_name));
                 }
 
                 fprintf(visitor->file, "(");
@@ -1699,8 +1719,17 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
         case CONSTRUCTOR_INITIALIZATION:
             {
                 // Do not print what is being called
+                // if we are in an initializer
+                if (!visitor->in_initializer)
+                {
+                    scope_entry_t* class_symbol = named_type_get_symbol(called_symbol->entity_specs.class_type);
+                    fprintf(visitor->file, "%s", get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+                }
                 fprintf(visitor->file, "(");
+                char old_initializer = visitor->in_initializer;
+                visitor->in_initializer = 0;
                 walk_expression_list(visitor, arguments);
+                visitor->in_initializer = old_initializer;
                 fprintf(visitor->file, ")");
                 break;
             }

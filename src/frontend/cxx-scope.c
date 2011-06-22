@@ -3543,6 +3543,17 @@ const char* get_template_arguments_str(scope_entry_t* entry,
     return result;
 }
 
+const char* unmangle_symbol_name(const char* name)
+{
+    // constructor A
+    if ((strlen(name) > strlen("constructor "))
+            && (strncmp(name, "constructor ", strlen("constructor ")) == 0))
+    {
+        return uniquestr(name + strlen("constructor "));
+    }
+    return name;
+}
+
 // Get the fully qualified symbol name in the scope of the ocurrence
 static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
@@ -3559,7 +3570,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         entry = entry->entity_specs.injected_class_referred_symbol;
     }
 
-    const char* result = uniquestr(entry->symbol_name);
+    const char* result = uniquestr(unmangle_symbol_name(entry->symbol_name));
 
     char current_has_template_parameters = 0;
 

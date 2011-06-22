@@ -134,6 +134,12 @@ nodecl_t nodecl_get_child(nodecl_t n, int i)
 
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
 {
+    if (nodecl_is_null(n))
+    {
+        *num_items = 0;
+        return NULL;
+    }
+
     AST list = nodecl_get_ast(n);
     ERROR_CONDITION(ASTType(list) != AST_NODE_LIST, "Cannot unpack non-list node", 0);
     AST it;

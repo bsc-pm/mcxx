@@ -111,7 +111,8 @@ LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
-        AST arguments, decl_context_t decl_context, char might_require_koenig);
+        AST arguments, decl_context_t decl_context, char might_require_koenig,
+        nodecl_t *nodecl_argument_list);
 
 
 MCXX_END_DECLS

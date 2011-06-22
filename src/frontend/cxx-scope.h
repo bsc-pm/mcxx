@@ -168,6 +168,9 @@ LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
 // Debug functions
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 
+// Utility
+LIBMCXX_EXTERN const char* unmangle_symbol_name(const char* name);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
