@@ -388,9 +388,16 @@ namespace TL
         return array_has_size();
     }
 
-    AST_t Type::array_dimension() const
+    int Type::get_num_dimensions() const
     {
-        return array_get_size();
+        Type t = *this;
+        int n_dim = 0;
+        while (t.is_array())
+        {
+            n_dim++;
+            t = t.array_element();
+        }
+        return n_dim;
     }
 
     bool Type::array_has_size() const
