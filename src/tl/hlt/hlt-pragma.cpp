@@ -415,6 +415,11 @@ HLTPragmaPhase::HLTPragmaPhase()
             "Enables mintaka instrumentation if set to '1'",
             _enable_hlt_instr_str,
             "0").connect(functor( &HLTPragmaPhase::set_instrument_hlt, *this ));
+
+    register_parameter("acml",
+            "Enables ACML library in SIMD regions if set to '1'",
+            _enable_hlt_acml_str,
+            "0").connect(functor( &HLTPragmaPhase::set_acml_hlt, *this ));
 }
 
 void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
@@ -423,6 +428,14 @@ void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
             str,
             HLT::enable_instrumentation,
             "Option 'instrument' is a boolean flag");
+}
+
+void HLTPragmaPhase::set_acml_hlt(const std::string &str)
+{
+    TL::parse_boolean_option("acml",
+            str,
+            HLT::enable_acml_library,
+            "Option 'acml' is a boolean flag");
 }
 
 //FIXME: Move me to a new phase
@@ -808,6 +821,80 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     generic_functions.add_specific_definition(
             scope.get_symbol_from_name("ceil"), scope.get_symbol_from_name("_ceil_default_smp_16"), 
             TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+
+
+    if (enable_acml_library)
+    {
+        //Float
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("expf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_expf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("logf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_logf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log2f"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_log2f"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log10f"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_log10f"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("powf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_powf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("sinf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_sinf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("cosf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_cosf"));
+
+        /* It needs #define _GNU_SOURCE
+           generic_functions.add_specific_definition(
+           scope.get_symbol_from_name("sincosf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+           false, false, std::string("__vrs4_sincosf"));
+         */
+
+        //Double
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("exp"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_exp"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log2"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log2"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log10"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log10"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("pow"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_pow"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("sin"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_sin"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("cos"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_cos"));
+
+        /* It needs #define _GNU_SOURCE
+           generic_functions.add_specific_definition(
+           scope.get_symbol_from_name("sincos"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+           false, false, std::string("__vrs2_sincos"));
+         */
+    }
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)

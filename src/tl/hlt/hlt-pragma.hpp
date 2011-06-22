@@ -131,14 +131,16 @@ namespace TL
                 void task_aggregate(PragmaCustomConstruct construct);
 
                 void set_instrument_hlt(const std::string &str);
+                void set_acml_hlt(const std::string &str);
 
                 void simd_pre_run(AST_t translation_unit, ScopeLink scope_link);
                 void simdize(PragmaCustomConstruct construct);
 
-
-
                 std::string _enable_hlt_instr_str;
+                std::string _enable_hlt_acml_str;
         };
+
+        bool enable_acml_library = false;
 
         //! @}
     }
