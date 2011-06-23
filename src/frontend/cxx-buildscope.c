@@ -286,11 +286,22 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     nodecl_t nodecl = nodecl_null();
 
+    CXX_LANGUAGE()
+    {
+        instantiation_init();
+    }
+
     AST list = ASTSon0(a);
     if (list != NULL)
     {
         // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
         build_scope_declaration_sequence(list, decl_context, &nodecl);
+    }
+
+    CXX_LANGUAGE()
+    {
+        nodecl_t instantiated_units = instantiation_get_instantiated_functions();
+        nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 
     translation_unit->nodecl = nodecl_make_top_level(nodecl, ASTFileName(a), ASTLine(a));
@@ -308,11 +319,22 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
 
     nodecl_t nodecl_output = nodecl_null();
 
+    CXX_LANGUAGE()
+    {
+        instantiation_init();
+    }
+
     AST list = ASTSon0(tree);
     if (list != NULL)
     {
         // The scope will have been already populated with basic things
         build_scope_declaration_sequence(list, decl_context, &nodecl_output);
+    }
+
+    CXX_LANGUAGE()
+    {
+        nodecl_t instantiated_units = instantiation_get_instantiated_functions();
+        nodecl_output = nodecl_concat_lists(nodecl_output, instantiated_units);
     }
 }
 
@@ -1185,22 +1207,24 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         {
                             check_zero_args_constructor(declarator_type, decl_context, declarator);
                         }
-
-                        // FIXME - Set a ->value here???
                     }
                 }
                 if (!current_gather_info.is_extern
                         || current_gather_info.emit_always)
                 {
-                    if (!entry->entity_specs.is_member
-                            || (entry->entity_specs.is_static 
+                    if (!entry->entity_specs.is_member // Not a member
+                            || ( // Or a static member definition (outside of the class)
+                                entry->entity_specs.is_static  
                                 && decl_context.current_scope->kind != CLASS_SCOPE))
                     {
                         // Define the symbol
                         entry->defined = 1;
                         entry->point_of_definition = get_enclosing_declaration(init_declarator);
 
-                        if (decl_context.current_scope->kind == NAMESPACE_SCOPE)
+                        if (decl_context.current_scope->kind == NAMESPACE_SCOPE
+                                || (IS_CXX_LANGUAGE
+                                    && decl_context.current_scope->kind == BLOCK_SCOPE
+                                    && is_class_type(entry->type_information)))
                         {
                             // Add an explicit initialization of this entity at namespace scope
                             *nodecl_output = nodecl_concat_lists(
@@ -7918,7 +7942,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
     // Create nodecl (only if not dependent)
-    if (!is_dependent_type(entry->type_information))
+    if (!is_dependent_type(entry->type_information)
+            && !(entry->entity_specs.is_member
+                && is_dependent_type(entry->entity_specs.class_type)))
     {
         nodecl_t nodecl_function_def = nodecl_make_function_code(
                 nodecl_make_list_1(body_nodecl), 

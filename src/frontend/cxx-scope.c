@@ -3555,6 +3555,11 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     {
         return uniquestr(name + strlen("constructor "));
     }
+    else if (entry->entity_specs.is_conversion)
+    {
+        return strappend("operator ", 
+                print_type_str(function_type_get_return_type(entry->type_information), entry->decl_context));
+    }
     return name;
 }
 

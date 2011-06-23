@@ -875,7 +875,16 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     }
 
                     indent(visitor);
-                    fprintf(visitor->file, "%s %s;\n", class_key, symbol->symbol_name);
+                    fprintf(visitor->file, "%s %s", class_key, symbol->symbol_name);
+
+                    if (is_template_specialized
+                            && !is_primary_template)
+                    {
+                        fprintf(visitor->file, "%s", 
+                                get_template_arguments_str(symbol, symbol->decl_context));
+                    }
+
+                    fprintf(visitor->file, ";\n");
                 }
                 break;
             }
@@ -1014,7 +1023,13 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     fclose(str_visitor.file);
                 }
 
-                const char* declarator = print_decl_type_str(symbol->type_information,
+                type_t* real_type = symbol->type_information;
+                if (symbol->entity_specs.is_conversion)
+                {
+                    real_type = get_new_function_type(NULL, NULL, 0);
+                }
+
+                const char* declarator = print_decl_type_str(real_type,
                         symbol->decl_context,
                         unmangle_symbol_name(symbol));
 
@@ -2449,7 +2464,13 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 get_template_arguments_str(symbol, symbol->decl_context));
     }
 
-    const char* declarator = get_declaration_string_internal(symbol->type_information,
+    type_t* real_type = symbol->type_information;
+    if (symbol->entity_specs.is_conversion)
+    {
+        real_type = get_new_function_type(NULL, NULL, 0);
+    }
+
+    const char* declarator = get_declaration_string_internal(real_type,
             symbol->decl_context,
             qualified_name,
             /* initializer */ "",

@@ -709,13 +709,59 @@ char check_expression(AST expression, decl_context_t decl_context)
 #endif
 }
 
+static void instantiate_recursively(nodecl_t node)
+{
+    // No need to check anything if this is not C++
+    if (!IS_CXX_LANGUAGE)
+    {
+        return;
+    }
+
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        instantiate_recursively(nodecl_get_child(node, i));
+
+        scope_entry_t* entry = nodecl_get_symbol(node);
+
+        if (entry != NULL
+                && entry->kind == SK_FUNCTION)
+        {
+            if (is_template_specialized_type(entry->type_information))
+            {
+                instantiate_template_function_if_needed(entry, 
+                        nodecl_get_filename(node),
+                        nodecl_get_line(node));
+            }
+            else if (entry->entity_specs.is_non_emmitted)
+            {
+                instantiate_emit_member_function(entry,
+                        nodecl_get_filename(node),
+                        nodecl_get_line(node));
+            }
+        }
+    }
+}
+
 static char c_check_for_expression(AST expression, decl_context_t decl_context)
 {
     if (expression_get_type(expression) == NULL)
     {
         check_expression_impl_(expression, decl_context);
     }
-    return !expression_is_error(expression);
+
+    char is_ok = !expression_is_error(expression);
+
+    if (IS_CXX_LANGUAGE 
+            && is_ok)
+    {
+        instantiate_recursively(expression_get_nodecl(expression));
+    }
+
+    return is_ok;
 }
 
 static void check_expression_impl_(AST expression, decl_context_t decl_context)
@@ -4738,14 +4784,6 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                     return get_error_type();
                 }
 
-#if 0
-                if (function_type_is_incomplete_independent(solved_function->type_information))
-                {
-                    instantiate_template_function(solved_function, decl_context,
-                            ASTFileName(rhs), ASTLine(rhs));
-                }
-#endif
-
                 // Update the types everywhere
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
@@ -4871,14 +4909,6 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                     return get_error_type();
                 }
                 
-#if 0
-                if (function_type_is_incomplete_independent(solved_function->type_information))
-                {
-                    instantiate_template_function(solved_function, decl_context,
-                            ASTFileName(rhs), ASTLine(rhs));
-                }
-#endif
-
                 // Update the types everywhere
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
@@ -9348,7 +9378,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                     nodecl_t nodecl_argument = nodecl_make_function_call(
                             nodecl_make_symbol(conversors[arg_i], ASTFileName(argument), ASTLine(argument)),
-                            expression_get_nodecl(argument),
+                            nodecl_make_list_1(expression_get_nodecl(argument)),
                             actual_type_of_conversor(conversors[arg_i]), ASTFileName(argument), ASTLine(argument));
                     expression_set_nodecl(argument, nodecl_argument);
                 }
@@ -9359,15 +9389,6 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
         nodecl_t nodecl_called = nodecl_make_symbol(overloaded_call, ASTFileName(called_expression), ASTLine(called_expression));
         expression_set_nodecl(called_expression, nodecl_called);
-#if 0
-        // Instantiate if needed the overloaded call
-        if (function_type_is_incomplete_independent(overloaded_call->type_information))
-        {
-            instantiate_template_function(overloaded_call, decl_context,
-                    ASTFileName(whole_function_call),
-                    ASTLine(whole_function_call));
-        }
-#endif
 
         // Now fill the nodecl
         if (!nodecl_is_null(implicit_argument))
@@ -11730,12 +11751,21 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                     expression_set_nodecl(initializer, nodecl_output);
                 }
 
+                if (result)
+                {
+                    instantiate_recursively(expression_get_nodecl(initializer));
+                }
                 return result;
                 break;
             }
         case AST_INITIALIZER_BRACES:
             {
-                return check_braced_initializer_list(initializer, decl_context, declared_type);
+                char result = check_braced_initializer_list(initializer, decl_context, declared_type);
+                if (result)
+                {
+                    instantiate_recursively(expression_get_nodecl(initializer));
+                }
+                return result;
             }
         case AST_DESIGNATED_INITIALIZER :
             {
@@ -12319,7 +12349,12 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
             }
         case AST_INITIALIZER_BRACES:
             {
-                return check_braced_initializer_list(initializer, decl_context, declared_type);
+                result = check_braced_initializer_list(initializer, decl_context, declared_type);
+                if (result)
+                {
+                    instantiate_recursively(expression_get_nodecl(initializer));
+                }
+                return result;
             }
         case AST_PARENTHESIZED_INITIALIZER :
             {
@@ -12339,6 +12374,8 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
                             expression_is_value_dependent(parenthesized_initializer));
 
                     expression_set_nodecl(initializer, nodecl_output);
+
+                    instantiate_recursively(nodecl_output);
                 }
                 break;
             }
@@ -13761,6 +13798,10 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
         {
             return 0;
         }
+
+        instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
+                    chosen_constructor->file, 
+                    chosen_constructor->line));
 
         ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
