@@ -1423,9 +1423,16 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                     new_value->kind = TPK_NONTYPE;
                     new_value->type = param->entry->type_information;
 
-                    new_value->value = nodecl_make_symbol(param->entry,
+                    AST symbol = ASTLeaf(AST_SYMBOL,
                             param->entry->file,
-                            param->entry->line);
+                            param->entry->line,
+                            param->entry->symbol_name);
+
+                    expression_set_symbol(symbol, param->entry);
+                    set_as_template_parameter_name(symbol, param->entry);
+
+                    new_value->value = nodecl_wrap_cxx_raw_expr(symbol);
+
                     break;
                 }
             default :

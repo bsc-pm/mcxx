@@ -9518,15 +9518,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, ASTSon2(a));
 
-        if (!nodecl_is_null(expression_get_nodecl(ASTSon2(a))))
-        {
-            *nodecl_output = expression_get_nodecl(ASTSon2(a));
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_string_literal(get_void_type(), 
-                    "<dependent expression>", ASTFileName(a), ASTLine(a));
-        }
+        *nodecl_output = expression_get_nodecl(ASTSon2(a));
     }
 }
 
@@ -9579,6 +9571,7 @@ static void build_scope_declaration_statement(AST a,
     ast_set_link_to_child(a, LANG_DECLARATION_STATEMENT_DECLARATION, declaration);
 }
 
+
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER,
@@ -9600,6 +9593,18 @@ static void build_scope_expression_statement(AST a,
     {
         expression_set_type(a, expression_get_type(expr));
         expression_set_is_lvalue(a, expression_is_lvalue(a));
+
+        if (is_unresolved_overloaded_type(expression_get_type(expr)))
+        {
+            error_printf("%s: error: invalid unresolved overloaded expression '%s'\n", 
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+            scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(expr));
+
+            diagnostic_candidates(expr, candidates);
+
+            return;
+        }
     }
 
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
@@ -9607,18 +9612,8 @@ static void build_scope_expression_statement(AST a,
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 
-    if (!nodecl_is_null(expression_get_nodecl(expr)))
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
-    }
-    else
-    {
-        *nodecl_output = nodecl_make_list_1(
-                nodecl_make_expression_statement(
-                    nodecl_make_string_literal(get_void_type(), "<dependent expression>", ASTFileName(expr), ASTLine(expr)),
-                    ASTFileName(expr), ASTLine(expr)));
-    }
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -9720,15 +9715,9 @@ static void build_scope_for_statement(AST a,
                     ast_location(expression),
                     prettyprint_in_buffer(expression));
         }
-        if (!nodecl_is_null(expression_get_nodecl(expression)))
-        {
-            nodecl_loop_iter = expression_get_nodecl(expression);
-        }
-        else
-        {
-            nodecl_loop_iter = nodecl_make_string_literal(get_void_type(), 
-                    "<dependent expression>", ASTFileName(a), ASTLine(a));
-        }
+
+        nodecl_loop_iter = expression_get_nodecl(expression);
+
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, expression, block_context);
     }
 

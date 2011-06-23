@@ -1731,6 +1731,18 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         nodecl_t nodecl_raw = nodecl_wrap_cxx_raw_expr(expression);
         expression_set_nodecl(expression, nodecl_raw);
     }
+    else
+    {
+        if (nodecl_is_null(expression_get_nodecl(expression)))
+        {
+            if (!checking_ambiguity())
+            {
+                internal_error("Expression '%s' at '%s' lacks a nodecl and it is not dependent\n",
+                        prettyprint_in_buffer(expression),
+                        ast_location(expression));
+            }
+        }
+    }
 }
 
 
@@ -2637,42 +2649,7 @@ static char function_has_been_deleted(decl_context_t decl_context, AST expr, sco
     return c;
 }
 
-static void error_message_overload_failed(decl_context_t decl_context, AST expr, candidate_t* candidates)
-{
-    error_printf("%s: error: overload call to '%s' failed\n",
-            ast_location(expr),
-            prettyprint_in_buffer(expr));
-
-    if (candidates != NULL)
-    {
-        info_printf("%s: info: candidates are\n", ast_location(expr));
-
-        candidate_t* it = candidates;
-        while (it != NULL)
-        {
-            scope_entry_t* entry = it->entry;
-
-            const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
-            int line = entry->file != NULL ? (unsigned)entry->line : (unsigned)ASTLine(expr);
-
-            fprintf(stderr, "%s:%d: note:    %s",
-                    file, line,
-                    print_decl_type_str(entry->type_information, decl_context, 
-                        get_qualified_symbol_name(entry, decl_context)));
-
-            if (entry->entity_specs.is_builtin)
-            {
-                fprintf(stderr, " [built-in]");
-            }
-            fprintf(stderr, "\n");
-            it = it->next;
-        }
-    }
-    else
-    {
-        info_printf("%s: info: no candidate functions\n", ast_location(expr));
-    }
-}
+static void error_message_overload_failed(AST expr, candidate_t* candidates);
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         AST expr,
@@ -2802,7 +2779,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(decl_context, expr, candidate_set);
+            error_message_overload_failed(expr, candidate_set);
         }
         overloaded_type = get_error_type();
     }
@@ -2927,7 +2904,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(decl_context, expr, candidate_set);
+            error_message_overload_failed(expr, candidate_set);
         }
         overloaded_type = get_error_type();
     }
@@ -6244,7 +6221,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 }
                 if (entry->entity_specs.is_template_parameter)
                 {
-                    expression_set_nodecl(expr, expression_get_nodecl(entry->language_dependent_value));
+                    expression_set_nodecl(expr, entry->value);
                 }
                 else
                 {
@@ -6297,8 +6274,10 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     expression_set_dependent(expr);
                 }
 
-                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
+                // Do not create a nodecl for this one let it become a cxx raw
+                //
+                // nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                // expression_set_nodecl(expr, nodecl_output);
             }
             else if (entry->kind == SK_TEMPLATE)
             {
@@ -6661,7 +6640,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(decl_context, expr, candidate_set);
+                    error_message_overload_failed(expr, candidate_set);
                 }
                 expression_set_error(expr);
                 return;
@@ -7220,7 +7199,7 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(decl_context, expression, candidate_set);
+                    error_message_overload_failed(expression, candidate_set);
                 }
                 expression_set_error(expression);
                 return;
@@ -7658,17 +7637,8 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                             ast_location(new_expr),
                             argument_call,
                             prettyprint_in_buffer(new_expr));
-                    info_printf("%s: info: candidates are:\n", ast_location(new_expr));
-                    for (it = entry_list_iterator_begin(operator_new_list);
-                            !entry_list_iterator_end(it);
-                            entry_list_iterator_next(it))
-                    {
-                        scope_entry_t* candidate_op = entry_list_iterator_current(it);
-                        info_printf("%s: info:    %s\n", ast_location(new_expr),
-                                print_decl_type_str(candidate_op->type_information, decl_context, 
-                                    get_qualified_symbol_name(candidate_op, decl_context)));
-                    }
-                    entry_list_iterator_free(it);
+
+                    diagnostic_candidates(new_expr, operator_new_list);
                     entry_list_free(operator_new_list);
                 }
                 expression_set_error(new_expr);
@@ -9428,7 +9398,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(decl_context, whole_function_call, candidate_set);
+            error_message_overload_failed(whole_function_call, candidate_set);
         }
 
         return 0;
@@ -10008,7 +9978,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(decl_context, member_access, candidate_set);
+                error_message_overload_failed(member_access, candidate_set);
             }
             expression_set_error(member_access);
             return;
@@ -10478,7 +10448,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(decl_context, expr, candidate_set);
+            error_message_overload_failed(expr, candidate_set);
         }
     }
 
@@ -10602,7 +10572,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(decl_context, expr, candidate_set);
+            error_message_overload_failed(expr, candidate_set);
         }
     }
 
@@ -13797,4 +13767,61 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     }
 
     return 1;
+}
+
+static void diagnostic_single_candidate(AST expr, scope_entry_t* entry)
+{
+    const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
+    int line = entry->file != NULL ? (unsigned)entry->line : (unsigned)ASTLine(expr);
+
+    info_printf("%s:%d: note:    %s",
+            file, line,
+            print_decl_type_str(entry->type_information, entry->decl_context, 
+                get_qualified_symbol_name(entry, entry->decl_context)));
+
+    if (entry->entity_specs.is_builtin)
+    {
+        info_printf(" [built-in]");
+    }
+    info_printf("\n");
+}
+
+void diagnostic_candidates(AST expr, scope_entry_list_t* candidates)
+{
+    info_printf("%s: info: candidates are:\n", ast_location(expr));
+    scope_entry_list_iterator_t* it;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* candidate_fun = entry_list_iterator_current(it);
+        diagnostic_single_candidate(expr, candidate_fun);
+    }
+    entry_list_iterator_free(it);
+}
+
+static void error_message_overload_failed(AST expr, candidate_t* candidates)
+{
+    error_printf("%s: error: overload call to '%s' failed\n",
+            ast_location(expr),
+            prettyprint_in_buffer(expr));
+
+    if (candidates != NULL)
+    {
+        info_printf("%s: info: candidates are\n", ast_location(expr));
+
+        candidate_t* it = candidates;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+
+            diagnostic_single_candidate(expr, entry);
+
+            it = it->next;
+        }
+    }
+    else
+    {
+        info_printf("%s: info: no candidate functions\n", ast_location(expr));
+    }
 }

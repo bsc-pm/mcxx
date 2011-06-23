@@ -109,6 +109,8 @@ LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_t nodecl_output);
 
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
+LIBMCXX_EXTERN void diagnostic_candidates(AST expr, scope_entry_list_t* entry_list);
+
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig,
