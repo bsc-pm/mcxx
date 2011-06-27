@@ -1223,6 +1223,26 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
 
+static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* value = nodecl_get_constant(node);
+    ERROR_CONDITION(value == NULL, "Invalid value", 0);
+
+    if (const_value_is_float(value))
+    {
+        fprintf(visitor->file, "%.6ff", const_value_cast_to_float(value));
+    }
+    else if (const_value_is_double(value))
+    {
+        fprintf(visitor->file, "%.15f", const_value_cast_to_double(value));
+    }
+    else if (const_value_is_long_double(value))
+    {
+        fprintf(visitor->file, "%.33LfL", const_value_cast_to_long_double(value));
+    }
+    
+}
+
 static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     const_value_t* val = nodecl_get_constant(node);
@@ -2531,7 +2551,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
-    NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_string_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
     NODECL_VISITOR(codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
     NODECL_VISITOR(codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
     NODECL_VISITOR(codegen_visitor)->visit_for_statement = codegen_visitor_fun(codegen_for_statement);

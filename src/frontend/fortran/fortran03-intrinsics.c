@@ -13,6 +13,7 @@
 #include "fortran03-scope.h"
 #include <string.h>
 #include "red_black_tree.h"
+#include "fortran03-intrinsics-simplify.h"
 
 typedef
 enum intrinsic_kind_tag
@@ -203,7 +204,7 @@ FORTRAN_GENERIC_INTRINSIC(scale, "X,I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(scan, "STRING,SET,?BACK,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(selected_char_kind, "NAME", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(selected_int_kind, "R", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(selected_real_kind, "?P,?R,?RADIX", T, NULL) \
+FORTRAN_GENERIC_INTRINSIC(selected_real_kind, "?P,?R,?RADIX", T, simplify_selected_real_kind) \
 FORTRAN_GENERIC_INTRINSIC(set_exponent, "X,I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shape, "SOURCE,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shifta, "I,SHIFT", E, NULL) \
@@ -250,6 +251,51 @@ typedef struct intrinsic_variant_info_tag
     const char* keyword_names[MAX_KEYWORDS_INTRINSICS];
     char is_optional[MAX_KEYWORDS_INTRINSICS];
 } intrinsic_variant_info_t;
+
+#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, _0, _1) \
+    static const char* keywords_for_##name##_[] = { keywords0 };
+#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, _0, _1, keywords1, _2, _3) \
+    static const char* keywords_for_##name##_[] = { keywords0, keywords1 };
+FORTRAN_INTRINSIC_GENERIC_LIST
+#undef FORTRAN_GENERIC_INTRINSIC
+#undef FORTRAN_GENERIC_INTRINSIC_2
+
+#define FORTRAN_GENERIC_INTRINSIC(name, keywords0, _0, _1) \
+   { #name, 1, keywords_for_##name##_ },
+#define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, _0, _1, keywords1, _2, _3) \
+   { #name, 2, keywords_for_##name##_ },
+
+typedef
+struct keyword_info_tag
+{
+    const char* name;
+    int num_keywords;
+    const char** keyword_set;
+} keyword_info_t;
+
+static keyword_info_t keyword_set[] = {
+FORTRAN_INTRINSIC_GENERIC_LIST
+};
+#undef FORTRAN_GENERIC_INTRINSIC
+#undef FORTRAN_GENERIC_INTRINSIC_2
+
+static void get_keywords_of_intrinsic(scope_entry_t* entry, int *num_keywords, const char*** out_keyword_set)
+{
+    // FIXME: Improve this using a sorted array
+    int i;
+    int num_elements = sizeof(keyword_set) / sizeof(keyword_set[0]);
+
+    for (i = 0; i < num_elements; i++)
+    {
+        if (strcasecmp(keyword_set[i].name, entry->symbol_name) == 0)
+        {
+            *num_keywords = keyword_set[i].num_keywords;
+            *out_keyword_set = keyword_set[i].keyword_set;
+        }
+    }
+
+    internal_error("Code unreachable", 0);
+}
 
 static intrinsic_variant_info_t get_variant(const char* keywords)
 {
@@ -674,15 +720,7 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         AST *argument_expressions, \
         int num_arguments) \
 { \
-    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
-    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
-    memset(reordered_types, 0, sizeof(reordered_types)); \
-    memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \
-    { \
-        return compute_intrinsic_##name (symbol, reordered_types, reordered_exprs, num_arguments); \
-    } \
-    return NULL; \
+    return compute_intrinsic_##name (symbol, argument_types, argument_expressions, num_arguments); \
 }
 
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
@@ -699,22 +737,11 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         AST *argument_expressions, \
         int num_arguments) \
 { \
-    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
-    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS]; \
-    memset(reordered_types, 0, sizeof(reordered_types)); \
-    memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords0, argument_types, reordered_types, reordered_exprs)) \
-    { \
-        return compute_intrinsic_##name##_0(symbol, reordered_types, reordered_exprs, num_arguments); \
-    } \
-    memset(reordered_types, 0, sizeof(reordered_types)); \
-    memset(reordered_exprs, 0, sizeof(reordered_exprs)); \
-    if (generic_keyword_check(symbol, &num_arguments, argument_expressions, keywords1, argument_types, reordered_types, reordered_exprs)) \
-    { \
-        return compute_intrinsic_##name##_1(symbol, reordered_types, reordered_exprs, num_arguments); \
-    } \
-    return NULL; \
-}
+    scope_entry_t* entry = compute_intrinsic_##name##_0(symbol, argument_types, argument_expressions, num_arguments); \
+    if (entry == NULL) \
+        entry = compute_intrinsic_##name##_1(symbol, argument_types, argument_expressions, num_arguments); \
+    return entry; \
+} 
 
 FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
@@ -735,6 +762,8 @@ void fortran_init_intrisics(decl_context_t decl_context)
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
            new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
+        else \
+           new_intrinsic->entity_specs.simplify_function = compute_code; \
     }
 
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
@@ -4390,4 +4419,50 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
+        type_t** argument_types, 
+        AST* actual_arguments, 
+        int num_actual_arguments,
+        nodecl_t* nodecl_simplified)
+{
+    *nodecl_simplified = nodecl_null();
+    type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+    // memset(reordered_types, 0, sizeof(reordered_types));
+    // memset(reordered_exprs, 0, sizeof(reordered_exprs));
 
+    computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
+
+    scope_entry_t* entry = NULL;
+    const char** current_keyword_set = NULL; 
+    int num_keywords = 0;
+
+    get_keywords_of_intrinsic(symbol, &num_keywords, &current_keyword_set);
+
+    int i;
+    for (i = 0; i < num_keywords; i++)
+    {
+        if (generic_keyword_check(symbol, &num_actual_arguments, 
+                    actual_arguments, 
+                    current_keyword_set[i], 
+                    argument_types, 
+                    reordered_types, 
+                    reordered_exprs))
+        {
+            entry = fun(symbol, reordered_types, reordered_exprs, num_actual_arguments);
+
+            if (entry->entity_specs.simplify_function != NULL)
+            {
+                nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+                int j;
+                for (j = 0; j < num_actual_arguments; j++)
+                {
+                    nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
+                }
+                *nodecl_simplified = (entry->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+            }
+        }
+    }
+
+    return entry;
+}

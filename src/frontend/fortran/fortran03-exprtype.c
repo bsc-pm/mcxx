@@ -30,6 +30,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-ast.h"
@@ -1058,10 +1059,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
 {
    char* floating_text = strdup(strtolower(ASTText(expr)));
 
-   // Our constant evaluation system does not support floats yet so simply
-   // compute the type
-
-   int kind = 4;
+   unsigned int kind = 4;
    char *q = NULL; 
    if ((q = strchr(floating_text, '_')) != NULL)
    {
@@ -1090,7 +1088,28 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    snprintf(c, 63, "%s", floating_text);
    c[63] = '\0';
 
-   *nodecl_output = nodecl_make_floating_literal(t, uniquestr(c), ASTFileName(expr), ASTLine(expr));
+   const_value_t *value = NULL;
+   if (kind == type_get_size(get_float_type()))
+   {
+       float f = strtof(floating_text, NULL);
+       value = const_value_get_float(f);
+   }
+   else if (kind == type_get_size(get_double_type()))
+   {
+       double d = strtod(floating_text, NULL);
+       value = const_value_get_double(d);
+   }
+   else if (kind == type_get_size(get_long_double_type()))
+   {
+       long double ld = strtold(floating_text, NULL);
+       value = const_value_get_long_double(ld);
+   }
+   else
+   {
+       running_error("Code unreachable, invalid floating literal", 0);
+   }
+
+   *nodecl_output = nodecl_make_floating_literal(t, value, ASTFileName(expr), ASTLine(expr));
 
    free(floating_text);
 }
@@ -1333,11 +1352,11 @@ static void check_called_symbol(
             return;
         }
 
-        // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
-        // will be a computed function type
-        computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
-
-        scope_entry_t* entry = fun(symbol, argument_types, actual_arguments, num_actual_arguments);
+        nodecl_t nodecl_simplified = nodecl_null();
+        scope_entry_t* entry = fortran_intrinsic_solve_call(symbol, argument_types, 
+                actual_arguments, 
+                num_actual_arguments, 
+                &nodecl_simplified);
 
         if (entry == NULL)
         {
@@ -1366,7 +1385,11 @@ static void check_called_symbol(
             return;
         }
 
-        if (entry->entity_specs.is_elemental)
+        if (!nodecl_is_null(nodecl_simplified))
+        {
+            return_type = nodecl_get_type(nodecl_simplified);
+        }
+        else if (entry->entity_specs.is_elemental)
         {
             // Try to come up with a common_rank
             int common_rank = -1;

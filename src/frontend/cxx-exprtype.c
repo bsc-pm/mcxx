@@ -588,7 +588,7 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
 
 static type_t* decimal_literal_type(AST expr, const_value_t** val);
 static type_t* character_literal_type(AST expr, const_value_t** val);
-static type_t* floating_literal_type(AST expr);
+static type_t *floating_literal_type(AST expr, const_value_t** value);
 static type_t* string_literal_type(AST expr);
 
 // Typechecking functions
@@ -806,8 +806,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_is_lvalue(expression, 0);
 
                 nodecl_t nodecl_output = nodecl_make_integer_literal(t, val, ASTFileName(expression), ASTLine(expression));
-                nodecl_set_constant(nodecl_output, val);
-
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -816,11 +814,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
-                type_t* t = floating_literal_type(expression);
+                const_value_t* val = NULL;
+                type_t* t = floating_literal_type(expression, &val);
                 expression_set_type(expression, t);
+                expression_set_constant(expression, val);
                 expression_set_is_lvalue(expression, 0);
 
-                nodecl_t nodecl_output = nodecl_make_floating_literal(t, ASTText(expression), ASTFileName(expression), ASTLine(expression));
+                nodecl_t nodecl_output = nodecl_make_floating_literal(t, val, ASTFileName(expression), ASTLine(expression));
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -1752,13 +1752,28 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
             {
                 const_value_t* v = expression_get_constant(expression);
                 fprintf(stderr, " with a constant value of ");
-                if (const_value_is_signed(v))
+                if (const_value_is_integer(v))
                 {
-                    fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                    if (const_value_is_signed(v))
+                    {
+                        fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                    }
+                    else
+                    {
+                        fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    }
                 }
-                else
+                else if (const_value_is_float(v))
                 {
-                    fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                    fprintf(stderr, " '%f'", const_value_cast_to_float(v));
+                }
+                else if (const_value_is_double(v))
+                {
+                    fprintf(stderr, " '%f'", const_value_cast_to_double(v));
+                }
+                else if (const_value_is_long_double(v))
+                {
+                    fprintf(stderr, " '%Lf'", const_value_cast_to_long_double(v));
                 }
             }
 
@@ -2037,7 +2052,7 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
 }
 
 // Given a floating literal computes the type due to its lexic form
-static type_t *floating_literal_type(AST expr)
+static type_t *floating_literal_type(AST expr, const_value_t** value)
 {
     const char *literal = ASTText(expr);
     const char *last = literal + strlen(literal) - 1;
@@ -2074,18 +2089,28 @@ static type_t *floating_literal_type(AST expr)
     if (is_long_double)
     {
         result = get_long_double_type();
+
+        long double ld = strtold(literal, NULL);
+        *value = const_value_get_long_double(ld);
     }
     else if (is_float)
     {
         result = get_float_type();
+
+        float f = strtof(literal, NULL);
+        *value = const_value_get_float(f);
     }
     else
     {
         result = get_double_type();
+
+        double d = strtod(literal, NULL);
+        *value = const_value_get_double(d);
     }
 
     if (is_complex)
     {
+        // FIXME - We are missing a complex literal value!
         result = get_complex_type(result);
     }
 
@@ -3031,7 +3056,7 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
 
             if (val != NULL
                     && computed_type != NULL
-                    && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+                    && both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
                     && expression_is_constant(lhs)
                     && expression_is_constant(rhs))
             {
@@ -3098,7 +3123,7 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
             && result != NULL
             && selected_operator != NULL
             && selected_operator->entity_specs.is_builtin
-            && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+            && both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
     {
@@ -3257,7 +3282,7 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)),
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)),
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -3278,7 +3303,7 @@ type_t* compute_bin_operator_pow_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -3304,7 +3329,7 @@ type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -3509,7 +3534,7 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
             computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
             if (computed_type != NULL
                     && val != NULL
-                    && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+                    && both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
                     && expression_is_constant(lhs)
                     && expression_is_constant(rhs))
             {
@@ -4017,7 +4042,7 @@ static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs,
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -4041,7 +4066,7 @@ static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, 
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -4089,7 +4114,7 @@ static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -4113,7 +4138,7 @@ static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, d
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -4137,7 +4162,7 @@ static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -4301,7 +4326,7 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(
+            && both_operands_are_arithmetic(
                 no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
@@ -4326,7 +4351,7 @@ static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs,
 
     if (result != NULL
             && val != NULL
-            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+            && both_operands_are_arithmetic(no_ref(expression_get_type(lhs)), 
                 no_ref(expression_get_type(rhs)))
             && expression_is_constant(lhs)
             && expression_is_constant(rhs))
@@ -8307,7 +8332,8 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                 {
                     expression_set_nodecl(expr,
                             nodecl_make_floating_literal(type_info,
-                                "0.0", ASTFileName(expr), ASTLine(expr)));
+                                const_value_get_double(0.0), 
+                                ASTFileName(expr), ASTLine(expr)));
                 }
                 else if (is_pointer_type(type_info)
                         || is_pointer_to_member_type(type_info))

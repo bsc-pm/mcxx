@@ -60,7 +60,7 @@ c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handle
 catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 
 literal : NODECL_INTEGER_LITERAL() type const_value
-    | NODECL_FLOATING_LITERAL() type text
+    | NODECL_FLOATING_LITERAL() type const_value
     | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | NODECL_BOOLEAN_LITERAL() type const_value
     | string-literal

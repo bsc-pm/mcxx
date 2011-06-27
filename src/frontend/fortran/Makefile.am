@@ -60,6 +60,7 @@ libmf03_la_SOURCES = \
                      fortran03-exprtype.h \
                      fortran03-exprtype.c \
                      fortran03-intrinsics.h \
+                     fortran03-intrinsics-simplify.h \
                      fortran03-intrinsics.c \
                      fortran03-nodecl.c \
                      fortran03-nodecl.h \

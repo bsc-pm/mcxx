@@ -432,3 +432,36 @@ char are_conformable_types(type_t* t1, type_t* t2)
     else
         return 0;
 }
+
+real_model_t real_type_get_model(type_t* t)
+{
+    real_model_t result;
+    
+    // We only support the binary versions of IEEE 754-2008
+    result.base = 2;
+
+    if (is_float_type(t))
+    {
+        result.emin = -126;
+        result.emax = +127;
+        result.p = 23;
+    }
+    else if (is_double_type(t))
+    {
+        result.emin = -1022;
+        result.emax = +1023;
+        result.p = 52;
+    }
+    else if (is_long_double_type(t))
+    {
+        result.emin = -16382;
+        result.emax = +16383;
+        result.p = 112;
+    }
+    else 
+    {
+        internal_error("Invalid floating type\n", 0);
+    }
+
+    return result;
+}

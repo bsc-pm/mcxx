@@ -100,6 +100,14 @@ struct extra_types_tag
 } extra_types_t;
 
 typedef
+struct extra_trees_tag
+{
+    sqlite3* handle;
+    int num_trees;
+    AST* trees;
+} extra_trees_t;
+
+typedef
 struct 
 {
     sqlite3* handle;
@@ -116,6 +124,11 @@ static int get_extra_syms(void *datum,
         char **names UNUSED_PARAMETER);
 
 static int get_extra_types(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+static int get_extra_trees(void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER);
@@ -805,6 +818,20 @@ static int get_extra_types(void *datum,
     char *attr_value = values[0];
 
     P_LIST_ADD(p->types, p->num_types, load_type(p->handle, safe_atoll(attr_value)));
+
+    return 0;
+}
+
+static int get_extra_trees(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_trees_t* p = (extra_trees_t*)datum;
+
+    char *attr_value = values[0];
+
+    P_LIST_ADD(p->trees, p->num_trees, load_ast(p->handle, safe_atoll(attr_value)));
 
     return 0;
 }

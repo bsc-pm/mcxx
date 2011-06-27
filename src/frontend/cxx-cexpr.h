@@ -49,6 +49,10 @@ LIBMCXX_EXTERN char const_value_is_nonzero(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_zero(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_signed(const_value_t* val);
 
+LIBMCXX_EXTERN const_value_t* const_value_get_float(float f);
+LIBMCXX_EXTERN const_value_t* const_value_get_double(double d);
+LIBMCXX_EXTERN const_value_t* const_value_get_long_double(long double ld);
+
 LIBMCXX_EXTERN uint64_t const_value_cast_to_8(const_value_t* val);
 LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
@@ -66,6 +70,15 @@ LIBMCXX_EXTERN const_value_t* integer_type_get_maximum(type_t* t);
 LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);
 
 LIBMCXX_EXTERN int const_value_get_bytes(const_value_t* val);
+
+LIBMCXX_EXTERN char const_value_is_integer(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_float(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_double(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_long_double(const_value_t* v);
+
+LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
+LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
+LIBMCXX_EXTERN long double const_value_cast_to_long_double(const_value_t* val);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

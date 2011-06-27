@@ -30,6 +30,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <math.h>
 #include "cxx-buildscope.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
@@ -47,12 +48,29 @@
 
 #define CVAL_HASH_SIZE (37)
 
+typedef enum const_value_kind_tag
+{
+    CVK_NONE = 0,
+    CVK_INTEGER,
+    CVK_FLOAT,
+    CVK_DOUBLE,
+    CVK_LONG_DOUBLE,
+} const_value_kind_t;
+
 struct const_value_tag
 {
+    const_value_kind_t kind;
     char sign : 1;
     int num_bytes;
     AST tree;
-    uint64_t value;
+
+    union
+    {
+        uint64_t i;
+        float f;
+        double d;
+        long double ld;
+    } value;
 };
 
 typedef
@@ -79,7 +97,7 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
 
     while (bucket != NULL)
     {
-        if (bucket->constant_value->value == value)
+        if (bucket->constant_value->value.i == value)
         {
             break;
         }
@@ -91,7 +109,8 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
         bucket = calloc(1, sizeof(*bucket));
         
         bucket->constant_value = calloc(1, sizeof(*bucket->constant_value));
-        bucket->constant_value->value = value;
+        bucket->constant_value->kind = CVK_INTEGER;
+        bucket->constant_value->value.i = value;
         bucket->constant_value->num_bytes = num_bytes;
         bucket->constant_value->sign = sign;
 
@@ -103,9 +122,47 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
     return bucket->constant_value;
 }
 
+const_value_t* const_value_get_float(float f)
+{
+    const_value_t* v = calloc(1, sizeof(*v));
+    v->kind = CVK_FLOAT;
+    v->value.f = f;
+    v->sign = 1;
+
+    return v;
+}
+
+const_value_t* const_value_get_double(double d)
+{
+    const_value_t* v = calloc(1, sizeof(*v));
+    v->kind = CVK_DOUBLE;
+    v->value.d = d;
+    v->sign = 1;
+
+    return v;
+}
+
+const_value_t* const_value_get_long_double(long double ld)
+{
+    const_value_t* v = calloc(1, sizeof(*v));
+    v->kind = CVK_LONG_DOUBLE;
+    v->value.ld = ld;
+    v->sign = 1;
+
+    return v;
+}
+
+#define OTHER_KIND default : { internal_error("Unexpected literal kind", 0); }
+
 const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
 {
-    return const_value_get(val->value, bytes, sign);
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return const_value_get(val->value.i, bytes, sign);
+        OTHER_KIND;
+    }
+    return NULL;
 }
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
@@ -142,7 +199,20 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
 
 char const_value_is_nonzero(const_value_t* v)
 {
-    return !!v->value;
+    switch (v->kind)
+    {
+        case CVK_INTEGER:
+            return !!v->value.i;
+        case CVK_FLOAT:
+            return v->value.f != 0.0f;
+        case CVK_DOUBLE:
+            return v->value.d != 0.0;
+        case CVK_LONG_DOUBLE:
+            return v->value.ld != 0.0L;
+        OTHER_KIND;
+    }
+
+    return 0;
 }
 
 char const_value_is_zero(const_value_t* v)
@@ -152,23 +222,69 @@ char const_value_is_zero(const_value_t* v)
 
 uint64_t const_value_cast_to_8(const_value_t* val)
 {
-    return val->value;
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
 }
 
 uint32_t const_value_cast_to_4(const_value_t* val)
 {
-    return (uint32_t)(val->value & 0xffffffff);
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
 }
 
 uint16_t const_value_cast_to_2(const_value_t* val)
 {
-    return (uint16_t)(val->value & 0xffff);
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
 }
 
 uint8_t const_value_cast_to_1(const_value_t* val)
 {
-    return (uint8_t)(val->value & 0xff);
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return val->value.i;
+        case CVK_FLOAT:
+            return val->value.f;
+        case CVK_DOUBLE:
+            return val->value.d;
+        case CVK_LONG_DOUBLE:
+            return val->value.ld;
+        OTHER_KIND;
+    }
 }
+
+#define IS_FLOAT(kind) (kind == CVK_FLOAT || kind == CVK_DOUBLE || kind == CVK_LONG_DOUBLE)
 
 char const_value_is_signed(const_value_t* val)
 {
@@ -277,13 +393,30 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
     return NULL;
 }
 
+static type_t* get_minimal_floating_type(const_value_t* val)
+{
+    if (val->kind == CVK_FLOAT)
+    {
+        return get_float_type();
+    }
+    else if (val->kind == CVK_DOUBLE)
+    {
+        return get_double_type();
+    }
+    else if (val->kind == CVK_LONG_DOUBLE)
+    {
+        return get_long_double_type();
+    }
+    internal_error("Invalid constant kind", 0);
+}
+
 type_t* const_value_get_minimal_integer_type(const_value_t* val)
 {
-    return get_minimal_integer_for_value(val->sign, val->value);
+    return get_minimal_integer_for_value(val->sign, val->value.i);
 }
 
 
-static void get_proper_suffix(char is_signed, uint64_t value, const char** suffix, type_t** t)
+static void get_proper_suffix_integer(char is_signed, uint64_t value, const char** suffix, type_t** t)
 {
     *t = get_minimal_integer_for_value(is_signed, value);
 
@@ -323,27 +456,128 @@ static void get_proper_suffix(char is_signed, uint64_t value, const char** suffi
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {
-    if (v->value == 0)
+    if (v->kind == CVK_INTEGER 
+            && v->value.i == 0)
     {
         // Zero is special
         return nodecl_make_integer_literal(get_zero_type(), v, NULL, 0);
     }
     else
     {
-        type_t* t = NULL;
-        const char* suffix = NULL;
-
-        get_proper_suffix(v->sign, v->value, &suffix, &t);
-
-        return nodecl_make_integer_literal(t, v, NULL, 0);
+        if (v->kind == CVK_INTEGER)
+        {
+            type_t* t = get_minimal_integer_for_value(v->sign, v->value.i);
+            return nodecl_make_integer_literal(t, v, NULL, 0);
+        }
+        else if (v->kind == CVK_FLOAT
+                || v->kind == CVK_DOUBLE
+                || v->kind == CVK_LONG_DOUBLE)
+        {
+            type_t* t = get_minimal_floating_type(v);
+            return nodecl_make_floating_literal(t, v, NULL, 0);
+        }
+        else
+        {
+            return nodecl_null();
+        }
     }
+}
+
+char const_value_is_integer(const_value_t* v)
+{
+    return v->kind == CVK_INTEGER;
+}
+
+char const_value_is_float(const_value_t* v)
+{
+    return v->kind == CVK_FLOAT;
+}
+
+char const_value_is_double(const_value_t* v)
+{
+    return v->kind == CVK_DOUBLE;
+}
+
+float const_value_cast_to_float(const_value_t* v)
+{
+    if (v->kind == CVK_FLOAT)
+        return v->value.f;
+    else if (v->kind == CVK_INTEGER)
+    {
+        if (v->sign)
+        {
+            return (float)*(int64_t*)(&v->value.i);
+        }
+        else
+        {
+            return (float)v->value.i;
+        }
+    }
+    else if (v->kind == CVK_DOUBLE)
+        return (float)v->value.d;
+    else if (v->kind == CVK_LONG_DOUBLE)
+        return (float)v->value.ld;
+
+    internal_error("Code unreachable", 0);
+}
+
+double const_value_cast_to_double(const_value_t* v)
+{
+    if (v->kind == CVK_DOUBLE)
+        return v->value.d;
+    else if (v->kind == CVK_INTEGER)
+    {
+        if (v->sign)
+        {
+            return (double)*(int64_t*)(&v->value.i);
+        }
+        else
+        {
+            return (double)v->value.i;
+        }
+    }
+    else if (v->kind == CVK_FLOAT)
+        return (float)v->value.f;
+    else if (v->kind == CVK_LONG_DOUBLE)
+        return (float)v->value.ld;
+
+    internal_error("Code unreachable", 0);
+}
+
+long double const_value_cast_to_long_double(const_value_t* v)
+{
+    if (v->kind == CVK_LONG_DOUBLE)
+        return v->value.ld;
+    else if (v->kind == CVK_INTEGER)
+    {
+        if (v->sign)
+        {
+            return (long double)*(int64_t*)(&v->value.i);
+        }
+        else
+        {
+            return (long double)v->value.i;
+        }
+    }
+    else if (v->kind == CVK_FLOAT)
+        return (float)v->value.f;
+    else if (v->kind == CVK_DOUBLE)
+        return (float)v->value.d;
+
+    internal_error("Code unreachable", 0);
+}
+
+char const_value_is_long_double(const_value_t* v)
+{
+    return v->kind == CVK_LONG_DOUBLE;
 }
 
 AST const_value_to_tree(const_value_t* v)
 {
     if (v->tree == NULL)
     {
-        if (v->value == 0)
+        if (v->kind == CVK_INTEGER
+                && v->value.i == 0)
         {
             // 0 is special as it is an octal
             v->tree = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, uniquestr("0"));
@@ -358,26 +592,64 @@ AST const_value_to_tree(const_value_t* v)
         }
         else
         {
-            char c[64] = { 0 };
-            type_t* t = NULL;
-            const char* suffix = NULL;
-
-            get_proper_suffix(v->sign, v->value, &suffix, &t);
-
-            if (v->sign)
+            if (v->kind == CVK_INTEGER)
             {
-                signed long long *sll = (signed long long*)&v->value;
-                snprintf(c, 63, "%lld%s", *sll, suffix);
+                char c[64] = { 0 };
+                type_t* t = NULL;
+                const char* suffix = NULL;
+
+                get_proper_suffix_integer(v->sign, v->value.i, &suffix, &t);
+
+                if (v->sign)
+                {
+                    signed long long *sll = (signed long long*)&v->value.i;
+                    snprintf(c, 63, "%lld%s", *sll, suffix);
+                }
+                else
+                {
+                    snprintf(c, 63, "%llu%s", (unsigned long long)v->value.i, suffix);
+                }
+
+                c[63] = '\0';
+
+                v->tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, uniquestr(c));
+                expression_set_type(v->tree, t);
+            }
+            else if (v->kind == CVK_FLOAT
+                    || v->kind == CVK_DOUBLE
+                    || v->kind == CVK_LONG_DOUBLE)
+            {
+                char c[64];
+                type_t* t = NULL;
+
+                if (v->kind == CVK_FLOAT)
+                {
+                    snprintf(c, 63, "%.6f", v->value.f);
+                    t = get_float_type();
+                }
+                else if (v->kind == CVK_DOUBLE)
+                {
+                    snprintf(c, 63, "%.15f", v->value.d);
+                    t = get_double_type();
+                }
+                else if (v->kind == CVK_LONG_DOUBLE)
+                {
+                    snprintf(c, 63, "%.33Lf", v->value.ld);
+                    t = get_long_double_type();
+                }
+                else
+                {
+                    internal_error("Unreachable code", 0);
+                }
+                c[63] = '\0';
+
+                v->tree = ASTLeaf(AST_FLOATING_LITERAL, NULL, 0, uniquestr(c));
+                expression_set_type(v->tree, t);
             }
             else
             {
-                snprintf(c, 63, "%llu%s", (unsigned long long)v->value, suffix);
+                return NULL;
             }
-
-            c[63] = '\0';
-
-            v->tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, uniquestr(c));
-            expression_set_type(v->tree, t);
         }
 
         // Set ourselves as a constant
@@ -452,52 +724,247 @@ int const_value_get_bytes(const_value_t* val)
 
 #define OP(_opname) const_value_##opname
 
+
+#define BINOP_FUN_I(_opname, _binop) \
+const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
+{ \
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
+    if (v1->kind == CVK_INTEGER \
+            && v2->kind == CVK_INTEGER) \
+    { \
+       int bytes = 0; char sign = 0; \
+       common_bytes(v1, v2, &bytes, &sign); \
+       uint64_t value = 0; \
+       if (sign) \
+       { \
+           *(int64_t*)&value = *(int64_t*)&(v1->value.i) _binop *(int64_t*)&(v2->value.i); \
+       } \
+       else \
+       { \
+           value = v1->value.i _binop v2->value.i; \
+       } \
+       return const_value_get(value, bytes, sign); \
+    } \
+    return NULL; \
+}
+
 #define BINOP_FUN(_opname, _binop) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
-    int bytes = 0; char sign = 0; \
-    common_bytes(v1, v2, &bytes, &sign); \
-    uint64_t value = 0; \
-    if (sign) \
+    if (v1->kind == CVK_INTEGER \
+            && v2->kind == CVK_INTEGER) \
     { \
-        *(int64_t*)&value = *(int64_t*)&(v1->value) _binop *(int64_t*)&(v2->value); \
+       int bytes = 0; char sign = 0; \
+       common_bytes(v1, v2, &bytes, &sign); \
+       uint64_t value = 0; \
+       if (sign) \
+       { \
+           *(int64_t*)&value = *(int64_t*)&(v1->value.i) _binop *(int64_t*)&(v2->value.i); \
+       } \
+       else \
+       { \
+           value = v1->value.i _binop v2->value.i; \
+       } \
+       return const_value_get(value, bytes, sign); \
     } \
-    else \
+    else if (v1->kind == CVK_INTEGER \
+            && IS_FLOAT(v2->kind)) \
     { \
-        value = v1->value _binop v2->value; \
+        if (v2->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_float((float) v1->value.i _binop v2->value.f); \
+        } \
+        else if (v2->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_double((double) v1->value.i _binop v2->value.d); \
+        } \
+        else if (v2->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_long_double((long double) v1->value.i _binop v2->value.ld); \
+        } \
     } \
-    return const_value_get(value, bytes, sign); \
+    else if (v2->kind == CVK_INTEGER \
+            && IS_FLOAT(v1->kind)) \
+    { \
+        if (v1->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_float(v1->value.f _binop (float) v2->value.i); \
+        } \
+        else if (v1->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_double(v1->value.d _binop (double) v2->value.i); \
+        } \
+        else if (v1->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_long_double(v1->value.d _binop (long double) v2->value.i); \
+        } \
+    } \
+    else if (IS_FLOAT(v1->kind) && IS_FLOAT(v2->kind)) \
+    { \
+        if (v1->kind == v2->kind) \
+        { \
+            if (v1->kind == CVK_FLOAT) \
+                return const_value_get_float(v1->value.f _binop v2->value.f); \
+            else if (v1->kind == CVK_DOUBLE) \
+                return const_value_get_double(v1->value.d _binop v2->value.d); \
+            else if (v1->kind == CVK_LONG_DOUBLE) \
+                return const_value_get_long_double(v1->value.ld _binop v2->value.ld); \
+        } \
+        else if (v1->kind > v2->kind) \
+        { \
+            if (v1->kind == CVK_DOUBLE) \
+            { \
+                return const_value_get_double(v1->value.d _binop (double) v2->value.f); \
+            } \
+            else if (v1->kind == CVK_LONG_DOUBLE) \
+            { \
+                if (v2->kind == CVK_FLOAT) \
+                { \
+                    return const_value_get_long_double(v1->value.ld _binop (long double) v2->value.f); \
+                } \
+                else if (v2->kind == CVK_DOUBLE) \
+                { \
+                    return const_value_get_long_double(v1->value.ld _binop (long double) v2->value.d); \
+                } \
+            } \
+        } \
+        else if (v1->kind < v2->kind) \
+        { \
+            if (v2->kind == CVK_DOUBLE) \
+            { \
+                return const_value_get_double((double)v1->value.f _binop v2->value.d); \
+            } \
+            else if (v2->kind == CVK_LONG_DOUBLE) \
+            { \
+                if (v1->kind == CVK_FLOAT) \
+                { \
+                    return const_value_get_long_double((long double) v1->value.f _binop v2->value.ld); \
+                } \
+                else if (v1->kind == CVK_DOUBLE) \
+                { \
+                    return const_value_get_long_double((long double) v1->value.d _binop v2->value.ld); \
+                } \
+            } \
+        } \
+    } \
+ \
+    internal_error("Code unreachable", 0); \
 }
 
 #define BINOP_FUN_CALL(_opname, _func) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
 { \
     ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
-    int bytes = 0; char sign = 0; \
-    common_bytes(v1, v2, &bytes, &sign); \
-    uint64_t value = 0; \
-    if (sign) \
+    if (v1->kind == CVK_INTEGER \
+            && v2->kind == CVK_INTEGER) \
     { \
-        *(int64_t*)&value = _func##s(*(int64_t*)&(v1->value), *(int64_t*)&(v2->value)); \
+       int bytes = 0; char sign = 0; \
+       common_bytes(v1, v2, &bytes, &sign); \
+       uint64_t value = 0; \
+       if (sign) \
+       { \
+           *(int64_t*)&value = _func ## s ( *(int64_t*)&(v1->value.i), *(int64_t*)&(v2->value.i) ); \
+       } \
+       else \
+       { \
+        \
+           value = _func ## u( v1->value.i, v2->value.i ); \
+       } \
+       return const_value_get(value, bytes, sign); \
     } \
-    else \
+    else if (v1->kind == CVK_INTEGER \
+            && IS_FLOAT(v2->kind)) \
     { \
-        value = _func##u(v1->value, v2->value); \
+        if (v2->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_float(_func##f((float) v1->value.i, v2->value.f)); \
+        } \
+        else if (v2->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_double(_func ## d( (double) v1->value.i, v2->value.d)); \
+        } \
+        else if (v2->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_long_double( _func ## ld( v1->value.i, v2->value.ld)); \
+        } \
     } \
-    return const_value_get(value, bytes, sign); \
+    else if (v2->kind == CVK_INTEGER \
+            && IS_FLOAT(v1->kind)) \
+    { \
+        if (v1->kind == CVK_FLOAT) \
+        { \
+            return const_value_get_float(_func ## f(v1->value.f, (float) v2->value.i)); \
+        } \
+        else if (v1->kind == CVK_DOUBLE) \
+        { \
+            return const_value_get_double(_func ## d (v1->value.d, (double) v2->value.i)); \
+        } \
+        else if (v1->kind == CVK_LONG_DOUBLE) \
+        { \
+            return const_value_get_long_double(_func ## ld (v1->value.d, (long double) v2->value.i)); \
+        } \
+    } \
+    else if (IS_FLOAT(v1->kind) && IS_FLOAT(v2->kind)) \
+    { \
+        if (v1->kind == v2->kind) \
+        { \
+            if (v1->kind == CVK_FLOAT) \
+                return const_value_get_float(_func ## f ( v1->value.f, v2->value.f)); \
+            else if (v1->kind == CVK_DOUBLE) \
+                return const_value_get_double(_func ## d(v1->value.d, v2->value.d)); \
+            else return const_value_get_long_double(_func ## ld(v1->value.ld, v2->value.ld)); \
+        } \
+        else if (v1->kind > v2->kind) \
+        { \
+            if (v1->kind == CVK_DOUBLE) \
+            { \
+                return const_value_get_double(_func ## d(v1->value.d, (double) v2->value.f)); \
+            } \
+            else if (v1->kind == CVK_LONG_DOUBLE) \
+            { \
+                if (v2->kind == CVK_FLOAT) \
+                { \
+                    return const_value_get_long_double(_func ## ld (v1->value.ld, (long double) v2->value.f)); \
+                } \
+                else if (v2->kind == CVK_DOUBLE) \
+                { \
+                    return const_value_get_long_double(_func ## d(v1->value.ld, (long double) v2->value.d)); \
+                } \
+            } \
+        } \
+        else if (v1->kind < v2->kind) \
+        { \
+            if (v2->kind == CVK_DOUBLE) \
+            { \
+                return const_value_get_double(_func ## d ((double)v1->value.f, v2->value.d)); \
+            } \
+            else if (v2->kind == CVK_LONG_DOUBLE) \
+            { \
+                if (v1->kind == CVK_FLOAT) \
+                { \
+                    return const_value_get_long_double(_func ## ld((long double) v1->value.f, v2->value.ld)); \
+                } \
+                else if (v1->kind == CVK_DOUBLE) \
+                { \
+                    return const_value_get_long_double(_func ## ld ((long double) v1->value.d, v2->value.ld)); \
+                } \
+            } \
+        } \
+    } \
+ return NULL; \
 }
 
 BINOP_FUN(add, +)
 BINOP_FUN(sub, -)
 BINOP_FUN(mul, *)
 BINOP_FUN(div, /)
-BINOP_FUN(mod, %)
-BINOP_FUN(shr, >>)
-BINOP_FUN(shl, <<)
-BINOP_FUN(bitand, &)
-BINOP_FUN(bitor, |)
-BINOP_FUN(bitxor, ^)
+BINOP_FUN_I(mod, %)
+BINOP_FUN_I(shr, >>)
+BINOP_FUN_I(shl, <<)
+BINOP_FUN_I(bitand, &)
+BINOP_FUN_I(bitor, |)
+BINOP_FUN_I(bitxor, ^)
 BINOP_FUN(and, &&)
 BINOP_FUN(or, ||)
 BINOP_FUN(lt, <)
@@ -507,7 +974,7 @@ BINOP_FUN(gte, >=)
 BINOP_FUN(eq, ==)
 BINOP_FUN(neq, !=)
 
-static uint64_t int_powu(uint64_t a, uint64_t b)
+static uint64_t arith_powu(uint64_t a, uint64_t b)
 {
     if (b == 0)
     {
@@ -515,17 +982,17 @@ static uint64_t int_powu(uint64_t a, uint64_t b)
     }
     else if ((b & (uint64_t)1) == (uint64_t)1) // odd
     {
-        uint64_t k = int_powu(a, (b-1) >> 1);
+        uint64_t k = arith_powu(a, (b-1) >> 1);
         return a * k * k;
     }
     else // even
     {
-        uint64_t k = int_powu(a, b >> 1);
+        uint64_t k = arith_powu(a, b >> 1);
         return k * k;
     }
 }
 
-static int64_t int_pows(int64_t a, int64_t b)
+static int64_t arith_pows(int64_t a, int64_t b)
 {
     if (b == 0)
     {
@@ -533,55 +1000,90 @@ static int64_t int_pows(int64_t a, int64_t b)
     }
     else if (b < 0)
     {
-        return 1 / int_pows(a, -b);
+        return 1 / arith_pows(a, -b);
     }
     else if ((b & (int64_t)1) == (int64_t)1) // odd
     {
-        int64_t k = int_powu(a, (b-1) >> 1);
+        int64_t k = arith_powu(a, (b-1) >> 1);
         return a * k * k;
     }
     else // even
     {
-        int64_t k = int_powu(a, b >> 1);
+        int64_t k = arith_powu(a, b >> 1);
         return k * k;
     }
 }
 
-BINOP_FUN_CALL(pow, int_pow)
+static float arith_powf(float a, float b)
+{
+    return powf(a, b);
+}
+
+static double arith_powd(double a, double b)
+{
+    return pow(a, b);
+}
+
+static long double arith_powld(long double a, long double b)
+{
+    return powl(a, b);
+}
+
+BINOP_FUN_CALL(pow, arith_pow)
 
 #define UNOP_FUN(_opname, _unop) \
 const_value_t* const_value_##_opname(const_value_t* v1) \
 { \
     ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
-    uint64_t value = 0; \
-    if (v1->sign) \
+    if (v1->kind == CVK_INTEGER) \
     { \
-        value = _unop (int64_t)v1->value; \
+        uint64_t value = 0; \
+        if (v1->sign) \
+        { \
+            value = _unop (int64_t)v1->value.i; \
+        } \
+        else \
+        { \
+            value = _unop v1->value.i; \
+        } \
+        return const_value_get(value, v1->num_bytes, v1->sign); \
     } \
-    else \
+    else if (v1->kind == CVK_FLOAT) \
     { \
-        value = _unop v1->value; \
+        return const_value_get_float(_unop v1->value.f); \
     } \
-    return const_value_get(value, v1->num_bytes, v1->sign); \
+    else if (v1->kind == CVK_DOUBLE) \
+    { \
+        return const_value_get_double(_unop v1->value.d); \
+    } \
+    else if (v1->kind == CVK_LONG_DOUBLE) \
+    { \
+        return const_value_get_long_double(_unop v1->value.ld); \
+    } \
+    return NULL; \
 }
 
-#define UNOP_FUN_CALL(_opname, _func) \
+#define UNOP_FUN_I(_opname, _unop) \
 const_value_t* const_value_##_opname(const_value_t* v1) \
 { \
     ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
-    uint64_t value = 0; \
-    if (v1->sign) \
+    if (v1->kind == CVK_INTEGER) \
     { \
-        value = _func##s((int64_t)v1->value); \
+        uint64_t value = 0; \
+        if (v1->sign) \
+        { \
+            value = _unop (int64_t)v1->value.i; \
+        } \
+        else \
+        { \
+            value = _unop v1->value.i; \
+        } \
+        return const_value_get(value, v1->num_bytes, v1->sign); \
     } \
-    else \
-    { \
-        value = _func##u(v1->value); \
-    } \
-    return const_value_get(value, v1->num_bytes, v1->sign); \
+    return NULL; \
 }
 
 UNOP_FUN(plus, +)
 UNOP_FUN(neg, -)
-UNOP_FUN(bitnot, ~)
-UNOP_FUN(not, !)
+UNOP_FUN_I(bitnot, ~)
+UNOP_FUN_I(not, !)

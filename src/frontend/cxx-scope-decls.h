@@ -285,6 +285,8 @@ enum codegen_status_tag
 };
 typedef enum codegen_status_tag codegen_status_t;
 
+typedef nodecl_t (*simplify_function_t)(int num_arguments, nodecl_t *arguments);
+
 // Looking for struct entity_specifiers_tag?
 // Now it is declared in cxx-entity-specs.h in builddir
 #include "cxx-entity-specs.h"
