@@ -1267,7 +1267,8 @@ static void check_called_symbol(
         char is_call_stmt,
         // out
         type_t** result_type,
-        scope_entry_t** called_symbol)
+        scope_entry_t** called_symbol,
+        nodecl_t* nodecl_simplify)
 {
     if (symbol != NULL
             && symbol->kind == SK_VARIABLE
@@ -1352,11 +1353,10 @@ static void check_called_symbol(
             return;
         }
 
-        nodecl_t nodecl_simplified = nodecl_null();
         scope_entry_t* entry = fortran_intrinsic_solve_call(symbol, argument_types, 
                 actual_arguments, 
                 num_actual_arguments, 
-                &nodecl_simplified);
+                nodecl_simplify);
 
         if (entry == NULL)
         {
@@ -1385,9 +1385,9 @@ static void check_called_symbol(
             return;
         }
 
-        if (!nodecl_is_null(nodecl_simplified))
+        if (!nodecl_is_null(*nodecl_simplify))
         {
-            return_type = nodecl_get_type(nodecl_simplified);
+            return_type = nodecl_get_type(*nodecl_simplify);
         }
         else if (entry->entity_specs.is_elemental)
         {
@@ -1834,6 +1834,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(symbol, 
             decl_context, 
             expr, 
@@ -1844,7 +1845,8 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             is_call_stmt,
             // out
             &result_type,
-            &called_symbol
+            &called_symbol,
+            &nodecl_simplify
             );
 
     // ERROR_CONDITION(called_symbol == NULL, "Invalid symbol called returned by check_called_symbol", 0);
@@ -1952,11 +1954,18 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         }
     }
 
-    *nodecl_output = nodecl_make_function_call(
-            nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator)),
-            nodecl_argument_list,
-            result_type,
-            ASTFileName(expr), ASTLine(expr));
+    if (nodecl_is_null(nodecl_simplify))
+    {
+        *nodecl_output = nodecl_make_function_call(
+                nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator)),
+                nodecl_argument_list,
+                result_type,
+                ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_simplify;
+    }
 }
 
 static void check_greater_or_equal_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2241,6 +2250,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
             expr, 
@@ -2251,7 +2261,8 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
             /* is_call_stmt */ 0,
             // out
             &result_type,
-            &called_symbol);
+            &called_symbol,
+            &nodecl_simplify);
 
     expression_set_type(expr, result_type);
 
@@ -2315,6 +2326,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
             /* location */ expr, 
@@ -2325,7 +2337,8 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
             /* is_call_stmt */ 0,
             // out
             &result_type,
-            &called_symbol);
+            &called_symbol,
+            &nodecl_simplify);
 
     expression_set_type(expr, result_type);
 
@@ -2582,6 +2595,7 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
     AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(lvalue), ast_get_line(lvalue), "=");
 
     enter_test_expression();
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context,
             /* location */ expr,
@@ -2592,7 +2606,8 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
             /* is_call_stmt */ 1, // Assignments must be subroutines!
             // out
             &result_type,
-            entry);
+            entry,
+            &nodecl_simplify);
     leave_test_expression();
 
     ast_free(actual_arguments[0]);
@@ -3152,6 +3167,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(expr), ast_get_line(expr), get_operator_for_expr(expr));
 
             scope_entry_t* called_symbol = NULL;
+            nodecl_t nodecl_simplify = nodecl_null();
             check_called_symbol(call_sym, 
                     decl_context, 
                     /* location */ expr, 
@@ -3162,7 +3178,8 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     /* is_call_stmt */ 0,
                     // out
                     &result,
-                    &called_symbol);
+                    &called_symbol,
+                    &nodecl_simplify);
 
             ast_free(operator_designation);
             ast_free(actual_arguments[0]);

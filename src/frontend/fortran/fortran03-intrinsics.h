@@ -3,7 +3,7 @@
 
 #include "cxx-scope-decls.h"
 
-void fortran_init_intrisics(decl_context_t decl_context);
+void fortran_init_intrinsics(decl_context_t decl_context);
 
 scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
         type_t** argument_types, 

@@ -291,6 +291,7 @@ static void get_keywords_of_intrinsic(scope_entry_t* entry, int *num_keywords, c
         {
             *num_keywords = keyword_set[i].num_keywords;
             *out_keyword_set = keyword_set[i].keyword_set;
+            return;
         }
     }
 
@@ -751,7 +752,7 @@ static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 static void fortran_init_specific_names(decl_context_t decl_context);
 
-void fortran_init_intrisics(decl_context_t decl_context)
+void fortran_init_intrinsics(decl_context_t decl_context)
 {
 #define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0, compute_code) \
     { \
@@ -797,11 +798,10 @@ static scope_entry_t* register_specific_intrinsic_name(
     scope_entry_t* generic_entry = query_name_no_implicit(decl_context, generic_name);
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
-    computed_function_type_t fun = computed_function_type_get_computing_function(generic_entry->type_information);
 
     type_t* type_list[7] = { t0, t1, t2, t3, t4, t5, t6 };
 
-    scope_entry_t* specific_entry = fun(generic_entry, type_list, NULL, num_args);
+    scope_entry_t* specific_entry = fortran_intrinsic_solve_call(generic_entry, type_list, NULL, num_args, NULL);
 
     ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
             specific_name,
@@ -4425,7 +4425,8 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified)
 {
-    *nodecl_simplified = nodecl_null();
+    if (nodecl_simplified != NULL)
+        *nodecl_simplified = nodecl_null();
     type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
     AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
     // memset(reordered_types, 0, sizeof(reordered_types));
@@ -4451,7 +4452,8 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
         {
             entry = fun(symbol, reordered_types, reordered_exprs, num_actual_arguments);
 
-            if (entry->entity_specs.simplify_function != NULL)
+            if (nodecl_simplified != NULL
+                    && symbol->entity_specs.simplify_function != NULL)
             {
                 nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
                 int j;
@@ -4459,7 +4461,8 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                 {
                     nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
                 }
-                *nodecl_simplified = (entry->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+
+                *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
             }
         }
     }
