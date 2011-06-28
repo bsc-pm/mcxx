@@ -31,6 +31,8 @@ test_generator=config/mercurium
 </testinfo>
 */
 
+#if __SIZEOF_LONG__ >= 8
+
 template <unsigned long N>
 struct A;
 
@@ -42,3 +44,5 @@ struct A<1>
 
 typedef A<(9223372036854775807L * 2UL > 0)>::T P;
 typedef int P;
+
+#endif
