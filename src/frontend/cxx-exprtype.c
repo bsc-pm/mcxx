@@ -9828,8 +9828,8 @@ static void check_for_typeid_type(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, 
-            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
-    expression_set_is_lvalue(expr, 0);
+            lvalue_ref(get_const_qualified_type(get_user_defined_type(get_typeid_symbol(decl_context, expr)))));
+    expression_set_is_lvalue(expr, 1);
 }
 
 static void check_for_typeid_expr(AST expr, decl_context_t decl_context)
@@ -9849,8 +9849,8 @@ static void check_for_typeid_expr(AST expr, decl_context_t decl_context)
     }
 
     expression_set_type(expr, 
-            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
-    expression_set_is_lvalue(expr, 0);
+            lvalue_ref(get_const_qualified_type(get_user_defined_type(get_typeid_symbol(decl_context, expr)))));
+    expression_set_is_lvalue(expr, 1);
 }
 
 static char check_for_designation(AST designation, decl_context_t decl_context)
