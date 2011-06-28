@@ -31,16 +31,14 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-struct A { int x; };
+template <unsigned long N>
+struct A;
 
-A f(int i)
+template <>
+struct A<1>
 {
-#if defined(__GNUC__) \
-    && __GNUC__ >= 4 \
-    && __GNUC_MINOR__ >= 4
-	return { i };
-#else
-    A a = { i };
-	return a;
-#endif
-}
+    typedef int T;
+};
+
+typedef A<(9223372036854775807L * 2UL > 0)>::T P;
+typedef int P;

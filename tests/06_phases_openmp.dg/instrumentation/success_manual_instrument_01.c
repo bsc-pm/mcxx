@@ -24,23 +24,25 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
 /*
 <testinfo>
-test_generator=config/mercurium
+test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-struct A { int x; };
-
-A f(int i)
+int main (int argc, char *argv[])
 {
-#if defined(__GNUC__) \
-    && __GNUC__ >= 4 \
-    && __GNUC_MINOR__ >= 4
-	return { i };
-#else
-    A a = { i };
-	return a;
-#endif
+#pragma nanos instrument declare (myEvent, "This is my event")
+        sleep(1);
+#pragma nanos instrument emit (myEvent, "1")
+        sleep(1);
+#pragma nanos instrument emit (myEvent, "2")
+        sleep(1);
+#pragma nanos instrument emit (myEvent, "3")
+        sleep(1);
+#pragma nanos instrument emit (myEvent, "4")
+        sleep(1);
+#pragma nanos instrument emit (myEvent, "5")
+
+        return 0;
 }

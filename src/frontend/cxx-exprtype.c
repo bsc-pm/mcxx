@@ -11073,7 +11073,7 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
         expression_set_error(expr);
         return;
     }
-    type_t* typeid_type = get_user_defined_type(typeid_type_class);
+    type_t* typeid_type = lvalue_ref(get_const_qualified_type(get_user_defined_type(typeid_type_class)));
     expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
 
@@ -11106,7 +11106,7 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
         return;
     }
 
-    type_t* typeid_type = get_user_defined_type(typeid_type_class);
+    type_t* typeid_type = lvalue_ref(get_const_qualified_type(get_user_defined_type(typeid_type_class)));
     expression_set_type(expr, typeid_type);
     expression_set_is_lvalue(expr, 0);
 

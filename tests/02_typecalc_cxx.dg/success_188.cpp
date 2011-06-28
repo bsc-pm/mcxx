@@ -31,16 +31,10 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-struct A { int x; };
+#include <typeinfo>
 
-A f(int i)
+void f()
 {
-#if defined(__GNUC__) \
-    && __GNUC__ >= 4 \
-    && __GNUC_MINOR__ >= 4
-	return { i };
-#else
-    A a = { i };
-	return a;
-#endif
+    const std::type_info* t;
+    t = &typeid(void);
 }

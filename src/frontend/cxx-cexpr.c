@@ -188,7 +188,12 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
         *num_bytes = (v1->num_bytes > v2->num_bytes) ? v1->num_bytes : v2->num_bytes;
         if (v1->sign != v2->sign)
         {
-            *sign = 1;
+            if (v1->num_bytes == v2->num_bytes)
+                *sign = 0;
+            else if (v1->num_bytes > v2->num_bytes)
+                *sign = v1->sign;
+            else if (v1->num_bytes < v2->num_bytes)
+                *sign = v2->sign;
         }
         else
         {
