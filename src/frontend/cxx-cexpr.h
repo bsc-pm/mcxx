@@ -85,10 +85,30 @@ LIBMCXX_EXTERN char const_value_is_integer(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_float(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_double(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_long_double(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_complex(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_structured(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_array(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_vector(const_value_t* v);
 
 LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
 LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
 LIBMCXX_EXTERN long double const_value_cast_to_long_double(const_value_t* val);
+
+LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_value_t **elements);
+LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_value_t **elements);
+LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
+LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
+
+LIBMCXX_EXTERN const_value_t* const_value_complex_get_real_part(const_value_t* value);
+LIBMCXX_EXTERN const_value_t* const_value_complex_get_imag_part(const_value_t* value);
+
+LIBMCXX_EXTERN int const_value_get_num_elements(const_value_t* value);
+LIBMCXX_EXTERN const_value_t* const_value_get_element_num(const_value_t* value, int num);
+
+LIBMCXX_EXTERN const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elements);
+LIBMCXX_EXTERN const_value_t* const_value_convert_to_array(const_value_t* value, int num_elements);
+
+LIBMCXX_EXTERN const_value_t* const_value_real_to_complex(const_value_t* value);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

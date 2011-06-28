@@ -64,7 +64,7 @@ typedef enum const_value_kind_tag
 typedef struct const_multi_value_tag
 {
     int num_elements;
-    const_value_t* value;
+    const_value_t* elements[];
 } const_multi_value_t;
 
 struct const_value_tag
@@ -543,6 +543,31 @@ char const_value_is_double(const_value_t* v)
     return v->kind == CVK_DOUBLE;
 }
 
+char const_value_is_long_double(const_value_t* v)
+{
+    return v->kind == CVK_LONG_DOUBLE;
+}
+
+char const_value_is_complex(const_value_t* v)
+{
+    return v->kind == CVK_COMPLEX;
+}
+
+char const_value_is_structured(const_value_t* v)
+{
+    return v->kind == CVK_STRUCT;
+}
+
+char const_value_is_array(const_value_t* v)
+{
+    return v->kind == CVK_ARRAY;
+}
+
+char const_value_is_vector(const_value_t* v)
+{
+    return v->kind == CVK_VECTOR;
+}
+
 float const_value_cast_to_float(const_value_t* v)
 {
     if (v->kind == CVK_FLOAT)
@@ -610,11 +635,6 @@ long double const_value_cast_to_long_double(const_value_t* v)
         return (float)v->value.d;
 
     internal_error("Code unreachable", 0);
-}
-
-char const_value_is_long_double(const_value_t* v)
-{
-    return v->kind == CVK_LONG_DOUBLE;
 }
 
 AST const_value_to_tree(const_value_t* v)
@@ -767,8 +787,191 @@ int const_value_get_bytes(const_value_t* val)
     return val->num_bytes;
 }
 
-#define OP(_opname) const_value_##opname
+static const_value_t* make_multival(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = calloc(1, sizeof(*result));
 
+    result->value.m = calloc(1, sizeof(const_multi_value_t) + sizeof(const_value_t) * num_elements);
+    result->value.m->num_elements = num_elements;
+
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        result->value.m->elements[i] = elements[i];
+    }
+
+    return result;
+}
+
+static const_value_t* multival_get_element_num(const_value_t* v, int element)
+{
+    return v->value.m->elements[element];
+}
+
+static int multival_get_num_elements(const_value_t* v)
+{
+    return v->value.m->num_elements;
+}
+
+const_value_t* const_value_make_array(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = make_multival(num_elements, elements);
+    result->kind = CVK_ARRAY;
+    return result;
+}
+
+const_value_t* const_value_make_vector(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = make_multival(num_elements, elements);
+    result->kind = CVK_VECTOR;
+    return result;
+}
+
+const_value_t* const_value_make_struct(int num_elements, const_value_t **elements)
+{
+    const_value_t* result = make_multival(num_elements, elements);
+    result->kind = CVK_STRUCT;
+    return result;
+}
+
+const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
+{
+    const_value_t* complex_[] = { real_part, imag_part };
+    const_value_t* result = make_multival(2, complex_);
+    result->kind = CVK_COMPLEX;
+    return result;
+}
+
+const_value_t* const_value_complex_get_real_part(const_value_t* value)
+{
+    ERROR_CONDITION(!const_value_is_complex(value), "This is not a complex constant", 0);
+    return multival_get_element_num(value, 0);
+}
+
+const_value_t* const_value_complex_get_imag_part(const_value_t* value)
+{
+    ERROR_CONDITION(!const_value_is_complex(value), "This is not a complex constant", 0);
+    return multival_get_element_num(value, 1);
+}
+
+#define IS_STRUCTURED(x) \
+    (x == CVK_COMPLEX \
+    || x == CVK_ARRAY \
+    || x == CVK_STRUCT \
+    || x == CVK_VECTOR)
+
+int const_value_get_num_elements(const_value_t* value)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(value->kind), "This is not a multiple-value constant", 0);
+    return multival_get_num_elements(value);
+}
+
+const_value_t* const_value_get_element_num(const_value_t* value, int num)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(value->kind), "This is not a multiple-value constant", 0);
+    return multival_get_element_num(value, num);
+}
+
+const_value_t* const_value_convert_to_vector(const_value_t* value, int num_elems)
+{
+    const_value_t* array[num_elems];
+    int i;
+    for (i = 0; i < num_elems; i++)
+    {
+        array[i] = value;
+    }
+    return const_value_make_vector(num_elems, array);
+}
+
+const_value_t* const_value_convert_to_array(const_value_t* value, int num_elems)
+{
+    const_value_t* array[num_elems];
+    int i;
+    for (i = 0; i < num_elems; i++)
+    {
+        array[i] = value;
+    }
+    return const_value_make_array(num_elems, array);
+}
+
+const_value_t* const_value_real_to_complex(const_value_t* value)
+{
+    if (const_value_is_integer(value))
+    {
+        return const_value_make_complex(
+                value,
+                const_value_get_zero(const_value_get_bytes(value), 
+                    const_value_is_signed(value)));
+    }
+    else if (const_value_is_float(value))
+    {
+        return const_value_make_complex(
+                value,
+                const_value_get_float(0));
+    }
+    else if (const_value_is_double(value))
+    {
+        return const_value_make_complex(
+                value,
+                const_value_get_double(0));
+    }
+    else if (const_value_is_long_double(value))
+    {
+        return const_value_make_complex(
+                value,
+                const_value_get_long_double(0));
+    }
+    else
+    {
+        internal_error("Invalid constant value", 0);
+    }
+}
+
+// Use this to apply a binary function to a couple of multivals
+static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const_value_t*, const_value_t*),
+        const_value_t* m1,
+        const_value_t* m2)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(m1->kind) || !IS_STRUCTURED(m2->kind), "One of the values is not a multiple-value constant", 0);
+    ERROR_CONDITION(multival_get_num_elements(m1) != multival_get_num_elements(m2), 
+            "Cannot apply a binary map to multiple-values with different number of elements %d != %d", 
+            multival_get_num_elements(m1),
+            multival_get_num_elements(m2));
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(multival_get_element_num(m1, i), multival_get_element_num(m2, i));
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
+}
+
+static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
+        const_value_t* m1)
+{
+    ERROR_CONDITION(!IS_STRUCTURED(m1->kind), "The value is not a multiple-value constant", 0);
+
+    int i, num_elements = multival_get_num_elements(m1);
+    const_value_t* result_arr[num_elements];
+    for (i = 0; i < num_elements; i++)
+    {
+        result_arr[i] = fun(multival_get_element_num(m1, i));
+    }
+
+    const_value_t* mval = make_multival(num_elements, result_arr);
+    mval->kind = m1->kind;
+
+    return mval;
+}
+
+
+
+#define OP(_opname) const_value_##opname
 
 #define BINOP_FUN_I(_opname, _binop) \
 const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
@@ -893,6 +1096,24 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
             } \
         } \
     } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return complex_##_opname (v1, v2); \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind != CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( v1, const_value_real_to_complex(v2) ); \
+    } \
+    else if (v1->kind != CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
+    } \
+    else if (IS_STRUCTURED(v1->kind) \
+            && IS_STRUCTURED(v2->kind) \
+            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+    { \
+        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
  \
     internal_error("Code unreachable", 0); \
 }
@@ -997,8 +1218,40 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
             } \
         } \
     } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return _func ## z (v1, v2); \
+    } \
+    else if (v1->kind == CVK_COMPLEX && v2->kind != CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( v1, const_value_real_to_complex(v2) ); \
+    } \
+    else if (v1->kind != CVK_COMPLEX && v2->kind == CVK_COMPLEX) \
+    { \
+        return const_value_##_opname ( const_value_real_to_complex(v1), v2 ); \
+    } \
+    else if (IS_STRUCTURED(v1->kind) \
+            && IS_STRUCTURED(v2->kind) \
+            && (multival_get_num_elements(v1) == multival_get_num_elements(v2))) \
+    { \
+        return map_binary_to_structured_value( const_value_##_opname, v1, v2); \
+    } \
  return NULL; \
 }
+
+static const_value_t* complex_add(const_value_t*, const_value_t*);
+static const_value_t* complex_sub(const_value_t*, const_value_t*);
+static const_value_t* complex_mul(const_value_t*, const_value_t*);
+static const_value_t* complex_div(const_value_t*, const_value_t*);
+static const_value_t* complex_and(const_value_t*, const_value_t*);
+static const_value_t* complex_or(const_value_t*, const_value_t*);
+static const_value_t* complex_lt(const_value_t*, const_value_t*);
+static const_value_t* complex_lte(const_value_t*, const_value_t*);
+static const_value_t* complex_gt(const_value_t*, const_value_t*);
+static const_value_t* complex_gte(const_value_t*, const_value_t*);
+static const_value_t* complex_eq(const_value_t*, const_value_t*);
+static const_value_t* complex_neq(const_value_t*, const_value_t*);
+static const_value_t* arith_powz(const_value_t*, const_value_t*);
 
 BINOP_FUN(add, +)
 BINOP_FUN(sub, -)
@@ -1132,3 +1385,104 @@ UNOP_FUN(plus, +)
 UNOP_FUN(neg, -)
 UNOP_FUN_I(bitnot, ~)
 UNOP_FUN_I(not, !)
+
+#define MEANINGLESS_IN_COMPLEX(name) \
+static const_value_t* name(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER) \
+{ \
+    internal_error("Current operator makes no sense for complex numbers", 0); \
+}
+
+MEANINGLESS_IN_COMPLEX(complex_or)
+MEANINGLESS_IN_COMPLEX(complex_and)
+MEANINGLESS_IN_COMPLEX(complex_lt)
+MEANINGLESS_IN_COMPLEX(complex_lte)
+MEANINGLESS_IN_COMPLEX(complex_gt)
+MEANINGLESS_IN_COMPLEX(complex_gte)
+
+static const_value_t* complex_add(const_value_t* v1, const_value_t* v2)
+{
+    return const_value_make_complex(
+            const_value_add(
+                const_value_complex_get_real_part(v1),
+                const_value_complex_get_real_part(v2)),
+            const_value_add(
+                const_value_complex_get_imag_part(v1),
+                const_value_complex_get_imag_part(v2)));
+}
+
+static const_value_t* complex_sub(const_value_t* v1, const_value_t* v2)
+{
+    return const_value_make_complex(
+            const_value_sub(
+                const_value_complex_get_real_part(v1),
+                const_value_complex_get_real_part(v2)),
+            const_value_sub(
+                const_value_complex_get_imag_part(v1),
+                const_value_complex_get_imag_part(v2)));
+}
+
+static const_value_t* complex_mul(const_value_t* v1, const_value_t* v2)
+{
+    // Mathematically this can be done with just three multiplications
+    // but maybe is not the numerically the same
+    //
+    // (a, b) * (c, d) = (a*c - b*d , a*d + b*c)
+    const_value_t* a = const_value_complex_get_real_part(v1);
+    const_value_t* b = const_value_complex_get_imag_part(v1);
+    const_value_t* c = const_value_complex_get_real_part(v2);
+    const_value_t* d = const_value_complex_get_imag_part(v2);
+
+    return const_value_make_complex(
+            const_value_sub(
+                const_value_mul(a, c),
+                const_value_mul(b, d)),
+            const_value_add(
+                const_value_mul(a, d),
+                const_value_mul(b, c)));
+}
+
+static const_value_t* complex_div(const_value_t* v1, const_value_t* v2)
+{
+    // (a, b) / (c, d) = (T1 / K, T2 / K)
+    //   where 
+    //       T1 = a*c + b*d
+    //       T2 = b*c - a*d
+    //       K = c**2 + d**2
+    const_value_t* a = const_value_complex_get_real_part(v1);
+    const_value_t* b = const_value_complex_get_imag_part(v1);
+    const_value_t* c = const_value_complex_get_real_part(v2);
+    const_value_t* d = const_value_complex_get_imag_part(v2);
+
+    const_value_t* K = const_value_add(const_value_mul(c, c), const_value_mul(d, d));
+
+    const_value_t* T1 = const_value_add(const_value_mul(a, c), const_value_mul(b,d));
+    const_value_t* T2 = const_value_sub(const_value_mul(b, c), const_value_mul(a,d));
+
+    return const_value_make_complex(
+            const_value_div(T1, K),
+            const_value_div(T2, K));
+}
+
+static const_value_t* complex_eq(const_value_t* v1, const_value_t* v2)
+{
+    const_value_t* eq_real = 
+        const_value_eq(
+                const_value_complex_get_real_part(v1),
+                const_value_complex_get_real_part(v2));
+    const_value_t* eq_imag = 
+        const_value_eq(
+                const_value_complex_get_imag_part(v1),
+                const_value_complex_get_imag_part(v2));
+
+    return const_value_and(eq_real, eq_imag);
+}
+
+static const_value_t* complex_neq(const_value_t* v1, const_value_t* v2)
+{
+    return const_value_not(complex_eq(v1, v2));
+}
+
+static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER)
+{
+    internal_error("Not yet implemented", 0);
+}
