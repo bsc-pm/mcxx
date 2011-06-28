@@ -367,7 +367,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
             null_keyword->kind = SK_VARIABLE;
             null_keyword->type_information = get_null_type();
-            const_value_t* val = const_value_get_zero(/*bytes*/ 4, /* signed */ 1);
+            const_value_t* val = const_value_get_signed_int(0);
             null_keyword->language_dependent_value = const_value_to_tree(val);
             null_keyword->value = const_value_to_nodecl(val);
             null_keyword->defined = 1;
@@ -2454,7 +2454,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
 
     char there_are_negatives = 0;
 #define B_(x) const_value_is_nonzero(x)
-    there_are_negatives = B_(const_value_lt(min_value, const_value_get_zero(/*bytes*/ 4, 0)));
+    there_are_negatives = B_(const_value_lt(min_value, const_value_get_unsigned_int(0)));
 
     type_t** result = NULL;
     if (!short_enums)
@@ -2693,7 +2693,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 if (num_enumerator == 0)
                 {
                     // FIXME - We should be using the size in bytes of signed int
-                    const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* sign */ 1);
+                    const_value_t* zero = const_value_get_signed_int(0);
                     AST zero_tree = const_value_to_tree(zero);
 
                     CXX_LANGUAGE()
@@ -2712,8 +2712,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         const_value_t* val_plus_one = 
                             const_value_add(
                                     expression_get_constant(base_enumerator),
-                                    // FIXME - We should be using the size in bytes of signed int
-                                    const_value_get_integer(delta, /*bytes*/ 4, /*sign*/0));
+                                    const_value_get_signed_int(delta));
 
                         enumeration_item->language_dependent_value = const_value_to_tree(val_plus_one);
                         enumeration_item->value = const_value_to_nodecl(val_plus_one);
@@ -2781,9 +2780,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         }
 
         if (min_value == NULL)
-            min_value = const_value_get_zero(4, 0);
+            min_value = const_value_get_unsigned_int(0);
         if (max_value == NULL)
-            max_value = const_value_get_zero(4, 0);
+            max_value = const_value_get_unsigned_int(0);
 
         underlying_type = compute_underlying_type_enum(min_value, max_value, underlying_type, short_enums);
         enum_type_set_underlying_type(enum_type, underlying_type);
@@ -10275,7 +10274,7 @@ static void build_scope_upc_synch_statement(AST a,
     else
     {
         nodecl_expression = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_expression = nodecl_make_list_1(nodecl_expression);
@@ -10323,7 +10322,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_condition = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_t nodecl_iter = nodecl_null();
@@ -10335,7 +10334,7 @@ static void build_scope_upc_forall_statement(AST a,
     else
     {
         nodecl_iter = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_t nodecl_affinity = nodecl_null();
@@ -10343,12 +10342,12 @@ static void build_scope_upc_forall_statement(AST a,
     {
         check_expression(affinity, block_context);
         nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
     }
     else
     {
         nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_zero(/* bytes */ 4, /* signed */1), ASTFileName(a), ASTLine(a));
+                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
     }
 
     nodecl_t* list[] = { 

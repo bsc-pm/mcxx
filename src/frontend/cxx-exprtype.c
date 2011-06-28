@@ -11363,7 +11363,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 c[63] = '\0';
 
                 nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
-                        const_value_get_integer(initializer_num, type_get_size(get_signed_int_type()), 0), 
+                        const_value_get_unsigned_int(initializer_num), 
                         ASTFileName(expression_list), ASTLine(expression_list));
 
                 type_t *list_array = get_array_type(
@@ -12927,7 +12927,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
             if (is_const_expr)
             {
                 expression_set_constant(expr, 
-                        const_value_get_integer(type_size, /*bytes*/ 8, /* sign*/ 0));
+                        const_value_get_integer(type_size, type_get_size(get_size_t_type()), /* sign*/ 0));
             }
 
             DEBUG_SIZEOF_CODE()
@@ -13049,7 +13049,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (is_const_expr)
             {
                 expression_set_constant(
-                        expr, const_value_get_integer(type_size, /* bytes */ 8, 0));
+                        expr, const_value_get_integer(type_size, type_get_size(get_size_t_type()), 0));
             }
 
             DEBUG_SIZEOF_CODE()

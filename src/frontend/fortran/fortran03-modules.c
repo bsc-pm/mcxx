@@ -577,6 +577,7 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
     sqlite3_int64 const_val = 0;
     if (is_const_val)
     {
+        // FIXME - We need a way to serialize a constant value
         const_val = const_value_cast_to_8(expression_get_constant(a));
     }
 

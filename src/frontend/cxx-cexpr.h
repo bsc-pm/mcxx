@@ -47,11 +47,11 @@ LIBMCXX_EXTERN const_value_t* const_value_get_integer(uint64_t value, int num_by
 LIBMCXX_EXTERN const_value_t* const_value_get_signed_int(uint64_t value);
 LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_int(uint64_t value);
 
-LIBMCXX_EXTERN const_value_t* const_value_get_signed_long(uint64_t value);
-LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_int(uint64_t value);
 
-LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long(uint64_t value);
-LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long_int(uint64_t value);
 
 LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);

@@ -638,7 +638,7 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 
     long long int value = strtoll(literal_text, NULL, base);
 
-    const_value_t* const_value = const_value_get_integer(value, 4, 1);
+    const_value_t* const_value = const_value_get_signed_int(value);
 
     expression_set_type(expr, get_signed_int_type());
     expression_set_constant(expr, const_value);
@@ -666,7 +666,7 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     }
     else if (strcasecmp(ASTText(expr), ".false.") == 0)
     {
-        const_value = const_value_get_one(1, 1);
+        const_value = const_value_get_zero(1, 1);
         expression_set_type(expr, get_bool_type());
         expression_set_constant(expr, const_value);
     }
@@ -2197,11 +2197,11 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 
     nodecl_t one = nodecl_make_integer_literal(
             get_signed_int_type(), 
-            const_value_get_one(4, 1), 
+            const_value_get_signed_int(1), 
             ASTFileName(expr),
             ASTLine(expr));
     nodecl_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_integer(length, 4, 1), 
+            const_value_get_signed_int(length), 
             ASTFileName(expr),
             ASTLine(expr));
 
@@ -2876,7 +2876,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
     {
         nodecl_t lower = nodecl_make_integer_literal(
                 get_signed_int_type(), 
-                const_value_get_one(4, 1), 
+                const_value_get_signed_int(1), 
                 NULL, 0);
         nodecl_t upper = 
             nodecl_make_add(

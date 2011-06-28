@@ -7876,7 +7876,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
 
         nodecl_t integer_literal = nodecl_make_integer_literal(
                 get_signed_int_type(),
-                const_value_get_integer(length, type_get_size(get_signed_int_type()), 0),
+                const_value_get_unsigned_int(length),
                 NULL, 0);
 
         type_t* char_type = NULL;
