@@ -26,7 +26,16 @@ const char* nodecl_get_text(nodecl_t t)
 
 type_t* nodecl_get_type(nodecl_t t)
 {
-    return expression_get_type(t.tree);
+    type_t* type = expression_get_type(t.tree);
+
+    // Very usual case
+    if (type == NULL
+            && nodecl_get_kind(t) == NODECL_SYMBOL)
+    {
+        type = nodecl_get_symbol(t)->type_information;
+    }
+
+    return type;
 }
 
 void nodecl_set_type(nodecl_t t, type_t* type)

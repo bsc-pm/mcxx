@@ -2709,21 +2709,32 @@ type_t* get_array_type_bounds(type_t* element_type,
     if (!nodecl_is_null(lower_bound)
             && !nodecl_is_null(upper_bound))
     {
-        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+        if (nodecl_is_constant(lower_bound)
+                && nodecl_is_constant(upper_bound))
+        {
+            whole_size = const_value_to_nodecl(const_value_add(
+                        const_value_sub(nodecl_get_constant(upper_bound),
+                            nodecl_get_constant(lower_bound)),
+                        const_value_get_one(4, 1)));
+        }
+        else
+        {
+            nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
 
-        whole_size = 
-            nodecl_make_add(
-                    nodecl_make_parenthesized_expression(
-                        nodecl_make_minus(
-                            upper_bound,
-                            lower_bound,
+            whole_size = 
+                nodecl_make_add(
+                        nodecl_make_parenthesized_expression(
+                            nodecl_make_minus(
+                                upper_bound,
+                                lower_bound,
+                                get_signed_int_type(),
+                                nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
                             get_signed_int_type(),
                             nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
+                        one_tree,
                         get_signed_int_type(),
-                        nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound)),
-                    one_tree,
-                    get_signed_int_type(),
-                    nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+                        nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+        }
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);

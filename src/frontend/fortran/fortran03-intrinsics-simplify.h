@@ -136,43 +136,141 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
     if (nodecl_is_null(radix))
         radix = nodecl_make_zero();
 
-    if (nodecl_is_constant(p)
-            && nodecl_is_constant(r)
-            && nodecl_is_constant(radix))
+    if (!nodecl_is_constant(p)
+            || !nodecl_is_constant(r)
+            || !nodecl_is_constant(radix))
+        return nodecl_null();
+
+    // Get our three reals: float, double, long double
+    type_t* real_types[] = { get_float_type(), get_double_type(), get_long_double_type() };
+
+    int num_reals = sizeof(real_types) / sizeof(real_types[0]);
+
+    uint64_t p_ = const_value_cast_to_8(nodecl_get_constant(p));
+    uint64_t r_ = const_value_cast_to_8(nodecl_get_constant(r));
+    uint64_t radix_ = const_value_cast_to_8(nodecl_get_constant(radix));
+
+    int i;
+    for (i = 0; i < num_reals; i++)
     {
-        // Get our three reals: float, double, long double
-        type_t* real_types[] = { get_float_type(), get_double_type(), get_long_double_type() };
+        nodecl_t nodecl_type = nodecl_make_type(real_types[i], NULL, 0);
 
-        int num_reals = sizeof(real_types) / sizeof(real_types[0]);
+        nodecl_t precision = simplify_precision(1, &nodecl_type);
+        nodecl_t range = simplify_range(1, &nodecl_type);
+        nodecl_t current_radix = simplify_radix(1, &nodecl_type);
 
-        uint64_t p_ = const_value_cast_to_8(nodecl_get_constant(p));
-        uint64_t r_ = const_value_cast_to_8(nodecl_get_constant(r));
-        uint64_t radix_ = const_value_cast_to_8(nodecl_get_constant(radix));
+        uint64_t precision_ = const_value_cast_to_8(nodecl_get_constant(precision));
+        uint64_t range_ = const_value_cast_to_8(nodecl_get_constant(range));
+        uint64_t current_radix_ = const_value_cast_to_8(nodecl_get_constant(current_radix));
 
-        int i;
-        for (i = 0; i < num_reals; i++)
+        if (p_ <= precision_
+                && r_ <= range_
+                && (radix_ == 0 || radix_ == current_radix_))
         {
-            nodecl_t nodecl_type = nodecl_make_type(real_types[i], NULL, 0);
-
-            nodecl_t precision = simplify_precision(1, &nodecl_type);
-            nodecl_t range = simplify_range(1, &nodecl_type);
-            nodecl_t current_radix = simplify_radix(1, &nodecl_type);
-
-            uint64_t precision_ = const_value_cast_to_8(nodecl_get_constant(precision));
-            uint64_t range_ = const_value_cast_to_8(nodecl_get_constant(range));
-            uint64_t current_radix_ = const_value_cast_to_8(nodecl_get_constant(current_radix));
-
-            if (p_ <= precision_
-                    && r_ <= range_
-                    && (radix_ == 0 || radix_ == current_radix_))
-            {
-                return nodecl_make_integer_literal(get_signed_int_type(),
-                        const_value_get(type_get_size(real_types[i]), type_get_size(get_signed_int_type()), 1), NULL, 0);
-            }
+            return nodecl_make_integer_literal(get_signed_int_type(),
+                    const_value_get(type_get_size(real_types[i]), type_get_size(get_signed_int_type()), 1), NULL, 0);
         }
     }
 
     return nodecl_null();
+}
+
+static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t r = arguments[0];
+
+    if (!nodecl_is_constant(r))
+        return nodecl_null();
+
+    int r_ = const_value_cast_to_4(nodecl_get_constant(r));
+
+    int64_t range = 1;
+    int i;
+    for (i = 0; i < r_; i++)
+    {
+        range *= 10;
+    }
+
+    const_value_t* c1 = const_value_get(range, 8, 1);
+    const_value_t* c2 = const_value_get(-range, 8, 1);
+
+    type_t* t1 = const_value_get_minimal_integer_type(c1);
+    type_t* t2 = const_value_get_minimal_integer_type(c2);
+
+    int kind_1 = type_get_size(t1);
+    int kind_2 = type_get_size(t2);
+
+    int kind = kind_1 > kind_2 ? kind_1 : kind_2;
+
+    return nodecl_make_integer_literal(
+            get_signed_int_type(),
+            const_value_get(kind, type_get_size(get_signed_int_type()), 1), 
+            NULL, 0);
+}
+
+static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t name = arguments[0];
+
+    if (nodecl_get_kind(name) == NODECL_STRING_LITERAL)
+    {
+        const char* t = nodecl_get_text(name);
+
+        if (strcmp(t, "\"ASCII\"") == 0
+                || strcmp(t, "'ASCII'") == 0)
+        {
+            return nodecl_make_integer_literal(
+                    get_signed_int_type(),
+                    const_value_get(1, type_get_size(get_signed_int_type()), 1), 
+                    NULL, 0);
+        }
+        else
+        {
+            // We do not support anything else
+            return nodecl_make_integer_literal(
+                    get_signed_int_type(),
+                    const_value_get(-1, type_get_size(get_signed_int_type()), 1), 
+                    NULL, 0);
+        }
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_bit_size(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t i = arguments[0];
+
+    return nodecl_make_integer_literal(
+            get_signed_int_type(),
+            const_value_get(type_get_size(no_ref(nodecl_get_type(i))) * 8, type_get_size(get_signed_int_type()), 1), 
+            NULL, 0);
+}
+
+static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t str = arguments[0];
+
+    type_t* t = no_ref(nodecl_get_type(str));
+
+    if (array_type_is_unknown_size(t))
+        return nodecl_null();
+
+    return array_type_get_array_size_expr(t);
+}
+
+static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t x = arguments[0];
+     
+    type_t* t = no_ref(nodecl_get_type(x));
+    t = get_rank0_type(t);
+
+
+    return nodecl_make_integer_literal(
+            get_signed_int_type(),
+            const_value_get(type_get_size(t), type_get_size(get_signed_int_type()), 1), 
+            NULL, 0);
 }
 
 #endif
