@@ -55,7 +55,17 @@ typedef enum const_value_kind_tag
     CVK_FLOAT,
     CVK_DOUBLE,
     CVK_LONG_DOUBLE,
+    CVK_COMPLEX,
+    CVK_ARRAY,
+    CVK_STRUCT,
+    CVK_VECTOR,
 } const_value_kind_t;
+
+typedef struct const_multi_value_tag
+{
+    int num_elements;
+    const_value_t* value;
+} const_multi_value_t;
 
 struct const_value_tag
 {
@@ -66,10 +76,19 @@ struct const_value_tag
 
     union
     {
+        // CVK_INTEGER
         uint64_t i;
+        // CVK_FLOAT
         float f;
+        // CVK_DOUBLE
         double d;
+        // CVK_LONG_DOUBLE
         long double ld;
+        // CVK_COMPLEX
+        // CVK_ARRAY
+        // CVK_STRUCT
+        // CVK_VECTOR
+        const_multi_value_t* m;
     } value;
 };
 
@@ -84,7 +103,7 @@ typedef const_value_hash_bucket_t* const_value_hash_t[CVAL_HASH_SIZE];
 
 static const_value_hash_t _hash_pool[MCXX_MAX_BYTES_INTEGER * 2] = { { (const_value_hash_bucket_t*)0 } };
 
-const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
+const_value_t* const_value_get_integer(uint64_t value, int num_bytes, char sign)
 {
     ERROR_CONDITION(num_bytes > MCXX_MAX_BYTES_INTEGER
             || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
@@ -121,6 +140,27 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
 
     return bucket->constant_value;
 }
+
+#define GET_SIGNED_INTEGER(type)  \
+const_value_t* const_value_get_signed_##type ( uint64_t value ) \
+{ \
+    return const_value_get_integer(value, type_get_size(get_signed_##type##_type ( ) ), 1); \
+}
+
+#define GET_UNSIGNED_INTEGER(type)  \
+const_value_t* const_value_get_unsigned_##type ( uint64_t value ) \
+{ \
+    return const_value_get_integer(value, type_get_size(get_unsigned_##type##_type ( ) ), 0); \
+} \
+
+#define GET_INTEGER(type) \
+    GET_SIGNED_INTEGER(type) \
+    GET_UNSIGNED_INTEGER(type)
+    
+
+GET_INTEGER(int)
+GET_INTEGER(long_int)
+GET_INTEGER(long_long_int)
 
 const_value_t* const_value_get_float(float f)
 {
@@ -159,7 +199,7 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
     switch (val->kind)
     {
         case CVK_INTEGER:
-            return const_value_get(val->value.i, bytes, sign);
+            return const_value_get_integer(val->value.i, bytes, sign);
         OTHER_KIND;
     }
     return NULL;
@@ -167,12 +207,12 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
 {
-    return const_value_get(0, num_bytes, sign);
+    return const_value_get_integer(0, num_bytes, sign);
 }
 
 const_value_t* const_value_get_one(int num_bytes, char sign)
 {
-    return const_value_get(1, num_bytes, sign);
+    return const_value_get_integer(1, num_bytes, sign);
 }
 
 static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, char *sign)
@@ -683,7 +723,7 @@ const_value_t* integer_type_get_minimum(type_t* t)
     {
         uint64_t mask = ~(uint64_t)0;
         mask >>= (64 - type_get_size(t)*8 + 1);
-        return const_value_get(~mask, type_get_size(t), /* sign */ 1);
+        return const_value_get_integer(~mask, type_get_size(t), /* sign */ 1);
     }
 
     internal_error("Invalid type", 0);
@@ -705,7 +745,7 @@ const_value_t* integer_type_get_maximum(type_t* t)
             mask &= ~(~(uint64_t)0 << (type_get_size(t) * 8));
         }
 
-        return const_value_get(mask, type_get_size(t), /* sign */ 0);
+        return const_value_get_integer(mask, type_get_size(t), /* sign */ 0);
     }
     else if (is_signed_char_type(t)
             || is_signed_short_int_type(t)
@@ -715,7 +755,7 @@ const_value_t* integer_type_get_maximum(type_t* t)
     {
         uint64_t mask = ~(uint64_t)0;
         mask >>= (64 - type_get_size(t)*8 + 1);
-        return const_value_get(mask, type_get_size(t), /* sign */ 1);
+        return const_value_get_integer(mask, type_get_size(t), /* sign */ 1);
     }
 
     internal_error("Invalid type", 0);
@@ -748,7 +788,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        { \
            value = v1->value.i _binop v2->value.i; \
        } \
-       return const_value_get(value, bytes, sign); \
+       return const_value_get_integer(value, bytes, sign); \
     } \
     return NULL; \
 }
@@ -771,7 +811,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
        { \
            value = v1->value.i _binop v2->value.i; \
        } \
-       return const_value_get(value, bytes, sign); \
+       return const_value_get_integer(value, bytes, sign); \
     } \
     else if (v1->kind == CVK_INTEGER \
             && IS_FLOAT(v2->kind)) \
@@ -876,7 +916,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
         \
            value = _func ## u( v1->value.i, v2->value.i ); \
        } \
-       return const_value_get(value, bytes, sign); \
+       return const_value_get_integer(value, bytes, sign); \
     } \
     else if (v1->kind == CVK_INTEGER \
             && IS_FLOAT(v2->kind)) \
@@ -1051,7 +1091,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
         { \
             value = _unop v1->value.i; \
         } \
-        return const_value_get(value, v1->num_bytes, v1->sign); \
+        return const_value_get_integer(value, v1->num_bytes, v1->sign); \
     } \
     else if (v1->kind == CVK_FLOAT) \
     { \
@@ -1083,7 +1123,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
         { \
             value = _unop v1->value.i; \
         } \
-        return const_value_get(value, v1->num_bytes, v1->sign); \
+        return const_value_get_integer(value, v1->num_bytes, v1->sign); \
     } \
     return NULL; \
 }

@@ -1208,7 +1208,7 @@ static int get_ast(void *datum,
     if (is_const_val)
     {
         // Fortran is always signed
-        expression_set_constant(a, const_value_get(const_val, 8, 1));
+        expression_set_constant(a, const_value_get_integer(const_val, 8, 1));
     }
 
     expression_set_is_value_dependent(a, is_value_dependent != 0);

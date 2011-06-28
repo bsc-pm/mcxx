@@ -638,7 +638,7 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 
     long long int value = strtoll(literal_text, NULL, base);
 
-    const_value_t* const_value = const_value_get(value, 4, 1);
+    const_value_t* const_value = const_value_get_integer(value, 4, 1);
 
     expression_set_type(expr, get_signed_int_type());
     expression_set_constant(expr, const_value);
@@ -917,7 +917,7 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
 
     long long int value = strtoll(decimal_text, NULL, 10);
 
-    const_value_t* const_value = const_value_get(value, kind, 1);
+    const_value_t* const_value = const_value_get_integer(value, kind, 1);
     type_t* t = choose_int_type_from_kind(expr, kind);
     expression_set_type(expr, t);
     expression_set_constant(expr, const_value);
@@ -2201,7 +2201,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
             ASTFileName(expr),
             ASTLine(expr));
     nodecl_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get(length, 4, 1), 
+            const_value_get_integer(length, 4, 1), 
             ASTFileName(expr),
             ASTLine(expr));
 

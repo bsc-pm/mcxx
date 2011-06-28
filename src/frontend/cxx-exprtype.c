@@ -1893,12 +1893,12 @@ static type_t* decimal_literal_type(AST expr, const_value_t** val)
                 if (is_unsigned)
                 {
                     result = get_unsigned_int_type();
-                    *val = const_value_get(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
+                    *val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
                 }
                 else
                 {
                     result = get_signed_int_type();
-                    *val = const_value_get(strtol(literal, NULL, 0), type_get_size(result), /* sign*/ 1);
+                    *val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), /* sign*/ 1);
                 }
                 break;
             }
@@ -1907,12 +1907,12 @@ static type_t* decimal_literal_type(AST expr, const_value_t** val)
                 if (is_unsigned)
                 {
                     result = get_unsigned_long_int_type();
-                    *val = const_value_get(strtoul(literal, NULL, 0), type_get_size(result), 0);
+                    *val = const_value_get_integer(strtoul(literal, NULL, 0), type_get_size(result), 0);
                 }
                 else
                 {
                     result = get_signed_long_int_type();
-                    *val = const_value_get(strtol(literal, NULL, 0), type_get_size(result), 1);
+                    *val = const_value_get_integer(strtol(literal, NULL, 0), type_get_size(result), 1);
                 }
                 break;
             }
@@ -1921,12 +1921,12 @@ static type_t* decimal_literal_type(AST expr, const_value_t** val)
                 if (is_unsigned)
                 {
                     result = get_unsigned_long_long_int_type();
-                    *val = const_value_get(strtoull(literal, NULL, 0), type_get_size(result), 0);
+                    *val = const_value_get_integer(strtoull(literal, NULL, 0), type_get_size(result), 0);
                 }
                 else
                 {
                     result = get_signed_long_long_int_type();
-                    *val = const_value_get(strtoll(literal, NULL, 0), type_get_size(result), 1);
+                    *val = const_value_get_integer(strtoll(literal, NULL, 0), type_get_size(result), 1);
                 }
                 break;
             }
@@ -2046,7 +2046,7 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
         }
     }
 
-    *val = const_value_get(value, type_get_size(result), /* sign */ 0);
+    *val = const_value_get_integer(value, type_get_size(result), /* sign */ 0);
 
     return result;
 }
@@ -11363,7 +11363,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 c[63] = '\0';
 
                 nodecl_t length = nodecl_make_integer_literal(get_signed_int_type(),
-                        const_value_get(initializer_num, type_get_size(get_signed_int_type()), 0), 
+                        const_value_get_integer(initializer_num, type_get_size(get_signed_int_type()), 0), 
                         ASTFileName(expression_list), ASTLine(expression_list));
 
                 type_t *list_array = get_array_type(
@@ -12927,7 +12927,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
             if (is_const_expr)
             {
                 expression_set_constant(expr, 
-                        const_value_get(type_size, /*bytes*/ 8, /* sign*/ 0));
+                        const_value_get_integer(type_size, /*bytes*/ 8, /* sign*/ 0));
             }
 
             DEBUG_SIZEOF_CODE()
@@ -13049,7 +13049,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (is_const_expr)
             {
                 expression_set_constant(
-                        expr, const_value_get(type_size, /* bytes */ 8, 0));
+                        expr, const_value_get_integer(type_size, /* bytes */ 8, 0));
             }
 
             DEBUG_SIZEOF_CODE()
@@ -13468,7 +13468,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
         }
 
         expression_set_constant(expression, 
-                const_value_get(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0));
+                const_value_get_integer(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0));
     }
     else
     {

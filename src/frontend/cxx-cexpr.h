@@ -42,7 +42,17 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN const_value_t* const_value_get(uint64_t value, int num_bytes, char sign);
+LIBMCXX_EXTERN const_value_t* const_value_get_integer(uint64_t value, int num_bytes, char sign);
+
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_int(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_int(uint64_t value);
+
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long(uint64_t value);
+
+LIBMCXX_EXTERN const_value_t* const_value_get_signed_long_long(uint64_t value);
+LIBMCXX_EXTERN const_value_t* const_value_get_unsigned_long_long(uint64_t value);
+
 LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
 LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);
 LIBMCXX_EXTERN char const_value_is_nonzero(const_value_t* v);

@@ -2713,7 +2713,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                             const_value_add(
                                     expression_get_constant(base_enumerator),
                                     // FIXME - We should be using the size in bytes of signed int
-                                    const_value_get(delta, /*bytes*/ 4, /*sign*/0));
+                                    const_value_get_integer(delta, /*bytes*/ 4, /*sign*/0));
 
                         enumeration_item->language_dependent_value = const_value_to_tree(val_plus_one);
                         enumeration_item->value = const_value_to_nodecl(val_plus_one);
