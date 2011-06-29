@@ -147,7 +147,7 @@ FORTRAN_GENERIC_INTRINSIC(is_contiguous, "ARRAY", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(is_iostat_end, "I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(is_iostat_eor, "I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(kind, "X", I, simplify_kind) \
-FORTRAN_GENERIC_INTRINSIC(lbound, "ARRAY,?DIM,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(lbound, "ARRAY,?DIM,?KIND", I, simplify_lbound) \
 FORTRAN_GENERIC_INTRINSIC(lcobound, "COARRAY,?DIM,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(leadz, "I", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(len, "STRING,?KIND", I, simplify_len) \
@@ -206,14 +206,14 @@ FORTRAN_GENERIC_INTRINSIC(selected_char_kind, "NAME", T, simplify_selected_char_
 FORTRAN_GENERIC_INTRINSIC(selected_int_kind, "R", T, simplify_selected_int_kind) \
 FORTRAN_GENERIC_INTRINSIC(selected_real_kind, "?P,?R,?RADIX", T, simplify_selected_real_kind) \
 FORTRAN_GENERIC_INTRINSIC(set_exponent, "X,I", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(shape, "SOURCE,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(shape, "SOURCE,?KIND", I, simplify_shape) \
 FORTRAN_GENERIC_INTRINSIC(shifta, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shiftl, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(shiftr, "I,SHIFT", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sign, "A,B", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sin, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sinh, "X", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(size, "ARRAY,?DIM,?KIND", I, simplify_size) \
 FORTRAN_GENERIC_INTRINSIC(spacing, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(spread, "SOURCE,DIM,NCOPIES", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(sqrt, "X", E, NULL) \
@@ -228,7 +228,7 @@ FORTRAN_GENERIC_INTRINSIC(trailz, "I", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(transfer, "SOURCE,MOLD,SIZE", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(transpose, "MATRIX", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(trim, "STRING", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(ubound, "ARRAY,?DIM,?KIND", I, NULL) \
+FORTRAN_GENERIC_INTRINSIC(ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
 FORTRAN_GENERIC_INTRINSIC(ucobound, "COARRAY,?DIM,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(unpack, "VECTOR,MASK,FIELD", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(verify, "STRING,SET,?BACK,?KIND", E, NULL)  \
@@ -4456,10 +4456,14 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                     && symbol->entity_specs.simplify_function != NULL)
             {
                 nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+
                 int j;
                 for (j = 0; j < num_actual_arguments; j++)
                 {
-                    nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
+                    if (reordered_exprs[j] != NULL)
+                        nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
+                    else
+                        nodecl_arguments[j] = nodecl_null();
                 }
 
                 *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);

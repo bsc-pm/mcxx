@@ -5,9 +5,19 @@
 #include <limits.h>
 #include <float.h>
 
+static nodecl_t nodecl_make_int_literal(int n)
+{
+    return nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(n), NULL, 0);
+}
+
 static nodecl_t nodecl_make_zero(void)
 {
-    return nodecl_make_integer_literal(get_signed_int_type(), const_value_get_zero(type_get_size(get_signed_int_type()), 1), NULL, 0);
+    return nodecl_make_int_literal(0);
+}
+
+static nodecl_t nodecl_make_one(void)
+{
+    return nodecl_make_int_literal(1);
 }
 
 static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -256,7 +266,7 @@ static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* argum
     if (array_type_is_unknown_size(t))
         return nodecl_null();
 
-    return array_type_get_array_size_expr(t);
+    return nodecl_copy(array_type_get_array_size_expr(t));
 }
 
 static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -361,6 +371,218 @@ static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_
             get_signed_int_type(),
             const_value_get_signed_int(model.emin),
             NULL, 0);
+}
+
+static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments,
+        nodecl_t (*bound_fun)(type_t*))
+{
+    nodecl_t array = arguments[0];
+    nodecl_t dim = arguments[1];
+    nodecl_t kind = arguments[2];
+
+    int kind_ = type_get_size(get_signed_int_type());
+    if (!nodecl_is_null(kind))
+    {
+        if (!nodecl_is_constant(kind))
+            return nodecl_null();
+
+        kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
+    }
+
+    if (nodecl_is_null(dim))
+    {
+        type_t* t = no_ref(nodecl_get_type(array));
+        int i, rank = get_rank_of_type(t);
+        nodecl_t nodecl_list = nodecl_null();
+        for (i = 0; i < rank; i++)
+        {
+            if (array_type_is_unknown_size(t))
+            {
+                return nodecl_null();
+            }
+
+            nodecl_list = nodecl_concat_lists(
+                    nodecl_make_list_1(nodecl_copy(bound_fun(t))),
+                    nodecl_list);
+
+            t = array_type_get_element_type(t);
+        }
+
+        return nodecl_make_structured_literal(
+                nodecl_list,
+                get_array_type_bounds(choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
+                    nodecl_make_one(),
+                    nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(kind_), NULL, 0),
+                    CURRENT_COMPILED_FILE->global_decl_context),
+                NULL, 0);
+    }
+    else
+    {
+        if (nodecl_is_constant(dim))
+        {
+            type_t* t = no_ref(nodecl_get_type(array));
+            int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
+
+            int rank = get_rank_of_type(t);
+
+            if ((rank - dim_) < 0)
+                return nodecl_null();
+
+            int i;
+            for (i = 0; i < (rank - dim_); i++)
+            {
+                t = array_type_get_element_type(t);
+            }
+
+            if (!array_type_is_unknown_size(t))
+            {
+                return nodecl_copy(bound_fun(t));
+            }
+        }
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_lbound(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_xbound(num_arguments, arguments, array_type_get_array_lower_bound);
+}
+
+static nodecl_t simplify_ubound(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_xbound(num_arguments, arguments, array_type_get_array_upper_bound);
+}
+
+static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t array = arguments[0];
+    nodecl_t dim = arguments[1];
+    nodecl_t kind = arguments[2];
+
+    int kind_ = type_get_size(get_signed_int_type());
+    if (!nodecl_is_null(kind))
+    {
+        if (!nodecl_is_constant(kind))
+            return nodecl_null();
+
+        kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
+    }
+
+    if (nodecl_is_null(dim))
+    {
+        type_t* t = no_ref(nodecl_get_type(array));
+        int i, rank = get_rank_of_type(t);
+        int value = 1;
+        for (i = 0; i < rank; i++)
+        {
+            if (array_type_is_unknown_size(t))
+            {
+                return nodecl_null();
+            }
+
+            nodecl_t size = array_type_get_array_size_expr(t);
+
+            // We could do a bit more here
+            if (!nodecl_is_constant(size))
+                return nodecl_null();
+
+            value = value * const_value_cast_to_4(nodecl_get_constant(size));
+            
+            t = array_type_get_element_type(t);
+        }
+
+        return nodecl_make_integer_literal(
+                choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
+                const_value_get_signed_int(value),
+                NULL, 0);
+    }
+    else
+    {
+        if (nodecl_is_constant(dim))
+        {
+            type_t* t = no_ref(nodecl_get_type(array));
+            int dim_ = const_value_cast_to_4(nodecl_get_constant(dim));
+
+            int rank = get_rank_of_type(t);
+
+            if ((rank - dim_) < 0)
+                return nodecl_null();
+
+            int i;
+            for (i = 0; i < (rank - dim_); i++)
+            {
+                t = array_type_get_element_type(t);
+            }
+
+            if (!array_type_is_unknown_size(t))
+            {
+                return nodecl_copy(array_type_get_array_size_expr(t));
+            }
+        }
+    }
+
+    return nodecl_null();
+}
+
+static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t array = arguments[0];
+    nodecl_t kind = arguments[1];
+
+    int kind_ = type_get_size(get_signed_int_type());
+    if (!nodecl_is_null(kind))
+    {
+        if (!nodecl_is_constant(kind))
+            return nodecl_null();
+
+        kind_ = const_value_cast_to_4(nodecl_get_constant(kind));
+    }
+
+    nodecl_t nodecl_list = nodecl_null();
+
+    type_t* t = no_ref(nodecl_get_type(array));
+    int i, rank = get_rank_of_type(t);
+    for (i = 0; i < rank; i++)
+    {
+        if (array_type_is_unknown_size(t))
+        {
+            return nodecl_null();
+        }
+
+        nodecl_t size = array_type_get_array_size_expr(t);
+
+        // We could do a bit more here
+        if (!nodecl_is_constant(size))
+            return nodecl_null();
+
+        nodecl_list = nodecl_concat_lists(
+                nodecl_make_list_1(nodecl_copy(size)),
+                nodecl_list);
+
+        t = array_type_get_element_type(t);
+    }
+
+    if (rank > 0)
+    {
+        return nodecl_make_structured_literal(
+                nodecl_list,
+                get_array_type_bounds(choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
+                    nodecl_make_one(),
+                    nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(kind_), NULL, 0),
+                    CURRENT_COMPILED_FILE->global_decl_context),
+                NULL, 0);
+    }
+    else
+    {
+        return nodecl_make_structured_literal(
+                nodecl_null(),
+                get_array_type_bounds(choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
+                    nodecl_make_one(),
+                    nodecl_make_zero(), 
+                    CURRENT_COMPILED_FILE->global_decl_context),
+                NULL, 0);
+    }
 }
 
 #endif
