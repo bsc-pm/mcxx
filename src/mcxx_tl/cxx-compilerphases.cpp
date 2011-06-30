@@ -88,6 +88,9 @@ namespace TL
                 RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
                 dto.set_object("translation_unit", ast);
 
+                // RefPtr<Nodecl::TopLevel> ast(new Nodecl::TopLevel(translation_unit->nodecl));
+                // dto.set_object("nodecl", ast);
+
                 RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
                 dto.set_object("scope_link", scope);
 

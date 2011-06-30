@@ -2507,10 +2507,19 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
                 if (!CURRENT_CONFIGURATION->disable_nodecl)
                 {
-                    // We should ensure we can do this
-                    // ast_free(translation_unit->parsed_tree);
-                    translation_unit->parsed_tree = translation_unit->nodecl.tree;
-                    nodecl_check_tree(translation_unit->parsed_tree);
+                    timing_t timing_check_tree;
+                    timing_start(&timing_check_tree);
+                    if (CURRENT_CONFIGURATION->verbose)
+                    {
+                        fprintf(stderr, "Checking integrity of nodecl tree\n");
+                    }
+                    nodecl_check_tree(nodecl_get_ast(translation_unit->nodecl));
+                    if (CURRENT_CONFIGURATION->verbose)
+                    {
+                        fprintf(stderr, "Nodecl integrity verified in %.2f seconds\n",
+                                timing_elapsed(&timing_check_tree));
+                    }
+                    timing_end(&timing_check_tree);
                 }
 
                 // 6. TL::run and TL::phase_cleanup
@@ -2524,12 +2533,26 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 {
                     fprintf(stderr, "Printing AST in graphviz format\n");
 
-                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                    if (!CURRENT_CONFIGURATION->disable_nodecl)
+                    {
+                        ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
+                    }
+                    else
+                    {
+                        ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                    }
                 }
                 else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
                 {
                     fprintf(stderr, "Printing AST in HTML format\n");
-                    ast_dump_html(translation_unit->parsed_tree, stdout);
+                    if (!CURRENT_CONFIGURATION->disable_nodecl)
+                    {
+                        ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
+                    }
+                    else
+                    {
+                        ast_dump_html(translation_unit->parsed_tree, stdout);
+                    }
                 }
 
                 // 8. print symbol table if requested
@@ -2904,7 +2927,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
     }
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
@@ -2917,7 +2940,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
             rewind(raw_prettyprint_file);
 
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
@@ -2925,7 +2948,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         }
         else
         {
-            fortran_codegen_translation_unit(prettyprint_file, translation_unit->parsed_tree, translation_unit->scope_link);
+            fortran_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
         }
     }
 #endif

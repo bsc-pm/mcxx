@@ -2604,7 +2604,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 }
 
 // External interface
-void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl)
+void c_cxx_codegen_translation_unit(FILE *f, nodecl_t node, scope_link_t* sl)
 {
     nodecl_codegen_visitor_t codegen_visitor;
     memset(&codegen_visitor, 0, sizeof(codegen_visitor));
@@ -2618,12 +2618,12 @@ void c_cxx_codegen_translation_unit(FILE *f, AST a, scope_link_t* sl)
     
     codegen_visitor.file = f;
     codegen_visitor.indent_level = 0;
-    decl_context_t global_context = scope_link_get_decl_context(sl, a);
+    decl_context_t global_context = scope_link_get_decl_context(sl, nodecl_get_ast(node));
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;
 
-    codegen_walk(&codegen_visitor, _nodecl_wrap(a));
+    codegen_walk(&codegen_visitor, node);
 
     codegen_move_namespace_from_to(&codegen_visitor, codegen_visitor.opened_namespace, codegen_visitor.global_namespace);
 

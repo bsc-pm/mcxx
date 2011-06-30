@@ -1843,7 +1843,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_where = codegen_visitor_fun(codegen_where);
 }
 
-void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, scope_link_t* sl UNUSED_PARAMETER)
+void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, nodecl_t node, scope_link_t* sl UNUSED_PARAMETER)
 {
     nodecl_codegen_visitor_t codegen_visitor;
 
@@ -1858,7 +1858,7 @@ void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, AST a UNUSED_PAR
     codegen_visitor.indent_level = 0;
     codegen_visitor.current_sym = NULL;
 
-    codegen_walk(&codegen_visitor, _nodecl_wrap(a));
+    codegen_walk(&codegen_visitor, node);
 }
 
 
