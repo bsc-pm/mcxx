@@ -1230,17 +1230,16 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 
     if (const_value_is_float(value))
     {
-        fprintf(visitor->file, "%.6ff", const_value_cast_to_float(value));
+        fprintf(visitor->file, "%.24ef", const_value_cast_to_float(value));
     }
     else if (const_value_is_double(value))
     {
-        fprintf(visitor->file, "%.15f", const_value_cast_to_double(value));
+        fprintf(visitor->file, "%.53e", const_value_cast_to_double(value));
     }
     else if (const_value_is_long_double(value))
     {
-        fprintf(visitor->file, "%.33LfL", const_value_cast_to_long_double(value));
+        fprintf(visitor->file, "%.113LeL", const_value_cast_to_long_double(value));
     }
-    
 }
 
 static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)

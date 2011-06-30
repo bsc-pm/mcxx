@@ -1298,14 +1298,18 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 
     int kind = type_get_size(t);
 
-    // FIXME Make this customizable
-    if (kind == 4)
+    const_value_t* value = nodecl_get_constant(node);
+    if (const_value_is_float(value))
     {
-        fprintf(visitor->file, "%s", nodecl_get_text(node));
+        fprintf(visitor->file, "%.24E_%d", const_value_cast_to_float(value), kind);
     }
-    else
+    else if (const_value_is_double(value))
     {
-        fprintf(visitor->file, "%s_%d", nodecl_get_text(node), kind);
+        fprintf(visitor->file, "%.53E_%d", const_value_cast_to_double(value), kind);
+    }
+    else if (const_value_is_long_double(value))
+    {
+        fprintf(visitor->file, "%.113LE_%d", const_value_cast_to_long_double(value), kind);
     }
 }
 
