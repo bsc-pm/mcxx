@@ -2063,8 +2063,19 @@ type_t* get_unqualified_type(type_t* t)
         return _clone_array_type(t, element_unqualif);
     }
 
+    // Keep restrict attribute as it can't be discarded like const or volatile
+    char is_restricted = (get_cv_qualifier(t) & CV_RESTRICT) == CV_RESTRICT;
+
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
-    return t->unqualified_type;
+    
+    if (!is_restricted)
+    {
+        return t->unqualified_type;
+    }
+    else
+    {
+        return get_restrict_qualified_type(t->unqualified_type);
+    }
 }
 
 static
