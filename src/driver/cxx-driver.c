@@ -3550,8 +3550,10 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     native_compilation_args[ipos] = uniquestr("-o");
     ipos++;
+    int output_object_filename_index = ipos;
     native_compilation_args[ipos] = output_object_filename;
     ipos++;
+    int prettyprinted_filename_index = ipos;
     native_compilation_args[ipos] = prettyprinted_filename;
     ipos++;
 
@@ -3576,6 +3578,62 @@ static void native_compilation(translation_unit_t* translation_unit,
                 translation_unit->input_filename,
                 prettyprinted_filename,
                 timing_elapsed(&timing_compilation));
+    }
+
+    // Binary check enabled using --debug-flags=binary_check
+    if (CURRENT_CONFIGURATION->debug_options.binary_check)
+    {
+        fprintf(stderr, "Performing binary check of generated file '%s'\n",
+                output_object_filename);
+
+        native_compilation_args[prettyprinted_filename_index] = translation_unit->input_filename;
+        temporal_file_t new_obj_file = new_temporal_file_extension(".o");
+        native_compilation_args[output_object_filename_index] = new_obj_file->name;
+
+        if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
+        {
+            running_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
+                    translation_unit->input_filename);
+        }
+
+        // Now strip both files
+
+        const char* strip_args[] =
+        {
+            "--strip-all",
+            NULL, // [1] filename
+            NULL,
+        };
+
+        const char* object_filenames[] = 
+        { 
+            output_object_filename,
+            new_obj_file->name,
+            NULL
+        };
+        
+        int i;
+        for (i = 0; object_filenames[i] != NULL; i++)
+        {
+            strip_args[1] = object_filenames[i];
+
+            fprintf(stderr, "Stripping '%s'\n", strip_args[1]);
+            if (execute_program("strip", strip_args) != 0)
+            {
+                running_error("Stripping failed on '%s'\n", strip_args[1]);
+            }
+        }
+
+        fprintf(stderr, "Comparing binaries\n");
+        const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
+        if (execute_program("cmp", cmp_args) != 0)
+        {
+            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n", 0);
+        }
+        else
+        {
+            fprintf(stderr, "Binary comparison was OK!\n");
+        }
     }
 }
 
