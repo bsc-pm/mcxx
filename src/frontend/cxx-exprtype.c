@@ -8939,6 +8939,17 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             fprintf(stderr, "EXPRTYPE: Function call seems fine in C semantics\n");
         }
 
+        if (arguments != NULL)
+        {
+            AST iter;
+            for_each_element(arguments, iter)
+            {
+                AST argument = ASTSon1(iter);
+                (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
+                        expression_get_nodecl(argument));
+            }
+        }
+
         return 1;
     }
 
