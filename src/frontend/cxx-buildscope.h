@@ -72,7 +72,8 @@ LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t i
         struct AST_tag* member_specification_tree,
         access_specifier_t default_current_access,
         struct type_tag* type_info,
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols);
 
 LIBMCXX_EXTERN void build_scope_dynamic_initializer(void);
 LIBMCXX_EXTERN void build_scope_statement(struct AST_tag* statement, decl_context_t decl_context, nodecl_t* nodecl_output);

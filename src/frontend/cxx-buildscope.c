@@ -86,7 +86,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
         nodecl_t* nodecl_output);
 
 static void build_scope_member_specification(decl_context_t inner_decl_context, AST member_specification_tree, 
-        access_specifier_t default_current_access, type_t* type_info, nodecl_t* nodecl_output);
+        access_specifier_t default_current_access, type_t* type_info, nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols);
 
 static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
@@ -99,7 +100,8 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
         AST a, access_specifier_t current_access, type_t* class_info,
         nodecl_t* nodecl_output);
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
-        access_specifier_t current_access, type_t* class_info, nodecl_t* nodecl_output);
+        access_specifier_t current_access, type_t* class_info, nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         decl_context_t decl_context);
@@ -3903,7 +3905,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     enum class_kind_t class_kind = CK_INVALID;
     const char *class_kind_name = NULL;
 
-    char anonymous_class = 0;
+    char members_belong_to_enclosing = 0;
 
     switch (ASTType(class_key))
     {
@@ -4225,13 +4227,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            anonymous_class = (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+            members_belong_to_enclosing = (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
                     // Namespace scope is not allowed in C
                     && decl_context.current_scope->kind != NAMESPACE_SCOPE);
         }
         CXX_LANGUAGE()
         {
-            anonymous_class = (class_kind == CK_UNION
+            members_belong_to_enclosing = (class_kind == CK_UNION
                     && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS));
         }
     }
@@ -4324,27 +4326,38 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         current_access = AS_PUBLIC;
     }
 
-    if (!anonymous_class)
+    scope_entry_list_t* declared_symbols = NULL;
+    build_scope_member_specification(inner_decl_context, member_specification, 
+            current_access, *type_info, nodecl_output, &declared_symbols);
+
+    if (members_belong_to_enclosing)
     {
-        build_scope_member_specification(inner_decl_context, member_specification, 
-                current_access, *type_info, nodecl_output);
-    }
-    else
-    {
-        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        scope_entry_t* enclosing = decl_context.current_scope->related_entry;
+
+        while (enclosing != NULL
+                && enclosing->kind == SK_CLASS
+                && enclosing->entity_specs.is_anonymous)
         {
-            scope_entry_t* enclosing_class_type = decl_context.current_scope->related_entry;
-            build_scope_member_specification(decl_context, member_specification, 
-                    current_access, get_user_defined_type(enclosing_class_type), nodecl_output);
+            enclosing = enclosing->decl_context.current_scope->related_entry;
         }
-        else
+
+        ERROR_CONDITION(enclosing == NULL
+                || enclosing->kind != SK_CLASS,
+                "Invalid nesting for anonymous nested class", 0);
+
+        decl_context_t inner_context = class_type_get_inner_context(enclosing->type_information);
+
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(declared_symbols);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            // There is no class to name, so it does not matter if we sign them
-            // in a fake class type
-            build_scope_member_specification(decl_context, member_specification, 
-                    current_access, *type_info, nodecl_output);
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            insert_entry(inner_context.current_scope, entry);
         }
+        entry_list_iterator_free(it);
     }
+    entry_list_free(declared_symbols);
 
     class_entry->defined = 1;
     class_entry->point_of_definition = get_enclosing_declaration(a);
@@ -4396,7 +4409,8 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
         AST member_specification_tree,
         access_specifier_t default_current_access,
         type_t* type_info,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols)
 {
     if (member_specification_tree == NULL)
     {
@@ -4445,13 +4459,14 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
         {
             // This is a simple member_declaration
             build_scope_member_declaration(new_inner_decl_context, member_specification,
-                    current_access, type_info, nodecl_output, /* declared_symbols */ NULL);
+                    current_access, type_info, nodecl_output, declared_symbols);
         }
     }
 }
 
 static void build_scope_member_specification(decl_context_t inner_decl_context, AST member_specification_tree, 
-        access_specifier_t default_current_access, type_t* type_info, nodecl_t *nodecl_output)
+        access_specifier_t default_current_access, type_t* type_info, nodecl_t *nodecl_output,
+        scope_entry_list_t** declared_symbols)
 {
     ERROR_CONDITION(inner_decl_context.current_scope->kind != CLASS_SCOPE,
             "Error, current scope should be a class scope", 0);
@@ -4459,7 +4474,7 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
     // First pass, sign up only prototypes and simple declarations and
     // queue function definitions
     build_scope_member_specification_first_step(inner_decl_context, member_specification_tree, 
-            default_current_access, type_info, nodecl_output);
+            default_current_access, type_info, nodecl_output, declared_symbols);
 }
 
 
@@ -7971,7 +7986,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
     {
         case AST_MEMBER_DECLARATION :
             {
-                build_scope_member_simple_declaration(inner_decl_context, a, current_access, class_info, nodecl_output);
+                build_scope_member_simple_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
                 break;
             }
         case AST_FUNCTION_DEFINITION :
@@ -8149,7 +8164,7 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
     decl_context_t new_decl_context = decl_context;
     new_decl_context.decl_flags |= DF_TEMPLATE;
 
-    build_scope_member_simple_declaration(new_decl_context, a, current_access, class_info, nodecl_output);
+    build_scope_member_simple_declaration(new_decl_context, a, current_access, class_info, nodecl_output, /* declared_symbols */ NULL);
 }
 
 static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
@@ -8595,7 +8610,8 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
  */
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output,
+        scope_entry_list_t** declared_symbols)
 {
     gather_decl_spec_t gather_info;
 
@@ -8629,6 +8645,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
         build_scope_decl_specifier_seq(ASTSon0(a), &gather_info,
                 &member_type, new_decl_context, nodecl_output);
+
+        if (gather_info.defined_type != NULL
+                && declared_symbols != NULL)
+        {
+            *declared_symbols = entry_list_add(*declared_symbols, gather_info.defined_type);
+        }
 
         AST decl_spec_seq = ASTSon0(a);
         AST type_specifier = ASTSon1(decl_spec_seq);
@@ -8725,7 +8747,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     {
                         solve_ambiguous_init_declarator(declarator, decl_context);
                         // Restart the function
-                        build_scope_member_simple_declaration(decl_context, a, current_access, class_info, nodecl_output);
+                        build_scope_member_simple_declaration(decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
                         return;
                         break;
                     }
@@ -8797,6 +8819,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         bitfield_symbol->defined = 1;
                         bitfield_symbol->point_of_declaration = get_enclosing_declaration(declarator);
                         bitfield_symbol->point_of_definition = get_enclosing_declaration(declarator);
+
+                        if (declared_symbols != NULL)
+                        {
+                            *declared_symbols = entry_list_add(*declared_symbols, bitfield_symbol);
+                        }
 
                         break;
                     }
@@ -8993,6 +9020,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         ast_location(initializer));
                             }
                         }
+                        if (declared_symbols != NULL)
+                        {
+                            *declared_symbols = entry_list_add(*declared_symbols, entry);
+                        }
                         break;
                     }
                 default :
@@ -9001,37 +9032,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         break;
                     }
             }
-        }
-    }
-    else
-    {
-        C_LANGUAGE()
-        {
-            // If it is null implement the gcc extension where inner members
-            // are brought to the enclosing scope
-
-            char fake_name[256];
-            static int field_num = 0;
-            sprintf(fake_name, ".unnamed_field_%d", field_num);
-            field_num++;
-
-            AST fake_declarator = 
-                ASTMake1(AST_DECLARATOR_ID_EXPR,
-                        ASTLeaf(AST_SYMBOL, ASTFileName(a), ASTLine(a), fake_name),
-                        ASTFileName(a), ASTLine(a), NULL);
-
-            ast_set_parent(fake_declarator, a);
-
-            scope_entry_t *entry =
-                build_scope_declarator_name(fake_declarator,
-                        member_type, &gather_info,
-                        decl_context, nodecl_output);
-
-            // This is a nested unnamed class
-            entry->entity_specs.is_nested_unnamed_struct = 1;
-
-            // We need to add this for layout purposes
-            class_type_add_nonstatic_data_member(get_actual_class_type(class_type), entry);
         }
     }
 }
@@ -10424,7 +10424,7 @@ void build_scope_member_specification_with_scope_link(
     CURRENT_COMPILED_FILE->scope_link = scope_link;
 
     build_scope_member_specification(class_context, member_specification_tree, 
-            current_access, simple_type_info, nodecl_output);
+            current_access, simple_type_info, nodecl_output, /* declared_symbols */ NULL);
     build_scope_delayed_functions(nodecl_output);
 
     CURRENT_COMPILED_FILE->scope_link = old_scope_link;

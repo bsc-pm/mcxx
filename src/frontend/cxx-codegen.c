@@ -182,7 +182,7 @@ static void walk_type_for_symbols(
     {
         walk_type_for_symbols(visitor, vector_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define);
     }
-    else if (is_class_type(t))
+    else if (is_named_class_type(t))
     {
         scope_entry_t* class_entry = named_type_get_symbol(t);
         if (needs_def)
@@ -192,6 +192,17 @@ static void walk_type_for_symbols(
         else
         {
             symbol_to_declare(visitor, class_entry);
+        }
+    }
+    else if (is_unnamed_class_type(t))
+    {
+        // Special case for nested members
+        int i;
+        int num_members = class_type_get_num_members(t);
+        for (i = 0; i < num_members; i++)
+        {
+            scope_entry_t* member = class_type_get_member_num(t, i);
+            walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define);
         }
     }
     else if (is_enum_type(t))
@@ -357,10 +368,10 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                 codegen_type_of_symbol(visitor,
                         symbol->type_information,
                         /* needs_def */ 1);
-                codegen_move_to_namespace_of_symbol(visitor, symbol);
-                indent(visitor);
-                fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
-                            symbol->decl_context, symbol->symbol_name));
+                // codegen_move_to_namespace_of_symbol(visitor, symbol);
+                // indent(visitor);
+                // fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
+                //             symbol->decl_context, symbol->symbol_name));
                 break;
             }
         case SK_ENUMERATOR:
@@ -418,21 +429,52 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
         case SK_CLASS:
             {
                 int i = 0;
-                C_LANGUAGE()
-                {
-                    // the symbol will be already called 'struct/union X' in C
-                    indent(visitor);
-                    fprintf(visitor->file, "%s\n", symbol->symbol_name);
-                    indent(visitor);
-                    fprintf(visitor->file, "{\n");
-                }
-                access_specifier_t default_access_spec = AS_UNKNOWN;
 
                 int num_members = class_type_get_num_members(symbol->type_information);
                 for (i = 0; i < num_members; i++)
                 {
                     scope_entry_t* member = class_type_get_member_num(symbol->type_information, i);
                     codegen_type_of_symbol(visitor, member->type_information, /* needs_def */ 1);
+                }
+
+                access_specifier_t default_access_spec = AS_UNKNOWN;
+
+                const char *class_key = "";
+                switch (class_type_get_class_kind(symbol->type_information))
+                {
+                    case CK_CLASS:
+                        class_key = "class";
+                        default_access_spec = AS_PRIVATE;
+                        break;
+                    case CK_STRUCT:
+                        class_key = "struct";
+                        default_access_spec = AS_PUBLIC;
+                        break;
+                    case CK_UNION:
+                        class_key = "union";
+                        default_access_spec = AS_PUBLIC;
+                        break;
+                    default:
+                        internal_error("Invalid class kind", 0);
+                }
+
+                C_LANGUAGE()
+                {
+                    indent(visitor);
+                    if (symbol->entity_specs.is_anonymous
+                            && symbol->decl_context.current_scope->kind == CLASS_SCOPE)
+                    {
+                        // If is anonymous and in class scope, this is an anonymously declared class inside a class specifier,
+                        // thus, do not print its name, only its class-key
+                        fprintf(visitor->file, "%s\n", class_key);
+                    }
+                    else
+                    {
+                        // Usual case: the symbol will be already called 'struct/union X' in C
+                        fprintf(visitor->file, "%s\n", symbol->symbol_name);
+                    }
+                    indent(visitor);
+                    fprintf(visitor->file, "{\n");
                 }
 
                 CXX_LANGUAGE()
@@ -459,25 +501,6 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                         {
                             is_primary_template = 1;
                         }
-                    }
-
-                    const char *class_key = "";
-                    switch (class_type_get_class_kind(symbol->type_information))
-                    {
-                        case CK_CLASS:
-                            class_key = "class";
-                            default_access_spec = AS_PRIVATE;
-                            break;
-                        case CK_STRUCT:
-                            class_key = "struct";
-                            default_access_spec = AS_PUBLIC;
-                            break;
-                        case CK_UNION:
-                            class_key = "union";
-                            default_access_spec = AS_PUBLIC;
-                            break;
-                        default:
-                            internal_error("Invalid class kind", 0);
                     }
 
                     if (class_type_get_num_bases(symbol->type_information) != 0)
@@ -612,7 +635,16 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     }
 
                     visitor->indent_level += 1;
-                    declare_symbol(visitor, member);
+
+                    C_LANGUAGE()
+                    {
+                        // Everything must be properly defined in C
+                        define_symbol(visitor, member);
+                    }
+                    CXX_LANGUAGE()
+                    {
+                        declare_symbol(visitor, member);
+                    }
                     // This has been already defined here
                     member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                     visitor->indent_level--;
@@ -905,13 +937,12 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 codegen_type_of_symbol(visitor,
                         symbol->type_information,
                         /* needs_def */ 0);
-
-                // A typedef cannot be only declared, it is always defined
-                symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                codegen_move_to_namespace_of_symbol(visitor, symbol);
-                indent(visitor);
-                fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
-                        symbol->decl_context, symbol->symbol_name));
+                // // A typedef cannot be only declared, it is always defined
+                // symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                // codegen_move_to_namespace_of_symbol(visitor, symbol);
+                // indent(visitor);
+                // fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
+                //         symbol->decl_context, symbol->symbol_name));
                 break;
             }
         case SK_FUNCTION:
