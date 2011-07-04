@@ -607,6 +607,33 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
     return result;
 }
 
+// Attribute is_friend states that this symbol has been created to represent a friend declaration
+// but should not be visible yet in the scope (though we need the symbol, otherwise there is no way
+// to realize later that this symbol is friend!)
+static char is_friend_symbol(scope_entry_t* entry)
+{
+    char is_friend = 0;
+    if ((entry->kind == SK_CLASS
+            || entry->kind == SK_FUNCTION)
+            && is_template_specialized_type(entry->type_information))
+    {
+        type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+        scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
+        is_friend =  template_sym->entity_specs.is_friend;
+    }
+    else
+    {
+        is_friend =  entry->entity_specs.is_friend;
+    }
+
+    return !is_friend;
+}
+
+scope_entry_list_t* filter_friends(scope_entry_list_t* entry_list)
+{
+    return filter_symbol_using_predicate(entry_list, is_friend_symbol);
+}
+
 static scope_entry_list_t* query_unqualified_name(
         decl_context_t decl_context,
         decl_context_t template_arg_ctx,
@@ -3020,7 +3047,8 @@ template_parameter_list_t* get_template_parameters_from_syntax(
 
                     nodecl_t dummy_nodecl_output = nodecl_null();
                     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                            template_parameters_context, &dummy_nodecl_output);
+                            template_parameters_context, 
+                            &dummy_nodecl_output);
 
                     type_t* declarator_type;
                     compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,

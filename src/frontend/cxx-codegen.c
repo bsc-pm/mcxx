@@ -2379,6 +2379,16 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         scope_entry_t* class_symbol = named_type_get_symbol(symbol->entity_specs.class_type);
         define_symbol(visitor, class_symbol);
     }
+    else
+    {
+        if (is_template_specialized_type(symbol->type_information))
+        {
+            type_t* template_type = template_specialized_type_get_related_template_type(symbol->type_information);
+            type_t* primary_template = template_type_get_primary_type(template_type);
+            scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
+            declare_symbol(visitor, primary_symbol);
+        }
+    }
 
     codegen_type_of_symbol(visitor, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
 
@@ -2548,6 +2558,12 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
 
     codegen_move_to_namespace_of_symbol(visitor, symbol);
+
+    if (is_template_specialized_type(symbol->type_information))
+    {
+        indent(visitor);
+        fprintf(visitor->file, "template <>\n");
+    }
 
     indent(visitor);
     fprintf(visitor->file, "%s%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec, asm_specification);

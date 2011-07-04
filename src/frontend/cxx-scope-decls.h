@@ -68,25 +68,24 @@ MCXX_BEGIN_DECLS
 
 #define BITMAP(x) (1 << (x))
 
+// FIXME:
+// Remove all but
+// DF_NONE
+// DF_CONSTRUCTOR
+// DF_DEPENDENT_TYPENAME
+// DF_ELABORATED_NAME
+// DF_LABEL
+// DF_NO_INJECTED_CLASS_NAME
+// DF_ONLY_CURRENT_SCOPE
+
 typedef 
 enum decl_flags_tag
 {
     DF_NONE = 0,
-    // If this is enable, declarations are under the hood of a template.  It is
-    // cleared for members of a class, which in turn can be templated too
-    DF_TEMPLATE = BITMAP(0), 
     // It states that the current declaration is a constructor, so no
     // type-specifier is expected and a special name 'constructor class-name'
     // is used when looking up in the scope
     DF_CONSTRUCTOR = BITMAP(1),
-    // It states that the current declaration does not have any declaration.
-    // It is mainly used for elaborate-type-specifiers and templated-declarations
-    DF_NO_DECLARATORS = BITMAP(2),
-    // It states that the declaration has a 'friend' specifier
-    DF_FRIEND = BITMAP(3),
-    // It states that, under the same scope as DF_TEMPLATE, the declaration
-    // is under a 'template<>'
-    DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
     // Allows redefinition of an identifier already defined, used in compiler
     // phases since they might need to redeclare something
     DF_ALLOW_REDEFINITION = BITMAP(5),
@@ -98,15 +97,11 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // States that we are under parameter declaration
-    DF_PARAMETER_DECLARATION = BITMAP(10),
     // States that the lookup should ignore injected class-names
     DF_NO_INJECTED_CLASS_NAME = BITMAP(11),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
     DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
-    // Explicit instantiation
-    DF_EXPLICIT_INSTANTIATION = BITMAP(13)
 } decl_flags_t;
 
 #undef BITMAP

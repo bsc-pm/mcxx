@@ -47,7 +47,8 @@ LIBMCXX_EXTERN void build_scope_template_parameters(
         struct AST_tag* class_head_id, 
         template_parameter_list_t** template_parameters);
 LIBMCXX_EXTERN void build_scope_decl_specifier_seq(struct AST_tag* a, gather_decl_spec_t* gather_info, 
-        struct type_tag** type_info, decl_context_t dctx,
+        struct type_tag** type_info, 
+        decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void compute_declarator_type(struct AST_tag* a, gather_decl_spec_t* gather_info,
@@ -69,9 +70,9 @@ LIBMCXX_EXTERN char* get_conversion_function_name(decl_context_t decl_context, s
 LIBMCXX_EXTERN const char *get_operation_function_name(AST operation_tree);
 
 LIBMCXX_EXTERN void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
-        struct AST_tag* member_specification_tree,
+        AST member_specification_tree,
         access_specifier_t default_current_access,
-        struct type_tag* type_info,
+        type_t* type_info,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols);
 
@@ -102,6 +103,8 @@ LIBMCXX_EXTERN void build_scope_member_specification_with_scope_link(
 
 LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
         decl_context_t decl_context, 
+        char is_template,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,

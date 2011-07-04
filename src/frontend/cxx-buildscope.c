@@ -75,7 +75,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         nodecl_t* output, scope_entry_list_t** declared_symbols);
 static void build_scope_declaration_sequence(AST a, 
         decl_context_t decl_context, nodecl_t* nodecl_output);
-static void build_scope_simple_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output, 
+static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
+        char is_template,
+        char is_explicit_instantiation,
+        nodecl_t* nodecl_output, 
         scope_entry_list_t** declared_symbols);
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
@@ -95,12 +98,17 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         scope_entry_list_t** declared_symbols);
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
+        char is_template,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output);
 static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, 
         AST a, access_specifier_t current_access, type_t* class_info,
         nodecl_t* nodecl_output);
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
-        access_specifier_t current_access, type_t* class_info, nodecl_t* nodecl_output,
+        access_specifier_t current_access, type_t* class_info, 
+        char is_template,
+        char is_explicit_instantiation,
+        nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
@@ -115,9 +123,13 @@ static void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 static void gather_type_spec_from_dependent_typename(AST a, type_t** simple_type_info,
         decl_context_t decl_context);
 
-static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** type_info,
+static void gather_type_spec_from_elaborated_class_specifier(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t *gather_info,
         decl_context_t decl_context);
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info,
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
+        type_t** type_info, 
+        gather_decl_spec_t* gather_info, 
         decl_context_t decl_context);
 
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
@@ -181,13 +193,16 @@ static void build_scope_template_template_parameter(AST a,
 
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output);
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output);
         
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context, AST a,
         access_specifier_t current_access, type_t* class_info,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output);
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context);
@@ -200,7 +215,8 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, no
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void build_scope_template_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
+        char is_explicit_instantiation, nodecl_t* nodecl_output);
 
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -211,7 +227,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
-static void build_scope_template_simple_declaration(AST a, decl_context_t template_context, nodecl_t* nodecl_output);
+static void build_scope_template_simple_declaration(AST a, decl_context_t template_context, 
+        char is_explicit_instantiation, nodecl_t* nodecl_output);
 
 static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -223,7 +240,9 @@ static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_
 static char is_constructor_declarator(AST a);
 
 static scope_entry_t* find_function_declaration(AST declarator_id, 
-        type_t* declarator_type, decl_context_t decl_context);
+        type_t* declarator_type, 
+        gather_decl_spec_t* gather_info,
+        decl_context_t decl_context);
 
 static AST get_enclosing_declaration(AST point_of_declarator);
 
@@ -519,7 +538,10 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 //   int f(int [k]);
                 //
                 // [thing] means that thing is optional
-                build_scope_simple_declaration(a, decl_context, nodecl_output, declared_symbols);
+                build_scope_simple_declaration(a, decl_context, 
+                        /* is_template */ 0,
+                        /* is_explicit_instantiation */ 0,
+                        nodecl_output, declared_symbols);
                 break;
             }
         case AST_NAMESPACE_DEFINITION :
@@ -544,7 +566,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 //   {
                 //     ...
                 //   }
-                build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, nodecl_output);
+                build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
+                        /* is_template */ 0, /* is_explicit_instantiation */ 0, nodecl_output);
                 break;
             }
         case AST_DELETED_FUNCTION_DEFINITION :
@@ -793,7 +816,6 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
     *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
 }
 
-// It simply disambiguates
 static void build_scope_explicit_instantiation(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -804,15 +826,16 @@ static void build_scope_explicit_instantiation(AST a,
     type_t* simple_type_info = NULL;
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
+    gather_info.is_template = 1;
+    gather_info.is_explicit_instantiation = 1;
+    gather_info.no_declarators = (declarator == NULL);
 
     if (decl_specifier_seq != NULL)
     {
-        decl_context_t new_decl_context = decl_context;
-        new_decl_context.decl_flags |= DF_EXPLICIT_INSTANTIATION;
         build_scope_decl_specifier_seq(decl_specifier_seq, 
                 &gather_info, 
                 &simple_type_info, 
-                new_decl_context,
+                decl_context,
                 nodecl_output);
     }
 
@@ -821,8 +844,6 @@ static void build_scope_explicit_instantiation(AST a,
     // FIXME - We should instantiate here if no 'extern' is given
     if (declarator != NULL)
     {
-        decl_context.decl_flags |= DF_TEMPLATE;
-        decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
         scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
         if (entry == NULL)
@@ -1020,6 +1041,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
 
 // Builds scope for a simple declaration
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
+        char is_template, char is_explicit_instantiation,
         nodecl_t *nodecl_output, scope_entry_list_t** declared_symbols)
 {
     // Empty declarations are meaningless for the symbol table
@@ -1030,8 +1052,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
     type_t* simple_type_info = NULL;
     gather_decl_spec_t gather_info;
-    // Clear stack debris
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_instantiation = is_explicit_instantiation;
 
     /* A simple declaration has two parts 
      *
@@ -1055,18 +1079,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     {
         // This declaration can define a type if it is a class specifier or enum specifier
         // and just declare it if the declaration contains an elaborated-type-spec
-        decl_context_t new_decl_context = decl_context;
-        if (ASTSon1(a) == NULL)
-        {
-            new_decl_context.decl_flags |= DF_NO_DECLARATORS;
-        }
-        else
-        {
-            new_decl_context.decl_flags &= (~DF_NO_DECLARATORS);
-        }
+        gather_info.no_declarators = (ASTSon1(a) == NULL);
+
         nodecl_t nodecl_decl_specifier = nodecl_null();
         build_scope_decl_specifier_seq(ASTSon0(a), &gather_info, &simple_type_info,
-                new_decl_context, &nodecl_decl_specifier);
+                decl_context, &nodecl_decl_specifier);
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl_specifier);
     }
     else
@@ -1078,6 +1095,11 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
             simple_type_info = get_signed_int_type();
         }
+    }
+
+    if (gather_info.is_friend)
+    {
+        running_error("%s: error: friend specifier is not allowed here\n");
     }
 
     // If the type specifier defined a type, add it to the declared symbols
@@ -1332,20 +1354,7 @@ void build_scope_decl_specifier_seq(AST a,
     {
         ast_set_link_to_child(a, LANG_TYPE_SPECIFIER, ASTSon1(a));
 
-        decl_context_t new_decl_context = decl_context;
-
-        if (gather_info->is_friend)
-        {
-            new_decl_context.decl_flags |= DF_FRIEND;
-        }
-        else
-        {
-            new_decl_context.decl_flags &= (~DF_FRIEND);
-        }
-
-        new_decl_context.decl_flags &= ~DF_PARAMETER_DECLARATION;
-
-        gather_type_spec_information(ASTSon1(a), type_info, gather_info, new_decl_context, nodecl_output);
+        gather_type_spec_information(ASTSon1(a), type_info, gather_info, decl_context, nodecl_output);
         
         // Now update the type_spec with type information that was caught in the decl_specifier_seq
         // First "long"/"short"
@@ -1601,11 +1610,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             break;
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
-            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, decl_context);
+            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
-            gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, decl_context);
+            gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_CHAR_TYPE :
             // It can be either signed or unsigned, so do not assume it is
@@ -1846,7 +1855,9 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
     ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER_TYPE, tl_type_t, tl_type(*simple_type_info));
 }
 
-static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** type_info,
+static void gather_type_spec_from_elaborated_class_specifier(AST a, 
+        type_t** type_info,
+        gather_decl_spec_t *gather_info,
         decl_context_t decl_context)
 {
     /*
@@ -1906,9 +1917,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     CXX_LANGUAGE()
     {
-        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+        if (gather_info->no_declarators
+                && !gather_info->parameter_declaration)
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -1953,7 +1963,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     // We want the primary template in this particular case
     if (entry != NULL
-            /* && ASTType(class_symbol) != AST_TEMPLATE_ID */
             && entry->kind == SK_TEMPLATE)
     {
         if (decl_context.template_parameters->num_parameters
@@ -1973,6 +1982,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         entry = named_type_get_symbol(primary_template_type);
     }
 
+    char is_friend_class_declaration = 0;
+
     if (entry == NULL)
     {
         // The name was not found.
@@ -1980,20 +1991,23 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         if (is_unqualified_id_expression(id_expression))
         {
             // This is an unqualified name
-            //
-            // If the declaration has declarators or is friend
-            if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                    || BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
-                    || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+            is_friend_class_declaration = (gather_info->no_declarators
+                    && gather_info->is_friend);
+
+            decl_context_t orig_decl_context = decl_context;
+
+            if (is_friend_class_declaration)
+            {
+                scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
+                ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
+
+                decl_context = namespace->decl_context;
+                decl_context.decl_flags |= orig_decl_context.decl_flags;
+            }
+            else if (!gather_info->no_declarators
+                    || gather_info->parameter_declaration)
             {
                 // Look for the smallest enclosing non-function-prototype scope
-                //
-                // Note that in our implementation a function scope is not
-                // nested and template scopes live in another world, so they
-                // should not appear here
-                ERROR_CONDITION(decl_context.current_scope->kind == FUNCTION_SCOPE,
-                        "Error, invalid scope", 0);
-
                 while (decl_context.current_scope->kind == CLASS_SCOPE
                         || decl_context.current_scope->kind == PROTOTYPE_SCOPE)
                 {
@@ -2022,10 +2036,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 class_name = strappend(class_kind_name, strappend(" ", class_name));
             }
 
-            // From now DF_FRIEND is not needed anymore, remove it because it
-            // can cause problems later
-            decl_context.decl_flags &= ~DF_FRIEND;
-
             scope_entry_t* new_class = NULL;
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
@@ -2033,8 +2043,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             new_class->file = ASTFileName(id_expression);
             new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
-            if ((!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
-                        || !BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+            if ((!gather_info->is_template
+                        || !gather_info->no_declarators)
                     && ASTType(id_expression) != AST_TEMPLATE_ID)
             {
 
@@ -2048,6 +2058,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
                 new_class->type_information = get_new_class_type(decl_context, class_kind);
                 new_class->kind = SK_CLASS;
+
+                new_class->entity_specs.is_friend = is_friend_class_declaration;
 
                 class_entry = new_class;
                 class_type = class_entry->type_information;
@@ -2067,6 +2079,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
                     new_class->point_of_declaration = get_enclosing_declaration(id_expression);
+
+                    new_class->entity_specs.is_friend = is_friend_class_declaration;
 
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
@@ -2139,8 +2153,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
-        if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_INSTANTIATION)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
+        if (!gather_info->is_explicit_instantiation
                 && is_template_specialized_type(class_entry->type_information)
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
@@ -2173,7 +2186,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     *type_info = get_user_defined_type(class_entry);
 }
 
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info, decl_context_t decl_context)
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, 
+        type_t** type_info, 
+        gather_decl_spec_t* gather_info, 
+        decl_context_t decl_context)
 {
     AST id_expression = ASTSon0(a);
 
@@ -2188,8 +2204,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
     CXX_LANGUAGE()
     {
-        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+        if (gather_info->no_declarators
+                && !gather_info->parameter_declaration)
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -2241,9 +2257,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
         if (is_unqualified_id_expression(id_expression)
                 // If does not exist and there are no declarators
-                && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+                && gather_info->no_declarators
+                && !gather_info->parameter_declaration)
         {
             DEBUG_CODE()
             {
@@ -2266,7 +2281,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
             decl_context_t new_decl_context = decl_context;
 
-            if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+            if (!gather_info->no_declarators)
             {
                 // If no declarators declare it in the first non-class enclosing namespace
                 new_decl_context.current_scope = decl_context.namespace_scope;
@@ -2383,6 +2398,10 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     decl_flags_t flags = DF_NONE;
     scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, 
             id_expression, flags);
+
+    scope_entry_list_t* old_entry_list = entry_list;
+    entry_list = filter_friends(old_entry_list);
+    entry_list_free(old_entry_list);
 
     if (entry_list == NULL)
     {
@@ -3775,6 +3794,8 @@ struct delayed_function_tag
     AST function_def_tree;
     scope_entry_t* entry;
     decl_context_t decl_context;
+    char is_template;
+    char is_explicit_instantiation;
 };
 
 static int _next_delayed_function = 0;
@@ -3782,7 +3803,9 @@ static struct delayed_function_tag _max_delayed_functions[MCXX_MAX_FUNCTIONS_PER
 
 static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
         scope_entry_t* entry,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        char is_template,
+        char is_explicit_instantiation)
 {
     ERROR_CONDITION(_next_delayed_function == MCXX_MAX_FUNCTIONS_PER_CLASS,
             "Too many delayed member functions!\n", 0);
@@ -3796,6 +3819,8 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
     _max_delayed_functions[_next_delayed_function].function_def_tree = function_def_tree;
     _max_delayed_functions[_next_delayed_function].entry = entry;
     _max_delayed_functions[_next_delayed_function].decl_context = decl_context;
+    _max_delayed_functions[_next_delayed_function].is_template = is_template;
+    _max_delayed_functions[_next_delayed_function].is_explicit_instantiation = is_explicit_instantiation;
     _next_delayed_function++;
 }
 
@@ -3818,6 +3843,8 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
         AST function_def = current.function_def_tree;
         decl_context_t decl_context = current.decl_context;
         scope_entry_t* previous_symbol = current.entry;
+        char is_template = current.is_template;
+        char is_explicit_instantiation = current.is_explicit_instantiation;
         
         DEBUG_CODE()
         {
@@ -3825,7 +3852,8 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
                     ast_location(function_def));
         }
 
-        build_scope_function_definition(function_def, previous_symbol, decl_context, nodecl_output);
+        build_scope_function_definition(function_def, previous_symbol, decl_context, 
+                is_template, is_explicit_instantiation, nodecl_output);
     }
     build_scope_delayed_clear_pending();
 }
@@ -3890,6 +3918,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
      *
      *  Note: build_scope_member_specification must receive *type_info, not class_type
      */
+
+    if (gather_info->is_friend
+            && gather_info->no_declarators)
+    {
+        running_error("%s: error: friend applied to class-definition\n",
+                ast_location(a));
+    }
+
     scope_entry_t* class_entry = NULL;
     type_t* class_type = NULL;
     /* --- */
@@ -4013,6 +4049,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 template_type_update_template_parameters(class_entry->type_information,
                         decl_context.template_parameters);
 
+                // If it was friend-declared, it is not anymore
+                class_entry->entity_specs.is_friend = 0;
+
                 // This is a named type
                 type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
                 class_entry = named_type_get_symbol(primary_type);
@@ -4030,6 +4069,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
+
+            // If it was friend-declared, it is not anymore
+            class_entry->entity_specs.is_friend = 0;
 
             DEBUG_CODE()
             {
@@ -4124,7 +4166,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
 
             // Create the class type for this newly created class
-            if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+            if (!gather_info->is_template)
             {
                 // Normal, non-template class
                 class_entry->kind = SK_CLASS;
@@ -4227,14 +4269,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            members_belong_to_enclosing = (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+            members_belong_to_enclosing = (gather_info->no_declarators
                     // Namespace scope is not allowed in C
                     && decl_context.current_scope->kind != NAMESPACE_SCOPE);
         }
         CXX_LANGUAGE()
         {
             members_belong_to_enclosing = (class_kind == CK_UNION
-                    && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS));
+                    && gather_info->no_declarators);
         }
     }
 
@@ -4421,10 +4463,6 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
     access_specifier_t current_access = default_current_access;
     decl_context_t new_inner_decl_context = inner_decl_context;
 
-    new_inner_decl_context.decl_flags &= ~DF_TEMPLATE;
-    new_inner_decl_context.decl_flags &= ~DF_NO_DECLARATORS;
-    new_inner_decl_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
-
     // Start afresh, no template parameters here 
     new_inner_decl_context.template_parameters = 
         counted_calloc(1, sizeof(*new_inner_decl_context.template_parameters), &_bytes_used_buildscope);
@@ -4459,7 +4497,8 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
         {
             // This is a simple member_declaration
             build_scope_member_declaration(new_inner_decl_context, member_specification,
-                    current_access, type_info, nodecl_output, declared_symbols);
+                    current_access, type_info, 
+                    nodecl_output, declared_symbols);
         }
     }
 }
@@ -4473,8 +4512,10 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
 
     // First pass, sign up only prototypes and simple declarations and
     // queue function definitions
+    // FIXME
     build_scope_member_specification_first_step(inner_decl_context, member_specification_tree, 
-            default_current_access, type_info, nodecl_output, declared_symbols);
+            default_current_access, type_info, 
+            nodecl_output, declared_symbols);
 }
 
 
@@ -4844,9 +4885,6 @@ static void set_function_parameter_clause(type_t** function_type,
         gather_decl_spec_t* gather_info,
         nodecl_t* nodecl_output)
 {
-    decl_context.decl_flags &= ~DF_TEMPLATE;
-    decl_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
-
     parameter_info_t parameter_info[MCXX_MAX_FUNCTION_PARAMETERS];
     memset(parameter_info, 0, sizeof(parameter_info));
     int num_parameters = 0;
@@ -4966,7 +5004,7 @@ static void set_function_parameter_clause(type_t** function_type,
         type_t* simple_type_info;
 
         decl_context_t param_decl_context = decl_context;
-        param_decl_context.decl_flags |= DF_PARAMETER_DECLARATION;
+        param_decl_gather_info.parameter_declaration = 1;
 
         build_scope_decl_specifier_seq(parameter_decl_spec_seq, &param_decl_gather_info, &simple_type_info,
                 param_decl_context, nodecl_output);
@@ -5564,7 +5602,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 else
                 {
                     scope_entry_t *entry = NULL;
-                    entry = find_function_declaration(declarator_id, declarator_type, decl_context);
+                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
 
                     CXX_LANGUAGE()
                     {
@@ -5656,7 +5694,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                         declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                     }
 
-                    entry = find_function_declaration(declarator_id, declarator_type, decl_context);
+                    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
 
                     CXX_LANGUAGE()
                     {
@@ -5877,17 +5915,11 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             // A parameter might have function type but we do not want to do
             // anything special on it, later on its type will be adjusted
             // to pointer to function
-            || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
+            || gather_info->parameter_declaration)
     {
         decl_flags_t decl_flags = DF_NONE;
         // Check for existence of this symbol in this scope
         scope_entry_list_t* entry_list = query_in_scope_flags(decl_context, declarator_id, decl_flags);
-
-        if (gather_info->is_friend)
-        {
-            // Do not register
-            return NULL;
-        }
 
         scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
 
@@ -5964,7 +5996,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     scope_entry_t* entry = NULL;
-    entry = find_function_declaration(declarator_id, declarator_type, decl_context);
+    entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
 
     if (entry == NULL)
     {
@@ -5978,14 +6010,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
         scope_entry_t* new_entry = NULL;
 
-        if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+        if (!gather_info->is_template)
         {
-            if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-            {
-                // Do not sign in
-                return NULL;
-            }
-            
             // Create the symbol as a normal function type
 
             new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
@@ -5996,14 +6022,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->file = ASTFileName(declarator_id);
             new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         }
-        else /* BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) */
+        else /* gather_info->is_template */
         {
-            if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-            {
-                // Do not sign in
-                return NULL;
-            }
-
             if (decl_context.template_parameters == NULL)
             {
                 running_error("%s: error: explicit specialization '%s' does not match any template of '%s'\n",
@@ -6154,6 +6174,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         // Merge inline attribute
         entry->entity_specs.is_inline |= gather_info->is_inline;
 
+        // Remove the friend-declared attribute if we find the function but
+        // this is not a friend declaration
+        if (!gather_info->is_friend
+                && entry->entity_specs.is_friend)
+        {
+            entry->entity_specs.is_friend = 0;
+        }
+
         // An existing function was found
         CXX_LANGUAGE()
         {
@@ -6176,7 +6204,9 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     }
 }
 
-static scope_entry_t* find_function_declaration(AST declarator_id, type_t* declarator_type, 
+static scope_entry_t* find_function_declaration(AST declarator_id, 
+        type_t* declarator_type, 
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     decl_flags_t decl_flags = DF_NONE;
@@ -6184,25 +6214,23 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
     {
         decl_flags |= DF_CONSTRUCTOR;
     }
-    if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+    
+    // Restrict ourselves to the current scope
+    // if the declarator-id is unqualified
+    // and we are not naming a friend
+    switch (ASTType(declarator_id))
     {
-        // Restrict ourselves to the current scope
-        // if the declarator-id is unqualified
-        // and we are not naming a friend
-        switch (ASTType(declarator_id))
-        {
-            case AST_SYMBOL :
-            case AST_TEMPLATE_ID :
-            case AST_DESTRUCTOR_ID :
-            case AST_DESTRUCTOR_TEMPLATE_ID :
-            case AST_CONVERSION_FUNCTION_ID :
-            case AST_OPERATOR_FUNCTION_ID :
-            case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
-                decl_flags |= DF_ONLY_CURRENT_SCOPE;
-                break;
-            default:
-                break;
-        }
+        case AST_SYMBOL :
+        case AST_TEMPLATE_ID :
+        case AST_DESTRUCTOR_ID :
+        case AST_DESTRUCTOR_TEMPLATE_ID :
+        case AST_CONVERSION_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            decl_flags |= DF_ONLY_CURRENT_SCOPE;
+            break;
+        default:
+            break;
     }
 
     scope_entry_list_t* entry_list 
@@ -6316,7 +6344,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
     // Second attempt, match a specialization of a template function
     if (templates_available
-            && BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+            && gather_info->is_explicit_instantiation)
     {
         template_parameter_list_t *explicit_template_parameters = NULL;
 
@@ -6472,14 +6500,16 @@ static void build_scope_template_declaration(AST a,
     {
         case AST_FUNCTION_DEFINITION :
             {
-                build_scope_template_function_definition(templated_decl, template_context, nodecl_output);
+                build_scope_template_function_definition(templated_decl, template_context, 
+                        /* is_explicit_instantiation */ 0, nodecl_output);
 
                 ASTAttrSetValueType(templated_decl, LANG_IS_TEMPLATED_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
-                build_scope_template_simple_declaration(templated_decl, template_context, nodecl_output);
+                build_scope_template_simple_declaration(templated_decl, template_context, 
+                        /* is_explicit_instantiation */ 0, nodecl_output);
 
                 ASTAttrSetValueType(templated_decl, LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
                 break;
@@ -6504,7 +6534,6 @@ void build_scope_template_header(AST template_parameter_list,
         nodecl_t* nodecl_output)
 {
     (*template_context) = decl_context;
-    (*template_context).decl_flags |= DF_TEMPLATE;
     // A new level of template nesting
     (*template_context).template_parameters = counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
     (*template_context).template_parameters->enclosing = decl_context.template_parameters;
@@ -6524,8 +6553,6 @@ static void build_scope_explicit_template_specialization(AST a,
         nodecl_t* nodecl_output)
 {
     decl_context_t template_context = decl_context;
-    template_context.decl_flags |= DF_TEMPLATE;
-    template_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
 
     // Note that we do not increment here the template_nesting because complete
     // specializations do not introduce a new template nesting. 
@@ -6608,12 +6635,14 @@ static void build_scope_explicit_template_specialization(AST a,
     {
         case AST_FUNCTION_DEFINITION :
             {
-                build_scope_template_function_definition(ASTSon0(a), template_context, nodecl_output);
+                build_scope_template_function_definition(ASTSon0(a), template_context, 
+                        /* is_explicit_instantiation */ 1, nodecl_output);
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
-                build_scope_template_simple_declaration(ASTSon0(a), template_context, nodecl_output);
+                build_scope_template_simple_declaration(ASTSon0(a), template_context, 
+                        /* is_explicit_instantiation */ 1, nodecl_output);
                 break;
             }
         case AST_EXPLICIT_SPECIALIZATION :
@@ -6628,12 +6657,16 @@ static void build_scope_explicit_template_specialization(AST a,
     }
 }
 
-static void build_scope_template_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
+        char is_explicit_instantiation, nodecl_t* nodecl_output)
 {
-    /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, nodecl_output);
+    /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
+            /* is_template */ 1, is_explicit_instantiation, nodecl_output);
 }
 
-static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
+static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context, 
+        char is_explicit_instantiation, 
+        nodecl_t* nodecl_output)
 {
     /*
      * A templated simple declaration can be 
@@ -6666,19 +6699,18 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
+    gather_info.is_template = 1;
+    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+
     char is_constructor = 0;
     
     if (decl_specifier_seq != NULL)
     {
-        // If a class specifier appears here it will be properly declared in the scope (not within
-        // in the template one)
-        decl_context_t new_decl_context = decl_context;
         if (init_declarator_list == NULL)
         {
-            new_decl_context.decl_flags |= DF_NO_DECLARATORS;
+            gather_info.no_declarators = 1;
         }
-
-        build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &simple_type_info, new_decl_context, nodecl_output);
+        build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &simple_type_info, decl_context, nodecl_output);
     }
 
     // There can be just one declarator here if this is not a class specifier nor a function declaration
@@ -7429,7 +7461,9 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
         {
             AST simple_decl = ASTSon1(iter);
 
-            build_scope_simple_declaration(simple_decl, decl_context, nodecl_output, /* declared_symbols */ NULL);
+            build_scope_simple_declaration(simple_decl, decl_context, 
+                    /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                    nodecl_output, /* declared_symbols */ NULL);
         }
     }
 
@@ -7587,6 +7621,8 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
  */
 scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
         decl_context_t decl_context, 
+        char is_template,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
@@ -7600,6 +7636,10 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+
     type_t* type_info = NULL;
 
     AST decl_spec_seq = ASTSon0(a);
@@ -7650,15 +7690,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     if (is_constructor)
     {
         new_decl_context.decl_flags |= DF_CONSTRUCTOR;
-    }
-
-    if (gather_info.is_friend)
-    {
-        new_decl_context.decl_flags |= DF_FRIEND;
-    }
-    else
-    {
-        new_decl_context.decl_flags &= (~DF_FRIEND);
     }
 
     decl_context_t block_context = new_block_context(decl_context);
@@ -7868,8 +7899,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
 
     // Fix inherited template context
-    block_context.decl_flags &= ~DF_TEMPLATE;
-    block_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
     template_parameter_list_t* enclosing_template_parameters = block_context.template_parameters;
     block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
     block_context.template_parameters->enclosing = enclosing_template_parameters;
@@ -7986,12 +8015,16 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
     {
         case AST_MEMBER_DECLARATION :
             {
-                build_scope_member_simple_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
+                build_scope_member_simple_declaration(inner_decl_context, a, current_access, class_info, 
+                        /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                        nodecl_output, declared_symbols);
                 break;
             }
         case AST_FUNCTION_DEFINITION :
             {
-                build_scope_member_function_definition(inner_decl_context, a, current_access, class_info, nodecl_output);
+                build_scope_member_function_definition(inner_decl_context, a, current_access, class_info, 
+                        /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                        nodecl_output);
                 break;
             }
         case AST_DEFAULTED_FUNCTION_DEFINITION:
@@ -8009,7 +8042,8 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_TEMPLATE_DECLARATION :
             {
-                build_scope_member_template_declaration(inner_decl_context, a, current_access, class_info, nodecl_output);
+                build_scope_member_template_declaration(inner_decl_context, a, current_access, 
+                        class_info, /* is_explicit_instantiation */ 0, nodecl_output);
                 break;
             }
         case AST_USING_DECLARATION :
@@ -8073,6 +8107,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
  */
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output
         )
 {
@@ -8123,22 +8158,18 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     {
         case AST_FUNCTION_DEFINITION :
             {
-                build_scope_member_template_function_definition(template_context, ASTSon1(a), current_access, class_info, nodecl_output);
+                build_scope_member_template_function_definition(template_context, ASTSon1(a), current_access, class_info, 
+                        is_explicit_instantiation, nodecl_output);
                 ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
             }
             break;
         case AST_SIMPLE_DECLARATION :
             {
-                build_scope_member_template_simple_declaration(template_context, ASTSon1(a), current_access, class_info, nodecl_output);
+                build_scope_member_template_simple_declaration(template_context, ASTSon1(a), current_access, class_info, 
+                        is_explicit_instantiation, nodecl_output);
                 ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
                 break;
             }
-            //      I think this is not possible
-#if 0
-        case AST_TEMPLATE_DECLARATION :
-            build_scope_member_template_declaration(ASTSon1(a), st, current_access, class_info, decl_context);
-            break;
-#endif
         default :
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
@@ -8148,23 +8179,24 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
 }
 
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
-        AST a, access_specifier_t current_access, type_t* class_info, nodecl_t* nodecl_output)
+        AST a, access_specifier_t current_access, type_t* class_info, 
+        char is_explicit_instantiation,
+        nodecl_t* nodecl_output)
 {
-    decl_context_t new_decl_context = decl_context;
-    new_decl_context.decl_flags |= DF_TEMPLATE;
-
     // Define the function within st scope but being visible template_scope
-    /* scope_entry_t* entry = */ build_scope_member_function_definition(new_decl_context, a, current_access, class_info, nodecl_output);
+    build_scope_member_function_definition(decl_context, a, current_access, class_info, 
+            /* is_template */ 1, is_explicit_instantiation,
+            nodecl_output);
 }
 
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output)
 {
-    decl_context_t new_decl_context = decl_context;
-    new_decl_context.decl_flags |= DF_TEMPLATE;
-
-    build_scope_member_simple_declaration(new_decl_context, a, current_access, class_info, nodecl_output, /* declared_symbols */ NULL);
+    build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
+            /* is_template */ 1, is_explicit_instantiation,
+            nodecl_output, /* declared_symbols */ NULL);
 }
 
 static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
@@ -8441,6 +8473,8 @@ static void update_member_function_info(AST declarator_name,
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, 
         type_t* class_info,
+        char is_template,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output)
 {
     type_t* class_type = NULL;
@@ -8464,6 +8498,10 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     // If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_instantiation = is_explicit_instantiation;
+
     type_t* type_info = NULL;
 
     AST declarator = ASTSon1(a);
@@ -8521,7 +8559,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
 
-    build_scope_delayed_add_delayed_function_def(a, entry, decl_context);
+    build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
     return entry;
 }
@@ -8604,18 +8642,52 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     }
 }
 
+static void build_scope_friend_declaration(decl_context_t decl_context, gather_decl_spec_t *gather_info,
+        type_t* member_type, AST declarator)
+{
+    nodecl_t nodecl_output = nodecl_null();
+
+    // Get the enclosing namespace scope
+    scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
+    ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
+
+    decl_context_t new_decl_context = namespace->decl_context;
+
+    type_t* declarator_type = NULL;
+    compute_declarator_type(ASTSon0(declarator), gather_info, 
+            member_type, &declarator_type, 
+            new_decl_context, &nodecl_output);
+
+    scope_entry_t *entry =
+        build_scope_declarator_name(ASTSon0(declarator),
+                declarator_type, gather_info,
+                new_decl_context, &nodecl_output);
+
+    if (entry->kind != SK_FUNCTION)
+    {
+        running_error("%s: error: invalid friend declaration, does not name a function\n",
+                declarator);
+    }
+
+    entry->entity_specs.is_friend = 1;
+}
+
 
 /*
  * This is a member declaration inlined in a class, not a function definition
  */
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
-        access_specifier_t current_access, type_t* class_info,
+        access_specifier_t current_access, type_t* class_info, 
+        char is_template,
+        char is_explicit_instantiation,
         nodecl_t* nodecl_output,
         scope_entry_list_t** declared_symbols)
 {
     gather_decl_spec_t gather_info;
-
     memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_info.is_template = is_template;
+    gather_info.is_explicit_instantiation = is_explicit_instantiation;
 
     type_t* class_type = NULL;
     const char* class_name = "";
@@ -8636,11 +8708,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         decl_context_t new_decl_context = decl_context;
         if (ASTSon1(a) == NULL)
         {
-            new_decl_context.decl_flags |= DF_NO_DECLARATORS;
-        }
-        else
-        {
-            new_decl_context.decl_flags &= (~DF_NO_DECLARATORS);
+            gather_info.no_declarators = 1;
         }
 
         build_scope_decl_specifier_seq(ASTSon0(a), &gather_info,
@@ -8747,13 +8815,21 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     {
                         solve_ambiguous_init_declarator(declarator, decl_context);
                         // Restart the function
-                        build_scope_member_simple_declaration(decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
+                        build_scope_member_simple_declaration(decl_context, a, current_access, class_info, 
+                                is_template, is_explicit_instantiation,
+                                nodecl_output, declared_symbols);
                         return;
                         break;
                     }
                 case AST_GCC_BITFIELD_DECLARATOR :
                 case AST_BITFIELD_DECLARATOR :
                     {
+                        if (gather_info.is_friend)
+                        {
+                            running_error("%s: error: a bit-field cannot be declared as friend\n",
+                                    ast_location(declarator));
+                        }
+
                         if (ASTType(declarator) == AST_GCC_BITFIELD_DECLARATOR)
                         {
                             AST attribute_list = ASTSon0(a);
@@ -8838,6 +8914,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             gather_gcc_attribute_list(attribute_list, &gather_info, decl_context);
                         }
 
+                        // Friend declarations are so special
+                        if (gather_info.is_friend)
+                        {
+                            build_scope_friend_declaration(decl_context, &gather_info, member_type, declarator);
+                            break;
+                        }
+
                         AST declarator_name = get_declarator_name(declarator, decl_context);
                         AST initializer = ASTSon1(declarator);
 
@@ -8873,25 +8956,16 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             new_decl_context.decl_flags |= DF_CONSTRUCTOR;
                         }
 
-                        if (gather_info.is_friend)
-                        {
-                            new_decl_context.decl_flags |= DF_FRIEND;
-                        }
-                        else
-                        {
-                            new_decl_context.decl_flags &= (~DF_FRIEND);
+                        AST too_much_qualified_declarator_name = get_declarator_name(declarator, decl_context);
 
-                            AST too_much_qualified_declarator_name = get_declarator_name(declarator, decl_context);
-
-                            if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID
+                        if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID
                                 || ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_TEMPLATE)
-                            {
-                                running_error("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
-                                        ast_location(too_much_qualified_declarator_name),
-                                        prettyprint_in_buffer(declarator),
-                                        prettyprint_in_buffer(ASTSon2(too_much_qualified_declarator_name))
-                                        );
-                            }
+                        {
+                            running_error("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
+                                    ast_location(too_much_qualified_declarator_name),
+                                    prettyprint_in_buffer(declarator),
+                                    prettyprint_in_buffer(ASTSon2(too_much_qualified_declarator_name))
+                                    );
                         }
 
                         type_t* declarator_type = NULL;
@@ -8903,21 +8977,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             build_scope_declarator_name(ASTSon0(declarator),
                                     declarator_type, &gather_info,
                                     new_decl_context, nodecl_output);
-
-                        if (gather_info.is_friend)
-                        {
-                            // Nothing else has to be done for friend since they are not members of the class
-                            // note that here entry can be NULL for those cases
-                            //
-                            // template <typename _T>
-                            // struct A
-                            // {
-                            //     friend void _T::f<>(_T);
-                            // };
-                            //
-                            // In this case '_T::f<> 'is completely unknown so NULL is returned
-                            break;
-                        }
 
                         ERROR_CONDITION(entry == NULL, "Member declaration '%s' at '%s' yielded an unresolved name",
                                 prettyprint_in_buffer(a), ast_location(a));
@@ -8973,6 +9032,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (initializer != NULL)
                         {
+                            if (gather_info.is_friend)
+                            {
+                                running_error("%s: error: a friend-declaration cannot have initializer\n",
+                                        ast_location(declarator));
+                            }
+
                             if (entry->kind == SK_VARIABLE)
                             {
                                 check_initialization(initializer,
@@ -9699,7 +9764,9 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_loop_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
-        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_loop_init, /* declared_symbols */ NULL);
+        build_scope_simple_declaration(for_init_statement, block_context, 
+                /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                &nodecl_loop_init, /* declared_symbols */ NULL);
         if (!nodecl_is_null(nodecl_loop_init))
         {
             nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
@@ -10305,7 +10372,9 @@ static void build_scope_upc_forall_statement(AST a,
     nodecl_t nodecl_for_init = nodecl_null();
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
-        build_scope_simple_declaration(for_init_statement, block_context, &nodecl_for_init, /* declared_symbols */ NULL);
+        build_scope_simple_declaration(for_init_statement, block_context, 
+                /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                &nodecl_for_init, /* declared_symbols */ NULL);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
@@ -10713,7 +10782,6 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
     }
 }
 
-// This function used to do very strange things
 char* get_conversion_function_name(decl_context_t decl_context, 
         AST conversion_function_id, 
         type_t** result_conversion_type,

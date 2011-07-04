@@ -951,6 +951,7 @@ static const_value_t* map_binary_to_structured_value(const_value_t* (*fun)(const
     return mval;
 }
 
+#if 0
 static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_value_t*),
         const_value_t* m1)
 {
@@ -968,8 +969,7 @@ static const_value_t* map_unary_to_structured_value(const_value_t* (*fun)(const_
 
     return mval;
 }
-
-
+#endif
 
 #define OP(_opname) const_value_##opname
 

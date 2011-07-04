@@ -399,6 +399,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
+    if (entry->entity_specs.is_friend)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is friend-declared symbol\n");
+    }
 #ifdef FORTRAN_SUPPORT
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
@@ -417,8 +421,15 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
-                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+            if (related_entry != NULL)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
+                        i, related_entry->symbol_name, related_entry->file, related_entry->line);
+            }
+            else
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] NULL SYMBOL!!!\n", i);
+            }
         }
     }
     else

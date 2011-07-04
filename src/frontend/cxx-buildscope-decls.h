@@ -43,6 +43,12 @@ MCXX_BEGIN_DECLS
 
 typedef 
 struct gather_decl_spec_tag {
+    // context of the declaration
+    char no_declarators;
+    char parameter_declaration;
+    char is_template;
+    char is_explicit_instantiation;
+
     // type-specifiers and decl-specifiers
     char is_auto;
     char is_register;

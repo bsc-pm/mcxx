@@ -1084,8 +1084,6 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
 
     decl_context_t instantiation_context = entry->decl_context;
-    instantiation_context.decl_flags |= DF_TEMPLATE;
-    instantiation_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
 
     // Why do we do this?
     // Temporarily disable ambiguity testing
@@ -1096,6 +1094,9 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     build_scope_function_definition(dupl_function_definition, 
             entry, 
             instantiation_context, 
+            // This is not entirely true
+            /* is_template */ 0,
+            /* is_explicit_instantiation */ 0,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;
@@ -1248,6 +1249,9 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
     build_scope_function_definition(dupl_function_definition, 
             entry, 
             entry->decl_context, 
+            // FIXME - This is not entirely true
+            /* is_template */ 0,
+            /* is_explicit_instantiation */ 0,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;

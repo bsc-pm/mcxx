@@ -1837,6 +1837,10 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     // must be cleared at this point
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
     specialized_symbol->entity_specs.is_user_declared = 0;
+
+    // Let this be filled later
+    specialized_symbol->entity_specs.num_related_symbols = 0;
+    specialized_symbol->entity_specs.related_symbols = NULL;
     
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
