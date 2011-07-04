@@ -1998,7 +1998,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
                 ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
 
-                decl_context = namespace->decl_context;
+                decl_context_t namespace_context = namespace->decl_context;
+                namespace_context.template_parameters = decl_context.template_parameters;
+
+                decl_context = namespace_context;
             }
             else if (!gather_info->no_declarators
                     || gather_info->parameter_declaration)
@@ -2412,7 +2415,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
             id_expression, flags);
 
     scope_entry_list_t* old_entry_list = entry_list;
-    entry_list = filter_friends(old_entry_list);
+    entry_list = filter_friend_declared(old_entry_list);
     entry_list_free(old_entry_list);
 
     if (entry_list == NULL)
@@ -6015,7 +6018,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
     if (entry == NULL)
     {
         // No existing function was found
-        
         const char* function_name = ASTText(declarator_id);
 
         if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
@@ -6194,10 +6196,23 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         // Remove the friend-declared attribute if we find the function but
         // this is not a friend declaration
-        if (!gather_info->is_friend
-                && entry->entity_specs.is_friend_declared)
+        if (!is_template_specialized_type(entry->type_information))
         {
-            entry->entity_specs.is_friend_declared = 0;
+            if (!gather_info->is_friend
+                    && entry->entity_specs.is_friend_declared)
+            {
+                entry->entity_specs.is_friend_declared = 0;
+            }
+        }
+        else
+        {
+            type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+            scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
+            if (!gather_info->is_friend
+                    && template_symbol->entity_specs.is_friend_declared)
+            {
+                template_symbol->entity_specs.is_friend_declared = 0;
+            }
         }
 
         // An existing function was found
@@ -6236,19 +6251,22 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
     // Restrict ourselves to the current scope
     // if the declarator-id is unqualified
     // and we are not naming a friend
-    switch (ASTType(declarator_id))
+    if (!gather_info->is_friend)
     {
-        case AST_SYMBOL :
-        case AST_TEMPLATE_ID :
-        case AST_DESTRUCTOR_ID :
-        case AST_DESTRUCTOR_TEMPLATE_ID :
-        case AST_CONVERSION_FUNCTION_ID :
-        case AST_OPERATOR_FUNCTION_ID :
-        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
-            decl_flags |= DF_ONLY_CURRENT_SCOPE;
-            break;
-        default:
-            break;
+        switch (ASTType(declarator_id))
+        {
+            case AST_SYMBOL :
+            case AST_TEMPLATE_ID :
+            case AST_DESTRUCTOR_ID :
+            case AST_DESTRUCTOR_TEMPLATE_ID :
+            case AST_CONVERSION_FUNCTION_ID :
+            case AST_OPERATOR_FUNCTION_ID :
+            case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+                decl_flags |= DF_ONLY_CURRENT_SCOPE;
+                break;
+            default:
+                break;
+        }
     }
 
     scope_entry_list_t* entry_list 
@@ -6364,6 +6382,11 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
     if (templates_available
             && gather_info->is_explicit_instantiation)
     {
+        // Under explicit instantiation we do not allow friends
+        scope_entry_list_t* old_entry_list = entry_list;
+        entry_list = filter_friend_declared(entry_list);
+        entry_list_free(old_entry_list);
+
         template_parameter_list_t *explicit_template_parameters = NULL;
 
         AST considered_tree = declarator_id;
@@ -8672,6 +8695,8 @@ static void build_scope_friend_declarator(decl_context_t decl_context,
     ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
 
     decl_context_t new_decl_context = namespace->decl_context;
+    // Inherit template parameters
+    new_decl_context.template_parameters = decl_context.template_parameters;
 
     type_t* declarator_type = NULL;
     compute_declarator_type(ASTSon0(declarator), gather_info, 

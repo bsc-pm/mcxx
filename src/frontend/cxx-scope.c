@@ -610,7 +610,7 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
 // Attribute is_friend states that this symbol has been created to represent a friend declaration
 // but should not be visible yet in the scope (though we need the symbol, otherwise there is no way
 // to realize later that this symbol is friend!)
-static char is_friend_symbol(scope_entry_t* entry)
+char is_friend_declared(scope_entry_t* entry)
 {
     char is_friend = 0;
     if ((entry->kind == SK_CLASS
@@ -626,12 +626,17 @@ static char is_friend_symbol(scope_entry_t* entry)
         is_friend =  entry->entity_specs.is_friend_declared;
     }
 
-    return !is_friend;
+    return is_friend;
 }
 
-scope_entry_list_t* filter_friends(scope_entry_list_t* entry_list)
+static char is_not_friend_declared(scope_entry_t* entry)
 {
-    return filter_symbol_using_predicate(entry_list, is_friend_symbol);
+    return !is_friend_declared(entry);
+}
+
+scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list)
+{
+    return filter_symbol_using_predicate(entry_list, is_not_friend_declared);
 }
 
 static scope_entry_list_t* query_unqualified_name(

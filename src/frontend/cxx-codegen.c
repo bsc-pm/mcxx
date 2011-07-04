@@ -520,10 +520,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     {
                         scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
                         // The user did not declare it, ignore it
-                        if (friend->entity_specs.is_friend_declared)
-                        {
+                        if (is_friend_declared(friend))
                             continue;
-                        }
 
                         declare_symbol(visitor, friend);
                     }
@@ -675,7 +673,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                 {
                     scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
                     // The user did not declare it, ignore it
-                    if (friend->entity_specs.is_friend_declared)
+                    if (is_friend_declared(friend))
                         continue;
 
                     char is_primary_template = 0;

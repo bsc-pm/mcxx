@@ -157,7 +157,8 @@ LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry,
         decl_context_t decl_context);
 
 // Friend support
-LIBMCXX_EXTERN scope_entry_list_t* filter_friends(scope_entry_list_t* entry_list);
+LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
+LIBMCXX_EXTERN scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list);
 
 // Iteration in scopes
 LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(scope_entry_list_t*, void*));
