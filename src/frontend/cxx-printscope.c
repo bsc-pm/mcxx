@@ -399,7 +399,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
-    if (entry->entity_specs.is_friend)
+    if (entry->entity_specs.is_friend_declared)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is friend-declared symbol\n");
     }

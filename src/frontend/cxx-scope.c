@@ -619,11 +619,11 @@ static char is_friend_symbol(scope_entry_t* entry)
     {
         type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
         scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
-        is_friend =  template_sym->entity_specs.is_friend;
+        is_friend = template_sym->entity_specs.is_friend_declared;
     }
     else
     {
-        is_friend =  entry->entity_specs.is_friend;
+        is_friend =  entry->entity_specs.is_friend_declared;
     }
 
     return !is_friend;

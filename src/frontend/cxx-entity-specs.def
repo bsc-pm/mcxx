@@ -53,7 +53,7 @@ bool|all|is_parameter|This symbol is a parameter of a function
 bool|all|is_member|This symbol is a member of a class
 bool|all|is_bitfield|This symbol is a bitfield
 bool|all|is_unnamed_bitfield|This symbol is an unnamed bitfield
-bool|all|is_friend|States that this symbol has been declared as a friend but not formally declared or defined
+bool|all|is_friend_declared|States that this symbol has been declared as a friend but not formally declared or defined
 bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct

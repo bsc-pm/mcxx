@@ -198,6 +198,8 @@ LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t*
 LIBMCXX_EXTERN void class_type_add_member_function(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
+LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
+
 LIBMCXX_EXTERN void class_type_add_typename(type_t* t, scope_entry_t* class_type);
 
 LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member);
@@ -446,6 +448,9 @@ LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 LIBMCXX_EXTERN void class_type_add_virtual_function(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i);
 LIBMCXX_EXTERN int class_type_get_num_virtual_functions(type_t* class_type);
+
+LIBMCXX_EXTERN int class_type_get_num_friends(type_t* class_type);
+LIBMCXX_EXTERN scope_entry_t* class_type_get_friend_num(type_t* class_type, int);
 
 LIBMCXX_EXTERN decl_context_t enum_type_get_context(type_t* t);
 

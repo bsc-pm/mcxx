@@ -227,6 +227,10 @@ struct class_information_tag {
     int num_virtual_bases;
     virtual_base_class_info_t** virtual_base_classes_list;
 
+    // Friends
+    int num_friends;
+    scope_entry_t** friends;
+
     // Info for laying out 
     _size_t non_virtual_size;
     _size_t non_virtual_align;
@@ -8939,6 +8943,37 @@ void class_type_get_virtual_base_with_offset_num(type_t* t, int num,
 
     *symbol = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base;
     *offset = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base_offset;
+}
+
+void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    P_LIST_ADD(class_type->type->class_info->friends,
+            class_type->type->class_info->num_friends,
+            entry);
+}
+
+int class_type_get_num_friends(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    return class_type->type->class_info->num_friends;
+}
+
+scope_entry_t* class_type_get_friend_num(type_t* t, int num)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    ERROR_CONDITION(num >= class_type->type->class_info->num_friends, 
+            "There are no so many friends (%d) in this class",
+            num);
+
+    return class_type->type->class_info->friends[num];
 }
 
 char is_variably_modified_type(type_t* t)

@@ -1982,7 +1982,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         entry = named_type_get_symbol(primary_template_type);
     }
 
-    char is_friend_class_declaration = 0;
+    char is_friend_class_declaration = 
+        (gather_info->no_declarators && gather_info->is_friend);
+
+    decl_context_t orig_decl_context = decl_context;
 
     if (entry == NULL)
     {
@@ -1990,19 +1993,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         // We will have to create a symbol (if unqualified, otherwise this is an error)
         if (is_unqualified_id_expression(id_expression))
         {
-            // This is an unqualified name
-            is_friend_class_declaration = (gather_info->no_declarators
-                    && gather_info->is_friend);
-
-            decl_context_t orig_decl_context = decl_context;
-
             if (is_friend_class_declaration)
             {
                 scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
                 ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
 
                 decl_context = namespace->decl_context;
-                decl_context.decl_flags |= orig_decl_context.decl_flags;
             }
             else if (!gather_info->no_declarators
                     || gather_info->parameter_declaration)
@@ -2059,7 +2055,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                 new_class->type_information = get_new_class_type(decl_context, class_kind);
                 new_class->kind = SK_CLASS;
 
-                new_class->entity_specs.is_friend = is_friend_class_declaration;
+                new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
                 class_entry = new_class;
                 class_type = class_entry->type_information;
@@ -2080,7 +2076,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                     new_class->file = ASTFileName(a);
                     new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
-                    new_class->entity_specs.is_friend = is_friend_class_declaration;
+                    new_class->entity_specs.is_friend_declared = is_friend_class_declaration;
 
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
@@ -2151,6 +2147,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         class_entry = entry;
         class_type = class_entry->type_information;
 
+        if (!gather_info->is_friend
+                && entry->entity_specs.is_friend_declared)
+        {
+            entry->entity_specs.is_friend_declared = 0;
+        }
+
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
         if (!gather_info->is_explicit_instantiation
@@ -2171,6 +2173,16 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
             template_specialized_type_update_template_parameters(class_entry->type_information,
                     decl_context.template_parameters);
         }
+    }
+
+    if (is_friend_class_declaration)
+    {
+        ERROR_CONDITION(orig_decl_context.current_scope->kind != CLASS_SCOPE, "Invalid class scope\n", 0);
+
+        scope_entry_t* class_symbol = orig_decl_context.current_scope->related_entry;
+        ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+        class_type_add_friend_symbol(class_symbol->type_information, class_entry);
     }
 
     ERROR_CONDITION(class_entry == NULL,
@@ -4050,7 +4062,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         decl_context.template_parameters);
 
                 // If it was friend-declared, it is not anymore
-                class_entry->entity_specs.is_friend = 0;
+                if (class_entry->entity_specs.is_friend_declared)
+                    class_entry->entity_specs.is_friend_declared = 0;
 
                 // This is a named type
                 type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
@@ -4071,7 +4084,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             }
 
             // If it was friend-declared, it is not anymore
-            class_entry->entity_specs.is_friend = 0;
+            if (class_entry->entity_specs.is_friend_declared)
+                class_entry->entity_specs.is_friend_declared = 0;
 
             DEBUG_CODE()
             {
@@ -6021,6 +6035,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
             new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+
+            new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
         }
         else /* gather_info->is_template */
         {
@@ -6051,6 +6067,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
             new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+
+            new_entry->entity_specs.is_friend_declared = gather_info->is_friend;
 
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
@@ -6177,9 +6195,9 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         // Remove the friend-declared attribute if we find the function but
         // this is not a friend declaration
         if (!gather_info->is_friend
-                && entry->entity_specs.is_friend)
+                && entry->entity_specs.is_friend_declared)
         {
-            entry->entity_specs.is_friend = 0;
+            entry->entity_specs.is_friend_declared = 0;
         }
 
         // An existing function was found
@@ -8642,7 +8660,9 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     }
 }
 
-static void build_scope_friend_declaration(decl_context_t decl_context, gather_decl_spec_t *gather_info,
+static void build_scope_friend_declarator(decl_context_t decl_context, 
+        gather_decl_spec_t *gather_info,
+        type_t* class_type,
         type_t* member_type, AST declarator)
 {
     nodecl_t nodecl_output = nodecl_null();
@@ -8669,7 +8689,7 @@ static void build_scope_friend_declaration(decl_context_t decl_context, gather_d
                 declarator);
     }
 
-    entry->entity_specs.is_friend = 1;
+    class_type_add_friend_symbol(class_type, entry);
 }
 
 
@@ -8727,6 +8747,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 && is_named_type(member_type))
         {
             // Register the typename properly
+            // FIXME Rewrite this using gather_info
             if (type_specifier != NULL
                     && !gather_info.is_friend
                     && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
@@ -8917,7 +8938,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         // Friend declarations are so special
                         if (gather_info.is_friend)
                         {
-                            build_scope_friend_declaration(decl_context, &gather_info, member_type, declarator);
+                            build_scope_friend_declarator(decl_context, &gather_info, class_info, member_type, declarator);
                             break;
                         }
 

@@ -430,6 +430,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             {
                 int i = 0;
 
+                int num_friends = class_type_get_num_friends(symbol->type_information);
+
                 int num_members = class_type_get_num_members(symbol->type_information);
                 for (i = 0; i < num_members; i++)
                 {
@@ -511,6 +513,19 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                             scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
                             define_symbol(visitor, entry);
                         }
+                    }
+
+                    // Define all friends that have been declared
+                    for (i = 0; i < num_friends; i++)
+                    {
+                        scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
+                        // The user did not declare it, ignore it
+                        if (friend->entity_specs.is_friend_declared)
+                        {
+                            continue;
+                        }
+
+                        declare_symbol(visitor, friend);
                     }
 
                     codegen_move_to_namespace_of_symbol(visitor, symbol);
@@ -653,6 +668,92 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     {
                         visitor->indent_level--;
                     }
+                }
+
+                // Print friends
+                for (i = 0; i < num_friends; i++)
+                {
+                    scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
+                    // The user did not declare it, ignore it
+                    if (friend->entity_specs.is_friend_declared)
+                        continue;
+
+                    char is_primary_template = 0;
+                    scope_entry_t* template_symbol = NULL;
+
+                    visitor->indent_level++;
+                    // Since friends are a tad bit special we will handle them here
+                    if (is_template_specialized_type(friend->type_information))
+                    {
+                        type_t* template_type = template_specialized_type_get_related_template_type(friend->type_information);
+                        template_symbol = template_type_get_related_symbol(template_type);
+                        type_t* primary_template = template_type_get_primary_type(template_type);
+                        scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
+
+                        if (primary_symbol == symbol)
+                        {
+                            indent(visitor);
+                            fprintf(visitor->file, "template <");
+                            template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
+                            codegen_template_parameters(visitor, template_parameters);
+                            fprintf(visitor->file, ">\n");
+
+                            is_primary_template = 1;
+                        }
+                    }
+
+                    indent(visitor);
+                    fprintf(visitor->file, "friend ");
+
+                    if (friend->kind == SK_CLASS)
+                    {
+                        const char *friend_class_key = "";
+                        switch (class_type_get_class_kind(symbol->type_information))
+                        {
+                            case CK_CLASS:
+                                friend_class_key = "class";
+                                break;
+                            case CK_STRUCT:
+                                friend_class_key = "struct";
+                                break;
+                            case CK_UNION:
+                                friend_class_key = "union";
+                                break;
+                            default:
+                                internal_error("Invalid class kind", 0);
+                        }
+
+                        if (!is_primary_template)
+                        {
+                            fprintf(visitor->file, "%s %s;\n", friend_class_key, 
+                                    get_qualified_symbol_name(friend, friend->decl_context));
+                        }
+                        else
+                        {
+                            fprintf(visitor->file, "%s %s;\n", friend_class_key, 
+                                    get_qualified_symbol_name(template_symbol, template_symbol->decl_context));
+                        }
+                    }
+                    else if (friend->kind == SK_FUNCTION)
+                    {
+                        type_t* real_type = friend->type_information;
+                        if (symbol->entity_specs.is_conversion)
+                        {
+                            real_type = get_new_function_type(NULL, NULL, 0);
+                        }
+
+                        const char* declarator = print_decl_type_str(real_type,
+                                friend->decl_context,
+                                get_qualified_symbol_name(friend, friend->decl_context));
+
+                        fprintf(visitor->file, "%s;\n", declarator);
+                    }
+                    else
+                    {
+                        internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(friend));
+                    }
+
+                    visitor->indent_level--;
                 }
 
                 indent(visitor);
