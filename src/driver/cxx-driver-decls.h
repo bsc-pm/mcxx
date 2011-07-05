@@ -144,6 +144,7 @@ typedef struct debug_options_tag
     char debug_sizeof;
     char do_not_run_gdb;
     char binary_check;
+    char disable_module_cache;
 } debug_options_t;
 
 typedef struct external_var_tag {

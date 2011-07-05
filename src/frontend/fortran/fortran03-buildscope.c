@@ -650,7 +650,10 @@ static void build_scope_module_program_unit(AST program_unit,
     ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, module_body);
 
     // Keep the module in the file's module cache
-    rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
+    if (!CURRENT_CONFIGURATION->debug_options.disable_module_cache)
+    {
+        rb_tree_insert(CURRENT_COMPILED_FILE->module_cache, strtolower(new_entry->symbol_name), new_entry);
+    }
 
     // Store the module in a file
     dump_module_info(new_entry);
