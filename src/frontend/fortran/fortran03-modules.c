@@ -511,6 +511,42 @@ static sqlite3_int64 insert_type_ref_to_list_types(sqlite3* handle,
     return result;
 }
 
+static sqlite3_int64 insert_type_ref_to_list_symbols(sqlite3* handle, 
+        type_t* t,
+        const char *name, 
+        sqlite3_int64 ref_type, 
+        sqlite3_int64 num_parameters, 
+        sqlite3_int64 *parameter_types)
+{
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    if (oid_already_inserted(handle, "type", t))
+        return (sqlite3_int64)(intptr_t)t;
+
+    char *list = sqlite3_mprintf("%s", "");
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        if (i != 0)
+        {
+            char *old_list = list;
+            list = sqlite3_mprintf("%s,%lld", old_list, parameter_types[i]);
+            sqlite3_free(old_list);
+        }
+        else
+        {
+            list = sqlite3_mprintf("%lld", parameter_types[i]);
+        }
+    }
+
+    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, ref_type, symbols) VALUES(%lld, " Q ", %lld, " Q ");", 
+            P2LL(t), name, ref_type, list);
+    run_query(handle, insert_type_query);
+    sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
+    sqlite3_free(insert_type_query);
+    sqlite3_free(list);
+    return result;
+}
+
 static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle, 
         type_t* t,
         const char* name, 
@@ -705,7 +741,7 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
             field_list[i] = insert_symbol(handle, field);
         }
 
-        result = insert_type_ref_to_list_types(handle, t, name, 0, num_fields, field_list);
+        result = insert_type_ref_to_list_symbols(handle, t, name, 0, num_fields, field_list);
     }
     else if (is_void_type(t))
     {
@@ -1017,6 +1053,26 @@ static int get_symbol(void *datum,
 
     get_extra_attributes(handle, ncols, values, names, oid, *result);
 
+    // Classes require a bit more of work
+    if ((*result)->kind == SK_CLASS)
+    {
+        decl_context_t class_context = new_class_context((*result)->decl_context, *result);
+        type_t* class_type = get_actual_class_type((*result)->type_information);
+        class_type_set_inner_context(class_type, class_context);
+
+        int i, num_members = class_type_get_num_nonstatic_data_members(class_type);
+        for (i = 0; i < num_members; i++)
+        {
+            scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
+            
+            // Insert the component in the class context otherwise further lookups will fail
+            insert_entry(class_context.current_scope, field);
+            
+            // Update field context
+            field->decl_context = class_context;
+        }
+    }
+
     return 0;
 }
 
@@ -1319,6 +1375,7 @@ static int get_type(void *datum,
         char *copy = strdup(symbols);
 
         *pt = get_new_class_type(CURRENT_COMPILED_FILE->global_decl_context, CK_STRUCT);
+
         insert_map_ptr(handle, current_oid, *pt);
 
         char *field = strtok(copy, ",");
