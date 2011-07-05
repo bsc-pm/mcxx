@@ -2219,7 +2219,7 @@ static
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
     return (is_integral_type(lhs_type) || is_enum_type(lhs_type))
-        && (is_integral_type(rhs_type) || is_enum_type(lhs_type));
+        && (is_integral_type(rhs_type) || is_enum_type(rhs_type));
 };
 
 static 
