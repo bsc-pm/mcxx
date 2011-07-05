@@ -1965,6 +1965,10 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
     else
     {
         *nodecl_output = nodecl_simplify;
+        if (nodecl_is_constant(nodecl_simplify))
+        {
+            expression_set_constant(expr, nodecl_get_constant(nodecl_simplify));
+        }
     }
 }
 

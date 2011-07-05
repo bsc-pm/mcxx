@@ -1021,7 +1021,9 @@ scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         // We ignore the character kind here
         return GET_INTRINSIC_ELEMENTAL("achar", 
-                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), t0);
+                get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -1104,7 +1106,9 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("aint", 
-                choose_float_type_from_kind(argument_expressions[1], dr), t0);
+                choose_float_type_from_kind(argument_expressions[1], dr), 
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -1156,7 +1160,9 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("anint", 
-                choose_float_type_from_kind(argument_expressions[1], dr), t0);
+                choose_float_type_from_kind(argument_expressions[1], dr), 
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -1532,7 +1538,9 @@ scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("ceiling", 
-                choose_int_type_from_kind(argument_expressions[1], dr), t0);
+                choose_int_type_from_kind(argument_expressions[1], dr), 
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -1549,7 +1557,8 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("char", 
                 get_array_type(get_char_type(), nodecl_null(), symbol->decl_context), 
-                t0);
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -1562,7 +1571,7 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = argument_types[1] != NULL ? get_rank0_type(argument_types[1]) : NULL;
     int dr = 4;
-    if (opt_valid_kind_expr(argument_expressions[1], &dr))
+    if (opt_valid_kind_expr(argument_expressions[2], &dr))
     {
         if ((is_floating_type(t0)
                     || is_complex_type(t0)
@@ -1573,9 +1582,10 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
                         || is_integer_type(t1)))
         {
             return GET_INTRINSIC_ELEMENTAL("cmplx", 
-                    get_complex_type(choose_float_type_from_kind(argument_expressions[1], dr)), 
+                    get_complex_type(choose_float_type_from_kind(argument_expressions[2], dr)), 
                     t0, 
-                    t1 == NULL ? t0 : t1);
+                    t1 == NULL ? t0 : t1,
+                    get_signed_int_type());
         }
     }
     return NULL;
@@ -1676,7 +1686,8 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_TRANSFORMATIONAL("count", 
                 choose_int_type_from_kind(argument_expressions[2], di),
                 t0, 
-                (t1 == NULL ? get_signed_int_type() : t1));
+                (t1 == NULL ? get_signed_int_type() : t1),
+                get_signed_int_type());
     }
 
     return NULL;
@@ -2051,14 +2062,29 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
             && opt_valid_kind_expr(kind, &di)
             && (t5 == NULL || is_bool_type(t5)))
     {
-        return GET_INTRINSIC_TRANSFORMATIONAL("findloc", 
-                get_n_ranked_type(choose_int_type_from_kind(kind, di), get_rank_of_type(t1) - 1, symbol->decl_context),
-                t0,
-                t1,
-                t2 == NULL ? get_signed_int_type() : t2,
-                t3 == NULL ? get_bool_type() : t3,
-                t5 == NULL ? get_bool_type() : t5,
-                );
+        if (t2 == NULL)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("findloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), get_rank_of_type(t1) - 1, symbol->decl_context),
+                    t0,
+                    t1,
+                    t3 == NULL ? get_bool_type() : t3,
+                    get_signed_int_type(),
+                    t5 == NULL ? get_bool_type() : t5,
+                    );
+        }
+        else
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("findloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), get_rank_of_type(t1) - 1, symbol->decl_context),
+                    t0,
+                    t1,
+                    t2,
+                    t3 == NULL ? get_bool_type() : t3,
+                    get_signed_int_type(),
+                    t5 == NULL ? get_bool_type() : t5,
+                    );
+        }
     }
 
     return NULL;
@@ -2084,7 +2110,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_floating_type(t0)
             && opt_valid_kind_expr(kind, &dr))
     {
-        return GET_INTRINSIC_ELEMENTAL("floor", choose_float_type_from_kind(kind, dr), t0);
+        return GET_INTRINSIC_ELEMENTAL("floor", choose_float_type_from_kind(kind, dr), t0, get_signed_int_type());
     }
 
     return NULL;
@@ -2240,7 +2266,7 @@ scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("iachar", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
-                t0);
+                t0, get_signed_int_type());
     }
     return NULL;
 }
@@ -2382,7 +2408,7 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("ichar",
                 choose_int_type_from_kind(argument_expressions[1], di), 
-                t0);
+                t0, get_signed_int_type());
     }
     return NULL;
 }
@@ -2432,7 +2458,8 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_ELEMENTAL("index", 
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0, t1, 
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? get_bool_type() : t2,
+                get_signed_int_type());
     }
 
     return NULL;
@@ -2454,7 +2481,8 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("int", 
                 choose_int_type_from_kind(argument_expressions[1], di),
-                t0);
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -2615,7 +2643,7 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
         {
             return GET_INTRINSIC_INQUIRY("lbound",
                     choose_int_type_from_kind(argument_expressions[2], di),
-                    t0, t1);
+                    t0, t1, get_signed_int_type());
         }
         else
         {
@@ -2623,7 +2651,7 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
                     get_n_ranked_type(choose_int_type_from_kind(argument_expressions[2], di), 
                         get_rank_of_type(t0), 
                         symbol->decl_context),
-                    t0);
+                    t0, get_signed_int_type());
         }
     }
 
@@ -2666,7 +2694,8 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_INQUIRY("len",
                 choose_int_type_from_kind(argument_expressions[1], di),
-                t0);
+                t0,
+                get_signed_int_type());
     }
 
     return NULL;
@@ -2685,7 +2714,8 @@ scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER
     {
         return GET_INTRINSIC_INQUIRY("len_trim",
                 choose_int_type_from_kind(argument_expressions[1], di),
-                t0);
+                t0,
+                get_signed_int_type());
     }
 
     return NULL;
@@ -2816,7 +2846,10 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_bool_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dl))
     {
-        return GET_INTRINSIC_ELEMENTAL("logical", choose_logical_type_from_kind(argument_expressions[1], dl), t0); 
+        return GET_INTRINSIC_ELEMENTAL("logical", 
+                choose_logical_type_from_kind(argument_expressions[1], dl), 
+                t0,
+                get_signed_int_type()); 
     }
     return NULL;
 }
@@ -2833,7 +2866,10 @@ scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("maskl", choose_int_type_from_kind(argument_expressions[1], di), t0); 
+        return GET_INTRINSIC_ELEMENTAL("maskl", 
+                choose_int_type_from_kind(argument_expressions[1], di), 
+                t0, 
+                get_signed_int_type()); 
     }
     return NULL;
 }
@@ -2850,7 +2886,10 @@ scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
-        return GET_INTRINSIC_ELEMENTAL("maskr", choose_int_type_from_kind(argument_expressions[1], di), t0); 
+        return GET_INTRINSIC_ELEMENTAL("maskr", 
+                choose_int_type_from_kind(argument_expressions[1], di), 
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -3065,12 +3104,25 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
             rank = get_rank_of_type(t0) - 1;
         }
 
-        return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
-                get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
-                t0, 
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2, 
-                t4 == NULL ? get_bool_type() : t4);
+        if (t1 == NULL)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
+                    t0, 
+                    t2 == NULL ? get_bool_type() : t2, 
+                    get_signed_int_type(),
+                    t4 == NULL ? get_bool_type() : t4);
+        }
+        else
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
+                    t0, 
+                    t1,
+                    t2 == NULL ? get_bool_type() : t2, 
+                    get_signed_int_type(),
+                    t4 == NULL ? get_bool_type() : t4);
+        }
     }
 
     return NULL;
@@ -3257,12 +3309,25 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
             rank = get_rank_of_type(t0) - 1;
         }
 
-        return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
-                get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
-                t0, 
-                t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2, 
-                t4 == NULL ? get_bool_type() : t4);
+        if (t1 == NULL)
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
+                    t0, 
+                    t2 == NULL ? get_bool_type() : t2, 
+                    get_signed_int_type(),
+                    t4 == NULL ? get_bool_type() : t4);
+        }
+        else
+        {
+            return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
+                    get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
+                    t0, 
+                    t1,
+                    t2 == NULL ? get_bool_type() : t2, 
+                    get_signed_int_type(),
+                    t4 == NULL ? get_bool_type() : t4);
+        }
     }
 
     return NULL;
@@ -3430,7 +3495,8 @@ scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("nint", 
                 choose_int_type_from_kind(argument_expressions[1], di), 
-                t0);
+                t0,
+                get_signed_int_type());
     }
 
     return NULL;
@@ -3487,12 +3553,8 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
     if (t0 == NULL)
     {
-        // Special case, return a void pointer and hope the receiving user will mold it to its type
-        return get_intrinsic_symbol_("null", get_pointer_type(get_void_type()), 0, NULL, symbol->decl_context, 
-                /* is_elemental */ 0, 
-                /* is_pure */ 0, 
-                /* is_transformational */ 1, 
-                /* is_inquiry */ 0); 
+        type_t* p = get_pointer_type(get_void_type());
+        return GET_INTRINSIC_TRANSFORMATIONAL("null", p, p);
     }
     else if (is_pointer_type(t0))
     {
@@ -3743,7 +3805,8 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_ELEMENTAL("real", 
                 choose_float_type_from_kind(argument_expressions[1], dr),
-                t0);
+                t0,
+                get_signed_int_type());
     }
     return NULL;
 }
@@ -4419,6 +4482,33 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
+static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords)
+{
+    intrinsic_variant_info_t current_variant = get_variant(keywords);
+
+    if (entry->entity_specs.num_related_symbols != 0
+            || current_variant.num_keywords == 0)
+        return;
+
+    int i;
+    for (i = 0; i < current_variant.num_keywords; i++)
+    {
+        scope_entry_t* new_keyword_sym = calloc(1, sizeof(*new_keyword_sym));
+        new_keyword_sym->kind = SK_VARIABLE;
+        new_keyword_sym->symbol_name = current_variant.keyword_names[i];
+        new_keyword_sym->decl_context = entry->decl_context;
+        new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
+
+        new_keyword_sym->entity_specs.is_parameter = 1;
+        new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
+
+        P_LIST_ADD(entry->entity_specs.related_symbols,
+                entry->entity_specs.num_related_symbols,
+                new_keyword_sym);
+    }
+    // FIXME - ? Result
+}
+
 scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
         type_t** argument_types, 
         AST* actual_arguments, 
@@ -4452,21 +4542,27 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
         {
             entry = fun(symbol, reordered_types, reordered_exprs, num_actual_arguments);
 
-            if (nodecl_simplified != NULL
-                    && symbol->entity_specs.simplify_function != NULL)
+            if (entry != NULL)
             {
-                nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+                // Update the keywords now
+                update_keywords_of_intrinsic(entry, current_keyword_set[i]);
 
-                int j;
-                for (j = 0; j < num_actual_arguments; j++)
+                if (nodecl_simplified != NULL
+                        && symbol->entity_specs.simplify_function != NULL)
                 {
-                    if (reordered_exprs[j] != NULL)
-                        nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
-                    else
-                        nodecl_arguments[j] = nodecl_null();
-                }
+                    nodecl_t nodecl_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
-                *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+                    int j;
+                    for (j = 0; j < num_actual_arguments; j++)
+                    {
+                        if (reordered_exprs[j] != NULL)
+                            nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
+                        else
+                            nodecl_arguments[j] = nodecl_null();
+                    }
+
+                    *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
+                }
             }
         }
     }
