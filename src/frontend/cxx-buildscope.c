@@ -1995,13 +1995,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (is_friend_class_declaration)
             {
-                scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
-                ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
-
-                decl_context_t namespace_context = namespace->decl_context;
-                namespace_context.template_parameters = decl_context.template_parameters;
-
-                decl_context = namespace_context;
+                decl_context.current_scope = decl_context.namespace_scope;
             }
             else if (!gather_info->no_declarators
                     || gather_info->parameter_declaration)
@@ -8690,23 +8684,17 @@ static void build_scope_friend_declarator(decl_context_t decl_context,
 {
     nodecl_t nodecl_output = nodecl_null();
 
-    // Get the enclosing namespace scope
-    scope_entry_t* namespace = decl_context.namespace_scope->related_entry;
-    ERROR_CONDITION(namespace == NULL, "Invalid namespace", 0);
-
-    decl_context_t new_decl_context = namespace->decl_context;
-    // Inherit template parameters
-    new_decl_context.template_parameters = decl_context.template_parameters;
+    decl_context.current_scope = decl_context.namespace_scope;
 
     type_t* declarator_type = NULL;
     compute_declarator_type(ASTSon0(declarator), gather_info, 
             member_type, &declarator_type, 
-            new_decl_context, &nodecl_output);
+            decl_context, &nodecl_output);
 
     scope_entry_t *entry =
         build_scope_declarator_name(ASTSon0(declarator),
                 declarator_type, gather_info,
-                new_decl_context, &nodecl_output);
+                decl_context, &nodecl_output);
 
     if (entry->kind != SK_FUNCTION)
     {

@@ -1095,8 +1095,8 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
             entry, 
             instantiation_context, 
             // This is not entirely true
-            /* is_template */ 0,
-            /* is_explicit_instantiation */ 0,
+            /* is_template */ 1,
+            /* is_explicit_instantiation */ 1,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;
@@ -1250,8 +1250,8 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
             entry, 
             entry->decl_context, 
             // FIXME - This is not entirely true
-            /* is_template */ 0,
-            /* is_explicit_instantiation */ 0,
+            /* is_template */ 1,
+            /* is_explicit_instantiation */ 1,
             &nodecl_function_code);
 
     entry->entity_specs.definition_tree = dupl_function_definition;

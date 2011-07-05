@@ -105,6 +105,7 @@ expression : literal
            | fortran-expressions
            | object-init
            | builtin-expr
+           | NODECL_ERR_EXPR()
 
 structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
 

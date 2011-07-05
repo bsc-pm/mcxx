@@ -2839,17 +2839,26 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             // No ambiguity is valid
             // Print some messages for the function calls being the first cause
             // of problems
-            for (i = 0; i < ast_get_num_ambiguities(ambig_expression); i++)
+            char diagnosed = 0;
+            for (i = 0; !diagnosed && i < ast_get_num_ambiguities(ambig_expression); i++)
             {
                 if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
                 {
                     expression_clear_computed_info(ast_get_ambiguity(ambig_expression, i));
                     check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
+                    // Choose this one just to avoid spurious errors later
+                    choose_option(ambig_expression, i);
+                    diagnosed = 1;
                 }
+            }
 
-                // Choose this one just to avoid spurious errors later
-                choose_option(ambig_expression, i);
-                break;
+            // Use the first one if the ambiguity was not a function call problem
+            if (!diagnosed)
+            {
+                AST ambig0 = ast_get_ambiguity(ambig_expression, 0);
+                expression_clear_computed_info(ambig0);
+                check_expression(ambig0, decl_context);
+                choose_option(ambig_expression, 0);
             }
         }
         result = 0;

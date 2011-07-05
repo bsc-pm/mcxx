@@ -1796,7 +1796,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
     {
         if (nodecl_is_null(expression_get_nodecl(expression)))
         {
-            if (!checking_ambiguity())
+            if (expression_is_error(expression))
+            {
+                expression_set_nodecl(
+                        expression,
+                        nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression)));
+            }
+            else if (!checking_ambiguity())
             {
                 internal_error("Expression '%s' at '%s' lacks a nodecl and it is not dependent\n",
                         prettyprint_in_buffer(expression),
@@ -6106,6 +6112,14 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         result = query_nested_name(decl_context, NULL, NULL, expr); 
     }
 
+    CXX_LANGUAGE()
+    {
+        // Ignore friendly declared
+        scope_entry_list_t* old_result = result;
+        result = filter_friend_declared(result);
+        entry_list_free(old_result);
+    }
+
     char names_a_builtin = 0;
     const char *name = ASTText(expr);
 
@@ -6395,6 +6409,13 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             expression_set_nodecl(expr, nodecl_output);
             return;
         }
+    }
+
+    {
+        // Ignore friendly declared
+        scope_entry_list_t* old_result = result_list;
+        result_list = filter_friend_declared(result_list);
+        entry_list_free(old_result);
     }
 
     char dependent_template_parameters = 0;
@@ -8407,6 +8428,12 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
     result = check_simple_type_spec(simple_type_spec, decl_context, &type_info);
     if (!result)
     {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid type-name '%s'\n", 
+                    ast_location(simple_type_spec),
+                    prettyprint_in_buffer(simple_type_spec));
+        }
         expression_set_error(expr);
         return;
     }
@@ -8614,6 +8641,11 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
     old_entry_list = entry_list;
     entry_list = filter_symbol_kind_set(old_entry_list,
             STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
+    entry_list_free(old_entry_list);
+
+    // Remove friend declared
+    old_entry_list = entry_list;
+    entry_list = filter_friend_declared(entry_list);
     entry_list_free(old_entry_list);
 
     // Filter the list again
