@@ -44,7 +44,7 @@ namespace TL
 	{
 		DEBUG_CODE()
 		{
-			std::cerr << "Parameter region" << std::endl
+			std::cerr << "Parameter region '" << parameter_decl.get_name() << "'" << std::endl
 				<< " direction=" << dir_str << std::endl
 				<< " dimension_count=" << region.get_dimension_count() << std::endl
 				<< " is_full=" << region.is_full() 
@@ -111,7 +111,7 @@ namespace TL
 			}
 
 			if (parameter.is_pointer()
-					&& region.get_dimension_count() > 1)
+					/* && region.get_dimension_count() > 1 */)
 			{
 				// We need a shaped expression if num dims > 1
 				Source shape_dims;
@@ -212,49 +212,64 @@ namespace TL
 		{
 			RegionList &region_list(*it);
 
-			if (region_list.size() > 1)
-			{
-				running_error("%s: error: regions with more than one dependence are not supported\n",
-						construct.get_ast().get_locus().c_str());
-			}
+// 			if (region_list.size() > 1)
+// 			{
+//                 std::cerr << "Augmented Symbol " << augmented_sym.get_name() 
+//                           << " causes task with regions with more than one dependence" << std::endl;
+//                 
+// 				running_error("%s: error: regions with more than one dependence are not supported\n",
+// 						construct.get_ast().get_locus().c_str());
+// 			}
 
-			Region &region(region_list[0]);
+            for (ObjectList<Region>::iterator itt = region_list.begin();
+                    itt != region_list.end();
+                    itt++)
+            {
+                Region &region(*itt);
+                
+                bool is_reduction = region.get_reduction() == Region::REDUCTION;
 
-			bool is_reduction = region.get_reduction() == Region::REDUCTION;
-
-			Source *clause_args = NULL;
-			switch ((int)region.get_direction())
-			{
-				case Region::INPUT_DIR:
-					{ 
-						add_to_clause(region, parameters[i], parameter_decls[i], input_clause_args, "input", context_tree, construct.get_scope_link());
-						break;
-					}
-				case Region::OUTPUT_DIR:
-					{
-						add_to_clause(region, parameters[i], parameter_decls[i], output_clause_args, "output", context_tree, construct.get_scope_link());
-						break;
-					}
-				case Region::INOUT_DIR:
-					{
-						if (!is_reduction)
-						{
-							add_to_clause(region, parameters[i], parameter_decls[i], inout_clause_args, "inout", context_tree, construct.get_scope_link());
-						}
-						else
-						{
-							add_to_clause(region, parameters[i], parameter_decls[i], reduction_clause_args, "reduction", context_tree, construct.get_scope_link());
-						}
-						break;
-					}
-				default:
-					{
-						internal_error("Invalid directionality", 0);
-						break;
-					}
-			}
-
-			i++;
+                Source *clause_args = NULL;
+                
+                int dir = (int)region.get_direction();
+                
+                switch ((int)region.get_direction())
+                {
+                    case Region::INPUT_DIR:
+                        {
+                            add_to_clause(region, parameters[i], parameter_decls[i], input_clause_args, "input", context_tree,
+                                          construct.get_scope_link());
+                            break;
+                        }
+                    case Region::OUTPUT_DIR:
+                        {
+                            add_to_clause(region, parameters[i], parameter_decls[i], output_clause_args, "output", context_tree,
+                                          construct.get_scope_link());
+                            break;
+                        }
+                    case Region::INOUT_DIR:
+                        {
+                            if (!is_reduction)
+                            {
+                                add_to_clause(region, parameters[i], parameter_decls[i], inout_clause_args, "inout", context_tree,
+                                              construct.get_scope_link());
+                            }
+                            else
+                            {
+                                add_to_clause(region, parameters[i], parameter_decls[i], reduction_clause_args, "reduction", context_tree,
+                                              construct.get_scope_link());
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Invalid directionality", 0);
+                            break;
+                        }
+                }
+            }
+            
+            i++;
 		}
 
         clauses << " untied";

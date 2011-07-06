@@ -24,8 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
@@ -34,6 +32,10 @@
 
 using namespace TL;
 using namespace TL::Nanox;
+
+static void fill_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description);
+static void fill_sections_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description);
+static void fill_sized_array_dimensions(int n_dims, std::string* dim_sizes, Type dim_type, Source& dims_description, Scope sc);
 
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
@@ -230,7 +232,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            fill_dependences_outline,
            fill_dependences_immediate;
 
-    Source dependency_array, num_dependences;
+    Source dependency_array, num_dependences, dependency_struct, dependency_regions;
 
     fill_data_args("ol_args", 
             data_environ_info, 
@@ -254,176 +256,498 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             fill_immediate_arguments);
 
     // Fill dependences, if any
-    if (!dependences.empty())
+    if (Nanos::Version::interface_is_at_least("master", 6001))
     {
-        num_dependences << dependences.size();
-        Source dependency_defs_outline, dependency_defs_immediate;
-        fill_dependences_outline
-            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
-            << dependency_defs_outline
-            << "};"
-            ;
-
-        fill_dependences_immediate
-            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
-            << dependency_defs_immediate
-            << "};"
-            ;
-
-        dependency_array << "_dependences";
-
-        int num_dep = 0;
-        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
-                it != dependences.end();
-                it++)
+        dependency_struct << "nanos_data_access_t";
+        
+        if (!dependences.empty())
         {
-            Source dependency_flags;
-            Source reduction_flag;
-            dependency_flags << "{";
-            OpenMP::DependencyDirection attr = it->get_kind();
-            if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
+            dependency_array << "_data_accesses";
+            num_dependences << dependences.size();
+            Source dependency_defs_outline, dependency_defs_immediate;
+            fill_dependences_outline
+                << dependency_regions
+                << "nanos_data_access_t _data_accesses[" << num_dependences << "] = {"
+                << dependency_defs_outline
+                << "};"
+                ;
+
+            fill_dependences_immediate
+                << dependency_regions
+                << "nanos_data_access_t _data_accesses[" << num_dependences << "] = {"
+                << dependency_defs_immediate
+                << "};"
+                ;
+
+            int num_dep = 0;
+            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                    it != dependences.end();
+                    it++)
             {
-                if (Nanos::Version::interface_is_at_least("master", 5001))
+                Source dependency_flags;
+                Source reduction_flag;
+                dependency_flags << "{";
+                OpenMP::DependencyDirection attr = it->get_kind();
+                if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
                 {
                     reduction_flag << "0";
-                }
 
-                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
-                {
-                    dependency_flags << "1,"; 
+                    if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                    {
+                        dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                        dependency_flags << "0,"; 
+                    }
+                    if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                    {
+                        dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                        dependency_flags << "0,"; 
+                    }
                 }
-                else
-                {
-                    dependency_flags << "0,"; 
-                }
-                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-                {
-                    dependency_flags << "1,"; 
-                }
-                else
-                {
-                    dependency_flags << "0,"; 
-                }
-            }
-            else 
-            {
-                if (!Nanos::Version::interface_is_at_least("master", 5001))
-                {
-                    fprintf(stderr,
-                            "%s: warning: the current version of Nanos does not"
-                            " support reduction dependencies in Superscalar\n",
-                            ctr.get_ast().get_locus().c_str());
-                }
-                else
+                else 
                 {
                     reduction_flag << "1";
+                    // Reduction behaves like an inout
+                    dependency_flags << "1, 1,";
                 }
-                // Reduction behaves like an inout
-                dependency_flags << "1, 1,";
-            }
 
-            Source dependency_field_name;
+                Source dependency_field_name;
 
-            DataReference data_ref = it->get_dependency_expression();
-            Symbol sym = data_ref.get_base_symbol();
+                DataReference data_ref = it->get_dependency_expression();
+                Symbol sym = data_ref.get_base_symbol();
 
-            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
 
-            if (data_env_item.get_symbol().is_valid())
-            {
-                dependency_field_name
-                    << data_env_item.get_field_name();
-            }
-            else
-            {
-                internal_error("symbol without data environment info %s",
-                        it->get_dependency_expression().prettyprint().c_str());
-            }
+                if (data_env_item.get_symbol().is_valid())
+                {
+                    dependency_field_name
+                        << data_env_item.get_field_name();
+                }
+                else
+                {
+                    internal_error("symbol without data environment info %s",
+                            it->get_dependency_expression().prettyprint().c_str());
+                }
 
-            if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
-            {
-                // Reductions cannot be renamed
-                dependency_flags << "0,"
-                    ;
-            }
-            else
-            {
-                // Can rename otherwise
-                dependency_flags << "1,"
-                    ;
-            }
+                if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
+                {
+                    // Reductions cannot be renamed
+                    dependency_flags << "0,"
+                        ;
+                }
+                else
+                {
+                    // Can rename otherwise
+                    dependency_flags << "1,"
+                        ;
+                }
 
-            dependency_flags << reduction_flag;
-            dependency_flags << "}"
-                    ;
+                dependency_flags << reduction_flag;
+                dependency_flags << "}"
+                        ;
 
-            DataReference dependency_expression = it->get_dependency_expression();
+                DataReference dependency_expression = it->get_dependency_expression();
+                Source dims_description;
 
-            Source dep_size;
-            dep_size << dependency_expression.get_sizeof();
+                Type dependency_base_type = dependency_expression.get_data_type();
+                std::cout << "data ref " << dependency_expression.prettyprint() << std::endl;
+                std::cout << "data type " << dependency_base_type.get_declaration(dependency_expression.get_scope(), "") << std::endl;
+                std::cout << "type " << dependency_expression.get_type().get_declaration(dependency_expression.get_scope(), "")
+                        << std::endl;
+                int num_dimensions = dependency_base_type.get_num_dimensions();
+                Type aux_type = dependency_base_type;
+                DataReference dep_expr_aux = dependency_expression;
+                std::string dimension_sizes[num_dimensions];
+                bool remaining_dimensions = (num_dimensions != 0);
+                int i = 0;
+                          
+                while (remaining_dimensions)
+                {
+                    if (dep_expr_aux.get_type().is_array())
+                    {   
+                        dimension_sizes[i] = dep_expr_aux.get_sizeof();
+                        aux_type = aux_type.array_element();
+                        if (dep_expr_aux.is_array_section_range())
+                            dep_expr_aux = dep_expr_aux.array_section_item();
+                        else
+                            dep_expr_aux = dep_expr_aux;
+                    }
+                    else if (aux_type.is_pointer())
+                    {  
+                        dimension_sizes[i] = "0";
+                        aux_type = aux_type.points_to();
+                    }
+                    else
+                    {
+                        remaining_dimensions = false;
+                    }
+                    i++;
+                }
+                std::string base_type_name = aux_type.get_declaration(data_ref.get_scope(), "");
+                
+                dependency_regions << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
+                                   << dims_description << "};";
+               
+                if (num_dimensions == 0) 
+                {
+                    dims_description << "{" 
+                                     << "sizeof(" << base_type_name << "), " 
+                                     << "0, "
+                                     << "sizeof(" << base_type_name << ")" 
+                                     << "}"
+                                     ;
+                }
+                else if (num_dimensions == 1)
+                {
+                    std::string lb;
+                    if (dependency_expression.is_array_section_range())
+                    {
+                        std::string section_size = dependency_base_type.array_get_size().prettyprint();
+                        lb = dependency_expression.array_section_lower();
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[0] << "), " 
+                            << "sizeof(" << base_type_name << ") * (" << lb << "), "
+                            << "sizeof(" << base_type_name << ") * (" << section_size << ")"
+                            << "}"
+                            ;
+                    }
+                    else if (dependency_expression.is_array_section_size())
+                    {
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[0] << "), " 
+                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_lower() << "), "
+                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_upper() << ")"
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        std::string array_size = dependency_expression.get_base_symbol().get_type().array_get_size().prettyprint();
+                        
+                        if (IS_C_LANGUAGE)
+                        {
+                            lb = "0";
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            lb = "1";
+                        }
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << array_size << "), " 
+                            << lb << ", "
+                            << "sizeof(" << base_type_name << ") * (" << array_size << ")"
+                            << "}"
+                            ;     
+                    }
+                }
+                else
+                {
+                    std::string dim_descr_aux;
+                    std::string base_name, array_size, section_size, lb;
+                   
+                    Type aux_type = dependency_expression.get_base_symbol().get_type(); 
+                    while (aux_type.is_array())
+                    {
+                        array_size = aux_type.array_get_size().prettyprint();
+                        aux_type = aux_type.array_element();
+                    }
+                    if (aux_type.is_pointer())
+                    {
+                        array_size = "0";
+                    }
+                        
+                    if (dependency_expression.is_array_section_range())
+                    {
+                        lb = dependency_expression.array_section_lower();
+                        section_size = "(" + dependency_expression.array_section_upper().prettyprint() + ") - (" 
+                                       + dependency_expression.array_section_lower().prettyprint() + ") + 1UL";
+                        
+                        std::cout << "Dep expression '" << dependency_expression.prettyprint() << "' with section size" 
+                                  << section_size << std::endl;
+                                       
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
+                            << "sizeof(" << base_type_name << ") * (" << lb << "), "
+                            << "sizeof(" << base_type_name << ") * (" << section_size << ")"
+                            << "}"
+                            ;
+                    }
+                    else if (dependency_expression.is_array_section_size())
+                    {  
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
+                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_lower() << "), "
+                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_upper() << ")"
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        std::cout << "This is a matrix with predefined size" << std::endl;
+                        
+                        if (IS_C_LANGUAGE)
+                        {
+                            lb = "0";
+                        }
+                        else if (IS_FORTRAN_LANGUAGE)
+                        {
+                            lb = "1";
+                        }
+                        
+                        dims_description << "{" 
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
+                            << lb << ", "
+                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << ")"
+                            << "}"
+                            ;   
+                    }
+                    fill_dimensions(num_dimensions, dimension_sizes, dependency_expression, dims_description);
+                }
+                                
+                Source dependency_offset, imm_dependency_offset;
 
-            Source dependency_offset, imm_dependency_offset;
-
-            dependency_defs_outline
-                << "{"
-                << "(void**)&ol_args->" << dependency_field_name << ","
-                << dependency_offset << ","
-                << dependency_flags << ","
-                << dep_size  
-                << "}"
-                ;
-
-            Source dep_expr_addr = data_ref.get_address();
-
-            dependency_offset
-                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
-                ;
-
-            if (!immediate_is_alloca)
-            {
-                dependency_defs_immediate
+                if (num_dimensions == 0) num_dimensions++;
+                dependency_defs_outline
                     << "{"
-                    << "(void**)&imm_args." << dependency_field_name << ","
-                    << imm_dependency_offset << ","
+                    << "(void**)&ol_args->" << dependency_field_name << ","
                     << dependency_flags << ","
-                    << dep_size 
+                    << num_dimensions << ","
+                    << "dimensions" << num_dep
                     << "}"
                     ;
 
-                imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
-                    ;
-            }
-            else
-            {
-                dependency_defs_immediate
-                    << "{"
-                    << "(void**)imm_args->" << dependency_field_name << ","
-                    << imm_dependency_offset << ","
-                    << dependency_flags << ","
-                    << dep_size 
-                    << "}"
+                Source dep_expr_addr = data_ref.get_address();
+
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
                     ;
 
-                imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
-                    ;
-            }
+                if (!immediate_is_alloca)
+                {
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void**)&imm_args." << dependency_field_name << ","
+                        << dependency_flags << ","
+                        << num_dimensions << ","
+                        << "dimensions" << num_dep
+                        << "}"
+                        ;
 
-            if ((it + 1) != dependences.end())
-            {
-                dependency_defs_outline << ",";
-                dependency_defs_immediate << ",";
-            }
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                        ;
+                }
+                else
+                {
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void**)imm_args->" << dependency_field_name << ","
+                        << dependency_flags << ","
+                        << num_dimensions << ","
+                        << "dimensions" << num_dep
+                        << "}"
+                        ;
 
-            num_dep++;
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
+                        ;
+                }
+
+                if ((it + 1) != dependences.end())
+                {
+                    dependency_defs_outline << ",";
+                    dependency_defs_immediate << ",";
+                }
+
+                num_dep++;
+            }
+        }
+        else
+        {
+            dependency_array << "0";
+            num_dependences << "0";
         }
     }
     else
     {
-        dependency_array << "0";
-        num_dependences << "0";
+        dependency_struct << "nanos_dependence_t";
+        
+        if (!dependences.empty())
+        {
+            dependency_array << "_dependences";
+            num_dependences << dependences.size();
+            Source dependency_defs_outline, dependency_defs_immediate;
+            fill_dependences_outline
+                << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
+                << dependency_defs_outline
+                << "};"
+                ;
+
+            fill_dependences_immediate
+                << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
+                << dependency_defs_immediate
+                << "};"
+                ;
+
+            int num_dep = 0;
+            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                    it != dependences.end();
+                    it++)
+            {
+                Source dependency_flags;
+                Source reduction_flag;
+                dependency_flags << "{";
+                OpenMP::DependencyDirection attr = it->get_kind();
+                if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
+                {
+                    if (Nanos::Version::interface_is_at_least("master", 5001))
+                    {
+                        reduction_flag << "0";
+                    }
+
+                    if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                    {
+                        dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                        dependency_flags << "0,"; 
+                    }
+                    if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                    {
+                        dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                        dependency_flags << "0,"; 
+                    }
+                }
+                else 
+                {
+                    if (!Nanos::Version::interface_is_at_least("master", 5001))
+                    {
+                        fprintf(stderr,
+                                "%s: warning: the current version of Nanos does not"
+                                " support reduction dependencies in Superscalar\n",
+                                ctr.get_ast().get_locus().c_str());
+                    }
+                    else
+                    {
+                        reduction_flag << "1";
+                    }
+                    // Reduction behaves like an inout
+                    dependency_flags << "1, 1,";
+                }
+
+                Source dependency_field_name;
+
+                DataReference data_ref = it->get_dependency_expression();
+                Symbol sym = data_ref.get_base_symbol();
+
+                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+
+                if (data_env_item.get_symbol().is_valid())
+                {
+                    dependency_field_name
+                        << data_env_item.get_field_name();
+                }
+                else
+                {
+                    internal_error("symbol without data environment info %s",
+                            it->get_dependency_expression().prettyprint().c_str());
+                }
+
+                if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
+                {
+                    // Reductions cannot be renamed
+                    dependency_flags << "0,"
+                        ;
+                }
+                else
+                {
+                    // Can rename otherwise
+                    dependency_flags << "1,"
+                        ;
+                }
+
+                dependency_flags << reduction_flag;
+                dependency_flags << "}"
+                        ;
+
+                DataReference dependency_expression = it->get_dependency_expression();
+
+                Source dep_size;
+                dep_size << dependency_expression.get_sizeof();
+
+                Source dependency_offset, imm_dependency_offset;
+
+                dependency_defs_outline
+                    << "{"
+                    << "(void**)&ol_args->" << dependency_field_name << ","
+                    << dependency_offset << ","
+                    << dependency_flags << ","
+                    << dep_size  
+                    << "}"
+                    ;
+
+                Source dep_expr_addr = data_ref.get_address();
+
+                dependency_offset
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                    ;
+
+                if (!immediate_is_alloca)
+                {
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void**)&imm_args." << dependency_field_name << ","
+                        << imm_dependency_offset << ","
+                        << dependency_flags << ","
+                        << dep_size 
+                        << "}"
+                        ;
+
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                        ;
+                }
+                else
+                {
+                    dependency_defs_immediate
+                        << "{"
+                        << "(void**)imm_args->" << dependency_field_name << ","
+                        << imm_dependency_offset << ","
+                        << dependency_flags << ","
+                        << dep_size 
+                        << "}"
+                        ;
+
+                    imm_dependency_offset
+                        << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
+                        ;
+                }
+
+                if ((it + 1) != dependences.end())
+                {
+                    dependency_defs_outline << ",";
+                    dependency_defs_immediate << ",";
+                }
+
+                num_dep++;
+            }
+        }
+        else
+        {
+            dependency_array << "0";
+            num_dependences << "0";
+        }        
     }
+
 
     // Honour if clause
     Source if_expr_cond_start, if_expr_cond_end;
@@ -735,7 +1059,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_dependences_outline
         <<        copy_setup
         <<        set_translation_fun
-        <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+        <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
+                                            << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
@@ -749,7 +1074,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<                struct_size << ", " 
         <<                alignment
         <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
+        <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data 
         <<                translation_fun_arg_name << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -807,3 +1132,87 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
     }
 }
 
+static void fill_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description)
+{
+    if (dr_expr.is_array_section_range() || dr_expr.is_array_section_size())
+    {
+        fill_sections_dimensions(n_dims, dim_sizes, dr_expr, dims_description);
+    }
+    else
+    {
+        fill_sized_array_dimensions(n_dims, dim_sizes, dr_expr.get_base_symbol().get_type(), dims_description, dr_expr.get_scope());
+    }
+}
+
+static void fill_sections_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description)
+{
+    std::cout << "Section Expression '" << dr_expr.prettyprint() << "'" << std::endl;
+    if (n_dims > 1)
+    {
+            fill_sections_dimensions(n_dims-1, dim_sizes, DataReference(dr_expr.array_section_item()), dims_description);
+    }
+    else
+    {
+        std::string lb, accessed_elems;
+        
+        lb = dr_expr.array_section_lower();
+        if (dr_expr.is_array_section_range())
+        {
+            accessed_elems = "((" + dr_expr.array_section_upper().prettyprint() + ") - (" 
+                            + dr_expr.array_section_lower().prettyprint() + ") + 1UL) ";
+        }
+        else
+        {
+            accessed_elems = "(" + dr_expr.array_section_upper().prettyprint() + ") ";
+        }
+        
+        dims_description << ", {" 
+            << "(" << dim_sizes[n_dims-1] << "), " 
+            << "(" << lb << "), "
+            << "(" << accessed_elems << ")"
+            << "}"
+            ;
+    }
+}
+
+
+static void fill_sized_array_dimensions(int n_dims, std::string* dim_sizes, Type dim_type, Source& dims_description, Scope sc)
+{
+    if (n_dims > 1)
+    {
+        if (dim_type.is_array())
+        {    
+            fill_sized_array_dimensions(n_dims-1, dim_sizes, dim_type.array_element(), dims_description, sc);
+        }
+        else if (dim_type.is_pointer())
+        {
+            fill_sized_array_dimensions(n_dims-1, dim_sizes, dim_type.points_to(), dims_description, sc);
+        }
+        else
+        {
+            internal_error("Type '%s' at last dimension of a data dependence. Array or pointer needed", 
+                           dim_type.get_declaration(sc, "").c_str());
+        }
+    }
+    else
+    {
+
+        std::string lb, accessed_elems;
+        
+        if (IS_C_LANGUAGE)
+        {
+            lb = "0";
+        }
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            lb = "1";
+        }
+        
+        dims_description << ", {" 
+            << "(" << dim_sizes[n_dims-1] << "), " 
+            << "(" << lb << "), "
+            << "(" << dim_sizes[n_dims-1] << ")"
+            << "}"
+            ;
+    }
+}
