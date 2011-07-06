@@ -529,8 +529,9 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
 
 TL::DataReference& TL::DataReference::operator=(const DataReference& data_ref)
 {
-    if (this == &data_ref)
+    if (this != &data_ref)
     {
+        this->Expression::operator=(data_ref);
         this->_valid = data_ref._valid;
         this->_base_symbol = data_ref._base_symbol;
         this->_type = data_ref._type;
