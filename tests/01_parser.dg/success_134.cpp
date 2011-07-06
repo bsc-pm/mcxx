@@ -31,18 +31,18 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-#if __SIZEOF_LONG__ >= 8
+enum E
+{
+    V1 = 1,
+    V2 = 2,
+};
 
-template <unsigned long N>
+template <int N>
 struct A;
 
 template <>
-struct A<1>
-{
-    typedef int T;
-};
+struct A<3> { typedef int T; };
 
-typedef A<(9223372036854775807L * 2UL > 0)>::T P;
+typedef A<1 + V2>::T P;
+typedef A<V2 + 1>::T P;
 typedef int P;
-
-#endif

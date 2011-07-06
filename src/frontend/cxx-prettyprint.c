@@ -60,6 +60,7 @@ HANDLER_PROTOTYPE(simple_parameter_handler);
 HANDLER_PROTOTYPE(indented_simple_parameter_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(parenthesized_son_handler);
+HANDLER_PROTOTYPE(list_parenthesized_son_handler);
 HANDLER_PROTOTYPE(nested_name_handler);
 HANDLER_PROTOTYPE(simple_text_handler);
 HANDLER_PROTOTYPE(template_id_handler);
@@ -491,7 +492,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NAMESPACE_ALIAS, namespace_alias_definition_handler, NULL),
     NODE_HANDLER(AST_USING_NAMESPACE_DIRECTIVE, using_directive_handler, NULL),
     NODE_HANDLER(AST_NAMESPACE_DEFINITION, namespace_definition_handler, NULL),
-    NODE_HANDLER(AST_NEW_PLACEMENT, parenthesized_son_handler, NULL),
+    NODE_HANDLER(AST_NEW_PLACEMENT, list_parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, pseudo_destructor_template_name_handler, NULL),
     NODE_HANDLER(AST_KR_PARAMETER_LIST, kr_parameter_list_handler, NULL),
@@ -884,6 +885,13 @@ static void parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_
 {
     token_fprintf(f, a, pt_ctx, "(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void list_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "(");
+    list_handler(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
 }
 

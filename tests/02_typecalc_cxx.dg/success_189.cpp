@@ -31,18 +31,17 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-#if __SIZEOF_LONG__ >= 8
-
-template <unsigned long N>
-struct A;
-
-template <>
-struct A<1>
+template <typename T>
+struct A
 {
-    typedef int T;
+    template <typename S, int N = sizeof(S)>
+        struct B
+        {
+            typedef int C[N * 4];
+        };
+
+    typedef typename B<T>::C D;
 };
 
-typedef A<(9223372036854775807L * 2UL > 0)>::T P;
-typedef int P;
-
-#endif
+typedef A<char>::D P;
+typedef int P[4];

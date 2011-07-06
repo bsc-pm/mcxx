@@ -31,18 +31,12 @@ test_generator=config/mercurium
 </testinfo>
 */
 
-#if __SIZEOF_LONG__ >= 8
+#include <new>
 
-template <unsigned long N>
-struct A;
+#define NEW new(__FILE__, __LINE__)
+void* operator new ( std::size_t size, const char *file, int line );
 
-template <>
-struct A<1>
+int main()
 {
-    typedef int T;
-};
-
-typedef A<(9223372036854775807L * 2UL > 0)>::T P;
-typedef int P;
-
-#endif
+    int *v = NEW int;
+}
