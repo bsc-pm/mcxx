@@ -23,6 +23,7 @@ struct nodecl_codegen_visitor_tag
     char in_condition;
     nodecl_t condition_top;
     char in_initializer;
+    char mem_init_list;
 } nodecl_codegen_visitor_t;
 
 
@@ -917,9 +918,15 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         fprintf(visitor->file, "%s", " = ");
                     }
 
+                    char in_initializer = visitor->in_initializer;
                     visitor->in_initializer = 1;
-                    codegen_walk(visitor, symbol->value);
-                    visitor->in_initializer = 0;
+                    if (!nodecl_is_null(symbol->value))
+                    {
+                        fprintf(visitor->file, "(");
+                        codegen_walk(visitor, symbol->value);
+                        fprintf(visitor->file, ")");
+                    }
+                    visitor->in_initializer = in_initializer;
                 }
 
                 if (!visitor->in_condition)
@@ -1876,7 +1883,7 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 else
                 {
-                    fprintf(visitor->file, unmangle_symbol_name(called_symbol));
+                    fprintf(visitor->file, "%s", unmangle_symbol_name(called_symbol));
                 }
 
                 fprintf(visitor->file, "(");
@@ -1896,13 +1903,16 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 {
                     scope_entry_t* class_symbol = named_type_get_symbol(called_symbol->entity_specs.class_type);
                     fprintf(visitor->file, "%s", get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+                    fprintf(visitor->file, "(");
                 }
-                fprintf(visitor->file, "(");
                 char old_initializer = visitor->in_initializer;
                 visitor->in_initializer = 0;
                 walk_expression_list(visitor, arguments);
                 visitor->in_initializer = old_initializer;
-                fprintf(visitor->file, ")");
+                if (!visitor->in_initializer)
+                {
+                    fprintf(visitor->file, ")");
+                }
                 break;
             }
         default:
@@ -2446,17 +2456,32 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
 
-    codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
+    if (!visitor->mem_init_list)
+    {
+        codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
 
-    entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
-    define_symbol(visitor, entry);
+        entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
+        define_symbol(visitor, entry);
+    }
+    else
+    {
+        nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
+
+        fprintf(visitor->file, "%s(", entry->symbol_name);
+        char in_initializer = visitor->in_initializer;
+        visitor->in_initializer = 1;
+        codegen_walk(visitor, nodecl_init_expr);
+        visitor->in_initializer = in_initializer;
+        fprintf(visitor->file, ")");
+    }
 }
 
 // Function code
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t statement_seq = nodecl_get_child(node, 0);
-    nodecl_t internal_functions = nodecl_get_child(node, 1);
+    nodecl_t initializers = nodecl_get_child(node, 1);
+    nodecl_t internal_functions = nodecl_get_child(node, 2);
 
     if (!nodecl_is_null(internal_functions))
     {
@@ -2666,6 +2691,23 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     indent(visitor);
     fprintf(visitor->file, "%s%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec, asm_specification);
+
+    if (!nodecl_is_null(initializers))
+    {
+        visitor->indent_level++;
+        indent(visitor);
+
+        fprintf(visitor->file, ": ");
+
+        int old_mem_init_list = visitor->mem_init_list;
+        visitor->mem_init_list = 1;
+        walk_list(visitor, initializers, ", ");
+        visitor->mem_init_list = old_mem_init_list;
+
+        visitor->indent_level--;
+
+        fprintf(visitor->file, "\n");
+    }
 
     codegen_walk(visitor, statement);
 }

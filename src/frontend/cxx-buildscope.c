@@ -1253,7 +1253,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             // Add an explicit initialization of this entity at namespace scope
                             *nodecl_output = nodecl_concat_lists(
                                     *nodecl_output,
-                                    nodecl_make_list_1(nodecl_make_object_init(entry, 
+                                    nodecl_make_list_1(nodecl_make_object_init(
+                                            nodecl_null(),
+                                            entry, 
                                             ASTFileName(init_declarator), ASTLine(init_declarator)))); 
                         }
                     }
@@ -7410,10 +7412,10 @@ static void build_scope_namespace_definition(AST a,
 
 static void build_scope_ctor_initializer(AST ctor_initializer, 
         scope_entry_t* function_entry,
-        decl_context_t block_context,
+        decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    ERROR_CONDITION(block_context.current_scope->kind != BLOCK_SCOPE,
+    ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
             "Block scope is not valid", 0);
 
     AST mem_initializer_list = ASTSon0(ctor_initializer);
@@ -7428,12 +7430,12 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
             case AST_MEM_INITIALIZER :
                 {
                     AST mem_initializer_id = ASTSon0(mem_initializer);
-                    AST expression_list = ASTSon1(mem_initializer);
+                    AST initializer = ASTSon1(mem_initializer);
 
                     AST id_expression = ASTSon0(mem_initializer_id);
 
                     scope_entry_list_t* result_list = NULL;
-                    result_list = query_id_expression(block_context, id_expression);
+                    result_list = query_id_expression(decl_context, id_expression);
 
                     if (result_list == NULL)
                     {
@@ -7506,28 +7508,28 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                                 get_qualified_symbol_name(entry, entry->decl_context));
                     }
 
-                    if (expression_list != NULL)
-                    {
-                        if (ASTType(expression_list) == AST_AMBIGUITY)
-                        {
-                            solve_ambiguous_expression_list(expression_list, block_context);
-                        }
-
-                        AST iter2;
-                        for_each_element(expression_list, iter2)
-                        {
-                            AST expression = ASTSon1(iter2);
-
-                            if (!check_expression(expression, block_context))
-                                continue;
-                        }
-                    }
-
                     if (!is_dependent_type(class_sym->type_information)
                             && !is_dependent_type(function_entry->type_information))
                     {
-                        // Only build nodecl if the class and the function are not dependent, otherwise do nothing
-                        // FIXME
+                        if (entry->kind == SK_VARIABLE)
+                        {
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_unqualified_type(entry->type_information));
+                        }
+                        else if (entry->kind == SK_CLASS)
+                        {
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_user_defined_type(entry));
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
+                        *nodecl_output = nodecl_append_to_list(*nodecl_output, 
+                                nodecl_make_object_init(expression_get_nodecl(initializer), entry, ASTFileName(mem_initializer), ASTLine(mem_initializer)));
                     }
 
                     break;
@@ -7982,6 +7984,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         }
     }
 
+    nodecl_t nodecl_initializers = nodecl_null();
     CXX_LANGUAGE()
     {
         AST ctor_initializer = ASTSon2(a);
@@ -7992,7 +7995,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             {
                 running_error("%s: error: member-initializer-lists are only valid in constructors\n");
             }
-            build_scope_ctor_initializer(ctor_initializer, entry, block_context);
+            build_scope_ctor_initializer(ctor_initializer, entry, block_context, &nodecl_initializers);
         }
     }
 
@@ -8097,7 +8100,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         nodecl_t nodecl_function_def = nodecl_make_function_code(
                 nodecl_make_list_1(body_nodecl), 
-                /* initializers */ nodecl_null(),
+                nodecl_initializers,
                 /* internal_functions */ nodecl_null(),
                 entry,
                 ASTFileName(a), ASTLine(a));
@@ -9664,7 +9667,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                         print_type_str(entry->type_information, decl_context));
             }
 
-            *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
+            *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
         }
         CXX_LANGUAGE()
         {
@@ -9681,7 +9684,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             print_type_str(entry->type_information, decl_context));
                 }
 
-                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
+                *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
                 if (conversor != NULL)
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
@@ -10228,7 +10231,7 @@ static void build_scope_try_block(AST a,
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
                         declarator_type, &gather_info, block_context, &dummy);
 
-                exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
+                exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
             }
 
             nodecl_t nodecl_catch_statement = nodecl_null();

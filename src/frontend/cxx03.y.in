@@ -345,6 +345,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> initializer_list
 %type<ast> equal_initializer
 %type<ast> parent_initializer
+%type<ast> parent_initializer_ctor
 %type<ast> equal_or_parent_initializer
 %type<ast> iteration_statement
 %type<ast> jump_statement
@@ -2417,6 +2418,16 @@ parent_initializer : '(' expression_list ')'
 }
 ;
 
+parent_initializer_ctor : '(' expression_list ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
+}
+| '(' ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, NULL, $1.token_file, $1.token_line, NULL);
+}
+;
+
 initializer : equal_initializer
 {
 	$$ = $1;
@@ -3335,26 +3346,18 @@ mem_initializer_list : mem_initializer
 }
 ;
 
-mem_initializer : mem_initializer_id '(' ')'
+mem_initializer : mem_initializer_id parent_initializer_ctor
 {
-	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| mem_initializer_id '(' expression_list ')'
-{
-	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 | mem_initializer_id braced_init_list
 {
 	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extensions
-| '(' expression_list ')'
+| parent_initializer_ctor
 {
-	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
-}
-| '(' ')'
-{
-	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

@@ -9716,7 +9716,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     expression_set_nodecl(expr, nodecl_output);
 }
 
-static char check_parenthesized_initializer(AST initializer_list, decl_context_t decl_context, 
+static char check_parenthesized_initializer(AST context_tree, AST initializer_list, decl_context_t decl_context, 
         type_t* declared_type, nodecl_t* output);
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
@@ -9789,7 +9789,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
                 // If possible this will set a proper conversion call
                 // Note that we are using casted_expression_list as check_parenthesized_initializer expects a list
                 nodecl_t nodecl_output = nodecl_null();
-                check_parenthesized_initializer(casted_expression_list, decl_context, declarator_type, &nodecl_output);
+                check_parenthesized_initializer(expr, casted_expression_list, decl_context, declarator_type, &nodecl_output);
                 leave_test_expression();
             }
 
@@ -12217,15 +12217,15 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
                 ASTFileName(expression), ASTLine(expression)));
 }
 
-static char check_parenthesized_initializer(AST initializer_list, decl_context_t decl_context, type_t* declared_type,
+static char check_parenthesized_initializer(AST context_tree, AST initializer_list, decl_context_t decl_context, type_t* declared_type,
         nodecl_t* nodecl_output)
 {
-    if (ASTType(initializer_list) == AST_AMBIGUITY)
+    if (initializer_list != NULL && ASTType(initializer_list) == AST_AMBIGUITY)
     {
         solve_ambiguous_expression_list(initializer_list, decl_context);
     }
 
-    ERROR_CONDITION(ASTType(initializer_list) != AST_NODE_LIST,
+    ERROR_CONDITION(initializer_list != NULL && ASTType(initializer_list) != AST_NODE_LIST,
             "Unknown node '%s' at '%s'\n",
             ast_print_node_type(ASTType(initializer_list)), ast_location(initializer_list));
 
@@ -12233,42 +12233,47 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
     int initializer_num = 0;
 
     // Single initializer, used later for non-class cases
-    AST single_initializer_expr = ASTSon1(initializer_list);
+    AST single_initializer_expr = NULL;
+    if (initializer_list != NULL)
+        single_initializer_expr = ASTSon1(initializer_list);
 
     type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
 
     char has_dependent_arguments = 0;
 
     AST iterator;
-    for_each_element(initializer_list, iterator)
+    if (initializer_list != NULL)
     {
-        ERROR_CONDITION(initializer_num >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments\n", 0);
-
-        if (!checking_ambiguity()
-                && !is_class 
-                && !is_dependent_type(declared_type) 
-                && (initializer_num > 0))
+        for_each_element(initializer_list, iterator)
         {
-            error_printf("%s: error: too many initializers in parenthesized initializer of non class type\n",
-                    ast_location(initializer_list));
+            ERROR_CONDITION(initializer_num >= MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments\n", 0);
+
+            if (!checking_ambiguity()
+                    && !is_class 
+                    && !is_dependent_type(declared_type) 
+                    && (initializer_num > 0))
+            {
+                error_printf("%s: error: too many initializers in parenthesized initializer of non class type\n",
+                        ast_location(initializer_list));
+            }
+
+            AST initializer = ASTSon1(iterator);
+
+            check_expression_impl_(initializer, decl_context);
+            if (expression_is_error(initializer))
+            {
+                return 0;
+            }
+
+            argument_types[initializer_num] = expression_get_type(initializer);
+
+            if (is_dependent_expr_type(argument_types[initializer_num]))
+            {
+                has_dependent_arguments = 1;
+            }
+
+            initializer_num++;
         }
-
-        AST initializer = ASTSon1(iterator);
-
-        check_expression_impl_(initializer, decl_context);
-        if (expression_is_error(initializer))
-        {
-            return 0;
-        }
-
-        argument_types[initializer_num] = expression_get_type(initializer);
-
-        if (is_dependent_expr_type(argument_types[initializer_num]))
-        {
-            has_dependent_arguments = 1;
-        }
-
-        initializer_num++;
     }
 
     if (has_dependent_arguments)
@@ -12278,6 +12283,14 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
 
     if (!is_class)
     {
+        if (initializer_list == NULL)
+        {
+            // Make a 'default' initializer
+            single_initializer_expr = ASTLeaf(AST_OCTAL_LITERAL, ASTFileName(context_tree), ASTLine(context_tree), "0");
+            check_expression(single_initializer_expr, decl_context);
+            argument_types[0] = expression_get_type(single_initializer_expr);
+        }
+        
         // This is 'int a(10);' to be considered like 'int a = 10;'
         char ambiguous_conversion = 0;
         scope_entry_t* conversor = NULL;
@@ -12324,7 +12337,7 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
                 initializer_num,
                 /* is_explicit */ 1,
                 decl_context,
-                ASTFileName(initializer_list), ASTLine(initializer_list),
+                ASTFileName(context_tree), ASTLine(context_tree),
                 conversors,
                 &candidates);
         entry_list_free(candidates);
@@ -12334,51 +12347,54 @@ static char check_parenthesized_initializer(AST initializer_list, decl_context_t
             if (!checking_ambiguity())
             {
                 error_printf("%s: error: no suitable constructor for type '%s'\n",
-                        ast_location(initializer_list),
+                        ast_location(context_tree),
                         print_decl_type_str(declared_type, decl_context, ""));
             }
             return 0;
         }
 
-        if (function_has_been_deleted(decl_context, initializer_list, constructor))
+        if (function_has_been_deleted(decl_context, context_tree, constructor))
         {
             return 0;
         }
 
         nodecl_t nodecl_argument_list = nodecl_null();
         int k = 0;
-        for_each_element(initializer_list, iterator)
+        if (initializer_list != NULL)
         {
-            AST initializer = ASTSon1(iterator);
-
-            nodecl_t nodecl_current_arg = expression_get_nodecl(initializer);
-            if (conversors[k] != NULL)
+            for_each_element(initializer_list, iterator)
             {
-                if (function_has_been_deleted(decl_context, initializer, conversors[k]))
+                AST initializer = ASTSon1(iterator);
+
+                nodecl_t nodecl_current_arg = expression_get_nodecl(initializer);
+                if (conversors[k] != NULL)
                 {
-                    return 0;
+                    if (function_has_been_deleted(decl_context, initializer, conversors[k]))
+                    {
+                        return 0;
+                    }
+
+                    ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
+
+                    nodecl_current_arg = nodecl_make_function_call(
+                            nodecl_make_symbol(conversors[k], ASTFileName(initializer), ASTLine(initializer)),
+                            nodecl_make_list_1(nodecl_current_arg),
+                            actual_type_of_conversor(conversors[k]), ASTFileName(initializer), ASTLine(initializer));
+                    expression_set_nodecl(initializer, nodecl_current_arg);
+
                 }
 
-                ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
-
-                nodecl_current_arg = nodecl_make_function_call(
-                        nodecl_make_symbol(conversors[k], ASTFileName(initializer), ASTLine(initializer)),
-                        nodecl_make_list_1(nodecl_current_arg),
-                        actual_type_of_conversor(conversors[k]), ASTFileName(initializer), ASTLine(initializer));
-                expression_set_nodecl(initializer, nodecl_current_arg);
-
+                nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_current_arg);
+                k++;
             }
-
-            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_current_arg);
-            k++;
         }
 
         *nodecl_output = nodecl_make_function_call(
-                nodecl_make_symbol(constructor, ASTFileName(initializer_list), ASTLine(initializer_list)),
+                nodecl_make_symbol(constructor, ASTFileName(context_tree), ASTLine(context_tree)),
                 nodecl_argument_list,
                 actual_type_of_conversor(constructor),
-                ASTFileName(initializer_list), ASTLine(initializer_list));
+                ASTFileName(context_tree), ASTLine(context_tree));
     }
 
     return 1;
@@ -12429,7 +12445,7 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
             {
                 AST parenthesized_initializer = ASTSon0(initializer);
                 nodecl_t nodecl_output = nodecl_null();
-                result = check_parenthesized_initializer(parenthesized_initializer, decl_context, declared_type, &nodecl_output);
+                result = check_parenthesized_initializer(initializer, parenthesized_initializer, decl_context, declared_type, &nodecl_output);
 
                 if (result)
                 {

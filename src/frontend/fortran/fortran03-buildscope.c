@@ -629,7 +629,7 @@ static void build_scope_module_program_unit(AST program_unit,
     if (nodecl_is_null(nodecl_internal_subprograms))
     {
         *nodecl_output = nodecl_make_list_1(
-                nodecl_make_object_init(new_entry, ASTFileName(program_unit), ASTLine(program_unit)));
+                nodecl_make_object_init(nodecl_null(), new_entry, ASTFileName(program_unit), ASTLine(program_unit)));
     }
     else
     {
