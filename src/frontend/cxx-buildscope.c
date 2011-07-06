@@ -4364,7 +4364,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
         injected_symbol->entity_specs.is_injected_class_name = 1;
-        injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
     }
 
     access_specifier_t current_access;
@@ -7410,8 +7409,9 @@ static void build_scope_namespace_definition(AST a,
 }
 
 static void build_scope_ctor_initializer(AST ctor_initializer, 
-        scope_entry_t* function_entry UNUSED_PARAMETER, 
-        decl_context_t block_context)
+        scope_entry_t* function_entry,
+        decl_context_t block_context,
+        nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(block_context.current_scope->kind != BLOCK_SCOPE,
             "Block scope is not valid", 0);
@@ -7442,7 +7442,69 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                                 prettyprint_in_buffer(id_expression));
                     }
 
+                    scope_entry_t* entry = entry_list_head(result_list);
                     entry_list_free(result_list);
+
+                    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
+
+                    if (entry->kind == SK_VARIABLE)
+                    {
+                        if (!entry->entity_specs.is_member
+                                || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
+                        {
+                            running_error("%s: symbol '%s' is not a member of class %s\n",
+                                    ast_location(id_expression),
+                                    get_qualified_symbol_name(entry, entry->decl_context),
+                                    get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
+                                        function_entry->decl_context));
+                        }
+                        if (entry->entity_specs.is_static)
+                        {
+                            running_error("%s: static data member '%s' cannot be initialized here\n", 
+                                    ast_location(id_expression),
+                                    prettyprint_in_buffer(id_expression));
+                        }
+                    }
+                    else if (entry->kind == SK_CLASS)
+                    {
+                        // Chances are that through class-scope lookup we have found the injected name
+                        if (entry->entity_specs.is_injected_class_name)
+                        {
+                            // The injected class name is a member
+                            entry = named_type_get_symbol(entry->entity_specs.class_type);
+                        }
+
+                        type_t* class_type = class_sym->type_information;
+
+                        int i, num_bases = class_type_get_num_bases(class_type);
+
+                        // If it is dependent do not look for it
+                        char found = is_dependent_type(entry->type_information);
+                        for (i = 0; i < num_bases && !found; i++)
+                        {
+                            char is_virtual = 0;
+                            char is_dependent = 0;
+                            access_specifier_t access_specifier = AS_UNKNOWN;
+                            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                                    &is_virtual, &is_dependent, &access_specifier);
+                            if (entry == base_class)
+                                found = 1;
+                        }
+
+                        if (!found)
+                        {
+                            fprintf(stderr, "%s: class '%s' is not a direct-base of class '%s'\n",
+                                    ast_location(id_expression),
+                                    get_qualified_symbol_name(entry, entry->decl_context),
+                                    get_qualified_symbol_name(class_sym, class_sym->decl_context));
+                        }
+                    }
+                    else
+                    {
+                        running_error("%s: symbol '%s' cannot be initialized here\n",
+                                ast_location(id_expression),
+                                get_qualified_symbol_name(entry, entry->decl_context));
+                    }
 
                     if (expression_list != NULL)
                     {
@@ -7457,13 +7519,17 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                             AST expression = ASTSon1(iter2);
 
                             if (!check_expression(expression, block_context))
-                            {
-                                error_printf("%s: error: could not check expression for constructor '%s'\n",
-                                        ast_location(expression),
-                                        prettyprint_in_buffer(expression));
-                            }
+                                continue;
                         }
                     }
+
+                    if (!is_dependent_type(class_sym->type_information)
+                            && !is_dependent_type(function_entry->type_information))
+                    {
+                        // Only build nodecl if the class and the function are not dependent, otherwise do nothing
+                        // FIXME
+                    }
+
                     break;
                 }
             default : 
@@ -7921,6 +7987,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         AST ctor_initializer = ASTSon2(a);
         if (ctor_initializer != NULL)
         {
+            if (!entry->entity_specs.is_member
+                    || !entry->entity_specs.is_constructor)
+            {
+                running_error("%s: error: member-initializer-lists are only valid in constructors\n");
+            }
             build_scope_ctor_initializer(ctor_initializer, entry, block_context);
         }
     }
@@ -8026,6 +8097,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         nodecl_t nodecl_function_def = nodecl_make_function_code(
                 nodecl_make_list_1(body_nodecl), 
+                /* initializers */ nodecl_null(),
                 /* internal_functions */ nodecl_null(),
                 entry,
                 ASTFileName(a), ASTLine(a));

@@ -818,8 +818,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     *injected_symbol = *named_class;
 
     injected_symbol->do_not_print = 1;
+    injected_symbol->entity_specs.is_member = 1;
+    injected_symbol->entity_specs.class_type = get_user_defined_type(named_class);
     injected_symbol->entity_specs.is_injected_class_name = 1;
-    injected_symbol->entity_specs.injected_class_referred_symbol = named_class;
 
     /*
      * Note that the standard allows code like this one

@@ -1317,7 +1317,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
     nodecl_t statement_seq = nodecl_get_child(node, 0);
-    nodecl_t internal_subprograms = nodecl_get_child(node, 1);
+    nodecl_t internal_subprograms = nodecl_get_child(node, 2);
 
     // Module procedures are only printed if we are in the current module
     if (visitor->current_module != entry->entity_specs.in_module)

@@ -435,6 +435,7 @@ static void build_scope_main_program_unit(AST program_unit,
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
+            /* initializers */ nodecl_null(),
             nodecl_internal_subprograms,
             program_sym,
             ASTFileName(program_unit), ASTLine(program_unit)));
@@ -502,6 +503,7 @@ static void build_scope_function_program_unit(AST program_unit,
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
+            /* initializers */ nodecl_null(),
             nodecl_internal_subprograms,
             new_entry,
             ASTFileName(program_unit), ASTLine(program_unit)));
@@ -580,6 +582,7 @@ static void build_scope_subroutine_program_unit(AST program_unit,
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
             nodecl_body,
+            /* initializers */ nodecl_null(),
             nodecl_internal_subprograms,
             new_entry,
             ASTFileName(program_unit), ASTLine(program_unit)));

@@ -3609,7 +3609,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->entity_specs.is_injected_class_name)
     {
-        entry = entry->entity_specs.injected_class_referred_symbol;
+        // The injected class name is a member
+        entry = named_type_get_symbol(entry->entity_specs.class_type);
     }
 
     const char* result = uniquestr(unmangle_symbol_name(entry));

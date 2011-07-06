@@ -89,7 +89,6 @@ type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
 symbol|fortran|alias_to|If this symbol is_renamed this is the original symbol in the module
-symbol|all|injected_class_referred_symbol|The original class symbol reachable from the injected class name. See is_injected_class_name
 string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
