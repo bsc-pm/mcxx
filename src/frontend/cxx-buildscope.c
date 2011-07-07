@@ -7466,6 +7466,10 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                                     ast_location(id_expression),
                                     prettyprint_in_buffer(id_expression));
                         }
+
+                        check_initialization(initializer,
+                                entry->decl_context,
+                                get_unqualified_type(entry->type_information));
                     }
                     else if (entry->kind == SK_CLASS)
                     {
@@ -7500,6 +7504,10 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                                     get_qualified_symbol_name(entry, entry->decl_context),
                                     get_qualified_symbol_name(class_sym, class_sym->decl_context));
                         }
+
+                        check_initialization(initializer,
+                                entry->decl_context,
+                                get_user_defined_type(entry));
                     }
                     else
                     {
@@ -7511,25 +7519,9 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                     if (!is_dependent_type(class_sym->type_information)
                             && !is_dependent_type(function_entry->type_information))
                     {
-                        if (entry->kind == SK_VARIABLE)
-                        {
-                            check_initialization(initializer,
-                                    entry->decl_context,
-                                    get_unqualified_type(entry->type_information));
-                        }
-                        else if (entry->kind == SK_CLASS)
-                        {
-                            check_initialization(initializer,
-                                    entry->decl_context,
-                                    get_user_defined_type(entry));
-                        }
-                        else
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-
                         *nodecl_output = nodecl_append_to_list(*nodecl_output, 
-                                nodecl_make_object_init(expression_get_nodecl(initializer), entry, ASTFileName(mem_initializer), ASTLine(mem_initializer)));
+                                nodecl_make_object_init(expression_get_nodecl(initializer), entry, 
+                                    ASTFileName(mem_initializer), ASTLine(mem_initializer)));
                     }
 
                     break;
