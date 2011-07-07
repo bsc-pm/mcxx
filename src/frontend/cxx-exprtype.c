@@ -11354,7 +11354,10 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     {
                         type_t* actual_class_type = get_actual_class_type(declared_type);
 
-                        if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+                        scope_entry_list_t* nonstatic_data_members = 
+                            class_type_get_nonstatic_data_members(actual_class_type);
+
+                        if (initializer_num >= entry_list_size(nonstatic_data_members))
                         {
                             if (!checking_ambiguity())
                             {
@@ -11366,9 +11369,20 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         }
                         else
                         {
-                            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
+                            scope_entry_list_iterator_t* it = entry_list_iterator_begin(nonstatic_data_members);
+                            int i;
+                            for (i = 0; i < initializer_num; i++)
+                            {
+                                entry_list_iterator_next(it);
+                            }
+
+                            scope_entry_t* data_member = entry_list_iterator_current(it);
                             type_in_context = data_member->type_information;
+
+                            entry_list_iterator_free(it);
                         }
+
+                        entry_list_free(nonstatic_data_members);
                     }
                     else if (is_array_type(declared_type))
                     {
@@ -11473,7 +11487,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             return 1;
 
         // Now construct the candidates for overloading among the constructors
-        int num_ctors = class_type_get_num_constructors(get_actual_class_type(declared_type));
+        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(declared_type));
 
         scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
         if (std_initializer_list_template == NULL)
@@ -11487,10 +11501,13 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
         // this because it would have failed before
         if (std_initializer_list_template != NULL)
         {
-            int i;
-            for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(constructors);
+                    !entry_list_iterator_end(it) 
+                    && !has_initializer_list_ctor;
+                    entry_list_iterator_next(it))
             {
-                scope_entry_t* entry = class_type_get_constructors_num(get_actual_class_type(declared_type), i);
+                scope_entry_t* entry = entry_list_iterator_current(it);
 
                 int num_parameters = function_type_get_num_parameters(entry->type_information);
                 // Number of real parameters, ellipsis are counted as parameters
@@ -13865,20 +13882,21 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
             ASTFileName(declarator), ASTLine(declarator),
             /* conversors */ NULL,
             &candidates);
-    entry_list_free(candidates);
 
     if (chosen_constructor == NULL)
     {
-        if (class_type_get_num_constructors(get_actual_class_type(class_type)) != 0)
+        if (entry_list_size(candidates) != 0)
         {
             error_printf("%s: error: no default constructor for '%s' type\n",
                     ast_location(declarator),
                     print_decl_type_str(class_type, decl_context, ""));
         }
+        entry_list_free(candidates);
         return 0;
     }
     else
     {
+        entry_list_free(candidates);
         if (function_has_been_deleted(decl_context, declarator, chosen_constructor))
         {
             return 0;

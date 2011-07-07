@@ -123,7 +123,7 @@ void entry_list_free(scope_entry_list_t* list)
 
 // -
 
-unsigned int entry_list_size(const scope_entry_list_t* list)
+int entry_list_size(const scope_entry_list_t* list)
 {
     return list->num_items_list;
 }

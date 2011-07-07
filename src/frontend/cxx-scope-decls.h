@@ -121,8 +121,7 @@ struct decl_context_tag
     // Current block scope, if any
     struct scope_tag* block_scope;
 
-    // Template parameter information without taking
-    // into account the current scope
+    // Template parameter of the current context
     struct template_parameter_list_tag *template_parameters;
 
     // Current class scope, if any

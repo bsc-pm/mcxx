@@ -184,23 +184,12 @@ LIBMCXX_EXTERN void class_type_add_base_class(type_t* class_type,
         char is_dependent,
         access_specifier_t access_spec);
 LIBMCXX_EXTERN void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
-LIBMCXX_EXTERN void class_type_add_constructor(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_destructor(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_copy_assignment_operator(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_move_assignment_operator(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_copy_constructor(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_move_constructor(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_conversion_function(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_nonstatic_data_member(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_static_data_member(type_t* class_type, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause);
 LIBMCXX_EXTERN void class_type_set_default_constructor(type_t* t, scope_entry_t* entry);
-LIBMCXX_EXTERN void class_type_add_member_function(type_t* t, scope_entry_t* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(type_t* t, type_t* class_type);
 
 LIBMCXX_EXTERN void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry);
-
-LIBMCXX_EXTERN void class_type_add_typename(type_t* t, scope_entry_t* class_type);
 
 LIBMCXX_EXTERN void class_type_add_member(type_t* t, scope_entry_t* member);
 
@@ -401,28 +390,15 @@ LIBMCXX_EXTERN scope_entry_t* class_type_get_base_num(type_t* class_type, int nu
         char *is_dependent,
         access_specifier_t *access_specifier);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
-LIBMCXX_EXTERN int class_type_get_num_constructors(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_constructors_num(type_t* t, int num);
+
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_members(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_static_data_members(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_member_functions(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_constructors(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_conversions(type_t* t);
 
 LIBMCXX_EXTERN type_t* class_type_get_enclosing_class_type(type_t* t);
-
-LIBMCXX_EXTERN int class_type_get_num_nonstatic_data_members(type_t* class_type);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_nonstatic_data_member_num(type_t* class_type, int i);
-
-LIBMCXX_EXTERN int class_type_get_num_static_data_members(type_t* class_type);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_static_data_member_num(type_t* class_type, int i);
-
-LIBMCXX_EXTERN int class_type_get_num_member_functions(type_t* class_type);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_member_function_num(type_t* class_type, int i);
-
-LIBMCXX_EXTERN int class_type_get_num_conversions(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_conversion_num(type_t* t, int num);
-
-LIBMCXX_EXTERN int class_type_get_num_typenames(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_typename_num(type_t* t, int num);
-
-LIBMCXX_EXTERN int class_type_get_num_members(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_member_num(type_t* t, int num);
 
 LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_function(type_t* t);
 
@@ -430,14 +406,10 @@ LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_fun
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, 
         decl_context_t decl_context);
 
-LIBMCXX_EXTERN int class_type_get_num_copy_assignment_operators(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_copy_assignment_operator_num(type_t* t, int num);
-LIBMCXX_EXTERN int class_type_get_num_move_assignment_operators(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_move_assignment_operator_num(type_t* t, int num);
-LIBMCXX_EXTERN int class_type_get_num_copy_constructors(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_copy_constructor_num(type_t* t, int num);
-LIBMCXX_EXTERN int class_type_get_num_move_constructors(type_t* t);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_move_constructor_num(type_t* t, int num);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_copy_constructors(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_move_constructors(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* class_type_get_default_constructor(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* class_type_get_destructor(type_t* t);
@@ -445,12 +417,9 @@ LIBMCXX_EXTERN decl_context_t class_type_get_context(type_t* t);
 LIBMCXX_EXTERN void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(type_t* class_type);
 
-LIBMCXX_EXTERN void class_type_add_virtual_function(type_t* class_type, scope_entry_t* entry);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i);
-LIBMCXX_EXTERN int class_type_get_num_virtual_functions(type_t* class_type);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_functions(type_t* class_type);
 
-LIBMCXX_EXTERN int class_type_get_num_friends(type_t* class_type);
-LIBMCXX_EXTERN scope_entry_t* class_type_get_friend_num(type_t* class_type, int);
+LIBMCXX_EXTERN scope_entry_t* class_type_get_friends(type_t* class_type, int num);
 
 LIBMCXX_EXTERN decl_context_t enum_type_get_context(type_t* t);
 

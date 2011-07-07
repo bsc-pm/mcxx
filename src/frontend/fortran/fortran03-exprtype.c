@@ -990,7 +990,28 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     return;
                 }
 
-                member = class_type_get_nonstatic_data_member_num(entry->type_information, member_index);
+                int i;
+                scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+
+                if (member_index > entry_list_size(nonstatic_data_members))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: too many specifiers in derived-type constructor\n", ast_location(component_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
+                }
+
+                scope_entry_list_iterator_t* it = entry_list_iterator_begin(nonstatic_data_members);
+                for (i = 0; i < member_index; i++)
+                {
+                    entry_list_iterator_next(it);
+                }
+                member = entry_list_iterator_current(it);
+
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
 
                 member_index++;
             }

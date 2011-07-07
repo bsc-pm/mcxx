@@ -41,6 +41,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-attrnames.h"
 #include "cxx-tltype.h"
+#include "cxx-entrylist.h"
 
 /*
  * Very specific bits of gcc support should be in this file
@@ -581,10 +582,15 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-        int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+
+        for (it = entry_list_iterator_begin(copy_assignment_operators);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
                 return 0;
@@ -650,10 +656,14 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+        scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
                 return 0;
@@ -689,10 +699,14 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+
+        for (it = entry_list_iterator_begin(copy_assignment_operators);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
                 return 0;
         }
@@ -753,10 +767,13 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+        scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
                 return 0;
         }
@@ -948,7 +965,11 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-        return (class_type_get_num_virtual_functions(class_type) != 0);
+        scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
+        char there_are_virtual_functions = virtual_functions == NULL;
+        entry_list_free(virtual_functions);
+
+        return there_are_virtual_functions;
     }
 
     return 0;

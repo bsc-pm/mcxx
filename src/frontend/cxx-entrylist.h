@@ -45,7 +45,7 @@ LIBMCXX_EXTERN void entry_list_free(scope_entry_list_t* list);
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
 
 // Queries
-LIBMCXX_EXTERN unsigned int entry_list_size(const scope_entry_list_t* list);
+LIBMCXX_EXTERN int entry_list_size(const scope_entry_list_t* list);
 
 // Head, for singleton lists
 LIBMCXX_EXTERN scope_entry_t* entry_list_head(const scope_entry_list_t* list);

@@ -172,48 +172,8 @@ struct class_information_tag {
     // Destructor
     scope_entry_t* destructor;
 
-    // Member functions
-    int num_member_functions;
-    scope_entry_t** member_functions;
-
-    // Conversion functions info
-    int num_conversion_functions;
-    scope_entry_t** conversion_functions;
-
-    // Copy assignment function info
-    int num_copy_assignment_operator_functions;
-    scope_entry_t** copy_assignment_operator_function_list;
-
-    // Move assignment function info
-    int num_move_assignment_operator_functions;
-    scope_entry_t** move_assignment_operator_function_list;
-
-    // Class constructors info
-    int num_constructors;
-    scope_entry_t** constructor_list;
-
     // Default constructor
     scope_entry_t* default_constructor;
-
-    // Copy constructors
-    int num_copy_constructors;
-    scope_entry_t** copy_constructor_list;
-
-    // Move constructors
-    int num_move_constructors;
-    scope_entry_t** move_constructor_list;
-
-    // Nonstatic data members
-    int num_nonstatic_data_members;
-    scope_entry_t** nonstatic_data_members;
-    
-    // Static data members
-    int num_static_data_members;
-    scope_entry_t** static_data_members;
-
-    // Virtual functions
-    int num_virtual_functions;
-    scope_entry_t** virtual_functions;
 
     // Typenames (either typedefs, enums or inner classes)
     int num_typenames;
@@ -1111,6 +1071,7 @@ static dependent_name_part_t* get_dependent_nested_part(
         result->template_arguments = get_template_parameters_from_syntax(
                 ASTSon1(nested_part),
                 decl_context);
+        result->template_arguments->enclosing = decl_context.template_parameters;
         (*nesting_level)++;
     }
     else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
@@ -1123,6 +1084,7 @@ static dependent_name_part_t* get_dependent_nested_part(
             result->template_arguments = get_template_parameters_from_syntax(
                     ASTSon1(nested_part),
                     decl_context);
+            result->template_arguments->enclosing = decl_context.template_parameters;
             (*nesting_level)++;
         }
     }
@@ -1398,9 +1360,7 @@ enum class_kind_t class_type_get_class_kind(type_t* t)
 static template_parameter_list_t* compute_template_parameter_values_of_primary(template_parameter_list_t* template_parameter_list)
 {
     int i;
-
-    template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-    result->parameters = template_parameter_list->parameters;
+    template_parameter_list_t* result = duplicate_template_argument_list(template_parameter_list);
 
     for (i = 0; i < template_parameter_list->num_parameters; i++)
     {
@@ -1413,7 +1373,6 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                 {
                     new_value->kind = TPK_TYPE;
                     new_value->type = get_user_defined_type(param->entry);
-
                     break;
                 }
             case TPK_TEMPLATE :
@@ -1445,7 +1404,7 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                 }
         }
 
-        P_LIST_ADD(result->arguments, result->num_parameters, new_value);
+        result->arguments[i] = new_value;
     }
 
     return result;
@@ -3091,10 +3050,13 @@ char class_type_is_empty(type_t* t)
 
     int num_of_non_empty_nonstatics_data_members = 0;
 
-    int i;
-    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_bitfield
                 || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
@@ -3103,10 +3065,14 @@ char class_type_is_empty(type_t* t)
         }
     }
 
+    entry_list_iterator_free(it);
+    entry_list_free(nonstatic_data_members);
+
     char has_virtual_bases = 0;
 
     char has_nonempty_bases = 0;
 
+    int i;
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
@@ -3147,11 +3113,13 @@ char class_type_is_dynamic(type_t* t)
 
     type_t* class_type = get_actual_class_type(t);
 
-    int num_virtuals = class_type_get_num_virtual_functions(class_type);
-
+    scope_entry_list_t* virtuals = class_type_get_virtual_functions(class_type);
     // If we have virtual functions we are dynamic
-    if (num_virtuals != 0)
+    if (virtuals != NULL)
+    {
+        entry_list_free(virtuals);
         return 1;
+    }
 
     // If our destructor is dynamic, we are dynamic
     scope_entry_t* destructor = class_type_get_destructor(class_type);
@@ -3246,10 +3214,13 @@ char class_type_is_nearly_empty(type_t* t)
 
     type_t* class_type = get_actual_class_type(t);
 
-    int i;
-    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_bitfield
                 || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
@@ -3258,10 +3229,13 @@ char class_type_is_nearly_empty(type_t* t)
             return 0;
         }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(nonstatic_data_members);
 
     // This is implemented likewise it is in GCC
     char seen_non_virtual_nearly_empty = 0;
 
+    int i;
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
@@ -3335,12 +3309,6 @@ int class_type_get_num_bases(type_t* class_type)
     return class_info->num_bases;
 }
 
-void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD_ONCE(class_type->type->class_info->constructor_list, class_type->type->class_info->num_constructors, entry);
-}
-
 void class_type_set_destructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -3365,119 +3333,10 @@ scope_entry_t* class_type_get_default_constructor(type_t* class_type)
     return class_type->type->class_info->default_constructor;
 }
 
-int class_type_get_num_copy_assignment_operators(type_t* class_type)
+scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->num_copy_assignment_operator_functions;
-}
-
-scope_entry_t* class_type_get_copy_assignment_operator_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->copy_assignment_operator_function_list[num];
-}
-
-void class_type_add_copy_assignment_operator(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD_ONCE(class_type->type->class_info->copy_assignment_operator_function_list, 
-            class_type->type->class_info->num_copy_assignment_operator_functions, entry);
-}
-
-int class_type_get_num_move_assignment_operators(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->num_move_assignment_operator_functions;
-}
-
-scope_entry_t* class_type_get_move_assignment_operator_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->move_assignment_operator_function_list[num];
-}
-
-void class_type_add_move_assignment_operator(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD_ONCE(class_type->type->class_info->move_assignment_operator_function_list, 
-            class_type->type->class_info->num_move_assignment_operator_functions, entry);
-}
-
-void class_type_add_copy_constructor(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    P_LIST_ADD_ONCE(class_type->type->class_info->copy_constructor_list,
-            class_type->type->class_info->num_copy_constructors, entry);
-}
-
-int class_type_get_num_copy_constructors(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->num_copy_constructors;
-}
-
-scope_entry_t* class_type_get_copy_constructor_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->copy_constructor_list[num];
-}
-
-void class_type_add_move_constructor(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    P_LIST_ADD_ONCE(class_type->type->class_info->move_constructor_list,
-            class_type->type->class_info->num_move_constructors, entry);
-}
-
-int class_type_get_num_move_constructors(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->num_move_constructors;
-}
-
-scope_entry_t* class_type_get_move_constructor_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->move_constructor_list[num];
-}
-
-void class_type_add_conversion_function(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    // Only add once
-    P_LIST_ADD_ONCE(class_type->type->class_info->conversion_functions, 
-            class_type->type->class_info->num_conversion_functions, entry);
-}
-
-void class_type_add_nonstatic_data_member(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD(class_type->type->class_info->nonstatic_data_members, 
-            class_type->type->class_info->num_nonstatic_data_members, entry);
-}
-
-void class_type_add_static_data_member(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD(class_type->type->class_info->static_data_members, 
-            class_type->type->class_info->num_static_data_members, entry);
-}
-
-void class_type_add_member_function(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD_ONCE(class_type->type->class_info->member_functions, 
-            class_type->type->class_info->num_member_functions, entry);
+    return NULL;
 }
 
 void class_type_add_typename(type_t* class_type, scope_entry_t* entry)
@@ -3693,51 +3552,6 @@ decl_context_t class_type_get_inner_context(type_t* class_type)
     return class_type->type->class_info->inner_decl_context;
 }
 
-int class_type_get_num_nonstatic_data_members(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    class_info_t* class_info = class_type->type->class_info;
-
-    return class_info->num_nonstatic_data_members;
-}
-
-scope_entry_t* class_type_get_nonstatic_data_member_num(type_t* class_type, int i)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    class_info_t* class_info = class_type->type->class_info;
-
-    return class_info->nonstatic_data_members[i];
-}
-
-int class_type_get_num_static_data_members(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    class_info_t* class_info = class_type->type->class_info;
-
-    return class_info->num_static_data_members;
-}
-
-scope_entry_t* class_type_get_static_data_member_num(type_t* class_type, int i)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    class_info_t* class_info = class_type->type->class_info;
-
-    return class_info->static_data_members[i];
-}
-
-int class_type_get_num_member_functions(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->num_member_functions;
-}
-
-scope_entry_t* class_type_get_member_function_num(type_t* class_type, int i)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-
-    return class_type->type->class_info->member_functions[i];
-}
-
 scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent, access_specifier_t* access_specifier)
 {
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
@@ -3802,42 +3616,6 @@ void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct
     internal_error("Unreachable code", 0);
 }
 
-int class_type_get_num_constructors(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->num_constructors;
-}
-
-scope_entry_t* class_type_get_constructors_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->constructor_list[num];
-}
-
-int class_type_get_num_conversions(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->num_conversion_functions;
-}
-
-scope_entry_t* class_type_get_conversion_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->conversion_functions[num];
-}
-
-int class_type_get_num_typenames(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->num_typenames;
-}
-
-scope_entry_t* class_type_get_typename_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->typenames[num];
-}
-
 int class_type_get_num_members(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -3874,14 +3652,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     }
 
     // Now for every conversor of this class, remove it from 'result'
-    scope_entry_list_t* this_class_conversors = NULL;
-    int num_conversors = class_type_get_num_conversions(class_type);
-    for (i = 0; i < num_conversors; i++)
-    {
-        scope_entry_t* entry = class_type_get_conversion_num(class_type, i);
-        // At the same time build the conversor list of this class
-        this_class_conversors = entry_list_add(this_class_conversors, entry);
-    }
+    scope_entry_list_t* this_class_conversors = class_type_get_conversions(class_type);
 
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(base_result);
@@ -8212,48 +7983,6 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
-#if 0
-static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
-{
-    char result = 0;
-
-    while (list != NULL && !result)
-    {
-        // 'current_entry' comes from a list built from a derived class, so it 
-        // has to be considered always a potential final overrider of 'entry'
-        scope_entry_t* current_entry = list->entry;
-
-        result = (strcmp(current_entry->symbol_name, entry->symbol_name) == 0
-            && function_type_can_override(current_entry->type_information, entry->type_information));
-
-        list = list->next;
-    }
-
-    return result;
-}
-#endif
-
-void class_type_add_virtual_function(type_t* class_type, scope_entry_t* entry)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
-    P_LIST_ADD_ONCE(class_type->type->class_info->virtual_functions,
-            class_type->type->class_info->num_virtual_functions,
-            entry);
-}
-
-int class_type_get_num_virtual_functions(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
-    return class_type->type->class_info->num_virtual_functions;
-}
-
-scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
-
-    return class_type->type->class_info->virtual_functions[i];
-}
-
 char class_type_is_trivially_copiable(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
@@ -8268,41 +7997,77 @@ char class_type_is_trivially_copiable(type_t* t)
        - has a trivial destructor (12.4).
      */
 
-    int i;
-    for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+    scope_entry_list_t* copy_constructors = class_type_get_copy_constructors(class_type);
+    scope_entry_list_iterator_t* it = NULL;
+
+    for (it = entry_list_iterator_begin(copy_constructors);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_trivial)
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(copy_constructors);
             return 0;
+        }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(copy_constructors);
 
-    for (i = 0; i < class_type_get_num_move_constructors(class_type); i++)
+    scope_entry_list_t* move_constructors = class_type_get_move_constructors(class_type);
+    for (it = entry_list_iterator_begin(move_constructors);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_move_constructor_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_trivial)
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(move_constructors);
             return 0;
+        }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(move_constructors);
 
-    for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+    scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+    for (it = entry_list_iterator_begin(copy_assignment_operators);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_trivial)
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(copy_assignment_operators);
             return 0;
+        }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(copy_assignment_operators);
 
-    for (i = 0; i < class_type_get_num_move_assignment_operators(class_type); i++)
+    scope_entry_list_t* move_assignment_operators = class_type_get_move_assignment_operators(class_type);
+    for (it = entry_list_iterator_begin(move_assignment_operators);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = class_type_get_move_assignment_operator_num(class_type, i);
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_trivial)
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(move_assignment_operators);
             return 0;
+        }
     }
+    entry_list_iterator_free(it);
+    entry_list_free(move_assignment_operators);
 
     scope_entry_t* destructor = class_type_get_destructor(class_type);
-
     if (destructor != NULL
             && !destructor->entity_specs.is_trivial)
         return 0;
@@ -8341,10 +8106,13 @@ char class_type_is_standard_layout(type_t* t)
     ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
     type_t* class_type = get_actual_class_type(t);
 
-    int i;
-    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    scope_entry_list_iterator_t* it = NULL;
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* data_member = entry_list_iterator_current(it);
 
         type_t* data_member_type = data_member->type_information;
 
@@ -8359,15 +8127,22 @@ char class_type_is_standard_layout(type_t* t)
                 && !class_type_is_standard_layout(data_member_type))
             return 0;
     }
+    entry_list_iterator_free(it);
 
-    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
+    scope_entry_list_t* member_functions = class_type_get_member_functions(class_type);
+    for (it = entry_list_iterator_begin(member_functions);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* member_function = class_type_get_member_function_num(class_type, i);
+        scope_entry_t* member_function = entry_list_iterator_current(it);
 
         if (member_function->entity_specs.is_virtual)
             return 0;
     }
+    entry_list_iterator_free(it);
+    entry_list_free(member_functions);
 
+    int i;
     for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0, is_dependent = 0;
@@ -8380,9 +8155,11 @@ char class_type_is_standard_layout(type_t* t)
 
     access_specifier_t access = AS_UNKNOWN;
 
-    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* data_member = entry_list_iterator_current(it);
 
         if (access == AS_UNKNOWN)
         {
@@ -8404,7 +8181,7 @@ char class_type_is_standard_layout(type_t* t)
             return 0;
     }
 
-    if (class_type_get_num_nonstatic_data_members(class_type) == 0)
+    if (nonstatic_data_members == NULL)
     {
         int nonempty = 0;
         for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
@@ -8413,7 +8190,9 @@ char class_type_is_standard_layout(type_t* t)
             scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, 
                     /* access_specifier */ NULL);
 
-            nonempty += (class_type_get_num_nonstatic_data_members(base->type_information) != 0);
+            scope_entry_list_t* base_nonstatic_data_members = class_type_get_nonstatic_data_members(base->type_information);
+            nonempty += (nonstatic_data_members != NULL);
+            entry_list_free(base_nonstatic_data_members);
         }
 
         if (nonempty > 1)
@@ -8427,14 +8206,14 @@ char class_type_is_standard_layout(type_t* t)
             scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent,
                     /* access_specifier */ NULL);
 
-            if (class_type_get_num_nonstatic_data_members(base->type_information) != 0)
+            scope_entry_list_t* base_nonstatic_data_members = class_type_get_nonstatic_data_members(base->type_information);
+            if (base_nonstatic_data_members == NULL)
             {
                 return 0;
             }
         }
 
-        scope_entry_t* first_nonstatic = class_type_get_nonstatic_data_member_num(class_type, 0);
-
+        scope_entry_t* first_nonstatic = entry_list_head(nonstatic_data_members);
         for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
         {
             char is_virtual = 0, is_dependent = 0;
@@ -8465,22 +8244,26 @@ char is_aggregate_type(type_t* t)
         type_t* class_type = get_actual_class_type(t);
 
         // No user provided constructors
-        int i;
-        for (i = 0; 
-                i < class_type_get_num_constructors(class_type);
-                i++)
+        scope_entry_list_t* constructors = class_type_get_constructors(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_constructors_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (entry->entity_specs.is_user_declared)
                 return 0;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
 
-        for (i = 0;
-                i < class_type_get_num_nonstatic_data_members(class_type);
-                i++)
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             CXX1X_LANGUAGE()
             {
@@ -8494,21 +8277,26 @@ char is_aggregate_type(type_t* t)
                     || entry->entity_specs.access == AS_PROTECTED)
                 return 0;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
 
         // No base classes
         if (class_type_get_num_bases(class_type) != 0)
             return 0;
 
-        for (i = 0; 
-                i < class_type_get_num_member_functions(class_type);
-                i++)
+        scope_entry_list_t* member_functions = class_type_get_member_functions(class_type);
+        for (it = entry_list_iterator_begin(member_functions);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             // No virtual functions
             if (entry->entity_specs.is_virtual)
                 return 0;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(member_functions);
 
         return 1;
     }
@@ -8541,20 +8329,24 @@ char class_type_is_pod(type_t* t)
 
         type_t* class_type = get_actual_class_type(t);
 
-        int i;
-        for (i = 0;
-                i < class_type_get_num_nonstatic_data_members(class_type);
-                i++)
+        scope_entry_list_iterator_t* it = NULL;
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (!is_pod_type(entry->type_information))
                 return 0;
         }
 
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+        for (it = entry_list_iterator_begin(copy_assignment_operators);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (entry->entity_specs.is_user_declared)
                 return 0;
@@ -8573,12 +8365,13 @@ char class_type_is_pod(type_t* t)
 
         type_t* class_type = get_actual_class_type(t);
 
-        int i;
-        for (i = 0;
-                i < class_type_get_num_nonstatic_data_members(class_type);
-                i++)
+        scope_entry_list_iterator_t* it = NULL;
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (!is_pod_type(entry->type_information))
                 return 0;
@@ -8646,10 +8439,13 @@ char type_is_runtime_sized(type_t* t)
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* member = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* member = entry_list_iterator_current(it);
 
             if (type_is_runtime_sized(member->type_information))
                     return 1;
@@ -8956,15 +8752,7 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
             entry);
 }
 
-int class_type_get_num_friends(type_t* t)
-{
-    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
-    type_t* class_type = get_actual_class_type(t);
-
-    return class_type->type->class_info->num_friends;
-}
-
-scope_entry_t* class_type_get_friend_num(type_t* t, int num)
+scope_entry_t* class_type_get_friends(type_t* t, int num)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
     type_t* class_type = get_actual_class_type(t);
@@ -8994,10 +8782,13 @@ char is_variably_modified_type(type_t* t)
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* member = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* member = entry_list_iterator_current(it);
 
             if (type_is_runtime_sized(member->type_information))
                     return 1;

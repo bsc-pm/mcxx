@@ -348,6 +348,9 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 {
     ERROR_CONDITION(symbol == NULL, "Invalid symbol", 0);
 
+    if (symbol->entity_specs.is_injected_class_name)
+        symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+
     if (symbol->do_not_print)
         return;
 
@@ -482,6 +485,13 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                 CXX_LANGUAGE()
                 {
+                    // This class is a member class we need to define its enclosing class first
+                    if (symbol->entity_specs.is_member)
+                    {
+                        define_symbol(visitor, 
+                                named_type_get_symbol(symbol->entity_specs.class_type));
+                    }
+
                     char is_template_specialized = 0;
                     char is_primary_template = 0;
 
@@ -553,7 +563,18 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     }
 
                     indent(visitor);
-                    fprintf(visitor->file, "%s %s", class_key, symbol->symbol_name);
+                    const char* qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
+
+                    // Global qualification is not valid here
+                    while (qualified_name[0] == ':')
+                    {
+                        qualified_name++;
+                    }
+
+                    fprintf(visitor->file, "%s %s", class_key, qualified_name);
+                    
+                    // From here we assume its already defined
+                    symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 
                     if (is_template_specialized
                             && !is_primary_template)
@@ -830,6 +851,9 @@ static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t nod
 
 static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
+    if (symbol->entity_specs.is_injected_class_name)
+        symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+
     // Do nothing if already defined or declared
     if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED
             || symbol->entity_specs.codegen_status == CODEGEN_STATUS_DECLARED)
@@ -945,6 +969,13 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
                 CXX_LANGUAGE()
                 {
+                    // This class is a member class we need to define its enclosing class first
+                    if (symbol->entity_specs.is_member)
+                    {
+                        define_symbol(visitor, 
+                                named_type_get_symbol(symbol->entity_specs.class_type));
+                    }
+
                     char is_template_specialized = 0;
                     char is_primary_template = 0;
 
@@ -1204,8 +1235,7 @@ static char is_local_symbol(scope_entry_t* entry)
 {
     return entry != NULL
         && (entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE
-                || (entry->entity_specs.is_member && !entry->entity_specs.is_static));
+                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE);
 }
 
 static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)

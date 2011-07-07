@@ -258,17 +258,22 @@ static void system_v_union_sizeof(type_t* class_type)
 
     char previous_was_bitfield = 0;
 
-    int i;
-    int num_fields = class_type_get_num_nonstatic_data_members(class_type);
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    scope_entry_list_iterator_t* it = NULL;
 
-    for (i = 0; i < num_fields; i++)
+    int i = 0;
+    int num_fields = entry_list_size(nonstatic_data_members);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         // For a union its fields are always in offset 0
         offset = 0;
         current_bit_within_storage = 0;
         previous_was_bitfield = 0;
         
-        scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* field = entry_list_iterator_current(it);
 
         char is_last_field = (i == (num_fields - 1));
 
@@ -281,6 +286,8 @@ static void system_v_union_sizeof(type_t* class_type)
                 is_last_field);
 
         max_offset = MAX(max_offset, offset);
+
+        i++;
     }
 
     // Compute tail padding, just ensure that the next laid out entity
@@ -313,12 +320,17 @@ static void system_v_struct_sizeof(type_t* class_type)
 
     char previous_was_bitfield = 0;
 
-    int i;
-    int num_fields = class_type_get_num_nonstatic_data_members(class_type);
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    scope_entry_list_iterator_t* it = NULL;
 
-    for (i = 0; i < num_fields; i++)
+    int i = 0;
+    int num_fields = entry_list_size(nonstatic_data_members);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
+        scope_entry_t* field = entry_list_iterator_current(it);
 
         char is_last_field = (i == (num_fields - 1));
 
@@ -329,6 +341,7 @@ static void system_v_struct_sizeof(type_t* class_type)
                 &current_bit_within_storage,
                 &previous_was_bitfield,
                 is_last_field);
+        i++;
     }
 
     // Compute tail padding, just ensure that the next laid out entity
@@ -749,13 +762,14 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         }
 
         // Nonstatic data members
-        int num_nonstatic_data_members 
-            = class_type_get_num_nonstatic_data_members(class_type);
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
 
-        for (i = 0; i < num_nonstatic_data_members; i++)
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* nonstatic_data_member 
-                = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* nonstatic_data_member = entry_list_iterator_current(it);
 
             // Bitfields do not have offset!
             if (!nonstatic_data_member->entity_specs.is_bitfield)
@@ -1190,10 +1204,14 @@ static char is_pod_type_layout(type_t* t)
             return 0;
 
         type_t* class_type = get_actual_class_type(t);
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* data_member = entry_list_iterator_current(it);
 
             if (data_member->entity_specs.is_bitfield)
             {
@@ -1302,14 +1320,13 @@ static void cxx_abi_class_sizeof(type_t* class_type)
     // Non static data members and unnamed bitfields
     {
         // Nonstatic data members
-        int i;
-        int num_nonstatic_data_members 
-            = class_type_get_num_nonstatic_data_members(class_type);
-
-        for (i = 0; i < num_nonstatic_data_members; i++)
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* nonstatic_data_member 
-                = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* nonstatic_data_member = entry_list_iterator_current(it);
 
             cxx_abi_lay_member_out(class_type,
                     nonstatic_data_member,

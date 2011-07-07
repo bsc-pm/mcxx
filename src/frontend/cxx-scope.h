@@ -156,6 +156,11 @@ LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(templ
 LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context);
 
+LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
+        template_parameter_value_t* v,
+        decl_context_t decl_context,
+        const char* filename, int line);
+
 // Friend support
 LIBMCXX_EXTERN char is_friend_declared(scope_entry_t* entry);
 LIBMCXX_EXTERN scope_entry_list_t* filter_friend_declared(scope_entry_list_t* entry_list);

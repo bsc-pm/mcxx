@@ -3234,7 +3234,7 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->entity_specs.access = AS_PRIVATE;
                 }
 
-                class_type_add_nonstatic_data_member(class_name->type_information, entry);
+                class_type_add_member(class_name->type_information, entry);
             }
         }
     }
