@@ -33,9 +33,7 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static void fill_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description);
-static void fill_sections_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description);
-static void fill_sized_array_dimensions(int n_dims, std::string* dim_sizes, Type dim_type, Source& dims_description, Scope sc);
+static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc);
 
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
@@ -354,42 +352,24 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 DataReference dependency_expression = it->get_dependency_expression();
                 Source dims_description;
 
-                Type dependency_base_type = dependency_expression.get_data_type();
-                std::cout << "data ref " << dependency_expression.prettyprint() << std::endl;
-                std::cout << "data type " << dependency_base_type.get_declaration(dependency_expression.get_scope(), "") << std::endl;
-                std::cout << "type " << dependency_expression.get_type().get_declaration(dependency_expression.get_scope(), "")
-                        << std::endl;
-                int num_dimensions = dependency_base_type.get_num_dimensions();
-                Type aux_type = dependency_base_type;
-                DataReference dep_expr_aux = dependency_expression;
-                std::string dimension_sizes[num_dimensions];
-                bool remaining_dimensions = (num_dimensions != 0);
-                int i = 0;
-                          
-                while (remaining_dimensions)
-                {
-                    if (dep_expr_aux.get_type().is_array())
-                    {   
-                        dimension_sizes[i] = dep_expr_aux.get_sizeof();
-                        aux_type = aux_type.array_element();
-                        if (dep_expr_aux.is_array_section_range())
-                            dep_expr_aux = dep_expr_aux.array_section_item();
-                        else
-                            dep_expr_aux = dep_expr_aux;
-                    }
-                    else if (aux_type.is_pointer())
-                    {  
-                        dimension_sizes[i] = "0";
-                        aux_type = aux_type.points_to();
-                    }
-                    else
-                    {
-                        remaining_dimensions = false;
-                    }
-                    i++;
-                }
-                std::string base_type_name = aux_type.get_declaration(data_ref.get_scope(), "");
+                Type dependency_type = dependency_expression.get_type();
+                int num_dimensions = dependency_type.get_num_dimensions();
+                std::cout << std::endl << "data ref " << dependency_expression.prettyprint() << std::endl;
+                std::cout << "  type " << dependency_expression.get_type().get_declaration(dependency_expression.get_scope(), "") 
+                          << std::endl;
                 
+                // Compute the base type of the dependency and the array containing the size of each dimension
+                Type dependency_base_type = dependency_type;
+                std::string dimension_sizes[num_dimensions];         
+                for (int dim = 0; dim < num_dimensions; dim++)
+                {
+                    dimension_sizes[dim] = dependency_base_type.array_get_size().prettyprint();
+                    dependency_base_type = dependency_base_type.array_element();
+                }
+                std::string base_type_name = dependency_base_type.get_declaration(data_ref.get_scope(), "");
+                
+                
+                // Generate the spawn
                 dependency_regions << "nanos_region_dimension_t dimensions" << num_dep << "[" << std::max(num_dimensions,1) << "] = {"
                                    << dims_description << "};";
                
@@ -402,94 +382,28 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                                      << "}"
                                      ;
                 }
-                else if (num_dimensions == 1)
-                {
-                    std::string lb;
-                    if (dependency_expression.is_array_section_range())
-                    {
-                        std::string section_size = dependency_base_type.array_get_size().prettyprint();
-                        lb = dependency_expression.array_section_lower();
-                        dims_description << "{" 
-                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[0] << "), " 
-                            << "sizeof(" << base_type_name << ") * (" << lb << "), "
-                            << "sizeof(" << base_type_name << ") * (" << section_size << ")"
-                            << "}"
-                            ;
-                    }
-                    else if (dependency_expression.is_array_section_size())
-                    {
-                        dims_description << "{" 
-                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[0] << "), " 
-                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_lower() << "), "
-                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_upper() << ")"
-                            << "}"
-                            ;
-                    }
-                    else
-                    {
-                        std::string array_size = dependency_expression.get_base_symbol().get_type().array_get_size().prettyprint();
-                        
-                        if (IS_C_LANGUAGE)
-                        {
-                            lb = "0";
-                        }
-                        else if (IS_FORTRAN_LANGUAGE)
-                        {
-                            lb = "1";
-                        }
-                        dims_description << "{" 
-                            << "sizeof(" << base_type_name << ") * (" << array_size << "), " 
-                            << lb << ", "
-                            << "sizeof(" << base_type_name << ") * (" << array_size << ")"
-                            << "}"
-                            ;     
-                    }
-                }
                 else
                 {
-                    std::string dim_descr_aux;
-                    std::string base_name, array_size, section_size, lb;
-                   
-                    Type aux_type = dependency_expression.get_base_symbol().get_type(); 
-                    while (aux_type.is_array())
+                    // Less significant dimension s computed in bytes
+                    Type aux_type = dependency_type;             
+                    while (aux_type.array_element().is_array()) aux_type = aux_type.array_element();
+                    std::cout << "Last array type '" << aux_type.get_declaration(dependency_expression.get_scope(), "") 
+                              << "' is region? " << aux_type.array_is_region() << std::endl;
+                    if (aux_type.array_is_region())
                     {
-                        array_size = aux_type.array_get_size().prettyprint();
-                        aux_type = aux_type.array_element();
-                    }
-                    if (aux_type.is_pointer())
-                    {
-                        array_size = "0";
-                    }
-                        
-                    if (dependency_expression.is_array_section_range())
-                    {
-                        lb = dependency_expression.array_section_lower();
-                        section_size = "(" + dependency_expression.array_section_upper().prettyprint() + ") - (" 
-                                       + dependency_expression.array_section_lower().prettyprint() + ") + 1UL";
-                        
-                        std::cout << "Dep expression '" << dependency_expression.prettyprint() << "' with section size" 
-                                  << section_size << std::endl;
-                                       
+                        AST_t lb, ub;
+                        aux_type.array_get_region_bounds(lb, ub);
+                       
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
-                            << "sizeof(" << base_type_name << ") * (" << lb << "), "
-                            << "sizeof(" << base_type_name << ") * (" << section_size << ")"
-                            << "}"
-                            ;
-                    }
-                    else if (dependency_expression.is_array_section_size())
-                    {  
-                        dims_description << "{" 
-                            << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
-                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_lower() << "), "
-                            << "sizeof(" << base_type_name << ") * (" << dependency_expression.array_section_upper() << ")"
+                            << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
+                            << "sizeof(" << base_type_name << ") * (" << ub.prettyprint() << " - " << lb.prettyprint() << " + 1UL)"
                             << "}"
                             ;
                     }
                     else
                     {
-                        std::cout << "This is a matrix with predefined size" << std::endl;
-                        
+                        std::string lb;
                         if (IS_C_LANGUAGE)
                         {
                             lb = "0";
@@ -504,11 +418,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                             << lb << ", "
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << ")"
                             << "}"
-                            ;   
+                            ;     
                     }
-                    fill_dimensions(num_dimensions, dimension_sizes, dependency_expression, dims_description);
+                   
+                    // The rest of dimensions, if there are, are computed in terms of number of elements
+                    if (num_dimensions > 1)
+                    {    
+                        fill_dimensions(num_dimensions, 0, dimension_sizes, dependency_type, 
+                                        dims_description, dependency_expression.get_scope());
+                    }
                 }
-                                
+     
                 Source dependency_offset, imm_dependency_offset;
 
                 if (num_dimensions == 0) num_dimensions++;
@@ -1132,73 +1052,37 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
     }
 }
 
-static void fill_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description)
+static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, Type dep_type, Source& dims_description, Scope sc)
 {
-    if (dr_expr.is_array_section_range() || dr_expr.is_array_section_size())
+    if (actual_dim > 1)
     {
-        fill_sections_dimensions(n_dims, dim_sizes, dr_expr, dims_description);
+        fill_dimensions(n_dims, actual_dim+1, dim_sizes, dep_type.array_element(), dims_description, sc);
     }
-    else
+    
+    if (dep_type.array_is_region())
     {
-        fill_sized_array_dimensions(n_dims, dim_sizes, dr_expr.get_base_symbol().get_type(), dims_description, dr_expr.get_scope());
-    }
-}
-
-static void fill_sections_dimensions(int n_dims, std::string* dim_sizes, DataReference dr_expr, Source& dims_description)
-{
-    std::cout << "Section Expression '" << dr_expr.prettyprint() << "'" << std::endl;
-    if (n_dims > 1)
-    {
-            fill_sections_dimensions(n_dims-1, dim_sizes, DataReference(dr_expr.array_section_item()), dims_description);
-    }
-    else
-    {
-        std::string lb, accessed_elems;
+        AST_t lb, ub;
+        dep_type.array_get_region_bounds(lb, ub);
         
-        lb = dr_expr.array_section_lower();
-        if (dr_expr.is_array_section_range())
-        {
-            accessed_elems = "((" + dr_expr.array_section_upper().prettyprint() + ") - (" 
-                            + dr_expr.array_section_lower().prettyprint() + ") + 1UL) ";
-        }
-        else
-        {
-            accessed_elems = "(" + dr_expr.array_section_upper().prettyprint() + ") ";
-        }
+        std::cout << "dim_sizes[" << actual_dim << "] = " << dim_sizes[actual_dim] << " for type " 
+                  << dep_type.get_declaration(sc, "") << std::endl;
+        std::cout << "    dim descr: {" 
+            << "(" << dim_sizes[actual_dim] << "), " 
+            << "(" << lb.prettyprint() << "), "
+            << "(" << ub.prettyprint() << ")"
+            << "}" << std::endl;
+            
         
         dims_description << ", {" 
-            << "(" << dim_sizes[n_dims-1] << "), " 
-            << "(" << lb << "), "
-            << "(" << accessed_elems << ")"
+            << "(" << dim_sizes[actual_dim] << "), " 
+            << "(" << lb.prettyprint() << "), "
+            << "(" << ub.prettyprint() << ")"
             << "}"
             ;
     }
-}
-
-
-static void fill_sized_array_dimensions(int n_dims, std::string* dim_sizes, Type dim_type, Source& dims_description, Scope sc)
-{
-    if (n_dims > 1)
-    {
-        if (dim_type.is_array())
-        {    
-            fill_sized_array_dimensions(n_dims-1, dim_sizes, dim_type.array_element(), dims_description, sc);
-        }
-        else if (dim_type.is_pointer())
-        {
-            fill_sized_array_dimensions(n_dims-1, dim_sizes, dim_type.points_to(), dims_description, sc);
-        }
-        else
-        {
-            internal_error("Type '%s' at last dimension of a data dependence. Array or pointer needed", 
-                           dim_type.get_declaration(sc, "").c_str());
-        }
-    }
     else
     {
-
-        std::string lb, accessed_elems;
-        
+        std::string lb;
         if (IS_C_LANGUAGE)
         {
             lb = "0";
@@ -1207,11 +1091,11 @@ static void fill_sized_array_dimensions(int n_dims, std::string* dim_sizes, Type
         {
             lb = "1";
         }
-        
+      
         dims_description << ", {" 
-            << "(" << dim_sizes[n_dims-1] << "), " 
+            << "(" << dep_type.array_get_size().prettyprint() << "), " 
             << "(" << lb << "), "
-            << "(" << dim_sizes[n_dims-1] << ")"
+            << "(" << dim_sizes[actual_dim] << ")"
             << "}"
             ;
     }

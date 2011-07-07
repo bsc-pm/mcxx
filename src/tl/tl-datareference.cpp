@@ -518,8 +518,6 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
     else if (type.is_pointer()
             && type.points_to().is_array())
     {
-        std::cout << "Pointer to array with array elem " << type.points_to().array_get_size().prettyprint() 
-                  << "; " <<  type.points_to().array_element().get_pointer_to().get_declaration(sc, "") << std::endl;
         result << safe_expression_size(type.points_to(), sc)
             ;           // .array_element().get_pointer_to()
     }

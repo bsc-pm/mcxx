@@ -11929,7 +11929,9 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
     AST postfix_expression = ASTSon0(expression);
     AST lower_bound = ASTSon1(expression);
     AST upper_bound = ASTSon2(expression);
-
+    
+//     fprintf(stderr, "POSTFIX '%s'\n", prettyprint_in_buffer(postfix_expression));
+    
     check_for_expression_impl_(postfix_expression, decl_context);
     if (lower_bound != NULL)
         check_for_expression_impl_(lower_bound, decl_context);
@@ -11970,6 +11972,16 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
 
     type_t* indexed_type = no_ref(expression_get_type(postfix_expression));
 
+    type_t* advanced_types[10];
+    int i = 0;
+    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
+    {   
+        advanced_types[i] = indexed_type;
+        indexed_type = array_type_get_element_type(indexed_type);
+        i++;
+    }   
+//     fprintf(stderr, "post indexed type: '%s'\n", print_declarator(indexed_type));
+    
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
     {
@@ -12011,6 +12023,52 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         return;
     }
 
+//     fprintf(stderr, "result: '%s'\n", print_declarator(result_type));
+
+    while (i>0)
+    {
+        if (is_array_type(indexed_type))
+        {
+            AST array_lower_bound = array_type_get_array_lower_bound(advanced_types[i-1]);
+            AST array_upper_bound = array_type_get_array_upper_bound(advanced_types[i-1]);
+            decl_context_t array_decl_context = array_type_get_array_size_expr_context(advanced_types[i-1]);
+
+            result_type = get_array_type_bounds_with_regions(
+                    array_type_get_element_type(advanced_types[i-1]),
+                    array_lower_bound,
+                    array_upper_bound,
+                    array_decl_context,
+                    lower_bound,
+                    upper_bound,
+                    decl_context);
+        }
+        else if (is_pointer_type(indexed_type))
+        {
+            result_type = get_array_type_bounds_with_regions(
+                    pointer_type_get_pointee_type(advanced_types[i-1]),
+                    lower_bound,
+                    upper_bound,
+                    decl_context,
+                    lower_bound,
+                    upper_bound,
+                    decl_context);
+        }
+        else
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: array section '%s' is invalid since '%s' has type '%s'\n",
+                        ast_location(expression),
+                        prettyprint_in_buffer(expression),
+                        prettyprint_in_buffer(postfix_expression),
+                        print_type_str(indexed_type, decl_context));
+            }
+            expression_set_error(expression);
+            return;
+        }
+        i--;
+    }
+    
     // This should be deemed always as a lvalue
     expression_set_is_lvalue(expression, 1);
     expression_set_type(expression, result_type);
