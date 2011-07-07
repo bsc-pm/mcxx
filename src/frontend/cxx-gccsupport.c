@@ -586,17 +586,23 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
         scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
         scope_entry_list_iterator_t* it = NULL;
 
+        char result = 1;
         for (it = entry_list_iterator_begin(copy_assignment_operators);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && result;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
-                return 0;
+            {
+                result = 0;
+            }
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(copy_assignment_operators);
+
+        return result;
     }
 
     return 0;
@@ -658,18 +664,22 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
 
         scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
         scope_entry_list_iterator_t* it = NULL;
+        char result = 1;
         for (it = entry_list_iterator_begin(constructors);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && result;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
+
+        return result;
     }
 
     return 0;
@@ -702,16 +712,20 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
         scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
         scope_entry_list_iterator_t* it = NULL;
 
+        char result = 1;
         for (it = entry_list_iterator_begin(copy_assignment_operators);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && result;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(copy_assignment_operators);
+
+        return result;
     }
 
     return 0;
@@ -769,16 +783,20 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
 
         scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
         scope_entry_list_iterator_t* it = NULL;
+        char result = 1;
         for (it = entry_list_iterator_begin(constructors);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && result;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
+
+        return result;
     }
 
     return 0;

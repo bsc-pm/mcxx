@@ -3064,7 +3064,6 @@ char class_type_is_empty(type_t* t)
             num_of_non_empty_nonstatics_data_members++;
         }
     }
-
     entry_list_iterator_free(it);
     entry_list_free(nonstatic_data_members);
 
@@ -3216,8 +3215,9 @@ char class_type_is_nearly_empty(type_t* t)
 
     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
     scope_entry_list_iterator_t* it = NULL;
+    char empty = 1;
     for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
+            !entry_list_iterator_end(it) && empty;
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
@@ -3226,11 +3226,14 @@ char class_type_is_nearly_empty(type_t* t)
                 || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
         {
             // If we are not empty, we are not nearly empty either
-            return 0;
+            empty = 0;
         }
     }
     entry_list_iterator_free(it);
     entry_list_free(nonstatic_data_members);
+
+    if (!empty)
+        return 0;
 
     // This is implemented likewise it is in GCC
     char seen_non_virtual_nearly_empty = 0;
@@ -8118,14 +8121,22 @@ char class_type_is_standard_layout(type_t* t)
 
         if (is_lvalue_reference_type(data_member_type)
                 || is_rvalue_reference_type(data_member_type))
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(nonstatic_data_members);
             return 0;
+        }
 
         if (is_array_type(data_member_type))
             data_member_type = array_type_get_element_type(data_member_type);
         
         if (is_class_type(data_member_type)
                 && !class_type_is_standard_layout(data_member_type))
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(nonstatic_data_members);
             return 0;
+        }
     }
     entry_list_iterator_free(it);
 
@@ -8137,7 +8148,12 @@ char class_type_is_standard_layout(type_t* t)
         scope_entry_t* member_function = entry_list_iterator_current(it);
 
         if (member_function->entity_specs.is_virtual)
+        {
+            entry_list_iterator_free(it);
+            entry_list_free(member_functions);
+            entry_list_free(nonstatic_data_members);
             return 0;
+        }
     }
     entry_list_iterator_free(it);
     entry_list_free(member_functions);
@@ -8167,9 +8183,12 @@ char class_type_is_standard_layout(type_t* t)
         }
         else if (access != data_member->entity_specs.access)
         {
+            entry_list_iterator_free(it);
+            entry_list_free(nonstatic_data_members);
             return 0;
         }
     }
+    entry_list_iterator_free(it);
 
     for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
     {
@@ -8178,7 +8197,10 @@ char class_type_is_standard_layout(type_t* t)
                 /* access_specifier */ NULL);
 
         if (!class_type_is_standard_layout(base->type_information))
+        {
+            entry_list_free(nonstatic_data_members);
             return 0;
+        }
     }
 
     if (nonstatic_data_members == NULL)
@@ -8209,6 +8231,7 @@ char class_type_is_standard_layout(type_t* t)
             scope_entry_list_t* base_nonstatic_data_members = class_type_get_nonstatic_data_members(base->type_information);
             if (base_nonstatic_data_members == NULL)
             {
+                entry_list_free(nonstatic_data_members);
                 return 0;
             }
         }
@@ -8221,9 +8244,13 @@ char class_type_is_standard_layout(type_t* t)
                     /* access_specifier */ NULL);
 
             if (equivalent_types(first_nonstatic->type_information, base->type_information))
+            {
+                entry_list_free(nonstatic_data_members);
                 return 0;
+            }
         }
     }
+    entry_list_free(nonstatic_data_members);
 
     return 1;
 }
@@ -8253,7 +8280,11 @@ char is_aggregate_type(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (entry->entity_specs.is_user_declared)
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(constructors);
                 return 0;
+            }
         }
         entry_list_iterator_free(it);
         entry_list_free(constructors);
@@ -8269,13 +8300,21 @@ char is_aggregate_type(type_t* t)
             {
                 // No initializer for nonstatic data member
                 if (entry->language_dependent_value != NULL)
+                {
+                    entry_list_iterator_free(it);
+                    entry_list_free(nonstatic_data_members);
                     return 0;
+                }
             }
 
             // No private or protected non-static data members
             if (entry->entity_specs.access == AS_PRIVATE
                     || entry->entity_specs.access == AS_PROTECTED)
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
                 return 0;
+            }
         }
         entry_list_iterator_free(it);
         entry_list_free(nonstatic_data_members);
@@ -8293,7 +8332,11 @@ char is_aggregate_type(type_t* t)
 
             // No virtual functions
             if (entry->entity_specs.is_virtual)
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(member_functions);
                 return 0;
+            }
         }
         entry_list_iterator_free(it);
         entry_list_free(member_functions);
@@ -8338,8 +8381,14 @@ char class_type_is_pod(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (!is_pod_type(entry->type_information))
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
                 return 0;
+            }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
 
         scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
         for (it = entry_list_iterator_begin(copy_assignment_operators);
@@ -8349,8 +8398,14 @@ char class_type_is_pod(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (entry->entity_specs.is_user_declared)
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(copy_assignment_operators);
                 return 0;
+            }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(copy_assignment_operators);
 
         scope_entry_t* destructor = class_type_get_destructor(class_type);
         if (destructor != NULL && destructor->entity_specs.is_user_declared)
@@ -8374,8 +8429,14 @@ char class_type_is_pod(type_t* t)
             scope_entry_t* entry = entry_list_iterator_current(it);
 
             if (!is_pod_type(entry->type_information))
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
                 return 0;
+            }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
     }
 
     return 1;
@@ -8448,8 +8509,14 @@ char type_is_runtime_sized(type_t* t)
             scope_entry_t* member = entry_list_iterator_current(it);
 
             if (type_is_runtime_sized(member->type_information))
-                    return 1;
+            {
+                entry_list_iterator_free(it);
+                entry_list_free(nonstatic_data_members);
+                return 1;
+            }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
     }
 
     return 0;
@@ -8772,15 +8839,20 @@ char is_variably_modified_type(type_t* t)
         type_t* class_type = get_actual_class_type(t);
             scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
         scope_entry_list_iterator_t* it = NULL;
+        char result = 0;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && !result;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* member = entry_list_iterator_current(it);
 
             if (type_is_runtime_sized(member->type_information))
-                    return 1;
+                result = 1;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
+
+        return result;
     }
 
     return 0;

@@ -2245,7 +2245,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         }
     }
     entry_list_iterator_free(it);
-
     entry_list_free(result_list);
 
     if (entry == NULL)
@@ -3009,7 +3008,6 @@ static char class_has_const_copy_assignment_operator(type_t* t)
             break;
         }
     }
-
     entry_list_iterator_free(it);
     entry_list_free(copy_assignment_ops);
 
@@ -3115,7 +3113,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                         data_member->symbol_name);
             }
         }
-
         entry_list_iterator_free(it);
     }
     
@@ -3241,7 +3238,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 }
 
             }
-
             entry_list_iterator_free(it);
             entry_list_free(virtual_functions_base);
         }
@@ -3320,7 +3316,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
             scope_entry_list_t* base_constructors = class_type_get_constructors(base_class_type);
             scope_entry_list_iterator_t* it = NULL;
-
             for (it = entry_list_iterator_begin(base_constructors);
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
@@ -3331,7 +3326,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 has_bases_with_non_trivial_constructors
                     |= !current_constructor->entity_specs.is_trivial;
             }
-
             entry_list_iterator_free(it);
             entry_list_free(base_constructors);
         }
@@ -3340,7 +3334,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) && !has_nonstatic_data_member_with_no_trivial_constructor;
+                !entry_list_iterator_end(it) 
+                && !has_nonstatic_data_member_with_no_trivial_constructor;
                 entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
@@ -3367,6 +3362,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 }
             }
         }
+        entry_list_iterator_free(it);
 
         // After all these tests we can state that this constructor is
         // trivial
@@ -3409,7 +3405,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         // Now check my nonstatic members that are classes (or arrays to classes)
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                entry_list_iterator_end(it) && const_parameter;
+                !entry_list_iterator_end(it) && const_parameter;
                 entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
@@ -3433,6 +3429,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 }
             }
         }
+        entry_list_iterator_free(it);
 
         parameter_info_t parameter_info[1];
         memset(parameter_info, 0, sizeof(parameter_info));
@@ -3521,7 +3518,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 has_bases_with_no_trivial_copy_constructor
                     |= !copy_constructor->entity_specs.is_trivial;
             }
-
             entry_list_iterator_free(it2);
             entry_list_free(base_copy_constructors);
         }
@@ -3558,11 +3554,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     has_nonstatic_data_member_with_no_trivial_copy_constructor 
                         |= !copy_constructor->entity_specs.is_trivial;
                 }
-
                 entry_list_iterator_free(it2);
                 entry_list_free(member_copy_constructors);
             }
         }
+        entry_list_iterator_free(it);
 
         // It is trivial
         if (!has_virtual_bases
@@ -3626,6 +3622,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     class_has_const_copy_assignment_operator(member_actual_class_type);
             }
         }
+        entry_list_iterator_free(it);
 
         parameter_info_t parameter_info[1];
         memset(parameter_info, 0, sizeof(parameter_info));
@@ -3700,6 +3697,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 has_base_classes_with_no_trivial_copy_assignment |= 
                     !copy_assignment_op->entity_specs.is_trivial;
             }
+            entry_list_iterator_free(it2);
+            entry_list_free(base_copy_assignment_operators);
         }
 
         char has_nonstatic_data_member_with_no_trivial_copy_assignment = 0;
@@ -3739,6 +3738,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 entry_list_free(member_copy_assignment_operators);
             }
         }
+        entry_list_iterator_free(it);
 
         // It is trivial
         if (!has_virtual_bases
@@ -3843,6 +3843,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 }
             }
         }
+        entry_list_iterator_free(it);
 
         // It is a trivial destructor
         if (!base_has_nontrivial_destructor
@@ -3851,6 +3852,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             implicit_destructor->entity_specs.is_trivial = 1;
         }
     }
+
+    entry_list_free(nonstatic_data_members);
 
     DEBUG_CODE()
     {
@@ -10399,6 +10402,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
         entry_list_iterator_next(it);
     }
 
+    entry_list_iterator_free(it);
     entry_list_free(declared_symbols);
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
 }
@@ -10441,6 +10445,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
 
         entry_list_iterator_next(it);
     }
+    entry_list_iterator_free(it);
 
     ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_DECLARATION, ASTSon1(a));
 }

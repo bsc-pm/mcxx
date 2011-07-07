@@ -820,7 +820,6 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
                 ok = 0;
             }
         }
-
         entry_list_iterator_free(it);
         entry_list_free(entry_list);
 

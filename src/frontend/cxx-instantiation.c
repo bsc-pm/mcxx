@@ -725,6 +725,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 &template_map, &num_items_template_map,
                 &enum_map, &num_items_enum_map);
     }
+    entry_list_iterator_free(it);
+    entry_list_free(members);
 
     // The symbol is defined after this
     named_class->defined = 1;

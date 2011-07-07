@@ -761,6 +761,8 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                     declare_symbol(visitor, 
                             entry_list_iterator_current(it));
                 }
+                entry_list_iterator_free(it);
+                entry_list_free(members);
                 visitor->indent_level--;
                 visitor->current_sym = old_sym;
 

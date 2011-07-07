@@ -748,6 +748,8 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
             field_list[i] = insert_symbol(handle, field);
             i++;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(members);
 
         result = insert_type_ref_to_list_symbols(handle, t, name, 0, num_fields, field_list);
     }
@@ -1082,6 +1084,8 @@ static int get_symbol(void *datum,
             // Update field context
             field->decl_context = class_context;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(members);
     }
 
     return 0;

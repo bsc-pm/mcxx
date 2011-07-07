@@ -207,6 +207,8 @@ static void walk_type_for_symbols(
             scope_entry_t* member = entry_list_iterator_current(it);
             walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define);
         }
+        entry_list_iterator_free(it);
+        entry_list_free(members);
     }
     else if (is_enum_type(t))
     {
@@ -448,6 +450,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                     codegen_type_of_symbol(visitor, member->type_information, /* needs_def */ 1);
                 }
+                entry_list_iterator_free(it);
 
                 access_specifier_t default_access_spec = AS_UNKNOWN;
 
@@ -545,6 +548,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                         declare_symbol(visitor, friend);
                     }
+                    entry_list_iterator_free(it);
 
                     codegen_move_to_namespace_of_symbol(visitor, symbol);
 
@@ -699,6 +703,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                         visitor->indent_level--;
                     }
                 }
+                entry_list_iterator_free(it);
+                entry_list_free(members);
 
                 // Print friends
                 for (it = entry_list_iterator_begin(friends);
@@ -787,6 +793,8 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
                     visitor->indent_level--;
                 }
+                entry_list_iterator_free(it);
+                entry_list_free(friends);
 
                 indent(visitor);
                 fprintf(visitor->file, "};\n");

@@ -673,12 +673,8 @@ namespace TL
     ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_nonstatic_data_members(::get_actual_class_type(_type_info));
-
-        for (unsigned int i = 0; i < n; i++)
-        {
-            result.push_back(class_type_get_nonstatic_data_member_num(::get_actual_class_type(_type_info), i));
-        }
+        Scope::convert_to_vector(class_type_get_nonstatic_data_members(
+                    ::get_actual_class_type(_type_info)), result);
 
         return result;
     }
@@ -686,12 +682,8 @@ namespace TL
     ObjectList<Symbol> Type::get_static_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_static_data_members(::get_actual_class_type(_type_info));
-
-        for (unsigned int i = 0; i < n; i++)
-        {
-            result.push_back(class_type_get_static_data_member_num(::get_actual_class_type(_type_info), i));
-        }
+        Scope::convert_to_vector(class_type_get_static_data_members(
+                    ::get_actual_class_type(_type_info)), result);
 
         return result;
     }

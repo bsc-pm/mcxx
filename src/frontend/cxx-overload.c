@@ -383,6 +383,8 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 return;
             i++;
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
 
         result->kind = ICSK_USER_DEFINED;
         // Silly way of getting the identity
@@ -929,6 +931,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 }
             }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
     }
 
     if (num_user_defined_conversions > 0)
@@ -2519,6 +2523,8 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
 
         constructor_list = entry_list_add(constructor_list, constructor);
     }
+    entry_list_iterator_free(it);
+    entry_list_free(constructors);
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
             NULL, argument_types, num_arguments,
@@ -2628,6 +2634,9 @@ scope_entry_t* solve_init_list_constructor(
                 }
             }
         }
+
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
     }
 
     if (has_initializer_list_ctor)

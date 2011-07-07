@@ -11531,7 +11531,10 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     }
                 }
             }
+            entry_list_iterator_free(it);
         }
+
+        entry_list_free(constructors);
 
         if (!has_initializer_list_ctor)
         {

@@ -289,6 +289,8 @@ static void system_v_union_sizeof(type_t* class_type)
 
         i++;
     }
+    entry_list_iterator_free(it);
+    entry_list_free(nonstatic_data_members);
 
     // Compute tail padding, just ensure that the next laid out entity
     // will satisfy the alignment 
@@ -343,6 +345,8 @@ static void system_v_struct_sizeof(type_t* class_type)
                 is_last_field);
         i++;
     }
+    entry_list_iterator_free(it);
+    entry_list_free(nonstatic_data_members);
 
     // Compute tail padding, just ensure that the next laid out entity
     // would satisfy the alignment 
@@ -782,6 +786,8 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
                         chosen_offset + field_offset);
             }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
     }
 
     cxx_abi_register_entity_offset(layout_info, member, chosen_offset);
@@ -1226,6 +1232,8 @@ static char is_pod_type_layout(type_t* t)
                     return 0;
             }
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
 
         return 1;
     }
@@ -1334,6 +1342,8 @@ static void cxx_abi_class_sizeof(type_t* class_type)
                     /* is_base_class */ 0,
                     /* is_virtual_base_class */ 0);
         }
+        entry_list_iterator_free(it);
+        entry_list_free(nonstatic_data_members);
     }
 
     // After all such components have been allocated set nvalign(C) = align(C)
