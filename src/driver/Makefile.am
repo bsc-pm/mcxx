@@ -48,7 +48,11 @@ BUILT_SOURCES =
 
 END=
 
-mcxx_CFLAGS=-fexceptions \
+# _GNU_SOURCE is needed because of strsignal
+# although it is available directly since glibc >=2.10
+
+mcxx_CFLAGS=-D_GNU_SOURCE \
+			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/mcxx_tl \

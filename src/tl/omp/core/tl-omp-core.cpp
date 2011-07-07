@@ -451,16 +451,7 @@ namespace TL
 				            }
 
 				            // Lower array types
-				            int num_dimensions = 0;
-				            if (!var_sym.is_parameter()
-				                    && var_type.is_array())
-				            {
-				                while (var_type.is_array())
-				                {
-				                    var_type = var_type.array_element();
-				                    num_dimensions++;
-				                }
-				            }
+				            int num_dimensions = var_type.get_num_dimensions();
 
                             UDRInfoItem udr;
                             if (udr_is_builtin_operator(reductor_name))

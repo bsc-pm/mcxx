@@ -414,11 +414,8 @@ namespace TL
             //! Returns the expression of the array dimension
             AST_t array_get_size() const; 
 
-            //! This is an alias to array_get_size
-            /*!
-              \deprecated Do not use it, use array_get_size instead
-              */
-            DEPRECATED AST_t array_dimension() const;
+            //! Return the number of dimensions for an array type or 0 for the rest of types
+            int get_num_dimensions() const;
 
             //! This returns the bounds of the array
             /*!
