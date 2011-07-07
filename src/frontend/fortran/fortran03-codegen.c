@@ -5,6 +5,7 @@
 #include "cxx-driver-decls.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
+#include "cxx-entrylist.h"
 #include <string.h>
 
 typedef
@@ -747,15 +748,18 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
             {
                 indent(visitor);
                 fprintf(visitor->file, "TYPE :: %s\n", entry->symbol_name);
-                int i, num_components = class_type_get_num_nonstatic_data_members(entry->type_information);
 
                 scope_entry_t* old_sym = visitor->current_sym;
                 visitor->current_sym = entry;
                 visitor->indent_level++;
-                for (i = 0; i < num_components; i++)
+                scope_entry_list_t* members = class_type_get_nonstatic_data_members(entry->type_information);
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(members);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
                 {
                     declare_symbol(visitor, 
-                            class_type_get_nonstatic_data_member_num(entry->type_information, i));
+                            entry_list_iterator_current(it));
                 }
                 visitor->indent_level--;
                 visitor->current_sym = old_sym;

@@ -5,6 +5,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
 #include "cxx-driver-fortran.h"
+#include "cxx-entrylist.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -728,17 +729,24 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
         const char* name = "CLASS";
 
         type_t* class_type = get_actual_class_type(t);
-        int i = 0;
-        int num_fields = class_type_get_num_nonstatic_data_members(class_type);
+
+        scope_entry_list_t* members = class_type_get_nonstatic_data_members(class_type);
+
+        int num_fields = entry_list_size(members);
 
         sqlite3_int64 field_list[num_fields+1];
         memset(field_list, 0, sizeof(field_list));
 
-        for (i = 0; i < num_fields; i++)
+        int i = 0;
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* field = entry_list_iterator_current(it);
 
             field_list[i] = insert_symbol(handle, field);
+            i++;
         }
 
         result = insert_type_ref_to_list_symbols(handle, t, name, 0, num_fields, field_list);
@@ -1060,10 +1068,13 @@ static int get_symbol(void *datum,
         type_t* class_type = get_actual_class_type((*result)->type_information);
         class_type_set_inner_context(class_type, class_context);
 
-        int i, num_members = class_type_get_num_nonstatic_data_members(class_type);
-        for (i = 0; i < num_members; i++)
+        scope_entry_list_t* members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
+            scope_entry_t* field = entry_list_iterator_current(it);
             
             // Insert the component in the class context otherwise further lookups will fail
             insert_entry(class_context.current_scope, field);
@@ -1383,7 +1394,7 @@ static int get_type(void *datum,
         {
             scope_entry_t* member = load_symbol(handle, safe_atoll(field));
 
-            class_type_add_nonstatic_data_member(*pt, member);
+            class_type_add_member(*pt, member);
 
             field = strtok(NULL, ",");
         }

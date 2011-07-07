@@ -1003,14 +1003,14 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
                     return;
                 }
 
-                scope_entry_list_iterator_t* it = entry_list_iterator_begin(nonstatic_data_members);
+                scope_entry_list_iterator_t* iter = entry_list_iterator_begin(nonstatic_data_members);
                 for (i = 0; i < member_index; i++)
                 {
-                    entry_list_iterator_next(it);
+                    entry_list_iterator_next(iter);
                 }
-                member = entry_list_iterator_current(it);
+                member = entry_list_iterator_current(iter);
 
-                entry_list_iterator_free(it);
+                entry_list_iterator_free(iter);
                 entry_list_free(nonstatic_data_members);
 
                 member_index++;

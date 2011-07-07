@@ -62,7 +62,7 @@ static type_t* cuda_get_dim3_type(void)
             member_sym->entity_specs.is_member = 1;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
-            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
         // FIXME - We should register the constructors and conversion
@@ -100,7 +100,7 @@ static type_t* cuda_get_uint3_type(void)
             member_sym->entity_specs.is_member = 1;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
-            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
 

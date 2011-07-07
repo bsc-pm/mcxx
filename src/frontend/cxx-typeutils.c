@@ -8752,18 +8752,6 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
             entry);
 }
 
-scope_entry_t* class_type_get_friends(type_t* t, int num)
-{
-    ERROR_CONDITION(!is_class_type(t), "This is not an class type!", 0);
-    type_t* class_type = get_actual_class_type(t);
-
-    ERROR_CONDITION(num >= class_type->type->class_info->num_friends, 
-            "There are no so many friends (%d) in this class",
-            num);
-
-    return class_type->type->class_info->friends[num];
-}
-
 char is_variably_modified_type(type_t* t)
 {
     CXX_LANGUAGE()

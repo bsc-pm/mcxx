@@ -356,16 +356,20 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
     {
         // Just check that each of the types can be used to initialize the
         // nonstatic data members
-        int num_nonstatic_data_members = class_type_get_num_nonstatic_data_members(dest);
 
-        if (num_nonstatic_data_members != braced_list_type_get_num_types(orig))
+        scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(dest);
+
+        if (entry_list_size(nonstatic_data_members) != braced_list_type_get_num_types(orig))
             return;
 
+        scope_entry_list_iterator_t* it = NULL;
         int i;
-        for (i = 0; i < num_nonstatic_data_members; i++)
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
             implicit_conversion_sequence_t init_ics = invalid_ics;
-            scope_entry_t* member = class_type_get_nonstatic_data_member_num(dest, i);
+            scope_entry_t* member = entry_list_iterator_current(it);
 
             compute_ics_flags(braced_list_type_get_type_num(orig, i),
                     member->type_information,
@@ -377,6 +381,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             
             if (init_ics.kind == ICSK_INVALID)
                 return;
+            i++;
         }
 
         result->kind = ICSK_USER_DEFINED;
@@ -792,12 +797,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
         }
 
-        int i;
-        int num_constructors = class_type_get_num_constructors(get_actual_class_type(class_type));
-        for (i = 0; i < num_constructors; i++)
+        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
+        scope_entry_list_iterator_t* it;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* constructor = class_type_get_constructors_num(
-                    get_actual_class_type(class_type), i);
+            scope_entry_t* constructor = entry_list_iterator_current(it);
 
             // This is not an eligible conversor constructor
             if (!constructor->entity_specs.is_conversor_constructor)
@@ -2456,11 +2462,14 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
 
     scope_entry_list_t* constructor_list = NULL;
 
-    int i;
-    for (i = 0; i < class_type_get_num_constructors(get_actual_class_type(class_type)); i++)
+    scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
     {
         scope_entry_t* constructor 
-            = class_type_get_constructors_num(get_actual_class_type(class_type), i);
+            = entry_list_iterator_current(it);
 
         // If the context is not explicit ignore all constructors defined as explicit
         if (!is_explicit
@@ -2520,7 +2529,6 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;
-    scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
@@ -2541,6 +2549,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             filename, line, 
             augmented_conversors);
 
+    int i;
     for (i = 0; i < num_arguments; i++)
     {
         conversors[i] = augmented_conversors[i+1];
@@ -2589,11 +2598,13 @@ scope_entry_t* solve_init_list_constructor(
     char has_initializer_list_ctor = 0;
     if (std_initializer_list_template != NULL)
     {
-        int i;
-        int num_ctors = class_type_get_num_constructors(get_actual_class_type(class_type));
-        for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
+        scope_entry_list_t* constructors = class_type_get_constructors(get_actual_class_type(class_type));
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_constructors_num(get_actual_class_type(class_type), i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             int num_parameters = function_type_get_num_parameters(entry->type_information);
             // Number of real parameters, ellipsis are counted as parameters

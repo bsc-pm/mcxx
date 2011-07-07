@@ -198,11 +198,13 @@ static void walk_type_for_symbols(
     else if (is_unnamed_class_type(t))
     {
         // Special case for nested members
-        int i;
-        int num_members = class_type_get_num_members(t);
-        for (i = 0; i < num_members; i++)
+        scope_entry_list_t* members = class_type_get_members(t);
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it));
         {
-            scope_entry_t* member = class_type_get_member_num(t, i);
+            scope_entry_t* member = entry_list_iterator_current(it);
             walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define);
         }
     }
@@ -434,12 +436,16 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             {
                 int i = 0;
 
-                int num_friends = class_type_get_num_friends(symbol->type_information);
+                scope_entry_list_t* friends = class_type_get_friends(symbol->type_information);
 
-                int num_members = class_type_get_num_members(symbol->type_information);
-                for (i = 0; i < num_members; i++)
+                scope_entry_list_t* members = class_type_get_members(symbol->type_information);
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(members);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
                 {
-                    scope_entry_t* member = class_type_get_member_num(symbol->type_information, i);
+                    scope_entry_t* member = entry_list_iterator_current(it);
+
                     codegen_type_of_symbol(visitor, member->type_information, /* needs_def */ 1);
                 }
 
@@ -527,9 +533,12 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     }
 
                     // Define all friends that have been declared
-                    for (i = 0; i < num_friends; i++)
+                    for (it = entry_list_iterator_begin(friends);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
                     {
-                        scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
+                        scope_entry_t* friend = entry_list_iterator_current(it);
+
                         // The user did not declare it, ignore it
                         if (is_friend_declared(friend))
                             continue;
@@ -636,10 +645,11 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 
 
                 access_specifier_t current_access_spec = default_access_spec;
-                num_members = class_type_get_num_members(symbol->type_information);
-                for (i = 0; i < num_members; i++)
+                for (it = entry_list_iterator_begin(members);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
                 {
-                    scope_entry_t* member = class_type_get_member_num(symbol->type_information, i);
+                    scope_entry_t* member = entry_list_iterator_current(it);
                     access_specifier_t access_spec = member->entity_specs.access;
 
                     CXX_LANGUAGE()
@@ -691,9 +701,11 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                 }
 
                 // Print friends
-                for (i = 0; i < num_friends; i++)
+                for (it = entry_list_iterator_begin(friends);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
                 {
-                    scope_entry_t* friend = class_type_get_friend_num(symbol->type_information, i);
+                    scope_entry_t* friend = entry_list_iterator_current(it);
                     // The user did not declare it, ignore it
                     if (is_friend_declared(friend))
                         continue;
