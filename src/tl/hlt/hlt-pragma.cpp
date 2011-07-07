@@ -902,6 +902,12 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     try
     {
         PragmaCustomCompilerPhase::run(dto);
+
+        if (1)
+        {
+            AST_t translation_unit = dto["translation_unit"];
+            std::cout << translation_unit.prettyprint();
+        }
     }
     catch (HLTException e)
     {
