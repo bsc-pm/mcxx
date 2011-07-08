@@ -757,6 +757,16 @@ type {
         }
     }
 
+    CXX_LANGUAGE()
+    {
+        if (extern_c_block)
+        {
+            fprintf(stderr, "%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+                    scanning_now.current_filename,
+                    scanning_now.line_number);
+        }
+    }
+
     if (system_header_file)
     {
         char path[256];

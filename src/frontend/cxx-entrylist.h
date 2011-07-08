@@ -40,6 +40,9 @@ LIBMCXX_EXTERN scope_entry_list_t* entry_list_new(scope_entry_t*);
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
+        scope_entry_t* entry);
+
 LIBMCXX_EXTERN void entry_list_free(scope_entry_list_t* list);
 
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list);
@@ -61,9 +64,12 @@ LIBMCXX_EXTERN char entry_list_iterator_end(scope_entry_list_iterator_t* it);
 LIBMCXX_EXTERN void entry_list_iterator_free(scope_entry_list_iterator_t* it);
 
 // Other ops
-
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1, 
         const scope_entry_list_t* list2);
+
+LIBMCXX_EXTERN char entry_list_contains(const scope_entry_list_t* l, 
+        scope_entry_t* entry);
+
 
 MCXX_END_DECLS
 

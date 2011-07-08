@@ -2703,6 +2703,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 enumeration_item->language_dependent_value = enumeration_expr;
                 delta = 1;
                 base_enumerator = enumeration_expr;
+
+                enumeration_item->value = expression_get_nodecl(enumeration_expr);
             }
             else
             {
@@ -3470,6 +3472,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_copy_constructor->entity_specs.access = AS_PUBLIC;
         implicit_copy_constructor->entity_specs.class_type = type_info;
         implicit_copy_constructor->entity_specs.is_constructor = 1;
+        implicit_copy_constructor->entity_specs.is_copy_constructor = 1;
         implicit_copy_constructor->entity_specs.is_conversor_constructor = 1;
 
         implicit_copy_constructor->type_information = copy_constructor_type;
@@ -3526,7 +3529,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it) && !has_nonstatic_data_member_with_no_trivial_copy_constructor;
-                entry_list_iterator_next(it));
+                entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
 
@@ -3658,6 +3661,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         implicit_copy_assignment_function->entity_specs.num_parameters = 1;
         implicit_copy_assignment_function->entity_specs.default_argument_info = empty_default_argument_info(1);
+
+        implicit_copy_assignment_function->entity_specs.is_copy_assignment_operator = 1;
 
         class_type_add_member(class_type, implicit_copy_assignment_function);
 
@@ -8495,11 +8500,11 @@ static void update_member_function_info(AST declarator_name,
     {
         case AST_SYMBOL :
             {
+                entry->entity_specs.is_user_declared = 1;
                 if (is_constructor)
                 {
                     // This is a constructor
                     entry->entity_specs.is_constructor = 1;
-                    entry->entity_specs.is_user_declared = 1;
 
                     DEBUG_CODE()
                     {

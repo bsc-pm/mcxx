@@ -91,6 +91,27 @@ scope_entry_list_t* entry_list_add(scope_entry_list_t* list,
     return list;
 }
 
+scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
+        scope_entry_t* entry)
+{
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+
+        if (current == entry)
+        {
+            entry_list_iterator_free(it);
+            return list;
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return entry_list_add(list, entry);
+}
+
 scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
 {
     scope_entry_list_t* result = NULL;
@@ -286,6 +307,29 @@ scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1,
         result = entry_list_add(result, *q);
         q++;
     }
+
+    return result;
+}
+
+char entry_list_contains(const scope_entry_list_t* list, 
+        scope_entry_t* entry)
+{
+    if (list == NULL)
+        return 0;
+
+    char result = 0;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list);
+            !entry_list_iterator_end(it) && !result;
+            entry_list_iterator_next(it))
+    {
+        if (entry_list_iterator_current(it) == entry)
+        {
+            result = 1;
+        }
+    }
+    entry_list_iterator_free(it);
 
     return result;
 }

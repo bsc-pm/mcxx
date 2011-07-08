@@ -149,7 +149,7 @@ struct virtual_base_class_info_tag
 
 // Information of a class
 typedef 
-struct class_information_tag {
+struct class_info_tag {
     // Kind of class {struct, class}
     enum class_kind_t class_kind:4;
 
@@ -166,18 +166,13 @@ struct class_information_tag {
     decl_context_t inner_decl_context;
     
     // All members must be here, but can also be in lists below
-    int num_members;
-    scope_entry_t** members;
+    scope_entry_list_t* members;
 
     // Destructor
     scope_entry_t* destructor;
 
     // Default constructor
     scope_entry_t* default_constructor;
-
-    // Typenames (either typedefs, enums or inner classes)
-    int num_typenames;
-    scope_entry_t** typenames;
 
     // Base (parent classes) info
     int num_bases;
@@ -188,8 +183,7 @@ struct class_information_tag {
     virtual_base_class_info_t** virtual_base_classes_list;
 
     // Friends
-    int num_friends;
-    scope_entry_t** friends;
+    scope_entry_list_t* friends;
 
     // Info for laying out 
     _size_t non_virtual_size;
@@ -3336,24 +3330,210 @@ scope_entry_t* class_type_get_default_constructor(type_t* class_type)
     return class_type->type->class_info->default_constructor;
 }
 
-scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* class_type)
+static scope_entry_list_t* _class_type_get_members(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return NULL;
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return t->type->class_info->members;
 }
 
-void class_type_add_typename(type_t* class_type, scope_entry_t* entry)
+static scope_entry_list_t* _class_type_get_friends(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
 
-    ERROR_CONDITION(entry->kind != SK_TYPEDEF
-            && entry->kind != SK_CLASS
-            && entry->kind != SK_ENUM
-            && entry->kind != SK_TEMPLATE,
-            "Invalid member typename", 0);
+    return t->type->class_info->friends;
+}
 
-    P_LIST_ADD_ONCE(class_type->type->class_info->typenames, 
-            class_type->type->class_info->num_typenames, entry);
+scope_entry_list_t* class_type_get_friends(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+    scope_entry_list_t* friends = _class_type_get_friends(t);
+
+    return entry_list_copy(friends);
+}
+
+scope_entry_list_t* class_type_get_members(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+    scope_entry_list_t* members = _class_type_get_members(t);
+
+    return entry_list_copy(members);
+}
+
+static scope_entry_list_t* _class_type_get_members_pred(type_t* t, void* data, char (*fun)(scope_entry_t*, void*))
+{
+    scope_entry_list_t* members = _class_type_get_members(t);
+
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+        if (fun(current, data))
+        {
+            result = entry_list_add(result, current);
+        }
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
+static char _member_is_conversion(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_member
+        && entry->entity_specs.is_conversion;
+}
+
+scope_entry_list_t* class_type_get_conversions(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_conversion);
+}
+
+static char _member_is_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_member && entry->kind == SK_FUNCTION;
+}
+
+scope_entry_list_t* class_type_get_member_functions(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_member_function);
+}
+
+static char _member_is_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_member && entry->kind == SK_VARIABLE;
+}
+
+static char _member_is_static_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return _member_is_data_member(entry, data) && entry->entity_specs.is_static;
+}
+
+static char _member_is_nonstatic_data_member(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return _member_is_data_member(entry, data) && !entry->entity_specs.is_static;
+}
+
+scope_entry_list_t* class_type_get_nonstatic_data_members(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_nonstatic_data_member);
+}
+
+scope_entry_list_t* class_type_get_static_data_members(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_static_data_member);
+}
+
+static char _member_is_move_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_move_constructor;
+}
+
+scope_entry_list_t* class_type_get_move_constructors(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_move_constructor);
+}
+
+static char _member_is_copy_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_copy_constructor;
+}
+
+scope_entry_list_t* class_type_get_copy_constructors(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_copy_constructor);
+}
+
+static char _member_is_move_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_move_assignment_operator;
+}
+
+scope_entry_list_t* class_type_get_move_assignment_operators(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_move_assignment_operator);
+}
+
+static char _member_is_constructor(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_constructor;
+}
+
+scope_entry_list_t* class_type_get_constructors(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_constructor);
+}
+
+static char _member_is_copy_assignment_operator(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return entry->entity_specs.is_copy_assignment_operator;
+}
+
+scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    return _class_type_get_members_pred(t, NULL, _member_is_copy_assignment_operator);
+}
+
+static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
+{
+    return _member_is_member_function(entry, data) && entry->entity_specs.is_virtual;
+}
+
+scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    int i, num_bases = class_type_get_num_bases(t);
+
+    scope_entry_list_t* result = _class_type_get_members_pred(t, NULL, _member_is_virtual_member_function);
+
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        access_specifier_t access_spec = AS_UNKNOWN;
+        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual, &is_dependent, &access_spec);
+
+        result = entry_list_merge(result, class_type_get_virtual_functions(base_class->type_information));
+    }
+
+    return result;
 }
 
 void class_type_add_member(type_t* class_type, scope_entry_t* entry)
@@ -3361,8 +3541,7 @@ void class_type_add_member(type_t* class_type, scope_entry_t* entry)
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
     // It may happen that a type is added twice (redeclared classes ...)
-    P_LIST_ADD_ONCE(class_type->type->class_info->members, 
-            class_type->type->class_info->num_members, entry);
+    class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
 }
 
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
@@ -3617,18 +3796,6 @@ void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct
     }
 
     internal_error("Unreachable code", 0);
-}
-
-int class_type_get_num_members(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->num_members;
-}
-
-scope_entry_t* class_type_get_member_num(type_t* class_type, int num)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    return class_type->type->class_info->members[num];
 }
 
 scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)
@@ -8814,9 +8981,7 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
 
     type_t* class_type = get_actual_class_type(t);
 
-    P_LIST_ADD(class_type->type->class_info->friends,
-            class_type->type->class_info->num_friends,
-            entry);
+    class_type->type->class_info->friends = entry_list_add(class_type->type->class_info->friends, entry);
 }
 
 char is_variably_modified_type(type_t* t)

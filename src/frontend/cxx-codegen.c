@@ -20,10 +20,17 @@ struct nodecl_codegen_visitor_tag
     scope_entry_t* global_namespace;
     scope_entry_t* opened_namespace;
 
+    scope_t* current_scope;
+
     char in_condition;
     nodecl_t condition_top;
     char in_initializer;
     char mem_init_list;
+
+    int num_classes_being_defined;
+    scope_entry_t* classes_being_defined[MCXX_MAX_SCOPES_NESTING];
+
+    scope_entry_list_t* pending_nested_types_to_define;
 } nodecl_codegen_visitor_t;
 
 
@@ -145,43 +152,50 @@ static void walk_type_for_symbols(
         type_t* t,
         char needs_def, 
         void symbol_to_declare(nodecl_codegen_visitor_t*, scope_entry_t*),
-        void symbol_to_define(nodecl_codegen_visitor_t*, scope_entry_t*))
+        void symbol_to_define(nodecl_codegen_visitor_t*, scope_entry_t*),
+        void (*define_entities_in_tree)(nodecl_codegen_visitor_t* visitor, nodecl_t))
 {
     if (t == NULL)
         return;
 
     if (is_pointer_type(t))
     {
-        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (is_array_type(t))
     {
-        walk_type_for_symbols(visitor, array_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define);
+        define_entities_in_tree(visitor, array_type_get_array_size_expr(t));
+        walk_type_for_symbols(visitor, array_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
     {
-        walk_type_for_symbols(visitor, reference_type_get_referenced_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(visitor, reference_type_get_referenced_type(t), needs_def, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (is_pointer_to_class_type(t))
     {
-        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
-        walk_type_for_symbols(visitor, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+        walk_type_for_symbols(visitor, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
     }
     else if (is_function_type(t))
     {
         walk_type_for_symbols(visitor, function_type_get_return_type(t), 
-                /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+                /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
         int i;
         for (i = 0; i < function_type_get_num_parameters(t); i++)
         {
             walk_type_for_symbols(visitor, function_type_get_parameter_type_num(t, i), 
-                    /* needs_def */ 0, symbol_to_declare, symbol_to_define);
+                    /* needs_def */ 0, symbol_to_declare, symbol_to_define, define_entities_in_tree);
         }
     }
     else if (is_vector_type(t))
     {
-        walk_type_for_symbols(visitor, vector_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define);
+        walk_type_for_symbols(visitor, vector_type_get_element_type(t), /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
     }
     else if (is_named_class_type(t))
     {
@@ -202,17 +216,29 @@ static void walk_type_for_symbols(
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(members);
                 !entry_list_iterator_end(it);
-                entry_list_iterator_next(it));
+                entry_list_iterator_next(it))
         {
             scope_entry_t* member = entry_list_iterator_current(it);
-            walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define);
+            walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
         }
         entry_list_iterator_free(it);
         entry_list_free(members);
     }
-    else if (is_enum_type(t))
+    else if (is_unnamed_enumerated_type(t))
+    {
+        int i;
+        for (i = 0; i < enum_type_get_num_enumerators(t); i++)
+        {
+            // FIXME - Walk every enumerator
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(t, i);
+            define_entities_in_tree(visitor, enumerator->value);
+        }
+    }
+    else if (is_named_enumerated_type(t))
     {
         scope_entry_t* enum_entry = named_type_get_symbol(t);
+        walk_type_for_symbols(visitor, enum_entry->type_information, /* needs_def */ 1, symbol_to_declare, symbol_to_define, define_entities_in_tree);
+
         if (needs_def)
         {
             symbol_to_define(visitor, enum_entry);
@@ -232,26 +258,16 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
+static void declare_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
+static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 
-static void codegen_type_of_symbol(
-        nodecl_codegen_visitor_t *visitor,
-        type_t* t,
-        char needs_def)
-{
-    walk_type_for_symbols(visitor, t, needs_def, declare_symbol, define_symbol);
-}
-
-static void codegen_type_of_symbol_only_nonlocal(
-        nodecl_codegen_visitor_t *visitor,
-        type_t* t,
-        char needs_def)
-{
-    walk_type_for_symbols(visitor, t, needs_def, declare_symbol_if_nonlocal, define_symbol_if_nonlocal);
-}
+static void define_nonnested_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_t);
+static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_t);
+static void define_all_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_t);
 
 static void add_to_clear_list(scope_entry_t* entry);
 
-static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node, scope_t* current_scope)
+static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     if (nodecl_is_null(node))
         return;
@@ -259,18 +275,21 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        define_local_entities_in_trees(visitor, nodecl_get_child(node, i), current_scope);
+        define_local_entities_in_trees(visitor, nodecl_get_child(node, i));
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
             && entry->type_information != NULL)
     {
-        codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
+        walk_type_for_symbols(visitor, entry->type_information, /* needs def */ 1,
+                declare_symbol_if_nonlocal,
+                define_symbol_if_nonlocal,
+                define_local_entities_in_trees);
 
-        define_local_entities_in_trees(visitor, entry->value, current_scope);
+        define_local_entities_in_trees(visitor, entry->value);
 
-        if (current_scope == entry->decl_context.current_scope)
+        if (visitor->current_scope == entry->decl_context.current_scope)
         {
             if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
             {
@@ -289,7 +308,10 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
     type_t* type = nodecl_get_type(node);
     if (type != NULL)
     {
-        codegen_type_of_symbol(visitor, type, /* needs def */ 1);
+        walk_type_for_symbols(visitor, type, /* needs def */ 1,
+                declare_symbol_if_nonlocal,
+                define_symbol_if_nonlocal,
+                define_local_entities_in_trees);
     }
 }
 
@@ -308,7 +330,9 @@ static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor,
     if (entry != NULL
             && entry->type_information != NULL)
     {
-        codegen_type_of_symbol_only_nonlocal(visitor, entry->type_information, /* needs def */ 1);
+        walk_type_for_symbols(visitor, entry->type_information, 
+                /* needs_def */ 1, declare_symbol_if_nonlocal, define_symbol_if_nonlocal,
+                define_nonlocal_entities_in_trees);
         define_symbol_if_nonlocal(visitor, entry);
 
         define_nonlocal_entities_in_trees(visitor, entry->value);
@@ -317,7 +341,75 @@ static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor,
     type_t* type = nodecl_get_type(node);
     if (type != NULL)
     {
-        codegen_type_of_symbol_only_nonlocal(visitor, type, /* needs def */ 1);
+        walk_type_for_symbols(visitor, type,
+                /* needs_def */ 1, declare_symbol_if_nonlocal, define_symbol_if_nonlocal,
+                define_nonlocal_entities_in_trees);
+    }
+}
+
+static void define_nonnested_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        define_nonnested_entities_in_trees(visitor, nodecl_get_child(node, i));
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    if (entry != NULL
+            && entry->type_information != NULL)
+    {
+        walk_type_for_symbols(visitor, entry->type_information, 
+                /* needs_def */ 1, declare_symbol_if_nonnested, define_symbol_if_nonnested,
+                define_nonnested_entities_in_trees);
+        define_symbol_if_nonnested(visitor, entry);
+
+        define_nonnested_entities_in_trees(visitor, entry->value);
+    }
+
+    type_t* type = nodecl_get_type(node);
+    if (type != NULL)
+    {
+        walk_type_for_symbols(visitor, type,
+                /* needs_def */ 1, declare_symbol_if_nonnested, define_symbol_if_nonnested,
+                define_nonnested_entities_in_trees);
+    }
+}
+
+static void define_all_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    if (nodecl_is_null(node))
+        return;
+
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        define_all_entities_in_trees(visitor, nodecl_get_child(node, i));
+    }
+
+    scope_entry_t* entry = nodecl_get_symbol(node);
+    if (entry != NULL
+            && entry->type_information != NULL)
+    {
+        walk_type_for_symbols(visitor, entry->type_information, /* needs_def */ 1, 
+                declare_symbol,
+                define_symbol,
+                define_all_entities_in_trees);
+        define_symbol(visitor, entry);
+
+        define_all_entities_in_trees(visitor, entry->value);
+    }
+
+    type_t* type = nodecl_get_type(node);
+    if (type != NULL)
+    {
+        walk_type_for_symbols(visitor, type, /* needs_def */ 1, 
+                declare_symbol,
+                define_symbol,
+                define_all_entities_in_trees);
     }
 }
 
@@ -348,6 +440,495 @@ static void run_clear_list(void)
 #endif
 }
 
+static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* class_sym)
+{
+    if (symbol->entity_specs.is_member)
+    {
+        return symbol_is_same_or_nested_in(
+                named_type_get_symbol(symbol->entity_specs.class_type),
+                class_sym);
+    }
+    else
+    {
+        return symbol == class_sym;
+    }
+}
+
+// Classes are so complex that they reserve a whole routine for them
+static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
+{
+    visitor->pending_nested_types_to_define = NULL;
+    scope_entry_list_t* members = class_type_get_members(symbol->type_information);
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* member = entry_list_iterator_current(it);
+
+        // Nested types are not considered first here
+        if (member->kind != SK_CLASS
+                && member->kind != SK_ENUM)
+        {
+            walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
+                    declare_symbol_if_nonnested, 
+                    define_symbol_if_nonnested,
+                    define_nonnested_entities_in_trees);
+        }
+        else if (member->kind == SK_ENUM)
+        {
+            int i;
+            for (i = 0; i < enum_type_get_num_enumerators(member->type_information); i++)
+            {
+                scope_entry_t* enumerator = enum_type_get_enumerator_num(member->type_information, i);
+                define_nonnested_entities_in_trees(visitor, enumerator->value);
+            }
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(members);
+
+    scope_entry_list_t* friends = class_type_get_members(symbol->type_information);
+    for (it = entry_list_iterator_begin(friends);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* friend = entry_list_iterator_current(it);
+        walk_type_for_symbols(visitor, friend->type_information, /* needs_def */ 0, 
+                declare_symbol_if_nonnested, 
+                define_symbol_if_nonnested,
+                define_nonnested_entities_in_trees);
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(friends);
+
+    // This will compute a list of symbols that must be defined inside the class
+    scope_entry_list_t* result = NULL;
+
+    // Remove ourselves from the result list. This happens because nonnested
+    // routines add all the enclosing symbols too, and the top most should not
+    // be included
+    for (it = entry_list_iterator_begin(visitor->pending_nested_types_to_define);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current = entry_list_iterator_current(it);
+        if (current != symbol)
+        {
+            result = entry_list_add_once(result, current);
+        }
+    }
+
+    visitor->pending_nested_types_to_define = NULL;
+
+    scope_entry_list_t* must_be_defined_inside_class = entry_list_copy(result);
+
+    for (it = entry_list_iterator_begin(must_be_defined_inside_class);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        // Now for each of these symbols define whatever they might require too
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_list_t* pending_symbols = define_required_before_class(visitor, entry);
+
+        scope_entry_list_t* old_result = result;
+        result = entry_list_merge(result, pending_symbols);
+        entry_list_free(old_result);
+    }
+
+    entry_list_free(must_be_defined_inside_class);
+
+    return result;
+}
+
+static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol, 
+        scope_entry_list_t* symbols_defined_inside_class, int level)
+{
+    access_specifier_t default_access_spec = AS_UNKNOWN;
+    const char *class_key = "";
+    switch (class_type_get_class_kind(symbol->type_information))
+    {
+        case CK_CLASS:
+            class_key = "class";
+            default_access_spec = AS_PRIVATE;
+            break;
+        case CK_STRUCT:
+            class_key = "struct";
+            default_access_spec = AS_PUBLIC;
+            break;
+        case CK_UNION:
+            class_key = "union";
+            default_access_spec = AS_PUBLIC;
+            break;
+        default:
+            internal_error("Invalid class kind", 0);
+    }
+
+    // 1. Declaration of the class key part
+    C_LANGUAGE()
+    {
+        indent(visitor);
+        if (symbol->entity_specs.is_anonymous
+                && symbol->decl_context.current_scope->kind == CLASS_SCOPE)
+        {
+            // If is anonymous and in class scope, this is an anonymously declared class inside a class specifier,
+            // thus, do not print its name, only its class-key
+            fprintf(visitor->file, "%s\n", class_key);
+        }
+        else
+        {
+            // Usual case: the symbol will be already called 'struct/union X' in C
+            fprintf(visitor->file, "%s\n", symbol->symbol_name);
+        }
+        indent(visitor);
+        fprintf(visitor->file, "{\n");
+    }
+
+    CXX_LANGUAGE()
+    {
+        char is_template_specialized = 0;
+        char is_primary_template = 0;
+
+        type_t* template_type = NULL;
+        type_t* primary_template = NULL;
+        scope_entry_t* primary_symbol = NULL;
+
+        if (is_template_specialized_type(symbol->type_information))
+        {
+            is_template_specialized = 1;
+            template_type = template_specialized_type_get_related_template_type(symbol->type_information);
+            primary_template = template_type_get_primary_type(template_type);
+            primary_symbol = named_type_get_symbol(primary_template);
+
+            if (primary_symbol != symbol)
+            {
+                declare_symbol(visitor, primary_symbol);
+            }
+            else
+            {
+                is_primary_template = 1;
+            }
+        }
+
+        if (class_type_get_num_bases(symbol->type_information) != 0)
+        {
+            // We need to define all the bases first
+            int i;
+            for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
+            {
+                scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
+                define_symbol(visitor, entry);
+            }
+        }
+
+        codegen_move_to_namespace_of_symbol(visitor, symbol);
+
+        if (is_template_specialized)
+        {
+            type_t* class_type = get_actual_class_type(symbol->type_information);
+            if (class_type_is_complete_independent(class_type)
+                    || class_type_is_incomplete_independent(class_type))
+            {
+                indent(visitor);
+                fprintf(visitor->file, "template <>\n");
+            }
+            else
+            {
+                ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+
+                template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
+                        symbol->type_information);
+
+                indent(visitor);
+                fprintf(visitor->file, "template <");
+                codegen_template_parameters(visitor, template_parameters);
+                fprintf(visitor->file, ">\n");
+            }
+        }
+
+        indent(visitor);
+        const char* qualified_name = NULL;
+        if (level == 0)
+        {
+            qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
+        }
+        else
+        {
+            qualified_name = symbol->symbol_name;
+            if (is_template_specialized
+                    && !is_primary_template)
+            {
+                qualified_name = strappend(qualified_name, 
+                        get_template_arguments_str(symbol, symbol->decl_context));
+            }
+        }
+
+        // Global qualification is not valid here
+        while (qualified_name[0] == ':')
+        {
+            qualified_name++;
+        }
+
+        fprintf(visitor->file, "%s %s", class_key, qualified_name);
+
+        // From here we assume its already defined
+        symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+        if (class_type_get_num_bases(symbol->type_information) != 0)
+        {
+            fprintf(visitor->file, " : ");
+            int i;
+            for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
+            {
+                if (i != 0)
+                {
+                    fprintf(visitor->file, ", ");
+                }
+
+                access_specifier_t current_access_spec = AS_UNKNOWN;
+                char is_virtual = 0;
+                scope_entry_t* base = class_type_get_base_num(symbol->type_information, i, 
+                        &is_virtual, 
+                        /* is_dependent */ NULL, 
+                        &current_access_spec);
+
+                if (is_virtual)
+                {
+                    fprintf(visitor->file, "virtual ");
+                }
+
+                if (current_access_spec != default_access_spec)
+                {
+                    if (current_access_spec == AS_PUBLIC)
+                    {
+                        fprintf(visitor->file, "public ");
+                    }
+                    else if (current_access_spec == AS_PRIVATE)
+                    {
+                        fprintf(visitor->file, "private ");
+                    }
+                    else if (current_access_spec == AS_PROTECTED)
+                    {
+                        fprintf(visitor->file, "protected ");
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
+                }
+
+                fprintf(visitor->file, "%s", get_qualified_symbol_name(base, symbol->decl_context));
+            }
+        }
+
+        fprintf(visitor->file, "\n");
+        indent(visitor);
+        fprintf(visitor->file, "{\n");
+    }
+
+    // 2. Now declare members
+    scope_entry_list_t* members = class_type_get_members(symbol->type_information);
+
+    access_specifier_t current_access_spec = default_access_spec;
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* member = entry_list_iterator_current(it);
+        access_specifier_t access_spec = member->entity_specs.access;
+
+        CXX_LANGUAGE()
+        {
+            visitor->indent_level += 1;
+            if (current_access_spec != access_spec)
+            {
+                current_access_spec = access_spec;
+
+                indent(visitor);
+                if (current_access_spec == AS_PUBLIC)
+                {
+                    fprintf(visitor->file, "public:\n");
+                }
+                else if (current_access_spec == AS_PRIVATE)
+                {
+                    fprintf(visitor->file, "private:\n");
+                }
+                else if (current_access_spec == AS_PROTECTED)
+                {
+                    fprintf(visitor->file, "protected:\n");
+                }
+                else
+                {
+                    internal_error("Unreachable code", 0);
+                }
+            }
+        }
+
+        visitor->indent_level += 1;
+
+        C_LANGUAGE()
+        {
+            // Everything must be properly defined in C
+            define_symbol(visitor, member);
+            member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+        }
+        CXX_LANGUAGE()
+        {
+            if (member->kind != SK_CLASS)
+            {
+                declare_symbol(visitor, member);
+                if (member->kind == SK_VARIABLE && 
+                        !member->entity_specs.is_static)
+                {
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                }
+            }
+            else
+            {
+                if (entry_list_contains(symbols_defined_inside_class, member))
+                {
+                    define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
+                    declare_symbol(visitor, member);
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                }
+            }
+        }
+        visitor->indent_level--;
+
+        CXX_LANGUAGE()
+        {
+            visitor->indent_level--;
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(members);
+
+    // 3. Declare friends
+    scope_entry_list_t* friends = class_type_get_friends(symbol->type_information);
+
+    for (it = entry_list_iterator_begin(friends);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* friend = entry_list_iterator_current(it);
+        // The user did not declare it, ignore it
+        if (is_friend_declared(friend))
+            continue;
+
+        char is_primary_template = 0;
+        scope_entry_t* template_symbol = NULL;
+
+        visitor->indent_level++;
+        // Since friends are a tad bit special we will handle them here
+        if (is_template_specialized_type(friend->type_information))
+        {
+            type_t* template_type = template_specialized_type_get_related_template_type(friend->type_information);
+            template_symbol = template_type_get_related_symbol(template_type);
+            type_t* primary_template = template_type_get_primary_type(template_type);
+            scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
+
+            if (primary_symbol == symbol)
+            {
+                indent(visitor);
+                fprintf(visitor->file, "template <");
+                template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
+                codegen_template_parameters(visitor, template_parameters);
+                fprintf(visitor->file, ">\n");
+
+                is_primary_template = 1;
+            }
+        }
+
+        indent(visitor);
+        fprintf(visitor->file, "friend ");
+
+        if (friend->kind == SK_CLASS)
+        {
+            const char *friend_class_key = "";
+            switch (class_type_get_class_kind(symbol->type_information))
+            {
+                case CK_CLASS:
+                    friend_class_key = "class";
+                    break;
+                case CK_STRUCT:
+                    friend_class_key = "struct";
+                    break;
+                case CK_UNION:
+                    friend_class_key = "union";
+                    break;
+                default:
+                    internal_error("Invalid class kind", 0);
+            }
+
+            if (!is_primary_template)
+            {
+                fprintf(visitor->file, "%s %s;\n", friend_class_key, 
+                        get_qualified_symbol_name(friend, friend->decl_context));
+            }
+            else
+            {
+                fprintf(visitor->file, "%s %s;\n", friend_class_key, 
+                        get_qualified_symbol_name(template_symbol, template_symbol->decl_context));
+            }
+        }
+        else if (friend->kind == SK_FUNCTION)
+        {
+            type_t* real_type = friend->type_information;
+            if (symbol->entity_specs.is_conversion)
+            {
+                real_type = get_new_function_type(NULL, NULL, 0);
+            }
+
+            const char* declarator = print_decl_type_str(real_type,
+                    friend->decl_context,
+                    get_qualified_symbol_name(friend, friend->decl_context));
+
+            fprintf(visitor->file, "%s;\n", declarator);
+        }
+        else
+        {
+            internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(friend));
+        }
+
+        visitor->indent_level--;
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(friends);
+
+    visitor->num_classes_being_defined--;
+
+    indent(visitor);
+    fprintf(visitor->file, "};\n");
+}
+
+static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
+{
+    scope_entry_list_t* old_pending = visitor->pending_nested_types_to_define;
+
+    ERROR_CONDITION(visitor->num_classes_being_defined == MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
+    visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
+    visitor->num_classes_being_defined++;
+
+    // FIXME - We should do likewise for declared friends
+
+    // 1. Only for top level classes Make sure that every non-member type (or not belonging to this class)
+    // needed by the members has been declared/defined before
+    scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
+
+    define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
+
+    visitor->pending_nested_types_to_define = old_pending;
+}
+
 static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
     ERROR_CONDITION(symbol == NULL, "Invalid symbol", 0);
@@ -373,31 +954,21 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_TYPEDEF:
             {
-                codegen_type_of_symbol(visitor,
+                walk_type_for_symbols(visitor,
                         symbol->type_information,
-                        /* needs_def */ 1);
-                // codegen_move_to_namespace_of_symbol(visitor, symbol);
-                // indent(visitor);
-                // fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
-                //             symbol->decl_context, symbol->symbol_name));
+                        /* needs_def */ 1,
+                        declare_symbol,
+                        define_symbol,
+                        NULL);
                 break;
             }
         case SK_ENUMERATOR:
             {
-                define_symbol(visitor, named_type_get_symbol(symbol->type_information));
+                internal_error("Not implemented yet", 0);
                 break;
             }
         case SK_ENUM:
             {
-                // First define what may be needed of this 
-                int i;
-                for (i = 0; i < enum_type_get_num_enumerators(symbol->type_information); i++)
-                {
-                    scope_entry_t* enumerator = enum_type_get_enumerator_num(symbol->type_information, i);
-                    define_nonlocal_entities_in_trees(visitor, enumerator->value);
-                    enumerator->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                }
-
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 C_LANGUAGE()
                 {
@@ -416,6 +987,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                 }
                 visitor->indent_level++;
 
+                int i;
                 for (i = 0; i < enum_type_get_num_enumerators(symbol->type_information); i++)
                 {
                     scope_entry_t* enumerator = enum_type_get_enumerator_num(symbol->type_information, i);
@@ -425,6 +997,12 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                     }
                     indent(visitor);
                     fprintf(visitor->file, "%s", enumerator->symbol_name);
+
+                    if (!nodecl_is_null(enumerator->value))
+                    {
+                        fprintf(visitor->file, " = ");
+                        codegen_walk(visitor, enumerator->value);
+                    }
                 }
 
                 visitor->indent_level--;
@@ -436,369 +1014,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_CLASS:
             {
-                int i = 0;
-
-                scope_entry_list_t* friends = class_type_get_friends(symbol->type_information);
-
-                scope_entry_list_t* members = class_type_get_members(symbol->type_information);
-                scope_entry_list_iterator_t* it = NULL;
-                for (it = entry_list_iterator_begin(members);
-                        !entry_list_iterator_end(it);
-                        entry_list_iterator_next(it))
-                {
-                    scope_entry_t* member = entry_list_iterator_current(it);
-
-                    codegen_type_of_symbol(visitor, member->type_information, /* needs_def */ 1);
-                }
-                entry_list_iterator_free(it);
-
-                access_specifier_t default_access_spec = AS_UNKNOWN;
-
-                const char *class_key = "";
-                switch (class_type_get_class_kind(symbol->type_information))
-                {
-                    case CK_CLASS:
-                        class_key = "class";
-                        default_access_spec = AS_PRIVATE;
-                        break;
-                    case CK_STRUCT:
-                        class_key = "struct";
-                        default_access_spec = AS_PUBLIC;
-                        break;
-                    case CK_UNION:
-                        class_key = "union";
-                        default_access_spec = AS_PUBLIC;
-                        break;
-                    default:
-                        internal_error("Invalid class kind", 0);
-                }
-
-                C_LANGUAGE()
-                {
-                    indent(visitor);
-                    if (symbol->entity_specs.is_anonymous
-                            && symbol->decl_context.current_scope->kind == CLASS_SCOPE)
-                    {
-                        // If is anonymous and in class scope, this is an anonymously declared class inside a class specifier,
-                        // thus, do not print its name, only its class-key
-                        fprintf(visitor->file, "%s\n", class_key);
-                    }
-                    else
-                    {
-                        // Usual case: the symbol will be already called 'struct/union X' in C
-                        fprintf(visitor->file, "%s\n", symbol->symbol_name);
-                    }
-                    indent(visitor);
-                    fprintf(visitor->file, "{\n");
-                }
-
-                CXX_LANGUAGE()
-                {
-                    // This class is a member class we need to define its enclosing class first
-                    if (symbol->entity_specs.is_member)
-                    {
-                        define_symbol(visitor, 
-                                named_type_get_symbol(symbol->entity_specs.class_type));
-                    }
-
-                    char is_template_specialized = 0;
-                    char is_primary_template = 0;
-
-                    type_t* template_type = NULL;
-                    type_t* primary_template = NULL;
-                    scope_entry_t* primary_symbol = NULL;
-
-                    if (is_template_specialized_type(symbol->type_information))
-                    {
-                        is_template_specialized = 1;
-                        template_type = template_specialized_type_get_related_template_type(symbol->type_information);
-                        primary_template = template_type_get_primary_type(template_type);
-                        primary_symbol = named_type_get_symbol(primary_template);
-
-                        if (primary_symbol != symbol)
-                        {
-                            declare_symbol(visitor, primary_symbol);
-                        }
-                        else
-                        {
-                            is_primary_template = 1;
-                        }
-                    }
-
-                    if (class_type_get_num_bases(symbol->type_information) != 0)
-                    {
-                        // We need to define all the bases first
-                        for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
-                        {
-                            scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
-                            define_symbol(visitor, entry);
-                        }
-                    }
-
-                    // Define all friends that have been declared
-                    for (it = entry_list_iterator_begin(friends);
-                            !entry_list_iterator_end(it);
-                            entry_list_iterator_next(it))
-                    {
-                        scope_entry_t* friend = entry_list_iterator_current(it);
-
-                        // The user did not declare it, ignore it
-                        if (is_friend_declared(friend))
-                            continue;
-
-                        declare_symbol(visitor, friend);
-                    }
-                    entry_list_iterator_free(it);
-
-                    codegen_move_to_namespace_of_symbol(visitor, symbol);
-
-                    if (is_template_specialized)
-                    {
-                        type_t* class_type = get_actual_class_type(symbol->type_information);
-                        if (class_type_is_complete_independent(class_type)
-                                || class_type_is_incomplete_independent(class_type))
-                        {
-                            indent(visitor);
-                            fprintf(visitor->file, "template <>\n");
-                        }
-                        else
-                        {
-                            ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
-
-                            template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
-                                    symbol->type_information);
-
-                            indent(visitor);
-                            fprintf(visitor->file, "template <");
-                            codegen_template_parameters(visitor, template_parameters);
-                            fprintf(visitor->file, ">\n");
-                        }
-                    }
-
-                    indent(visitor);
-                    const char* qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
-
-                    // Global qualification is not valid here
-                    while (qualified_name[0] == ':')
-                    {
-                        qualified_name++;
-                    }
-
-                    fprintf(visitor->file, "%s %s", class_key, qualified_name);
-                    
-                    // From here we assume its already defined
-                    symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-
-                    if (is_template_specialized
-                            && !is_primary_template)
-                    {
-                        fprintf(visitor->file, "%s", 
-                                get_template_arguments_str(symbol, symbol->decl_context));
-                    }
-
-                    if (class_type_get_num_bases(symbol->type_information) != 0)
-                    {
-                        fprintf(visitor->file, " : ");
-                        for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
-                        {
-                            if (i != 0)
-                            {
-                                fprintf(visitor->file, ", ");
-                            }
-
-                            access_specifier_t current_access_spec = AS_UNKNOWN;
-                            char is_virtual = 0;
-                            scope_entry_t* base = class_type_get_base_num(symbol->type_information, i, 
-                                    &is_virtual, 
-                                    /* is_dependent */ NULL, 
-                                    &current_access_spec);
-
-                            if (is_virtual)
-                            {
-                                fprintf(visitor->file, "virtual ");
-                            }
-
-                            if (current_access_spec != default_access_spec)
-                            {
-                                if (current_access_spec == AS_PUBLIC)
-                                {
-                                    fprintf(visitor->file, "public ");
-                                }
-                                else if (current_access_spec == AS_PRIVATE)
-                                {
-                                    fprintf(visitor->file, "private ");
-                                }
-                                else if (current_access_spec == AS_PROTECTED)
-                                {
-                                    fprintf(visitor->file, "protected ");
-                                }
-                                else
-                                {
-                                    internal_error("Unreachable code", 0);
-                                }
-                            }
-
-                            fprintf(visitor->file, "%s", get_qualified_symbol_name(base, symbol->decl_context));
-                        }
-                    }
-
-                    fprintf(visitor->file, "\n");
-                    indent(visitor);
-                    fprintf(visitor->file, "{\n");
-                }
-
-
-                access_specifier_t current_access_spec = default_access_spec;
-                for (it = entry_list_iterator_begin(members);
-                        !entry_list_iterator_end(it);
-                        entry_list_iterator_next(it))
-                {
-                    scope_entry_t* member = entry_list_iterator_current(it);
-                    access_specifier_t access_spec = member->entity_specs.access;
-
-                    CXX_LANGUAGE()
-                    {
-                        visitor->indent_level += 1;
-                        if (current_access_spec != access_spec)
-                        {
-                            current_access_spec = access_spec;
-
-                            indent(visitor);
-                            if (current_access_spec == AS_PUBLIC)
-                            {
-                                fprintf(visitor->file, "public:\n");
-                            }
-                            else if (current_access_spec == AS_PRIVATE)
-                            {
-                                fprintf(visitor->file, "private:\n");
-                            }
-                            else if (current_access_spec == AS_PROTECTED)
-                            {
-                                fprintf(visitor->file, "protected:\n");
-                            }
-                            else
-                            {
-                                internal_error("Unreachable code", 0);
-                            }
-                        }
-                    }
-
-                    visitor->indent_level += 1;
-
-                    C_LANGUAGE()
-                    {
-                        // Everything must be properly defined in C
-                        define_symbol(visitor, member);
-                    }
-                    CXX_LANGUAGE()
-                    {
-                        declare_symbol(visitor, member);
-                    }
-                    // This has been already defined here
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                    visitor->indent_level--;
-
-                    CXX_LANGUAGE()
-                    {
-                        visitor->indent_level--;
-                    }
-                }
-                entry_list_iterator_free(it);
-                entry_list_free(members);
-
-                // Print friends
-                for (it = entry_list_iterator_begin(friends);
-                        !entry_list_iterator_end(it);
-                        entry_list_iterator_next(it))
-                {
-                    scope_entry_t* friend = entry_list_iterator_current(it);
-                    // The user did not declare it, ignore it
-                    if (is_friend_declared(friend))
-                        continue;
-
-                    char is_primary_template = 0;
-                    scope_entry_t* template_symbol = NULL;
-
-                    visitor->indent_level++;
-                    // Since friends are a tad bit special we will handle them here
-                    if (is_template_specialized_type(friend->type_information))
-                    {
-                        type_t* template_type = template_specialized_type_get_related_template_type(friend->type_information);
-                        template_symbol = template_type_get_related_symbol(template_type);
-                        type_t* primary_template = template_type_get_primary_type(template_type);
-                        scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
-
-                        if (primary_symbol == symbol)
-                        {
-                            indent(visitor);
-                            fprintf(visitor->file, "template <");
-                            template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
-                            codegen_template_parameters(visitor, template_parameters);
-                            fprintf(visitor->file, ">\n");
-
-                            is_primary_template = 1;
-                        }
-                    }
-
-                    indent(visitor);
-                    fprintf(visitor->file, "friend ");
-
-                    if (friend->kind == SK_CLASS)
-                    {
-                        const char *friend_class_key = "";
-                        switch (class_type_get_class_kind(symbol->type_information))
-                        {
-                            case CK_CLASS:
-                                friend_class_key = "class";
-                                break;
-                            case CK_STRUCT:
-                                friend_class_key = "struct";
-                                break;
-                            case CK_UNION:
-                                friend_class_key = "union";
-                                break;
-                            default:
-                                internal_error("Invalid class kind", 0);
-                        }
-
-                        if (!is_primary_template)
-                        {
-                            fprintf(visitor->file, "%s %s;\n", friend_class_key, 
-                                    get_qualified_symbol_name(friend, friend->decl_context));
-                        }
-                        else
-                        {
-                            fprintf(visitor->file, "%s %s;\n", friend_class_key, 
-                                    get_qualified_symbol_name(template_symbol, template_symbol->decl_context));
-                        }
-                    }
-                    else if (friend->kind == SK_FUNCTION)
-                    {
-                        type_t* real_type = friend->type_information;
-                        if (symbol->entity_specs.is_conversion)
-                        {
-                            real_type = get_new_function_type(NULL, NULL, 0);
-                        }
-
-                        const char* declarator = print_decl_type_str(real_type,
-                                friend->decl_context,
-                                get_qualified_symbol_name(friend, friend->decl_context));
-
-                        fprintf(visitor->file, "%s;\n", declarator);
-                    }
-                    else
-                    {
-                        internal_error("Invalid friend symbol kind '%s'\n", symbol_kind_name(friend));
-                    }
-
-                    visitor->indent_level--;
-                }
-                entry_list_iterator_free(it);
-                entry_list_free(friends);
-
-                indent(visitor);
-                fprintf(visitor->file, "};\n");
-
+                define_class_symbol(visitor, symbol);
                 break;
             }
         case SK_FUNCTION:
@@ -987,13 +1203,21 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     indent(visitor);
                     fprintf(visitor->file, "%s;\n", symbol->symbol_name);
                 }
+
                 CXX_LANGUAGE()
                 {
-                    // This class is a member class we need to define its enclosing class first
                     if (symbol->entity_specs.is_member)
                     {
-                        define_symbol(visitor, 
-                                named_type_get_symbol(symbol->entity_specs.class_type));
+                        // A nested symbol can be declared only if we are
+                        // defining its immediate enclosing class, otherwise request for a definition of the enclosing class
+                        if (visitor->num_classes_being_defined == 0
+                                || (visitor->classes_being_defined[visitor->num_classes_being_defined-1] != 
+                                    named_type_get_symbol(symbol->entity_specs.class_type)))
+                        {
+                            define_symbol(visitor, 
+                                    named_type_get_symbol(symbol->entity_specs.class_type));
+                            return;
+                        }
                     }
 
                     char is_template_specialized = 0;
@@ -1091,24 +1315,27 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
         case SK_TYPEDEF:
             {
                 // Get a declaration to the aliased type
-                codegen_type_of_symbol(visitor,
+                walk_type_for_symbols(visitor,
                         symbol->type_information,
-                        /* needs_def */ 0);
-                // // A typedef cannot be only declared, it is always defined
-                // symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                // codegen_move_to_namespace_of_symbol(visitor, symbol);
-                // indent(visitor);
-                // fprintf(visitor->file, "typedef %s;\n", print_decl_type_str(symbol->type_information, 
-                //         symbol->decl_context, symbol->symbol_name));
+                        /* needs_def */ 0,
+                        declare_symbol,
+                        define_symbol,
+                        define_nonlocal_entities_in_trees);
                 break;
             }
         case SK_FUNCTION:
             {
+                // If this function was not user declared, do not print
+                if (symbol->entity_specs.is_member
+                        && !symbol->entity_specs.is_user_declared)
+                    break;
+
                 walk_type_for_symbols(visitor,
                         symbol->type_information,
                         0,
                         declare_symbol,
-                        define_symbol);
+                        define_symbol,
+                        define_nonlocal_entities_in_trees);
 
                 CXX_LANGUAGE()
                 {
@@ -1271,6 +1498,72 @@ static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_e
     if (!is_local_symbol(symbol))
     {
         define_symbol(visitor, symbol);
+    }
+}
+
+static char symbol_is_nested_in_defined_classes(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
+{
+    int i;
+    for (i = 0; i < visitor->num_classes_being_defined; i++)
+    {
+        // If the symbol we are going to define is nested in one of
+        // the classes being defined, do not define now. It will be defined later
+        if (symbol_is_same_or_nested_in(symbol, visitor->classes_being_defined[i]))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static void declare_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
+{
+    if (!symbol_is_nested_in_defined_classes(visitor, symbol))
+    {
+        declare_symbol(visitor, symbol);
+    }
+    else
+    {
+        // If we only need a declaration, we need the definition(s) of the enclosing class(es)
+        if (symbol->entity_specs.is_member
+                && (symbol->kind == SK_CLASS
+                    || symbol->kind == SK_ENUM))
+        {
+            scope_entry_t* current_sym = named_type_get_symbol(symbol->entity_specs.class_type);
+            while (current_sym->entity_specs.is_member)
+            {
+                visitor->pending_nested_types_to_define = 
+                    entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
+                current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
+            }
+        }
+    }
+}
+
+static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
+{
+    if (!symbol_is_nested_in_defined_classes(visitor, symbol))
+    {
+        define_symbol(visitor, symbol);
+    }
+    else
+    {
+        // Add all the nested_classes
+        scope_entry_t* current_sym = symbol;
+        while (current_sym->entity_specs.is_member)
+        {
+            if (!entry_list_contains(visitor->pending_nested_types_to_define, current_sym))
+            {
+                walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
+                        declare_symbol_if_nonnested, 
+                        define_symbol_if_nonnested,
+                        define_nonnested_entities_in_trees);
+            }
+            visitor->pending_nested_types_to_define = 
+                entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
+            current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
+        }
     }
 }
 
@@ -2492,7 +2785,9 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     scope_entry_t* scope_symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
 
-    define_local_entities_in_trees(visitor, statement_seq, scope_symbol->decl_context.current_scope);
+    visitor->current_scope = scope_symbol->decl_context.current_scope;
+    define_local_entities_in_trees(visitor, statement_seq);
+    visitor->current_scope = NULL;
 
     codegen_walk(visitor, statement_seq);
 
@@ -2508,7 +2803,11 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     if (!visitor->mem_init_list)
     {
-        codegen_type_of_symbol(visitor, entry->type_information, /* needs def */ 1);
+        walk_type_for_symbols(visitor, entry->type_information, 
+                /* needs def */ 1,
+                declare_symbol,
+                define_symbol,
+                define_all_entities_in_trees);
 
         entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
         define_symbol(visitor, entry);
@@ -2564,7 +2863,11 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         }
     }
 
-    codegen_type_of_symbol(visitor, function_type_get_return_type(symbol->type_information), /* needs_def */ 1);
+    walk_type_for_symbols(visitor, function_type_get_return_type(symbol->type_information),
+            /* needs_def */ 1,
+            declare_symbol,
+            define_symbol,
+            define_all_entities_in_trees);
 
     visitor->current_sym = symbol;
 
@@ -2575,7 +2878,11 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     for (i = 0; i < num_params; i++)
     {
-        codegen_type_of_symbol(visitor, function_type_get_parameter_type_num(symbol->type_information, i), /* needs_def */ 1);
+        walk_type_for_symbols(visitor, function_type_get_parameter_type_num(symbol->type_information, i),
+                /* needs_def */ 1,
+                declare_symbol,
+                define_symbol,
+                define_all_entities_in_trees);
     }
 
     define_nonlocal_entities_in_trees(visitor, statement);
