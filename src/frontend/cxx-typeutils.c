@@ -6941,7 +6941,7 @@ const char* print_declarator(type_t* printed_declarator)
                 {
                     tmp_result = strappend(tmp_result, "{");
                     tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->region->lower_bound));
-                    tmp_result = strappend(tmp_result, " .. ");
+                    tmp_result = strappend(tmp_result, " ; ");
                     tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->region->upper_bound));
                     tmp_result = strappend(tmp_result, "}" );
                 }

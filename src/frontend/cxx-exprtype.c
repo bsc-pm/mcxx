@@ -11945,8 +11945,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
                 ast_location(expression));
     }
 
-    char is_array_section_size = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
-
     if (expression_is_error(postfix_expression)
             || (lower_bound != NULL && expression_is_error(lower_bound))
             || (upper_bound != NULL && expression_is_error(upper_bound)))
@@ -11955,14 +11953,15 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         return;
     }
 
-    if (is_array_section_size)
+    char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION);
+    if (is_array_section)
     {
         AST one_tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, "1");
-        upper_bound = 
-            ASTMake2(AST_MINUS,
-                    ASTMake2(AST_ADD,
-                        ast_copy(lower_bound),
+        upper_bound =
+            ASTMake2(AST_ADD,
+                    ASTMake2(AST_MINUS,
                         ast_copy(upper_bound),
+                        ast_copy(lower_bound),
                         ASTFileName(upper_bound),
                         ASTLine(upper_bound), NULL),
                     one_tree,

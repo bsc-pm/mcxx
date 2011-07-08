@@ -397,7 +397,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
-                            << "sizeof(" << base_type_name << ") * (" << ub.prettyprint() << " - " << lb.prettyprint() << " + 1UL)"
+                            << "sizeof(" << base_type_name << ") * (" << ub.prettyprint() << ")"
                             << "}"
                             ;
                     }
