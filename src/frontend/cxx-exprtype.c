@@ -8923,40 +8923,43 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         }
 
         int max_args_to_check = num_explicit_arguments;
-        if (!function_type_get_has_ellipsis(proper_function_type))
+        if (!function_type_get_lacking_prototype(proper_function_type))
         {
-            if (num_explicit_arguments != function_type_get_num_parameters(proper_function_type))
+            if (!function_type_get_has_ellipsis(proper_function_type))
             {
-                if (!checking_ambiguity())
+                if (num_explicit_arguments != function_type_get_num_parameters(proper_function_type))
                 {
-                    error_printf("%s: error: call with %d arguments for a function with %d parameters\n",
-                            ast_location(whole_function_call),
-                            num_explicit_arguments,
-                            function_type_get_num_parameters(proper_function_type));
-                }
-                if (CURRENT_CONFIGURATION->strict_typecheck)
-                    return 0;
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: call using %d arguments to a function with %d parameters\n",
+                                ast_location(whole_function_call),
+                                num_explicit_arguments,
+                                function_type_get_num_parameters(proper_function_type));
+                    }
+                    if (CURRENT_CONFIGURATION->strict_typecheck)
+                        return 0;
 
-                if (function_type_get_num_parameters(proper_function_type) < max_args_to_check)
-                    max_args_to_check = function_type_get_num_parameters(proper_function_type);
+                    if (function_type_get_num_parameters(proper_function_type) < max_args_to_check)
+                        max_args_to_check = function_type_get_num_parameters(proper_function_type);
+                }
             }
-        }
-        else
-        {
-            int min_arguments = function_type_get_num_parameters(proper_function_type) - 1;
-            max_args_to_check = min_arguments;
-
-            if (num_explicit_arguments < min_arguments)
+            else
             {
-                if (!checking_ambiguity())
+                int min_arguments = function_type_get_num_parameters(proper_function_type) - 1;
+                max_args_to_check = min_arguments;
+
+                if (num_explicit_arguments < min_arguments)
                 {
-                    error_printf("%s: error: call with %d arguments for a function with at least %d parameters\n",
-                            ast_location(whole_function_call),
-                            num_explicit_arguments,
-                            min_arguments);
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: call with %d arguments for a function with at least %d parameters\n",
+                                ast_location(whole_function_call),
+                                num_explicit_arguments,
+                                min_arguments);
+                    }
+                    if (CURRENT_CONFIGURATION->strict_typecheck)
+                        return 0;
                 }
-                if (CURRENT_CONFIGURATION->strict_typecheck)
-                    return 0;
             }
         }
 
@@ -8974,7 +8977,15 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 AST arg = ASTSon1(iter);
 
                 type_t* arg_type = expression_get_type(arg);
-                type_t* param_type = function_type_get_parameter_type_num(proper_function_type, i);
+                type_t* param_type = NULL;
+                if (!function_type_get_lacking_prototype(proper_function_type))
+                {
+                    param_type = function_type_get_parameter_type_num(proper_function_type, i);
+                }
+                else
+                {
+                    param_type = get_signed_int_type();
+                }
 
                 standard_conversion_t result;
                 if (!standard_conversion_between_types(&result, arg_type, param_type))
