@@ -6596,6 +6596,26 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         return;
     }
 
+    if (!is_array_type(no_ref(subscripted_type))
+            && !is_pointer_type(no_ref(subscripted_type))
+            && (is_array_type(no_ref(subscript_type))
+                || is_pointer_type(no_ref(subscript_type))))
+    {
+        // C oddity: since E1[E2] is equivalent to *(E1 + E2) and it is also
+        // valid *(E2 + E1), then E2[E1] is valid too
+        // Swap everything E1[E2] can be E2[E1] if one is a pointer and the other an integral type
+        {
+            AST t = subscripted_expr;
+            subscripted_expr = subscript_expr;
+            subscript_expr = t;
+        }
+        {
+            type_t* t = subscripted_type;
+            subscripted_type = subscript_type;
+            subscript_type = t;
+        }
+    }
+
     // Builtin cases
     if (is_array_type(no_ref(subscripted_type)))
     {
@@ -8740,7 +8760,17 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                     prettyprint_in_buffer(whole_function_call),
                     ast_location(whole_function_call));
         }
+
+        // We are largely permissive with this case
+        if (ASTType(advanced_called_expression) == AST_SYMBOL)
+        {
+            enter_test_expression();
+        }
         check_expression_impl_(called_expression, decl_context);
+        if (ASTType(advanced_called_expression) == AST_SYMBOL)
+        {
+            leave_test_expression();
+        }
 
         if (expression_is_error(called_expression))
         {
@@ -8759,7 +8789,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: function '%s' has not been declared, assuming it to be like '%s'\n", 
+                        warn_printf("%s: warning: function '%s' has not been declared, assuming it to be like '%s'\n", 
                                 ast_location(called_expression),
                                 prettyprint_in_buffer(called_expression),
                                 print_decl_type_str(expression_get_type(called_expression), decl_context, name));
