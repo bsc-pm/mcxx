@@ -147,6 +147,10 @@ static void codegen_move_to_namespace_of_symbol(nodecl_codegen_visitor_t* visito
     visitor->opened_namespace = namespace_sym;
 }
 
+#define MAX_WALK_TYPES 2048
+int _stack_walked_types_top = 0;
+type_t* _stack_walked_types[MAX_WALK_TYPES];
+
 static void walk_type_for_symbols(
         nodecl_codegen_visitor_t *visitor,
         type_t* t,
@@ -157,6 +161,22 @@ static void walk_type_for_symbols(
 {
     if (t == NULL)
         return;
+
+    {
+        int i;
+        for (i = _stack_walked_types_top - 1; i >= 0; i--)
+        {
+            if (_stack_walked_types[i] == t)
+                return;
+        }
+    }
+
+    // This poisons return, do not return from this function
+#define return 1=1;
+
+    ERROR_CONDITION(_stack_walked_types_top == MAX_WALK_TYPES, "Too many types walked %d!\n", _stack_walked_types_top);
+    _stack_walked_types[_stack_walked_types_top] = t;
+    _stack_walked_types_top++;
 
     if (is_pointer_type(t))
     {
@@ -252,6 +272,10 @@ static void walk_type_for_symbols(
     {
         // Do nothing as it will be a builtin type
     }
+#undef return
+
+    _stack_walked_types_top--;
+    ERROR_CONDITION(_stack_walked_types_top < 0, "Invalid stack index", 0);
 }
 
 static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
@@ -458,49 +482,66 @@ static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* cl
 static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
     visitor->pending_nested_types_to_define = NULL;
-    scope_entry_list_t* members = class_type_get_members(symbol->type_information);
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* member = entry_list_iterator_current(it);
 
-        // Nested types are not considered first here
-        if (member->kind != SK_CLASS
-                && member->kind != SK_ENUM)
+    scope_entry_list_iterator_t* it = NULL;
+    if (symbol->kind == SK_CLASS)
+    {
+        scope_entry_list_t* members = class_type_get_members(symbol->type_information);
+        for (it = entry_list_iterator_begin(members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
+            scope_entry_t* member = entry_list_iterator_current(it);
+
+            // Nested types are not considered first here
+            if (member->kind != SK_CLASS
+                    && member->kind != SK_ENUM)
+            {
+                walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
+                        declare_symbol_if_nonnested, 
+                        define_symbol_if_nonnested,
+                        define_nonnested_entities_in_trees);
+            }
+            else if (member->kind == SK_ENUM)
+            {
+                int i;
+                for (i = 0; i < enum_type_get_num_enumerators(member->type_information); i++)
+                {
+                    scope_entry_t* enumerator = enum_type_get_enumerator_num(member->type_information, i);
+                    define_nonnested_entities_in_trees(visitor, enumerator->value);
+                }
+            }
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(members);
+
+        scope_entry_list_t* friends = class_type_get_members(symbol->type_information);
+        for (it = entry_list_iterator_begin(friends);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* friend = entry_list_iterator_current(it);
+            walk_type_for_symbols(visitor, friend->type_information, /* needs_def */ 0, 
                     declare_symbol_if_nonnested, 
                     define_symbol_if_nonnested,
                     define_nonnested_entities_in_trees);
         }
-        else if (member->kind == SK_ENUM)
-        {
-            int i;
-            for (i = 0; i < enum_type_get_num_enumerators(member->type_information); i++)
-            {
-                scope_entry_t* enumerator = enum_type_get_enumerator_num(member->type_information, i);
-                define_nonnested_entities_in_trees(visitor, enumerator->value);
-            }
-        }
+        entry_list_iterator_free(it);
+        entry_list_free(friends);
     }
-    entry_list_iterator_free(it);
-    entry_list_free(members);
-
-    scope_entry_list_t* friends = class_type_get_members(symbol->type_information);
-    for (it = entry_list_iterator_begin(friends);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+    else if (symbol->kind == SK_ENUM
+             || symbol->kind == SK_ENUMERATOR)
     {
-        scope_entry_t* friend = entry_list_iterator_current(it);
-        walk_type_for_symbols(visitor, friend->type_information, /* needs_def */ 0, 
+        walk_type_for_symbols(visitor, symbol->type_information, /* needs_def */ 0, 
                 declare_symbol_if_nonnested, 
                 define_symbol_if_nonnested,
                 define_nonnested_entities_in_trees);
     }
-    entry_list_iterator_free(it);
-    entry_list_free(friends);
+    else 
+    {
+        internal_error("Unexpected symbol kind %s\n", symbol_kind_name(symbol));
+    }
+
 
     // This will compute a list of symbols that must be defined inside the class
     scope_entry_list_t* result = NULL;
@@ -1553,13 +1594,11 @@ static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_
         scope_entry_t* current_sym = symbol;
         while (current_sym->entity_specs.is_member)
         {
-            if (!entry_list_contains(visitor->pending_nested_types_to_define, current_sym))
-            {
-                walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
-                        declare_symbol_if_nonnested, 
-                        define_symbol_if_nonnested,
-                        define_nonnested_entities_in_trees);
-            }
+            walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
+                    declare_symbol_if_nonnested, 
+                    define_symbol_if_nonnested,
+                    define_nonnested_entities_in_trees);
+
             visitor->pending_nested_types_to_define = 
                 entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
             current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
