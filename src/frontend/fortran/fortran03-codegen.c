@@ -1102,9 +1102,7 @@ static void codegen_open_close_statement(nodecl_codegen_visitor_t* visitor, node
     nodecl_t nodecl_io_spec = nodecl_get_child(node, 0);
     if (!nodecl_is_null(nodecl_io_spec))
     {
-        fprintf(visitor->file, "(");
         codegen_comma_separated_list(visitor, nodecl_io_spec);
-        fprintf(visitor->file, ")");
     }
     fprintf(visitor->file, ")\n");
 }
