@@ -991,13 +991,21 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     if (symbol == NULL)
         return 0;
 
-    char * attribute_values = symbol_get_attribute_values(handle, symbol);
-    sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
-
     if (oid_already_inserted(handle, "symbol", symbol))
         return (sqlite3_int64)(intptr_t)symbol;
 
-    char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid, name, kind, type, file, line, %s) "
+    char * insert_symbol_query = sqlite3_mprintf("INSERT INTO symbol(oid) "
+            "VALUES (%lld);",
+            P2LL(symbol));
+
+    run_query(handle, insert_symbol_query);
+    sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
+
+    char * attribute_values = symbol_get_attribute_values(handle, symbol);
+    sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
+
+    // We should be using UPDATE, but its syntax is so inconvenient here
+    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, %s) "
             "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %s);",
             attr_field_names,
             P2LL(symbol), // oid
@@ -1008,8 +1016,7 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
             symbol->line, // line
             attribute_values);
 
-    run_query(handle, insert_symbol_query);
-    sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
+    run_query(handle, update_symbol_query);
 
     insert_decl_context(handle, symbol, symbol->decl_context);
 
