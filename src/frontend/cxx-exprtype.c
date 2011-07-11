@@ -2392,11 +2392,13 @@ static type_t *string_literal_type(AST expr, const_value_t** value)
         for (i = 0; i < length; i++)
             c[i] = real_literal[i];
 
-        *value = const_value_make_string(c);
+        // -1 due to '\0' being added by compute_length_of_literal_string
+        *value = const_value_make_string(c, length - 1);
     }
     else
     {
-        *value = const_value_make_wstring(real_literal);
+        // -1 due to '\0' being added by compute_length_of_literal_string
+        *value = const_value_make_wstring(real_literal, length - 1);
     }
 
     type_t* result = get_literal_string_type(length, is_wchar);

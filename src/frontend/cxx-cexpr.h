@@ -105,8 +105,8 @@ LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_va
 LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
 
-LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal);
-LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal);
+LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
 
 LIBMCXX_EXTERN void const_value_string_unpack(const_value_t* v, int**, int*);
 

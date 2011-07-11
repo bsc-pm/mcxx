@@ -800,6 +800,49 @@ AST const_value_to_tree(const_value_t* v)
                 v->tree = ASTLeaf(AST_FLOATING_LITERAL, NULL, 0, uniquestr(c));
                 expression_set_type(v->tree, t);
             }
+            else if (v->kind == CVK_STRING)
+            {
+                int *bytes = NULL;
+                int num_elements = 0;
+                const_value_string_unpack(v, &bytes, &num_elements);
+
+                if (num_elements > 0)
+                {
+                    if (const_value_get_bytes(v->value.m->elements[0]) == 1)
+                    {
+                        int length = num_elements + 2 + 1;
+                        char c[length];
+                        c[0] = '"';
+                        int i, p = 1;
+                        for (i = 0; i < num_elements; i++, p++)
+                        {
+                            c[p] = const_value_cast_to_1(v->value.m->elements[i]);
+                        }
+                        c[p] = '"'; p++;
+                        c[p] = '\0'; p++;
+
+                        v->tree = ASTLeaf(AST_STRING_LITERAL, NULL, 0, uniquestr(c));
+                    }
+                    else
+                    {
+                        char c[num_elements + 3 + 1];
+
+                        wchar_t t_elements[num_elements + 1];
+                        memcpy(t_elements, bytes, sizeof(int)*num_elements);
+                        t_elements[num_elements] = 0;
+
+                        snprintf(c, num_elements + 2 + 1, "L\"%ls\"", t_elements);
+
+                        v->tree = ASTLeaf(AST_STRING_LITERAL, NULL, 0, uniquestr(c));
+                    }
+                }
+                else
+                {
+                    v->tree = ASTLeaf(AST_STRING_LITERAL, NULL, 0, uniquestr("\"\""));
+                }
+
+                free(bytes);
+            }
             else
             {
                 return NULL;
@@ -923,10 +966,8 @@ const_value_t* const_value_make_struct(int num_elements, const_value_t **element
     return result;
 }
 
-const_value_t* const_value_make_string(const char* literal)
+const_value_t* const_value_make_string(const char* literal, int num_elements)
 {
-    int num_elements = strlen(literal);
-
     const_value_t* result = NULL;
     if (num_elements > 0)
     {
@@ -948,12 +989,8 @@ const_value_t* const_value_make_string(const char* literal)
     return result;
 }
 
-const_value_t* const_value_make_wstring(int* literal)
+const_value_t* const_value_make_wstring(int* literal, int num_elements)
 {
-    int i = 0;
-    int num_elements = 0;
-    while (literal[i] != 0)
-        num_elements++;
 
     const_value_t* result = NULL;
     if (num_elements > 0)
@@ -961,6 +998,7 @@ const_value_t* const_value_make_wstring(int* literal)
         const_value_t* elements[num_elements];
         memset(elements, 0, sizeof(elements));
 
+        int i;
         for (i = 0; i < num_elements; i++)
         {
             elements[i] = const_value_get_integer(literal[i], 4, 0);
@@ -1653,8 +1691,8 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
     // Rebuild the string
     int nelems1 = const_value_get_num_elements(v1);
     int nelems2 = const_value_get_num_elements(v2);
-    int num_elements = nelems1 + nelems2 + 1;
-    char new_string[num_elements];
+    int num_elements = nelems1 + nelems2 ;
+    char new_string[num_elements + 1];
 
     int p = 0;
     int i;
@@ -1667,9 +1705,9 @@ const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
         new_string[p] = const_value_cast_to_1(const_value_get_element_num(v2, i));
     }
 
-    new_string[num_elements - 1] = '\0';
+    new_string[num_elements] = '\0';
 
     const char* str = uniquestr(new_string);
 
-    return const_value_make_string(str);
+    return const_value_make_string(str, num_elements);
 }

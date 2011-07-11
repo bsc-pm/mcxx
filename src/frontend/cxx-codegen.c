@@ -1844,7 +1844,9 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
     int length = 0;
     const_value_string_unpack(v, &bytes, &length);
 
-    char is_wchar = (const_value_get_bytes(const_value_get_element_num(v, 0)) != 1);
+    type_t* element_type = array_type_get_element_type(no_ref(nodecl_get_type(node)));
+    char is_wchar = !is_unsigned_char_type(element_type)
+        && !is_signed_char_type(element_type);
 
     fprintf(visitor->file, "%s", quote_c_string(bytes, length, is_wchar));
     free(bytes);

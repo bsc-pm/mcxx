@@ -2271,7 +2271,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
             ASTFileName(expr),
             ASTLine(expr));
     nodecl_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_signed_int(length), 
+            const_value_get_signed_int(real_length), 
             ASTFileName(expr),
             ASTLine(expr));
 
@@ -2281,7 +2281,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-    const_value_t* value = const_value_make_string(real_string);
+    const_value_t* value = const_value_make_string(real_string, real_length);
     expression_set_constant(expr, value);
 
     *nodecl_output = nodecl_make_string_literal(t, value, ASTFileName(expr), ASTLine(expr));
@@ -2955,12 +2955,22 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
                 get_signed_int_type(), 
                 const_value_get_signed_int(1), 
                 NULL, 0);
-        nodecl_t upper = 
-            nodecl_make_add(
+        nodecl_t upper = nodecl_null();
+        if (nodecl_is_constant(length1) 
+                && nodecl_is_constant(length2))
+        {
+            upper = const_value_to_nodecl(
+                    const_value_add(nodecl_get_constant(length1),
+                        nodecl_get_constant(length2)));
+        }
+        else
+        {
+            upper = nodecl_make_add(
                     nodecl_copy(length1),
                     nodecl_copy(length2),
                     get_signed_int_type(),
                     NULL, 0);
+        }
 
         result = get_array_type_bounds(char1, 
                 lower, 
@@ -3091,6 +3101,7 @@ static void const_bin_gte(AST expr, AST lhs, AST rhs);
 static void const_unary_not(AST expr, AST lhs, AST rhs);
 static void const_bin_and(AST expr, AST lhs, AST rhs);
 static void const_bin_or(AST expr, AST lhs, AST rhs);
+static void const_bin_concat(AST expr, AST lhs, AST rhs);
 
 #define NODECL_FUN_2BIN(x) binary_##x
 
@@ -3116,7 +3127,7 @@ static operand_map_t operand_map[] =
     HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./", nodecl_make_div),
     HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**", nodecl_make_power),
     // String concat
-    HANDLER_MAP(AST_CONCAT, concat_op, NULL, ".operator.//", nodecl_make_concat),
+    HANDLER_MAP(AST_CONCAT, concat_op, const_bin_concat, ".operator.//", nodecl_make_concat),
     // Relational strong
     HANDLER_MAP(AST_EQUAL, relational_equality, const_bin_equal, ".operator.==", nodecl_make_equal),
     HANDLER_MAP(AST_DIFFERENT, relational_equality, const_bin_not_equal, ".operator./=", nodecl_make_different),
@@ -3461,6 +3472,11 @@ static void const_bin_div(AST expr, AST lhs, AST rhs)
 static void const_bin_power(AST expr, AST lhs, AST rhs)
 {
     const_bin_(expr, lhs, rhs, const_value_pow);
+}
+
+static void const_bin_concat(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_string_concat);
 }
 
 static void const_bin_equal(AST expr, AST lhs, AST rhs)
