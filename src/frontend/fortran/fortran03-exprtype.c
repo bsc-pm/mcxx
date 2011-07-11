@@ -220,6 +220,10 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                 ast_print_node_type(ASTType(expression)));
     }
     (handler->handler)(expression, decl_context, nodecl_output);
+    if (expression_is_error(expression))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+    }
     expression_set_nodecl(expression, *nodecl_output);
 
     DEBUG_CODE()
