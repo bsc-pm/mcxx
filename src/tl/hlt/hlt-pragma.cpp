@@ -903,7 +903,8 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        if (1)
+        //Intermediate SIMD code flag is on
+        if (0)
         {
             AST_t translation_unit = dto["translation_unit"];
             std::cout << translation_unit.prettyprint();
