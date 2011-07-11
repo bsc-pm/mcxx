@@ -1743,7 +1743,7 @@ static void codegen_text(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
 
-static const char* quote_c_string(int* c, char is_wchar)
+static const char* quote_c_string(int* c, int length, char is_wchar)
 {
     char *quoted_string = NULL;
     size_t size = 0;
@@ -1756,10 +1756,7 @@ static const char* quote_c_string(int* c, char is_wchar)
 
     fprintf(temporal_stream, "%s", "\"");
 
-    int i, length = 0;
-    for (i = 0; c[i] != 0; i++)
-        /* empty */ ;
-    length = i;
+    int i;
     for (i = 0; i < length; i++)
     {
         int current = c[i];
@@ -1843,10 +1840,13 @@ static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t n
 {
     const_value_t* v = nodecl_get_constant(node);
 
-    int *bytes = const_value_string_to_intptr(v);
+    int *bytes = NULL;
+    int length = 0;
+    const_value_string_unpack(v, &bytes, &length);
+
     char is_wchar = (const_value_get_bytes(const_value_get_element_num(v, 0)) != 1);
 
-    fprintf(visitor->file, "%s", quote_c_string(bytes, is_wchar));
+    fprintf(visitor->file, "%s", quote_c_string(bytes, length, is_wchar));
     free(bytes);
 }
 

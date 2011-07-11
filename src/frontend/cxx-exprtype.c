@@ -2239,8 +2239,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     {
                                         current_value *= 16;
                                         char current_literal = tolower(*literal);
-                                        if ((0 <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 9))
+                                        if (('0' <= tolower(current_literal))
+                                                && (tolower(current_literal) <= '9'))
                                         {
                                             current_value += current_literal - '0';
                                         }
@@ -2295,8 +2295,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
 
                                         current_value *= 16;
                                         char current_literal = tolower(*literal);
-                                        if ((0 <= tolower(current_literal))
-                                                && (tolower(current_literal) <= 9))
+                                        if (('0' <= tolower(current_literal))
+                                                && (tolower(current_literal) <= '9'))
                                         {
                                             current_value += current_literal - '0';
                                         }
@@ -2387,7 +2387,7 @@ static type_t *string_literal_type(AST expr, const_value_t** value)
     // Now we have an unsigned int[] with the values of the elements of the string, create one or other according to the type
     if (!is_wchar)
     {
-        char c[length + 1];
+        char c[length];
         int i;
         for (i = 0; i < length; i++)
             c[i] = real_literal[i];

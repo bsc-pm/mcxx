@@ -1544,14 +1544,15 @@ static void codegen_text(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     const_value_t* v = nodecl_get_constant(node);
-    int *bytes = const_value_string_to_intptr(v);
+
+    int length = 0;
+    int *bytes = NULL;
+    const_value_string_unpack(v, &bytes, &length);
 
     fprintf(visitor->file, "\"");
 
-    int i, length = 0;
-    for (i = 0; bytes[i] != 0; i++)
-        /* empty */ ;
-    length = i;
+    int i;
+
     for (i = 0; i < length; i++)
     {
         int current = bytes[i];

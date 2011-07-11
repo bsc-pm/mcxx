@@ -3599,7 +3599,7 @@ static void build_scope_format_stmt(AST a,
 
     // Keep the format in the label
     scope_entry_t* label_sym = query_label(label, decl_context, /* is_definition */ 0);
-    label_sym->value = nodecl_make_string_literal(get_void_type(), ASTText(format), ASTFileName(format), ASTLine(format));
+    label_sym->value = nodecl_make_text(ASTText(format), ASTFileName(format), ASTLine(format));
 }
 
 static void build_scope_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5610,7 +5610,7 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
     else
     {
         *nodecl_output = nodecl_make_fortran_io_spec(
-                nodecl_make_string_literal(get_void_type(), "*", ASTFileName(value), ASTLine(value)), 
+                nodecl_make_text("*", ASTFileName(value), ASTLine(value)), 
                 "FMT", ASTFileName(value), ASTLine(value));
     }
 }
@@ -5855,7 +5855,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     else
     {
         *nodecl_output = nodecl_make_fortran_io_spec(
-                nodecl_make_string_literal(get_void_type(), "*", ASTFileName(value), ASTLine(value)),
+                nodecl_make_text("*", ASTFileName(value), ASTLine(value)),
                 "UNIT", ASTFileName(opt_value), ASTLine(opt_value));
     }
 }

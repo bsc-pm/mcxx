@@ -108,7 +108,7 @@ LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part,
 LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal);
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal);
 
-LIBMCXX_EXTERN int* const_value_string_to_intptr(const_value_t* v);
+LIBMCXX_EXTERN void const_value_string_unpack(const_value_t* v, int**, int*);
 
 LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
 

@@ -1630,19 +1630,20 @@ static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value
     internal_error("Not yet implemented", 0);
 }
 
-int* const_value_string_to_intptr(const_value_t* v)
+void const_value_string_unpack(const_value_t* v, int **values, int *num_elements)
 {
     ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
 
     int *result = calloc(const_value_get_num_elements(v), sizeof(*result));
 
-    int i, num_elements = const_value_get_num_elements(v);
-    for (i = 0; i < num_elements; i++)
+    int i, nels = const_value_get_num_elements(v);
+    for (i = 0; i < nels; i++)
     {
         result[i] = const_value_cast_to_4(v->value.m->elements[i]);
     }
 
-    return result;
+    *num_elements = nels;
+    *values = result;
 }
 
 const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
