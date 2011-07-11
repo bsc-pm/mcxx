@@ -974,7 +974,10 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("tan", "tan", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("tanh", "tanh", get_float_type());
 
+    // Non standard stuff
     // Very old (normally from g77) intrinsics
+    REGISTER_SPECIFIC_INTRINSIC_1("cdabs", "abs", get_complex_type(get_double_type()));
+    REGISTER_SPECIFIC_INTRINSIC_1("zabs", "abs", get_complex_type(get_double_type()));
     REGISTER_CUSTOM_INTRINSIC_1("dfloat", get_double_type(), get_signed_int_type());
     REGISTER_CUSTOM_INTRINSIC_1("dconjg", get_complex_type(get_double_type()), get_complex_type(get_double_type()));
     REGISTER_CUSTOM_INTRINSIC_1("dimag", get_double_type(), get_complex_type(get_double_type()));
