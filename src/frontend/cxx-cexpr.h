@@ -70,6 +70,8 @@ LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_signed_int_value(const_value_t* value);
+
 LIBMCXX_EXTERN nodecl_t const_value_to_nodecl(const_value_t* v);
 
 LIBMCXX_EXTERN AST const_value_to_tree(const_value_t* v);
@@ -94,6 +96,10 @@ LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
 LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
 LIBMCXX_EXTERN long double const_value_cast_to_long_double(const_value_t* val);
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_float_value(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_double_value(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_long_double_value(const_value_t* val);
+
 LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
@@ -109,6 +115,9 @@ LIBMCXX_EXTERN const_value_t* const_value_convert_to_vector(const_value_t* value
 LIBMCXX_EXTERN const_value_t* const_value_convert_to_array(const_value_t* value, int num_elements);
 
 LIBMCXX_EXTERN const_value_t* const_value_real_to_complex(const_value_t* value);
+
+LIBMCXX_EXTERN const_value_t* const_value_round_to_zero(const_value_t* val);
+LIBMCXX_EXTERN const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

@@ -163,13 +163,13 @@ FORTRAN_GENERIC_INTRINSIC(logical, "L,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskl, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(maskr, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(matmul, "MATRIX_A,MATRIX_B", T, NULL) \
-FORTRAN_GENERIC_INTRINSIC(max, NULL, E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(max, NULL, E, simplify_max) \
 FORTRAN_GENERIC_INTRINSIC(maxexponent, "X", I, simplify_maxexponent) \
 FORTRAN_GENERIC_INTRINSIC_2(maxloc, "ARRAY,DIM,?MASK,?KIND,?BACK", T, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(maxval, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(merge, "TSOURCE,FSOURCE,MASK", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(merge_bits, "I,J,MASK", E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(min, NULL, E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(min, NULL, E, simplify_min) \
 FORTRAN_GENERIC_INTRINSIC(minexponent, "X", I, simplify_minexponent) \
 FORTRAN_GENERIC_INTRINSIC_2(minloc, "ARRAY,DIM,?MASK,?KIND,?BACK", E, NULL, "ARRAY,?MASK,?KIND,?BACK", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC_2(minval, "ARRAY,DIM,?MASK", E, NULL, "ARRAY,?MASK", T, NULL) \
@@ -232,16 +232,16 @@ FORTRAN_GENERIC_INTRINSIC(ubound, "ARRAY,?DIM,?KIND", I, simplify_ubound) \
 FORTRAN_GENERIC_INTRINSIC(ucobound, "COARRAY,?DIM,?KIND", I, NULL) \
 FORTRAN_GENERIC_INTRINSIC(unpack, "VECTOR,MASK,FIELD", T, NULL) \
 FORTRAN_GENERIC_INTRINSIC(verify, "STRING,SET,?BACK,?KIND", E, NULL)  \
-FORTRAN_GENERIC_INTRINSIC(max0, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(max1, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(min0, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(min1, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(amax0, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(amax1, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, NULL) \
-FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, NULL) \
+FORTRAN_GENERIC_INTRINSIC(max0, NULL, E, simplify_max0) \
+FORTRAN_GENERIC_INTRINSIC(max1, NULL, E, simplify_max1) \
+FORTRAN_GENERIC_INTRINSIC(min0, NULL, E, simplify_min0) \
+FORTRAN_GENERIC_INTRINSIC(min1, NULL, E, simplify_min1) \
+FORTRAN_GENERIC_INTRINSIC(amax0, NULL, E, simplify_amax0) \
+FORTRAN_GENERIC_INTRINSIC(amax1, NULL, E, simplify_amax1) \
+FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
+FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
+FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
+FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -426,7 +426,7 @@ static char generic_keyword_check(
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' suceeds trivially because there are no expressions given\n",
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' succeeds trivially because there are no expressions given\n",
                     symbol->symbol_name);
         }
         return 1;
@@ -438,10 +438,14 @@ static char generic_keyword_check(
         for (i = 0; i < (*num_arguments); i++)
         {
             reordered_types[i] = argument_types[i];
+
+            AST argument = argument_expressions[i];
+            AST expr = ASTSon1(argument);
+            reordered_exprs[i] = expr;
         }
         DEBUG_CODE()
         {
-            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' suceeds trivially because it is an unbounded parameter function\n",
+            fprintf(stderr, "INTRINSICS: Invocation to intrinsic '%s' succeeds trivially because it is an unbounded parameter function\n",
                     symbol->symbol_name);
         }
         return 1;
@@ -510,7 +514,7 @@ static char generic_keyword_check(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' but be associated to an invalid expression\n",
+                    fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
                             current_variant.keyword_names[position],
                             symbol->symbol_name);
                 }

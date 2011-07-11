@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <math.h>
+#include <fenv.h>
 #include "cxx-buildscope.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
@@ -203,6 +204,68 @@ const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sig
         OTHER_KIND;
     }
     return NULL;
+}
+
+const_value_t* const_value_cast_to_signed_int_value(const_value_t* val)
+{
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            return const_value_get_integer(val->value.i, type_get_size(get_signed_int_type()), 1);
+        OTHER_KIND;
+    }
+    return NULL;
+}
+
+const_value_t* const_value_round_to_zero_bytes(const_value_t* val, int num_bytes)
+{
+    switch (val->kind)
+    {
+        case CVK_INTEGER:
+            {
+                return val;
+            }
+        case CVK_FLOAT:
+            {
+                int old_round_mode = fegetround();
+                fesetround(FE_TOWARDZERO);
+
+                long long int l = llrintf(val->value.f);
+
+                fesetround(old_round_mode);
+
+                return const_value_get_integer(l, num_bytes, 1);
+            }
+        case CVK_DOUBLE:
+            {
+                int old_round_mode = fegetround();
+                fesetround(FE_TOWARDZERO);
+
+                long long int l = llrint(val->value.d);
+
+                fesetround(old_round_mode);
+
+                return const_value_get_integer(l, num_bytes, 1);
+            }
+        case CVK_LONG_DOUBLE:
+            {
+                int old_round_mode = fegetround();
+                fesetround(FE_TOWARDZERO);
+
+                long long int l = llrintl(val->value.ld);
+
+                fesetround(old_round_mode);
+
+                return const_value_get_integer(l, num_bytes, 1);
+            }
+        OTHER_KIND;
+    }
+    return NULL;
+}
+
+const_value_t* const_value_round_to_zero(const_value_t* val)
+{
+    return const_value_round_to_zero_bytes(val, type_get_size(get_signed_int_type()));
 }
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
@@ -635,6 +698,21 @@ long double const_value_cast_to_long_double(const_value_t* v)
         return (float)v->value.d;
 
     internal_error("Code unreachable", 0);
+}
+
+const_value_t* const_value_cast_to_float_value(const_value_t* val)
+{
+    return const_value_get_float(const_value_cast_to_float(val));
+}
+
+const_value_t* const_value_cast_to_double_value(const_value_t* val)
+{
+    return const_value_get_double(const_value_cast_to_double(val));
+}
+
+const_value_t* const_value_cast_to_long_double_value(const_value_t* val)
+{
+    return const_value_get_long_double(const_value_cast_to_long_double(val));
 }
 
 AST const_value_to_tree(const_value_t* v)

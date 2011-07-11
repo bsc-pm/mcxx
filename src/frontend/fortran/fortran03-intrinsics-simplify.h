@@ -585,4 +585,121 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     }
 }
 
+static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
+        const_value_t* (combine)(const_value_t*, const_value_t*))
+{
+    nodecl_t result = nodecl_null();
+    int i;
+    for (i = 0; i < num_arguments; i++)
+    {
+        nodecl_t current_arg = arguments[i];
+        if (i == 0)
+        {
+            if (nodecl_is_constant(current_arg))
+            {
+                result = current_arg;
+            }
+            else
+            {
+                break;
+            }
+        }
+        else
+        {
+            if (nodecl_is_constant(current_arg))
+            {
+                const_value_t *current_val = nodecl_get_constant(result);
+                const_value_t *new_val = nodecl_get_constant(current_arg);
+
+                const_value_t* t = combine(new_val, current_val);
+
+                if (const_value_is_nonzero(t))
+                {
+                    result = current_arg;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+static nodecl_t simplify_max_min_plus_conv(int num_arguments, nodecl_t* arguments,
+        const_value_t* (combine)(const_value_t*, const_value_t*),
+        const_value_t* (convert)(const_value_t*))
+{
+    nodecl_t result = simplify_max_min(num_arguments, arguments, combine);
+
+    if (!nodecl_is_null(result))
+    {
+        result = const_value_to_nodecl(convert(nodecl_get_constant(result)));
+    }
+
+    return result;
+}
+
+static nodecl_t simplify_max(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min(num_arguments, arguments, const_value_gt);
+}
+
+static nodecl_t simplify_min(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min(num_arguments, arguments, const_value_lt);
+}
+
+static nodecl_t simplify_max1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_round_to_zero);
+}
+
+static nodecl_t simplify_min1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_round_to_zero);
+}
+
+static nodecl_t simplify_amax0(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
+}
+
+static nodecl_t simplify_amin0(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
+}
+
+static nodecl_t simplify_amax1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_float_value);
+}
+
+static nodecl_t simplify_amin1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_float_value);
+}
+
+static nodecl_t simplify_dmax1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_double_value);
+}
+
+static nodecl_t simplify_dmin1(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_double_value);
+}
+
+static nodecl_t simplify_max0(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_gt, const_value_cast_to_signed_int_value);
+}
+
+static nodecl_t simplify_min0(int num_arguments, nodecl_t* arguments)
+{
+    return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_signed_int_value);
+}
+
 #endif
