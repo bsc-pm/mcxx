@@ -283,6 +283,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
+static void declare_symbol_if_local(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
+static void define_symbol_if_local(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void declare_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol);
 
@@ -308,8 +310,8 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
             && entry->type_information != NULL)
     {
         walk_type_for_symbols(visitor, entry->type_information, /* needs def */ 1,
-                declare_symbol_if_nonlocal,
-                define_symbol_if_nonlocal,
+                declare_symbol_if_local,
+                define_symbol_if_local,
                 define_local_entities_in_trees);
 
         define_local_entities_in_trees(visitor, entry->value);
@@ -334,8 +336,8 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
     if (type != NULL)
     {
         walk_type_for_symbols(visitor, type, /* needs def */ 1,
-                declare_symbol_if_nonlocal,
-                define_symbol_if_nonlocal,
+                declare_symbol_if_local,
+                define_symbol_if_local,
                 define_local_entities_in_trees);
     }
 }
@@ -1526,7 +1528,8 @@ static char is_local_symbol(scope_entry_t* entry)
 {
     return entry != NULL
         && (entry->decl_context.current_scope->kind == BLOCK_SCOPE
-                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE);
+                || entry->decl_context.current_scope->kind == FUNCTION_SCOPE
+                || (entry->entity_specs.is_member && is_local_symbol(named_type_get_symbol(entry->entity_specs.class_type))));
 }
 
 static void declare_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
@@ -1544,6 +1547,23 @@ static void define_symbol_if_nonlocal(nodecl_codegen_visitor_t *visitor, scope_e
         define_symbol(visitor, symbol);
     }
 }
+
+static void declare_symbol_if_local(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
+{
+    if (is_local_symbol(symbol))
+    {
+        declare_symbol(visitor, symbol);
+    }
+}
+
+static void define_symbol_if_local(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
+{
+    if (is_local_symbol(symbol))
+    {
+        define_symbol(visitor, symbol);
+    }
+}
+
 
 static char symbol_is_nested_in_defined_classes(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
