@@ -1192,12 +1192,12 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 // Initializer
                 if (!nodecl_is_null(symbol->value))
                 {
+                    char equal_is_needed = 0;
                     C_LANGUAGE()
                     {
-                        fprintf(visitor->file, "%s", " = ");
+                        equal_is_needed = 1;
                     }
 
-                    char equal_is_needed = 0;
                     CXX03_LANGUAGE()
                     {
                         // We only need = if the initializer is a structured one
@@ -1224,9 +1224,11 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     visitor->in_initializer = 1;
                     if (!nodecl_is_null(symbol->value))
                     {
-                        fprintf(visitor->file, "(");
+                        if (!equal_is_needed)
+                            fprintf(visitor->file, "(");
                         codegen_walk(visitor, symbol->value);
-                        fprintf(visitor->file, ")");
+                        if (!equal_is_needed)
+                            fprintf(visitor->file, ")");
                     }
                     visitor->in_initializer = in_initializer;
                 }
