@@ -984,10 +984,13 @@ scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     if (is_integer_type(t0)
-            || is_floating_type(t0)
-            || is_complex_type(t0))
+            || is_floating_type(t0))
     {
         return GET_INTRINSIC_ELEMENTAL("abs", t0, t0);
+    }
+    else if (is_complex_type(t0))
+    {
+        return GET_INTRINSIC_ELEMENTAL("abs", complex_type_get_base_type(t0), t0);
     }
 
     return NULL;
