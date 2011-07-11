@@ -3240,6 +3240,8 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                                 /* array_spec_kind */ NULL);
                         entry->type_information = array_type;
                     }
+
+                    entry->entity_specs.is_target = current_attr_spec.is_target;
                 }
 
                 if (fields_are_private
@@ -4723,6 +4725,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 entry->type_information = get_lvalue_reference_type(entry->type_information);
             }
         }
+
+        entry->entity_specs.is_target = current_attr_spec.is_target;
 
         DEBUG_CODE()
         {
