@@ -2834,6 +2834,20 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
 
     scope_entry_t* do_variable = query_name_with_locus(decl_context, io_do_variable, ASTText(io_do_variable));
 
+    if (do_variable == NULL)
+    {
+        running_error("%s: error: unknown symbol '%s' in io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+    }
+
+    if (do_variable->kind == SK_UNDEFINED)
+    {
+        do_variable->kind = SK_VARIABLE;
+    }
+    else if (do_variable->kind != SK_VARIABLE)
+    {
+        running_error("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
+    }
+
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, decl_context);
 
     nodecl_t nodecl_rec = nodecl_null();

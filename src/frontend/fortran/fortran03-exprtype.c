@@ -293,6 +293,20 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
 
             scope_entry_t* do_variable = query_name_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
 
+            if (do_variable == NULL)
+            {
+                running_error("%s: error: unknown symbol '%s' in ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+            }
+
+            if (do_variable->kind == SK_UNDEFINED)
+            {
+                do_variable->kind = SK_VARIABLE;
+            }
+            else if (do_variable->kind != SK_VARIABLE)
+            {
+                running_error("%s: error: invalid name '%s' for ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+            }
+
             nodecl_t nodecl_ac_value = nodecl_null();
             check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value);
 
