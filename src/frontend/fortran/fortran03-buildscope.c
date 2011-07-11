@@ -3234,6 +3234,9 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
                     entry->entity_specs.access = AS_PRIVATE;
                 }
 
+                entry->entity_specs.is_member = 1;
+                entry->entity_specs.class_type = get_user_defined_type(class_name);
+
                 class_type_add_member(class_name->type_information, entry);
             }
         }
