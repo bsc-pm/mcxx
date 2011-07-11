@@ -105,6 +105,13 @@ LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_va
 LIBMCXX_EXTERN const_value_t* const_value_make_struct(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part);
 
+LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal);
+LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal);
+
+LIBMCXX_EXTERN int* const_value_string_to_intptr(const_value_t* v);
+
+LIBMCXX_EXTERN const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2);
+
 LIBMCXX_EXTERN const_value_t* const_value_complex_get_real_part(const_value_t* value);
 LIBMCXX_EXTERN const_value_t* const_value_complex_get_imag_part(const_value_t* value);
 

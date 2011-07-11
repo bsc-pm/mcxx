@@ -659,7 +659,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                             nodecl_make_builtin_decl(
                                 nodecl_make_any_list(
                                     nodecl_make_list_1(
-                                        nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a))), 
+                                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))), 
                                     ASTFileName(a), ASTLine(a)),
                                 "unknown-pragma", ASTFileName(a), ASTLine(a)));
                 break;
@@ -701,7 +701,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "pp-comment", ASTFileName(a), ASTLine(a)));
                 break;
             }
@@ -710,7 +710,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "pp-token", ASTFileName(a), ASTLine(a)));
                 break;
             }
@@ -719,7 +719,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 *nodecl_output = 
                     nodecl_make_list_1(
                             nodecl_make_builtin_decl(
-                                nodecl_make_string_literal(get_void_type(), ASTText(a), ASTFileName(a), ASTLine(a)),
+                                nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a)),
                                 "verbatim", ASTFileName(a), ASTLine(a)));
                 break;
             }
@@ -767,15 +767,13 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     nodecl_t nodecl_identifier = nodecl_null();
                     if (identifier != NULL)
                     {
-                        nodecl_identifier = nodecl_make_string_literal(get_void_type(), 
-                                ASTText(identifier), ASTFileName(identifier), ASTLine(identifier));
+                        nodecl_identifier = nodecl_make_text(ASTText(identifier), ASTFileName(identifier), ASTLine(identifier));
                     }
 
                     nodecl_t nodecl_constraint = nodecl_null();
                     if (constraint != NULL)
                     {
-                        nodecl_constraint = nodecl_make_string_literal(get_void_type(), 
-                                ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
+                        nodecl_constraint = nodecl_make_text(ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
                     nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
@@ -803,7 +801,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
     nodecl_t nodecl_gcc_asm = nodecl_make_builtin_decl(
             nodecl_make_any_list(
                 nodecl_make_list_4(
-                    nodecl_make_string_literal(get_void_type(), 
+                    nodecl_make_text(
                         ASTText(ASTSon0(asm_parms)), 
                         ASTFileName(ASTSon0(asm_parms)), 
                         ASTLine(ASTSon0(asm_parms))),
@@ -1253,8 +1251,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 nodecl_t asm_spec = nodecl_make_builtin_decl(
                         nodecl_make_any_list(
                             nodecl_make_list_1(
-                                nodecl_make_string_literal(
-                                    get_void_type(),
+                                nodecl_make_text(
                                     ASTText(ASTSon0(asm_specification)), 
                                     ASTFileName(ASTSon0(asm_specification)), 
                                     ASTLine(ASTSon0(asm_specification)))),

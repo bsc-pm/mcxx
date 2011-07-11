@@ -39,6 +39,7 @@ case-expression : expression
 
 builtin-decl: NODECL_BUILTIN_DECL([components]any-list-opt) text
 builtin-expr: NODECL_BUILTIN_EXPR([components]any-list-opt) text type
+            | NODECL_TEXT() text
 
 any-list: NODECL_ANY_LIST([list]any-seq-opt)
 
@@ -66,7 +67,7 @@ literal : NODECL_INTEGER_LITERAL() type const_value
     | string-literal
     | structured-literal
 
-string-literal: NODECL_STRING_LITERAL() type text
+string-literal: NODECL_STRING_LITERAL() type const_value
  
 expression : literal
            | name

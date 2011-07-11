@@ -1536,9 +1536,39 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     fprintf(visitor->file, "%s", entry->symbol_name);
 }
 
-static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_text(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "%s", nodecl_get_text(node));
+}
+
+static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* v = nodecl_get_constant(node);
+    int *bytes = const_value_string_to_intptr(v);
+
+    fprintf(visitor->file, "\"");
+
+    int i, length = 0;
+    for (i = 0; bytes[i] != 0; i++)
+        /* empty */ ;
+    length = i;
+    for (i = 0; i < length; i++)
+    {
+        int current = bytes[i];
+
+        if (current == '\"')
+        {
+            fprintf(visitor->file, "\"\"");
+        }
+        else
+        {
+            fprintf(visitor->file, "%c", (char)current);
+        }
+    }
+
+    fprintf(visitor->file, "\"");
+
+    free(bytes);
 }
 
 static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -1795,6 +1825,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_subscript_triplet = codegen_visitor_fun(codegen_subscript_triplet);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
     NODECL_VISITOR(codegen_visitor)->visit_structured_literal = codegen_visitor_fun(codegen_structured_literal);
     NODECL_VISITOR(codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);

@@ -589,7 +589,7 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
 static type_t* decimal_literal_type(AST expr, const_value_t** val);
 static type_t* character_literal_type(AST expr, const_value_t** val);
 static type_t *floating_literal_type(AST expr, const_value_t** value);
-static type_t* string_literal_type(AST expr);
+static type_t* string_literal_type(AST expr, const_value_t** value);
 
 // Typechecking functions
 static void check_qualified_id(AST expr, decl_context_t decl_context, const_value_t** val);
@@ -875,11 +875,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-                type_t* t = lvalue_ref(string_literal_type(expression));
+                const_value_t* value = NULL;
+                type_t* t = lvalue_ref(string_literal_type(expression, &value));
                 expression_set_type(expression, t);
                 expression_set_is_lvalue(expression, 1);
 
-                nodecl_t nodecl_output = nodecl_make_string_literal(t, ASTText(expression), ASTFileName(expression), ASTLine(expression));
+                nodecl_t nodecl_output = nodecl_make_string_literal(t, value, ASTFileName(expression), ASTLine(expression));
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -2135,16 +2136,18 @@ static type_t *floating_literal_type(AST expr, const_value_t** value)
  || (((_c) >= 'A') \
      && ((_c) <= 'F')))
 
-static void compute_length_of_literal_string(AST expr, int* length, char *is_wchar)
+static void compute_length_of_literal_string(AST expr, int* length, char *is_wchar, int **real_literal)
 {
     // We allow the parser not to mix the two strings
     const char *literal = ASTText(expr);
 
+    int max_real_size = strlen(literal);
+    (*real_literal) = counted_calloc(max_real_size, sizeof(**real_literal), &_bytes_used_expr_check);
+
     int num_of_strings_seen = 0;
 
+    *length = 0;
     *is_wchar = 0;
-    // At least the NULL is there
-    *length = 1;
 
     // Beginning of a string
     while (*literal != '\0')
@@ -2180,21 +2183,18 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                         literal++;
                         switch (*literal)
                         {
-                            case '\'' :
-                            case '"' :
-                            case '?' :
-                            case '\\' :
-                            case 'a' :
-                            case 'b' :
-                            case 'f' :
-                            case 'n' :
-                            case 'r' :
-                            case 't' :
-                            case 'v' :
-                            case 'e' : // GNU Extension: A synonim for \033
-                                {
-                                    break;
-                                }
+                            case '\'' : { (*real_literal)[(*length)]  = '\''; break; }
+                            case '"' : { (*real_literal)[(*length)]  = '"'; break; }
+                            case '?' : { (*real_literal)[(*length)]  = '\?'; break; }
+                            case '\\' : { (*real_literal)[(*length)]  = '\\'; break; }
+                            case 'a' : { (*real_literal)[(*length)]  = '\a'; break; }
+                            case 'b' : { (*real_literal)[(*length)]  = '\b'; break; }
+                            case 'f' : { (*real_literal)[(*length)]  = '\f'; break; }
+                            case 'n' : { (*real_literal)[(*length)]  = '\n'; break; }
+                            case 'r' : { (*real_literal)[(*length)]  = '\r'; break; }
+                            case 't' : { (*real_literal)[(*length)]  = '\t'; break; }
+                            case 'v' : { (*real_literal)[(*length)]  = '\v'; break; }
+                            case 'e' : { (*real_literal)[(*length)]  = '\033'; break; } // GNU Extension: A synonim for \033
                             case '0' :
                             case '1' :
                             case '2' :
@@ -2209,10 +2209,13 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // Advance this octal, so the remaining figures are 2
                                     literal++;
                                     int remaining_figures = 2;
+                                    unsigned int current_value = (*literal) - '0';
 
                                     while (IS_OCTA_CHAR(*literal)
                                             && (remaining_figures > 0))
                                     {
+                                        current_value *= 8;
+                                        current_value += ((*literal) - '0');
                                         remaining_figures--;
                                         literal++;
                                     }
@@ -2220,6 +2223,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // advanced the last element of this
                                     // escaped entity
                                     literal--;
+
+                                    (*real_literal)[(*length)] = current_value;
                                     break;
                                 }
                             case 'x' :
@@ -2228,15 +2233,35 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // Jump 'x' itself
                                     literal++;
 
+                                    unsigned int current_value = 0;
+
                                     while (IS_HEXA_CHAR(*literal))
                                     {
-                                            literal++;
+                                        current_value *= 16;
+                                        char current_literal = tolower(*literal);
+                                        if ((0 <= tolower(current_literal))
+                                                && (tolower(current_literal) <= 9))
+                                        {
+                                            current_value += current_literal - '0';
+                                        }
+                                        else if (('a' <= tolower(current_literal))
+                                                && (tolower(current_literal) <= 'f'))
+                                        {
+                                            current_value += 10 + (tolower(current_literal) - 'a');
+                                        }
+                                        else
+                                        {
+                                            internal_error("Code unreachable", 0);
+                                        }
+                                        literal++;
                                     }
 
                                     // Go backwards because we have already
                                     // advanced the last element of this
                                     // escaped entity
                                     literal--;
+
+                                    (*real_literal)[(*length)] = current_value;
                                     break;
                                 }
                             case 'u' :
@@ -2253,6 +2278,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     // Advance 'u'/'U'
                                     literal++;
 
+                                    unsigned int current_value = 0;
+
                                     while (remaining_hexa_digits > 0)
                                     {
                                         if (!IS_HEXA_CHAR(*literal))
@@ -2266,12 +2293,32 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                             return;
                                         }
 
+                                        current_value *= 16;
+                                        char current_literal = tolower(*literal);
+                                        if ((0 <= tolower(current_literal))
+                                                && (tolower(current_literal) <= 9))
+                                        {
+                                            current_value += current_literal - '0';
+                                        }
+                                        else if (('a' <= tolower(current_literal))
+                                                && (tolower(current_literal) <= 'f'))
+                                        {
+                                            current_value += 10 + (tolower(current_literal) - 'a');
+                                        }
+                                        else
+                                        {
+                                            internal_error("Code unreachable", 0);
+                                        }
+
                                         literal++;
                                         remaining_hexa_digits--;
                                     }
 
                                     // Go backwards one
                                     literal--;
+
+                                    (*real_literal)[(*length)] = current_value;
+                                    break;
                                 }
                             default:
                                 {
@@ -2289,7 +2336,8 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                     }
                 default:
                     {
-                        // Do nothing with this one
+                        // A plain literal
+                        (*real_literal)[(*length)] = (*literal);
                         break;
                     }
             }
@@ -2308,16 +2356,21 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
 
         num_of_strings_seen++;
     }
+    
+    // NULL
+    real_literal[(*length)] = 0;
+    (*length)++;
 
     ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
 }
 
-static type_t *string_literal_type(AST expr)
+static type_t *string_literal_type(AST expr, const_value_t** value)
 {
     char is_wchar = 0;
     int length = 0;
 
-    compute_length_of_literal_string(expr, &length, &is_wchar);
+    int* real_literal = NULL;
+    compute_length_of_literal_string(expr, &length, &is_wchar, &real_literal);
     if (length < 0)
     {
         return get_error_type();
@@ -2329,6 +2382,21 @@ static type_t *string_literal_type(AST expr)
                 ASTText(expr),
                 !is_wchar ? "char" : "wchar_t",
                 length);
+    }
+
+    // Now we have an unsigned int[] with the values of the elements of the string, create one or other according to the type
+    if (!is_wchar)
+    {
+        char c[length + 1];
+        int i;
+        for (i = 0; i < length; i++)
+            c[i] = real_literal[i];
+
+        *value = const_value_make_string(c);
+    }
+    else
+    {
+        *value = const_value_make_wstring(real_literal);
     }
 
     type_t* result = get_literal_string_type(length, is_wchar);

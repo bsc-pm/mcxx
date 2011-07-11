@@ -5,6 +5,7 @@
 #include "cxx-nodecl-visitor.h"
 #include "cxx-prettyprint.h"
 #include <string.h>
+#include <ctype.h>
 
 typedef
 struct nodecl_codegen_visitor_tag
@@ -1737,9 +1738,116 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     }
 }
 
-static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_text(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "%s", nodecl_get_text(node));
+}
+
+static const char* quote_c_string(int* c, char is_wchar)
+{
+    char *quoted_string = NULL;
+    size_t size = 0;
+    FILE* temporal_stream = open_memstream(&quoted_string, &size);
+
+    if (is_wchar)
+    {
+        fprintf(temporal_stream, "%s", "L");
+    }
+
+    fprintf(temporal_stream, "%s", "\"");
+
+    int i, length = 0;
+    for (i = 0; c[i] != 0; i++)
+        /* empty */ ;
+    length = i;
+    for (i = 0; i < length; i++)
+    {
+        int current = c[i];
+
+        if (current == '\n')
+        {
+            fprintf(temporal_stream, "\\n");
+        }
+        else if (current ==  '\'')
+        {
+            fprintf(temporal_stream, "\\\'");
+        }
+        else if (current ==  '"')
+        {
+            fprintf(temporal_stream, "\\\"");
+        }
+        else if (current ==  '?')
+        {
+            fprintf(temporal_stream, "\\\?");
+        }
+        else if (current ==  '\\')
+        {
+            fprintf(temporal_stream, "\\\\");
+        }
+        else if (current ==  '\a')
+        {
+            fprintf(temporal_stream, "\\\a");
+        }
+        else if (current ==  '\b')
+        {
+            fprintf(temporal_stream, "\\\b");
+        }
+        else if (current ==  '\f')
+        {
+            fprintf(temporal_stream, "\\\f");
+        }
+        else if (current ==  '\n')
+        {
+            fprintf(temporal_stream, "\\\n");
+        }
+        else if (current ==  '\r')
+        {
+            fprintf(temporal_stream, "\\\r");
+        }
+        else if (current ==  '\t')
+        {
+            fprintf(temporal_stream, "\\\t");
+        }
+        else if (current ==  '\v')
+        {
+            fprintf(temporal_stream, "\\\v");
+        }
+        else if (isprint(current))
+        {
+            fprintf(temporal_stream, "%c", (char)current);
+        }
+        // Best effort
+        else
+        {
+            if (!is_wchar
+                    || (current < 255))
+            {
+                fprintf(temporal_stream, "\\x%x", current);
+            }
+            else
+            {
+                fprintf(temporal_stream, "\\U%x", current);
+            }
+        }
+    }
+
+    fprintf(temporal_stream, "%s", "\"");
+    fclose(temporal_stream);
+
+    const char* result = uniquestr(quoted_string);
+    free(quoted_string);
+    return result;
+}
+
+static void codegen_string_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const_value_t* v = nodecl_get_constant(node);
+
+    int *bytes = const_value_string_to_intptr(v);
+    char is_wchar = (const_value_get_bytes(const_value_get_element_num(v, 0)) != 1);
+
+    fprintf(visitor->file, "%s", quote_c_string(bytes, is_wchar));
+    free(bytes);
 }
 
 static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -3173,6 +3281,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
     NODECL_VISITOR(codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
+    NODECL_VISITOR(codegen_visitor)->visit_text = codegen_visitor_fun(codegen_text);
     // All binary infix, unary prefix and unary postfix are here, look for the definition of OPERATOR_TABLE above
 #define PREFIX_UNARY_EXPRESSION(_name, _) \
     NODECL_VISITOR(codegen_visitor)->visit_##_name = codegen_visitor_fun(codegen_##_name);

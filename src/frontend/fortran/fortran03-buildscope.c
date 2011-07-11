@@ -4623,6 +4623,13 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 }
                 else
                 {
+                    if (!expression_is_constant(entry->language_dependent_value))
+                    {
+                        error_printf("%s: error: expression '%s' is not a constant expression\n",
+                                ast_location(initialization),
+                                fortran_prettyprint_in_buffer(initialization));
+                    }
+
                     entry->type_information = get_const_qualified_type(entry->type_information);
                 }
             }

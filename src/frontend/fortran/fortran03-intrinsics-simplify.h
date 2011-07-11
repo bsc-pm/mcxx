@@ -702,4 +702,39 @@ static nodecl_t simplify_min0(int num_arguments, nodecl_t* arguments)
     return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_signed_int_value);
 }
 
+static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+    nodecl_t arg_kind = arguments[1];
+
+    if (nodecl_is_constant(arg))
+    {
+        ERROR_CONDITION(!nodecl_is_constant(arg_kind), "Kind must be constant here", 0);
+
+        const_value_t* kind_value = nodecl_get_constant(arg_kind);
+
+        int kind = const_value_cast_to_4(kind_value);
+        type_t* float_type = choose_float_type_from_kind(nodecl_get_ast(arg_kind), kind);
+
+        if (is_float_type(float_type))
+        {
+            return const_value_to_nodecl(const_value_cast_to_float_value(nodecl_get_constant(arg)));
+        }
+        else if (is_double_type(float_type))
+        {
+            return const_value_to_nodecl(const_value_cast_to_double_value(nodecl_get_constant(arg)));
+        }
+        else if (is_long_double_type(float_type))
+        {
+            return const_value_to_nodecl(const_value_cast_to_long_double_value(nodecl_get_constant(arg)));
+        }
+        else
+        {
+            running_error("Invalid floating type", 0);
+        }
+    }
+
+    return nodecl_null();
+}
+
 #endif

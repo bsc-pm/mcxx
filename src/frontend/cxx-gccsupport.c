@@ -196,7 +196,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                 gather_info->vector_size = 16;
 
                 nodecl_expression_list = 
-                    nodecl_make_list_1(nodecl_make_string_literal(get_void_type(), "vector__", ASTFileName(argument), ASTLine(argument)));
+                    nodecl_make_list_1(nodecl_make_text("vector__", ASTFileName(argument), ASTLine(argument)));
             }
         }
     }
@@ -217,7 +217,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             const char *size_mode = ASTText(argument);
 
             nodecl_expression_list = 
-                nodecl_make_list_1(nodecl_make_string_literal(get_void_type(), size_mode, ASTFileName(argument), ASTLine(argument)));
+                nodecl_make_list_1(nodecl_make_text(size_mode, ASTFileName(argument), ASTLine(argument)));
 
             // FIXME - Can a vector mode start with two underscores ?
             if (size_mode[0] != 'V')
@@ -470,7 +470,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             {
                 AST expr = ASTSon1(it);
                 nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list, 
-                        nodecl_make_string_literal(get_void_type(), prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
+                        nodecl_make_text(prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
             }
         }
     }

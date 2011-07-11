@@ -60,6 +60,7 @@ typedef enum const_value_kind_tag
     CVK_ARRAY,
     CVK_STRUCT,
     CVK_VECTOR,
+    CVK_STRING
 } const_value_kind_t;
 
 typedef struct const_multi_value_tag
@@ -584,6 +585,16 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
             type_t* t = get_minimal_floating_type(v);
             return nodecl_make_floating_literal(t, v, NULL, 0);
         }
+        else if (v->kind == CVK_STRING)
+        {
+            return nodecl_make_string_literal(
+                    get_array_type_bounds(
+                        get_char_type(),
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_one(4, 1), NULL, 0),
+                        nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(v->value.m->num_elements), NULL, 0),
+                        CURRENT_COMPILED_FILE->global_decl_context),
+                    v, NULL, 0);
+        }
         else
         {
             return nodecl_null();
@@ -912,6 +923,59 @@ const_value_t* const_value_make_struct(int num_elements, const_value_t **element
     return result;
 }
 
+const_value_t* const_value_make_string(const char* literal)
+{
+    int num_elements = strlen(literal);
+
+    const_value_t* result = NULL;
+    if (num_elements > 0)
+    {
+        const_value_t* elements[num_elements];
+        memset(elements, 0, sizeof(elements));
+        int i;
+        for (i = 0; i < num_elements; i++)
+        {
+            elements[i] = const_value_get_integer(literal[i], 1, 0);
+        }
+        result = make_multival(num_elements, elements);
+    }
+    else
+    {
+        result = make_multival(0, NULL);
+    }
+    result->kind = CVK_STRING;
+
+    return result;
+}
+
+const_value_t* const_value_make_wstring(int* literal)
+{
+    int i = 0;
+    int num_elements = 0;
+    while (literal[i] != 0)
+        num_elements++;
+
+    const_value_t* result = NULL;
+    if (num_elements > 0)
+    {
+        const_value_t* elements[num_elements];
+        memset(elements, 0, sizeof(elements));
+
+        for (i = 0; i < num_elements; i++)
+        {
+            elements[i] = const_value_get_integer(literal[i], 4, 0);
+        }
+        result = make_multival(num_elements, elements);
+    }
+    else
+    {
+        result = make_multival(0, NULL);
+    }
+    result->kind = CVK_STRING;
+
+    return result;
+}
+
 const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
 {
     const_value_t* complex_[] = { real_part, imag_part };
@@ -936,7 +1000,8 @@ const_value_t* const_value_complex_get_imag_part(const_value_t* value)
     (x == CVK_COMPLEX \
     || x == CVK_ARRAY \
     || x == CVK_STRUCT \
-    || x == CVK_VECTOR)
+    || x == CVK_VECTOR \
+    || x == CVK_STRING)
 
 int const_value_get_num_elements(const_value_t* value)
 {
@@ -1563,4 +1628,47 @@ static const_value_t* complex_neq(const_value_t* v1, const_value_t* v2)
 static const_value_t* arith_powz(const_value_t* v1 UNUSED_PARAMETER, const_value_t* v2 UNUSED_PARAMETER)
 {
     internal_error("Not yet implemented", 0);
+}
+
+int* const_value_string_to_intptr(const_value_t* v)
+{
+    ERROR_CONDITION(v->kind != CVK_STRING, "Invalid data type", 0);
+
+    int *result = calloc(const_value_get_num_elements(v), sizeof(*result));
+
+    int i, num_elements = const_value_get_num_elements(v);
+    for (i = 0; i < num_elements; i++)
+    {
+        result[i] = const_value_cast_to_4(v->value.m->elements[i]);
+    }
+
+    return result;
+}
+
+const_value_t* const_value_string_concat(const_value_t* v1, const_value_t* v2)
+{
+    ERROR_CONDITION(v1->kind != v2->kind || v1->kind != CVK_STRING, "Invalid data types for concatenation", 0);
+
+    // Rebuild the string
+    int nelems1 = const_value_get_num_elements(v1);
+    int nelems2 = const_value_get_num_elements(v2);
+    int num_elements = nelems1 + nelems2 + 1;
+    char new_string[num_elements];
+
+    int p = 0;
+    int i;
+    for (i = 0; i < nelems1; i++, p++)
+    {
+        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v1, i));
+    }
+    for (i = 0; i < nelems2; i++, p++)
+    {
+        new_string[p] = const_value_cast_to_1(const_value_get_element_num(v2, i));
+    }
+
+    new_string[num_elements - 1] = '\0';
+
+    const char* str = uniquestr(new_string);
+
+    return const_value_make_string(str);
 }

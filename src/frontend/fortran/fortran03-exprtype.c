@@ -1149,6 +1149,7 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    }
 
    *nodecl_output = nodecl_make_floating_literal(t, value, ASTFileName(expr), ASTLine(expr));
+   expression_set_constant(expr, value);
 
    free(floating_text);
 }
@@ -2230,13 +2231,39 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 
         if (!checking_ambiguity())
         {
-            warn_printf("%s: warning: ignoring KIND=%s of character-literal\n",
+            warn_printf("%s: warning: ignoring KIND=%s of character-literal, assuming KIND=1\n",
                     kind,
                     ast_location(expr));
         }
     }
 
     int length = strlen(literal);
+
+    char real_string[length + 1];
+    int real_length = 0;
+    char delim = literal[0];
+    literal++; // Jump delim
+
+    while (*literal != delim
+                || *(literal+1) == delim)
+    {
+        ERROR_CONDITION(real_length >= (length+1), "Wrong construction of real string", 0);
+
+        if (*literal !=  delim)
+        {
+            real_string[real_length] = *literal;
+            literal++;
+        }
+        else 
+        {
+            real_string[real_length] = *literal;
+            // Jump both '' or ""
+            literal += 2;
+        }
+
+        real_length++;
+    }
+    real_string[real_length] = '\0';
 
     nodecl_t one = nodecl_make_integer_literal(
             get_signed_int_type(), 
@@ -2254,7 +2281,10 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-    *nodecl_output = nodecl_make_string_literal(t, ASTText(expr), ASTFileName(expr), ASTLine(expr));
+    const_value_t* value = const_value_make_string(real_string);
+    expression_set_constant(expr, value);
+
+    *nodecl_output = nodecl_make_string_literal(t, value, ASTFileName(expr), ASTLine(expr));
 }
 
 static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2524,15 +2554,19 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
 
+        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+
         if (is_const_qualified_type(no_ref(entry->type_information))
-                && entry->language_dependent_value != NULL
-                && expression_is_constant(entry->language_dependent_value))
+                && !nodecl_is_null(entry->value)
+                && nodecl_is_constant(entry->value))
         {
             // PARAMETER are const qualified
-            expression_set_constant(expr, expression_get_constant(entry->language_dependent_value));
-        }
+            const_value_t* v = nodecl_get_constant(entry->value);
+            expression_set_constant(expr, v);
 
-        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+            // Effectively replace the synthesized nodecl by its constant 
+            *nodecl_output = entry->value;
+        }
 
         if (is_pointer_type(no_ref(entry->type_information)))
         {
@@ -3275,9 +3309,14 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 value->compute_const(expr, NULL, ASTSon0(expr));
             }
+
         }
 
         *nodecl_output = value->compute_nodecl(nodecl_lhs, nodecl_rhs, result, ASTFileName(expr), ASTLine(expr));
+        if (expression_is_constant(expr))
+        {
+            nodecl_set_constant(*nodecl_output, expression_get_constant(expr));
+        }
     }
 
 
