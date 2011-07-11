@@ -37,6 +37,9 @@ static void create_storage(sqlite3**, const char*);
 static void init_storage(sqlite3*);
 static void dispose_storage(sqlite3*);
 
+static void start_transaction(sqlite3*);
+static void end_transaction(sqlite3*);
+
 static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol);
 static sqlite3_int64 insert_type(sqlite3* handle, type_t* t);
 
@@ -193,11 +196,15 @@ void dump_module_info(scope_entry_t* module)
     sqlite3* handle = NULL;
     create_storage(&handle, module->symbol_name);
 
+    start_transaction(handle);
+
     init_storage(handle);
 
     sqlite3_int64 module_oid = insert_symbol(handle, module);
 
     finish_module_file(handle, module->symbol_name, module_oid);
+
+    end_transaction(handle);
 
     dispose_storage(handle);
 
@@ -205,6 +212,16 @@ void dump_module_info(scope_entry_t* module)
     {
         fprintf(stderr, "MODULES: Finished with dumping of module '%s'\n", module->symbol_name);
     }
+}
+
+static void start_transaction(sqlite3* handle)
+{
+    run_query(handle, "BEGIN TRANSACTION;");
+}
+
+static void end_transaction(sqlite3* handle)
+{
+    run_query(handle, "END TRANSACTION;");
 }
 
 static void load_storage(sqlite3** handle, const char* filename)
