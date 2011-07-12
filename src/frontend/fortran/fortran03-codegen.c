@@ -772,14 +772,14 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 if (!nodecl_is_null(entry->value))
                 {
                     indent(visitor);
-                    fprintf(visitor->file, "%s FORMAT(", entry->symbol_name);
+                    fprintf(visitor->file, "%s FORMAT", entry->symbol_name);
 
                     int old_indent_level = visitor->indent_level;
                     visitor->indent_level = 0;
                     codegen_walk(visitor, entry->value);
                     visitor->indent_level = old_indent_level;
 
-                    fprintf(visitor->file, ")\n");
+                    fprintf(visitor->file, "\n");
                 }
                 break;
             }

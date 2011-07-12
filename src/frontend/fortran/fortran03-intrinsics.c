@@ -4509,13 +4509,13 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
         new_keyword_sym->type_information = function_type_get_parameter_type_num(entry->type_information, i);
 
         new_keyword_sym->entity_specs.is_parameter = 1;
+        new_keyword_sym->entity_specs.parameter_position = i;
         new_keyword_sym->entity_specs.is_optional = current_variant.is_optional[i];
 
         P_LIST_ADD(entry->entity_specs.related_symbols,
                 entry->entity_specs.num_related_symbols,
                 new_keyword_sym);
     }
-    // FIXME - ? Result
 }
 
 scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
