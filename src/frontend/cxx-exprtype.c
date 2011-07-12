@@ -2358,7 +2358,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
     }
     
     // NULL
-    real_literal[(*length)] = 0;
+    (*real_literal)[(*length)] = 0;
     (*length)++;
 
     ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
