@@ -91,6 +91,7 @@ LIBMCXX_EXTERN char const_value_is_complex(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_structured(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_array(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_vector(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_string(const_value_t* v);
 
 LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
 LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
@@ -107,6 +108,7 @@ LIBMCXX_EXTERN const_value_t* const_value_make_complex(const_value_t* real_part,
 
 LIBMCXX_EXTERN const_value_t* const_value_make_string(const char* literal, int num_elems);
 LIBMCXX_EXTERN const_value_t* const_value_make_wstring(int * literal, int num_elems);
+LIBMCXX_EXTERN const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements);
 
 LIBMCXX_EXTERN void const_value_string_unpack(const_value_t* v, int**, int*);
 

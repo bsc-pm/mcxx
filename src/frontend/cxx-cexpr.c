@@ -642,6 +642,11 @@ char const_value_is_vector(const_value_t* v)
     return v->kind == CVK_VECTOR;
 }
 
+char const_value_is_string(const_value_t* v)
+{
+    return v->kind == CVK_STRING;
+}
+
 float const_value_cast_to_float(const_value_t* v)
 {
     if (v->kind == CVK_FLOAT)
@@ -966,52 +971,38 @@ const_value_t* const_value_make_struct(int num_elements, const_value_t **element
     return result;
 }
 
-const_value_t* const_value_make_string(const char* literal, int num_elements)
+const_value_t* const_value_make_string_from_values(int num_elements, const_value_t **elements)
 {
-    const_value_t* result = NULL;
-    if (num_elements > 0)
-    {
-        const_value_t* elements[num_elements];
-        memset(elements, 0, sizeof(elements));
-        int i;
-        for (i = 0; i < num_elements; i++)
-        {
-            elements[i] = const_value_get_integer(literal[i], 1, 0);
-        }
-        result = make_multival(num_elements, elements);
-    }
-    else
-    {
-        result = make_multival(0, NULL);
-    }
+    const_value_t* result = make_multival(num_elements, elements);
     result->kind = CVK_STRING;
 
     return result;
 }
 
+const_value_t* const_value_make_string(const char* literal, int num_elements)
+{
+    const_value_t* elements[num_elements + 1];
+    memset(elements, 0, sizeof(elements));
+    int i;
+    for (i = 0; i < num_elements; i++)
+    {
+        elements[i] = const_value_get_integer(literal[i], 1, 0);
+    }
+
+    return const_value_make_string_from_values(num_elements, elements);
+}
+
 const_value_t* const_value_make_wstring(int* literal, int num_elements)
 {
-
-    const_value_t* result = NULL;
-    if (num_elements > 0)
+    const_value_t* elements[num_elements + 1];
+    memset(elements, 0, sizeof(elements));
+    int i;
+    for (i = 0; i < num_elements; i++)
     {
-        const_value_t* elements[num_elements];
-        memset(elements, 0, sizeof(elements));
-
-        int i;
-        for (i = 0; i < num_elements; i++)
-        {
-            elements[i] = const_value_get_integer(literal[i], 4, 0);
-        }
-        result = make_multival(num_elements, elements);
+        elements[i] = const_value_get_integer(literal[i], 4, 0);
     }
-    else
-    {
-        result = make_multival(0, NULL);
-    }
-    result->kind = CVK_STRING;
 
-    return result;
+    return const_value_make_string_from_values(num_elements, elements);
 }
 
 const_value_t* const_value_make_complex(const_value_t* real_part, const_value_t* imag_part)
