@@ -658,13 +658,13 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 
     const_value_t* const_value = const_value_get_signed_int(value);
 
-    expression_set_type(expr, get_signed_int_type());
+    expression_set_type(expr, fortran_get_default_integer_type());
     expression_set_constant(expr, const_value);
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
-    *nodecl_output = nodecl_make_integer_literal(get_signed_int_type(), const_value, ASTFileName(expr), ASTLine(expr));
+    *nodecl_output = nodecl_make_integer_literal(fortran_get_default_logical_type(), const_value, ASTFileName(expr), ASTLine(expr));
 }
 
 
@@ -2266,16 +2266,16 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
     real_string[real_length] = '\0';
 
     nodecl_t one = nodecl_make_integer_literal(
-            get_signed_int_type(), 
+            fortran_get_default_logical_type(), 
             const_value_get_signed_int(1), 
             ASTFileName(expr),
             ASTLine(expr));
-    nodecl_t length_tree = nodecl_make_integer_literal(get_signed_int_type(), 
+    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_logical_type(), 
             const_value_get_signed_int(real_length), 
             ASTFileName(expr),
             ASTLine(expr));
 
-    type_t* t = get_array_type_bounds(get_signed_char_type(), one, length_tree, decl_context);
+    type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
     expression_set_type(expr, t);
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
@@ -2952,7 +2952,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
             && !nodecl_is_null(length2))
     {
         nodecl_t lower = nodecl_make_integer_literal(
-                get_signed_int_type(), 
+                fortran_get_default_logical_type(), 
                 const_value_get_signed_int(1), 
                 NULL, 0);
         nodecl_t upper = nodecl_null();
@@ -2968,7 +2968,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
             upper = nodecl_make_add(
                     nodecl_copy(length1),
                     nodecl_copy(length2),
-                    get_signed_int_type(),
+                    fortran_get_default_logical_type(),
                     NULL, 0);
         }
 

@@ -1297,7 +1297,8 @@ const char* get_name_of_generic_spec(AST generic_spec)
 }
 
 
-static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context)
+static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context,
+        int (*default_kind)(void))
 {
     fortran_check_expression(kind_expr, decl_context);
 
@@ -1307,9 +1308,10 @@ static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context)
     }
     else
     {
-        warn_printf("%s: could not compute KIND specifier, assuming 4\n", 
-                ast_location(kind_expr));
-        return 4;
+        int result = default_kind();
+        warn_printf("%s: could not compute KIND specifier, assuming %d\n", 
+                ast_location(kind_expr), result);
+        return result;
     }
 }
 
@@ -1382,9 +1384,24 @@ type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 }
 #undef MAX_LOGICAL_KIND
 
-static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(AST expr, int kind_size))
+#define MAX_CHARACTER_KIND MCXX_MAX_BYTES_INTEGER
+static char character_types_init = 0;
+static type_t* character_types[MAX_CHARACTER_KIND + 1] = { 0 };
+type_t* choose_character_type_from_kind(AST expr, int kind_size)
 {
-    int kind_size = compute_kind_specifier(expr, decl_context);
+    if (!character_types_init)
+    {
+        character_types[type_get_size(get_signed_char_type())] = get_signed_char_type();
+        character_types_init = 1;
+    }
+    return choose_type_from_kind_table(expr, character_types, MAX_CHARACTER_KIND, kind_size);
+}
+#undef MAX_CHARACTER_KIND
+
+static type_t* choose_type_from_kind(AST expr, decl_context_t decl_context, type_t* (*fun)(AST expr, int kind_size),
+        int (*default_kind)(void))
+{
+    int kind_size = compute_kind_specifier(expr, decl_context, default_kind);
     return fun(expr, kind_size);
 }
 
@@ -1425,7 +1442,8 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 result = get_signed_int_type();
                 if (ASTSon0(a) != NULL)
                 {
-                    result = choose_type_from_kind(ASTSon0(a), decl_context, choose_int_type_from_kind);
+                    result = choose_type_from_kind(ASTSon0(a), decl_context, 
+                            choose_int_type_from_kind, fortran_get_default_integer_type_kind);
                 }
                 break;
             }
@@ -1434,7 +1452,8 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 result = get_float_type();
                 if (ASTSon0(a) != NULL)
                 {
-                    result = choose_type_from_kind(ASTSon0(a), decl_context, choose_float_type_from_kind);
+                    result = choose_type_from_kind(ASTSon0(a), decl_context, 
+                            choose_float_type_from_kind, fortran_get_default_real_type_kind);
                 }
                 break;
             }
@@ -1448,7 +1467,8 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 type_t* element_type = NULL; 
                 if (ASTType(ASTSon0(a)) == AST_DECIMAL_LITERAL)
                 {
-                    element_type = choose_type_from_kind(ASTSon0(a), decl_context, choose_float_type_from_kind);
+                    element_type = choose_type_from_kind(ASTSon0(a), decl_context, 
+                            choose_float_type_from_kind, fortran_get_default_real_type_kind);
                 }
                 else
                 {
@@ -1460,7 +1480,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
             }
         case AST_CHARACTER_TYPE:
             {
-                result = get_signed_char_type();
+                result = fortran_get_default_character_type();
                 AST char_selector = ASTSon0(a);
                 AST len = NULL;
                 AST kind = NULL;
@@ -1474,8 +1494,9 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
                 {
-                    warn_printf("%s: warning: KIND of CHARACTER ignored, defaulting to 1\n",
-                            ast_location(a));
+                    result = choose_type_from_kind(kind, decl_context, 
+                            choose_character_type_from_kind, 
+                            fortran_get_default_character_type_kind);
                 }
 
                 if (len != NULL
@@ -1511,7 +1532,8 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                 result = get_bool_of_integer_type(get_signed_int_type());
                 if (ASTSon0(a) != NULL)
                 {
-                    result = choose_type_from_kind(ASTSon0(a), decl_context, choose_logical_type_from_kind);
+                    result = choose_type_from_kind(ASTSon0(a), decl_context, 
+                            choose_logical_type_from_kind, fortran_get_default_logical_type_kind);
                 }
                 break;
             }

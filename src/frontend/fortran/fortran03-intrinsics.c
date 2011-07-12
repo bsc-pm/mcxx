@@ -1111,7 +1111,7 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
@@ -1165,7 +1165,7 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
@@ -1543,7 +1543,7 @@ scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
@@ -1561,7 +1561,7 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
@@ -1580,7 +1580,7 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = argument_types[1] != NULL ? get_rank0_type(argument_types[1]) : NULL;
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if (opt_valid_kind_expr(argument_expressions[2], &dr))
     {
         if ((is_floating_type(t0)
@@ -1687,7 +1687,7 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_array_type(t0)
             && is_bool_type(get_rank0_type(t0))
             && (t1 == NULL || is_integer_type(t1))
@@ -2061,7 +2061,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
     AST kind = num_arguments == 6 ? argument_expressions[4] : argument_expressions[3];
     type_t* t5 = num_arguments == 6 ? argument_types[5] : argument_types[4];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && is_fortran_intrinsic_type(get_rank0_type(t0))
@@ -2116,7 +2116,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     AST kind = argument_expressions[1];
 
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
             && opt_valid_kind_expr(kind, &dr))
     {
@@ -2270,7 +2270,7 @@ scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
@@ -2412,7 +2412,7 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
@@ -2457,7 +2457,7 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
     type_t* t2 = get_rank0_type(argument_types[2]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1)
             && equivalent_types(get_unqualified_type(array_type_get_element_type(t0)), 
@@ -2482,7 +2482,7 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if ((is_integer_type(t0)
             || is_floating_type(t0)
@@ -2643,7 +2643,7 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && (t1 == NULL || is_integer_type(t1))
@@ -2698,7 +2698,7 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = argument_types[0];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
@@ -2718,7 +2718,7 @@ scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER
 {
     type_t* t0 = argument_types[0];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
@@ -2851,8 +2851,7 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int dl = 4;
-
+    int dl = fortran_get_default_logical_type_kind();
     if (is_bool_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &dl))
     {
@@ -2871,7 +2870,7 @@ scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
@@ -2891,7 +2890,7 @@ scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_integer_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
@@ -3097,7 +3096,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
     AST kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
     type_t* t4 = num_arguments == 5 ? argument_types[4] : argument_types[3];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && (is_floating_type(get_rank0_type(t0))
@@ -3302,7 +3301,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
     AST kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
     type_t* t4 = num_arguments == 5 ? argument_types[4] : argument_types[3];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && (is_floating_type(get_rank0_type(t0))
@@ -3498,7 +3497,7 @@ scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_floating_type(t0)
             && opt_valid_kind_expr(argument_expressions[1], &di))
@@ -3807,7 +3806,7 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
-    int dr = 4;
+    int dr = fortran_get_default_real_type_kind();
     if ((is_integer_type(t0)
             || is_floating_type(t0)
             || is_complex_type(t0))
@@ -4005,7 +4004,7 @@ scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
 {
     type_t* t0 = argument_types[0];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_INQUIRY("shape", 
@@ -4124,7 +4123,7 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && (t1 == NULL || is_integer_type(t1))
@@ -4196,7 +4195,7 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
 {
     type_t* t0 = argument_types[0];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_INQUIRY("storage_size", 
@@ -4409,7 +4408,7 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
 
     if (is_fortran_array_type(t0)
             && (t1 == NULL || is_integer_type(t1))
@@ -4476,7 +4475,7 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t1 = get_rank0_type(argument_types[1]);
     type_t* t2 = get_rank0_type(argument_types[2]);
 
-    int di = 4;
+    int di = fortran_get_default_integer_type_kind();
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1)
             && (t2 == NULL || is_bool_type(t2))

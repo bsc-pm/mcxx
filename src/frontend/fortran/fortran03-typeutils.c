@@ -481,3 +481,23 @@ type_t* fortran_get_default_character_type(void)
 {
     return get_signed_char_type();
 }
+
+int fortran_get_default_integer_type_kind(void)
+{
+    return type_get_size(fortran_get_default_integer_type());
+}
+
+int fortran_get_default_real_type_kind(void)
+{
+    return type_get_size(fortran_get_default_real_type());
+}
+
+int fortran_get_default_logical_type_kind(void)
+{
+    return type_get_size(fortran_get_default_logical_type());
+}
+
+int fortran_get_default_character_type_kind(void)
+{
+    return type_get_size(fortran_get_default_character_type());
+}
