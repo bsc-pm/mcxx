@@ -601,6 +601,7 @@ static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
             }
             else
             {
+                result = nodecl_null();
                 break;
             }
         }
@@ -620,6 +621,7 @@ static nodecl_t simplify_max_min(int num_arguments, nodecl_t* arguments,
             }
             else
             {
+                result = nodecl_null();
                 break;
             }
         }
@@ -709,11 +711,18 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
 
     if (nodecl_is_constant(arg))
     {
-        ERROR_CONDITION(!nodecl_is_constant(arg_kind), "Kind must be constant here", 0);
+        int kind = 0;
+        if (!nodecl_is_null(arg_kind))
+        {
+            ERROR_CONDITION(!nodecl_is_constant(arg_kind), "Kind must be constant here", 0);
+            const_value_t* kind_value = nodecl_get_constant(arg_kind);
+            kind = const_value_cast_to_4(kind_value);
+        }
+        else
+        {
+            kind = 4;
+        }
 
-        const_value_t* kind_value = nodecl_get_constant(arg_kind);
-
-        int kind = const_value_cast_to_4(kind_value);
         type_t* float_type = choose_float_type_from_kind(nodecl_get_ast(arg_kind), kind);
 
         if (is_float_type(float_type))
