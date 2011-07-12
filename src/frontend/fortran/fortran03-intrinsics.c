@@ -1148,7 +1148,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
-    return GET_INTRINSIC_INQUIRY("allocated", get_bool_type(), t0);
+    return GET_INTRINSIC_INQUIRY("allocated", fortran_get_default_logical_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -1235,7 +1235,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
     {
         if (t1 == NULL)
         {
-            return GET_INTRINSIC_INQUIRY("associated", get_bool_type(), t0);
+            return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0);
         }
         else
         {
@@ -1244,7 +1244,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
 
             if (equivalent_tkr_types(pointer_type_get_pointee_type(t0), t1))
             {
-                return GET_INTRINSIC_INQUIRY("associated", get_bool_type(), t0, t1);
+                return GET_INTRINSIC_INQUIRY("associated", fortran_get_default_logical_type(), t0, t1);
             }
         }
     }
@@ -1465,7 +1465,7 @@ scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bge", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("bge", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -1478,7 +1478,7 @@ scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("bgt", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("bgt", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -1491,7 +1491,7 @@ scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("ble", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("ble", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -1504,7 +1504,7 @@ scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("blt", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("blt", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -1517,7 +1517,7 @@ scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t0 = argument_types[0];
     if (is_integer_type(get_rank0_type(t0)))
     {
-        return GET_INTRINSIC_INQUIRY("bit_size", get_bool_type(), t0);
+        return GET_INTRINSIC_INQUIRY("bit_size", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -1532,7 +1532,7 @@ scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_integer_type(t0)
             && is_integer_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("btest", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("btest", fortran_get_default_logical_type(), t0, t1);
     }
     return NULL;
 }
@@ -2078,9 +2078,9 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), get_rank_of_type(t1) - 1, symbol->decl_context),
                     t0,
                     t1,
-                    t3 == NULL ? get_bool_type() : t3,
+                    t3 == NULL ? fortran_get_default_logical_type() : t3,
                     get_signed_int_type(),
-                    t5 == NULL ? get_bool_type() : t5,
+                    t5 == NULL ? fortran_get_default_logical_type() : t5,
                     );
         }
         else
@@ -2090,9 +2090,9 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
                     t0,
                     t1,
                     t2,
-                    t3 == NULL ? get_bool_type() : t3,
+                    t3 == NULL ? fortran_get_default_logical_type() : t3,
                     get_signed_int_type(),
-                    t5 == NULL ? get_bool_type() : t5,
+                    t5 == NULL ? fortran_get_default_logical_type() : t5,
                     );
         }
     }
@@ -2227,7 +2227,7 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
                 t1 == NULL ? get_n_ranked_type(get_char_type(), 1, symbol->decl_context) : t1,
                 t2 == NULL ? get_signed_int_type() : t2,
                 t3 == NULL ? get_signed_int_type() : t3,
-                t3 == NULL ? get_bool_type() : t4);
+                t3 == NULL ? fortran_get_default_logical_type() : t4);
     }
 
     return NULL;
@@ -2468,7 +2468,7 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
         return GET_INTRINSIC_ELEMENTAL("index", 
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0, t1, 
-                t2 == NULL ? get_bool_type() : t2,
+                t2 == NULL ? fortran_get_default_logical_type() : t2,
                 get_signed_int_type());
     }
 
@@ -2586,7 +2586,7 @@ scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARA
 
     if (is_fortran_array_type(t0))
     {
-        return GET_INTRINSIC_INQUIRY("is_contiguous", get_bool_type(), t0);
+        return GET_INTRINSIC_INQUIRY("is_contiguous", fortran_get_default_logical_type(), t0);
     }
 
     return NULL;
@@ -2601,7 +2601,7 @@ scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARA
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("is_iostat_end", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("is_iostat_end", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2615,7 +2615,7 @@ scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARA
 
     if (is_integer_type(t0))
     {
-        return GET_INTRINSIC_ELEMENTAL("is_iostat_eor", get_bool_type(), t0);
+        return GET_INTRINSIC_ELEMENTAL("is_iostat_eor", fortran_get_default_logical_type(), t0);
     }
     return NULL;
 }
@@ -2742,7 +2742,7 @@ scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lge", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("lge", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -2759,7 +2759,7 @@ scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lgt", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("lgt", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -2776,7 +2776,7 @@ scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("lle", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("lle", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -2793,7 +2793,7 @@ scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
     if (is_fortran_character_type(t0)
             && is_fortran_character_type(t1))
     {
-        return GET_INTRINSIC_ELEMENTAL("llt", get_bool_type(), t0, t1);
+        return GET_INTRINSIC_ELEMENTAL("llt", fortran_get_default_logical_type(), t0, t1);
     }
 
     return NULL;
@@ -3119,9 +3119,9 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("maxloc", 
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
-                    t2 == NULL ? get_bool_type() : t2, 
+                    t2 == NULL ? fortran_get_default_logical_type() : t2, 
                     get_signed_int_type(),
-                    t4 == NULL ? get_bool_type() : t4);
+                    t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
         else
         {
@@ -3129,9 +3129,9 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t1,
-                    t2 == NULL ? get_bool_type() : t2, 
+                    t2 == NULL ? fortran_get_default_logical_type() : t2, 
                     get_signed_int_type(),
-                    t4 == NULL ? get_bool_type() : t4);
+                    t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
     }
 
@@ -3166,7 +3166,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                 t0,
                 t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;
@@ -3324,9 +3324,9 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
             return GET_INTRINSIC_TRANSFORMATIONAL("minloc", 
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
-                    t2 == NULL ? get_bool_type() : t2, 
+                    t2 == NULL ? fortran_get_default_logical_type() : t2, 
                     get_signed_int_type(),
-                    t4 == NULL ? get_bool_type() : t4);
+                    t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
         else
         {
@@ -3334,9 +3334,9 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
                     get_n_ranked_type(choose_int_type_from_kind(kind, di), rank, symbol->decl_context),
                     t0, 
                     t1,
-                    t2 == NULL ? get_bool_type() : t2, 
+                    t2 == NULL ? fortran_get_default_logical_type() : t2, 
                     get_signed_int_type(),
-                    t4 == NULL ? get_bool_type() : t4);
+                    t4 == NULL ? fortran_get_default_logical_type() : t4);
         }
     }
 
@@ -3371,7 +3371,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
                 get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                 t0,
                 t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;
@@ -3689,7 +3689,7 @@ scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
-    return GET_INTRINSIC_INQUIRY("present", get_bool_type(), t0);
+    return GET_INTRINSIC_INQUIRY("present", fortran_get_default_logical_type(), t0);
 }
 
 scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETER,
@@ -3712,7 +3712,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
                 get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                 t0, 
                 t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;
@@ -3925,7 +3925,7 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
                 t1, 
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;
@@ -4227,7 +4227,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
                 get_n_ranked_type(get_rank0_type(t0), get_rank_of_type(t0) - 1, symbol->decl_context),
                 t0, 
                 t1 == NULL ? get_signed_int_type() : t1,
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;
@@ -4486,7 +4486,7 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
                 choose_int_type_from_kind(argument_expressions[3], di),
                 t0,
                 t1,
-                t2 == NULL ? get_bool_type() : t2);
+                t2 == NULL ? fortran_get_default_logical_type() : t2);
     }
 
     return NULL;

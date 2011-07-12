@@ -679,13 +679,13 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     if (strcasecmp(ASTText(expr), ".true.") == 0)
     {
         const_value = const_value_get_one(1, 1);
-        expression_set_type(expr, get_bool_type());
+        expression_set_type(expr, fortran_get_default_logical_type());
         expression_set_constant(expr, const_value);
     }
     else if (strcasecmp(ASTText(expr), ".false.") == 0)
     {
         const_value = const_value_get_zero(1, 1);
-        expression_set_type(expr, get_bool_type());
+        expression_set_type(expr, fortran_get_default_logical_type());
         expression_set_constant(expr, const_value);
     }
     else
@@ -695,7 +695,7 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
 
-    *nodecl_output = nodecl_make_boolean_literal(get_bool_type(), const_value, 
+    *nodecl_output = nodecl_make_boolean_literal(fortran_get_default_logical_type(), const_value, 
             ASTFileName(expr), ASTLine(expr));
 }
 
@@ -2987,7 +2987,7 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
 
 static type_t* logical_type(type_t* t1 UNUSED_PARAMETER, type_t* t2 UNUSED_PARAMETER)
 {
-    return get_bool_type();
+    return fortran_get_default_logical_type();
 }
 
 static char is_logical_type(type_t* t1)

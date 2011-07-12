@@ -307,17 +307,13 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         {
             type_name = "LOGICAL";
         }
-        // Do not move this after is_integer_type
-        else if (is_character_type(t))
-        {
-            type_name = "CHARACTER";
-        }
         else if (is_integer_type(t))
         {
             type_name = "INTEGER";
         }
         else if (is_float_type(t)
-                || is_double_type(t))
+                || is_double_type(t)
+                || is_long_double_type(t))
         {
             type_name = "REAL";
         }

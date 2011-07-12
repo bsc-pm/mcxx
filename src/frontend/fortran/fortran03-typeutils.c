@@ -63,17 +63,13 @@ const char* fortran_print_type_str(type_t* t)
         {
             type_name = "LOGICAL";
         }
-        // Do not move this after is_integer_type
-        else if (is_character_type(t))
-        {
-            type_name = "CHARACTER";
-        }
         else if (is_integer_type(t))
         {
             type_name = "INTEGER";
         }
         else if (is_float_type(t)
-                || is_double_type(t))
+                || is_double_type(t)
+                || is_long_double_type(t))
         {
             type_name = "REAL";
         }
@@ -464,4 +460,24 @@ real_model_t real_type_get_model(type_t* t)
     }
 
     return result;
+}
+
+type_t* fortran_get_default_integer_type(void)
+{
+    return get_signed_int_type();
+}
+
+type_t* fortran_get_default_real_type(void)
+{
+    return get_float_type();
+}
+
+type_t* fortran_get_default_logical_type(void)
+{
+    return get_bool_of_integer_type(fortran_get_default_integer_type());
+}
+
+type_t* fortran_get_default_character_type(void)
+{
+    return get_signed_char_type();
 }

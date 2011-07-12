@@ -43,4 +43,9 @@ struct real_model_tag
 
 real_model_t real_type_get_model(type_t* t);
 
+type_t* fortran_get_default_integer_type(void);
+type_t* fortran_get_default_real_type(void);
+type_t* fortran_get_default_logical_type(void);
+type_t* fortran_get_default_character_type(void);
+
 #endif // FORTRAN03_TYPEUTILS_H
