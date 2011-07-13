@@ -242,6 +242,7 @@ FORTRAN_GENERIC_INTRINSIC(amin0, NULL, E, simplify_amin0) \
 FORTRAN_GENERIC_INTRINSIC(amin1, NULL, E, simplify_amin1) \
 FORTRAN_GENERIC_INTRINSIC(dmax1, NULL, E, simplify_dmax1) \
 FORTRAN_GENERIC_INTRINSIC(dmin1, NULL, E, simplify_dmin1) \
+FORTRAN_GENERIC_INTRINSIC(loc, NULL, E, NULL) \
 
 #define MAX_KEYWORDS_INTRINSICS 10
 
@@ -4489,6 +4490,21 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
     }
 
     return NULL;
+}
+
+scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
+        type_t** argument_types UNUSED_PARAMETER,
+        AST *argument_expressions UNUSED_PARAMETER,
+        int num_arguments UNUSED_PARAMETER)
+{
+    if (num_arguments != 1)
+        return NULL;
+
+    type_t* t0 = argument_types[0];
+
+    return GET_INTRINSIC_INQUIRY("loc",
+            choose_int_type_from_kind(argument_expressions[0], CURRENT_CONFIGURATION->type_environment->sizeof_pointer),
+            t0);
 }
 
 static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywords)

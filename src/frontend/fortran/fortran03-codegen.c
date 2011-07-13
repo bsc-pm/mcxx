@@ -499,6 +499,8 @@ static const char* get_generic_specifier_str(const char *c)
 
 static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* entry)
 {
+    ERROR_CONDITION(entry == NULL, "Invalid symbol to declare", 0);
+
     if (entry->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
         return;
 
@@ -586,6 +588,15 @@ static void declare_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* ent
                 if (entry->entity_specs.is_in_common)
                 {
                     declare_symbol(visitor, entry->entity_specs.in_common);
+                }
+
+                if (entry->entity_specs.is_cray_pointee)
+                {
+                    declare_symbol(visitor, entry->entity_specs.cray_pointer);
+                    indent(visitor);
+                    fprintf(visitor->file, "POINTER (%s, %s)\n", 
+                            entry->entity_specs.cray_pointer->symbol_name,
+                            entry->symbol_name);
                 }
                 break;
             }

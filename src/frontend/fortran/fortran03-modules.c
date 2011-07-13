@@ -1048,7 +1048,7 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
 
     // We should be using UPDATE, but its syntax is so inconvenient here
     char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, language_dependent_value, value, %s) "
-            "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %d, %d, %s);",
+            "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %lld, %lld, %s);",
             attr_field_names,
             P2LL(symbol), // oid
             symbol->symbol_name, // name
@@ -1649,7 +1649,7 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value)
     }
     else if (const_value_is_long_double(value))
     {
-        char * literal_value = sqlite3_mprintf(LONG_DOUBLE_FORMAT_STR, const_value_cast_to_double(value));
+        char * literal_value = sqlite3_mprintf(LONG_DOUBLE_FORMAT_STR, const_value_cast_to_long_double(value));
 
         sqlite3_int64 result = insert_single_const_value(handle, value, 
                 "LONG DOUBLE", 

@@ -2650,7 +2650,7 @@ static void build_scope_common_stmt(AST a,
                 if (is_fortran_array_type(no_ref(sym->type_information))
                         || is_pointer_to_fortran_array_type(no_ref(sym->type_information)))
                 {
-                    running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
+                    running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
                             ast_location(a),
                             sym->symbol_name);
                 }
@@ -4120,7 +4120,7 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
         AST cray_pointer_spec = ASTSon1(it);
 
         AST pointer_name = ASTSon0(cray_pointer_spec);
-        AST pointee = ASTSon1(cray_pointer_spec);
+        AST pointee_decl = ASTSon1(cray_pointer_spec);
 
         scope_entry_t* pointer_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointer_name));
 
@@ -4130,9 +4130,59 @@ static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, no
             pointer_entry->type_information = choose_int_type_from_kind(pointer_name, 
                     CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
         }
+        else if (pointer_entry->kind == SK_VARIABLE)
+        {
+            if (!is_integer_type(pointer_entry->type_information))
+            {
+                running_error("%s: error: a Cray pointer must have integer type\n", 
+                        ast_location(pointer_name));
+            }
+        }
         else
         {
+            running_error("%s: error: invalid entity '%s' for Cray pointer\n",
+                    ast_location(pointer_name),
+                    ASTText(pointer_name));
         }
+
+        AST pointee_name = pointee_decl;
+        AST array_spec = NULL;
+        if (ASTType(pointee_decl) == AST_DIMENSION_DECL)
+        {
+            pointee_name = ASTSon0(pointee_decl);
+            array_spec = ASTSon1(pointee_decl);
+        }
+
+        scope_entry_t* pointee_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointee_name));
+
+        if (pointee_entry->entity_specs.is_cray_pointee)
+        {
+            running_error("%s: error: entity '%s' is already a pointee of Cray pointer '%s'\n",
+                    ast_location(pointee_name),
+                    pointee_entry->symbol_name,
+                    pointee_entry->entity_specs.cray_pointer->symbol_name);
+        }
+        if (array_spec != NULL)
+        {
+            if (is_fortran_array_type(no_ref(pointee_entry->type_information)))
+            {
+                running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
+                        ast_location(pointee_name),
+                        pointee_entry->symbol_name);
+            }
+
+            type_t* array_type = compute_type_from_array_spec(no_ref(pointee_entry->type_information), 
+                    array_spec,
+                    decl_context,
+                    /* array_spec_kind */ NULL);
+            pointee_entry->type_information = array_type;
+
+            pointee_entry->kind = SK_VARIABLE;
+        }
+
+        // We would change it into a SK_VARIABLE but it could be a function, so leave it undefined
+        pointee_entry->entity_specs.is_cray_pointee = 1;
+        pointee_entry->entity_specs.cray_pointer = pointer_entry;
     }
 }
 
@@ -4169,7 +4219,7 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
             if (is_fortran_array_type(no_ref(entry->type_information))
                     || is_pointer_to_fortran_array_type(no_ref(entry->type_information)))
             {
-                running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
+                running_error("%s: error: entity '%s' has already a DIMENSION attribute\n",
                         ast_location(a),
                         entry->symbol_name);
             }
