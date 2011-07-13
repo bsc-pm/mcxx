@@ -1872,9 +1872,6 @@ static scope_entry_list_t* query_in_namespace_and_associates(
     scope_entry_list_t* grand_result 
         = query_name_in_scope(namespace->related_decl_context.current_scope, name);
 
-    if (grand_result != NULL)
-        return grand_result;
-
     int i;
     for (i = idx_associated_namespaces; 
             i < num_associated_namespaces; 

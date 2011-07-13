@@ -4154,6 +4154,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
+            else if (class_entry->kind == SK_CLASS
+                    && !is_template_specialized_type(class_entry->type_information)
+                    && gather_info->is_template)
+            {
+                running_error("%s: error: '%s' is not a template type\n", 
+                        ast_location(class_id_expression),
+                        get_qualified_symbol_name(class_entry, decl_context));
+            }
 
             // If it was friend-declared, it is not anymore
             if (class_entry->entity_specs.is_friend_declared)
@@ -7513,6 +7521,14 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                     entry_list_free(result_list);
 
                     scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
+
+                    if (entry->kind == SK_TYPEDEF)
+                    {
+                        if (is_named_type(advance_over_typedefs(entry->type_information)))
+                        {
+                            entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+                        }
+                    }
 
                     if (entry->kind == SK_VARIABLE)
                     {
