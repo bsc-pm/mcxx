@@ -85,6 +85,7 @@ enum builtin_type_tag
     BT_BOOL,
     BT_FLOAT,
     BT_DOUBLE,
+    BT_OTHER_FLOAT,
     BT_CHAR,
     BT_WCHAR,
     BT_VOID,
@@ -218,6 +219,9 @@ struct simple_type_tag {
 
     // States that the STK_INDIRECT is a not the last indirect
     unsigned char is_indirect:1;
+
+    // Floating type model, only for BT_FLOAT, BT_DOUBLE and BT_OTHER_FLOAT
+    floating_type_info_t* floating_info;
 
     // This type exists after another symbol, for
     // instance
@@ -825,56 +829,85 @@ type_t* get_unsigned_long_long_int_type(void)
     return _type;
 }
 
-type_t* get_float_type(void)
-{
-    static type_t* _type = NULL;
+static int num_float_types = 0;
+static type_t* float_types[MAX_DIFFERENT_FLOATS];
 
-    if (_type == NULL)
+static char same_floating_info(floating_type_info_t* info1, floating_type_info_t* info2)
+{
+    ERROR_CONDITION(info1 == NULL || info2 == NULL, "Invalid floating info", 0);
+    return info1->size_of == info2->size_of
+        && info1->align_of == info2->align_of
+        && info1->bits == info2->bits
+        && info1->base == info2->base
+        && info1->p == info2->p
+        && info1->emin == info2->emin
+        && info1->emax == info2->emax;
+}
+
+type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
+{
+    int i;
+    for (i = 0; i < num_float_types; i++)
     {
-        _type = get_simple_type();
-        _type->type->kind = STK_BUILTIN_TYPE;
-        _type->type->builtin_type = BT_FLOAT;
-        _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_float;
-        _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_float;
-        _type->info->valid_size = 1;
+        type_t* current_type = float_types[i];
+
+        if (same_floating_info(current_type->type->floating_info, info))
+        {
+            return current_type;
+        }
     }
 
-    return _type;
+    ERROR_CONDITION(num_float_types == MAX_DIFFERENT_FLOATS, "Too many floats!", 0);
+
+    type_t* type = get_simple_type();
+    type->type->kind = STK_BUILTIN_TYPE;
+    type->type->builtin_type = BT_OTHER_FLOAT;
+    type->type->floating_info = info;
+    type->info->size = info->size_of;
+    type->info->alignment = info->align_of;
+    type->info->valid_size = 1;
+
+    // Known types of C
+    if (CURRENT_CONFIGURATION->type_environment->float_info == info)
+    {
+        type->type->builtin_type = BT_FLOAT;
+    }
+    else if (CURRENT_CONFIGURATION->type_environment->double_info == info)
+    {
+        type->type->builtin_type = BT_DOUBLE;
+    }
+    else if (CURRENT_CONFIGURATION->type_environment->long_double_info == info)
+    {
+        type->type->builtin_type = BT_DOUBLE;
+        type->type->is_long = 1;
+    }
+
+    float_types[num_float_types] = type;
+    num_float_types++;
+
+    return type;
+}
+
+floating_type_info_t* float_type_get_floating_info(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    ERROR_CONDITION(!is_floating_type(t), "This is not a floating type", 0);
+    return t->type->floating_info;
+}
+
+type_t* get_float_type(void)
+{
+    return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->float_info);
 }
 
 type_t* get_double_type(void)
 {
-    static type_t* _type = NULL;
-
-    if (_type == NULL)
-    {
-        _type = get_simple_type();
-        _type->type->kind = STK_BUILTIN_TYPE;
-        _type->type->builtin_type = BT_DOUBLE;
-        _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_double;
-        _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_double;
-        _type->info->valid_size = 1;
-    }
-
-    return _type;
+    return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->double_info);
 }
 
 type_t* get_long_double_type(void)
 {
-    static type_t* _type = NULL;
-
-    if (_type == NULL)
-    {
-        _type = get_simple_type();
-        _type->type->kind = STK_BUILTIN_TYPE;
-        _type->type->builtin_type = BT_DOUBLE;
-        _type->type->is_long = 1;
-        _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_long_double;
-        _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_long_double;
-        _type->info->valid_size = 1;
-    }
-
-    return _type;
+    return get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->long_double_info);
 }
 
 type_t* get_void_type(void)
@@ -5248,7 +5281,8 @@ char is_floating_type(type_t* t)
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
             && (t->type->builtin_type == BT_FLOAT
-                || t->type->builtin_type == BT_DOUBLE));
+                || t->type->builtin_type == BT_DOUBLE
+                || t->type->builtin_type == BT_OTHER_FLOAT));
 }
 
 char is_arithmetic_type(type_t* t)
@@ -5288,6 +5322,15 @@ char is_float_type(type_t* t)
     return (t != NULL
             && is_floating_type(t) 
             && t->type->builtin_type == BT_FLOAT);
+}
+
+char is_other_float_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && is_floating_type(t) 
+            && t->type->builtin_type == BT_OTHER_FLOAT);
 }
 
 char is_complex_type(type_t* t)
@@ -5702,6 +5745,25 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                     case BT_DOUBLE :
                         {
                             result = strappend(result, "double");
+                            break;
+                        }
+                    case BT_OTHER_FLOAT:
+                        {
+                            if (simple_type->floating_info->bits == 16)
+                            {
+                                result = strappend(result, "half");
+                            }
+                            else if (simple_type->floating_info->bits == 128)
+                            {
+                                result = strappend(result, "__float128");
+                            }
+                            else
+                            {
+                                char c[256];
+                                snprintf(c, 255, "<<unknown-float-type-%d-bits>>", (int)simple_type->floating_info->bits);
+                                c[255] = '\0';
+                                result = strappend(result, c);
+                            }
                             break;
                         }
                     case BT_BOOL :
@@ -6509,6 +6571,25 @@ static const char* get_builtin_type_name(type_t* type_info)
                     case BT_DOUBLE :
                         result = strappend(result, "double");
                         break;
+                    case BT_OTHER_FLOAT:
+                        {
+                            if (simple_type_info->floating_info->bits == 16)
+                            {
+                                result = strappend(result, "half");
+                            }
+                            else if (simple_type_info->floating_info->bits == 128)
+                            {
+                                result = strappend(result, "__float128");
+                            }
+                            else
+                            {
+                                char c[256];
+                                snprintf(c, 255, "<<unknown-float-type-%d-bits>>", (int)simple_type_info->floating_info->bits);
+                                c[255] = '\0';
+                                result = strappend(result, c);
+                            }
+                            break;
+                        }
                     case BT_WCHAR :
                         result = strappend(result, "wchar_t");
                         break;

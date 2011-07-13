@@ -84,6 +84,7 @@ LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);
 LIBMCXX_EXTERN int const_value_get_bytes(const_value_t* val);
 
 LIBMCXX_EXTERN char const_value_is_integer(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_floating(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_float(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_double(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_long_double(const_value_t* v);

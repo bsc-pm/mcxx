@@ -25,6 +25,9 @@
 --------------------------------------------------------------------*/
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -56,6 +59,7 @@ typedef enum const_value_kind_tag
     CVK_FLOAT,
     CVK_DOUBLE,
     CVK_LONG_DOUBLE,
+    CVK_FLOAT128,
     CVK_COMPLEX,
     CVK_ARRAY,
     CVK_STRUCT,
@@ -86,6 +90,10 @@ struct const_value_tag
         double d;
         // CVK_LONG_DOUBLE
         long double ld;
+#ifdef HAVE_FLOAT128
+        // CVK_FLOAT128
+        __float128 f128;
+#endif
         // CVK_COMPLEX
         // CVK_ARRAY
         // CVK_STRUCT
@@ -605,6 +613,13 @@ nodecl_t const_value_to_nodecl(const_value_t* v)
 char const_value_is_integer(const_value_t* v)
 {
     return v->kind == CVK_INTEGER;
+}
+
+char const_value_is_floating(const_value_t* v)
+{
+    return const_value_is_float(v)
+        || const_value_is_double(v)
+        || const_value_is_long_double(v);
 }
 
 char const_value_is_float(const_value_t* v)

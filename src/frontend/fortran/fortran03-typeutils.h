@@ -32,17 +32,6 @@ LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type
 
 LIBMF03_EXTERN char are_conformable_types(type_t* t1, type_t* t2);
 
-typedef
-struct real_model_tag
-{
-    int base;
-    int p;
-    int emin;
-    int emax;
-} real_model_t;
-
-real_model_t real_type_get_model(type_t* t);
-
 type_t* fortran_get_default_integer_type(void);
 type_t* fortran_get_default_real_type(void);
 type_t* fortran_get_default_logical_type(void);

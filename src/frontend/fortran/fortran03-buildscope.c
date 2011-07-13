@@ -1357,9 +1357,12 @@ type_t* choose_float_type_from_kind(AST expr, int kind_size)
 {
     if (!float_types_init)
     {
-        float_types[type_get_size(get_long_double_type())] = get_long_double_type();
-        float_types[type_get_size(get_double_type())] = get_double_type();
-        float_types[type_get_size(get_float_type())] = get_float_type();
+        int i;
+        for (i = 0; i < CURRENT_CONFIGURATION->type_environment->num_float_types; i++)
+        {
+        float_types[CURRENT_CONFIGURATION->type_environment->all_floats[i]->bits / 8] 
+            = get_floating_type_from_descriptor(CURRENT_CONFIGURATION->type_environment->all_floats[i]);
+        }
         float_types_init = 1;
     }
     return choose_type_from_kind_table(expr, float_types, MAX_FLOAT_KIND, kind_size);

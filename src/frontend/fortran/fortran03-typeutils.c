@@ -50,14 +50,12 @@ const char* fortran_print_type_str(type_t* t)
 
     if (is_bool_type(t)
             || is_integer_type(t)
-            || is_float_type(t)
+            || is_floating_type(t)
             || is_double_type(t)
             || is_complex_type(t))
     {
         const char* type_name = NULL;
         char c[128] = { 0 };
-
-        char is_complex = 0;
 
         if (is_bool_type(t))
         {
@@ -67,16 +65,13 @@ const char* fortran_print_type_str(type_t* t)
         {
             type_name = "INTEGER";
         }
-        else if (is_float_type(t)
-                || is_double_type(t)
-                || is_long_double_type(t))
+        else if (is_floating_type(t))
         {
             type_name = "REAL";
         }
         else if (is_complex_type(t))
         {
             type_name = "COMPLEX";
-            is_complex = 1;
         }
         else
         {
@@ -84,9 +79,17 @@ const char* fortran_print_type_str(type_t* t)
         }
 
         size_t size = type_get_size(t);
-        // The kind of a complex is half its size
-        if (is_complex)
-            size /= 2;
+        if (is_floating_type(t))
+        {
+            // KIND of floats is their size in byes (using the bits as in IEEE754) 
+            size = (float_type_get_floating_info(t)->bits) / 8;
+        }
+        else if (is_complex_type(t))
+        {
+            // KIND of a complex is the KIND of its component type
+            type_t* f = complex_type_get_base_type(t);
+            size = (float_type_get_floating_info(f)->bits) / 8;
+        }
 
         snprintf(c, 127, "%s(%zd)", type_name, size);
         c[127] = '\0';
@@ -427,39 +430,6 @@ char are_conformable_types(type_t* t1, type_t* t2)
         return 1;
     else
         return 0;
-}
-
-real_model_t real_type_get_model(type_t* t)
-{
-    real_model_t result;
-    
-    // We only support the binary versions of IEEE 754-2008
-    result.base = 2;
-
-    if (is_float_type(t))
-    {
-        result.emin = -126;
-        result.emax = +127;
-        result.p = 23;
-    }
-    else if (is_double_type(t))
-    {
-        result.emin = -1022;
-        result.emax = +1023;
-        result.p = 52;
-    }
-    else if (is_long_double_type(t))
-    {
-        result.emin = -16382;
-        result.emax = +16383;
-        result.p = 112;
-    }
-    else 
-    {
-        internal_error("Invalid floating type\n", 0);
-    }
-
-    return result;
 }
 
 type_t* fortran_get_default_integer_type(void)

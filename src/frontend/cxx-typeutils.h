@@ -75,6 +75,7 @@ LIBMCXX_EXTERN type_t* get_unsigned_int_type(void);
 LIBMCXX_EXTERN type_t* get_size_t_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_int_type(void);
 LIBMCXX_EXTERN type_t* get_unsigned_long_long_int_type(void);
+LIBMCXX_EXTERN type_t* get_floating_type_from_descriptor(floating_type_info_t* info);
 LIBMCXX_EXTERN type_t* get_float_type(void);
 LIBMCXX_EXTERN type_t* get_void_type(void);
 LIBMCXX_EXTERN type_t* get_double_type(void);
@@ -254,6 +255,9 @@ LIBMCXX_EXTERN char is_floating_type(type_t* t);
 LIBMCXX_EXTERN char is_double_type(type_t* t);
 LIBMCXX_EXTERN char is_long_double_type(type_t* t);
 LIBMCXX_EXTERN char is_float_type(type_t* t);
+LIBMCXX_EXTERN char is_other_float_type(type_t* t);
+
+LIBMCXX_EXTERN floating_type_info_t* float_type_get_floating_info(type_t* t);
 
 // Either floating type or integral type (note that integral types include
 // char, wchar_t, bool and all sorts of 'int')

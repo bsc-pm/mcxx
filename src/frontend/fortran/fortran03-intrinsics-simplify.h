@@ -7,7 +7,9 @@
 
 static nodecl_t nodecl_make_int_literal(int n)
 {
-    return nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(n), NULL, 0);
+    return nodecl_make_integer_literal(fortran_get_default_integer_type(), 
+            const_value_get_integer(n, type_get_size(fortran_get_default_integer_type()), 1), 
+            NULL, 0);
 }
 
 static nodecl_t nodecl_make_zero(void)
@@ -26,14 +28,14 @@ static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t*
 
     type_t* t = nodecl_get_type(x);
 
-    real_model_t model = real_type_get_model(t);
+    floating_type_info_t * model = float_type_get_floating_info(t);
 
     // In mercurium radix is always 2
     int k = 0;
 
-    int precision = (((model.p - 1) * log10(model.base)) + k);
+    int precision = (((model->p - 1) * log10(model->base)) + k);
 
-    return nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(precision), NULL, 0);
+    return nodecl_make_int_literal(precision);
 }
 
 
@@ -120,17 +122,13 @@ static nodecl_t simplify_range(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
         return nodecl_null();
     }
 
-    return nodecl_make_integer_literal(get_signed_int_type(),
-            const_value_get_signed_int(value),
-            NULL, 0);
+    return nodecl_make_int_literal(value);
 }
 
 static nodecl_t simplify_radix(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments UNUSED_PARAMETER)
 {
     // Radix is always 2 in our compiler
-    return nodecl_make_integer_literal(get_signed_int_type(), 
-            const_value_get_signed_int(2), 
-            NULL, 0);
+    return nodecl_make_int_literal(2);
 }
 
 static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -177,8 +175,7 @@ static nodecl_t simplify_selected_real_kind(int num_arguments UNUSED_PARAMETER, 
                 && r_ <= range_
                 && (radix_ == 0 || radix_ == current_radix_))
         {
-            return nodecl_make_integer_literal(get_signed_int_type(),
-                    const_value_get_signed_int(type_get_size(real_types[i])), NULL, 0);
+            return nodecl_make_int_literal(type_get_size(real_types[i]));
         }
     }
 
@@ -212,10 +209,7 @@ static nodecl_t simplify_selected_int_kind(int num_arguments UNUSED_PARAMETER, n
 
     int kind = kind_1 > kind_2 ? kind_1 : kind_2;
 
-    return nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_signed_int(kind), 
-            NULL, 0);
+    return nodecl_make_int_literal(kind);
 }
 
 static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -229,18 +223,12 @@ static nodecl_t simplify_selected_char_kind(int num_arguments UNUSED_PARAMETER, 
         if (strcmp(t, "\"ASCII\"") == 0
                 || strcmp(t, "'ASCII'") == 0)
         {
-            return nodecl_make_integer_literal(
-                    get_signed_int_type(),
-                    const_value_get_signed_int(1), 
-                    NULL, 0);
+            return nodecl_make_int_literal(1);
         }
         else
         {
             // We do not support anything else
-            return nodecl_make_integer_literal(
-                    get_signed_int_type(),
-                    const_value_get_signed_int(-1), 
-                    NULL, 0);
+            return nodecl_make_int_literal(-1);
         }
     }
 
@@ -251,10 +239,7 @@ static nodecl_t simplify_bit_size(int num_arguments UNUSED_PARAMETER, nodecl_t* 
 {
     nodecl_t i = arguments[0];
 
-    return nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_signed_int(type_get_size(no_ref(nodecl_get_type(i))) * 8), 
-            NULL, 0);
+    return nodecl_make_int_literal(type_get_size(no_ref(nodecl_get_type(i))) * 8);
 }
 
 static nodecl_t simplify_len(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -276,10 +261,7 @@ static nodecl_t simplify_kind(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
-    return nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_signed_int(type_get_size(t)), 
-            NULL, 0);
+    return nodecl_make_int_literal(type_get_size(t));
 }
 
 static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -291,21 +273,13 @@ static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
 
     if (is_integer_type(t))
     {
-        return nodecl_make_integer_literal(
-                get_signed_int_type(),
-                // -1 because of the sign
-                const_value_get_signed_int(type_get_size(t) * 8 - 1),
-                NULL, 0);
+        return nodecl_make_int_literal(type_get_size(t) * 8 - 1);
     }
     else if (is_floating_type(t))
     {
-        real_model_t model = real_type_get_model(t);
+        floating_type_info_t* model = float_type_get_floating_info(t);
 
-        return nodecl_make_integer_literal(
-                get_signed_int_type(),
-                // +1 because of the implicit integer part not actually represented
-                const_value_get_signed_int(model.p + 1),
-                NULL, 0);
+        return nodecl_make_int_literal(model->p + 1);
     }
 
     return nodecl_null();
@@ -350,12 +324,9 @@ static nodecl_t simplify_maxexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
-    real_model_t model = real_type_get_model(t);
+    floating_type_info_t* model = float_type_get_floating_info(t);
 
-    return nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_signed_int(model.emax),
-            NULL, 0);
+    return nodecl_make_int_literal(model->emax);
 }
 
 static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
@@ -365,12 +336,9 @@ static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
-    real_model_t model = real_type_get_model(t);
+    floating_type_info_t* model = float_type_get_floating_info(t);
 
-    return nodecl_make_integer_literal(
-            get_signed_int_type(),
-            const_value_get_signed_int(model.emin),
-            NULL, 0);
+    return nodecl_make_int_literal(model->emin);
 }
 
 static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments,
@@ -380,7 +348,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     nodecl_t dim = arguments[1];
     nodecl_t kind = arguments[2];
 
-    int kind_ = type_get_size(get_signed_int_type());
+    int kind_ = type_get_size(fortran_get_default_integer_type());
     if (!nodecl_is_null(kind))
     {
         if (!nodecl_is_constant(kind))
@@ -412,7 +380,7 @@ static nodecl_t simplify_xbound(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
                 nodecl_list,
                 get_array_type_bounds(choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
                     nodecl_make_one(),
-                    nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(kind_), NULL, 0),
+                    nodecl_make_int_literal(kind_),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
@@ -460,7 +428,7 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
     nodecl_t dim = arguments[1];
     nodecl_t kind = arguments[2];
 
-    int kind_ = type_get_size(get_signed_int_type());
+    int kind_ = type_get_size(fortran_get_default_integer_type());
     if (!nodecl_is_null(kind))
     {
         if (!nodecl_is_constant(kind))
@@ -488,7 +456,7 @@ static nodecl_t simplify_size(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
                 return nodecl_null();
 
             value = value * const_value_cast_to_4(nodecl_get_constant(size));
-            
+
             t = array_type_get_element_type(t);
         }
 
@@ -530,7 +498,7 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
     nodecl_t array = arguments[0];
     nodecl_t kind = arguments[1];
 
-    int kind_ = type_get_size(get_signed_int_type());
+    int kind_ = type_get_size(fortran_get_default_integer_type());
     if (!nodecl_is_null(kind))
     {
         if (!nodecl_is_constant(kind))
@@ -569,7 +537,7 @@ static nodecl_t simplify_shape(int num_arguments UNUSED_PARAMETER, nodecl_t* arg
                 nodecl_list,
                 get_array_type_bounds(choose_int_type_from_kind(nodecl_get_ast(kind), kind_),
                     nodecl_make_one(),
-                    nodecl_make_integer_literal(get_signed_int_type(), const_value_get_signed_int(kind_), NULL, 0),
+                    nodecl_make_int_literal(kind_),
                     CURRENT_COMPILED_FILE->global_decl_context),
                 NULL, 0);
     }
@@ -704,6 +672,40 @@ static nodecl_t simplify_min0(int num_arguments, nodecl_t* arguments)
     return simplify_max_min_plus_conv(num_arguments, arguments, const_value_lt, const_value_cast_to_signed_int_value);
 }
 
+static nodecl_t simplify_int(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
+{
+    nodecl_t arg = arguments[0];
+    nodecl_t arg_kind = arguments[1];
+
+    int kind = fortran_get_default_integer_type_kind();
+    if (!nodecl_is_null(arg_kind))
+    {
+        kind = const_value_cast_to_4(nodecl_get_constant(arg_kind));
+    }
+
+    if (!nodecl_is_constant(arg))
+        return nodecl_null();
+
+    const_value_t* v = nodecl_get_constant(arg);
+
+    if (const_value_is_integer(v))
+    {
+        return nodecl_make_integer_literal(
+                choose_int_type_from_kind(nodecl_get_ast(arg), kind),
+                const_value_cast_to_bytes(v, kind, 1),
+                NULL, 0);
+    }
+    else if (const_value_is_floating(v))
+    {
+        return nodecl_make_integer_literal(
+                choose_int_type_from_kind(nodecl_get_ast(arg), kind),
+                const_value_round_to_zero_bytes(v, kind),
+                NULL, 0);
+    }
+
+    return nodecl_null();
+}
+
 static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* arguments)
 {
     nodecl_t arg = arguments[0];
@@ -720,7 +722,7 @@ static nodecl_t simplify_real(int num_arguments UNUSED_PARAMETER, nodecl_t* argu
         }
         else
         {
-            kind = 4;
+            kind = fortran_get_default_real_type_kind();;
         }
 
         type_t* float_type = choose_float_type_from_kind(nodecl_get_ast(arg_kind), kind);

@@ -294,14 +294,12 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
 
     if (is_bool_type(t)
             || is_integer_type(t)
-            || is_float_type(t)
+            || is_floating_type(t)
             || is_double_type(t)
             || is_complex_type(t))
     {
         const char* type_name = NULL;
         char c[128] = { 0 };
-
-        char is_complex = 0;
 
         if (is_bool_type(t))
         {
@@ -311,16 +309,13 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         {
             type_name = "INTEGER";
         }
-        else if (is_float_type(t)
-                || is_double_type(t)
-                || is_long_double_type(t))
+        else if (is_floating_type(t))
         {
             type_name = "REAL";
         }
         else if (is_complex_type(t))
         {
             type_name = "COMPLEX";
-            is_complex = 1;
         }
         else
         {
@@ -328,9 +323,17 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         }
 
         size_t size = type_get_size(t);
-        // The kind of a complex is half its size
-        if (is_complex)
-            size /= 2;
+        if (is_floating_type(t))
+        {
+            // KIND of floats is their size in byes (using the bits as in IEEE754) 
+            size = (float_type_get_floating_info(t)->bits) / 8;
+        }
+        else if (is_complex_type(t))
+        {
+            // KIND of a complex is the KIND of its component type
+            type_t* f = complex_type_get_base_type(t);
+            size = (float_type_get_floating_info(f)->bits) / 8;
+        }
 
         snprintf(c, 127, "%s(%zd)", type_name, size);
 

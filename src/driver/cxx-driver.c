@@ -2006,6 +2006,9 @@ static void initialize_default_values(void)
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
     SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
 
+    // Ensure that type environments have been initialized
+    init_type_environments();
+
     if (default_environment == NULL)
     {
         default_environment = get_environment(DEFAULT_TYPE_ENVIRONMENT);

@@ -47,6 +47,7 @@ MCXX_BEGIN_DECLS
 // A NULL ended list of those above
 LIBMCXX_EXTERN type_environment_t* type_environment_list[];
 LIBMCXX_EXTERN type_environment_t* default_environment;
+LIBMCXX_EXTERN void init_type_environments(void);
 
 // Fallback for faulty configuration
 #ifndef DEFAULT_TYPE_ENVIRONMENT

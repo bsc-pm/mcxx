@@ -87,20 +87,23 @@ AC_MSG_CHECKING([whether gcc is new enough])
 AC_COMPILE_IFELSE(
    [AC_LANG_SOURCE([[
      #ifdef __GNUC__
-      #if __GNUC__ <= 2
+      #if __GNUC__ <= 3
        #error "Too old compiler"
       #endif
    
-      #if __GNUC__ == 3
-       #if __GNUC_MINOR__ <= 3
+      #if __GNUC__ == 4
+       #if __GNUC_MINOR__ <= 0
         #error "Too old compiler"
        #endif
       #endif
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
 )
+
+dnl -- Check if our GCC supports __float128 -- Available since gcc 4.4 --
+AC_CHECK_TYPE([__float128], AC_DEFINE([HAVE_FLOAT128], 1, [Define to 1 if __float128 is supported by the compiler]))
 
 dnl --------------------- end check of old gcc ---
 

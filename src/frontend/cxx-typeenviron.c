@@ -25,6 +25,9 @@
 --------------------------------------------------------------------*/
 
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -1527,6 +1530,88 @@ void generic_system_v_sizeof(type_t* t)
     internal_error("Unreachable code", 0);
 }
 
+struct floating_type_info_tag binary_float_16 =
+{ 
+    .size_of = 2, 
+    .align_of = 2, 
+    .bits = 16,
+
+    .base = 2,
+    .p = 10,
+    .emin = -29,
+    .emax = +32,
+};
+
+
+struct floating_type_info_tag binary_float_32 =
+{ 
+    .size_of = 4, 
+    .align_of = 4, 
+    .bits = 32,
+
+    .base = 2,
+    .p = 23,
+    .emin = -125,
+    .emax = +128,
+};
+
+struct floating_type_info_tag binary_float_64 =
+{ 
+    .size_of = 8, 
+    .align_of = 8, 
+    .bits = 64,
+
+    .base = 2,
+    .p = 52,
+    .emin = -1021,
+    .emax = +1024,
+};
+
+struct floating_type_info_tag binary_float_80_intel =
+{ 
+    .size_of = 12, 
+    .align_of = 4, 
+    .bits = 80,
+
+    .base = 2,
+    .p = 63,
+    .emin = -16381,
+    .emax = +16384,
+};
+
+// This one is not technically IEEE 754 but we model it as if it were
+struct floating_type_info_tag binary_float_2x64 =
+{ 
+    .size_of = 16, 
+    .align_of = 16, 
+    .bits = 128,
+
+    .base = 2,
+    .p = 105,
+    .emin = -968,
+    .emax = +1024,
+};
+
+struct floating_type_info_tag binary_float_128 =
+{ 
+    .size_of = 16, 
+    .align_of = 16, 
+    .bits = 128,
+
+    .base = 2,
+    .p = 112,
+    .emin = -16381,
+    .emax = +16384,
+};
+
+#define DEFINE_FLOAT_UNNAMED(name, value) \
+    name.all_floats[name.num_float_types] = &value; \
+    name.num_float_types++; \
+
+#define DEFINE_FLOAT_TYPE(name, type, value) \
+    DEFINE_FLOAT_UNNAMED(name, value) \
+    name.type##_info = &value; \
+
 /*
    Specific architecture environment definitions and routines
 
@@ -1534,630 +1619,567 @@ void generic_system_v_sizeof(type_t* t)
     architecture. And fill all the fields.
     2. Add the pointer to the list of environments at the end of the file
  */
-// ***************
-// Linux IA-32
-// ***************
-// Nothing is aligned more than 4 here
-static type_environment_t type_environment_linux_ia32_ = 
+static type_environment_t linux_ia32;
+static type_environment_t linux_amd64;
+static type_environment_t linux_ia64;
+static type_environment_t linux_ppc32;
+static type_environment_t linux_ppc64;
+static type_environment_t linux_spu;
+static type_environment_t linux_arm_eabi;
+static type_environment_t solaris_sparcv9;
+
+void init_type_environments(void)
 {
-    .environ_id = "linux-i386",
-    .environ_name = "Linux IA32",
+    static char inited = 0;
+    if (inited)
+        return;
+    inited = 1;
+
+    // ***************************+***************
+    //    Linux IA-32
+    // ***************************+***************
+    linux_ia32.environ_id = "linux-i386";
+    linux_ia32.environ_name = "Linux IA32";
+
+    linux_ia32.sizeof_bool = 1;
+    linux_ia32.alignof_bool = 1;
+
+    linux_ia32.sizeof_wchar_t = 4;
+    linux_ia32.alignof_wchar_t = 4;
+
+    linux_ia32.sizeof_unsigned_short = 2;
+    linux_ia32.alignof_unsigned_short = 2;
+
+    linux_ia32.sizeof_signed_short = 2;
+    linux_ia32.alignof_signed_short = 2;
+
+    linux_ia32.sizeof_unsigned_int = 4;
+    linux_ia32.alignof_unsigned_int = 4;
+
+    linux_ia32.sizeof_signed_int = 4;
+    linux_ia32.alignof_signed_int = 4;
+
+    linux_ia32.sizeof_unsigned_long = 4;
+    linux_ia32.alignof_unsigned_long = 4;
+
+    linux_ia32.sizeof_signed_long = 4;
+    linux_ia32.alignof_signed_long = 4;
+
+    linux_ia32.sizeof_unsigned_long_long = 8;
+    linux_ia32.alignof_unsigned_long_long = 4;
+
+    linux_ia32.sizeof_signed_long_long = 8;
+    linux_ia32.alignof_signed_long_long = 4; 
+
+    DEFINE_FLOAT_TYPE(linux_ia32, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ia32, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ia32, long_double, binary_float_80_intel)
+#ifdef HAVE_FLOAT128
+    DEFINE_FLOAT_UNNAMED(linux_ia32, binary_float_128);
+#endif
+
+    linux_ia32.sizeof_pointer = 4;
+    linux_ia32.alignof_pointer = 4;
+
+    linux_ia32.sizeof_pointer_to_data_member = 4;
+    linux_ia32.alignof_pointer_to_data_member = 4;
+
+    linux_ia32.sizeof_function_pointer = 4;
+    linux_ia32.alignof_function_pointer = 4;
+
+    linux_ia32.sizeof_pointer_to_member_function = 8;
+    linux_ia32.alignof_pointer_to_member_function = 4;
+
+    linux_ia32.compute_sizeof = generic_system_v_sizeof;
+
+    linux_ia32.type_of_sizeof = get_unsigned_int_type;
+
+    linux_ia32.char_type = get_signed_char_type;
+
+    linux_ia32.sizeof_builtin_va_list = 4;
+    linux_ia32.alignof_builtin_va_list = 4;
+    
+    // ***************************+***************
+    //     Linux AMD 64
+    // ***************************+***************
+    linux_amd64.environ_id = "linux-x86_64";
+    linux_amd64.environ_name = "Linux AMD64/EMT64";
 
     // '_Bool' in C99
     // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
+    linux_amd64.sizeof_bool = 1;
+    linux_amd64.alignof_bool = 1;
 
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
+    linux_amd64.sizeof_wchar_t = 4;
+    linux_amd64.alignof_wchar_t = 4;
 
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
+    linux_amd64.sizeof_unsigned_short = 2;
+    linux_amd64.alignof_unsigned_short = 2;
 
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
+    linux_amd64.sizeof_signed_short = 2;
+    linux_amd64.alignof_signed_short = 2;
 
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
+    linux_amd64.sizeof_unsigned_int = 4;
+    linux_amd64.alignof_unsigned_int = 4;
 
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
+    linux_amd64.sizeof_signed_int = 4;
+    linux_amd64.alignof_signed_int = 4;
 
-    .sizeof_unsigned_long = 4,
-    .alignof_unsigned_long = 4,
+    linux_amd64.sizeof_unsigned_long = 8;
+    linux_amd64.alignof_unsigned_long = 8;
 
-    .sizeof_signed_long = 4,
-    .alignof_signed_long = 4,
+    linux_amd64.sizeof_signed_long = 8;
+    linux_amd64.alignof_signed_long = 8;
 
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 4,
+    linux_amd64.sizeof_unsigned_long_long = 8;
+    linux_amd64.alignof_unsigned_long_long = 8;
 
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 4, 
+    linux_amd64.sizeof_signed_long_long = 8;
+    linux_amd64.alignof_signed_long_long = 8;
 
-    .sizeof_float = 4,
-    .alignof_float = 4,
+    DEFINE_FLOAT_TYPE(linux_amd64, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_amd64, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_amd64, long_double, binary_float_80_intel)
+#ifdef HAVE_FLOAT128
+    DEFINE_FLOAT_UNNAMED(linux_amd64, binary_float_128);
+#endif
 
-    .sizeof_double = 8,
-    .alignof_double = 4,
-
-    .sizeof_long_double = 12,
-    .alignof_long_double = 4,
-
-    .sizeof_pointer = 4,
-    .alignof_pointer = 4,
+    linux_amd64.sizeof_pointer = 8;
+    linux_amd64.alignof_pointer = 8;
 
     // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 4,
-    .alignof_pointer_to_data_member = 4,
+    linux_amd64.sizeof_pointer_to_data_member = 8;
+    linux_amd64.alignof_pointer_to_data_member = 8;
 
-    .sizeof_function_pointer = 4,
-    .alignof_function_pointer = 4,
-
-    // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 8,
-    .alignof_pointer_to_member_function = 4,
-
-    // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
-
-    .type_of_sizeof = get_unsigned_int_type,
-
-    // In IA32 'char' == 'signed char'
-    .char_type = get_signed_char_type,
-
-    // __builtin_va_list
-    .sizeof_builtin_va_list = 4,
-    .alignof_builtin_va_list = 4,
-};
-
-
-type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
-
-// ***************
-// Linux IA64
-// ***************
-static type_environment_t type_environment_linux_ia64_ = 
-{
-    .environ_id = "linux-ia64",
-    .environ_name = "Linux Itanium",
-
-    // '_Bool' in C99
-    // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
-
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
-
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
-
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
-
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
-
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
-
-    .sizeof_unsigned_long = 8,
-    .alignof_unsigned_long = 8,
-
-    .sizeof_signed_long = 8,
-    .alignof_signed_long = 8,
-
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
-
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
-
-    .sizeof_float = 4,
-    .alignof_float = 4,
-
-    .sizeof_double = 8,
-    .alignof_double = 4,
-
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
-
-    .sizeof_pointer = 8,
-    .alignof_pointer = 8,
-
-    // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 8,
-    .alignof_pointer_to_data_member = 8,
-
-    .sizeof_function_pointer = 8,
-    .alignof_function_pointer = 8,
+    linux_amd64.sizeof_function_pointer = 8;
+    linux_amd64.alignof_function_pointer = 8;
 
     // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 16,
-    .alignof_pointer_to_member_function = 8,
+    linux_amd64.sizeof_pointer_to_member_function = 16;
+    linux_amd64.alignof_pointer_to_member_function = 8;
 
     // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
-
-    // In IA64 a size_t is an unsigned long 
-    .type_of_sizeof = get_unsigned_long_int_type,
-
-    // In IA64 'char' == 'signed char'
-    .char_type = get_signed_char_type,
-
-    // __builtin_va_list
-    .sizeof_builtin_va_list = 8,
-    .alignof_builtin_va_list = 8,
-};
-
-// ****************
-// Linux PowerPC 32
-// ****************
-static type_environment_t type_environment_linux_ppc32_ = 
-{
-    .environ_id = "linux-ppc32",
-    .environ_name = "Linux PowerPC 32",
-
-    // '_Bool' in C99
-    // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
-
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
-
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
-
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
-
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
-
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
-
-    .sizeof_unsigned_long = 4,
-    .alignof_unsigned_long = 4,
-
-    .sizeof_signed_long = 4,
-    .alignof_signed_long = 4,
-
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
-
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
-
-    .sizeof_float = 4,
-    .alignof_float = 4,
-
-    .sizeof_double = 8,
-    .alignof_double = 8,
-
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
-
-    .sizeof_pointer = 4,
-    .alignof_pointer = 4,
-
-    // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 4,
-    .alignof_pointer_to_data_member = 4,
-
-    .sizeof_function_pointer = 4,
-    .alignof_function_pointer = 4,
-
-    // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 8,
-    .alignof_pointer_to_member_function = 4,
-
-    // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
-
-    .type_of_sizeof = get_unsigned_int_type,
-
-    // In PPC32 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type,
-
-    // __builtin_va_list
-    .sizeof_builtin_va_list = 12,
-    .alignof_builtin_va_list = 4,
-};
-
-// ****************
-// Linux PowerPC 64
-// ****************
-static type_environment_t type_environment_linux_ppc64_ = 
-{
-    .environ_id = "linux-ppc64",
-    .environ_name = "Linux PowerPC 64",
-
-    // '_Bool' in C99
-    // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
-
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
-
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
-
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
-
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
-
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
-
-    .sizeof_unsigned_long = 8,
-    .alignof_unsigned_long = 8,
-
-    .sizeof_signed_long = 8,
-    .alignof_signed_long = 8,
-
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
-
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
-
-    .sizeof_float = 4,
-    .alignof_float = 4,
-
-    .sizeof_double = 8,
-    .alignof_double = 4,
-
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
-
-    .sizeof_pointer = 8,
-    .alignof_pointer = 8,
-
-    // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 8,
-    .alignof_pointer_to_data_member = 8,
-
-    .sizeof_function_pointer = 8,
-    .alignof_function_pointer = 8,
-
-    // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 16,
-    .alignof_pointer_to_member_function = 8,
-
-    // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
+    linux_amd64.compute_sizeof = generic_system_v_sizeof;
 
     // In PPC64 a size_t is an unsigned long 
-    .type_of_sizeof = get_unsigned_long_int_type,
+    linux_amd64.type_of_sizeof = get_unsigned_long_int_type;
 
     // In PPC64 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type,
+    linux_amd64.char_type = get_unsigned_char_type;
 
     // __builtin_va_list
-    .sizeof_builtin_va_list = 8,
-    .alignof_builtin_va_list = 8,
-};
+    linux_amd64.sizeof_builtin_va_list = 24;
+    linux_amd64.alignof_builtin_va_list = 8;
 
-// ****************
-// Linux AMD 64
-// ****************
-static type_environment_t type_environment_linux_amd64_ = 
-{
-    .environ_id = "linux-x86_64",
-    .environ_name = "Linux AMD64/EMT64",
+
+    // ***************************+***************
+    //     Linux IA64
+    // ***************************+***************
+    linux_ia64.environ_id = "linux-ia64";
+    linux_ia64.environ_name = "Linux Itanium";
 
     // '_Bool' in C99
     // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
+    linux_ia64.sizeof_bool = 1;
+    linux_ia64.alignof_bool = 1;
 
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
+    linux_ia64.sizeof_wchar_t = 4;
+    linux_ia64.alignof_wchar_t = 4;
 
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
+    linux_ia64.sizeof_unsigned_short = 2;
+    linux_ia64.alignof_unsigned_short = 2;
 
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
+    linux_ia64.sizeof_signed_short = 2;
+    linux_ia64.alignof_signed_short = 2;
 
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
+    linux_ia64.sizeof_unsigned_int = 4;
+    linux_ia64.alignof_unsigned_int = 4;
 
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
+    linux_ia64.sizeof_signed_int = 4;
+    linux_ia64.alignof_signed_int = 4;
 
-    .sizeof_unsigned_long = 8,
-    .alignof_unsigned_long = 8,
+    linux_ia64.sizeof_unsigned_long = 8;
+    linux_ia64.alignof_unsigned_long = 8;
 
-    .sizeof_signed_long = 8,
-    .alignof_signed_long = 8,
+    linux_ia64.sizeof_signed_long = 8;
+    linux_ia64.alignof_signed_long = 8;
 
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
+    linux_ia64.sizeof_unsigned_long_long = 8;
+    linux_ia64.alignof_unsigned_long_long = 8;
 
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
+    linux_ia64.sizeof_signed_long_long = 8;
+    linux_ia64.alignof_signed_long_long = 8; 
 
-    .sizeof_float = 4,
-    .alignof_float = 4,
+    DEFINE_FLOAT_TYPE(linux_ia64, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ia64, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ia64, long_double, binary_float_80_intel)
 
-    .sizeof_double = 8,
-    .alignof_double = 8,
+    linux_ia64.sizeof_pointer = 8;
+    linux_ia64.alignof_pointer = 8;
 
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
+    linux_ia64.sizeof_pointer_to_data_member = 8;
+    linux_ia64.alignof_pointer_to_data_member = 8;
 
-    .sizeof_pointer = 8,
-    .alignof_pointer = 8,
+    linux_ia64.sizeof_function_pointer = 8;
+    linux_ia64.alignof_function_pointer = 8;
 
-    // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 8,
-    .alignof_pointer_to_data_member = 8,
+    linux_ia64.sizeof_pointer_to_member_function = 16;
+    linux_ia64.alignof_pointer_to_member_function = 8;
 
-    .sizeof_function_pointer = 8,
-    .alignof_function_pointer = 8,
+    linux_ia64.compute_sizeof = generic_system_v_sizeof;
 
-    // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 16,
-    .alignof_pointer_to_member_function = 8,
+    linux_ia64.type_of_sizeof = get_unsigned_long_int_type;
 
-    // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
+    linux_ia64.char_type = get_signed_char_type;
 
-    // In PPC64 a size_t is an unsigned long 
-    .type_of_sizeof = get_unsigned_long_int_type,
+    linux_ia64.sizeof_builtin_va_list = 8;
+    linux_ia64.alignof_builtin_va_list = 8;
 
-    // In PPC64 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type,
-
-    // __builtin_va_list
-    .sizeof_builtin_va_list = 24,
-    .alignof_builtin_va_list = 8,
-};
-
-// ****************
-// Linux SPU
-// ****************
-static type_environment_t type_environment_linux_spu_ = 
-{
-    .environ_id = "linux-spu",
-    .environ_name = "Linux SPU",
+    // ***************************+***************
+    //     Linux PowerPC 32
+    // ***************************+***************
+    linux_ppc32.environ_id = "linux-ppc32";
+    linux_ppc32.environ_name = "Linux PowerPC 32";
 
     // '_Bool' in C99
     // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
+    linux_ppc32.sizeof_bool = 1;
+    linux_ppc32.alignof_bool = 1;
 
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
+    linux_ppc32.sizeof_wchar_t = 4;
+    linux_ppc32.alignof_wchar_t = 4;
 
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
+    linux_ppc32.sizeof_unsigned_short = 2;
+    linux_ppc32.alignof_unsigned_short = 2;
 
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
+    linux_ppc32.sizeof_signed_short = 2;
+    linux_ppc32.alignof_signed_short = 2;
 
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
+    linux_ppc32.sizeof_unsigned_int = 4;
+    linux_ppc32.alignof_unsigned_int = 4;
 
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
+    linux_ppc32.sizeof_signed_int = 4;
+    linux_ppc32.alignof_signed_int = 4;
 
-    .sizeof_unsigned_long = 4,
-    .alignof_unsigned_long = 4,
+    linux_ppc32.sizeof_unsigned_long = 4;
+    linux_ppc32.alignof_unsigned_long = 4;
 
-    .sizeof_signed_long = 4,
-    .alignof_signed_long = 4,
+    linux_ppc32.sizeof_signed_long = 4;
+    linux_ppc32.alignof_signed_long = 4;
 
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
+    linux_ppc32.sizeof_unsigned_long_long = 8;
+    linux_ppc32.alignof_unsigned_long_long = 8;
 
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
+    linux_ppc32.sizeof_signed_long_long = 8;
+    linux_ppc32.alignof_signed_long_long = 8;
 
-    .sizeof_float = 4,
-    .alignof_float = 4,
+    DEFINE_FLOAT_TYPE(linux_ppc32, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ppc32, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ppc32, long_double, binary_float_2x64)
 
-    .sizeof_double = 8,
-    .alignof_double = 8,
-
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
-
-    .sizeof_pointer = 4,
-    .alignof_pointer = 4,
+    linux_ppc32.sizeof_pointer = 4;
+    linux_ppc32.alignof_pointer = 4;
 
     // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 4,
-    .alignof_pointer_to_data_member = 4,
+    linux_ppc32.sizeof_pointer_to_data_member = 4;
+    linux_ppc32.alignof_pointer_to_data_member = 4;
 
-    .sizeof_function_pointer = 4,
-    .alignof_function_pointer = 4,
+    linux_ppc32.sizeof_function_pointer = 4;
+    linux_ppc32.alignof_function_pointer = 4;
 
     // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 8,
-    .alignof_pointer_to_member_function = 4,
+    linux_ppc32.sizeof_pointer_to_member_function = 8;
+    linux_ppc32.alignof_pointer_to_member_function = 4;
 
     // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
+    linux_ppc32.compute_sizeof = generic_system_v_sizeof;
 
-    .type_of_sizeof = get_unsigned_int_type,
+    linux_ppc32.type_of_sizeof = get_unsigned_int_type;
 
     // In PPC32 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type
-};
+    linux_ppc32.char_type = get_unsigned_char_type;
 
-// 
+    // __builtin_va_list
+    linux_ppc32.sizeof_builtin_va_list = 12;
+    linux_ppc32.alignof_builtin_va_list = 4;
 
-// ****************
-// Solaris SPARCv9
-// ****************
-static type_environment_t type_environment_solaris_sparcv9_ = 
-{
-    .environ_id = "solaris-sparcv9",
-    .environ_name = "Solaris SPARCv9",
+    // ***************************+***************
+    //     Linux PowerPC 64
+    // ***************************+***************
+    linux_ppc64.environ_id = "linux-ppc64";
+    linux_ppc64.environ_name = "Linux PowerPC 64";
 
     // '_Bool' in C99
     // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
+    linux_ppc64.sizeof_bool = 1;
+    linux_ppc64.alignof_bool = 1;
 
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
+    linux_ppc64.sizeof_wchar_t = 4;
+    linux_ppc64.alignof_wchar_t = 4;
 
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
+    linux_ppc64.sizeof_unsigned_short = 2;
+    linux_ppc64.alignof_unsigned_short = 2;
 
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
+    linux_ppc64.sizeof_signed_short = 2;
+    linux_ppc64.alignof_signed_short = 2;
 
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
+    linux_ppc64.sizeof_unsigned_int = 4;
+    linux_ppc64.alignof_unsigned_int = 4;
 
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
+    linux_ppc64.sizeof_signed_int = 4;
+    linux_ppc64.alignof_signed_int = 4;
 
-    .sizeof_unsigned_long = 8,
-    .alignof_unsigned_long = 8,
+    linux_ppc64.sizeof_unsigned_long = 8;
+    linux_ppc64.alignof_unsigned_long = 8;
 
-    .sizeof_signed_long = 8,
-    .alignof_signed_long = 8,
+    linux_ppc64.sizeof_signed_long = 8;
+    linux_ppc64.alignof_signed_long = 8;
 
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
+    linux_ppc64.sizeof_unsigned_long_long = 8;
+    linux_ppc64.alignof_unsigned_long_long = 8;
 
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
+    linux_ppc64.sizeof_signed_long_long = 8;
+    linux_ppc64.alignof_signed_long_long = 8;
 
-    .sizeof_float = 4,
-    .alignof_float = 4,
+    DEFINE_FLOAT_TYPE(linux_ppc64, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_ppc64, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_ppc64, long_double, binary_float_2x64)
 
-    .sizeof_double = 8,
-    // Required 4, recommended 8
-    .alignof_double = 8,
+    linux_ppc64.sizeof_pointer = 8;
+    linux_ppc64.alignof_pointer = 8;
 
-    .sizeof_long_double = 16,
-    // Required 4, recommended 16
-    .alignof_long_double = 16,
+    // One 'ptrdiff_t'
+    linux_ppc64.sizeof_pointer_to_data_member = 8;
+    linux_ppc64.alignof_pointer_to_data_member = 8;
+
+    linux_ppc64.sizeof_function_pointer = 8;
+    linux_ppc64.alignof_function_pointer = 8;
+
+    // Two 'ptrdiff_t'
+    linux_ppc64.sizeof_pointer_to_member_function = 16;
+    linux_ppc64.alignof_pointer_to_member_function = 8;
+
+    // Valid both for C and C++
+    linux_ppc64.compute_sizeof = generic_system_v_sizeof;
+
+    // In PPC64 a size_t is an unsigned long 
+    linux_ppc64.type_of_sizeof = get_unsigned_long_int_type;
+
+    // In PPC64 'char' == 'unsigned char'
+    linux_ppc64.char_type = get_unsigned_char_type;
+
+    // __builtin_va_list
+    linux_ppc64.sizeof_builtin_va_list = 8;
+    linux_ppc64.alignof_builtin_va_list = 8;
+
+    // ***************************+***************
+    //     Linux SPU
+    // ***************************+***************
+    linux_spu.environ_id = "linux-spu";
+    linux_spu.environ_name = "Linux SPU";
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    linux_spu.sizeof_bool = 1;
+    linux_spu.alignof_bool = 1;
+
+    linux_spu.sizeof_wchar_t = 4;
+    linux_spu.alignof_wchar_t = 4;
+
+    linux_spu.sizeof_unsigned_short = 2;
+    linux_spu.alignof_unsigned_short = 2;
+
+    linux_spu.sizeof_signed_short = 2;
+    linux_spu.alignof_signed_short = 2;
+
+    linux_spu.sizeof_unsigned_int = 4;
+    linux_spu.alignof_unsigned_int = 4;
+
+    linux_spu.sizeof_signed_int = 4;
+    linux_spu.alignof_signed_int = 4;
+
+    linux_spu.sizeof_unsigned_long = 4;
+    linux_spu.alignof_unsigned_long = 4;
+
+    linux_spu.sizeof_signed_long = 4;
+    linux_spu.alignof_signed_long = 4;
+
+    linux_spu.sizeof_unsigned_long_long = 8;
+    linux_spu.alignof_unsigned_long_long = 8;
+
+    linux_spu.sizeof_signed_long_long = 8;
+    linux_spu.alignof_signed_long_long = 8;
+
+    DEFINE_FLOAT_TYPE(linux_spu, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_spu, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_spu, long_double, binary_float_128)
+
+    linux_spu.sizeof_pointer = 4;
+    linux_spu.alignof_pointer = 4;
+
+    // One 'ptrdiff_t'
+    linux_spu.sizeof_pointer_to_data_member = 4;
+    linux_spu.alignof_pointer_to_data_member = 4;
+
+    linux_spu.sizeof_function_pointer = 4;
+    linux_spu.alignof_function_pointer = 4;
+
+    // Two 'ptrdiff_t'
+    linux_spu.sizeof_pointer_to_member_function = 8;
+    linux_spu.alignof_pointer_to_member_function = 4;
+
+    // Valid both for C and C++
+    linux_spu.compute_sizeof = generic_system_v_sizeof;
+
+    linux_spu.type_of_sizeof = get_unsigned_int_type;
+
+    // In PPC32 'char' == 'unsigned char'
+    linux_spu.char_type = get_unsigned_char_type;
+
+    // ***************************+***************
+    //     Solaris SPARCv9
+    // ***************************+***************
+    solaris_sparcv9.environ_id = "solaris-sparcv9";
+    solaris_sparcv9.environ_name = "Solaris SPARCv9";
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    solaris_sparcv9.sizeof_bool = 1;
+    solaris_sparcv9.alignof_bool = 1;
+
+    solaris_sparcv9.sizeof_wchar_t = 4;
+    solaris_sparcv9.alignof_wchar_t = 4;
+
+    solaris_sparcv9.sizeof_unsigned_short = 2;
+    solaris_sparcv9.alignof_unsigned_short = 2;
+
+    solaris_sparcv9.sizeof_signed_short = 2;
+    solaris_sparcv9.alignof_signed_short = 2;
+
+    solaris_sparcv9.sizeof_unsigned_int = 4;
+    solaris_sparcv9.alignof_unsigned_int = 4;
+
+    solaris_sparcv9.sizeof_signed_int = 4;
+    solaris_sparcv9.alignof_signed_int = 4;
+
+    solaris_sparcv9.sizeof_unsigned_long = 8;
+    solaris_sparcv9.alignof_unsigned_long = 8;
+
+    solaris_sparcv9.sizeof_signed_long = 8;
+    solaris_sparcv9.alignof_signed_long = 8;
+
+    solaris_sparcv9.sizeof_unsigned_long_long = 8;
+    solaris_sparcv9.alignof_unsigned_long_long = 8;
+
+    solaris_sparcv9.sizeof_signed_long_long = 8;
+    solaris_sparcv9.alignof_signed_long_long = 8;
+
+    DEFINE_FLOAT_TYPE(solaris_sparcv9, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(solaris_sparcv9, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(solaris_sparcv9, long_double, binary_float_2x64)
 
     // Size of pointers
-    .sizeof_pointer = 8,
-    .alignof_pointer = 8,
+    solaris_sparcv9.sizeof_pointer = 8;
+    solaris_sparcv9.alignof_pointer = 8;
 
     // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 8,
-    .alignof_pointer_to_data_member = 8,
+    solaris_sparcv9.sizeof_pointer_to_data_member = 8;
+    solaris_sparcv9.alignof_pointer_to_data_member = 8;
 
     // Size of pointer to function
-    .sizeof_function_pointer = 8,
-    .alignof_function_pointer = 8,
+    solaris_sparcv9.sizeof_function_pointer = 8;
+    solaris_sparcv9.alignof_function_pointer = 8;
 
     // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 16,
-    .alignof_pointer_to_member_function = 8,
+    solaris_sparcv9.sizeof_pointer_to_member_function = 16;
+    solaris_sparcv9.alignof_pointer_to_member_function = 8;
 
     // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
+    solaris_sparcv9.compute_sizeof = generic_system_v_sizeof;
 
     // In SparcV9 a size_t is an unsigned long 
-    .type_of_sizeof = get_unsigned_long_int_type,
+    solaris_sparcv9.type_of_sizeof = get_unsigned_long_int_type;
 
     // In SparcV9 'char' == 'signed char'
-    .char_type = get_signed_char_type,
+    solaris_sparcv9.char_type = get_signed_char_type;
 
     // __builtin_va_list is lots of times a pointer
     // (check this)
-    .sizeof_builtin_va_list = 8,
-    .alignof_builtin_va_list = 8,
-};
+    solaris_sparcv9.sizeof_builtin_va_list = 8;
+    solaris_sparcv9.alignof_builtin_va_list = 8;
 
-// ****************
-// Linux ARM
-// ****************
-static type_environment_t type_environment_linux_arm_ = 
-{
-    .environ_id = "linux-arm",
-    .environ_name = "Linux ARM (GNUEABI)",
+    // ***************************+***************
+    //     Linux ARM
+    // ***************************+***************
+    linux_arm_eabi.environ_id = "linux-arm";
+    linux_arm_eabi.environ_name = "Linux ARM (GNUEABI)";
 
     // '_Bool' in C99
     // 'bool' in C++
-    .sizeof_bool = 1,
-    .alignof_bool = 1,
+    linux_arm_eabi.sizeof_bool = 1;
+    linux_arm_eabi.alignof_bool = 1;
 
-    .sizeof_wchar_t = 4,
-    .alignof_wchar_t = 4,
+    linux_arm_eabi.sizeof_wchar_t = 4;
+    linux_arm_eabi.alignof_wchar_t = 4;
 
-    .sizeof_unsigned_short = 2,
-    .alignof_unsigned_short = 2,
+    linux_arm_eabi.sizeof_unsigned_short = 2;
+    linux_arm_eabi.alignof_unsigned_short = 2;
 
-    .sizeof_signed_short = 2,
-    .alignof_signed_short = 2,
+    linux_arm_eabi.sizeof_signed_short = 2;
+    linux_arm_eabi.alignof_signed_short = 2;
 
-    .sizeof_unsigned_int = 4,
-    .alignof_unsigned_int = 4,
+    linux_arm_eabi.sizeof_unsigned_int = 4;
+    linux_arm_eabi.alignof_unsigned_int = 4;
 
-    .sizeof_signed_int = 4,
-    .alignof_signed_int = 4,
+    linux_arm_eabi.sizeof_signed_int = 4;
+    linux_arm_eabi.alignof_signed_int = 4;
 
-    .sizeof_unsigned_long = 4,
-    .alignof_unsigned_long = 4,
+    linux_arm_eabi.sizeof_unsigned_long = 4;
+    linux_arm_eabi.alignof_unsigned_long = 4;
 
-    .sizeof_signed_long = 4,
-    .alignof_signed_long = 4,
+    linux_arm_eabi.sizeof_signed_long = 4;
+    linux_arm_eabi.alignof_signed_long = 4;
 
-    .sizeof_unsigned_long_long = 8,
-    .alignof_unsigned_long_long = 8,
+    linux_arm_eabi.sizeof_unsigned_long_long = 8;
+    linux_arm_eabi.alignof_unsigned_long_long = 8;
 
-    .sizeof_signed_long_long = 8,
-    .alignof_signed_long_long = 8, 
+    linux_arm_eabi.sizeof_signed_long_long = 8;
+    linux_arm_eabi.alignof_signed_long_long = 8;
 
-    .sizeof_half = 2,
-    .alignof_half = 2,
-
-    .sizeof_float = 4,
-    .alignof_float = 4,
-
-    .sizeof_double = 8,
-    .alignof_double = 8,
-
-    .sizeof_long_double = 16,
-    .alignof_long_double = 16,
+    DEFINE_FLOAT_UNNAMED(linux_arm_eabi, binary_float_16)
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_arm_eabi, long_double, binary_float_128)
 
     // Data pointer
-    .sizeof_pointer = 4,
-    .alignof_pointer = 4,
+    linux_arm_eabi.sizeof_pointer = 4;
+    linux_arm_eabi.alignof_pointer = 4;
 
     // Code pointer
-    .sizeof_function_pointer = 4,
-    .alignof_function_pointer = 4,
+    linux_arm_eabi.sizeof_function_pointer = 4;
+    linux_arm_eabi.alignof_function_pointer = 4;
 
     // One 'ptrdiff_t'
-    .sizeof_pointer_to_data_member = 4,
-    .alignof_pointer_to_data_member = 4,
+    linux_arm_eabi.sizeof_pointer_to_data_member = 4;
+    linux_arm_eabi.alignof_pointer_to_data_member = 4;
 
     // Two 'ptrdiff_t'
-    .sizeof_pointer_to_member_function = 8,
-    .alignof_pointer_to_member_function = 4,
+    linux_arm_eabi.sizeof_pointer_to_member_function = 8;
+    linux_arm_eabi.alignof_pointer_to_member_function = 4;
 
     // Valid both for C and C++
-    .compute_sizeof = generic_system_v_sizeof,
+    linux_arm_eabi.compute_sizeof = generic_system_v_sizeof;
 
-    .type_of_sizeof = get_unsigned_int_type,
+    linux_arm_eabi.type_of_sizeof = get_unsigned_int_type;
 
     // In ARM 'char' == 'unsigned char'
     // ?check this?
-    .char_type = get_unsigned_char_type,
+    linux_arm_eabi.char_type = get_unsigned_char_type;
 
     // __builtin_va_list is a struct containing a void* in ARM
-    .sizeof_builtin_va_list = 4,
-    .alignof_builtin_va_list = 4,
-};
+    linux_arm_eabi.sizeof_builtin_va_list = 4;
+    linux_arm_eabi.alignof_builtin_va_list = 4;
+}
 
 /*
    NULL ended list of type environments
@@ -2165,16 +2187,15 @@ static type_environment_t type_environment_linux_arm_ =
    Add your environments here. The driver will enumerate them using this array
  */
 type_environment_t* type_environment_list[] = {
-    &type_environment_linux_ia32_,
-    &type_environment_linux_ia64_,
-    &type_environment_linux_ppc32_,
-    &type_environment_linux_ppc64_,
-    &type_environment_linux_amd64_,
-    &type_environment_linux_spu_,
-    &type_environment_linux_arm_,
-    &type_environment_solaris_sparcv9_,
+    &linux_ia32,
+    &linux_ia64,
+    &linux_ppc32,
+    &linux_ppc64,
+    &linux_amd64,
+    &linux_spu,
+    &linux_arm_eabi,
+    &solaris_sparcv9,
     NULL, /* last */
 };
-
 
 type_environment_t* default_environment = NULL;
