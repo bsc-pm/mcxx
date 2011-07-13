@@ -1133,6 +1133,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_OPEN_STATEMENT,               build_scope_open_stmt,             kind_executable_0    ) \
  STATEMENT_HANDLER(AST_OPTIONAL_STATEMENT,           build_scope_optional_stmt,         kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_PARAMETER_STATEMENT,          build_scope_parameter_stmt,        kind_nonexecutable_0 ) \
+ STATEMENT_HANDLER(AST_CRAY_POINTER_STATEMENT,       build_scope_cray_pointer_stmt,     kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_POINTER_STATEMENT,            build_scope_pointer_stmt,          kind_nonexecutable_0 ) \
  STATEMENT_HANDLER(AST_PRINT_STATEMENT,              build_scope_print_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PROCEDURE_DECL_STATEMENT,     build_scope_procedure_decl_stmt,   kind_nonexecutable_0 ) \
@@ -4107,6 +4108,32 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
     }
 
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
+}
+
+static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+{
+    AST cray_pointer_spec_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(cray_pointer_spec_list, it)
+    {
+        AST cray_pointer_spec = ASTSon1(it);
+
+        AST pointer_name = ASTSon0(cray_pointer_spec);
+        AST pointee = ASTSon1(cray_pointer_spec);
+
+        scope_entry_t* pointer_entry = get_symbol_for_name(decl_context, pointer_name, ASTText(pointer_name));
+
+        if (pointer_entry->kind == SK_UNDEFINED)
+        {
+            pointer_entry->kind = SK_VARIABLE;
+            pointer_entry->type_information = choose_int_type_from_kind(pointer_name, 
+                    CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
+        }
+        else
+        {
+        }
+    }
 }
 
 static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)

@@ -204,6 +204,10 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> forall_block
 %type<ast> ac_spec
 %type<ast> pointer_stmt
+%type<ast> cray_pointer_stmt
+%type<ast> cray_pointer_pointee
+%type<ast> cray_pointer_spec
+%type<ast> cray_pointer_spec_list
 %type<ast> enumerator_def_stmt
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
@@ -2072,6 +2076,27 @@ pointer_stmt : labeldef TOK_POINTER ':' ':' pointer_decl_list eos
 | labeldef TOK_POINTER pointer_decl_list eos
 {
     $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+}
+;
+cray_pointer_stmt : labeldef TOK_POINTER cray_pointer_spec_list eos
+{
+    $$ = ASTMake2Label(AST_CRAY_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+}
+;
+cray_pointer_pointee : pointer_decl
+;
+cray_pointer_spec : '(' name ',' cray_pointer_pointee ')'
+{
+    $$ = ASTMake2(AST_CRAY_POINTER_SPEC, $2, $4, $1.token_file, $1.token_line, NULL);
+}
+;
+cray_pointer_spec_list : cray_pointer_spec
+{
+    $$ = ASTListLeaf($1);
+}
+| cray_pointer_spec_list ',' cray_pointer_spec
+{
+    $$ = ASTList($1, $3);
 }
 ;
 pointer_decl : name '(' array_spec ')'
@@ -4256,6 +4281,7 @@ non_top_level_program_unit_stmts : access_stmt
 | parameter_stmt
 | pointer_assignment_stmt
 | pointer_stmt
+| cray_pointer_stmt
 | print_stmt
 | procedure_declaration_stmt
 | protected_stmt
