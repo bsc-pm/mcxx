@@ -1128,20 +1128,23 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    c[63] = '\0';
 
    const_value_t *value = NULL;
-   if (kind == type_get_size(get_float_type()))
+   if (kind == (floating_type_get_info(get_float_type())->bits / 8))
    {
        float f = strtof(floating_text, NULL);
        value = const_value_get_float(f);
    }
-   else if (kind == type_get_size(get_double_type()))
+   else if (kind == (floating_type_get_info(get_double_type())->bits / 8))
    {
        double d = strtod(floating_text, NULL);
        value = const_value_get_double(d);
    }
-   else if (kind == type_get_size(get_long_double_type()))
+   else if (kind == (floating_type_get_info(get_long_double_type())->bits / 8))
    {
        long double ld = strtold(floating_text, NULL);
        value = const_value_get_long_double(ld);
+   }
+   else if (is_other_float_type(t))
+   {
    }
    else
    {

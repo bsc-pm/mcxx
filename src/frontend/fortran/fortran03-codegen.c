@@ -326,13 +326,13 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor,
         if (is_floating_type(t))
         {
             // KIND of floats is their size in byes (using the bits as in IEEE754) 
-            size = (float_type_get_floating_info(t)->bits) / 8;
+            size = (floating_type_get_info(t)->bits) / 8;
         }
         else if (is_complex_type(t))
         {
             // KIND of a complex is the KIND of its component type
             type_t* f = complex_type_get_base_type(t);
-            size = (float_type_get_floating_info(f)->bits) / 8;
+            size = (floating_type_get_info(f)->bits) / 8;
         }
 
         snprintf(c, 127, "%s(%zd)", type_name, size);

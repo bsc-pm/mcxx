@@ -257,7 +257,7 @@ LIBMCXX_EXTERN char is_long_double_type(type_t* t);
 LIBMCXX_EXTERN char is_float_type(type_t* t);
 LIBMCXX_EXTERN char is_other_float_type(type_t* t);
 
-LIBMCXX_EXTERN floating_type_info_t* float_type_get_floating_info(type_t* t);
+LIBMCXX_EXTERN const floating_type_info_t* floating_type_get_info(type_t* t);
 
 // Either floating type or integral type (note that integral types include
 // char, wchar_t, bool and all sorts of 'int')

@@ -28,7 +28,7 @@ static nodecl_t simplify_precision(int num_arguments UNUSED_PARAMETER, nodecl_t*
 
     type_t* t = nodecl_get_type(x);
 
-    floating_type_info_t * model = float_type_get_floating_info(t);
+    const floating_type_info_t * model = floating_type_get_info(t);
 
     // In mercurium radix is always 2
     int k = 0;
@@ -277,7 +277,7 @@ static nodecl_t simplify_digits(int num_arguments UNUSED_PARAMETER, nodecl_t* ar
     }
     else if (is_floating_type(t))
     {
-        floating_type_info_t* model = float_type_get_floating_info(t);
+        const floating_type_info_t* model = floating_type_get_info(t);
 
         return nodecl_make_int_literal(model->p + 1);
     }
@@ -324,7 +324,7 @@ static nodecl_t simplify_maxexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
-    floating_type_info_t* model = float_type_get_floating_info(t);
+    const floating_type_info_t* model = floating_type_get_info(t);
 
     return nodecl_make_int_literal(model->emax);
 }
@@ -336,7 +336,7 @@ static nodecl_t simplify_minexponent(int num_arguments UNUSED_PARAMETER, nodecl_
     type_t* t = no_ref(nodecl_get_type(x));
     t = get_rank0_type(t);
 
-    floating_type_info_t* model = float_type_get_floating_info(t);
+    const floating_type_info_t* model = floating_type_get_info(t);
 
     return nodecl_make_int_literal(model->emin);
 }

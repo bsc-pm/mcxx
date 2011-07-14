@@ -888,7 +888,7 @@ type_t* get_floating_type_from_descriptor(floating_type_info_t* info)
     return type;
 }
 
-floating_type_info_t* float_type_get_floating_info(type_t* t)
+const floating_type_info_t* floating_type_get_info(type_t* t)
 {
     t = advance_over_typedefs(t);
     ERROR_CONDITION(!is_floating_type(t), "This is not a floating type", 0);
