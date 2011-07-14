@@ -1674,7 +1674,7 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_ia32, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_ia32, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_ia32, long_double, binary_float_80_intel)
-#ifdef HAVE_FLOAT128
+#ifdef HAVE_QUADMATH_H
     DEFINE_FLOAT_UNNAMED(linux_ia32, binary_float_128);
 #endif
 
@@ -1740,7 +1740,7 @@ void init_type_environments(void)
     DEFINE_FLOAT_TYPE(linux_amd64, float, binary_float_32)
     DEFINE_FLOAT_TYPE(linux_amd64, double, binary_float_64)
     DEFINE_FLOAT_TYPE(linux_amd64, long_double, binary_float_80_intel)
-#ifdef HAVE_FLOAT128
+#ifdef HAVE_QUADMATH_H
     DEFINE_FLOAT_UNNAMED(linux_amd64, binary_float_128);
 #endif
 

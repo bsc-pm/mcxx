@@ -39,6 +39,9 @@
 #include "cxx-typeutils.h"
 
 #include <stdint.h>
+#ifdef HAVE_QUADMATH_H
+  #include <quadmath.h>
+#endif
 
 MCXX_BEGIN_DECLS
 
@@ -62,6 +65,9 @@ LIBMCXX_EXTERN char const_value_is_signed(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_get_float(float f);
 LIBMCXX_EXTERN const_value_t* const_value_get_double(double d);
 LIBMCXX_EXTERN const_value_t* const_value_get_long_double(long double ld);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN const_value_t* const_value_get_float128(__float128 ld);
+#endif
 
 LIBMCXX_EXTERN uint64_t const_value_cast_to_8(const_value_t* val);
 LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
@@ -88,6 +94,9 @@ LIBMCXX_EXTERN char const_value_is_floating(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_float(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_double(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_long_double(const_value_t* v);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN char const_value_is_float128(const_value_t* v);
+#endif
 LIBMCXX_EXTERN char const_value_is_complex(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_structured(const_value_t* v);
 LIBMCXX_EXTERN char const_value_is_array(const_value_t* v);
@@ -97,10 +106,16 @@ LIBMCXX_EXTERN char const_value_is_string(const_value_t* v);
 LIBMCXX_EXTERN float const_value_cast_to_float(const_value_t* val);
 LIBMCXX_EXTERN double const_value_cast_to_double(const_value_t* val);
 LIBMCXX_EXTERN long double const_value_cast_to_long_double(const_value_t* val);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN __float128 const_value_cast_to_float128(const_value_t* val);
+#endif
 
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_float_value(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_double_value(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_long_double_value(const_value_t* val);
+#ifdef HAVE_QUADMATH_H
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_float128_value(const_value_t* val);
+#endif
 
 LIBMCXX_EXTERN const_value_t* const_value_make_array(int num_elements, const_value_t **elements);
 LIBMCXX_EXTERN const_value_t* const_value_make_vector(int num_elements, const_value_t **elements);

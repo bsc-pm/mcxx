@@ -102,8 +102,6 @@ AC_COMPILE_IFELSE(
    [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
 )
 
-dnl -- Check if our GCC supports __float128 -- Available since gcc 4.4 --
-AC_CHECK_TYPE([__float128], AC_DEFINE([HAVE_FLOAT128], 1, [Define to 1 if __float128 is supported by the compiler]))
 
 dnl --------------------- end check of old gcc ---
 
@@ -1217,6 +1215,19 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
+dnl -- Check if our GCC supports quadmath.h (and __float128)
+have_float_128="no"
+quadmath_LIBS=""
+AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
+
+if test x$have_float_128 = xyes; 
+then
+ AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
+ quadmath_LIBS="-lquadmath"
+fi
+
+AC_SUBST([quadmath_LIBS])
+
 dnl Check for compliant const
 AC_C_CONST
 
@@ -1355,6 +1366,7 @@ echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
+echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo ""
 echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
 if test x$is_enabled_fortran = xyes;

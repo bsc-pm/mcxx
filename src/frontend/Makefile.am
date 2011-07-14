@@ -178,6 +178,7 @@ libmcxx_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
 					$(top_builddir)/lib/libmcxx-extstruct.la \
                     libmcxx-process.la \
+					$(quadmath_LIBS) \
 					$(END)
 
 if WINDOWS_BUILD

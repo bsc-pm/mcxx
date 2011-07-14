@@ -1123,10 +1123,6 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
    ASTAttrSetValueType(expr, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
-   char c[64];
-   snprintf(c, 63, "%s", floating_text);
-   c[63] = '\0';
-
    const_value_t *value = NULL;
    if (kind == (floating_type_get_info(get_float_type())->bits / 8))
    {
@@ -1145,6 +1141,18 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
    }
    else if (is_other_float_type(t))
    {
+#ifdef HAVE_QUADMATH_H
+       // __float128
+       if (kind == 16)
+       {
+           __float128 f128 = strtoflt128(floating_text, NULL);
+           value = const_value_get_float128(f128);
+       }
+       else
+#endif
+       {
+           running_error("%s: error: literals of KIND=%d not supported yet\n", ast_location(expr), kind);
+       }
    }
    else
    {
