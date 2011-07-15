@@ -208,11 +208,12 @@ namespace TL
                     Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
-                    if (declared_entities.size() == 1
-                            && declared_entities[0].is_functional_declaration())
-                    {
-                        valid_target = true;
-                    }
+                    valid_target = true;
+                    // if (declared_entities.size() == 1
+                    //         && declared_entities[0].is_functional_declaration())
+                    // {
+                    //     valid_target = true;
+                    // }
                 }
                 else if (FunctionDefinition::predicate(ctr.get_declaration()))
                 {
