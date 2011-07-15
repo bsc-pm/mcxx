@@ -195,7 +195,7 @@ void dump_module_info(scope_entry_t* module)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "MODULES: Dumping module '%s'\n", module->symbol_name);
+        fprintf(stderr, "FORTRAN-MODULES: Dumping module '%s'\n", module->symbol_name);
     }
 
     sqlite3* handle = NULL;
@@ -215,7 +215,7 @@ void dump_module_info(scope_entry_t* module)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "MODULES: Finished with dumping of module '%s'\n", module->symbol_name);
+        fprintf(stderr, "FORTRAN-MODULES: Finished with dumping of module '%s'\n", module->symbol_name);
     }
 }
 
@@ -248,7 +248,7 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "MODULES: Loading module '%s'\n", module_name);
+        fprintf(stderr, "FORTRAN-MODULES: Loading module '%s'\n", module_name);
     }
 
     ERROR_CONDITION(module == NULL, "Invalid parameter", 0);
@@ -261,7 +261,7 @@ void load_module_info(const char* module_name, scope_entry_t** module)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "MODULES: No appropriate file was found for module '%s'\n", 
+            fprintf(stderr, "FORTRAN-MODULES: No appropriate file was found for module '%s'\n", 
                     module_name);
         }
         return;
@@ -269,7 +269,7 @@ void load_module_info(const char* module_name, scope_entry_t** module)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "MODULES: Using filename '%s' for module '%s'\n", 
+        fprintf(stderr, "FORTRAN-MODULES: Using filename '%s' for module '%s'\n", 
                 filename,
                 module_name);
     }
@@ -295,7 +295,7 @@ static void create_storage(sqlite3** handle, const char* module_name)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "MODULES: File used will be '%s'\n", filename);
+        fprintf(stderr, "FORTRAN-MODULES: File used will be '%s'\n", filename);
     }
 
     // Make sure the file has been removed
@@ -321,6 +321,10 @@ static void dispose_storage(sqlite3* handle)
 static void run_query(sqlite3* handle, const char* query)
 {
     char* errmsg = NULL;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "FORTRAN-MODULES: %s\n", query);
+    }
     if (sqlite3_exec(handle, query, NULL, NULL, &errmsg) != SQLITE_OK)
     {
         running_error("Error during query: %s\nQuery was: %s\n", errmsg, query);
@@ -423,6 +427,18 @@ static int get_ptr_of_oid_(void* datum,
     *p = (void*)(intptr_t)safe_atoll(values[1]);
 
     return 0;
+}
+
+static int run_select_query(sqlite3* handle, const char* query, 
+        int (*fun)(void*, int, char**, char**), 
+        void * data,
+        char ** errmsg)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "FORTRAN-MODULES: %s\n", query);
+    }
+    return sqlite3_exec(handle, query, fun, data, errmsg);
 }
 
 static void* get_ptr_of_oid(sqlite3* handle, sqlite3_int64 oid)
@@ -573,6 +589,15 @@ static sqlite3_int64 insert_type_ref_to_list_symbols(sqlite3* handle,
     sqlite3_free(insert_type_query);
     sqlite3_free(list);
     return result;
+}
+
+static sqlite3_int64 insert_type_ref_to_symbol(sqlite3* handle, 
+        type_t* t,
+        const char* name,
+        sqlite3_int64 ref_type,
+        sqlite3_int64 symbol)
+{
+    return insert_type_ref_to_list_types(handle, t, name, ref_type, 1, &symbol);
 }
 
 static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle, 
@@ -762,13 +787,11 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
 
         result = insert_type_ref_to_ast(handle, t, name, element_type, lower_tree, upper_tree);
     }
-    else if (is_class_type(t))
+    else if (is_unnamed_class_type(t))
     {
         const char* name = "CLASS";
 
-        type_t* class_type = get_actual_class_type(t);
-
-        scope_entry_list_t* members = class_type_get_nonstatic_data_members(class_type);
+        scope_entry_list_t* members = class_type_get_nonstatic_data_members(t);
 
         int num_fields = entry_list_size(members);
 
@@ -794,6 +817,12 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
     else if (is_void_type(t))
     {
         result = insert_type_simple(handle, t, "VOID", 0);
+    }
+    else if (is_named_type(t))
+    {
+        sqlite3_int64 sym_oid = insert_symbol(handle, named_type_get_symbol(t));
+
+        result = insert_type_ref_to_symbol(handle, NULL, "NAMED", 0, sym_oid);
     }
     else
     {
@@ -1469,14 +1498,16 @@ static int get_type(void *datum,
 
         insert_map_ptr(handle, current_oid, *pt);
 
-        char *field = strtok(copy, ",");
+        char *context = NULL;
+        char *field = strtok_r(copy, ",", &context);
         while (field != NULL)
         {
             scope_entry_t* member = load_symbol(handle, safe_atoll(field));
 
+            ERROR_CONDITION(member == NULL, "Invalid member!\n", 0);
             class_type_add_member(*pt, member);
 
-            field = strtok(NULL, ",");
+            field = strtok_r(NULL, ",", &context);
         }
         free(copy);
     }
@@ -1488,7 +1519,8 @@ static int get_type(void *datum,
         memset(parameter_info, 0, sizeof(parameter_info));
 
         int num_parameters = 0;
-        char *field = strtok(copy, ",");
+        char *context = NULL;
+        char *field = strtok_r(copy, ",", &context);
         while (field != NULL)
         {
             ERROR_CONDITION(num_parameters == MCXX_MAX_FUNCTION_PARAMETERS, "Too many parameters %d", num_parameters);
@@ -1496,7 +1528,7 @@ static int get_type(void *datum,
             parameter_info[num_parameters].type_info = load_type(handle, safe_atoll(field));
 
             num_parameters++;
-            field = strtok(NULL, ",");
+            field = strtok_r(NULL, ",", &context);
         }
         free(copy);
 
@@ -1509,6 +1541,14 @@ static int get_type(void *datum,
     {
         *pt = get_void_type();
         insert_map_ptr(handle, current_oid, *pt);
+    }
+    else if (strcmp(kind, "NAMED") == 0)
+    {
+        sqlite3_int64 symbol_oid = safe_atoll(symbols);
+
+        scope_entry_t* symbol = load_symbol(handle, symbol_oid);
+
+        *pt = get_user_defined_type(symbol);
     }
     else
     {
@@ -1746,26 +1786,27 @@ static int get_const_value(void *datum,
         const_value_t** list = NULL;
         if (strlen(copy) != 0)
         {
-            char *field = strtok(copy, ",");
+            char *context = NULL;
+            char *field = strtok_r(copy, ",", &context);
             while (field != NULL)
             {
                 num_elems++;
-                field = strtok(NULL, ",");
+                field = strtok_r(NULL, ",", &context);
             }
-            // strtok may have fried 'copy'
+            // strtok_r may have fried 'copy'
             free(copy);
             copy = strdup(compound_values_str);
 
             list = calloc(num_elems, sizeof(*list));
 
             int i;
-            field = strtok(copy, ",");
+            field = strtok_r(copy, ",", &context);
             while (field != NULL)
             {
                 const_value_t* const_value = load_const_value(p->handle, safe_atoll(field));
                 list[i] = const_value;
 
-                field = strtok(NULL, ","); 
+                field = strtok_r(NULL, ",", &context); 
                 i++;
             }
         }
