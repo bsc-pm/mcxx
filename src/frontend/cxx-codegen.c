@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "cxx-codegen.h"
 #include "cxx-utils.h"
 #include "cxx-exprtype.h"
@@ -6,6 +10,10 @@
 #include "cxx-prettyprint.h"
 #include <string.h>
 #include <ctype.h>
+
+#ifdef HAVE_QUADMATH_H
+#include <quadmath.h>
+#endif
 
 typedef
 struct nodecl_codegen_visitor_tag
@@ -1879,18 +1887,32 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
     const_value_t* value = nodecl_get_constant(node);
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
 
+    type_t* t = nodecl_get_type(node);
+    int precision = floating_type_get_info(t)->p + 1;
+
     if (const_value_is_float(value))
     {
-        fprintf(visitor->file, "%.24ef", const_value_cast_to_float(value));
+        fprintf(visitor->file, "%.*ef", precision, const_value_cast_to_float(value));
     }
     else if (const_value_is_double(value))
     {
-        fprintf(visitor->file, "%.53e", const_value_cast_to_double(value));
+        fprintf(visitor->file, "%.*e", precision, const_value_cast_to_double(value));
     }
     else if (const_value_is_long_double(value))
     {
-        fprintf(visitor->file, "%.113LeL", const_value_cast_to_long_double(value));
+        fprintf(visitor->file, "%.*LeL", precision, const_value_cast_to_long_double(value));
     }
+#ifdef HAVE_QUADMATH_H
+    else if (const_value_is_float128(value))
+    {
+        __float128 f128 = const_value_cast_to_float128(value);
+        int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
+        char c[n+1];
+        quadmath_snprintf (c, n, "%.*Qe", precision, f128);
+        c[n] = '\0';
+        fprintf(visitor->file, "%sQ", c);
+    }
+#endif
 }
 
 static void codegen_boolean_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)

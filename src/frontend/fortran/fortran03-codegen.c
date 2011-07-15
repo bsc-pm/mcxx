@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "fortran03-codegen.h"
 #include "fortran03-typeutils.h"
 #include "fortran03-buildscope.h"
@@ -7,6 +11,10 @@
 #include "cxx-cexpr.h"
 #include "cxx-entrylist.h"
 #include <string.h>
+
+#ifdef HAVE_QUADMATH_H
+#include <quadmath.h>
+#endif
 
 typedef
 struct nodecl_codegen_visitor_tag
@@ -1310,21 +1318,33 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 {
     type_t* t = nodecl_get_type(node);
 
-    int kind = type_get_size(t);
+    int kind = floating_type_get_info(t)->bits / 8;
+    int precision = floating_type_get_info(t)->p + 1;
 
     const_value_t* value = nodecl_get_constant(node);
     if (const_value_is_float(value))
     {
-        fprintf(visitor->file, "%.24E_%d", const_value_cast_to_float(value), kind);
+        fprintf(visitor->file, "%.*E_%d", precision, const_value_cast_to_float(value), kind);
     }
     else if (const_value_is_double(value))
     {
-        fprintf(visitor->file, "%.53E_%d", const_value_cast_to_double(value), kind);
+        fprintf(visitor->file, "%.*E_%d", precision, const_value_cast_to_double(value), kind);
     }
     else if (const_value_is_long_double(value))
     {
-        fprintf(visitor->file, "%.113LE_%d", const_value_cast_to_long_double(value), kind);
+        fprintf(visitor->file, "%.*LE_%d", precision, const_value_cast_to_long_double(value), kind);
     }
+#ifdef HAVE_QUADMATH_H
+    else if (const_value_is_float128(value))
+    {
+        __float128 f128 = const_value_cast_to_float128(value);
+        int n = quadmath_snprintf (NULL, 0, "%.*Qe", precision, f128);
+        char c[n+1];
+        quadmath_snprintf (c, n, "%.*Qe", precision, f128);
+        c[n] = '\0';
+        fprintf(visitor->file, "%s_%d", c, kind);
+    }
+#endif
 }
 
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
