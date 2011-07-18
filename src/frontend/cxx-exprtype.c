@@ -11951,13 +11951,13 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         return;
     }
 
-    char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION);
+    char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
     if (is_array_section)
     {
         AST one_tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, "1");
         upper_bound =
-            ASTMake2(AST_ADD,
-                    ASTMake2(AST_MINUS,
+            ASTMake2(AST_MINUS,
+                    ASTMake2(AST_ADD,
                         ast_copy(upper_bound),
                         ast_copy(lower_bound),
                         ASTFileName(upper_bound),
