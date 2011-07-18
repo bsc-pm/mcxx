@@ -300,11 +300,6 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 	std::ofstream cudaFile; 
     get_output_file(cudaFile);
 
-    C_LANGUAGE()
-    {
-        cudaFile << "extern \"C\" {\n";
-    }
-
     bool needs_device = false;
     AST_t decl = ctr.get_declaration();
 
@@ -329,10 +324,6 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
     }
 
     cudaFile << ctr.get_declaration().prettyprint_external();
-    C_LANGUAGE()
-    {
-        cudaFile << "\n}\n";
-    }
 
     cudaFile.close();
 
