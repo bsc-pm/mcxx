@@ -318,17 +318,32 @@ static void dispose_storage(sqlite3* handle)
     }
 }
 
-static void run_query(sqlite3* handle, const char* query)
+static int run_select_query(sqlite3* handle, const char* query, 
+        int (*fun)(void*, int, char**, char**), 
+        void * data,
+        char ** errmsg)
 {
-    char* errmsg = NULL;
     DEBUG_CODE()
     {
         fprintf(stderr, "FORTRAN-MODULES: %s\n", query);
     }
-    if (sqlite3_exec(handle, query, NULL, NULL, &errmsg) != SQLITE_OK)
+    int result = sqlite3_exec(handle, query, fun, data, errmsg);
+    if (result != SQLITE_OK)
     {
-        running_error("Error during query: %s\nQuery was: %s\n", errmsg, query);
+        running_error("Error during query: %s\nQuery was: %s\n", *errmsg, query);
     }
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "FORTRAN-MODULES: Last rowid: %lld\n", 
+                sqlite3_last_insert_rowid(handle));
+    }
+    return result;
+}
+
+static void run_query(sqlite3* handle, const char* query)
+{
+    char* errmsg = NULL;
+    run_select_query(handle, query, NULL, NULL, &errmsg);
     sqlite3_free(errmsg);
 }
 
@@ -397,7 +412,7 @@ static void get_module_info(sqlite3* handle, module_info_t* minfo)
     const char * module_info_query = "SELECT module, date, version, build, root_symbol FROM info LIMIT 1;";
 
     char* errmsg = NULL;
-    if (sqlite3_exec(handle, module_info_query, get_module_info_, minfo, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, module_info_query, get_module_info_, minfo, &errmsg) != SQLITE_OK)
     {
         running_error("Error during query: %s\nQuery was: %s\n", errmsg, module_info_query);
     }
@@ -429,18 +444,6 @@ static int get_ptr_of_oid_(void* datum,
     return 0;
 }
 
-static int run_select_query(sqlite3* handle, const char* query, 
-        int (*fun)(void*, int, char**, char**), 
-        void * data,
-        char ** errmsg)
-{
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "FORTRAN-MODULES: %s\n", query);
-    }
-    return sqlite3_exec(handle, query, fun, data, errmsg);
-}
-
 static void* get_ptr_of_oid(sqlite3* handle, sqlite3_int64 oid)
 {
     ERROR_CONDITION(oid == 0, "Invalid zero OID", 0);
@@ -449,7 +452,7 @@ static void* get_ptr_of_oid(sqlite3* handle, sqlite3_int64 oid)
     char* errmsg = NULL;
     void* result = NULL;
 
-    if (sqlite3_exec(handle, select_oid, get_ptr_of_oid_, &result, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_oid, get_ptr_of_oid_, &result, &errmsg) != SQLITE_OK)
     {
         running_error("Error during query: %s\nQuery was: %s\n", errmsg, select_oid);
     }
@@ -484,7 +487,7 @@ static sqlite3_int64 oid_already_inserted(sqlite3* handle, const char *table, vo
     char * select_oid = sqlite3_mprintf("SELECT oid FROM %s WHERE oid = %lld;", table, P2LL(ptr));
     char* errmsg = NULL;
     int num_rows = 0;
-    if (sqlite3_exec(handle, select_oid, count_rows, &num_rows, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_oid, count_rows, &num_rows, &errmsg) != SQLITE_OK)
     {
         running_error("Error during query: %s\nQuery was: %s\n", errmsg, select_oid);
     }
@@ -597,7 +600,7 @@ static sqlite3_int64 insert_type_ref_to_symbol(sqlite3* handle,
         sqlite3_int64 ref_type,
         sqlite3_int64 symbol)
 {
-    return insert_type_ref_to_list_types(handle, t, name, ref_type, 1, &symbol);
+    return insert_type_ref_to_list_symbols(handle, t, name, ref_type, 1, &symbol);
 }
 
 static sqlite3_int64 insert_type_ref_to_ast(sqlite3* handle, 
@@ -822,7 +825,7 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t)
     {
         sqlite3_int64 sym_oid = insert_symbol(handle, named_type_get_symbol(t));
 
-        result = insert_type_ref_to_symbol(handle, NULL, "NAMED", 0, sym_oid);
+        result = insert_type_ref_to_symbol(handle, t, "NAMED", 0, sym_oid);
     }
     else
     {
@@ -1003,7 +1006,7 @@ static void get_extended_attribute(sqlite3* handle, sqlite3_int64 oid, const cha
          oid, attr_name);
 
     char * errmsg = NULL;
-    if (sqlite3_exec(handle, query, get_extra_info_fun, extra_info, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, query, get_extra_info_fun, extra_info, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1197,7 +1200,7 @@ static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_int64 oid)
 
     char *errmsg = NULL;
     char * select_symbol_query = sqlite3_mprintf("SELECT oid, * FROM symbol WHERE oid = %lld;", oid);
-    if (sqlite3_exec(handle, select_symbol_query, get_symbol, &result, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_symbol_query, get_symbol, &result, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1250,7 +1253,7 @@ static scope_t* load_scope(sqlite3* handle, sqlite3_int64 oid)
 
     char *errmsg = NULL;
     char *query = sqlite3_mprintf("SELECT oid, kind, contained_in, related_entry FROM scope WHERE oid = %lld;\n", oid);
-    if (sqlite3_exec(handle, query, get_scope_, &info, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, query, get_scope_, &info, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1300,7 +1303,7 @@ static decl_context_t load_decl_context(sqlite3* handle, sqlite3_int64 sym_oid)
 
     char *errmsg = NULL;
     char * query = sqlite3_mprintf("SELECT " DECL_CONTEXT_FIELDS " FROM decl_context WHERE oid = %lld;", sym_oid);
-    if (sqlite3_exec(handle, query, get_decl_context_, &decl_context_info, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, query, get_decl_context_, &decl_context_info, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1396,7 +1399,7 @@ static AST load_ast(sqlite3* handle, sqlite3_int64 oid)
     char *errmsg = NULL;
     char * select_ast_query = sqlite3_mprintf("SELECT oid, kind, file, line, text, ast0, ast1, ast2, ast3, "
             "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent FROM ast WHERE oid = %lld;", oid);
-    if (sqlite3_exec(handle, select_ast_query, get_ast, &query_handle, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_ast_query, get_ast, &query_handle, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1577,7 +1580,7 @@ static type_t* load_type(sqlite3* handle, sqlite3_int64 oid)
 
     char* errmsg = NULL;
     char * select_type_query = sqlite3_mprintf("SELECT oid, kind, kind_size, ast0, ast1, ref_type, types, symbols FROM type WHERE oid = %lld;", oid);
-    if (sqlite3_exec(handle, select_type_query, get_type, &type_handle, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_type_query, get_type, &type_handle, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);
     }
@@ -1857,7 +1860,7 @@ static const_value_t* load_const_value(sqlite3* handle, sqlite3_int64 oid)
     char* errmsg = NULL;
     const_value_helper_t result = { handle, NULL };
 
-    if (sqlite3_exec(handle, select_const_value, get_const_value, &result, &errmsg) != SQLITE_OK)
+    if (run_select_query(handle, select_const_value, get_const_value, &result, &errmsg) != SQLITE_OK)
     {
         running_error("Error during query: %s\nQuery was: %s\n", errmsg, select_const_value);
     }
