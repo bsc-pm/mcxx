@@ -119,10 +119,9 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     vector_casting 
         << vector_type.get_simple_declaration(expr.get_scope(), "");
 
-    //Don't use recursive
-    old_ind_var << expr.prettyprint();
-    //new_ind_var 
-    //    << recursive_prettyprint(expr.get_ast(), data);
+    //Special prettyprint is needed! Replication offset is added the 'offset' Source.
+    new_ind_var 
+        << recursive_prettyprint_with_only_symbols(expr.get_ast(), data);
 
     num_elements = (_vector_width/vector_type.basic_type().get_size());
 
@@ -130,7 +129,7 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     {
         Source offset;
 
-        new_vector_ind_var.append_with_separator(old_ind_var, ","); //old_ind_var, ",");
+        new_vector_ind_var.append_with_separator(new_ind_var, ","); 
 
         //In replication state the offset is different depending on the replication number
         if (_this->_replication_state.top())
@@ -160,6 +159,14 @@ const char* ReplaceSrcSMP::recursive_prettyprint(AST_t a, void* data)
     return prettyprint_in_buffer_callback(a.get_internal_ast(),
             &ReplaceSrcSMP::prettyprint_callback, data);
 }
+
+
+const char* ReplaceSrcSMP::recursive_prettyprint_with_only_symbols(AST_t a, void* data)
+{
+    return prettyprint_in_buffer_callback(a.get_internal_ast(),
+            &ReplaceSrcGenericFunction::prettyprint_callback, data);
+}
+
 
 Source ReplaceSrcSMP::replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name)
 {
@@ -1612,6 +1619,7 @@ Source ReplaceSrcSMP::replace(AST_t a) const
 
     return result;
 }
+
 
 static std::string smp_outline_name(const std::string &task_name)
 {

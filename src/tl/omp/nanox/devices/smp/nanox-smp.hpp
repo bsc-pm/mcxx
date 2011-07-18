@@ -104,6 +104,7 @@ namespace TL
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
+                static const char* recursive_prettyprint_with_only_symbols (AST_t a, void* data);
                 static std::string get_integer_casting(AST_t a, Type type1, Type type2);
                 static std::string scalar_expansion(Expression expr, void* data);
                 static std::string ind_var_scalar_expansion(Expression expr, void* data);
