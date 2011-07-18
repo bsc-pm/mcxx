@@ -11950,8 +11950,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         expression_set_error(expression);
         return;
     }
-
-    fprintf(stderr, "expression '%s'\n", prettyprint_in_buffer(expression));
     
     char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION);
     if (is_array_section)
@@ -11978,8 +11976,7 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         advanced_types[i] = indexed_type;
         indexed_type = array_type_get_element_type(indexed_type);
         i++;
-    }   
-    fprintf(stderr, "\n\nPost indexed type: '%s'\n", print_declarator(indexed_type));
+    }  
     
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
@@ -12022,8 +12019,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         return;
     }
 
-    fprintf(stderr, "result_type before : '%s'\n", print_declarator(result_type));
-
     while (i>0)
     {
         if (is_array_type(advanced_types[i-1]) || is_pointer_type(advanced_types[i-1]))
@@ -12058,8 +12053,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         }
         i--;
     }
-    
-    fprintf(stderr, "result_type after : '%s'\n", print_declarator(result_type));
     
     // This should be deemed always as a lvalue
     expression_set_is_lvalue(expression, 1);
