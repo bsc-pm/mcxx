@@ -303,70 +303,86 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     Expression first_op = expr.get_first_operand();
                     Expression second_op = expr.get_second_operand();
 
-                    unsigned int first_op_size = first_op.get_type().get_size();
-                    unsigned int second_op_size = second_op.get_type().get_size();
+                    //unsigned int first_op_size = first_op.get_type().get_size();
+                    //unsigned int second_op_size = second_op.get_type().get_size();
 
-                    if (first_op_size != second_op_size)
+                    Type expr_type = expr.get_type().get_unqualified_type();
+                    Type first_op_type = first_op.get_type().get_unqualified_type();
+                    Type second_op_type = second_op.get_type().get_unqualified_type();
+
+                    //if (first_op_size != second_op_size)
+                    if (!first_op_type.is_same_type(second_op_type)
+                            || (!expr_type.is_same_type(first_op_type) 
+                                && !expr_type.is_same_type(second_op_type)))
                     {
-                        DEBUG_CODE()
+                        Source first_vec_op_src, second_vec_op_src;
+
+                        first_vec_op_src 
+                            << recursive_prettyprint(first_op.get_ast(), data)
+                            ;
+                        second_vec_op_src 
+                            << recursive_prettyprint(second_op.get_ast(), data)
+                            ;
+
+                        if (expr_type.is_same_type(first_op_type))
                         {
-                            std::cerr << "SIMD: Implicit conversion from"
-                                << "'" <<  first_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
-                                << " to "
-                                << "'" <<  second_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
-                                << ": "
-                                << ast.prettyprint()
-                                << std::endl
-                                ;
-                        }
-
-                        Source target_expr_src;
-                        if (expr.is_assignment())//(first_op_size > second_op_size) || expr.is_assignment())
-                        {
-                            target_expr_src 
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                ;
-
-                            result 
-                                << target_expr_src
-                                << expr.get_operator_str()
-                                << BUILTIN_VC_NAME
-                                << "("
-                                << recursive_prettyprint(second_op.get_ast(), data)
-                                << ", " 
-                                << target_expr_src
-                                ;
-
-                            if (_this->_ind_var_sym.is_valid())
+                            DEBUG_CODE()
                             {
-                                result
-                                    << ", "
-                                    << _this->_ind_var_sym.get_name()
+                                std::cerr << "SIMD: Implicit conversion from"
+                                    << "'" <<  second_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << " to "
+                                    << "'" <<  first_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << ": "
+                                    << ast.prettyprint()
+                                    << std::endl
                                     ;
                             }
 
-                            result << ")"
-                                ;
-                        }
-                        else
-                        {
-                            target_expr_src
-                                << recursive_prettyprint(second_op.get_ast(), data)
+                            result << first_vec_op_src
+                                << expr.get_operator_str()
+                                << BUILTIN_VC_NAME
+                                << "(" 
+                                << second_vec_op_src
+                                << ","
+                                << first_vec_op_src
+                                << ")"
                                 ;
 
-                            result 
-                                << BUILTIN_VC_NAME
-                                << "("
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
-                                << target_expr_src
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        else if (expr_type.is_same_type(second_op_type))
+                        {
+                            DEBUG_CODE()
+                            {
+                                std::cerr << "SIMD: Implicit conversion from"
+                                    << "'" <<  first_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << " to "
+                                    << "'" <<  second_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << ": "
+                                    << ast.prettyprint()
+                                    << std::endl
+                                    ;
+                            }
+
+                            result << BUILTIN_VC_NAME
+                                << "(" 
+                                << first_vec_op_src
+                                << ","
+                                << second_vec_op_src
                                 << ")"
                                 << expr.get_operator_str()
-                                << target_expr_src
+                                << second_vec_op_src
                                 ;
-                        }
 
-                        return uniquestr(result.get_source().c_str());
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        /*
+                        else
+                        {
+                             running_error("%s: error: this special kind of conversion are not supported yet in SIMD'\n",
+                                ast.get_locus().c_str());
+                        }
+                        */
                     }
                 }
                 //Explicit conversions

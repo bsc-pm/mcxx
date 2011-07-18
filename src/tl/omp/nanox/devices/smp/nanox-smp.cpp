@@ -102,7 +102,7 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
 
     ReplaceSrcIdExpression induct_var_rmplmt(expr.get_scope_link());
-    Source result, vector_casting, ind_var_vector, offset_vector, old_ind_var, new_ind_var;
+    Source result, vector_casting, ind_var_vector, offset_vector, old_ind_var, new_ind_var, new_vector_ind_var;
     unsigned char num_elements, i;
 
     int expr_size = expr.get_type().get_size();
@@ -121,13 +121,16 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
 
     //Don't use recursive
     old_ind_var << expr.prettyprint();
+    //new_ind_var 
+    //    << recursive_prettyprint(expr.get_ast(), data);
+
     num_elements = (_vector_width/vector_type.basic_type().get_size());
 
     for (i=0; i<num_elements; i++)
     {
         Source offset;
 
-        new_ind_var.append_with_separator(old_ind_var, ",");
+        new_vector_ind_var.append_with_separator(old_ind_var, ","); //old_ind_var, ",");
 
         //In replication state the offset is different depending on the replication number
         if (_this->_replication_state.top())
@@ -143,7 +146,7 @@ std::string ReplaceSrcSMP::ind_var_scalar_expansion(Expression expr, void* data)
     }
 
     induct_var_rmplmt.add_replacement(
-            expr.get_id_expression().get_symbol(), new_ind_var.get_source());
+            expr.get_id_expression().get_symbol(), new_vector_ind_var.get_source());
 
     ind_var_vector
         << induct_var_rmplmt.replace(expr.get_ast());
@@ -1260,7 +1263,7 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression expr(ast, _this->_sl);
             arg_list = expr.get_argument_list();
 
-            if ((arg_list.size() != 2) && (arg_list.size() != 3))
+            if ((arg_list.size() != 2)) // && (arg_list.size() != 3))
             {
                 internal_error("Wrong number of arguments in %s", BUILTIN_VC_NAME);
             }
