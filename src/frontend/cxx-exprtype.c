@@ -11950,7 +11950,7 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         expression_set_error(expression);
         return;
     }
-    
+
     char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION);
     if (is_array_section)
     {
@@ -11969,15 +11969,18 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
 
     type_t* indexed_type = no_ref(expression_get_type(postfix_expression));
 
-    type_t* advanced_types[10];
+#define MAX_NESTING_OF_ARRAY_REGIONS (16)
+    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
     int i = 0;
-    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
-    {   
+    while (is_array_type(indexed_type)
+            && array_type_has_region(indexed_type))
+    {
+        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
         advanced_types[i] = indexed_type;
         indexed_type = array_type_get_element_type(indexed_type);
         i++;
-    }  
-    
+    }
+
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
     {
@@ -11996,6 +11999,16 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
     }
     else if (is_pointer_type(indexed_type))
     {
+        if (i > 0)
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: pointer types only allow one-level array sections\n",
+                        ast_location(expression));
+            }
+            expression_set_error(expression);
+            return;
+        }
         result_type = get_array_type_bounds_with_regions(
                 pointer_type_get_pointee_type(indexed_type),
                 lower_bound,
@@ -12019,16 +12032,19 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         return;
     }
 
-    while (i>0)
+    while (i > 0)
     {
-        if (is_array_type(advanced_types[i-1]) || is_pointer_type(advanced_types[i-1]))
+        type_t* current_array_type = advanced_types[i - 1];
+
+        if (is_array_type(current_array_type)
+                || is_pointer_type(current_array_type))
         {
-            AST array_lower_bound = array_type_get_array_lower_bound(advanced_types[i-1]);
-            AST array_upper_bound = array_type_get_array_upper_bound(advanced_types[i-1]);
-            AST array_region_lower_bound = array_type_get_region_lower_bound(advanced_types[i-1]);
-            AST array_region_upper_bound = array_type_get_region_upper_bound(advanced_types[i-1]);            
-            decl_context_t array_decl_context = array_type_get_array_size_expr_context(advanced_types[i-1]);
-            
+            AST array_lower_bound = array_type_get_array_lower_bound(current_array_type);
+            AST array_upper_bound = array_type_get_array_upper_bound(current_array_type);
+            AST array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
+            AST array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
+            decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
+
             result_type = get_array_type_bounds_with_regions(
                     result_type,
                     array_lower_bound,
@@ -12053,7 +12069,7 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         }
         i--;
     }
-    
+
     // This should be deemed always as a lvalue
     expression_set_is_lvalue(expression, 1);
     expression_set_type(expression, result_type);
