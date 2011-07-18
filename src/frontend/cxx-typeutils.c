@@ -2857,7 +2857,7 @@ type_t* get_array_type_bounds_with_regions(type_t* element_type,
     array_region->upper_bound = region_upper_bound;
     array_region->whole_size = region_whole_size;
     array_region->region_decl_context = region_decl_context;
-
+    
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
 }
 
