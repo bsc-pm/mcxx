@@ -654,7 +654,7 @@ namespace TL
                 : _type(type)
                 {
                 }
-            virtual bool do_(AST_t& ast) const
+            virtual bool do_(ArgType ast) const
             {
                 return (ast.internal_ast_type_() == _type);
             }
