@@ -436,6 +436,9 @@ namespace TL
             /*! See array_get_bounds for an explanation of the returned AST_t */
             void array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const;
 
+            //! This returns the expression of the array region size 
+            AST_t array_get_region_size() const;
+            
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
 

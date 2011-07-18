@@ -354,9 +354,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
                 Type dependency_type = dependency_expression.get_type();
                 int num_dimensions = dependency_type.get_num_dimensions();
-                std::cout << std::endl << "data ref " << dependency_expression.prettyprint() << std::endl;
-                std::cout << "  type " << dependency_expression.get_type().get_declaration(dependency_expression.get_scope(), "") 
-                          << std::endl;
                 
                 // Compute the base type of the dependency and the array containing the size of each dimension
                 Type dependency_base_type = dependency_type;
@@ -386,18 +383,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 {
                     // Less significant dimension s computed in bytes
                     Type aux_type = dependency_type;             
-                    while (aux_type.array_element().is_array()) aux_type = aux_type.array_element();
-                    std::cout << "Last array type '" << aux_type.get_declaration(dependency_expression.get_scope(), "") 
-                              << "' is region? " << aux_type.array_is_region() << std::endl;
+                    while (aux_type.array_element().is_array()) 
+                    {
+                        aux_type = aux_type.array_element();
+                    }
+                              
                     if (aux_type.array_is_region())
                     {
-                        AST_t lb, ub;
+                        AST_t lb, ub, size;
                         aux_type.array_get_region_bounds(lb, ub);
+                        size = aux_type.array_get_region_size();
                        
                         dims_description << "{" 
                             << "sizeof(" << base_type_name << ") * (" << dimension_sizes[num_dimensions-1] << "), " 
                             << "sizeof(" << base_type_name << ") * (" << lb.prettyprint() << "), "
-                            << "sizeof(" << base_type_name << ") * (" << ub.prettyprint() << ")"
+                            << "sizeof(" << base_type_name << ") * (" << size.prettyprint() << ")  /**/"
                             << "}"
                             ;
                     }
@@ -1061,22 +1061,14 @@ static void fill_dimensions(int n_dims, int actual_dim, std::string* dim_sizes, 
     
     if (dep_type.array_is_region())
     {
-        AST_t lb, ub;
+        AST_t lb, ub, size;
         dep_type.array_get_region_bounds(lb, ub);
-        
-        std::cout << "dim_sizes[" << actual_dim << "] = " << dim_sizes[actual_dim] << " for type " 
-                  << dep_type.get_declaration(sc, "") << std::endl;
-        std::cout << "    dim descr: {" 
-            << "(" << dim_sizes[actual_dim] << "), " 
-            << "(" << lb.prettyprint() << "), "
-            << "(" << ub.prettyprint() << ")"
-            << "}" << std::endl;
-            
-        
+        size = dep_type.array_get_region_size();
+       
         dims_description << ", {" 
             << "(" << dim_sizes[actual_dim] << "), " 
             << "(" << lb.prettyprint() << "), "
-            << "(" << ub.prettyprint() << ")"
+            << "(" << size.prettyprint() << ")"
             << "}"
             ;
     }

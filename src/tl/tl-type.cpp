@@ -433,6 +433,12 @@ namespace TL
         region_upper = AST_t(array_type_get_region_upper_bound(_type_info));
     }
 
+    AST_t Type::array_get_region_size() const
+    {
+        AST expression = array_type_get_region_size_expr(_type_info);
+        return expression;
+    }
+
     Type Type::get_void_type(void)
     {
         return Type(::get_void_type());
