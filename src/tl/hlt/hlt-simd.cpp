@@ -222,40 +222,28 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                     //Array indexed by vector
                                     else
                                     {
-                                        result << BUILTIN_VI_NAME 
+                                        if (subscripted_expr.is_array_subscript())
+                                        {
+                                            running_error("%s: error: Multidimensional arrays indexed by vectors are not supported yet.\n",
+                                                    ast.get_locus().c_str());
+                                        }
+
+                                        result << BUILTIN_VI_NAME
                                             << "("
                                             //Don't use recursive.
-                                            << subscripted_expr.prettyprint()   
+                                            << subscripted_expr.prettyprint()
                                             << ", "
                                             ;
 
-                                        Expression current_subscripted_expr = expr;
-                                        std::string subscripts_src;
+                                        //ENABLING vector expansion inside the array subscription
+                                        _this->_inside_array_subscript.push(false);
 
-                                        //Multidimensional arrays
-                                        while (current_subscripted_expr.is_array_subscript())
-                                        {
-                                            std::stringstream current_subscript;
-
-                                            //Disabling vector expansion inside the array subscription
-                                            _this->_inside_array_subscript.push(true);
-
-                                            current_subscript 
-                                                << "[" 
-                                                << recursive_prettyprint(current_subscripted_expr.get_subscript_expression().get_ast(), data)
-                                                << "]"
-                                                ;
-
-                                            _this->_inside_array_subscript.pop();
-
-                                            current_subscripted_expr = current_subscripted_expr.get_subscripted_expression();
-                                            subscripts_src = current_subscript.str() + subscripts_src;
-                                        }
-
-                                        result 
-                                            << subscripts_src
+                                        result
+                                            << recursive_prettyprint(expr.get_subscript_expression().get_ast(), data)
                                             << ")"
                                             ;
+
+                                        _this->_inside_array_subscript.pop();
 
                                         return uniquestr(result.get_source().c_str());
                                     }
@@ -413,9 +401,9 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "(("
                                 << cast_type.get_generic_vector_to().get_simple_declaration(
                                         _this->_sl.get_scope(ast), "") 
-                                << ")"
+                                << ")("
                                 << recursive_prettyprint(casted_expr.get_ast(), data)
-                                << "))"
+                                << ")))"
                                 ;
                         }
                         else
@@ -424,9 +412,9 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "(("
                                 << cast_type.get_generic_vector_to().get_simple_declaration(
                                         _this->_sl.get_scope(ast), "")
-                                << ")"
+                                << ")("
                                 << recursive_prettyprint(casted_expr.get_ast(), data)
-                                << ")"
+                                << "))"
                                 ;
                         }    
                         return uniquestr(result.get_source().c_str());
