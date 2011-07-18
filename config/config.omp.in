@@ -87,9 +87,10 @@ linker_name = @GXLCXX@
 language = C
 options = --cuda
 preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__
+preprocessor_options = -D__CUDABE__ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
+linker_options = -lnanox-gpu-api
 compiler_dto = remove_attributes:string:host,device
 compiler_phase = libtl-remove-attrs.so
 
@@ -97,9 +98,10 @@ compiler_phase = libtl-remove-attrs.so
 language = C++
 options = --cuda
 preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__
+preprocessor_options = -D__CUDABE__ -include nanos-gpu.h
 compiler_name = @NVCC@
 linker_name = @NVCC@
+linker_options = -lnanox-gpu-api
 compiler_dto = remove_attributes:string:host,device
 compiler_phase = libtl-remove-attrs.so
 
