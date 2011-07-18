@@ -305,7 +305,16 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
 
     if (FunctionDefinition::predicate(decl))
     {
+        // unless we find a kernel configuration call
         needs_device = true;
+
+        FunctionDefinition funct_def(decl, ctr.get_scope_link());
+        Statement stmt = funct_def.get_function_body();
+
+        if (!stmt.get_ast().depth_subtrees(PredicateType(AST_CUDA_KERNEL_CALL)).empty())
+        {
+            needs_device = false;
+        }
     }
     else if (Declaration::predicate(decl))
     {
@@ -459,14 +468,6 @@ void DeviceCUDA::create_outline(
 					&& _taskSymbols.count(outline_flags.task_symbol.get_name()) > 0)
 			{
 				// We have already removed it and printed it in the CUDA file, do nothing
-			}
-			else
-			{
-				std::stringstream msg;
-				msg << "Could not find the task function definition of '"
-						<< outline_flags.task_symbol.get_name()
-						<< "'";
-				internal_error(msg.str().c_str(), 0);
 			}
 		}
 	}
