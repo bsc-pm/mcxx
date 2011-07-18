@@ -11957,11 +11957,11 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
         AST one_tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, "1");
         upper_bound =
             ASTMake2(AST_MINUS,
-                    ASTMake2(AST_ADD,
-                        ast_copy(upper_bound),
-                        ast_copy(lower_bound),
-                        ASTFileName(upper_bound),
-                        ASTLine(upper_bound), NULL),
+                     ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
+                              ASTMake2(AST_ADD,                     
+                                       ast_copy(upper_bound), ast_copy(lower_bound),
+                                       ASTFileName(upper_bound), ASTLine(upper_bound), NULL),
+                              ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
                     one_tree,
                     ASTFileName(upper_bound),
                     ASTLine(upper_bound), NULL);
