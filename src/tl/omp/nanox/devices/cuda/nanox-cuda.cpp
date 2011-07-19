@@ -265,20 +265,11 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 
         // Get *.cu included files
         ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-        std::string cuda_line (".cu\"");
-        std::size_t cuda_size = cuda_line.size();
 
         for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
         {
             std::string line = (*it).get_preprocessor_line();
-            if (line.size() > cuda_size)
-            {
-                std::string matching = line.substr(line.size()-cuda_size,cuda_size);
-                if (matching == cuda_line)
-                {
-                    included_files << line << "\n";
-                }
-            }
+            included_files << line << "\n";
         }
     }
 
