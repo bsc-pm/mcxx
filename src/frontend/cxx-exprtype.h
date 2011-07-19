@@ -58,7 +58,15 @@ LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_co
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
-LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator);
+// This one is obsolete, check_default_initialization should be used instead
+LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator) DEPRECATED;
+
+LIBMCXX_EXTERN char check_default_initialization_declarator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        AST declarator,
+        scope_entry_t** constructor);
+LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, AST location, 
+        scope_entry_t** constructor);
 
 LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
 

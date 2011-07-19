@@ -1212,7 +1212,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         if (is_class_type(declarator_type)
                                 && !is_dependent_type(declarator_type))
                         {
-                            check_zero_args_constructor(declarator_type, decl_context, declarator);
+                            check_default_initialization_declarator(entry, decl_context, declarator, /* constructor */ NULL);
                         }
                     }
                 }
@@ -3050,15 +3050,78 @@ static char class_has_const_copy_constructor(type_t* t)
 
 static char is_virtual_destructor(type_t* class_type);
 
+#if 0
+static void compute_code_for_default_constructor(type_t* class_type, nodecl_t* nodecl_output, 
+        scope_entry_t* entry, const char* filename, int line)
+{
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_type);
+    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+
+    nodecl_t nodecl_initializer_list = nodecl_null();
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(virtual_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_member = entry_list_iterator_current(it);
+
+        nodecl_initializer_list = nodecl_append_to_list(
+                nodecl_initializer_list,
+                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
+                
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_member = entry_list_iterator_current(it);
+
+        nodecl_initializer_list = nodecl_append_to_list(
+                nodecl_initializer_list,
+                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_member = entry_list_iterator_current(it);
+
+        nodecl_initializer_list = nodecl_append_to_list(
+                nodecl_initializer_list,
+                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(virtual_base_classes);
+    entry_list_free(direct_base_classes);
+    entry_list_free(nonstatic_data_members);
+
+    decl_context_t block_context = new_block_context(entry->decl_context);
+
+    *nodecl_output = nodecl_make_function_code(
+            nodecl_make_list_1(nodecl_make_compound_statement(nodecl_null(), 
+                    /* destructors??? */nodecl_null(), 
+                    new_scope_symbol(block_context),
+                    filename, line)),
+            nodecl_initializer_list,
+            nodecl_null(), entry, filename, line);
+}
+#endif
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
 // FIXME - This function is HUGE
 static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_context_t decl_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    // Finish the class creating implicitly given operations
-    // At the moment only copy constructors and operator assignment functions are defined
+    // Finish the class creating implicit special members
     //
     // Only for non-dependent classes
     if (is_dependent_type(class_type))
@@ -3277,6 +3340,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_default_constructor->entity_specs.is_member = 1;
         implicit_default_constructor->entity_specs.access = AS_PUBLIC;
         implicit_default_constructor->entity_specs.class_type = type_info;
+        implicit_default_constructor->entity_specs.is_inline = 1;
         implicit_default_constructor->entity_specs.is_constructor = 1;
         implicit_default_constructor->entity_specs.is_default_constructor = 1;
 
@@ -3288,6 +3352,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         class_type_add_member(class_type, implicit_default_constructor);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
+
+        // nodecl_t nodecl_default_ctor = nodecl_null();
+        // compute_code_for_default_constructor(class_type, &nodecl_default_ctor,
+        //         implicit_default_constructor, filename, line);
+        // *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_default_ctor);
 
         char has_virtual_bases = 0;
 
@@ -3471,6 +3540,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_copy_constructor->entity_specs.is_constructor = 1;
         implicit_copy_constructor->entity_specs.is_copy_constructor = 1;
         implicit_copy_constructor->entity_specs.is_conversor_constructor = 1;
+        implicit_copy_constructor->entity_specs.is_inline = 1;
 
         implicit_copy_constructor->type_information = copy_constructor_type;
 
@@ -3651,6 +3721,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_copy_assignment_function->entity_specs.is_member = 1;
         implicit_copy_assignment_function->entity_specs.access = AS_PUBLIC;
         implicit_copy_assignment_function->entity_specs.class_type = type_info;
+        implicit_copy_assignment_function->entity_specs.is_inline = 1;
 
         implicit_copy_assignment_function->type_information = copy_assignment_type;
 
@@ -3783,6 +3854,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_destructor->entity_specs.access = AS_PUBLIC;
         implicit_destructor->entity_specs.is_destructor = 1;
         implicit_destructor->entity_specs.class_type = type_info;
+        implicit_destructor->entity_specs.is_inline = 1;
         implicit_destructor->defined = 1;
 
         implicit_destructor->entity_specs.num_parameters = 0;
@@ -3864,11 +3936,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 }
 
 void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        nodecl_t* nodecl_output)
 {
     CXX_LANGUAGE()
     {
-        finish_class_type_cxx(class_type, type_info, decl_context, filename, line);
+        finish_class_type_cxx(class_type, type_info, decl_context, filename, line, nodecl_output);
     }
 }
 
@@ -3936,8 +4009,10 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
                     ast_location(function_def));
         }
 
+        nodecl_t nodecl_funct_def = nodecl_null();
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
-                is_template, is_explicit_instantiation, nodecl_output);
+                is_template, is_explicit_instantiation, &nodecl_funct_def);
+        *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
     build_scope_delayed_clear_pending();
 }
@@ -4499,7 +4574,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
-    finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
+    nodecl_t nodecl_finish_class = nodecl_null();
+    finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a), &nodecl_finish_class);
+    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_finish_class);
     set_is_complete_type(class_type, /* is_complete */ 1);
     set_is_complete_type(get_actual_class_type(class_type), /* is_complete */ 1);
     
@@ -7483,137 +7560,188 @@ static void build_scope_namespace_definition(AST a,
     }
 }
 
-static void build_scope_ctor_initializer(AST ctor_initializer, 
+// FIXME - This function duplicates check_zero_args_constructor but without tagging the trees
+// as check_zero_args_constructor does
+
+static void build_scope_ctor_initializer(
+        AST function_definition,
+        AST ctor_initializer, 
         scope_entry_t* function_entry,
         decl_context_t decl_context,
-        nodecl_t* nodecl_output)
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
             "Block scope is not valid", 0);
 
-    AST mem_initializer_list = ASTSon0(ctor_initializer);
-    AST iter;
+    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
 
-    for_each_element(mem_initializer_list, iter)
+    if (is_dependent_type(class_sym->type_information)
+            || is_dependent_type(function_entry->type_information))
     {
-        AST mem_initializer = ASTSon1(iter);
+        // Do nothing in dependent contexts
+        return;
+    }
 
-        switch (ASTType(mem_initializer))
+    scope_entry_list_t* virtual_bases =
+        class_type_get_virtual_base_classes(class_sym->type_information);
+    scope_entry_list_t* direct_base_classes =
+        class_type_get_direct_base_classes(class_sym->type_information);
+    scope_entry_list_t* nonstatic_data_members =
+        class_type_get_nonstatic_data_members(class_sym->type_information);
+
+    scope_entry_list_t* already_initialized = NULL;
+
+    AST location = function_definition;
+    if (ctor_initializer != NULL)
+    {
+        location = ctor_initializer;
+
+        AST mem_initializer_list = ASTSon0(ctor_initializer);
+        AST iter;
+
+        for_each_element(mem_initializer_list, iter)
         {
-            case AST_MEM_INITIALIZER :
-                {
-                    AST mem_initializer_id = ASTSon0(mem_initializer);
-                    AST initializer = ASTSon1(mem_initializer);
+            AST mem_initializer = ASTSon1(iter);
 
-                    AST id_expression = ASTSon0(mem_initializer_id);
-
-                    scope_entry_list_t* result_list = NULL;
-                    result_list = query_id_expression(decl_context, id_expression);
-
-                    if (result_list == NULL)
+            switch (ASTType(mem_initializer))
+            {
+                case AST_MEM_INITIALIZER :
                     {
-                        running_error("%s: initialized entity '%s' not found\n", 
-                                ast_location(id_expression),
-                                prettyprint_in_buffer(id_expression));
-                    }
+                        AST mem_initializer_id = ASTSon0(mem_initializer);
+                        AST initializer = ASTSon1(mem_initializer);
 
-                    scope_entry_t* entry = entry_list_head(result_list);
-                    entry_list_free(result_list);
+                        AST id_expression = ASTSon0(mem_initializer_id);
 
-                    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
+                        scope_entry_list_t* result_list = NULL;
+                        result_list = query_id_expression(decl_context, id_expression);
 
-                    if (entry->kind == SK_TYPEDEF)
-                    {
-                        if (is_named_type(advance_over_typedefs(entry->type_information)))
+                        if (result_list == NULL)
                         {
-                            entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
-                        }
-                    }
-
-                    if (entry->kind == SK_VARIABLE)
-                    {
-                        if (!entry->entity_specs.is_member
-                                || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
-                        {
-                            running_error("%s: symbol '%s' is not a member of class %s\n",
-                                    ast_location(id_expression),
-                                    get_qualified_symbol_name(entry, entry->decl_context),
-                                    get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
-                                        function_entry->decl_context));
-                        }
-                        if (entry->entity_specs.is_static)
-                        {
-                            running_error("%s: static data member '%s' cannot be initialized here\n", 
+                            running_error("%s: initialized entity '%s' not found\n", 
                                     ast_location(id_expression),
                                     prettyprint_in_buffer(id_expression));
                         }
 
-                        check_initialization(initializer,
-                                entry->decl_context,
-                                get_unqualified_type(entry->type_information));
-                    }
-                    else if (entry->kind == SK_CLASS)
-                    {
+                        scope_entry_t* entry = entry_list_head(result_list);
+                        entry_list_free(result_list);
+
+                        if (entry->kind == SK_TYPEDEF)
+                        {
+                            if (is_named_type(advance_over_typedefs(entry->type_information)))
+                            {
+                                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+                            }
+                        }
+
                         // Chances are that through class-scope lookup we have found the injected name
-                        if (entry->entity_specs.is_injected_class_name)
+                        if (entry->kind == SK_CLASS 
+                                && entry->entity_specs.is_injected_class_name)
                         {
                             // The injected class name is a member
                             entry = named_type_get_symbol(entry->entity_specs.class_type);
                         }
 
-                        type_t* class_type = class_sym->type_information;
-
-                        int i, num_bases = class_type_get_num_bases(class_type);
-
-                        // If it is dependent do not look for it
-                        char found = is_dependent_type(entry->type_information);
-                        for (i = 0; i < num_bases && !found; i++)
+                        if (entry_list_contains(already_initialized, entry))
                         {
-                            char is_virtual = 0;
-                            char is_dependent = 0;
-                            access_specifier_t access_specifier = AS_UNKNOWN;
-                            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                                    &is_virtual, &is_dependent, &access_specifier);
-                            if (entry == base_class)
-                                found = 1;
-                        }
-
-                        if (!found)
-                        {
-                            fprintf(stderr, "%s: class '%s' is not a direct-base of class '%s'\n",
+                            running_error("%s: error: '%s' initialized twice in member initializer list\n",
                                     ast_location(id_expression),
-                                    get_qualified_symbol_name(entry, entry->decl_context),
-                                    get_qualified_symbol_name(class_sym, class_sym->decl_context));
+                                    get_qualified_symbol_name(entry, entry->decl_context));
                         }
 
-                        check_initialization(initializer,
-                                entry->decl_context,
-                                get_user_defined_type(entry));
-                    }
-                    else
-                    {
-                        running_error("%s: symbol '%s' cannot be initialized here\n",
-                                ast_location(id_expression),
-                                get_qualified_symbol_name(entry, entry->decl_context));
-                    }
+                        if (entry->kind == SK_VARIABLE)
+                        {
+                            if (!entry_list_contains(nonstatic_data_members, entry))
+                            {
+                                if (!entry->entity_specs.is_member
+                                        || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
+                                {
+                                    running_error("%s: symbol '%s' is not a member of class %s\n",
+                                            ast_location(id_expression),
+                                            get_qualified_symbol_name(entry, entry->decl_context),
+                                            get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
+                                                function_entry->decl_context));
+                                }
+                                if (entry->entity_specs.is_static)
+                                {
+                                    running_error("%s: static data member '%s' cannot be initialized here\n", 
+                                            ast_location(id_expression),
+                                            prettyprint_in_buffer(id_expression));
+                                }
+                            }
 
-                    if (!is_dependent_type(class_sym->type_information)
-                            && !is_dependent_type(function_entry->type_information))
-                    {
-                        *nodecl_output = nodecl_append_to_list(*nodecl_output, 
-                                nodecl_make_object_init(expression_get_nodecl(initializer), entry, 
-                                    ASTFileName(mem_initializer), ASTLine(mem_initializer)));
-                    }
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_unqualified_type(entry->type_information));
 
-                    break;
-                }
-            default : 
-                {
-                    internal_error("Unexpected node '%s' in constructor declaration", ast_print_node_type(ASTType(mem_initializer)));
-                    break;
-                }
+                            entry_list_add(already_initialized, entry);
+                        }
+                        else if (entry->kind == SK_CLASS)
+                        {
+                            if (!entry_list_contains(direct_base_classes, entry)
+                                    && !entry_list_contains(virtual_bases, entry))
+                            {
+                                fprintf(stderr, "%s: class '%s' is not a direct base or virtual base of class '%s'\n",
+                                        ast_location(id_expression),
+                                        get_qualified_symbol_name(entry, entry->decl_context),
+                                        get_qualified_symbol_name(class_sym, class_sym->decl_context));
+                            }
+
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_user_defined_type(entry));
+
+                            entry_list_add(already_initialized, entry);
+                        }
+                        else
+                        {
+                            running_error("%s: symbol '%s' cannot be initialized here\n",
+                                    ast_location(id_expression),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                        }
+
+                        break;
+                    }
+                default : 
+                    {
+                        internal_error("Unexpected node '%s' in constructor declaration", ast_print_node_type(ASTType(mem_initializer)));
+                        break;
+                    }
+            }
         }
     }
+
+
+    // Now review the remaining objects not initialized yet
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(virtual_bases);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, location, &constructor);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, location, &constructor);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, location, &constructor);
+    }
+    entry_list_iterator_free(it);
 }
 
 // This function is only intended for C99
@@ -8061,14 +8189,17 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     CXX_LANGUAGE()
     {
         AST ctor_initializer = ASTSon2(a);
-        if (ctor_initializer != NULL)
+        if (!entry->entity_specs.is_member
+                || !entry->entity_specs.is_constructor)
         {
-            if (!entry->entity_specs.is_member
-                    || !entry->entity_specs.is_constructor)
+            build_scope_ctor_initializer(a, ctor_initializer, entry, block_context, &nodecl_initializers);
+        }
+        else
+        {
+            if (ctor_initializer != NULL)
             {
                 running_error("%s: error: member-initializer-lists are only valid in constructors\n");
             }
-            build_scope_ctor_initializer(ctor_initializer, entry, block_context, &nodecl_initializers);
         }
     }
 

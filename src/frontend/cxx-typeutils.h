@@ -421,6 +421,8 @@ LIBMCXX_EXTERN scope_entry_list_t* class_type_get_static_data_members(type_t* t)
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_member_functions(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_constructors(type_t* t);
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_conversions(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_direct_base_classes(type_t* t);
 
 LIBMCXX_EXTERN type_t* class_type_get_enclosing_class_type(type_t* t);
 

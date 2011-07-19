@@ -731,9 +731,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // The symbol is defined after this
     named_class->defined = 1;
 
-    // Finish the class
+    // Finish the class (this order does not match the one used in buildscope, does it?)
+    nodecl_t nodecl_finish_class = nodecl_null();
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
-            named_class->decl_context, filename, line);
+            named_class->decl_context, filename, line, &nodecl_finish_class);
 
     if (CURRENT_CONFIGURATION->explicit_instantiation)
     {

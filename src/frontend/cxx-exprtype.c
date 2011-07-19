@@ -14113,6 +14113,95 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     return 1;
 }
 
+static char check_default_initialization_(scope_entry_t* entry,
+        decl_context_t decl_context,
+        AST location,
+        AST declarator,
+        scope_entry_t** constructor)
+{
+    type_t* t = entry->type_information;
+    if (is_lvalue_reference_type(t))
+    {
+        t = reference_type_get_referenced_type(t);
+    }
+
+    if (is_array_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
+
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
+    if (is_class_type(t))
+    {
+        int num_arguments = 0;
+        type_t** arguments = NULL;
+
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* chosen_constructor = solve_constructor(t,
+                arguments, num_arguments,
+                /* is_explicit */ 1,
+                decl_context,
+                ASTFileName(location), ASTLine(location),
+                /* conversors */ NULL,
+                &candidates);
+
+        if (chosen_constructor == NULL)
+        {
+            if (entry_list_size(candidates) != 0)
+            {
+                error_printf("%s: error: no default constructor for '%s' type\n",
+                        ast_location(location),
+                        print_type_str(t, decl_context));
+            }
+            entry_list_free(candidates);
+            return 0;
+        }
+        else
+        {
+            entry_list_free(candidates);
+            if (function_has_been_deleted(decl_context, declarator, chosen_constructor))
+            {
+                return 0;
+            }
+
+            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
+                        chosen_constructor->file, 
+                        chosen_constructor->line));
+
+            if (declarator != NULL)
+            {
+                // To be removed some moment in the future
+                ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+            }
+
+            if (constructor != NULL)
+            {
+                *constructor = chosen_constructor;
+            }
+        }
+    }
+    return 1;
+}
+
+char check_default_initialization_declarator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        AST declarator,
+        scope_entry_t** constructor)
+{
+    return check_default_initialization_(entry, decl_context, declarator, declarator, constructor);
+}
+
+char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, AST location, 
+        scope_entry_t** constructor)
+{
+    return check_default_initialization_(entry, decl_context, location, NULL, constructor);
+}
+
 static void diagnostic_single_candidate(AST expr, scope_entry_t* entry)
 {
     const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);

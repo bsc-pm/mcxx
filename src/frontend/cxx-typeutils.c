@@ -3693,6 +3693,64 @@ scope_entry_list_t* class_type_get_copy_assignment_operators(type_t* t)
     return _class_type_get_members_pred(t, NULL, _member_is_copy_assignment_operator);
 }
 
+static void class_type_get_virtual_base_classes_rec(type_t* t, scope_entry_list_t** result)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    int i, num_bases = class_type_get_num_bases(t);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        access_specifier_t access_spec = AS_UNKNOWN;
+
+        scope_entry_t* base = class_type_get_base_num(t, i, &is_virtual, &is_dependent, &access_spec);
+
+        class_type_get_virtual_base_classes_rec(base->type_information, result);
+
+        if (!is_virtual || is_dependent)
+            continue;
+
+        *result = entry_list_add_once(*result, base);
+    }
+}
+
+scope_entry_list_t* class_type_get_virtual_base_classes(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    scope_entry_list_t* result = NULL;
+    class_type_get_virtual_base_classes_rec(t, &result);
+
+    return result;
+}
+
+scope_entry_list_t* class_type_get_direct_base_classes(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
+
+    scope_entry_list_t* result = NULL;
+    int i, num_bases = class_type_get_num_bases(t);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        access_specifier_t access_spec = AS_UNKNOWN;
+
+        scope_entry_t* base = class_type_get_base_num(t, i, &is_virtual, &is_dependent, &access_spec);
+
+        if (is_virtual || is_dependent)
+            continue;
+
+        result = entry_list_add(result, base);
+    }
+
+    return result;
+}
+
 static char _member_is_virtual_member_function(scope_entry_t* entry, void* data UNUSED_PARAMETER)
 {
     return _member_is_member_function(entry, data) && entry->entity_specs.is_virtual;
@@ -3891,6 +3949,9 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
         char is_virtual, char is_dependent, access_specifier_t access_specifier)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    if (base_class->entity_specs.is_injected_class_name)
+        base_class = named_type_get_symbol(base_class->entity_specs.class_type);
 
     base_class_info_t* new_base_class = counted_calloc(1, sizeof(*new_base_class), &_bytes_due_to_type_system);
     new_base_class->class_symbol = base_class;
