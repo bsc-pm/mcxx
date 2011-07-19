@@ -7,6 +7,6 @@ MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests -
 test_CC="\${MCXX} --profile=plaincc"
 test_CXX="\${MCXX} --profile=plaincxx"
 test_noexec=yes
-test_CFLAGS="-y"
-test_CXXFLAGS="-y"
+test_CFLAGS="-y --typecheck"
+test_CXXFLAGS="-y --typecheck"
 EOF
