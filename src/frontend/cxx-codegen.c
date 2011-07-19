@@ -1493,7 +1493,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 type_t* real_type = symbol->type_information;
-                if (symbol->entity_specs.is_conversion)
+                if (symbol->entity_specs.is_conversion
+                        || symbol->entity_specs.is_destructor)
                 {
                     real_type = get_new_function_type(NULL, NULL, 0);
                 }
@@ -1516,7 +1517,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             }
                             exception_spec = strappend(exception_spec, print_type_str(symbol->entity_specs.exceptions[i], symbol->decl_context));
                         }
-                        exception_spec = strappend(exception_spec, " )");
+                        exception_spec = strappend(exception_spec, ")");
                     }
                 }
 
@@ -3227,7 +3228,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 exception_spec = strappend(exception_spec, print_type_str(symbol->entity_specs.exceptions[i], symbol->decl_context));
             }
-            exception_spec = strappend(exception_spec, " )");
+            exception_spec = strappend(exception_spec, ")");
         }
     }
 
