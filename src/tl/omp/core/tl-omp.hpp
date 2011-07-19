@@ -366,7 +366,7 @@ namespace TL
 
                 typedef std::pair<std::string, Symbol> implementation_pair_t;
 
-                ObjectList<implementation_pair_t> get_devices_with_implementation();
+                ObjectList<implementation_pair_t> get_devices_with_implementation() const;
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
@@ -383,6 +383,8 @@ namespace TL
                 bool add_function_task(Symbol sym, const FunctionTaskInfo&);
 
                 bool empty() const;
+
+                bool is_function_task_or_implements(Symbol sym) const;
         };
 
 
