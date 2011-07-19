@@ -31,6 +31,7 @@
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 #include "tl-cuda.hpp"
+#include "tl-omp-nanox.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -324,6 +325,26 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
         if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
         {
             needs_device = true;
+        }
+
+        ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+
+        ObjectList<Symbol> sym_list;
+        for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
+                it != declared_entities.end();
+                it++)
+        {
+            sym_list.insert(it->get_declared_symbol());
+        }
+
+        for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                it != sym_list.end();
+                it++)
+        {
+            if (_function_task_set->is_function_task_or_implements(*it))
+            {
+                needs_device = false;
+            }
         }
     }
 
@@ -788,6 +809,10 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 void DeviceCUDA::pre_run(DTO& dto)
 {
 	_root = dto["translation_unit"];
+    if (dto.get_keys().contains("openmp_task_info"))
+    {
+        _function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+    }
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceCUDA);
