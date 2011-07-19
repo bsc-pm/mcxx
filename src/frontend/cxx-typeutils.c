@@ -308,6 +308,23 @@ struct pointer_tag
     scope_entry_t* pointee_class;
 } pointer_info_t;
 
+typedef
+struct array_region_tag 
+{
+    // Whole size. If the array is created using lower and upper boundaries
+    // this one is upper - lower + 1
+    nodecl_t whole_size;
+    
+    nodecl_t lower_bound; 
+
+    // This is the upper bound. If the array is created using the size of the
+    // array, this is always whole_size - 1
+    nodecl_t upper_bound;
+    
+    // Scope of the array region expressions
+    decl_context_t region_decl_context;
+} array_region_t;
+
 // Array information
 typedef 
 struct array_tag
@@ -329,6 +346,9 @@ struct array_tag
     // The type of the array elements
     type_t* element_type;
 
+    // Region information
+    array_region_t* region;
+    
     // Is literal string type ?
     unsigned char is_literal_string:1;
     unsigned char is_vla:1;
@@ -2022,30 +2042,35 @@ static void init_qualification_hash(void)
 }
 
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context);
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        array_region_t** array_region);
 
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context);
+        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
+        array_region_t* array_region);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
         nodecl_t whole_size = nodecl_null();
         nodecl_t lower_bound = nodecl_null();
         nodecl_t upper_bound = nodecl_null();
+        array_region_t* array_region = NULL;
+
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
-        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context);
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region);
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
                 nodecl_copy(whole_size), 
                 nodecl_copy(lower_bound), 
                 nodecl_copy(upper_bound), 
-                decl_context);
+                decl_context,
+                array_region);
+
         return result;
 }
-
 
 type_t* get_unqualified_type(type_t* t)
 {
@@ -2442,7 +2467,8 @@ type_t* get_array_type_str(type_t* element_type UNUSED_PARAMETER,
 
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
-        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context)
+        nodecl_t *whole_size, nodecl_t *lower_bound, nodecl_t *upper_bound, decl_context_t* decl_context,
+        array_region_t** array_region)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -2450,12 +2476,14 @@ static void _get_array_type_components(type_t* array_type,
     *lower_bound = array_type->array->lower_bound;
     *upper_bound = array_type->array->upper_bound;
     *decl_context = array_type->array->array_expr_decl_context;
+    *array_region = array_type->array->region;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
-        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context)
+        nodecl_t whole_size, nodecl_t lower_bound, nodecl_t upper_bound, decl_context_t decl_context,
+        array_region_t* array_region)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -2579,7 +2607,8 @@ static type_t* _get_array_type(type_t* element_type,
         if (!CURRENT_CONFIGURATION->disable_sizeof
                 && whole_size_is_constant
                 && lower_bound_is_constant
-                && upper_bound_is_constant)
+                && upper_bound_is_constant
+                && array_region == NULL)
         {
             rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k);
 
@@ -2620,6 +2649,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
             result->array->array_expr_decl_context = decl_context;
+            result->array->region = array_region;
 
             C_LANGUAGE()
             {
@@ -2699,7 +2729,55 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
         }
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+}
+
+type_t* get_array_type_with_regions(type_t* element_type, 
+        nodecl_t whole_size, 
+        decl_context_t decl_context,
+        nodecl_t region_whole_size,
+        decl_context_t region_decl_context)
+{
+    whole_size = nodecl_copy(whole_size);
+
+    nodecl_t lower_bound = nodecl_null(); 
+    nodecl_t upper_bound = nodecl_null(); 
+    if (!nodecl_is_null(whole_size))
+    {
+        lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+
+        upper_bound = nodecl_make_minus(
+                nodecl_make_parenthesized_expression(nodecl_copy(whole_size), 
+                    nodecl_get_type(whole_size),
+                    nodecl_get_filename(whole_size), 
+                    nodecl_get_line(whole_size)),
+                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                nodecl_get_type(whole_size),
+                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+    }
+
+    nodecl_t region_lower_bound = nodecl_null(); 
+    nodecl_t region_upper_bound = nodecl_null(); 
+
+    region_lower_bound = get_zero_tree(nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size));
+
+    region_upper_bound = nodecl_make_minus(
+            nodecl_make_parenthesized_expression(nodecl_copy(region_whole_size), 
+                nodecl_get_type(region_whole_size),
+                nodecl_get_filename(region_whole_size), 
+                nodecl_get_line(region_whole_size)),
+            get_one_tree(nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size)),
+            nodecl_get_type(region_whole_size),
+            nodecl_get_filename(region_whole_size), nodecl_get_line(region_whole_size));
+
+
+    array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region->lower_bound = region_lower_bound;
+    array_region->upper_bound = region_upper_bound;
+    array_region->whole_size = region_whole_size;
+    array_region->region_decl_context = region_decl_context;
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
 }
 
 type_t* get_array_type_bounds(type_t* element_type,
@@ -2742,7 +2820,80 @@ type_t* get_array_type_bounds(type_t* element_type,
         }
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+}
+
+type_t* get_array_type_bounds_with_regions(type_t* element_type,
+        nodecl_t lower_bound,
+        nodecl_t upper_bound,
+        decl_context_t decl_context,
+        nodecl_t region_lower_bound,
+        nodecl_t region_upper_bound,
+        decl_context_t region_decl_context)
+{
+    nodecl_t whole_size = nodecl_null();
+    lower_bound = nodecl_copy(lower_bound);
+    upper_bound = nodecl_copy(upper_bound);
+
+    if (!nodecl_is_null(lower_bound)
+            && !nodecl_is_null(upper_bound))
+    {
+        nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+
+        whole_size = nodecl_make_add(
+                nodecl_make_parenthesized_expression(
+                    nodecl_make_minus(
+                        nodecl_make_parenthesized_expression(upper_bound, 
+                            nodecl_get_type(upper_bound), 
+                            nodecl_get_filename(upper_bound),
+                            nodecl_get_line(upper_bound)),
+                        nodecl_make_parenthesized_expression(lower_bound, 
+                            nodecl_get_type(lower_bound), 
+                            nodecl_get_filename(lower_bound),
+                            nodecl_get_line(lower_bound)), 
+                        nodecl_get_type(lower_bound),
+                        nodecl_get_filename(lower_bound), 
+                        nodecl_get_line(lower_bound)),
+                    nodecl_get_type(lower_bound),
+                    nodecl_get_filename(lower_bound), 
+                    nodecl_get_line(lower_bound)),
+                one_tree,
+                nodecl_get_type(lower_bound),
+                nodecl_get_filename(lower_bound), 
+                nodecl_get_line(lower_bound));
+    }
+
+    nodecl_t one_tree = get_one_tree(nodecl_get_filename(lower_bound), nodecl_get_line(lower_bound));
+
+    nodecl_t region_whole_size = nodecl_make_add(
+            nodecl_make_parenthesized_expression(
+                nodecl_make_minus(
+                    nodecl_make_parenthesized_expression(region_upper_bound, 
+                        nodecl_get_type(region_upper_bound), 
+                        nodecl_get_filename(region_upper_bound),
+                        nodecl_get_line(region_upper_bound)),
+                    nodecl_make_parenthesized_expression(region_lower_bound, 
+                        nodecl_get_type(region_lower_bound), 
+                        nodecl_get_filename(region_lower_bound),
+                        nodecl_get_line(region_lower_bound)), 
+                    nodecl_get_type(region_lower_bound),
+                    nodecl_get_filename(region_lower_bound), 
+                    nodecl_get_line(region_lower_bound)),
+                nodecl_get_type(region_lower_bound),
+                nodecl_get_filename(region_lower_bound), 
+                nodecl_get_line(region_lower_bound)),
+            one_tree,
+            nodecl_get_type(region_lower_bound),
+            nodecl_get_filename(region_lower_bound), 
+            nodecl_get_line(region_lower_bound));
+
+    array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region->lower_bound = region_lower_bound;
+    array_region->upper_bound = region_upper_bound;
+    array_region->whole_size = region_whole_size;
+    array_region->region_decl_context = region_decl_context;
+    
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
 }
 
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
@@ -5177,6 +5328,47 @@ decl_context_t array_type_get_array_size_expr_context(type_t* t)
     return t->array->array_expr_decl_context;
 }
 
+
+char array_type_has_region(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region != NULL;    
+}
+
+decl_context_t array_type_get_region_size_expr_context(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->region_decl_context;
+}
+
+nodecl_t array_type_get_region_size_expr(type_t* t)
+{
+     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->whole_size;   
+}
+
+nodecl_t array_type_get_region_lower_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->lower_bound;
+}
+
+nodecl_t array_type_get_region_upper_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->upper_bound;    
+}
+
 char array_type_is_vla(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
@@ -6826,6 +7018,15 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, ":");
                 tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->upper_bound));
                 tmp_result = strappend(tmp_result, "] of ");
+                if (printed_declarator->array->region != NULL)
+                {
+                    tmp_result = strappend(tmp_result, "{");
+                    tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->region->lower_bound));
+                    tmp_result = strappend(tmp_result, " ; ");
+                    tmp_result = strappend(tmp_result, c_cxx_codegen_to_str(printed_declarator->array->region->upper_bound));
+                    tmp_result = strappend(tmp_result, "}" );
+                }
+                tmp_result = strappend(tmp_result, " of ");
                 printed_declarator = printed_declarator->array->element_type;
                 break;
             case TK_FUNCTION :

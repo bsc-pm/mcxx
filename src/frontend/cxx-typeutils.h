@@ -161,6 +161,20 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds(type_t*,
         nodecl_t upper_bound, 
         decl_context_t decl_context);
 
+LIBMCXX_EXTERN type_t* get_array_type_with_regions(type_t* element_type, 
+        nodecl_t size_of_array, 
+        decl_context_t decl_context,
+        nodecl_t size_of_region,
+        decl_context_t decl_context_region);
+
+LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*, 
+        nodecl_t lower_bound, 
+        nodecl_t upper_bound, 
+        decl_context_t decl_context,
+        nodecl_t lower_bound_region, 
+        nodecl_t upper_bound_region, 
+        decl_context_t decl_context_region);
+
 LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
 
 LIBMCXX_EXTERN type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters);
@@ -382,6 +396,12 @@ LIBMCXX_EXTERN nodecl_t array_type_get_array_lower_bound(type_t* t);
 LIBMCXX_EXTERN nodecl_t array_type_get_array_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
+
+LIBMCXX_EXTERN char array_type_has_region(type_t* t);
+LIBMCXX_EXTERN decl_context_t array_type_get_region_size_expr_context(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_region_size_expr(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_region_lower_bound(type_t* t);
+LIBMCXX_EXTERN nodecl_t array_type_get_region_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);

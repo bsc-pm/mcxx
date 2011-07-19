@@ -108,13 +108,15 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         if (!sym.is_valid())
         {
-            warnlog << expr.get_ast().get_locus() << ": warning: unknown symbol in data-reference '" << expr.prettyprint() << "'" << std::endl;
+            warnlog << expr.get_ast().get_locus() << ": warning: unknown symbol in data-reference '" << expr.prettyprint() << "'" 
+                    << std::endl;
             return false;
         }
 
         if (!sym.is_variable())
         {
-            warnlog << expr.get_ast().get_locus() << ": warning: symbol in data-reference '" << expr.prettyprint() << "' is not a variable" << std::endl;
+            warnlog << expr.get_ast().get_locus() << ": warning: symbol in data-reference '" << expr.prettyprint() << "' " 
+                    << "is not a variable" << std::endl;
             return false;
         }
 
@@ -135,7 +137,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             addr = "&" + sym.get_qualified_name();
         }
         size = safe_expression_size(type, expr.get_scope());
-
+        
         return true;
     }
     else if (expr.is_array_subscript())
@@ -253,7 +255,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 it++)
         {
             Expression& section(*it);
-
+            
             Source upper_bound;
             if (section.is_array_section_size())
             {
@@ -267,6 +269,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                     << section.array_section_upper()
                     ;
             }
+            
             AST_t upper_bound_tree = upper_bound.parse_expression(section.get_ast(),
                     section.get_scope_link());
             rebuilt_type = rebuilt_type.get_array_to(section.array_section_lower().get_ast(), upper_bound_tree, section.get_scope());
@@ -487,6 +490,7 @@ bool DataReference::gather_info_data_expr(Expression &expr, Symbol& base_sym,
     return gather_info_data_expr_rec(expr, base_sym, size, addr, type, /* enclosing_is_array */ false, warnlog);
 }
 
+// This function constructs a sizeof but avoids variable length arrays which are not valid in C++
 Source TL::DataReference::safe_expression_size(Type type, Scope sc)
 {
     Source result;
@@ -514,8 +518,8 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
     else if (type.is_pointer()
             && type.points_to().is_array())
     {
-        result << safe_expression_size(type.points_to().array_element().get_pointer_to(), sc)
-            ;
+        result << safe_expression_size(type.points_to(), sc)
+            ;           // .array_element().get_pointer_to()
     }
     else
     {
@@ -529,8 +533,9 @@ Source TL::DataReference::safe_expression_size(Type type, Scope sc)
 
 TL::DataReference& TL::DataReference::operator=(const DataReference& data_ref)
 {
-    if (this == &data_ref)
+    if (this != &data_ref)
     {
+        this->Expression::operator=(data_ref);
         this->_valid = data_ref._valid;
         this->_base_symbol = data_ref._base_symbol;
         this->_type = data_ref._type;
