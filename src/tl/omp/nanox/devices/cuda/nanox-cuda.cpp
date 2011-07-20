@@ -31,6 +31,7 @@
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 #include "tl-cuda.hpp"
+#include "tl-omp-nanox.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -264,20 +265,11 @@ void DeviceCUDA::get_output_file(std::ofstream& cudaFile)
 
         // Get *.cu included files
         ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-        std::string cuda_line (".cu\"");
-        std::size_t cuda_size = cuda_line.size();
 
         for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
         {
             std::string line = (*it).get_preprocessor_line();
-            if (line.size() > cuda_size)
-            {
-                std::string matching = line.substr(line.size()-cuda_size,cuda_size);
-                if (matching == cuda_line)
-                {
-                    included_files << line << "\n";
-                }
-            }
+            included_files << line << "\n";
         }
     }
 
@@ -324,6 +316,26 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
         if (decl_specifier_seq.get_ast().depth_subtrees(PredicateType(AST_TYPEDEF_SPEC)).empty())
         {
             needs_device = true;
+        }
+
+        ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+
+        ObjectList<Symbol> sym_list;
+        for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
+                it != declared_entities.end();
+                it++)
+        {
+            sym_list.insert(it->get_declared_symbol());
+        }
+
+        for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                it != sym_list.end();
+                it++)
+        {
+            if (_function_task_set->is_function_task_or_implements(*it))
+            {
+                needs_device = false;
+            }
         }
     }
 
@@ -795,6 +807,10 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 void DeviceCUDA::pre_run(DTO& dto)
 {
 	_root = dto["translation_unit"];
+    if (dto.get_keys().contains("openmp_task_info"))
+    {
+        _function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+    }
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceCUDA);
