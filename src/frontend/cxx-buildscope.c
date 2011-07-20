@@ -1209,8 +1209,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 {
                     CXX_LANGUAGE()
                     {
-                        if (is_class_type(declarator_type)
-                                && !is_dependent_type(declarator_type))
+                        if (!is_dependent_type(declarator_type))
                         {
                             check_default_initialization_declarator(entry, decl_context, declarator, /* constructor */ NULL);
                         }
@@ -3113,6 +3112,218 @@ static void compute_code_for_default_constructor(type_t* class_type, nodecl_t* n
 }
 #endif
 
+static void build_scope_ctor_initializer(
+        AST ctor_initializer, 
+        scope_entry_t* function_entry,
+        decl_context_t decl_context,
+        const char* filename,
+        int line,
+        nodecl_t* nodecl_output)
+{
+    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
+
+    if (is_dependent_type(class_sym->type_information)
+            || is_dependent_type(function_entry->type_information))
+    {
+        // Do nothing in dependent contexts
+        return;
+    }
+
+    scope_entry_list_t* virtual_bases =
+        class_type_get_virtual_base_classes(class_sym->type_information);
+    scope_entry_list_t* direct_base_classes =
+        class_type_get_direct_base_classes(class_sym->type_information);
+    scope_entry_list_t* nonstatic_data_members =
+        class_type_get_nonstatic_data_members(class_sym->type_information);
+
+    scope_entry_list_t* already_initialized = NULL;
+
+    if (ctor_initializer != NULL)
+    {
+        ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
+                "Block scope is not valid", 0);
+
+        AST mem_initializer_list = ASTSon0(ctor_initializer);
+        AST iter;
+
+        for_each_element(mem_initializer_list, iter)
+        {
+            AST mem_initializer = ASTSon1(iter);
+
+            switch (ASTType(mem_initializer))
+            {
+                case AST_MEM_INITIALIZER :
+                    {
+                        AST mem_initializer_id = ASTSon0(mem_initializer);
+                        AST initializer = ASTSon1(mem_initializer);
+
+                        AST id_expression = ASTSon0(mem_initializer_id);
+
+                        scope_entry_list_t* result_list = NULL;
+                        result_list = query_id_expression(decl_context, id_expression);
+
+                        if (result_list == NULL)
+                        {
+                            running_error("%s: initialized entity '%s' not found\n", 
+                                    ast_location(id_expression),
+                                    prettyprint_in_buffer(id_expression));
+                        }
+
+                        scope_entry_t* entry = entry_list_head(result_list);
+                        entry_list_free(result_list);
+
+                        if (entry->kind == SK_TYPEDEF)
+                        {
+                            if (is_named_type(advance_over_typedefs(entry->type_information)))
+                            {
+                                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+                            }
+                        }
+
+                        // Chances are that through class-scope lookup we have found the injected name
+                        if (entry->kind == SK_CLASS 
+                                && entry->entity_specs.is_injected_class_name)
+                        {
+                            // The injected class name is a member
+                            entry = named_type_get_symbol(entry->entity_specs.class_type);
+                        }
+
+                        if (entry_list_contains(already_initialized, entry))
+                        {
+                            running_error("%s: error: '%s' initialized twice in member initializer list\n",
+                                    ast_location(id_expression),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                        }
+
+                        if (entry->kind == SK_VARIABLE)
+                        {
+                            if (!entry_list_contains(nonstatic_data_members, entry))
+                            {
+                                if (!entry->entity_specs.is_member
+                                        || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
+                                {
+                                    running_error("%s: symbol '%s' is not a member of class %s\n",
+                                            ast_location(id_expression),
+                                            get_qualified_symbol_name(entry, entry->decl_context),
+                                            get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
+                                                function_entry->decl_context));
+                                }
+                                if (entry->entity_specs.is_static)
+                                {
+                                    running_error("%s: static data member '%s' cannot be initialized here\n", 
+                                            ast_location(id_expression),
+                                            prettyprint_in_buffer(id_expression));
+                                }
+                            }
+
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_unqualified_type(entry->type_information));
+
+                            entry_list_add(already_initialized, entry);
+                        }
+                        else if (entry->kind == SK_CLASS)
+                        {
+                            if (!entry_list_contains(direct_base_classes, entry)
+                                    && !entry_list_contains(virtual_bases, entry))
+                            {
+                                fprintf(stderr, "%s: class '%s' is not a direct base or virtual base of class '%s'\n",
+                                        ast_location(id_expression),
+                                        get_qualified_symbol_name(entry, entry->decl_context),
+                                        get_qualified_symbol_name(class_sym, class_sym->decl_context));
+                            }
+
+                            check_initialization(initializer,
+                                    entry->decl_context,
+                                    get_user_defined_type(entry));
+
+                            entry_list_add(already_initialized, entry);
+                        }
+                        else
+                        {
+                            running_error("%s: symbol '%s' cannot be initialized here\n",
+                                    ast_location(id_expression),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                        }
+
+                        nodecl_t nodecl_object_init = nodecl_make_object_init(
+                                expression_get_nodecl(initializer),
+                                entry,
+                                ASTFileName(id_expression),
+                                ASTLine(id_expression));
+
+                        *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_object_init);
+
+                        break;
+                    }
+                default : 
+                    {
+                        internal_error("Unexpected node '%s' in constructor declaration", ast_print_node_type(ASTType(mem_initializer)));
+                        break;
+                    }
+            }
+        }
+    }
+
+
+    // Now review the remaining objects not initialized yet
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(virtual_bases);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* constructor = NULL;
+        check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
+    }
+    entry_list_iterator_free(it);
+}
+
+
+#if 0
+static void ensure_functions_are_emmitted(scope_entry_list_t* entry_list, const char *filename, int line)
+{
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        ensure_function_is_emmitted(entry, filename, line);
+    }
+}
+
+static void emit_copy_constructors_as_needed(scope_entry_list_t* virtual_base_classes,
+        scope_entry_list_t* direct_base_classes,
+        scope_entry_list_t* nonstatic_data_members,
+        const char* filename, 
+        int line)
+{
+
+}
+#endif
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
 //
@@ -3132,7 +3343,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         fprintf(stderr, "BUILDSCOPE: Finishing class\n");
     }
 
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_type);
+    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
+    scope_entry_list_t* all_bases = entry_list_merge(direct_base_classes, nonstatic_data_members);
     // Force instantiation of required types since we need them full when laying out
     {
         scope_entry_list_iterator_t* it = NULL;
@@ -3176,11 +3390,13 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             }
         }
         entry_list_iterator_free(it);
+
+        // Base classes have already been instantiated, no need to do it here
     }
     
     // Virtual members
     {
-        // Discover member inherited
+        // Discover members inherited
         scope_entry_list_t* member_functions = class_type_get_member_functions(class_type);
         scope_entry_list_iterator_t* it0 = NULL;
 
@@ -3204,27 +3420,22 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
             char found_virtual = 0;
 
-            int j;
-            for (j = 0; 
-                    (j < class_type_get_num_bases(class_type))
-                    && !found_virtual; 
-                    j++)
+            scope_entry_list_iterator_t* it1 = NULL;
+            for (it1 = entry_list_iterator_begin(all_bases);
+                    !entry_list_iterator_end(it1) && !found_virtual;
+                    entry_list_iterator_next(it1))
             {
-                char is_virtual = 0;
-                char is_dependent = 0;
-                access_specifier_t current_access_spec = AS_UNKNOWN;
-                scope_entry_t *base_class = class_type_get_base_num(class_type, j, 
-                        &is_virtual, &is_dependent, &current_access_spec);
+                scope_entry_t *base_class = entry_list_iterator_current(it1);
 
                 scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(base_class->type_information);
 
-                scope_entry_list_iterator_t* it = NULL;
+                scope_entry_list_iterator_t* it2 = NULL;
 
-                for (it = entry_list_iterator_begin(virtual_functions);
-                        !entry_list_iterator_end(it) && !found_virtual;
-                        entry_list_iterator_next(it))
+                for (it2 = entry_list_iterator_begin(virtual_functions);
+                        !entry_list_iterator_end(it2) && !found_virtual;
+                        entry_list_iterator_next(it2))
                 {
-                    scope_entry_t* current_virtual = entry_list_iterator_current(it);
+                    scope_entry_t* current_virtual = entry_list_iterator_current(it2);
 
                     if (strcmp(entry->symbol_name, current_virtual->symbol_name) == 0
                             && function_type_can_override(entry->type_information, current_virtual->type_information))
@@ -3243,66 +3454,13 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     }
                 }
 
-                entry_list_iterator_free(it);
+                entry_list_iterator_free(it2);
                 entry_list_free(virtual_functions);
             }
+            entry_list_iterator_free(it1);
         }
         entry_list_iterator_free(it0);
         entry_list_free(member_functions);
-
-        // Add virtuals of bases
-        int i;
-        for (i = 0; i < class_type_get_num_bases(class_type); i++)
-        {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t current_access_spec = AS_UNKNOWN;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &current_access_spec);
-
-            scope_entry_list_t* virtual_functions_base = class_type_get_virtual_functions(get_actual_class_type(base_class->type_information));
-
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(virtual_functions_base);
-                    !entry_list_iterator_end(it);
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* inherited_virtual = entry_list_iterator_current(it);
-
-                scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
-                scope_entry_list_iterator_t* it2 = NULL;
-
-                char has_overrider = 0;
-                for (it2 = entry_list_iterator_begin(virtual_functions);
-                        !entry_list_iterator_end(it2);
-                        entry_list_iterator_next(it2))
-                {
-                    scope_entry_t* current_virtual = entry_list_iterator_current(it2);
-
-                    if (strcmp(current_virtual->symbol_name, inherited_virtual->symbol_name) == 0
-                            && function_type_can_override(current_virtual->type_information, 
-                                inherited_virtual->type_information))
-                    {
-                        has_overrider = 1;
-                    }
-                }
-
-                entry_list_iterator_free(it2);
-                entry_list_free(virtual_functions);
-
-                if (!has_overrider)
-                {
-                    // class_type_add_member(class_type, inherited_virtual);
-                    if (inherited_virtual->entity_specs.is_pure)
-                    {
-                        class_type_set_is_abstract(class_type, 1);
-                    }
-                }
-
-            }
-            entry_list_iterator_free(it);
-            entry_list_free(virtual_functions_base);
-        }
     }
 
     scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
@@ -3353,34 +3511,30 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_default_constructor);
         class_type_set_default_constructor(class_type, implicit_default_constructor);
 
+        nodecl_t nodecl_ctor_initializer = nodecl_null();
+        build_scope_ctor_initializer(/* ctor_initializer */ NULL,
+                implicit_default_constructor, decl_context,
+                filename, line,
+                &nodecl_ctor_initializer);
+
         // nodecl_t nodecl_default_ctor = nodecl_null();
         // compute_code_for_default_constructor(class_type, &nodecl_default_ctor,
         //         implicit_default_constructor, filename, line);
         // *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_default_ctor);
 
-        char has_virtual_bases = 0;
+        char has_virtual_bases = (virtual_base_classes != NULL);
 
         char has_bases_with_non_trivial_constructors = 0;
 
         // Now figure out if it is trivial
-        int i;
-        for (i = 0; (i < class_type_get_num_bases(class_type)) 
-                && !has_virtual_bases
-                && !has_bases_with_non_trivial_constructors; 
-                i++)
+        scope_entry_list_iterator_t* it0 = NULL;
+        for (it0 = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it0) && !has_bases_with_non_trivial_constructors;
+                entry_list_iterator_next(it0))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier = AS_UNKNOWN;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
+            scope_entry_t* base_class = entry_list_iterator_current(it0);
 
             type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
-            has_virtual_bases |= is_virtual;
 
             scope_entry_list_t* base_constructors = class_type_get_constructors(base_class_type);
             scope_entry_list_iterator_t* it = NULL;
@@ -3391,12 +3545,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 scope_entry_t* current_constructor 
                     = entry_list_iterator_current(it);
 
+                ensure_function_is_emmitted(current_constructor, filename, line);
+
                 has_bases_with_non_trivial_constructors
                     |= !current_constructor->entity_specs.is_trivial;
             }
             entry_list_iterator_free(it);
             entry_list_free(base_constructors);
         }
+        entry_list_iterator_free(it0);
 
         char has_nonstatic_data_member_with_no_trivial_constructor = 0;
 
@@ -3423,11 +3580,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 scope_entry_t* default_constructor 
                     = class_type_get_default_constructor(member_actual_class_type);
 
-                if (default_constructor != NULL)
-                {
-                    has_nonstatic_data_member_with_no_trivial_constructor 
-                        |= !default_constructor->entity_specs.is_trivial;
-                }
+                ERROR_CONDITION(default_constructor == NULL, "Invalid class", 0);
+
+                ensure_function_is_emmitted(default_constructor, filename, line);
+
+                has_nonstatic_data_member_with_no_trivial_constructor 
+                    |= !default_constructor->entity_specs.is_trivial;
             }
         }
         entry_list_iterator_free(it);
@@ -3453,25 +3611,22 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     {
         char const_parameter = 1; 
         // Now check bases for a const qualified version
-        int i;
-        for (i = 0; (i < class_type_get_num_bases(class_type)) && const_parameter; i++)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && const_parameter;
+                entry_list_iterator_next(it))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier = AS_UNKNOWN;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
+            scope_entry_t *base_class = entry_list_iterator_current(it);
 
             type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
             const_parameter = const_parameter && 
                 class_has_const_copy_constructor(base_class_type);
+
         }
+        entry_list_iterator_free(it);
 
         // Now check my nonstatic members that are classes (or arrays to classes)
-        scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it) && const_parameter;
                 entry_list_iterator_next(it))
@@ -3552,26 +3707,18 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_copy_constructor);
 
         // We have to see whether this copy constructor is trivial
-        char has_virtual_bases = 0;
+        char has_virtual_bases = (virtual_base_classes != NULL);
 
         char has_bases_with_no_trivial_copy_constructor = 0;
 
         // Now figure out if it is trivial
-        for (i = 0; (i < class_type_get_num_bases(class_type)) 
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it)
                 && !has_virtual_bases
                 && !has_bases_with_no_trivial_copy_constructor; 
-                i++)
+                entry_list_iterator_next(it))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
-
-            has_virtual_bases |= is_virtual;
+            scope_entry_t *base_class = entry_list_iterator_current(it);
 
             type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
@@ -3591,6 +3738,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             entry_list_iterator_free(it2);
             entry_list_free(base_copy_constructors);
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_with_no_trivial_copy_constructor = 0;
 
@@ -3638,6 +3786,15 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             implicit_copy_constructor->entity_specs.is_trivial = 1;
         }
+
+        // Make sure the appropiate copy constructors are emitted
+#if 0
+        emit_copy_constructors_as_needed(virtual_base_classes, 
+                direct_base_classes, 
+                nonstatic_data_members,
+                const_parameter,
+                filename, line);
+#endif
     }
 
     // Copy assignment operators
@@ -3649,17 +3806,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     {
         char const_parameter = 1; 
         // Now check bases for a const qualified version
-        int i;
-        for (i = 0; (i < class_type_get_num_bases(class_type)) && const_parameter; i++)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(all_bases);
+                !entry_list_iterator_end(it) && const_parameter;
+                entry_list_iterator_next(it))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier = AS_UNKNOWN;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
+            scope_entry_t *base_class = entry_list_iterator_current(it);
 
             type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
@@ -3667,9 +3819,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             const_parameter = const_parameter && 
                 class_has_const_copy_assignment_operator(base_class_type);
         }
+        entry_list_iterator_free(it);
 
         // Now check my nonstatic members that are classes (or arrays to classes)
-        scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
                 !entry_list_iterator_end(it) && const_parameter;
                 entry_list_iterator_next(it))
@@ -3735,25 +3887,17 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         class_type_add_member(class_type, implicit_copy_assignment_function);
 
         // Now check whether it is trivial
-        char has_virtual_bases = 0;
+        char has_virtual_bases = (virtual_base_classes != NULL);
 
         char has_base_classes_with_no_trivial_copy_assignment = 0;
 
-        for (i = 0; (i < class_type_get_num_bases(class_type)) 
+        for (it = entry_list_iterator_begin(direct_base_classes);
+                !entry_list_iterator_end(it)
                 && !has_virtual_bases
                 && !has_base_classes_with_no_trivial_copy_assignment; 
-                i++)
+                entry_list_iterator_next(it))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier = AS_UNKNOWN;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
-
-            has_virtual_bases |= is_virtual;
+            scope_entry_t* base_class = entry_list_iterator_current(it);
 
             type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
@@ -3867,30 +4011,27 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         // Let's see whether it is trivial
         char base_has_nontrivial_destructor = 0;
-        int i;
-        for (i = 0; (i < class_type_get_num_bases(class_type)) && !base_has_nontrivial_destructor; i++)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(nonstatic_data_members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            char is_virtual = 0;
-            char is_dependent = 0;
-            access_specifier_t access_specifier = AS_UNKNOWN;
-            scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
-                    &is_virtual, &is_dependent, &access_specifier);
-
-            if (is_dependent)
-                continue;
+            scope_entry_t *base_class = entry_list_iterator_current(it);
 
             scope_entry_t* destructor 
                 = class_type_get_destructor(get_actual_class_type(base_class->type_information));
 
+            ERROR_CONDITION(destructor == NULL, "Invalid class without destructor!\n", 0);
+            ensure_function_is_emmitted(destructor, filename, line);
+
             base_has_nontrivial_destructor |= !destructor->entity_specs.is_trivial;
         }
+        entry_list_iterator_free(it);
 
         char has_nonstatic_data_member_with_no_trivial_destructor = 0;
 
-        scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) 
-                && !has_nonstatic_data_member_with_no_trivial_destructor; 
+                !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
             scope_entry_t *data_member = entry_list_iterator_current(it);
@@ -3910,11 +4051,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     = class_type_get_destructor(
                             get_actual_class_type(member_actual_class_type));
 
-                if (destructor != NULL)
-                {
-                    has_nonstatic_data_member_with_no_trivial_destructor
-                        |= !destructor->entity_specs.is_trivial;
-                }
+                ERROR_CONDITION(destructor == NULL, "Invalid class without destructor!\n", 0);
+                ensure_function_is_emmitted(destructor, filename, line);
+
+                has_nonstatic_data_member_with_no_trivial_destructor
+                    |= !destructor->entity_specs.is_trivial;
             }
         }
         entry_list_iterator_free(it);
@@ -3927,7 +4068,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
     }
 
+    entry_list_free(all_bases);
     entry_list_free(nonstatic_data_members);
+    entry_list_free(direct_base_classes);
+    entry_list_free(virtual_base_classes);
 
     DEBUG_CODE()
     {
@@ -7560,189 +7704,6 @@ static void build_scope_namespace_definition(AST a,
     }
 }
 
-// FIXME - This function duplicates check_zero_args_constructor but without tagging the trees
-// as check_zero_args_constructor does
-
-static void build_scope_ctor_initializer(
-        AST function_definition,
-        AST ctor_initializer, 
-        scope_entry_t* function_entry,
-        decl_context_t decl_context,
-        nodecl_t* nodecl_output UNUSED_PARAMETER)
-{
-    ERROR_CONDITION(decl_context.current_scope->kind != BLOCK_SCOPE,
-            "Block scope is not valid", 0);
-
-    scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
-
-    if (is_dependent_type(class_sym->type_information)
-            || is_dependent_type(function_entry->type_information))
-    {
-        // Do nothing in dependent contexts
-        return;
-    }
-
-    scope_entry_list_t* virtual_bases =
-        class_type_get_virtual_base_classes(class_sym->type_information);
-    scope_entry_list_t* direct_base_classes =
-        class_type_get_direct_base_classes(class_sym->type_information);
-    scope_entry_list_t* nonstatic_data_members =
-        class_type_get_nonstatic_data_members(class_sym->type_information);
-
-    scope_entry_list_t* already_initialized = NULL;
-
-    AST location = function_definition;
-    if (ctor_initializer != NULL)
-    {
-        location = ctor_initializer;
-
-        AST mem_initializer_list = ASTSon0(ctor_initializer);
-        AST iter;
-
-        for_each_element(mem_initializer_list, iter)
-        {
-            AST mem_initializer = ASTSon1(iter);
-
-            switch (ASTType(mem_initializer))
-            {
-                case AST_MEM_INITIALIZER :
-                    {
-                        AST mem_initializer_id = ASTSon0(mem_initializer);
-                        AST initializer = ASTSon1(mem_initializer);
-
-                        AST id_expression = ASTSon0(mem_initializer_id);
-
-                        scope_entry_list_t* result_list = NULL;
-                        result_list = query_id_expression(decl_context, id_expression);
-
-                        if (result_list == NULL)
-                        {
-                            running_error("%s: initialized entity '%s' not found\n", 
-                                    ast_location(id_expression),
-                                    prettyprint_in_buffer(id_expression));
-                        }
-
-                        scope_entry_t* entry = entry_list_head(result_list);
-                        entry_list_free(result_list);
-
-                        if (entry->kind == SK_TYPEDEF)
-                        {
-                            if (is_named_type(advance_over_typedefs(entry->type_information)))
-                            {
-                                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
-                            }
-                        }
-
-                        // Chances are that through class-scope lookup we have found the injected name
-                        if (entry->kind == SK_CLASS 
-                                && entry->entity_specs.is_injected_class_name)
-                        {
-                            // The injected class name is a member
-                            entry = named_type_get_symbol(entry->entity_specs.class_type);
-                        }
-
-                        if (entry_list_contains(already_initialized, entry))
-                        {
-                            running_error("%s: error: '%s' initialized twice in member initializer list\n",
-                                    ast_location(id_expression),
-                                    get_qualified_symbol_name(entry, entry->decl_context));
-                        }
-
-                        if (entry->kind == SK_VARIABLE)
-                        {
-                            if (!entry_list_contains(nonstatic_data_members, entry))
-                            {
-                                if (!entry->entity_specs.is_member
-                                        || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
-                                {
-                                    running_error("%s: symbol '%s' is not a member of class %s\n",
-                                            ast_location(id_expression),
-                                            get_qualified_symbol_name(entry, entry->decl_context),
-                                            get_qualified_symbol_name(named_type_get_symbol(function_entry->entity_specs.class_type), 
-                                                function_entry->decl_context));
-                                }
-                                if (entry->entity_specs.is_static)
-                                {
-                                    running_error("%s: static data member '%s' cannot be initialized here\n", 
-                                            ast_location(id_expression),
-                                            prettyprint_in_buffer(id_expression));
-                                }
-                            }
-
-                            check_initialization(initializer,
-                                    entry->decl_context,
-                                    get_unqualified_type(entry->type_information));
-
-                            entry_list_add(already_initialized, entry);
-                        }
-                        else if (entry->kind == SK_CLASS)
-                        {
-                            if (!entry_list_contains(direct_base_classes, entry)
-                                    && !entry_list_contains(virtual_bases, entry))
-                            {
-                                fprintf(stderr, "%s: class '%s' is not a direct base or virtual base of class '%s'\n",
-                                        ast_location(id_expression),
-                                        get_qualified_symbol_name(entry, entry->decl_context),
-                                        get_qualified_symbol_name(class_sym, class_sym->decl_context));
-                            }
-
-                            check_initialization(initializer,
-                                    entry->decl_context,
-                                    get_user_defined_type(entry));
-
-                            entry_list_add(already_initialized, entry);
-                        }
-                        else
-                        {
-                            running_error("%s: symbol '%s' cannot be initialized here\n",
-                                    ast_location(id_expression),
-                                    get_qualified_symbol_name(entry, entry->decl_context));
-                        }
-
-                        break;
-                    }
-                default : 
-                    {
-                        internal_error("Unexpected node '%s' in constructor declaration", ast_print_node_type(ASTType(mem_initializer)));
-                        break;
-                    }
-            }
-        }
-    }
-
-
-    // Now review the remaining objects not initialized yet
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_bases);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, location, &constructor);
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, location, &constructor);
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        scope_entry_t* constructor = NULL;
-        check_default_initialization(entry, entry->decl_context, location, &constructor);
-    }
-    entry_list_iterator_free(it);
-}
 
 // This function is only intended for C99
 void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_PARAMETER,
@@ -8189,10 +8150,15 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     CXX_LANGUAGE()
     {
         AST ctor_initializer = ASTSon2(a);
-        if (!entry->entity_specs.is_member
-                || !entry->entity_specs.is_constructor)
+        if (entry->entity_specs.is_member
+                && entry->entity_specs.is_constructor)
         {
-            build_scope_ctor_initializer(a, ctor_initializer, entry, block_context, &nodecl_initializers);
+            AST location = ctor_initializer;
+            if (ctor_initializer == NULL)
+                location = a;
+            build_scope_ctor_initializer(ctor_initializer, entry, block_context, 
+                    ASTFileName(location), ASTLine(location),
+                    &nodecl_initializers);
         }
         else
         {
@@ -8610,7 +8576,7 @@ static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
 
 static char is_virtual_destructor(type_t* class_type)
 {
-    // If any base has virtual destructor, so it is current one
+    // If any base has virtual destructor, so it is the current one
     int i;
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {

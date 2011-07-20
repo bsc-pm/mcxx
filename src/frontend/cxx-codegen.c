@@ -3200,7 +3200,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
 
     type_t* real_type = symbol->type_information;
-    if (symbol->entity_specs.is_conversion)
+    if (symbol->entity_specs.is_conversion
+            || symbol->entity_specs.is_destructor)
     {
         real_type = get_new_function_type(NULL, NULL, 0);
     }

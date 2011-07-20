@@ -709,6 +709,33 @@ char check_expression(AST expression, decl_context_t decl_context)
 #endif
 }
 
+static void instantiate_symbol(scope_entry_t* entry,
+        const char* filename,
+        int line)
+{
+    if (entry != NULL
+            && entry->kind == SK_FUNCTION)
+    {
+        if (is_template_specialized_type(entry->type_information))
+        {
+            instantiate_template_function_if_needed(entry, 
+                    filename, line);
+        }
+        else if (entry->entity_specs.is_non_emmitted)
+        {
+            instantiate_emit_member_function(entry,
+                    filename, line);
+        }
+    }
+}
+
+void ensure_function_is_emmitted(scope_entry_t* entry,
+        const char* filename,
+        int line)
+{
+    instantiate_symbol(entry, filename, line);
+}
+
 static void instantiate_recursively(nodecl_t node)
 {
     // No need to check anything if this is not C++
@@ -727,22 +754,7 @@ static void instantiate_recursively(nodecl_t node)
 
         scope_entry_t* entry = nodecl_get_symbol(node);
 
-        if (entry != NULL
-                && entry->kind == SK_FUNCTION)
-        {
-            if (is_template_specialized_type(entry->type_information))
-            {
-                instantiate_template_function_if_needed(entry, 
-                        nodecl_get_filename(node),
-                        nodecl_get_line(node));
-            }
-            else if (entry->entity_specs.is_non_emmitted)
-            {
-                instantiate_emit_member_function(entry,
-                        nodecl_get_filename(node),
-                        nodecl_get_line(node));
-            }
-        }
+        instantiate_symbol(entry, nodecl_get_filename(node), nodecl_get_line(node));
     }
 }
 
@@ -14069,60 +14081,27 @@ char check_expression_list(AST expression_list, decl_context_t decl_context)
     }
 }
 
-char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator)
-{
-    int num_arguments = 0;
-    type_t** arguments = NULL;
-
-    scope_entry_list_t* candidates = NULL;
-    scope_entry_t* chosen_constructor = solve_constructor(class_type,
-            arguments, num_arguments,
-            /* is_explicit */ 1,
-            decl_context,
-            ASTFileName(declarator), ASTLine(declarator),
-            /* conversors */ NULL,
-            &candidates);
-
-    if (chosen_constructor == NULL)
-    {
-        if (entry_list_size(candidates) != 0)
-        {
-            error_printf("%s: error: no default constructor for '%s' type\n",
-                    ast_location(declarator),
-                    print_decl_type_str(class_type, decl_context, ""));
-        }
-        entry_list_free(candidates);
-        return 0;
-    }
-    else
-    {
-        entry_list_free(candidates);
-        if (function_has_been_deleted(decl_context, declarator, chosen_constructor))
-        {
-            return 0;
-        }
-
-        instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
-                    chosen_constructor->file, 
-                    chosen_constructor->line));
-
-        ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
-    }
-
-    return 1;
-}
-
 static char check_default_initialization_(scope_entry_t* entry,
         decl_context_t decl_context,
-        AST location,
         AST declarator,
+        const char* filename, int line,
         scope_entry_t** constructor)
 {
     type_t* t = entry->type_information;
+    if (entry->kind == SK_CLASS)
+    {
+        t = get_user_defined_type(entry);
+    }
+
     if (is_lvalue_reference_type(t))
     {
-        t = reference_type_get_referenced_type(t);
+        // References cannot be default initialized
+        if (!checking_ambiguity())
+        {
+            error_printf("%s:%d: error: reference '%s' has not been initialized\n",
+                    filename, line, get_qualified_symbol_name(entry, entry->decl_context));
+        }
+        return 0;
     }
 
     if (is_array_type(t))
@@ -14145,7 +14124,7 @@ static char check_default_initialization_(scope_entry_t* entry,
                 arguments, num_arguments,
                 /* is_explicit */ 1,
                 decl_context,
-                ASTFileName(location), ASTLine(location),
+                filename, line,
                 /* conversors */ NULL,
                 &candidates);
 
@@ -14153,9 +14132,13 @@ static char check_default_initialization_(scope_entry_t* entry,
         {
             if (entry_list_size(candidates) != 0)
             {
-                error_printf("%s: error: no default constructor for '%s' type\n",
-                        ast_location(location),
-                        print_type_str(t, decl_context));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: no default constructor for class type '%s' when initializing '%s'\n",
+                            filename, line,
+                            print_type_str(t, decl_context),
+                            get_qualified_symbol_name(entry, entry->decl_context));
+                }
             }
             entry_list_free(candidates);
             return 0;
@@ -14188,18 +14171,97 @@ static char check_default_initialization_(scope_entry_t* entry,
     return 1;
 }
 
+static char check_copy_constructor(scope_entry_t* entry,
+        decl_context_t decl_context,
+        type_t* parameter_type,
+        const char* filename, int line,
+        scope_entry_t** constructor)
+{
+    type_t* t = entry->type_information;
+    if (entry->kind == SK_CLASS)
+    {
+        t = get_user_defined_type(entry);
+    }
+
+    if (is_lvalue_reference_type(t))
+    {
+        return 1;
+    }
+
+    if (is_array_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
+
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
+    if (is_class_type(t))
+    {
+        int num_arguments = 1;
+        type_t* arguments[1] = { parameter_type };
+
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* chosen_constructor = solve_constructor(t,
+                arguments, num_arguments,
+                /* is_explicit */ 1,
+                decl_context,
+                filename, line,
+                /* conversors */ NULL,
+                &candidates);
+
+        if (chosen_constructor == NULL)
+        {
+            if (entry_list_size(candidates) != 0)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: no copy constructor for type '%s'\n",
+                            filename, line,
+                            print_type_str(t, decl_context));
+                }
+            }
+            entry_list_free(candidates);
+            return 0;
+        }
+        else
+        {
+            entry_list_free(candidates);
+            if (function_has_been_deleted(decl_context, NULL, chosen_constructor))
+            {
+                return 0;
+            }
+
+            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
+                        chosen_constructor->file, 
+                        chosen_constructor->line));
+
+            if (constructor != NULL)
+            {
+                *constructor = chosen_constructor;
+            }
+        }
+    }
+    return 1;
+}
+
 char check_default_initialization_declarator(scope_entry_t* entry,
         decl_context_t decl_context,
         AST declarator,
         scope_entry_t** constructor)
 {
-    return check_default_initialization_(entry, decl_context, declarator, declarator, constructor);
+    return check_default_initialization_(entry, decl_context, declarator, 
+           ASTFileName(declarator), ASTLine(declarator), constructor);
 }
 
-char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, AST location, 
+char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
+        const char* filename, int line,
         scope_entry_t** constructor)
 {
-    return check_default_initialization_(entry, decl_context, location, NULL, constructor);
+    return check_default_initialization_(entry, decl_context, NULL, 
+            filename, line, constructor);
 }
 
 static void diagnostic_single_candidate(AST expr, scope_entry_t* entry)

@@ -58,14 +58,12 @@ LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_co
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
-// This one is obsolete, check_default_initialization should be used instead
-LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator) DEPRECATED;
-
 LIBMCXX_EXTERN char check_default_initialization_declarator(scope_entry_t* entry,
         decl_context_t decl_context,
         AST declarator,
         scope_entry_t** constructor);
-LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, AST location, 
+LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
+        const char* filename, int line,
         scope_entry_t** constructor);
 
 LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
@@ -118,6 +116,10 @@ LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_t nodecl_output);
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
 LIBMCXX_EXTERN void diagnostic_candidates(AST expr, scope_entry_list_t* entry_list);
+
+LIBMCXX_EXTERN void ensure_function_is_emmitted(scope_entry_t* entry,
+        const char* filename,
+        int line);
 
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
