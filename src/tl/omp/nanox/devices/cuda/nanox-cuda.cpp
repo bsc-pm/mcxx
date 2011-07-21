@@ -293,6 +293,7 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
     get_output_file(cudaFile);
 
     bool needs_device = false;
+    bool needs_extern_c = false;
     AST_t decl = ctr.get_declaration();
 
     if (FunctionDefinition::predicate(decl))
@@ -339,12 +340,28 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
         }
     }
 
+    if (!needs_device 
+            && IS_C_LANGUAGE)
+    {
+        needs_extern_c = true;
+    }
+
+    if (needs_extern_c)
+    {
+        cudaFile << "extern \"C\" {\n";
+    }
+
     if (needs_device)
     {
         cudaFile << "__device__ ";
     }
 
-    cudaFile << ctr.get_declaration().prettyprint_external();
+    cudaFile << ctr.get_declaration().prettyprint_external() << "\n";
+
+    if (needs_extern_c)
+    {
+        cudaFile << "}\n";
+    }
 
     cudaFile.close();
 
