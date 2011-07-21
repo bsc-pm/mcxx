@@ -309,6 +309,14 @@ void DeviceCUDA::insert_function_definition(PragmaCustomConstruct ctr, bool is_c
         {
             needs_device = false;
         }
+
+        if (_fwdSymbols.count(funct_def.get_function_symbol()) != 0)
+        {
+            // Nothing to do here, already defined
+            return;
+        }
+
+        _fwdSymbols.insert(funct_def.get_function_symbol());
     }
     else if (Declaration::predicate(decl))
     {
@@ -412,9 +420,9 @@ void DeviceCUDA::create_outline(
 		{
 			Symbol s = it->get_symbol();
 			// Check we have not already added the symbol
-			if (_fwdSymbols.count(s.get_name()) == 0)
+			if (_fwdSymbols.count(s) == 0)
 			{
-				_fwdSymbols.insert(s.get_name());
+				_fwdSymbols.insert(s);
 				decl_closure.add(s);
 
 				// TODO: check the symbol is not a global variable
@@ -440,13 +448,13 @@ void DeviceCUDA::create_outline(
 		if (FunctionDefinition::predicate(function_tree))
 		{
 			// Check if we have already printed the function definition in the CUDA file
-			if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+			if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 			{
 				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
 				// Keep record of which tasks have been printed to the CUDA file
 				// in order to avoid repeating them
-				_taskSymbols.insert(outline_flags.task_symbol.get_name());
+				_taskSymbols.insert(outline_flags.task_symbol);
 
 				// Remove the function definition from the original source code
 				function_tree.remove_in_list();
@@ -484,20 +492,20 @@ void DeviceCUDA::create_outline(
 			if (funct_def_list.size() == 1)
 			{
 				// Check if we have already printed the function definition in the CUDA file
-				if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+				if (_taskSymbols.count(outline_flags.task_symbol) == 0)
 				{
 					forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
 
 					// Keep record of which tasks have been printed to the CUDA file
 					// in order to avoid repeating them
-					_taskSymbols.insert(outline_flags.task_symbol.get_name());
+					_taskSymbols.insert(outline_flags.task_symbol);
 				}
 
 				// Remove the function definition from the original source code
 				funct_def_list[0].remove_in_list();
 			}
 			else if (funct_def_list.size() == 0
-					&& _taskSymbols.count(outline_flags.task_symbol.get_name()) > 0)
+					&& _taskSymbols.count(outline_flags.task_symbol) > 0)
 			{
 				// We have already removed it and printed it in the CUDA file, do nothing
 			}
@@ -517,9 +525,9 @@ void DeviceCUDA::create_outline(
                 continue;
 
 			// Check we have not already added the symbol
-			if (_fwdSymbols.count(s.get_name()) == 0)
+			if (_fwdSymbols.count(s) == 0)
 			{
-				_fwdSymbols.insert(s.get_name());
+				_fwdSymbols.insert(s);
 				decl_closure.add(s);
 
 				// TODO: check the symbol is not a global variable
@@ -643,14 +651,14 @@ void DeviceCUDA::create_outline(
 	}
 
 	// Check if we have already printed the argument's struct definition in the CUDA file
-	if (_taskSymbols.count(struct_typename_sym.get_name()) == 0)
+	if (_taskSymbols.count(struct_typename_sym) == 0)
 	{
 		arguments_struct_definition
 			<< struct_typename_sym.get_point_of_declaration().prettyprint();
 
 		// Keep record of which argument's struct definitions have been printed to the CUDA file
 		// in order to avoid repeating them
-		_taskSymbols.insert(struct_typename_sym.get_name());
+		_taskSymbols.insert(struct_typename_sym);
 	}
 	// outline_name
 	outline_name
