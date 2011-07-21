@@ -671,11 +671,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << vla_adjustments
                 << "signed long offset = "
                 << "((char*)(" << replaced_address << ") - " << "((char*)_args->" << data_env_item.get_field_name() << "));"
-                << "cp_err = nanos_get_addr(" << i << ", (void**)(&_args->" << data_env_item.get_field_name() << ") " << wd_arg << ");"
+                << "char * addr = (char*)" << replaced_address << ";"
+                << "cp_err = nanos_get_addr(" << i << ", (void**)&addr " << wd_arg << ");"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
                 << "_args->" << data_env_item.get_field_name() << " = "
                 << "(" << data_env_item.get_type().get_declaration(ctr.get_scope(), "") << ")"
-                << "(((char*)_args->" << data_env_item.get_field_name() << ") - offset);"
+                << "(addr - offset);"
                 << "}"
                 ;
 
