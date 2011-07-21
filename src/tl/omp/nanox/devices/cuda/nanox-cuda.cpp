@@ -203,14 +203,15 @@ void DeviceCUDA::do_cuda_outline_replacements(
 			// Do nothing as they are private, we create a variable with the
 			// same original name
 		}
-		else if (data_env_item.is_firstprivate())
+		else if (data_env_item.is_firstprivate()
+                || data_env_item.is_shared())
 		{
 			replace_src.add_replacement(sym, "_args->" + field_name);
 		}
-		else if (data_env_item.is_shared())
-		{
-			replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
-		}
+		// else if (data_env_item.is_shared())
+		// {
+		// 	replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+		// }
 		else
 		{
 			internal_error("Code unreachable", 0);
@@ -394,14 +395,16 @@ void DeviceCUDA::create_outline(
 
 
 	// Check if the task is a function, or it is inlined
+    ObjectList<IdExpression> extern_occurrences;
+    DeclarationClosure decl_closure (sl);
+    std::set<Symbol> extern_symbols;
+
 	if (outline_flags.task_symbol != NULL)
 	{
 		// Get the definition of non local symbols
 		function_tree = outline_flags.task_symbol.get_point_of_declaration();
 		LangConstruct construct (function_tree, sl);
-		ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
-		DeclarationClosure decl_closure (sl);
-		std::set<Symbol> extern_symbols;
+		extern_occurrences = construct.non_local_symbol_occurrences();
 
 		for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
 				it != extern_occurrences.end();
@@ -500,6 +503,37 @@ void DeviceCUDA::create_outline(
 			}
 		}
 	}
+    else
+    {
+		LangConstruct construct (reference_tree, sl);
+		extern_occurrences = construct.non_local_symbol_occurrences();
+
+		for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+				it != extern_occurrences.end();
+				it++)
+		{
+			Symbol s = it->get_symbol();
+            if (!s.is_function())
+                continue;
+
+			// Check we have not already added the symbol
+			if (_fwdSymbols.count(s.get_name()) == 0)
+			{
+				_fwdSymbols.insert(s.get_name());
+				decl_closure.add(s);
+
+				// TODO: check the symbol is not a global variable
+				extern_symbols.insert(s);
+			}
+		}
+
+		for (std::set<Symbol>::iterator it = extern_symbols.begin();
+				it != extern_symbols.end(); it++)
+		{
+			AST_t a = it->get_point_of_declaration();
+            forward_declaration << a.prettyprint_external() << "\n";
+		}
+    }
 
 	AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
 	FunctionDefinition enclosing_function(function_def_tree, sl);
