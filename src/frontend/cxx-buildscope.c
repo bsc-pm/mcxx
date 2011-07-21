@@ -3313,16 +3313,91 @@ static void ensure_functions_are_emmitted(scope_entry_list_t* entry_list, const 
         ensure_function_is_emmitted(entry, filename, line);
     }
 }
+#endif
+
+static void apply_function_to_data_layout_members(scope_entry_list_t* virtual_base_classes,
+        scope_entry_list_t* direct_base_classes,
+        scope_entry_list_t* nonstatic_data_members,
+        void (*fun)(scope_entry_t*, void*),
+        void *data)
+{
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(virtual_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        fun(entry, data);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(direct_base_classes);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        fun(entry, data);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(nonstatic_data_members);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        fun(entry, data);
+    }
+    entry_list_iterator_free(it);
+}
+
+struct check_constructor_helper
+{
+    const char* filename;
+    int line;
+    char has_const;
+};
+
+static void ensure_copy_constructor_is_emmitted(scope_entry_t* entry, void* data)
+{
+    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
+
+    scope_entry_t* constructor = NULL;
+    check_copy_constructor(entry, entry->decl_context, p->has_const,
+            p->filename, p->line, &constructor);
+}
+
+static void ensure_copy_assignment_operator_is_emmitted(scope_entry_t* entry, void* data)
+{
+    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
+
+    scope_entry_t* constructor = NULL;
+    check_copy_assignment_operator(entry, entry->decl_context, p->has_const,
+            p->filename, p->line, &constructor);
+}
 
 static void emit_copy_constructors_as_needed(scope_entry_list_t* virtual_base_classes,
         scope_entry_list_t* direct_base_classes,
         scope_entry_list_t* nonstatic_data_members,
+        char has_const,
         const char* filename, 
         int line)
 {
-
+    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
+    apply_function_to_data_layout_members(virtual_base_classes, direct_base_classes, nonstatic_data_members,
+            ensure_copy_constructor_is_emmitted, &l);
 }
-#endif
+
+static void emit_copy_assignment_operator_as_needed(scope_entry_list_t* virtual_base_classes,
+        scope_entry_list_t* direct_base_classes,
+        scope_entry_list_t* nonstatic_data_members,
+        char has_const,
+        const char* filename, 
+        int line)
+{
+    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
+    apply_function_to_data_layout_members(virtual_base_classes, direct_base_classes, nonstatic_data_members,
+            ensure_copy_assignment_operator_is_emmitted, &l);
+}
 
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
@@ -3788,13 +3863,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
 
         // Make sure the appropiate copy constructors are emitted
-#if 0
         emit_copy_constructors_as_needed(virtual_base_classes, 
                 direct_base_classes, 
                 nonstatic_data_members,
                 const_parameter,
                 filename, line);
-#endif
     }
 
     // Copy assignment operators

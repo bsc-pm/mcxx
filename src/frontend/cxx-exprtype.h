@@ -66,6 +66,18 @@ LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_cont
         const char* filename, int line,
         scope_entry_t** constructor);
 
+LIBMCXX_EXTERN char check_copy_constructor(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char has_const,
+        const char* filename, int line,
+        scope_entry_t** constructor);
+
+LIBMCXX_EXTERN char check_copy_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char has_const,
+        const char* filename, int line,
+        scope_entry_t** constructor);
+
 LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
 
 LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(

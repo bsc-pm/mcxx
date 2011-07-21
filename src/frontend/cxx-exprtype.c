@@ -14087,6 +14087,11 @@ static char check_default_initialization_(scope_entry_t* entry,
         const char* filename, int line,
         scope_entry_t** constructor)
 {
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
     type_t* t = entry->type_information;
     if (entry->kind == SK_CLASS)
     {
@@ -14107,11 +14112,6 @@ static char check_default_initialization_(scope_entry_t* entry,
     if (is_array_type(t))
     {
         t = array_type_get_element_type(t);
-    }
-
-    if (constructor != NULL)
-    {
-        *constructor = NULL;
     }
 
     if (is_class_type(t))
@@ -14171,12 +14171,17 @@ static char check_default_initialization_(scope_entry_t* entry,
     return 1;
 }
 
-static char check_copy_constructor(scope_entry_t* entry,
+char check_copy_constructor(scope_entry_t* entry,
         decl_context_t decl_context,
-        type_t* parameter_type,
+        char has_const,
         const char* filename, int line,
         scope_entry_t** constructor)
 {
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
     type_t* t = entry->type_information;
     if (entry->kind == SK_CLASS)
     {
@@ -14193,14 +14198,18 @@ static char check_copy_constructor(scope_entry_t* entry,
         t = array_type_get_element_type(t);
     }
 
-    if (constructor != NULL)
-    {
-        *constructor = NULL;
-    }
-
     if (is_class_type(t))
     {
         int num_arguments = 1;
+
+        type_t* parameter_type = t;
+        if (has_const)
+        {
+            parameter_type = get_const_qualified_type(t);
+        }
+
+        parameter_type = get_lvalue_reference_type(t);
+
         type_t* arguments[1] = { parameter_type };
 
         scope_entry_list_t* candidates = NULL;
@@ -14219,6 +14228,89 @@ static char check_copy_constructor(scope_entry_t* entry,
                 if (!checking_ambiguity())
                 {
                     error_printf("%s:%d: error: no copy constructor for type '%s'\n",
+                            filename, line,
+                            print_type_str(t, decl_context));
+                }
+            }
+            entry_list_free(candidates);
+            return 0;
+        }
+        else
+        {
+            entry_list_free(candidates);
+            if (function_has_been_deleted(decl_context, NULL, chosen_constructor))
+            {
+                return 0;
+            }
+
+            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
+                        chosen_constructor->file, 
+                        chosen_constructor->line));
+
+            if (constructor != NULL)
+            {
+                *constructor = chosen_constructor;
+            }
+        }
+    }
+    return 1;
+}
+
+char check_copy_assignment_operator(scope_entry_t* entry,
+        decl_context_t decl_context,
+        char has_const,
+        const char* filename, int line,
+        scope_entry_t** constructor)
+{
+    if (constructor != NULL)
+    {
+        *constructor = NULL;
+    }
+
+    type_t* t = entry->type_information;
+    if (entry->kind == SK_CLASS)
+    {
+        t = get_user_defined_type(entry);
+    }
+
+    if (is_lvalue_reference_type(t))
+    {
+        return 1;
+    }
+
+    if (is_array_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
+
+    if (is_class_type(t))
+    {
+        int num_arguments = 1;
+
+        type_t* parameter_type = t;
+        if (has_const)
+        {
+            parameter_type = get_const_qualified_type(t);
+        }
+
+        parameter_type = get_lvalue_reference_type(t);
+
+        type_t* arguments[1] = { parameter_type };
+
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(t);
+
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* chosen_constructor = NULL;
+
+#warning FIXME
+
+        if (chosen_constructor == NULL)
+        {
+            if (entry_list_size(candidates) != 0)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s:%d: error: no copy assignment operator for type '%s'\n",
                             filename, line,
                             print_type_str(t, decl_context));
                 }
