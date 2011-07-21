@@ -205,6 +205,7 @@ namespace OpenMP
 
             ObjectList<int> parameters_as_dependences;
 
+            // Dependencies
             ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             ObjectList<Expression> argument_list = expr.get_argument_list();
             for (ObjectList<Symbol>::iterator it2 = sym_list.begin();
@@ -530,14 +531,19 @@ namespace OpenMP
                                 << "'" << std::endl;
                         }
 
-                        Symbol sym = data_ref.get_base_symbol();
-
-                        if (sym.is_parameter())
+                        ObjectList<Symbol> sym_list = data_ref.non_local_symbols();
+                        for (ObjectList<Symbol>::iterator it3 = sym_list.begin();
+                                it3 != sym_list.end();
+                                it3++)
                         {
-                            Source src;
-                            src << "__tmp_" << sym.get_parameter_position();
+                            Symbol& current_sym(*it3);
+                            if (current_sym.is_parameter())
+                            {
+                                Source src;
+                                src << "__tmp_" << current_sym.get_parameter_position();
 
-                            replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
+                                replace_copies.add_replacement(current_sym, src.get_source());
+                            }
                         }
                     }
 
@@ -581,7 +587,6 @@ namespace OpenMP
                                     internal_error("Code unreachable", 0);
                                 }
                         }
-
                         Expression expr = it2->get_expression();
 
                         DataReference data_ref(expr);
@@ -597,17 +602,25 @@ namespace OpenMP
                             continue;
                         }
 
-                        Symbol sym = data_ref.get_base_symbol();
+                        ReplaceSrcIdExpression replace_copies(replace);
+                        ObjectList<Symbol> sym_list = data_ref.non_local_symbols();
+                        for (ObjectList<Symbol>::iterator it3 = sym_list.begin();
+                                it3 != sym_list.end();
+                                it3++)
+                        {
+                            Symbol& current_sym(*it3);
+                            if (current_sym.is_parameter())
+                            {
+                                Source src;
+                                src << "__tmp_" << current_sym.get_parameter_position();
 
+                                replace_copies.add_replacement(current_sym, src.get_source());
+                            }
+                        }
+
+                        Symbol sym = data_ref.get_base_symbol();
                         if (sym.is_parameter())
                         {
-                            ReplaceSrcIdExpression replace_copies(replace);
-
-                            Source src;
-                            src << "__tmp_" << sym.get_parameter_position();
-
-                            replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
-
                             (*clause_args).append_with_separator(
                                     replace_copies.replace(it2->get_expression()), 
                                     ",");
