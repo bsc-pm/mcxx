@@ -2479,8 +2479,11 @@ static void gcc_asm_specification_handler(FILE* f, AST a, prettyprint_context_t*
 
 static void gcc_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
+    if (ASTSon0(a) != NULL)
+    {
+        spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 

@@ -328,5 +328,5 @@ void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)
 {
     cuda_get_dim3_type();
     cuda_get_uint3_type();
-    cuda_get_cudaStream_t_type();
+    // cuda_get_cudaStream_t_type();
 }
