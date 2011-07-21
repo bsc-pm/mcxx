@@ -3300,21 +3300,6 @@ static void build_scope_ctor_initializer(
 }
 
 
-#if 0
-static void ensure_functions_are_emmitted(scope_entry_list_t* entry_list, const char *filename, int line)
-{
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        ensure_function_is_emmitted(entry, filename, line);
-    }
-}
-#endif
-
 static void apply_function_to_data_layout_members(scope_entry_list_t* virtual_base_classes,
         scope_entry_list_t* direct_base_classes,
         scope_entry_list_t* nonstatic_data_members,
@@ -4038,6 +4023,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             implicit_copy_assignment_function->entity_specs.is_trivial = 1;
         }
+
+        emit_copy_assignment_operator_as_needed(virtual_base_classes, 
+                direct_base_classes, 
+                nonstatic_data_members,
+                const_parameter,
+                filename, line);
     }
 
     // Implicit destructor
@@ -4085,7 +4076,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         // Let's see whether it is trivial
         char base_has_nontrivial_destructor = 0;
         scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(nonstatic_data_members);
+        for (it = entry_list_iterator_begin(all_bases);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
@@ -10004,7 +9995,7 @@ static void build_scope_expression_statement(AST a,
                     prettyprint_in_buffer(expr));
             scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(expr));
 
-            diagnostic_candidates(expr, candidates);
+            diagnostic_candidates(candidates, ASTFileName(expr), ASTLine(expr));
 
             return;
         }

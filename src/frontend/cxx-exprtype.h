@@ -127,7 +127,7 @@ LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_t nodecl_output);
 
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
-LIBMCXX_EXTERN void diagnostic_candidates(AST expr, scope_entry_list_t* entry_list);
+LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char* filename, int line);
 
 LIBMCXX_EXTERN void ensure_function_is_emmitted(scope_entry_t* entry,
         const char* filename,

@@ -2808,7 +2808,7 @@ static char function_has_been_deleted(decl_context_t decl_context, AST expr, sco
     return c;
 }
 
-static void error_message_overload_failed(AST expr, candidate_t* candidates);
+static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line);
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         AST expr,
@@ -2938,7 +2938,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(expr, candidate_set);
+            error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
         }
         overloaded_type = get_error_type();
     }
@@ -3063,7 +3063,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(expr, candidate_set);
+            error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
         }
         overloaded_type = get_error_type();
     }
@@ -6818,7 +6818,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(expr, candidate_set);
+                    error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
                 }
                 expression_set_error(expr);
                 return;
@@ -7377,7 +7377,7 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(expression, candidate_set);
+                    error_message_overload_failed(candidate_set, ASTFileName(expression), ASTLine(expression));
                 }
                 expression_set_error(expression);
                 return;
@@ -7816,7 +7816,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                             argument_call,
                             prettyprint_in_buffer(new_expr));
 
-                    diagnostic_candidates(new_expr, operator_new_list);
+                    diagnostic_candidates(operator_new_list, ASTFileName(new_expr), ASTLine(new_expr));
                     entry_list_free(operator_new_list);
                 }
                 expression_set_error(new_expr);
@@ -9611,7 +9611,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(whole_function_call, candidate_set);
+            error_message_overload_failed(candidate_set, ASTFileName(whole_function_call), ASTLine(whole_function_call));
         }
 
         return 0;
@@ -10191,7 +10191,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         {
             if (!checking_ambiguity())
             {
-                error_message_overload_failed(member_access, candidate_set);
+                error_message_overload_failed(candidate_set, ASTFileName(member_access), ASTLine(member_access));
             }
             expression_set_error(member_access);
             return;
@@ -10661,7 +10661,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(expr, candidate_set);
+            error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
         }
     }
 
@@ -10785,7 +10785,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
     {
         if (!checking_ambiguity())
         {
-            error_message_overload_failed(expr, candidate_set);
+            error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
         }
     }
 
@@ -14205,12 +14205,13 @@ char check_copy_constructor(scope_entry_t* entry,
         type_t* parameter_type = t;
         if (has_const)
         {
-            parameter_type = get_const_qualified_type(t);
+            parameter_type = get_const_qualified_type(parameter_type);
         }
-
-        parameter_type = get_lvalue_reference_type(t);
+        parameter_type = get_lvalue_reference_type(parameter_type);
 
         type_t* arguments[1] = { parameter_type };
+
+        scope_entry_t* conversors[1] = { NULL };
 
         scope_entry_list_t* candidates = NULL;
         scope_entry_t* chosen_constructor = solve_constructor(t,
@@ -14218,7 +14219,7 @@ char check_copy_constructor(scope_entry_t* entry,
                 /* is_explicit */ 1,
                 decl_context,
                 filename, line,
-                /* conversors */ NULL,
+                conversors,
                 &candidates);
 
         if (chosen_constructor == NULL)
@@ -14285,54 +14286,78 @@ char check_copy_assignment_operator(scope_entry_t* entry,
 
     if (is_class_type(t))
     {
-        int num_arguments = 1;
-
-        type_t* parameter_type = t;
-        if (has_const)
+        static AST operation_tree = NULL;
+        if (operation_tree == NULL)
         {
-            parameter_type = get_const_qualified_type(t);
+            operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                    ASTLeaf(AST_ASSIGNMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
-        parameter_type = get_lvalue_reference_type(t);
-
-        type_t* arguments[1] = { parameter_type };
-
-        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(t);
-
-        scope_entry_list_t* candidates = NULL;
-        scope_entry_t* chosen_constructor = NULL;
-
-#warning FIXME
-
-        if (chosen_constructor == NULL)
+        type_t* argument_type = t;
+        if (has_const)
         {
-            if (entry_list_size(candidates) != 0)
+            argument_type = get_const_qualified_type(argument_type);
+        }
+        argument_type = get_lvalue_reference_type(argument_type);
+
+        int num_arguments = 2;
+        type_t* arguments[2] = { argument_type, argument_type };
+
+        scope_entry_list_t* operator_overload_set = NULL;
+        scope_entry_list_t* operator_entry_list = class_type_get_copy_assignment_operators(t);
+        operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
+                NULL, arguments + 1, num_arguments - 1,
+                decl_context,
+                filename, line,
+                /* explicit template arguments */ NULL);
+        entry_list_free(operator_entry_list);
+
+        candidate_t* candidate_set = NULL;
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(operator_overload_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    entry_list_iterator_current(it),
+                    num_arguments,
+                    arguments);
+        }
+        entry_list_iterator_free(it);
+
+        scope_entry_t* conversors[2] = { NULL, NULL };
+
+        scope_entry_t *overloaded_call = solve_overload(candidate_set,
+                decl_context,
+                filename, line, conversors);
+
+        if (overloaded_call == NULL)
+        {
+            if (!checking_ambiguity())
             {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s:%d: error: no copy assignment operator for type '%s'\n",
-                            filename, line,
-                            print_type_str(t, decl_context));
-                }
+                error_message_overload_failed(candidate_set, filename, line);
+                entry_list_free(operator_overload_set);
+                error_printf("%s:%d: error: no copy assignment operator for type '%s'\n",
+                        filename, line,
+                        print_type_str(t, decl_context));
             }
-            entry_list_free(candidates);
             return 0;
         }
         else
         {
-            entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, NULL, chosen_constructor))
+            entry_list_free(operator_overload_set);
+            if (function_has_been_deleted(decl_context, NULL, overloaded_call))
             {
                 return 0;
             }
 
-            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
-                        chosen_constructor->file, 
-                        chosen_constructor->line));
+            instantiate_recursively(nodecl_make_symbol(overloaded_call, 
+                        overloaded_call->file, 
+                        overloaded_call->line));
 
             if (constructor != NULL)
             {
-                *constructor = chosen_constructor;
+                *constructor = overloaded_call;
             }
         }
     }
@@ -14356,13 +14381,10 @@ char check_default_initialization(scope_entry_t* entry, decl_context_t decl_cont
             filename, line, constructor);
 }
 
-static void diagnostic_single_candidate(AST expr, scope_entry_t* entry)
+static void diagnostic_single_candidate(scope_entry_t* entry, const char* filename, int line)
 {
-    const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
-    int line = entry->file != NULL ? (unsigned)entry->line : (unsigned)ASTLine(expr);
-
     info_printf("%s:%d: note:    %s",
-            file, line,
+            filename, line,
             print_decl_type_str(entry->type_information, entry->decl_context, 
                 get_qualified_symbol_name(entry, entry->decl_context)));
 
@@ -14373,42 +14395,41 @@ static void diagnostic_single_candidate(AST expr, scope_entry_t* entry)
     info_printf("\n");
 }
 
-void diagnostic_candidates(AST expr, scope_entry_list_t* candidates)
+void diagnostic_candidates(scope_entry_list_t* candidates, const char* filename, int line)
 {
-    info_printf("%s: info: candidates are:\n", ast_location(expr));
+    info_printf("%s:%d: info: candidates are:\n", filename, line);
     scope_entry_list_iterator_t* it;
     for (it = entry_list_iterator_begin(candidates);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
         scope_entry_t* candidate_fun = entry_list_iterator_current(it);
-        diagnostic_single_candidate(expr, candidate_fun);
+        diagnostic_single_candidate(candidate_fun, filename, line);
     }
     entry_list_iterator_free(it);
 }
 
-static void error_message_overload_failed(AST expr, candidate_t* candidates)
+static void error_message_overload_failed(candidate_t* candidates, const char* filename, int line)
 {
-    error_printf("%s: error: overload call to '%s' failed\n",
-            ast_location(expr),
-            prettyprint_in_buffer(expr));
+    error_printf("%s:%d: error: overload call failed\n",
+            filename, line);
 
     if (candidates != NULL)
     {
-        info_printf("%s: info: candidates are\n", ast_location(expr));
+        info_printf("%s:%d: info: candidates are\n", filename, line);
 
         candidate_t* it = candidates;
         while (it != NULL)
         {
             scope_entry_t* entry = it->entry;
 
-            diagnostic_single_candidate(expr, entry);
+            diagnostic_single_candidate(entry, filename, line);
 
             it = it->next;
         }
     }
     else
     {
-        info_printf("%s: info: no candidate functions\n", ast_location(expr));
+        info_printf("%s:%d: info: no candidate functions\n", filename, line);
     }
 }
