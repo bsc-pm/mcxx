@@ -58,7 +58,7 @@ enum intrinsic_kind_tag
  */
 
 #define FORTRAN_INTRINSIC_GENERIC_LIST \
-FORTRAN_GENERIC_INTRINSIC(abs, "A", E, NULL) \
+    FORTRAN_GENERIC_INTRINSIC(abs, "A", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(achar, "I,?KIND", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(acos, "X", E, NULL) \
 FORTRAN_GENERIC_INTRINSIC(acosh, "X", E, NULL) \
@@ -262,9 +262,9 @@ FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC_2
 
 #define FORTRAN_GENERIC_INTRINSIC(name, keywords0, _0, _1) \
-   { #name, 1, keywords_for_##name##_ },
+{ #name, 1, keywords_for_##name##_ },
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, _0, _1, keywords1, _2, _3) \
-   { #name, 2, keywords_for_##name##_ },
+{ #name, 2, keywords_for_##name##_ },
 
 typedef
 struct keyword_info_tag
@@ -275,7 +275,7 @@ struct keyword_info_tag
 } keyword_info_t;
 
 static keyword_info_t keyword_set[] = {
-FORTRAN_INTRINSIC_GENERIC_LIST
+    FORTRAN_INTRINSIC_GENERIC_LIST
 };
 #undef FORTRAN_GENERIC_INTRINSIC
 #undef FORTRAN_GENERIC_INTRINSIC_2
@@ -662,90 +662,95 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 }
 
 #define GET_INTRINSIC_ELEMENTAL(name, result, ...) \
-({ \
-    type_t* _types[] = { __VA_ARGS__ }; \
-    const int _size = sizeof(_types) / sizeof(*_types) ; \
-    get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
-            /* is_elemental */ 1, \
-            /* is_pure */ 1, \
-            /* is_transformational */ 0, \
-            /* is_inquiry */ 0); \
-})
+    ({ \
+     type_t* _types[] = { __VA_ARGS__ }; \
+     const int _size = sizeof(_types) / sizeof(*_types) ; \
+     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+         /* is_elemental */ 1, \
+         /* is_pure */ 1, \
+         /* is_transformational */ 0, \
+         /* is_inquiry */ 0); \
+     })
 
 #define GET_INTRINSIC_INQUIRY(name, result, ...) \
-({ \
-    type_t* _types[] = { __VA_ARGS__ }; \
-    const int _size = sizeof(_types) / sizeof(*_types) ; \
-    get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
-            /* is_elemental */ 0, \
-            /* is_pure */ 0, \
-            /* is_transformational */ 0, \
-            /* is_inquiry */ 1); \
-})
+    ({ \
+     type_t* _types[] = { __VA_ARGS__ }; \
+     const int _size = sizeof(_types) / sizeof(*_types) ; \
+     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+         /* is_elemental */ 0, \
+         /* is_pure */ 0, \
+         /* is_transformational */ 0, \
+         /* is_inquiry */ 1); \
+     })
 
 #define GET_INTRINSIC_PURE(name, result, ...) \
-({ \
-    type_t* _types[] = { __VA_ARGS__ }; \
-    const int _size = sizeof(_types) / sizeof(*_types) ; \
-    get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
-            /* is_elemental */ 0, \
-            /* is_pure */ 1, \
-            /* is_transformational */ 0, \
-            /* is_inquiry */ 0); \
-})
+    ({ \
+     type_t* _types[] = { __VA_ARGS__ }; \
+     const int _size = sizeof(_types) / sizeof(*_types) ; \
+     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+         /* is_elemental */ 0, \
+         /* is_pure */ 1, \
+         /* is_transformational */ 0, \
+         /* is_inquiry */ 0); \
+     })
 
 #define GET_INTRINSIC_IMPURE(name, result, ...) \
-({ \
-    type_t* _types[] = { __VA_ARGS__ }; \
-    const int _size = sizeof(_types) / sizeof(*_types) ; \
-    get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
-            /* is_elemental */ 0, \
-            /* is_pure */ 0, \
-            /* is_transformational */ 0, \
-            /* is_inquiry */ 0); \
-})
+    ({ \
+     type_t* _types[] = { __VA_ARGS__ }; \
+     const int _size = sizeof(_types) / sizeof(*_types) ; \
+     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+         /* is_elemental */ 0, \
+         /* is_pure */ 0, \
+         /* is_transformational */ 0, \
+         /* is_inquiry */ 0); \
+     })
 
 #define GET_INTRINSIC_TRANSFORMATIONAL(name, result, ...) \
-({ \
-    type_t* _types[] = { __VA_ARGS__ }; \
-    const int _size = sizeof(_types) / sizeof(*_types) ; \
-    get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
-            /* is_elemental */ 0, \
-            /* is_pure */ 0, \
-            /* is_transformational */ 1, \
-            /* is_inquiry */ 0); \
-})
+    ({ \
+     type_t* _types[] = { __VA_ARGS__ }; \
+     const int _size = sizeof(_types) / sizeof(*_types) ; \
+     get_intrinsic_symbol_(name, result, _size, _types, symbol->decl_context, \
+         /* is_elemental */ 0, \
+         /* is_pure */ 0, \
+         /* is_transformational */ 1, \
+         /* is_inquiry */ 0); \
+     })
 
 #define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0, compute_code) \
-static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
-        type_t** argument_types, \
-        AST *argument_expressions, \
-        int num_arguments); \
+    static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
+            type_t** argument_types, \
+            AST *argument_expressions, \
+            int num_arguments, \
+            const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
         AST *argument_expressions, \
-        int num_arguments) \
+        int num_arguments, \
+        const_value_t** const_value) \
 { \
-    return compute_intrinsic_##name (symbol, argument_types, argument_expressions, num_arguments); \
+    return compute_intrinsic_##name (symbol, argument_types, argument_expressions, num_arguments, const_value); \
 }
 
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
-static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
-        type_t** argument_types, \
-        AST *argument_expressions, \
-        int num_arguments); \
+    static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
+            type_t** argument_types, \
+            AST *argument_expressions, \
+            int num_arguments, \
+            const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
         type_t** argument_types, \
         AST *argument_expressions, \
-        int num_arguments); \
+        int num_arguments, \
+        const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
         AST *argument_expressions, \
-        int num_arguments) \
+        int num_arguments, \
+        const_value_t** const_value) \
 { \
-    scope_entry_t* entry = compute_intrinsic_##name##_0(symbol, argument_types, argument_expressions, num_arguments); \
+    scope_entry_t* entry = compute_intrinsic_##name##_0(symbol, argument_types, argument_expressions, num_arguments, const_value); \
     if (entry == NULL) \
-        entry = compute_intrinsic_##name##_1(symbol, argument_types, argument_expressions, num_arguments); \
+    entry = compute_intrinsic_##name##_1(symbol, argument_types, argument_expressions, num_arguments, const_value); \
     return entry; \
 } 
 
@@ -767,9 +772,9 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
-           new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
+        new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
         else \
-           new_intrinsic->entity_specs.simplify_function = compute_code; \
+        new_intrinsic->entity_specs.simplify_function = compute_code; \
     }
 
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
@@ -780,16 +785,16 @@ void fortran_init_intrinsics(decl_context_t decl_context)
         new_intrinsic->type_information = get_computed_function_type(compute_intrinsic_##name##_aux); \
         new_intrinsic->entity_specs.is_builtin = 1; \
         if (kind0 == ES || kind0 == PS || kind0 == S) \
-           new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
+        new_intrinsic->entity_specs.is_builtin_subroutine = 1; \
     }
 
-FORTRAN_INTRINSIC_GENERIC_LIST
+    FORTRAN_INTRINSIC_GENERIC_LIST
 #undef FORTRAN_GENERIC_INTRINSIC
 #undef FORTRAN_GENERIC_INTRINSIC_2
 
-    intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
+        intrinsic_map = rb_tree_create(intrinsic_descr_cmp, null_dtor_func, null_dtor_func);
 
-// Sign in specific names for intrinsics
+    // Sign in specific names for intrinsics
     fortran_init_specific_names(decl_context);
 }
 
@@ -847,48 +852,48 @@ The macros below have been generated using this shell script
 
 for i in `seq 0 7`; 
 do 
-  echo -n "#define REGISTER_SPECIFIC_INTRINSIC_$i(_specific_name, _generic_name"; 
-  for p in t_ ; 
-  do 
-    for j in `seq 0 $(($i - 1))`; 
-    do 
-      echo -n ", ${p}${j}"; 
-    done; 
-  done; 
-  echo ") \\"; 
-  echo -n "  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), $i"; 
-  for p in t_ ; 
-  do 
-    for j in `seq 0 $(($i - 1))`; 
-    do 
-      echo -n ", (${p}${j})"; 
-    done; 
-    for j in `seq $i 6`; 
-    do 
-      echo -n ", NULL"; 
-    done; 
-  done; 
-  echo ")"; 
+echo -n "#define REGISTER_SPECIFIC_INTRINSIC_$i(_specific_name, _generic_name"; 
+for p in t_ ; 
+do 
+for j in `seq 0 $(($i - 1))`; 
+do 
+echo -n ", ${p}${j}"; 
+done; 
+done; 
+echo ") \\"; 
+echo -n "  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), $i"; 
+for p in t_ ; 
+do 
+for j in `seq 0 $(($i - 1))`; 
+do 
+echo -n ", (${p}${j})"; 
+done; 
+for j in `seq $i 6`; 
+do 
+echo -n ", NULL"; 
+done; 
+done; 
+echo ")"; 
 done;
 
 #endif
 
 #define REGISTER_SPECIFIC_INTRINSIC_0(_specific_name, _generic_name) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_1(_specific_name, _generic_name, t_0) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 1, (t_0), NULL, NULL, NULL, NULL, NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 1, (t_0), NULL, NULL, NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_2(_specific_name, _generic_name, t_0, t_1) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 2, (t_0), (t_1), NULL, NULL, NULL, NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 2, (t_0), (t_1), NULL, NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_3(_specific_name, _generic_name, t_0, t_1, t_2) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 3, (t_0), (t_1), (t_2), NULL, NULL, NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 3, (t_0), (t_1), (t_2), NULL, NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_4(_specific_name, _generic_name, t_0, t_1, t_2, t_3) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 4, (t_0), (t_1), (t_2), (t_3), NULL, NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 4, (t_0), (t_1), (t_2), (t_3), NULL, NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_5(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 5, (t_0), (t_1), (t_2), (t_3), (t_4), NULL, NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 5, (t_0), (t_1), (t_2), (t_3), (t_4), NULL, NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_6(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 6, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), NULL)
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 6, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), NULL)
 #define REGISTER_SPECIFIC_INTRINSIC_7(_specific_name, _generic_name, t_0, t_1, t_2, t_3, t_4, t_5, t_6) \
-  register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 7, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), (t_6))
+    register_specific_intrinsic_name(decl_context, (_generic_name), (_specific_name), 7, (t_0), (t_1), (t_2), (t_3), (t_4), (t_5), (t_6))
 
 #define REGISTER_CUSTOM_INTRINSIC_0(_specific_name, result_type) \
     register_custom_intrinsic(decl_context, (_specific_name), result_type, 0, NULL, NULL, NULL)
@@ -987,7 +992,8 @@ static void fortran_init_specific_names(decl_context_t decl_context)
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -1023,7 +1029,8 @@ static char opt_valid_kind_expr(AST expr, int *val)
 scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dc = 1;
@@ -1042,7 +1049,8 @@ scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_acos(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -1056,7 +1064,8 @@ scope_entry_t* compute_intrinsic_acos(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_acosh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -1070,7 +1079,8 @@ scope_entry_t* compute_intrinsic_acosh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_adjustl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_fortran_character_type(t0))
@@ -1083,7 +1093,8 @@ scope_entry_t* compute_intrinsic_adjustl(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_adjustr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_fortran_character_type(t0))
@@ -1096,7 +1107,8 @@ scope_entry_t* compute_intrinsic_adjustr(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_complex_type(t0))
@@ -1109,7 +1121,8 @@ scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dr = fortran_get_default_real_type_kind();
@@ -1127,7 +1140,8 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1146,7 +1160,8 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     return GET_INTRINSIC_INQUIRY("allocated", fortran_get_default_logical_type(), t0);
@@ -1155,15 +1170,17 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_allocated_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_allocated_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dr = fortran_get_default_real_type_kind();
@@ -1181,7 +1198,8 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1200,7 +1218,8 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_asin(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -1214,7 +1233,8 @@ scope_entry_t* compute_intrinsic_asin(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -1228,7 +1248,8 @@ scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1255,7 +1276,8 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
 scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (num_arguments == 1)
@@ -1283,23 +1305,26 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_atan_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_atan_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -1313,7 +1338,8 @@ scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_atomic_define(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -1322,7 +1348,8 @@ scope_entry_t* compute_intrinsic_atomic_define(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_atomic_ref(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -1331,7 +1358,8 @@ scope_entry_t* compute_intrinsic_atomic_ref(scope_entry_t* symbol UNUSED_PARAMET
 scope_entry_t* compute_intrinsic_bessel_j0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1344,7 +1372,8 @@ scope_entry_t* compute_intrinsic_bessel_j0(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_bessel_j1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1357,7 +1386,8 @@ scope_entry_t* compute_intrinsic_bessel_j1(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     if (num_arguments == 2)
     {
@@ -1388,15 +1418,17 @@ scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_bessel_jn_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_bessel_jn_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_bessel_jn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_bessel_y0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1409,7 +1441,8 @@ scope_entry_t* compute_intrinsic_bessel_y0(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_bessel_y1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1422,7 +1455,8 @@ scope_entry_t* compute_intrinsic_bessel_y1(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     if (num_arguments == 2)
     {
@@ -1453,15 +1487,17 @@ scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_bessel_yn_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_bessel_yn_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_bessel_yn_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
@@ -1474,7 +1510,8 @@ scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
@@ -1487,7 +1524,8 @@ scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
@@ -1500,7 +1538,8 @@ scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
@@ -1513,7 +1552,8 @@ scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_integer_type(get_rank0_type(t0)))
@@ -1526,7 +1566,8 @@ scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -1541,7 +1582,8 @@ scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     int dr = fortran_get_default_real_type_kind();
@@ -1559,7 +1601,8 @@ scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     int di = fortran_get_default_integer_type_kind();
@@ -1577,7 +1620,8 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = argument_types[1] != NULL ? get_rank0_type(argument_types[1]) : NULL;
@@ -1589,8 +1633,8 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
                     || is_integer_type(t0))
                 && (t1 == NULL
                     || is_floating_type(t1)
-                        || is_complex_type(t1)
-                        || is_integer_type(t1)))
+                    || is_complex_type(t1)
+                    || is_integer_type(t1)))
         {
             return GET_INTRINSIC_ELEMENTAL("cmplx", 
                     get_complex_type(choose_float_type_from_kind(argument_expressions[2], dr)), 
@@ -1605,7 +1649,8 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = argument_types[1] != NULL ? get_rank0_type(argument_types[1]) : NULL;
@@ -1628,7 +1673,8 @@ scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     get_intrinsic_symbol_("command_argument_count", get_signed_int_type(), 0, NULL, symbol->decl_context, 
             /* is_elemental */ 0, 
@@ -1641,7 +1687,8 @@ scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UN
 scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_complex_type(t0))
@@ -1654,7 +1701,8 @@ scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -1669,7 +1717,8 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_cosh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_floating_type(t0)
@@ -1683,7 +1732,8 @@ scope_entry_t* compute_intrinsic_cosh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1707,7 +1757,8 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -1722,7 +1773,8 @@ scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1742,7 +1794,8 @@ scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1767,7 +1820,8 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -1783,7 +1837,8 @@ scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -1799,13 +1854,14 @@ scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_dim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if ((is_integer_type(t0)
-            || is_floating_type(t0))
+                || is_floating_type(t0))
             && equivalent_types(get_unqualified_type(t0), get_unqualified_type(t1)))
     {
         return GET_INTRINSIC_ELEMENTAL("dim", t0, t0, t1);
@@ -1817,7 +1873,8 @@ scope_entry_t* compute_intrinsic_dim(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_dot_product(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1850,7 +1907,8 @@ scope_entry_t* compute_intrinsic_dot_product(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -1867,7 +1925,8 @@ scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_dshiftl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -1886,7 +1945,8 @@ scope_entry_t* compute_intrinsic_dshiftl(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_dshiftr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -1905,7 +1965,8 @@ scope_entry_t* compute_intrinsic_dshiftr(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -1935,7 +1996,8 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_epsilon(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_integer_type(get_rank0_type(t0))
@@ -1950,7 +2012,8 @@ scope_entry_t* compute_intrinsic_epsilon(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_erf(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1963,7 +2026,8 @@ scope_entry_t* compute_intrinsic_erf(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_erfc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1976,7 +2040,8 @@ scope_entry_t* compute_intrinsic_erfc(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_erfc_scaled(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -1989,7 +2054,8 @@ scope_entry_t* compute_intrinsic_erfc_scaled(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2017,7 +2083,8 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
 scope_entry_t* compute_intrinsic_exp(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0)
@@ -2031,7 +2098,8 @@ scope_entry_t* compute_intrinsic_exp(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_floating_type(t0))
@@ -2044,7 +2112,8 @@ scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_extends_type_of(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -2053,7 +2122,8 @@ scope_entry_t* compute_intrinsic_extends_type_of(scope_entry_t* symbol UNUSED_PA
 scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2104,15 +2174,17 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_findloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_findloc_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_findloc_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     AST kind = argument_expressions[1];
@@ -2130,7 +2202,8 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2145,7 +2218,8 @@ scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2160,7 +2234,8 @@ scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2182,7 +2257,8 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2208,7 +2284,8 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
 scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2237,7 +2314,8 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
 scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_integer_type(get_rank0_type(t0))
@@ -2251,7 +2329,8 @@ scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_hypot(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2267,7 +2346,8 @@ scope_entry_t* compute_intrinsic_hypot(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2285,7 +2365,8 @@ scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL ;
@@ -2306,15 +2387,17 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iall_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_iall_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_iall_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_iand(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2330,7 +2413,8 @@ scope_entry_t* compute_intrinsic_iand(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL ;
@@ -2351,15 +2435,17 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iany_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_iany_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_iany_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_ibclr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2375,7 +2461,8 @@ scope_entry_t* compute_intrinsic_ibclr(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ibits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2393,7 +2480,8 @@ scope_entry_t* compute_intrinsic_ibits(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ibset(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2409,7 +2497,8 @@ scope_entry_t* compute_intrinsic_ibset(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2427,7 +2516,8 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ieor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2443,7 +2533,8 @@ scope_entry_t* compute_intrinsic_ieor(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_image_index(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -2452,7 +2543,8 @@ scope_entry_t* compute_intrinsic_image_index(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2479,15 +2571,16 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     int di = fortran_get_default_integer_type_kind();
 
     if ((is_integer_type(t0)
-            || is_floating_type(t0)
-            || is_complex_type(t0))
+                || is_floating_type(t0)
+                || is_complex_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &di))
     {
         return GET_INTRINSIC_ELEMENTAL("int", 
@@ -2501,7 +2594,8 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2517,7 +2611,8 @@ scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL;
@@ -2539,15 +2634,17 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_iparity_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_iparity_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_iparity_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_ishft(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2563,7 +2660,8 @@ scope_entry_t* compute_intrinsic_ishft(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2581,7 +2679,8 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -2596,7 +2695,8 @@ scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2610,7 +2710,8 @@ scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2624,7 +2725,8 @@ scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -2632,14 +2734,15 @@ scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
     {
         return GET_INTRINSIC_INQUIRY("kind", get_signed_int_type(), t0);
     }
-    
+
     return NULL;
 }
 
 scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2672,7 +2775,8 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_lcobound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -2681,7 +2785,8 @@ scope_entry_t* compute_intrinsic_lcobound(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2695,7 +2800,8 @@ scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -2715,7 +2821,8 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -2735,7 +2842,8 @@ scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2752,7 +2860,8 @@ scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2769,7 +2878,8 @@ scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2786,7 +2896,8 @@ scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -2803,7 +2914,8 @@ scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2818,7 +2930,8 @@ scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2833,7 +2946,8 @@ scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2848,7 +2962,8 @@ scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2867,7 +2982,8 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2887,7 +3003,8 @@ scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -2907,7 +3024,8 @@ scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_matmul(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -2960,7 +3078,8 @@ scope_entry_t* compute_intrinsic_max_min_aux(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     if (num_arguments == 0)
         return NULL;
@@ -3015,66 +3134,73 @@ scope_entry_t* compute_intrinsic_max(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("max", /* output_type */ NULL, /* input_type */ NULL, 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_max0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("max0", /* output_type */ get_signed_int_type(), /* input_type */ get_signed_int_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_max1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("max1", /* output_type */ get_signed_int_type(), /* input_type */ get_float_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_amax0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("amax0", /* output_type */ get_float_type(), /* input_type */ get_signed_int_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_amax1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("amax1", /* output_type */ get_float_type(), /* input_type */ get_float_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_dmax1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("dmax1", /* output_type */ get_double_type(), /* input_type */ get_double_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3088,7 +3214,8 @@ scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 5 ? argument_types[1] : NULL;
@@ -3141,15 +3268,17 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_maxloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_maxloc_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_maxloc_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL;
@@ -3175,15 +3304,17 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_maxval_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_maxval_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_maxval_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_merge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3201,7 +3332,8 @@ scope_entry_t* compute_intrinsic_merge(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_merge_bits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3220,66 +3352,73 @@ scope_entry_t* compute_intrinsic_min(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("min", /* output_type */ NULL, /* input_type */ NULL, 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_min0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("min0", /* output_type */ get_signed_int_type(), /* input_type */ get_signed_int_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_min1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("min1", /* output_type */ get_signed_int_type(), /* input_type */ get_float_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_amin0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("amin0", /* output_type */ get_float_type(), /* input_type */ get_signed_int_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_amin1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("amin1", /* output_type */ get_float_type(), /* input_type */ get_float_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_dmin1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     return compute_intrinsic_max_min_aux("dmin1", /* output_type */ get_double_type(), /* input_type */ get_double_type(), 
-            symbol, argument_types, argument_expressions, num_arguments);
+            symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3293,7 +3432,8 @@ scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 5 ? argument_types[1] : NULL;
@@ -3346,15 +3486,17 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_minloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_minloc_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_minloc_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL;
@@ -3380,15 +3522,17 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_minval_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_minval_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_minval_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3406,7 +3550,8 @@ scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3423,14 +3568,15 @@ scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
 
     if (equivalent_types(get_unqualified_type(get_rank0_type(t0)), 
                 get_unqualified_type(get_rank0_type(t1)))
-                && (get_rank_of_type(t0) == get_rank_of_type(t1)))
+            && (get_rank_of_type(t0) == get_rank_of_type(t1)))
     {
         return GET_INTRINSIC_PURE("move_alloc", /* subroutine */ NULL, t0, t1);
     }
@@ -3440,7 +3586,8 @@ scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMET
 scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3463,7 +3610,8 @@ scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_nearest(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3480,7 +3628,8 @@ scope_entry_t* compute_intrinsic_nearest(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_new_line(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3494,7 +3643,8 @@ scope_entry_t* compute_intrinsic_new_line(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -3515,7 +3665,8 @@ scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_not(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -3530,7 +3681,8 @@ scope_entry_t* compute_intrinsic_not(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3558,7 +3710,8 @@ scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (t0 == NULL)
@@ -3577,7 +3730,8 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_num_images(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -3586,7 +3740,8 @@ scope_entry_t* compute_intrinsic_num_images(scope_entry_t* symbol UNUSED_PARAMET
 scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3597,7 +3752,7 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
             && are_conformable_types(t0, t1)
             && (t2 == NULL || 
                 (equivalent_types(get_unqualified_type(get_rank0_type(t0)),
-                                 get_unqualified_type(get_rank0_type(t2)))
+                                  get_unqualified_type(get_rank0_type(t2)))
                  && get_rank_of_type(t2) == 1)))
     {
         return GET_INTRINSIC_TRANSFORMATIONAL("pack", 
@@ -3613,7 +3768,8 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_parity(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3641,7 +3797,8 @@ scope_entry_t* compute_intrinsic_parity(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -3656,7 +3813,8 @@ scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -3671,7 +3829,8 @@ scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3686,7 +3845,8 @@ scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     return GET_INTRINSIC_INQUIRY("present", fortran_get_default_logical_type(), t0);
@@ -3695,7 +3855,8 @@ scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL;
@@ -3721,15 +3882,17 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_product_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_product_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_product_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3745,7 +3908,8 @@ scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3760,7 +3924,8 @@ scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARA
 scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3786,7 +3951,8 @@ scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAME
 scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -3803,14 +3969,15 @@ scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
     int dr = fortran_get_default_real_type_kind();
     if ((is_integer_type(t0)
-            || is_floating_type(t0)
-            || is_complex_type(t0))
+                || is_floating_type(t0)
+                || is_complex_type(t0))
             && opt_valid_kind_expr(argument_expressions[1], &dr))
     {
         return GET_INTRINSIC_ELEMENTAL("real", 
@@ -3824,7 +3991,8 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_repeat(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3841,7 +4009,8 @@ scope_entry_t* compute_intrinsic_repeat(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // type_t* t0 = argument_types[0];
     // type_t* t1 = argument_types[1];
@@ -3866,7 +4035,8 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -3881,7 +4051,8 @@ scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_same_type_as(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -3890,7 +4061,8 @@ scope_entry_t* compute_intrinsic_same_type_as(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_scale(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3907,7 +4079,8 @@ scope_entry_t* compute_intrinsic_scale(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -3934,7 +4107,8 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_fortran_character_type(t0))
@@ -3947,7 +4121,8 @@ scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED
 scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_integer_type(t0))
@@ -3960,7 +4135,8 @@ scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_
 scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -3984,7 +4160,8 @@ scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED
 scope_entry_t* compute_intrinsic_set_exponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -4001,7 +4178,8 @@ scope_entry_t* compute_intrinsic_set_exponent(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -4019,7 +4197,8 @@ scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_shifta(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -4036,7 +4215,8 @@ scope_entry_t* compute_intrinsic_shifta(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_shiftl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -4053,7 +4233,8 @@ scope_entry_t* compute_intrinsic_shiftl(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_shiftr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -4070,13 +4251,14 @@ scope_entry_t* compute_intrinsic_shiftr(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_sign(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
 
     if ((is_integer_type(t0)
-            || is_floating_type(t0))
+                || is_floating_type(t0))
             && (equivalent_types(get_unqualified_type(t0), 
                     get_unqualified_type(t1))))
     {
@@ -4089,7 +4271,8 @@ scope_entry_t* compute_intrinsic_sign(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4104,7 +4287,8 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4119,7 +4303,8 @@ scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4142,7 +4327,8 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_spacing(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4156,7 +4342,8 @@ scope_entry_t* compute_intrinsic_spacing(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4177,7 +4364,8 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4192,7 +4380,8 @@ scope_entry_t* compute_intrinsic_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -4210,7 +4399,8 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = num_arguments == 3 ? argument_types[1] : NULL;
@@ -4236,15 +4426,17 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_sum_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
-    return compute_intrinsic_sum_0(symbol, argument_types, argument_expressions, num_arguments);
+    return compute_intrinsic_sum_0(symbol, argument_types, argument_expressions, num_arguments, const_value);
 }
 
 scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4266,7 +4458,8 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4281,7 +4474,8 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_tanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
 
@@ -4296,7 +4490,8 @@ scope_entry_t* compute_intrinsic_tanh(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_this_image_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -4305,7 +4500,8 @@ scope_entry_t* compute_intrinsic_this_image_0(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_this_image_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -4314,7 +4510,8 @@ scope_entry_t* compute_intrinsic_this_image_1(scope_entry_t* symbol UNUSED_PARAM
 scope_entry_t* compute_intrinsic_tiny(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     if (is_floating_type(get_rank0_type(t0)))
@@ -4327,7 +4524,8 @@ scope_entry_t* compute_intrinsic_tiny(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     if (is_integer_type(t0))
@@ -4340,7 +4538,8 @@ scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4374,7 +4573,8 @@ scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_transpose(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -4389,7 +4589,8 @@ scope_entry_t* compute_intrinsic_transpose(scope_entry_t* symbol UNUSED_PARAMETE
 scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
 
@@ -4404,7 +4605,8 @@ scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4437,7 +4639,8 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_ucobound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     // Not supported
     return NULL;
@@ -4446,7 +4649,8 @@ scope_entry_t* compute_intrinsic_ucobound(scope_entry_t* symbol UNUSED_PARAMETER
 scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = argument_types[0];
     type_t* t1 = argument_types[1];
@@ -4470,7 +4674,8 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
     type_t* t1 = get_rank0_type(argument_types[1]);
@@ -4495,7 +4700,8 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
 scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
         AST *argument_expressions UNUSED_PARAMETER,
-        int num_arguments UNUSED_PARAMETER)
+        int num_arguments UNUSED_PARAMETER,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     if (num_arguments != 1)
         return NULL;
@@ -4544,8 +4750,6 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
         *nodecl_simplified = nodecl_null();
     type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
     AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-    // memset(reordered_types, 0, sizeof(reordered_types));
-    // memset(reordered_exprs, 0, sizeof(reordered_exprs));
 
     computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
@@ -4565,7 +4769,8 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                     reordered_types, 
                     reordered_exprs))
         {
-            entry = fun(symbol, reordered_types, reordered_exprs, num_actual_arguments);
+            const_value_t* const_value = NULL;
+            entry = fun(symbol, reordered_types, reordered_exprs, num_actual_arguments, &const_value);
 
             if (entry != NULL)
             {

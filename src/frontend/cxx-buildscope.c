@@ -1211,7 +1211,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     {
                         if (!is_dependent_type(declarator_type))
                         {
-                            check_default_initialization_declarator(entry, decl_context, declarator, /* constructor */ NULL);
+                            check_default_initialization_and_destruction_declarator(entry, decl_context, 
+                                    ASTFileName(declarator), ASTLine(declarator));
                         }
                     }
                 }
@@ -3300,19 +3301,24 @@ static void build_scope_ctor_initializer(
 }
 
 
-static void apply_function_to_data_layout_members(scope_entry_list_t* virtual_base_classes,
-        scope_entry_list_t* direct_base_classes,
-        scope_entry_list_t* nonstatic_data_members,
+static void apply_function_to_data_layout_members(
+        scope_entry_t* entry,
         void (*fun)(scope_entry_t*, void*),
         void *data)
 {
+    ERROR_CONDITION(entry->kind != SK_CLASS, "Invalid class symbol", 0);
+
+    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(entry->type_information);
+    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(entry->type_information);
+    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(virtual_base_classes);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        fun(entry, data);
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        fun(current_entry, data);
     }
     entry_list_iterator_free(it);
 
@@ -3320,8 +3326,8 @@ static void apply_function_to_data_layout_members(scope_entry_list_t* virtual_ba
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        fun(entry, data);
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        fun(current_entry, data);
     }
     entry_list_iterator_free(it);
 
@@ -3329,10 +3335,14 @@ static void apply_function_to_data_layout_members(scope_entry_list_t* virtual_ba
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        fun(entry, data);
+        scope_entry_t* current_entry = entry_list_iterator_current(it);
+        fun(current_entry, data);
     }
     entry_list_iterator_free(it);
+
+    entry_list_free(virtual_base_classes);
+    entry_list_free(direct_base_classes);
+    entry_list_free(nonstatic_data_members);
 }
 
 struct check_constructor_helper
@@ -3342,8 +3352,18 @@ struct check_constructor_helper
     char has_const;
 };
 
-static void ensure_copy_constructor_is_emmitted(scope_entry_t* entry, void* data)
+static void ensure_default_constructor_is_emitted(scope_entry_t* entry, void* data)
 {
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
+    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
+
+    scope_entry_t* constructor = NULL;
+    check_default_initialization(entry, entry->decl_context, p->filename, p->line, &constructor);
+}
+
+static void ensure_copy_constructor_is_emitted(scope_entry_t* entry, void* data)
+{
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE , "Invalid symbol", 0);
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* constructor = NULL;
@@ -3351,8 +3371,9 @@ static void ensure_copy_constructor_is_emmitted(scope_entry_t* entry, void* data
             p->filename, p->line, &constructor);
 }
 
-static void ensure_copy_assignment_operator_is_emmitted(scope_entry_t* entry, void* data)
+static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, void* data)
 {
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* constructor = NULL;
@@ -3360,28 +3381,73 @@ static void ensure_copy_assignment_operator_is_emmitted(scope_entry_t* entry, vo
             p->filename, p->line, &constructor);
 }
 
-static void emit_copy_constructors_as_needed(scope_entry_list_t* virtual_base_classes,
-        scope_entry_list_t* direct_base_classes,
-        scope_entry_list_t* nonstatic_data_members,
-        char has_const,
-        const char* filename, 
-        int line)
+static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 {
-    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
-    apply_function_to_data_layout_members(virtual_base_classes, direct_base_classes, nonstatic_data_members,
-            ensure_copy_constructor_is_emmitted, &l);
+    ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
+    struct check_constructor_helper* p = (struct check_constructor_helper*)data;
+
+    scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
+    ensure_function_is_emitted(destructor, p->filename, p->line);
+    ERROR_CONDITION(destructor == NULL, "Bad class lacking destructor", 0);
 }
 
-static void emit_copy_assignment_operator_as_needed(scope_entry_list_t* virtual_base_classes,
-        scope_entry_list_t* direct_base_classes,
-        scope_entry_list_t* nonstatic_data_members,
-        char has_const,
+// These functions emit special members that may have to be defined by the compiler itself
+// they ensure that every other function that might have to be called will be emitted too
+// (this implies calling other implicitly defined members)
+//
+// Currently they do not generate nodecl (we are unsure what we would do with it) but maybe
+// they will have to in the future
+
+static void emit_implicit_default_constructor(scope_entry_t* entry, const char* filename, int line)
+{
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+
+    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = 0 };
+    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
+            ensure_default_constructor_is_emitted, &l);
+}
+
+static void emit_implicit_copy_constructor(scope_entry_t* entry,
         const char* filename, 
         int line)
 {
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+
+    char has_const = is_const_qualified_type(
+            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
+
     struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
-    apply_function_to_data_layout_members(virtual_base_classes, direct_base_classes, nonstatic_data_members,
-            ensure_copy_assignment_operator_is_emmitted, &l);
+    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
+            ensure_copy_constructor_is_emitted, &l);
+}
+
+static void emit_implicit_copy_assignment_operator(scope_entry_t* entry,
+        const char* filename, 
+        int line)
+{
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+
+    char has_const = is_const_qualified_type(
+            no_ref(function_type_get_parameter_type_num(entry->type_information, 0)));
+
+    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = has_const };
+    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
+            ensure_copy_assignment_operator_is_emitted, &l);
+}
+
+static void emit_implicit_destructor(scope_entry_t* entry,
+        const char* filename,
+        int line)
+{
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+
+    struct check_constructor_helper l = { .filename = filename, .line = line, .has_const = 0 };
+    apply_function_to_data_layout_members(named_type_get_symbol(entry->entity_specs.class_type), 
+            ensure_destructor_is_emitted, &l);
 }
 
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
@@ -3605,8 +3671,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 scope_entry_t* current_constructor 
                     = entry_list_iterator_current(it);
 
-                ensure_function_is_emmitted(current_constructor, filename, line);
-
                 has_bases_with_non_trivial_constructors
                     |= !current_constructor->entity_specs.is_trivial;
             }
@@ -3642,8 +3706,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                 ERROR_CONDITION(default_constructor == NULL, "Invalid class", 0);
 
-                ensure_function_is_emmitted(default_constructor, filename, line);
-
                 has_nonstatic_data_member_with_no_trivial_constructor 
                     |= !default_constructor->entity_specs.is_trivial;
             }
@@ -3659,6 +3721,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             implicit_default_constructor->entity_specs.is_trivial = 1;
         }
+
+        implicit_default_constructor->entity_specs.is_non_emitted = 1;
+        implicit_default_constructor->entity_specs.emission_handler = emit_implicit_default_constructor;
     }
 
 
@@ -3847,12 +3912,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             implicit_copy_constructor->entity_specs.is_trivial = 1;
         }
 
-        // Make sure the appropiate copy constructors are emitted
-        emit_copy_constructors_as_needed(virtual_base_classes, 
-                direct_base_classes, 
-                nonstatic_data_members,
-                const_parameter,
-                filename, line);
+        implicit_copy_constructor->entity_specs.is_non_emitted = 1;
+        implicit_copy_constructor->entity_specs.emission_handler = emit_implicit_copy_constructor;
     }
 
     // Copy assignment operators
@@ -4024,11 +4085,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             implicit_copy_assignment_function->entity_specs.is_trivial = 1;
         }
 
-        emit_copy_assignment_operator_as_needed(virtual_base_classes, 
-                direct_base_classes, 
-                nonstatic_data_members,
-                const_parameter,
-                filename, line);
+        implicit_copy_assignment_function->entity_specs.is_non_emitted = 1;
+        implicit_copy_assignment_function->entity_specs.emission_handler = emit_implicit_copy_assignment_operator;
     }
 
     // Implicit destructor
@@ -4086,7 +4144,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 = class_type_get_destructor(get_actual_class_type(base_class->type_information));
 
             ERROR_CONDITION(destructor == NULL, "Invalid class without destructor!\n", 0);
-            ensure_function_is_emmitted(destructor, filename, line);
 
             base_has_nontrivial_destructor |= !destructor->entity_specs.is_trivial;
         }
@@ -4116,7 +4173,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                             get_actual_class_type(member_actual_class_type));
 
                 ERROR_CONDITION(destructor == NULL, "Invalid class without destructor!\n", 0);
-                ensure_function_is_emmitted(destructor, filename, line);
 
                 has_nonstatic_data_member_with_no_trivial_destructor
                     |= !destructor->entity_specs.is_trivial;
@@ -4130,6 +4186,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             implicit_destructor->entity_specs.is_trivial = 1;
         }
+
+        implicit_destructor->entity_specs.is_non_emitted = 1;
+        implicit_destructor->entity_specs.emission_handler = emit_implicit_destructor;
     }
 
     entry_list_free(all_bases);

@@ -3186,7 +3186,8 @@ type_t* function_type_get_nonadjusted_parameter_type_num(type_t* function_type, 
 
 char class_type_is_incomplete_dependent(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->info->is_template_specialized_type
         && t->info->is_dependent
         && t->info->is_incomplete;
@@ -3194,7 +3195,8 @@ char class_type_is_incomplete_dependent(type_t* t)
 
 char class_type_is_complete_dependent(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->info->is_template_specialized_type
         && t->info->is_dependent
         && !t->info->is_incomplete;
@@ -3202,7 +3204,8 @@ char class_type_is_complete_dependent(type_t* t)
 
 char class_type_is_incomplete_independent(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->info->is_template_specialized_type
         && !t->info->is_dependent
         && t->info->is_incomplete;
@@ -3210,7 +3213,8 @@ char class_type_is_incomplete_independent(type_t* t)
 
 char class_type_is_complete_independent(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->info->is_template_specialized_type
         && !t->info->is_dependent
         && !t->info->is_incomplete;
@@ -3272,15 +3276,15 @@ char class_type_is_empty(type_t* t)
 
 char class_type_is_abstract(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
-
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
     return class_type->type->class_info->is_abstract;
 }
 
 void class_type_set_is_abstract(type_t* class_type, char is_abstract)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
-
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type!", 0);
+    class_type = get_actual_class_type(class_type);
     class_type->type->class_info->is_abstract = is_abstract;
 }
 
@@ -3456,7 +3460,8 @@ char class_type_is_nearly_empty(type_t* t)
 
 char class_type_get_is_dependent(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->info->is_dependent;
 }
 
@@ -3492,25 +3497,29 @@ int class_type_get_num_bases(type_t* class_type)
 
 void class_type_set_destructor(type_t* class_type, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
     class_type->type->class_info->destructor = entry;
 }
 
 scope_entry_t* class_type_get_destructor(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
     return class_type->type->class_info->destructor;
 }
 
 void class_type_set_default_constructor(type_t* class_type, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
     class_type->type->class_info->default_constructor = entry;
 }
 
 scope_entry_t* class_type_get_default_constructor(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
     return class_type->type->class_info->default_constructor;
 }
 
@@ -3780,7 +3789,8 @@ scope_entry_list_t* class_type_get_virtual_functions(type_t* t)
 
 void class_type_add_member(type_t* class_type, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     // It may happen that a type is added twice (redeclared classes ...)
     class_type->type->class_info->members = entry_list_add_once(class_type->type->class_info->members, entry);
@@ -3788,7 +3798,8 @@ void class_type_add_member(type_t* class_type, scope_entry_t* entry)
 
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
 
     t->type->template_class_base_clause = base_clause;
     t->type->template_class_body = body;
@@ -3796,7 +3807,8 @@ void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
 
 void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
 
     *body = t->type->template_class_body;
     *base_clause = t->type->template_class_base_clause;
@@ -3948,7 +3960,8 @@ char function_type_get_has_ellipsis(type_t* function_type)
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
         char is_virtual, char is_dependent, access_specifier_t access_specifier)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     if (base_class->entity_specs.is_injected_class_name)
         base_class = named_type_get_symbol(base_class->entity_specs.class_type);
@@ -3967,14 +3980,16 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class,
 
 void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     class_type->type->class_info->inner_decl_context = decl_context;
 }
 
 decl_context_t class_type_get_inner_context(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     return class_type->type->class_info->inner_decl_context;
 }
@@ -4006,7 +4021,8 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
 
 _size_t class_type_get_offset_direct_base(type_t* class_type, scope_entry_t* direct_base)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     class_info_t* class_info = class_type->type->class_info;
 
@@ -4025,7 +4041,8 @@ _size_t class_type_get_offset_direct_base(type_t* class_type, scope_entry_t* dir
 
 void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct_base, _size_t base_offset)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     class_info_t* class_info = class_type->type->class_info;
 
@@ -4045,7 +4062,8 @@ void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct
 
 scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     // For every base class, get its conversions
     int i;
@@ -5643,7 +5661,8 @@ decl_context_t enum_type_get_context(type_t* t)
 
 decl_context_t class_type_get_context(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+    t = get_actual_class_type(t);
     return t->type->type_decl_context;
 }
 

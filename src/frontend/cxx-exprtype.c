@@ -721,15 +721,14 @@ static void instantiate_symbol(scope_entry_t* entry,
             instantiate_template_function_if_needed(entry, 
                     filename, line);
         }
-        else if (entry->entity_specs.is_non_emmitted)
+        else if (entry->entity_specs.is_non_emitted)
         {
-            instantiate_emit_member_function(entry,
-                    filename, line);
+            (entry->entity_specs.emission_handler)(entry, filename, line);
         }
     }
 }
 
-void ensure_function_is_emmitted(scope_entry_t* entry,
+void ensure_function_is_emitted(scope_entry_t* entry,
         const char* filename,
         int line)
 {
@@ -2790,20 +2789,20 @@ static char filter_only_nonmembers(scope_entry_t* e)
     return 0;
 }
 
-static void error_message_delete_call(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+static void error_message_delete_call(decl_context_t decl_context, scope_entry_t* entry, const char* filename, int line)
 {
-    error_printf("%s: error: call to deleted function '%s'\n",
-            ast_location(expr),
+    error_printf("%s:%d: error: call to deleted function '%s'\n",
+            filename, line,
             print_decl_type_str(entry->type_information, decl_context,
                 get_qualified_symbol_name(entry, decl_context)));
 }
 
-static char function_has_been_deleted(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+static char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const char* filename, int line)
 {
     char c = entry->entity_specs.is_deleted;
     if (c)
     {
-        error_message_delete_call(decl_context, expr, entry);
+        error_message_delete_call(decl_context, entry, filename, line);
     }
     return c;
 }
@@ -2881,14 +2880,14 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
-        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
             return get_error_type();
         }
 
         if (conversors[0] != NULL)
         {
-            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
                 return get_error_type();
             }
@@ -2905,7 +2904,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         }
         if (conversors[1] != NULL)
         {
-            if (function_has_been_deleted(decl_context, expr, conversors[1]))
+            if (function_has_been_deleted(decl_context, conversors[1], ASTFileName(expr), ASTLine(expr)))
             {
                 return get_error_type();
             }
@@ -3022,7 +3021,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
-        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
             return get_error_type();
         }
@@ -3039,7 +3038,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (conversors[0] != NULL)
         {
-            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
                 return get_error_type();
             }
@@ -6824,7 +6823,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, expr, overloaded_call))
+            if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
             {
                 expression_set_error(expr);
                 return;
@@ -6833,7 +6832,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             nodecl_t subscript_expr_nodecl = expression_get_nodecl(subscript_expr);
             if (conversors[1] != NULL)
             {
-                if (function_has_been_deleted(decl_context, expr, conversors[1]))
+                if (function_has_been_deleted(decl_context, conversors[1], ASTFileName(expr), ASTLine(expr)))
                 {
                     expression_set_error(expr);
                     return;
@@ -7383,7 +7382,7 @@ static void check_conditional_expression_impl(AST expression,
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, expression, overloaded_call))
+            if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expression), ASTLine(expression)))
             {
             }
 
@@ -7396,7 +7395,7 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (conversors[k] != NULL)
                 {
-                    if (function_has_been_deleted(decl_context, expression, conversors[k]))
+                    if (function_has_been_deleted(decl_context, conversors[k], ASTFileName(expression), ASTLine(expression)))
                     {
                         expression_set_error(expression);
                         return;
@@ -7823,7 +7822,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, new_expr, chosen_operator_new))
+            if (function_has_been_deleted(decl_context, chosen_operator_new, ASTFileName(new_expr), ASTLine(new_expr)))
             {
                 expression_set_error(new_expr);
                 return;
@@ -7852,7 +7851,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
 
                         if (conversors[i] != NULL)
                         {
-                            if (function_has_been_deleted(decl_context, new_expr, conversors[i]))
+                            if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
                             {
                                 expression_set_error(new_expr);
                                 return;
@@ -7938,7 +7937,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                         return;
                     }
 
-                    if (function_has_been_deleted(decl_context, new_expr, chosen_constructor))
+                    if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)))
                     {
                         expression_set_error(new_expr);
                         return;
@@ -7967,7 +7966,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
 
                                 if (conversors[i] != NULL)
                                 {
-                                    if (function_has_been_deleted(decl_context, new_expr, conversors[i]))
+                                    if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
                                     {
                                         expression_set_error(new_expr);
                                         return;
@@ -8360,7 +8359,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, expr, constructor))
+            if (function_has_been_deleted(decl_context, constructor, ASTFileName(expr), ASTLine(expr)))
             {
                 expression_set_error(expr);
                 return;
@@ -8378,7 +8377,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                     nodecl_t nodecl_output = expression_get_nodecl(current_expression);
                     if (conversors[k] != NULL)
                     {
-                        if (function_has_been_deleted(decl_context, current_expression, conversors[k]))
+                        if (function_has_been_deleted(decl_context, conversors[k], ASTFileName(current_expression), ASTLine(current_expression)))
                         {
                             expression_set_error(expr);
                             return;
@@ -8921,7 +8920,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 P_LIST_ADD(argument_types, num_arguments_tmp, expression_get_type(current_arg));
             }
 
-            scope_entry_t* solved_function = compute_type_function(entry, argument_types, argument_exprs, num_arguments_tmp);
+            const_value_t* const_value = NULL;
+            scope_entry_t* solved_function = compute_type_function(entry, argument_types, argument_exprs, num_arguments_tmp, &const_value);
 
             if (solved_function != NULL)
             {
@@ -8930,6 +8930,12 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                 nodecl_t nodecl_called = nodecl_make_symbol(solved_function, ASTFileName(called_expression), ASTLine(called_expression));
                 expression_set_nodecl(called_expression, nodecl_called);
+
+                if (const_value != NULL)
+                {
+                    expression_set_constant(called_expression, const_value);
+                    nodecl_set_constant(nodecl_called, const_value);
+                }
             }
             else
             {
@@ -9534,7 +9540,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
     if (overloaded_call != NULL)
     {
-        if (function_has_been_deleted(decl_context, whole_function_call, overloaded_call))
+        if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(whole_function_call), ASTLine(whole_function_call)))
         {
             return 0;
         }
@@ -9560,7 +9566,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                 if (conversors[arg_i] != NULL)
                 {
-                    if (function_has_been_deleted(decl_context, argument, conversors[arg_i]))
+                    if (function_has_been_deleted(decl_context, conversors[arg_i], ASTFileName(argument), ASTLine(argument)))
                     {
                         return 0;
                     }
@@ -10197,7 +10203,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             return;
         }
 
-        if (function_has_been_deleted(decl_context, member_access, selected_operator_arrow))
+        if (function_has_been_deleted(decl_context, selected_operator_arrow, ASTFileName(member_access), ASTLine(member_access)))
         {
             expression_set_error(member_access);
             return;
@@ -10610,7 +10616,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
             expression_set_error(expr);
             return;
@@ -10621,7 +10627,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
 
         if (conversors[0] != NULL)
         {
-            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
                 expression_set_error(expr);
                 return;
@@ -10735,7 +10741,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        if (function_has_been_deleted(decl_context, expr, overloaded_call))
+        if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
             expression_set_error(expr);
             return;
@@ -10746,7 +10752,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
 
         if (conversors[0] != NULL)
         {
-            if (function_has_been_deleted(decl_context, expr, conversors[0]))
+            if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
                 expression_set_error(expr);
                 return;
@@ -11686,7 +11692,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             }
             else
             {
-                if (function_has_been_deleted(decl_context, initializer, constructor))
+                if (function_has_been_deleted(decl_context, constructor, ASTFileName(initializer), ASTLine(initializer)))
                 {
                     return 0;
                 }
@@ -11695,7 +11701,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 {
                     if (conversors[i] != NULL)
                     {
-                        if (function_has_been_deleted(decl_context, initializer, conversors[i]))
+                        if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(initializer), ASTLine(initializer)))
                         {
                             return 0;
                         }
@@ -11796,7 +11802,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             }
             else
             {
-                if (function_has_been_deleted(decl_context, initializer, constructor))
+                if (function_has_been_deleted(decl_context, constructor, ASTFileName(initializer), ASTLine(initializer)))
                 {
                     return 0;
                 }
@@ -11806,7 +11812,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 {
                     if (conversors[i] != NULL)
                     {
-                        if (function_has_been_deleted(decl_context, initializer, conversors[i]))
+                        if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(initializer), ASTLine(initializer)))
                         {
                             return 0;
                         }
@@ -12496,7 +12502,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
             return 0;
         }
 
-        if (function_has_been_deleted(decl_context, context_tree, constructor))
+        if (function_has_been_deleted(decl_context, constructor, ASTFileName(context_tree), ASTLine(context_tree)))
         {
             return 0;
         }
@@ -12512,7 +12518,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
                 nodecl_t nodecl_current_arg = expression_get_nodecl(initializer);
                 if (conversors[k] != NULL)
                 {
-                    if (function_has_been_deleted(decl_context, initializer, conversors[k]))
+                    if (function_has_been_deleted(decl_context, conversors[k], ASTFileName(initializer), ASTLine(initializer)))
                     {
                         return 0;
                     }
@@ -14083,7 +14089,6 @@ char check_expression_list(AST expression_list, decl_context_t decl_context)
 
 static char check_default_initialization_(scope_entry_t* entry,
         decl_context_t decl_context,
-        AST declarator,
         const char* filename, int line,
         scope_entry_t** constructor)
 {
@@ -14146,7 +14151,7 @@ static char check_default_initialization_(scope_entry_t* entry,
         else
         {
             entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, declarator, chosen_constructor))
+            if (function_has_been_deleted(decl_context, chosen_constructor, filename, line))
             {
                 return 0;
             }
@@ -14154,13 +14159,6 @@ static char check_default_initialization_(scope_entry_t* entry,
             instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
                         chosen_constructor->file, 
                         chosen_constructor->line));
-
-            if (declarator != NULL)
-            {
-                // To be removed some moment in the future
-                ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
-            }
 
             if (constructor != NULL)
             {
@@ -14239,7 +14237,7 @@ char check_copy_constructor(scope_entry_t* entry,
         else
         {
             entry_list_free(candidates);
-            if (function_has_been_deleted(decl_context, NULL, chosen_constructor))
+            if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(NULL), ASTLine(NULL)))
             {
                 return 0;
             }
@@ -14346,7 +14344,7 @@ char check_copy_assignment_operator(scope_entry_t* entry,
         else
         {
             entry_list_free(operator_overload_set);
-            if (function_has_been_deleted(decl_context, NULL, overloaded_call))
+            if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(NULL), ASTLine(NULL)))
             {
                 return 0;
             }
@@ -14364,21 +14362,27 @@ char check_copy_assignment_operator(scope_entry_t* entry,
     return 1;
 }
 
-char check_default_initialization_declarator(scope_entry_t* entry,
-        decl_context_t decl_context,
-        AST declarator,
-        scope_entry_t** constructor)
-{
-    return check_default_initialization_(entry, decl_context, declarator, 
-           ASTFileName(declarator), ASTLine(declarator), constructor);
-}
-
 char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const char* filename, int line,
         scope_entry_t** constructor)
 {
-    return check_default_initialization_(entry, decl_context, NULL, 
-            filename, line, constructor);
+    return check_default_initialization_(entry, decl_context, filename, line, constructor);
+}
+
+char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, decl_context_t decl_context,
+        const char* filename,
+        int line)
+{
+    check_default_initialization_(entry, decl_context, filename, line, /* constructor */ NULL);
+
+    if (is_class_type(entry->type_information))
+    {
+        scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
+        ERROR_CONDITION(destructor == NULL, "Invalid destructor", 0);
+        ensure_function_is_emitted(destructor, filename, line);
+    }
+
+    return 1;
 }
 
 static void diagnostic_single_candidate(scope_entry_t* entry, const char* filename, int line)

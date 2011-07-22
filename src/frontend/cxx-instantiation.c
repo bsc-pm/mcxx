@@ -484,7 +484,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     // Remember that this function has not been instantiated (it
                     // could have been defined though)
-                    new_member->entity_specs.is_non_emmitted = 1;
+                    new_member->entity_specs.is_non_emitted = 1;
+                    new_member->entity_specs.emission_handler = instantiate_emit_member_function;
                 }
                 else
                 {
@@ -1043,7 +1044,7 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
 
-    ERROR_CONDITION(!entry->entity_specs.is_non_emmitted, "Invalid function is not yet nonemitted", 0);
+    ERROR_CONDITION(!entry->entity_specs.is_non_emitted, "Invalid function is not yet nonemitted", 0);
 
     DEBUG_CODE()
     {
@@ -1054,7 +1055,8 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
                 line);
     }
 
-    entry->entity_specs.is_non_emmitted = 0;
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
 
     if (!entry->defined)
     {

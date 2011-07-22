@@ -58,13 +58,13 @@ LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_co
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
-LIBMCXX_EXTERN char check_default_initialization_declarator(scope_entry_t* entry,
-        decl_context_t decl_context,
-        AST declarator,
-        scope_entry_t** constructor);
 LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const char* filename, int line,
         scope_entry_t** constructor);
+
+LIBMCXX_EXTERN char check_default_initialization_and_destruction_declarator(scope_entry_t* entry, decl_context_t decl_context,
+        const char* filename,
+        int line);
 
 LIBMCXX_EXTERN char check_copy_constructor(scope_entry_t* entry,
         decl_context_t decl_context,
@@ -129,7 +129,7 @@ LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char* filename, int line);
 
-LIBMCXX_EXTERN void ensure_function_is_emmitted(scope_entry_t* entry,
+LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const char* filename,
         int line);
 

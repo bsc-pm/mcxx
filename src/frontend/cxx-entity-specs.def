@@ -58,7 +58,7 @@ bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
-bool|all|is_non_emmitted|States that this function symbol has not been emmitted yet
+bool|all|is_non_emitted|States that this function symbol has not been emitted yet
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
 bool|fortran|is_in_common|This entity appears in a COMMON construct
@@ -101,5 +101,6 @@ static_array(typeof(gather_gcc_attribute_t), MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
 AST|all|definition_tree|The tree where this function or class has been defined
 typeof(codegen_status_t)|all|*codegen_status|Status during codegen
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
+typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
 array(AST)|all|pragmas|Pragmas related to this symbol (in nodecl representation)
 AST|all|asm_specification|__asm specification of GCC (in nodecl representation)

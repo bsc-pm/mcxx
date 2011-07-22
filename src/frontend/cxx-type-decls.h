@@ -29,13 +29,21 @@
 #ifndef CXX_TYPE_DECLS_H
 #define CXX_TYPE_DECLS_H
 
+#include "cxx-ast-fwd.h"
 #include "cxx-scope-fwd.h"
 #include "cxx-type-fwd.h"
+#include "cxx-cexpr-fwd.h"
 
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
+
+typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
+        type_t** argument_types, 
+        AST *argument_expressions,
+        int num_arguments,
+        const_value_t** const_value);
 
 // Information of a parameter feeded to get_new_function_type
 struct parameter_info_tag
