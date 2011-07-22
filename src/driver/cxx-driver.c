@@ -2526,10 +2526,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
 
                 // 6. TL::run and TL::phase_cleanup
-                if (CURRENT_CONFIGURATION->disable_nodecl)
-                {
-                    compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
-                }
+                compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
