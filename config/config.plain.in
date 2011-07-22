@@ -33,6 +33,5 @@ compiler_name = gfortran
 compiler_options = 
 linker_name = gfortran
 linker_options = 
-{openmp} compiler_phase = libtlomp-core.so
 
 [plainf95 : plainfc]

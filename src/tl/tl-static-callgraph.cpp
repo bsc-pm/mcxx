@@ -49,7 +49,7 @@ namespace TL
                 it != explicit_function_calls.end();
                 it++)
         {
-            AST_t lang_called_expression = it->get_attribute(LANG_CALLED_EXPRESSION);
+            AST_t lang_called_expression = it->get_link_to_child(LANG_CALLED_EXPRESSION);
             Symbol called_symbol = lang_called_expression.get_attribute(LANG_FUNCTION_SYMBOL);
 
             if (called_symbol.is_valid())

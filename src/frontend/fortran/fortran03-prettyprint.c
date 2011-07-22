@@ -172,6 +172,8 @@ HANDLER_PROTOTYPE(pause_statement_handler);
 HANDLER_PROTOTYPE(pixel_type_handler);
 HANDLER_PROTOTYPE(pointer_initialization_handler);
 HANDLER_PROTOTYPE(pointer_statement_handler);
+HANDLER_PROTOTYPE(cray_pointer_statement_handler);
+HANDLER_PROTOTYPE(cray_pointer_spec_handler);
 HANDLER_PROTOTYPE(print_statement_handler);
 HANDLER_PROTOTYPE(proc_component_def_statement_handler);
 HANDLER_PROTOTYPE(procedure_decl_statement_handler);
@@ -375,13 +377,13 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_MODULE_PROCEDURE_STATEMENT, module_procedure_statement_handler, NULL),
     NODE_HANDLER(AST_MODULE_PROGRAM_UNIT, module_program_unit_handler, NULL),
     NODE_HANDLER(AST_MODULE_STATEMENT, module_statement_handler, NULL),
-    NODE_HANDLER(AST_MULT, binary_operator_handler, "*"),
+    NODE_HANDLER(AST_MUL, binary_operator_handler, "*"),
     NODE_HANDLER(AST_NAMED_PAIR_SPEC, named_pair_spec_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_ITEM, namelist_item_handler, NULL),
     NODE_HANDLER(AST_NAMELIST_STATEMENT, namelist_statement_handler, NULL),
     NODE_HANDLER(AST_NEG, unary_operator_handler, "-"),
     NODE_HANDLER(AST_NODE_LIST, sequence_handler, NULL),
-    NODE_HANDLER(AST_NOT, unary_operator_handler, ".NOT."),
+    NODE_HANDLER(AST_LOGICAL_NOT, unary_operator_handler, ".NOT."),
     NODE_HANDLER(AST_NULLIFY_STATEMENT, nullify_statement_handler, NULL),
     NODE_HANDLER(AST_OCTAL_LITERAL, simple_text_handler, NULL),
     NODE_HANDLER(AST_OPEN_STATEMENT, open_statement_handler, NULL),
@@ -395,6 +397,8 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PLUS, unary_operator_handler, "+"),
     NODE_HANDLER(AST_POINTER_INITIALIZATION, pointer_initialization_handler, NULL),
     NODE_HANDLER(AST_POINTER_STATEMENT, pointer_statement_handler, NULL),
+    NODE_HANDLER(AST_CRAY_POINTER_STATEMENT, cray_pointer_statement_handler, NULL),
+    NODE_HANDLER(AST_CRAY_POINTER_SPEC, cray_pointer_spec_handler, NULL),
     NODE_HANDLER(AST_POWER, binary_operator_handler, "**"),
     NODE_HANDLER(AST_PRINT_STATEMENT, print_statement_handler, NULL),
     NODE_HANDLER(AST_PROC_COMPONENT_DEF_STATEMENT, proc_component_def_statement_handler, NULL),
@@ -1671,7 +1675,7 @@ static void format_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_c
 {
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "FORMAT");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
     end_of_statement_handler(f, a, pt_ctx);
 }
 
@@ -2147,6 +2151,23 @@ static void pointer_initialization_handler(FILE* f, AST a, prettyprint_context_t
 {
     token_fprintf(f, a, pt_ctx, " => ");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void cray_pointer_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "(");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ", ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void cray_pointer_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "POINTER ");
+    list_handler(f, ASTSon0(a), pt_ctx);
+    end_of_statement_handler(f, a, pt_ctx);
 }
 
 static void pointer_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

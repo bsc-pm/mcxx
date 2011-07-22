@@ -902,7 +902,8 @@ namespace TL
                 if (template_header != NULL)
                 {
                     decl_context_t templated_context;
-                    build_scope_template_header(template_header, decl_context, &templated_context);
+                    nodecl_t dummy_nodecl_output = { NULL };
+                    build_scope_template_header(template_header, decl_context, &templated_context, &dummy_nodecl_output);
                     // Replace the current context with the templated one, so
                     // parsing does not fail later
                     decl_context = templated_context;
@@ -924,7 +925,7 @@ namespace TL
                 if (ASTType(operator_id) != AST_OMP_UDR_MEMBER_OP
                         && ASTType(operator_id) != AST_OMP_UDR_BUILTIN_OP)
                 {
-                    check_for_expression(operator_id, decl_context);
+                    check_expression(operator_id, decl_context);
                 }
 
                 operator_list.append(AST_t(operator_id));
@@ -946,12 +947,13 @@ namespace TL
                 std::cerr << " - type_id '" << AST_t(type_id).prettyprint() << "'" << std::endl;
                 std::cerr << " - type_specifier_seq '" << AST_t(type_specifier_seq).prettyprint() << "'" << std::endl;
                 std::cerr << " - abstract_decl '" << AST_t(abstract_decl).prettyprint() << "'" << std::endl;
+                nodecl_t dummy_nodecl_output = { NULL };
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                        decl_context);
+                        decl_context, &dummy_nodecl_output);
 
                 type_t* declarator_type = type_info;
                 compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                        decl_context);
+                        decl_context, &dummy_nodecl_output);
 
                 type_list.append(Type(declarator_type));
             }
@@ -1015,7 +1017,7 @@ namespace TL
 
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
-                check_for_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                check_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
@@ -1024,7 +1026,7 @@ namespace TL
 
                 if (expr_list != NULL)
                 {
-                    check_for_expression_list(expr_list, decl_context);
+                    check_expression_list(expr_list, decl_context);
                 }
             }
 
@@ -1782,6 +1784,8 @@ namespace TL
 
                     if (valid)
                     {
+                        internal_error("Not yet implemented", 0);
+#if 0
                         template_argument_list_t* template_arguments =
                             template_specialized_type_get_template_arguments(solved_sym.get_type().get_internal_type());
 
@@ -1855,6 +1859,7 @@ namespace TL
                                 viable_udr.append(new_udr);
                             }
                         }
+#endif
                     }
                 }
             }

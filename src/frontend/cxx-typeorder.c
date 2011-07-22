@@ -33,6 +33,7 @@
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
+#include "cxx-limits.h"
 
 char is_sound_type(type_t* t, decl_context_t decl_context)
 {
@@ -52,13 +53,13 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
             return 0;
         }
 
-        AST expr_size = array_type_get_array_size_expr(t);
+        nodecl_t expr_size = array_type_get_array_size_expr(t);
 
-        if (expression_is_constant(expr_size))
+        if (nodecl_is_constant(expr_size))
         {
             if (const_value_is_zero(
                         const_value_gt(
-                            expression_get_constant(expr_size),
+                            nodecl_get_constant(expr_size),
                             const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
             {
                 DEBUG_CODE()
@@ -160,7 +161,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
 static char is_less_or_equal_specialized_template_function_common_(type_t* f1, type_t* f2,
         decl_context_t decl_context, deduction_set_t** deduction_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion,
         char is_template_class)
 {
@@ -198,14 +199,13 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         return 0;
     }
 
-#define MAX_ARGUMENTS_FOR_DEDUCTION (256)
-    type_t * arguments[MAX_ARGUMENTS_FOR_DEDUCTION];
-    type_t * parameters[MAX_ARGUMENTS_FOR_DEDUCTION];
+    type_t * arguments[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
+    type_t * parameters[MCXX_MAX_ARGUMENTS_FOR_DEDUCTION];
 
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        ERROR_CONDITION(i >= MAX_ARGUMENTS_FOR_DEDUCTION, 
+        ERROR_CONDITION(i >= MCXX_MAX_ARGUMENTS_FOR_DEDUCTION, 
                 "Too many types for deduction", 0);
         arguments[i] = function_type_get_parameter_type_num(f2, i);
         parameters[i] = function_type_get_parameter_type_num(f1, i);
@@ -215,7 +215,7 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     // Try to deduce types of template type F1 using F2
 
     template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_parameters(f1);
+        template_specialized_type_get_template_arguments(f1);
 
     deduction_flags_t deduction_flags = deduction_flags_empty();
 
@@ -224,12 +224,12 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
         deduction_flags.do_not_allow_conversions = 1;
     }
 
-    if (!deduce_template_arguments_common(
+    if (!deduce_template_parameters_common(
                 template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
                 &deduction_result, filename, line,
-                explicit_template_arguments,
+                explicit_template_parameters,
                 deduction_flags))
     {
         DEBUG_CODE()
@@ -240,12 +240,11 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     }
 
     // Now check that the updated types match exactly
-    template_argument_list_t* deduced_template_argument_list = 
-        build_template_argument_list_from_deduction_set(deduction_result);
+    template_parameter_list_t* deduced_template_parameter_list = 
+        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(
-            decl_context,
-            deduced_template_argument_list);
+    decl_context_t updated_context = decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     for (i = 0; i < num_arguments; i++)
     {
@@ -326,7 +325,6 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
             c1_parameters, 1);
 
     set_as_template_specialized_type(faked_type_1,
-            template_specialized_type_get_template_arguments(get_actual_class_type(c1)),
             // Can be NULL if c1 is a full specialization
             template_specialized_type_get_template_parameters(get_actual_class_type(c1)),
             template_specialized_type_get_related_template_type(get_actual_class_type(c1)));
@@ -337,7 +335,7 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2,
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
             named_type_get_symbol(c1)->decl_context, 
             deduction_set, 
-            /* explicit_template_arguments */ NULL,
+            /* explicit_template_parameters */ NULL,
             filename, line,
             /* is_conversion */ 0,
             /* is_template_class */ 1);
@@ -389,14 +387,14 @@ static char is_less_or_equal_specialized_template_conversion_function(
     // Try to deduce types of template type F1 using F2
 
     template_parameter_list_t* template_parameters = 
-        template_specialized_type_get_template_parameters(f1);
+        template_specialized_type_get_template_arguments(f1);
 
-    if (!deduce_template_arguments_common(
+    if (!deduce_template_parameters_common(
                 template_parameters,
                 arguments, num_arguments,
                 parameters, decl_context,
                 &deduction_result, filename, line,
-                /* explicit_template_arguments */ NULL,
+                /* explicit_template_parameters */ NULL,
                 deduction_flags_empty()))
     {
         DEBUG_CODE()
@@ -407,11 +405,11 @@ static char is_less_or_equal_specialized_template_conversion_function(
     }
 
     // Now check that the updated types match exactly
-    template_argument_list_t* deduced_template_argument_list = 
-        build_template_argument_list_from_deduction_set(deduction_result);
+    template_parameter_list_t* deduced_template_parameter_list = 
+        build_template_parameter_list_from_deduction_set(template_parameters, deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
-            deduced_template_argument_list);
+    decl_context_t updated_context = decl_context;
+    updated_context.template_parameters = deduced_template_parameter_list;
 
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, 0);
@@ -471,11 +469,11 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
 char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
         decl_context_t decl_context, deduction_set_t** deduction_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         const char *filename, int line, char is_conversion)
 {
     return is_less_or_equal_specialized_template_function_common_(
             f1, f2, decl_context, deduction_set, 
-            explicit_template_arguments, 
+            explicit_template_parameters, 
             filename, line, is_conversion, /* is_template_class */ 0);
 }

@@ -68,7 +68,7 @@ namespace TL
 
     void RemoveAttributes::run(DTO& dto)
     {
-        TL::AST_t tree = dto["translation_unit"];
+        TL::AST_t tree ( dto["translation_unit"] );
         TL::ScopeLink sl = dto["scope_link"];
 
         TL::String str = dto["remove_attributes"];

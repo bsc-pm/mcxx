@@ -126,7 +126,9 @@ namespace TL
 		type_t* declared_type = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
-		compute_declarator_type(c_declarator_ast, &gather_info, nonadjusted_type.get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
+        nodecl_t dummy_nodecl_output = { NULL };
+		compute_declarator_type(c_declarator_ast, &gather_info, nonadjusted_type.get_internal_type(), &declared_type, decl_context, &dummy_nodecl_output); 
+        // This call also checks the declarator and adds the tree attributes
 		
 		// Fix up the type of the variable (merge the two types into a consistant type)
 		Type augmented_type = TypeUtils::fix_type(nonadjusted_type, Type(declared_type), scope_link);
@@ -198,7 +200,7 @@ namespace TL
 		
 		AST c_expression_ast = ASTSon0(superscalar_expression_ast);
 		scope_link_set(scope_link.get_internal_scope_link(), c_expression_ast, decl_context);
-		if (!check_for_expression(c_expression_ast, decl_context))
+		if (!check_expression(c_expression_ast, decl_context))
 		{
 			throw SyntaxErrorException();
 		}

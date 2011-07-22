@@ -32,6 +32,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-driver.h"
 #include "cxx-buildscope.h"
+#include "cxx-exprtype.h"
 
 void upc_sign_in_builtins(decl_context_t decl_context)
 {
@@ -47,7 +48,8 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_THREADS->entity_specs.is_builtin = 1;
     if (CURRENT_CONFIGURATION->upc_threads != NULL)
     {
-        upc_THREADS->expression_value = internal_expression_parse(CURRENT_CONFIGURATION->upc_threads, decl_context);
+        upc_THREADS->language_dependent_value = internal_expression_parse(CURRENT_CONFIGURATION->upc_threads, decl_context);
+        upc_THREADS->value = expression_get_nodecl(upc_THREADS->language_dependent_value);
     }
 
     // MYTHREAD

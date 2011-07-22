@@ -110,19 +110,19 @@ pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line_directive
 /*!ifnot FORTRAN2003*/
 pragma_custom_construct_declaration : PRAGMA_CUSTOM pragma_custom_line_construct declaration
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_construct_member_declaration : PRAGMA_CUSTOM pragma_custom_line_construct member_declaration
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_construct_statement : PRAGMA_CUSTOM pragma_custom_line_construct statement
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 /*!endif*/

@@ -50,3 +50,5 @@ struct B : public A<T>
 struct C : B<int>
 {
 };
+
+C c;

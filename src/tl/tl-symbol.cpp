@@ -287,12 +287,12 @@ namespace TL
 
     bool Symbol::has_initialization() const
     {
-        return (_symbol->expression_value != NULL);
+        return (_symbol->language_dependent_value != NULL);
     }
 
     AST_t Symbol::get_initialization() const
     {
-        return _symbol->expression_value;
+        return _symbol->language_dependent_value;
     }
 
     bool Symbol::has_namespace_scope() const
@@ -320,8 +320,7 @@ namespace TL
 
     bool Symbol::has_template_scope() const
     {
-        return _symbol->decl_context.current_scope != NULL
-            && _symbol->decl_context.current_scope->kind == TEMPLATE_SCOPE;
+        return false;
     }
 
     bool Symbol::has_prototype_scope() const
@@ -334,11 +333,6 @@ namespace TL
     {
         // Despite the name this applies to variables too
         return _symbol->entity_specs.is_builtin;
-    }
-
-    bool Symbol::is_created_after_typedef() const
-    {
-        return _symbol->entity_specs.after_typedef;
     }
 
     AST_t Symbol::get_definition_tree() const
@@ -367,7 +361,7 @@ namespace TL
 
             if (current_gcc_attr == str)
             {
-                return _symbol->entity_specs.gcc_attributes[i].expression_list;
+                return nodecl_get_ast(_symbol->entity_specs.gcc_attributes[i].expression_list);
             }
         }
 

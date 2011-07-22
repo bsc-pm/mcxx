@@ -771,7 +771,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 
 void DeviceCUDA::pre_run(DTO& dto)
 {
-	_root = dto["translation_unit"];
+	_root = AST_t(dto["translation_unit"]);
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceCUDA);

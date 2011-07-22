@@ -1,10 +1,14 @@
 #include "fortran03-typeutils.h"
-#include "fortran03-prettyprint.h"
+#include "fortran03-codegen.h"
+#include "cxx-nodecl-decls.h"
+#include "cxx-limits.h"
 #include "cxx-utils.h"
 #include <string.h>
 
 const char* fortran_print_type_str(type_t* t)
 {
+    t = no_ref(t);
+
     const char* result = "";
     char is_pointer = 0;
     if (is_pointer_type(t))
@@ -13,21 +17,20 @@ const char* fortran_print_type_str(type_t* t)
         t = pointer_type_get_pointee_type(t);
     }
 
-#define MAX_ARRAY_SPEC 16
     struct array_spec_tag {
-        AST lower;
-        AST upper;
+        nodecl_t lower;
+        nodecl_t upper;
         char is_undefined;
-    } array_spec_list[MAX_ARRAY_SPEC] = { { 0, 0, 0 }  };
+    } array_spec_list[MCXX_MAX_ARRAY_SPECIFIER] = { { nodecl_null(), nodecl_null(), 0 }  };
 
     int array_spec_idx;
-    for (array_spec_idx = MAX_ARRAY_SPEC - 1; 
+    for (array_spec_idx = MCXX_MAX_ARRAY_SPECIFIER - 1; 
             is_fortran_array_type(t);
             array_spec_idx--)
     {
         if (array_spec_idx < 0)
         {
-            internal_error("too many array dimensions %d\n", MAX_ARRAY_SPEC);
+            internal_error("too many array dimensions %d\n", MCXX_MAX_ARRAY_SPECIFIER);
         }
 
         if (!array_type_is_unknown_size(t))
@@ -43,11 +46,11 @@ const char* fortran_print_type_str(type_t* t)
         t = array_type_get_element_type(t);
     }
 
-    char is_array = (array_spec_idx != (MAX_ARRAY_SPEC - 1));
+    char is_array = (array_spec_idx != (MCXX_MAX_ARRAY_SPECIFIER - 1));
 
     if (is_bool_type(t)
             || is_integer_type(t)
-            || is_float_type(t)
+            || is_floating_type(t)
             || is_double_type(t)
             || is_complex_type(t))
     {
@@ -58,17 +61,11 @@ const char* fortran_print_type_str(type_t* t)
         {
             type_name = "LOGICAL";
         }
-        // Do not move this after is_integer_type
-        else if (is_character_type(t))
-        {
-            type_name = "CHARACTER";
-        }
         else if (is_integer_type(t))
         {
             type_name = "INTEGER";
         }
-        else if (is_float_type(t)
-                || is_double_type(t))
+        else if (is_floating_type(t))
         {
             type_name = "REAL";
         }
@@ -81,7 +78,20 @@ const char* fortran_print_type_str(type_t* t)
             internal_error("unreachable code", 0);
         }
 
-        snprintf(c, 127, "%s(%zd)", type_name, type_get_size(t));
+        size_t size = type_get_size(t);
+        if (is_floating_type(t))
+        {
+            // KIND of floats is their size in byes (using the bits as in IEEE754) 
+            size = (floating_type_get_info(t)->bits) / 8;
+        }
+        else if (is_complex_type(t))
+        {
+            // KIND of a complex is the KIND of its component type
+            type_t* f = complex_type_get_base_type(t);
+            size = (floating_type_get_info(f)->bits) / 8;
+        }
+
+        snprintf(c, 127, "%s(%zd)", type_name, size);
         c[127] = '\0';
 
         result = uniquestr(c);
@@ -98,10 +108,10 @@ const char* fortran_print_type_str(type_t* t)
     }
     else if (is_fortran_character_type(t))
     {
-        AST length = array_type_get_array_size_expr(t);
+        nodecl_t length = array_type_get_array_size_expr(t);
         char c[128] = { 0 };
         snprintf(c, 127, "CHARACTER(LEN=%s)",
-                length == NULL ? "*" : fortran_prettyprint_in_buffer(length));
+                nodecl_is_null(length) ? "*" : fortran_codegen_to_str(length));
         c[127] = '\0';
         result = uniquestr(c);
     }
@@ -141,19 +151,19 @@ const char* fortran_print_type_str(type_t* t)
         array_spec_idx++;
         result = strappend(result, ", DIMENSION(");
 
-        while (array_spec_idx <= (MAX_ARRAY_SPEC - 1))
+        while (array_spec_idx <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
         {
             if (!array_spec_list[array_spec_idx].is_undefined)
             {
-                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].lower));
+                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].lower));
                 result = strappend(result, ":");
-                result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].upper));
+                result = strappend(result, fortran_codegen_to_str(array_spec_list[array_spec_idx].upper));
             }
             else
             {
                 result = strappend(result, ":");
             }
-            if ((array_spec_idx + 1) <= (MAX_ARRAY_SPEC - 1))
+            if ((array_spec_idx + 1) <= (MCXX_MAX_ARRAY_SPECIFIER - 1))
             {
                 result = strappend(result, ", ");
             }
@@ -163,21 +173,21 @@ const char* fortran_print_type_str(type_t* t)
         result = strappend(result, ")");
     }
 
-    // if (is_character)
-    // {
-    // }
-
     return result;
 }
 
 char is_pointer_to_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return (is_pointer_type(t)
             && is_array_type(pointer_type_get_pointee_type(t)));
 }
 
 int get_rank_of_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (!is_fortran_array_type(t)
             && !is_pointer_to_array_type(t))
         return 0;
@@ -199,6 +209,8 @@ int get_rank_of_type(type_t* t)
 
 type_t* get_rank0_type(type_t* t)
 {
+    t = no_ref(t);
+
     while (is_fortran_array_type(t))
     {
         t = array_type_get_element_type(t);
@@ -209,12 +221,16 @@ type_t* get_rank0_type(type_t* t)
 
 char is_fortran_character_type(type_t* t)
 {
+    t = no_ref(t);
+
     return (is_array_type(t)
             && is_character_type(array_type_get_element_type(t)));
 }
 
 char is_pointer_to_fortran_character_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (is_pointer_type(t))
     {
         return is_fortran_character_type(pointer_type_get_pointee_type(t));
@@ -283,6 +299,11 @@ type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
     {
         return replace_return_type_of_function_type(type_info, basic_type);
     }
+    else if (is_lvalue_reference_type(type_info))
+    {
+        return get_lvalue_reference_type(
+                update_basic_type_with_type(reference_type_get_referenced_type(type_info), basic_type));
+    }
     else
     {
         return basic_type;
@@ -307,6 +328,10 @@ char basic_type_is_void(type_t* t)
     {
         return basic_type_is_void(function_type_get_return_type(t));
     }
+    else if (is_lvalue_reference_type(t))
+    {
+        return basic_type_is_void(reference_type_get_referenced_type(t));
+    }
     else if (is_pointer_type(t))
     {
         return basic_type_is_void(pointer_type_get_pointee_type(t));
@@ -317,18 +342,24 @@ char basic_type_is_void(type_t* t)
 
 char is_fortran_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return is_array_type(t)
         && !is_fortran_character_type(t);
 }
 
 char is_pointer_to_fortran_array_type(type_t* t)
 {
+    t = no_ref(t);
+
     return is_pointer_type(t)
         && is_fortran_array_type(pointer_type_get_pointee_type(t));
 }
 
 type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
 {
+    rank0_type = no_ref(rank0_type);
+
     ERROR_CONDITION(!is_scalar_type(rank0_type)
             && !is_fortran_character_type(rank0_type), "Invalid rank0 type", 0);
 
@@ -348,13 +379,15 @@ type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type)
         }
         else
         {
-            return get_array_type(t, NULL, array_type_get_array_size_expr_context(array_type));
+            return get_array_type(t, nodecl_null(), array_type_get_array_size_expr_context(array_type));
         }
     }
 }
 
 type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_context)
 {
+    scalar_type = no_ref(scalar_type);
+
     ERROR_CONDITION(is_fortran_array_type(scalar_type), "This is not a scalar type!", 0);
 
     if (rank == 0)
@@ -363,7 +396,7 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
     }
     else if (rank > 0)
     {
-        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), NULL, decl_context);
+        return get_array_type(get_n_ranked_type(scalar_type, rank-1, decl_context), nodecl_null(), decl_context);
     }
     else
     {
@@ -373,6 +406,8 @@ type_t* get_n_ranked_type(type_t* scalar_type, int rank, decl_context_t decl_con
 
 char is_fortran_intrinsic_type(type_t* t)
 {
+    t = no_ref(t);
+
     if (is_pointer_type(t))
         t = pointer_type_get_pointee_type(t);
 
@@ -385,6 +420,9 @@ char is_fortran_intrinsic_type(type_t* t)
 
 char are_conformable_types(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (get_rank_of_type(t1) == get_rank_of_type(t2))
         return 1;
     else if (get_rank_of_type(t1) == 1
@@ -392,4 +430,44 @@ char are_conformable_types(type_t* t1, type_t* t2)
         return 1;
     else
         return 0;
+}
+
+type_t* fortran_get_default_integer_type(void)
+{
+    return get_signed_int_type();
+}
+
+type_t* fortran_get_default_real_type(void)
+{
+    return get_float_type();
+}
+
+type_t* fortran_get_default_logical_type(void)
+{
+    return get_bool_of_integer_type(fortran_get_default_integer_type());
+}
+
+type_t* fortran_get_default_character_type(void)
+{
+    return get_signed_char_type();
+}
+
+int fortran_get_default_integer_type_kind(void)
+{
+    return type_get_size(fortran_get_default_integer_type());
+}
+
+int fortran_get_default_real_type_kind(void)
+{
+    return type_get_size(fortran_get_default_real_type());
+}
+
+int fortran_get_default_logical_type_kind(void)
+{
+    return type_get_size(fortran_get_default_logical_type());
+}
+
+int fortran_get_default_character_type_kind(void)
+{
+    return type_get_size(fortran_get_default_character_type());
 }

@@ -63,11 +63,13 @@ libmcxx_process_la_SOURCES = \
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
+  cxx-limits.h \
   cxx-macros.h \
   cxx-asttype.h \
   cxx-asttype.c \
   cxx-ast.c \
   cxx-ast.h \
+  cxx-ast-fwd.h \
   cxx-ast-decls.h \
   cxx-lexer.h \
   cxx-parser.h \
@@ -92,6 +94,7 @@ libmcxx_la_SOURCES = \
   cxx-entrylist-decls.h \
   cxx-entrylist.c \
   cxx-entrylist.h \
+  cxx-scope-fwd.h \
   cxx-scope-decls.h \
   cxx-attrnames.h \
   cxx-attrnames.c \
@@ -102,6 +105,7 @@ libmcxx_la_SOURCES = \
   cxx-type-trie.c \
   cxx-typeutils.c \
   cxx-typeutils.h \
+  cxx-type-fwd.h \
   cxx-type-decls.h \
   cxx-typeenviron-decls.h \
   cxx-typeenviron.h \
@@ -113,6 +117,7 @@ libmcxx_la_SOURCES = \
   cxx-typededuc.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
+  cxx-cexpr-fwd.h \
   cxx-cexpr-decls.h \
   cxx-ambiguity.c \
   cxx-ambiguity.h \
@@ -141,6 +146,8 @@ libmcxx_la_SOURCES = \
   cxx-gccbuiltins.c \
   cxx-gccspubuiltins.h \
   cxx-gccspubuiltins.c \
+  cxx-pragma.h \
+  cxx-pragma.c \
   cxx-upc.c \
   cxx-upc.h \
   cxx-cuda.c \
@@ -152,10 +159,18 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   cxx-nodecl.h \
   cxx-nodecl.c \
-  cxx-nodecl-output.h \
-  cxx-nodecl-output.c \
+  cxx-nodecl-fwd.h \
+  cxx-nodecl-decls.h \
   cxx-nodecl-checker.h \
   cxx-nodecl-checker.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
+  cxx-nodecl-visitor.h \
+  cxx-nodecl-visitor.c \
+  cxx-codegen.c \
+  cxx-codegen.h \
+  cxx-diagnostic.c \
+  cxx-diagnostic.h \
   libmcxx-common.h \
   $(END)
 
@@ -163,6 +178,7 @@ libmcxx_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
 					$(top_builddir)/lib/libmcxx-extstruct.la \
                     libmcxx-process.la \
+					$(quadmath_LIBS) \
 					$(END)
 
 if WINDOWS_BUILD
@@ -201,8 +217,11 @@ AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
 AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
+# Generated
+AST_NODE_TYPE_FILES_GEN = 
+AST_NODE_TYPE_FILES_GEN += cxx-asttype-nodecl.def
 
-EXTRA_DIST += $(AST_NODE_TYPE_FILES)
+EXTRA_DIST += $(AST_NODE_TYPE_FILES) $(AST_NODE_TYPE_FILES_GEN)
 
 EXTRA_DIST += cxx-attrnames.def
 
@@ -219,7 +238,6 @@ EXTRA_DIST += cxx-scanner.c
 ADDITIONAL_GRAMMARS = 
 ADDITIONAL_GRAMMARS += cxx-subparse.y
 ADDITIONAL_GRAMMARS += cxx-pragma.y
-ADDITIONAL_GRAMMARS += cxx-construct.y
 ADDITIONAL_GRAMMARS += cxx-omp.y
 ADDITIONAL_GRAMMARS += cxx-superscalar.y
 ADDITIONAL_GRAMMARS += cxx-ambig-handler.y
@@ -253,11 +271,9 @@ BUILT_SOURCES += c99-parser.h
 
 EXTRA_DIST += gen-symbol-attrs.py
 EXTRA_DIST += cxx-entity-specs.def
-BUILT_SOURCES += cxx-entity-specs.h
 
 EXTRA_DIST += nodecl-generator.py
 EXTRA_DIST += cxx-nodecl.def
-BUILT_SOURCES += cxx-nodecl-checker.c
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -313,8 +329,8 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	)
 
 CLEANFILES += cxx-asttype.def
-cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES))
-	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) $(srcdir)/cxx-asttype-all.def
+cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
+	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) -I $(builddir) $(srcdir)/cxx-asttype-all.def
 
 CLEANFILES += cxx-attrnames.h
 cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
@@ -422,10 +438,39 @@ endif
 c99-parser.h : c99-parser.c
 c99-parser.output : c99-parser.c
 
-CLEANFILES += cxx-entity-specs.h
+CLEANFILES    += cxx-entity-specs.h
+BUILT_SOURCES += cxx-entity-specs.h
 cxx-entity-specs.h : $(srcdir)/cxx-entity-specs.def $(srcdir)/gen-symbol-attrs.py
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > cxx-entity-specs.h
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/gen-symbol-attrs.py $(srcdir)/cxx-entity-specs.def > $@
 
-CLEANFILES += cxx-nodecl-checker.c
-cxx-nodecl-checker.c : $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
-	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > cxx-nodecl-checker.c
+NODECL_DEPS = $(srcdir)/cxx-nodecl.def $(srcdir)/nodecl-generator.py
+
+CLEANFILES    += cxx-nodecl-checker.c
+BUILT_SOURCES += cxx-nodecl-checker.c
+cxx-nodecl-checker.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def > $@
+
+CLEANFILES    += cxx-nodecl-output.c
+BUILT_SOURCES += cxx-nodecl-output.c
+cxx-nodecl-output.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_impl > $@
+
+CLEANFILES    += cxx-nodecl-output.h
+BUILT_SOURCES += cxx-nodecl-output.h
+cxx-nodecl-output.h : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def generation_routines_header > $@
+
+CLEANFILES    += cxx-nodecl-visitor.h
+BUILT_SOURCES += cxx-nodecl-visitor.h
+cxx-nodecl-visitor.h : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_decl > $@
+
+CLEANFILES    += cxx-nodecl-visitor.c
+BUILT_SOURCES += cxx-nodecl-visitor.c
+cxx-nodecl-visitor.c : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def c_visitor_def > $@
+
+CLEANFILES    += cxx-asttype-nodecl.def
+BUILT_SOURCES += cxx-asttype-nodecl.def
+cxx-asttype-nodecl.def : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/nodecl-generator.py $(srcdir)/cxx-nodecl.def asttype_nodecl > $@

@@ -22,9 +22,10 @@
 # DESCRIPTION -> Descriptive text of the attribute
 #
 #
-bool|all|is_static|States if this is a static (or SAVEd) variable
+bool|all|is_static|States if this is a static storage (or SAVEd in Fortran) variable
 bool|all|is_register|States if this is a register variable
-bool|all|is_extern|The symbol has an explicit extern linkage
+bool|all|is_extern|The symbol has an explicit extern storage
+bool|all|is_thread|The symbol has thread local storage
 bool|all|is_mutable|The symbol is a mutable entity of a const-class
 bool|all|is_export|This is an exported template. Not used at all
 bool|all|is_inline|The function has been explicitly set as inline
@@ -46,17 +47,18 @@ bool|all|is_destructor|This is a destructor
 bool|all|is_explicit|This constructor has been marked as explicit
 bool|all|is_surrogate_function|This function is a surrogate fake symbol created during overload resolution
 bool|all|is_anonymous|This is an unnamed entity used for structs and enums
-bool|all|is_template_argument|This is a template argument
 bool|all|is_user_declared|This specialization of template has been user declared
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function
 bool|all|is_member|This symbol is a member of a class
 bool|all|is_bitfield|This symbol is a bitfield
 bool|all|is_unnamed_bitfield|This symbol is an unnamed bitfield
+bool|all|is_friend_declared|States that this symbol has been declared as a friend but not formally declared or defined
 bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct
-bool|all|after_typedef|This symbol has been created after a typedef of an anonymous struct type
+bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
+bool|all|is_non_emitted|States that this function symbol has not been emitted yet
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
 bool|fortran|is_in_common|This entity appears in a COMMON construct
@@ -72,24 +74,33 @@ bool|fortran|is_dummy_arg_stmt_function|This symbol is a dummy argument of a sta
 bool|fortran|is_generic_spec|This symbol is a generic specifier name
 bool|fortran|is_builtin_subroutine|This symbol is a builtin subroutine (or function)
 bool|fortran|is_module_procedure|This function has been named in an interface construct as a MODULE PROCEDURE
-bool|fortran|is_from_module|States that this symbol comes from a module
+bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|bind_c|This symbol has a BIND(C) attribute
+bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist
-array(symbol)|fortran|related_symbols|Related symbols for this entity. Meaningful for NAMELIST, COMMON, FUNCTION, SUBROUTINE and MODULE
+array(symbol)|all|related_symbols|Related symbols for this entity. Meaningful for NAMELIST, COMMON, FUNCTION, SUBROUTINE and MODULE and C/C++ functions
 symbol|fortran|specific_intrinsic|For some INTRINSICs they have a specific function to be used when referenced not in a call. See is_builtin
 typeof(access_specifier_t)|all|access|Accessibility: public, private, protected
 integer|all|template_parameter_nesting|Nesting in the template parameter scoping hierarchy. See is_template_parameter
 integer|all|template_parameter_position|Position in the template parameter scoping hierarchy. See is_template_parameter
 integer|all|parameter_position|States the position of this parameter. See is_parameter
 type|all|class_type|The class type where a member belongs. See is_member
-symbol|all|injected_class_referred_symbol|The original class symbol reachable from the injected class name. See is_injected_class_name
+symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
+symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
+symbol|fortran|alias_to|If this symbol is_renamed this is the original symbol in the module
+symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
 AST|all|bitfield_expr|Expression of the bitfield
 scope|all|bitfield_expr_context|Context for the bitfield expression
 typeof(_size_t)|all|field_offset|Offsetof of a field/nonstatic data-member
-static_array(typeof(gather_gcc_attribute_t), MAX_GCC_ATTRIBUTES_PER_SYMBOL)|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
+static_array(typeof(gather_gcc_attribute_t), MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 AST|all|definition_tree|The tree where this function or class has been defined
+typeof(codegen_status_t)|all|*codegen_status|Status during codegen
+typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
+typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
+array(AST)|all|pragmas|Pragmas related to this symbol (in nodecl representation)
+AST|all|asm_specification|__asm specification of GCC (in nodecl representation)

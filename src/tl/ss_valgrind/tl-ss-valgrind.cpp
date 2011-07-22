@@ -52,7 +52,7 @@ namespace TL
         // Now look for all function calls that we know are CSS functions
 
         ScopeLink sl = dto["scope_link"];
-        AST_t a = dto["translation_unit"];
+        AST_t a ( dto["translation_unit"] );
 
         ObjectList<AST_t> all_function_calls = a.depth_subtrees(PredicateAttr(LANG_IS_FUNCTION_CALL));
 

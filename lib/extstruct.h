@@ -64,7 +64,7 @@ LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field(extensible_struct_t* exten
 LIBEXTSTRUCT_EXTERN void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
         int *num_fields,
         const char ***keys,
-        const void ***data);
+        void ***data);
 
 #ifdef __cplusplus
 }

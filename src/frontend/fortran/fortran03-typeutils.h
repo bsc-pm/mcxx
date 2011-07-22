@@ -32,4 +32,14 @@ LIBMF03_EXTERN type_t* rebuild_array_type(type_t* rank0_type, type_t* array_type
 
 LIBMF03_EXTERN char are_conformable_types(type_t* t1, type_t* t2);
 
+type_t* fortran_get_default_integer_type(void);
+type_t* fortran_get_default_real_type(void);
+type_t* fortran_get_default_logical_type(void);
+type_t* fortran_get_default_character_type(void);
+
+int fortran_get_default_integer_type_kind(void);
+int fortran_get_default_real_type_kind(void);
+int fortran_get_default_logical_type_kind(void);
+int fortran_get_default_character_type_kind(void);
+
 #endif // FORTRAN03_TYPEUTILS_H

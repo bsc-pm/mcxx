@@ -53,7 +53,7 @@ type_t* solve_class_template(decl_context_t decl_context,
         const char *filename,
         int line)
 {
-    template_argument_list_t* specialized
+    template_parameter_list_t* specialized
         = template_specialized_type_get_template_arguments(
                 get_actual_class_type(specialized_type));
 
@@ -80,10 +80,6 @@ type_t* solve_class_template(decl_context_t decl_context,
 
         // We do not want these for instantiation purposes
         if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_user_declared)
-        // if (class_type_is_incomplete_independent(
-        //             get_actual_class_type(current_specialized_type))
-        //         || class_type_is_incomplete_dependent(
-        //             get_actual_class_type(current_specialized_type)))
         {
             DEBUG_CODE()
             {
@@ -101,12 +97,12 @@ type_t* solve_class_template(decl_context_t decl_context,
             continue;
         }
 
-        template_argument_list_t *arguments = 
+        template_parameter_list_t *arguments = 
             template_specialized_type_get_template_arguments(
                     get_actual_class_type(current_specialized_type));
 
         // It is supposed that this will hold in correct code
-        ERROR_CONDITION((arguments->num_arguments != specialized->num_arguments),
+        ERROR_CONDITION((arguments->num_parameters != specialized->num_parameters),
             "Template argument lists are not of equal length", 0);
 
         deduction_set_t* deduction_result = NULL;
@@ -330,7 +326,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     g,
                     decl_context, 
                     /* deduction_set */ NULL,
-                    /* explicit_template_arguments */ NULL, 
+                    /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
         {
@@ -381,7 +377,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     g,
                     decl_context, 
                     /* deduction_set */ NULL,
-                    /* explicit_template_arguments */ NULL, 
+                    /* explicit_template_parameters */ NULL, 
                     filename, line,
                     is_conversion))
         {
@@ -474,14 +470,12 @@ static type_t* extend_function_with_return_type(type_t* funct_type)
 }
 
 scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         type_t* function_type, decl_context_t decl_context,
         const char *filename, int line)
 {
-
-#define MAX_FEASIBLE_SPECIALIZATIONS (256)
-    type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
-    deduction_set_t *feasible_deductions[MAX_FEASIBLE_SPECIALIZATIONS];
+    type_t* feasible_templates[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
+    deduction_set_t *feasible_deductions[MCXX_MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
 
     type_t* extended_function_type = extend_function_with_return_type(function_type);
@@ -510,11 +504,11 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
                     extended_function_type,
                     decl_context,
                     &feasible_deduction,
-                    explicit_template_arguments,
+                    explicit_template_parameters,
                     filename, line, 
                     primary_symbol->entity_specs.is_conversion))
         {
-            ERROR_CONDITION(num_feasible_templates >= MAX_FEASIBLE_SPECIALIZATIONS,
+            ERROR_CONDITION(num_feasible_templates >= MCXX_MAX_FEASIBLE_SPECIALIZATIONS,
                     "Too many feasible deductions", 0);
             feasible_templates[num_feasible_templates] = primary_named_type;
             feasible_deductions[num_feasible_templates] = feasible_deduction;
@@ -573,14 +567,18 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     ERROR_CONDITION((selected_deduction == NULL), "Selected deduction cannot be NULL", 0);
 
     // Build the specialized type
-    template_argument_list_t* template_arguments = 
-        build_template_argument_list_from_deduction_set(selected_deduction);
+    template_parameter_list_t* primary_template_parameters = 
+        template_type_get_template_parameters(
+                template_specialized_type_get_related_template_type(
+                    named_type_get_symbol(result)->type_information));
+    template_parameter_list_t* template_parameters = 
+        build_template_parameter_list_from_deduction_set(primary_template_parameters, selected_deduction);
 
     type_t* result_specialized = template_type_get_specialized_type(
             template_specialized_type_get_related_template_type(
                 named_type_get_symbol(result)->type_information
                 ),
-            template_arguments, /* no template parameters */ NULL,
+            template_parameters, 
             decl_context, line, filename);
 
     return named_type_get_symbol(result_specialized);

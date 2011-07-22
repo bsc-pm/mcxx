@@ -246,7 +246,7 @@ namespace TL
             // Use the DTO instead
 
             // get the translation_unit tree
-            translation_unit = data_flow["translation_unit"];
+            translation_unit = AST_t(data_flow["translation_unit"]);
             // get the scope_link
             scope_link = data_flow["scope_link"];
             // Get the global_scope
@@ -376,22 +376,6 @@ namespace TL
             _stack_data_sharing = std::stack<DataSharingEnvironment*>();
         }
 
-
-        static template_parameter_list_t* convert_list_of_template_parameters(ObjectList<TemplateParameter> tpl_list)
-        {
-            template_parameter_list_t* result = (template_parameter_list_t*) calloc(1, sizeof(*result));
-
-            result->num_template_parameters = tpl_list.size();
-            result->template_parameters = 
-                (template_parameter_t**) calloc(result->num_template_parameters, sizeof(*result->template_parameters));
-
-            for (int i = 0; i < result->num_template_parameters; i++)
-            {
-                result->template_parameters[i] = tpl_list[i].get_internal_template_parameter();
-            }
-
-            return result;
-        }
 
         DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
             : _dep_expr(dep_expr), _kind(kind)

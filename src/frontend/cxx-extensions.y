@@ -24,7 +24,7 @@ noshape_cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CAST, $2, $4, $1.token_file, $1.token_line, NULL);
 }
 ;
 

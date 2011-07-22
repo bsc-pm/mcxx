@@ -32,6 +32,7 @@
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
+#include "cxx-nodecl-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -40,10 +41,14 @@ LIBMCXX_EXTERN void instantiate_template_class(scope_entry_t* entry, decl_contex
 
 LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
 
-#if 0
-LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, 
-        decl_context_t decl_context, const char* filename, int line);
-#endif
+LIBMCXX_EXTERN void instantiate_template_function_if_needed(scope_entry_t* entry, 
+        const char* filename, int line);
+
+LIBMCXX_EXTERN nodecl_t instantiation_get_instantiated_functions(void);
+LIBMCXX_EXTERN void instantiation_init(void);
+
+LIBMCXX_EXTERN void instantiate_emit_member_function(scope_entry_t* entry, 
+        const char* filename, int line);
 
 MCXX_END_DECLS
 

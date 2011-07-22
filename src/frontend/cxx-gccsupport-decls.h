@@ -29,16 +29,15 @@
 #ifndef CXX_GCCSUPPORT_DECLS_H
 #define CXX_GCCSUPPORT_DECLS_H
 
-#define MAX_GCC_ATTRIBUTES_PER_SYMBOL (16)
-
 #include "cxx-macros.h"
+#include "cxx-nodecl-decls.h"
 
 MCXX_BEGIN_DECLS
 
 typedef struct gather_gcc_attribute_tag
 {
     const char *attribute_name;
-    AST expression_list;
+    nodecl_t expression_list;
 } gather_gcc_attribute_t;
 
 MCXX_END_DECLS

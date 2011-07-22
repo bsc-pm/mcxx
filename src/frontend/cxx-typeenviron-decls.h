@@ -45,6 +45,28 @@ struct type_tag;
 /*
  * Typing environment
  */
+// We assume IEEE 754 binary floats
+struct floating_type_info_tag
+{
+    // What sizeof will return for these variables
+    _size_t size_of;
+    // What alignof will return for these variables
+    _size_t align_of;
+
+    // Bits in memory
+    _size_t bits;
+
+    // Real model
+    _size_t base;
+    _size_t p;
+    _size_t emin;
+    _size_t emax;
+};
+
+typedef struct floating_type_info_tag floating_type_info_t;
+
+#define MAX_DIFFERENT_FLOATS 8
+
 struct type_environment_tag
 {
     // This is a short name (without blanks) used to identify it in the config file
@@ -88,22 +110,17 @@ struct type_environment_tag
     _size_t sizeof_unsigned_long_long;
     _size_t alignof_unsigned_long_long;
 
-    // Let it empty if the environment does not support it
-    // half (float)
-    _size_t sizeof_half;
-    _size_t alignof_half;
+    int num_float_types;
+    floating_type_info_t* all_floats[MAX_DIFFERENT_FLOATS];
     
     // float
-    _size_t sizeof_float;
-    _size_t alignof_float;
+    floating_type_info_t* float_info;
     
     // double
-    _size_t sizeof_double;
-    _size_t alignof_double;
+    floating_type_info_t* double_info;
 
     // long double
-    _size_t sizeof_long_double;
-    _size_t alignof_long_double;
+    floating_type_info_t* long_double_info;
 
     // pointer (to data)
     _size_t sizeof_pointer;

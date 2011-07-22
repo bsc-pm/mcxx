@@ -73,7 +73,8 @@ static void update_identity_flag(const std::string &str)
 static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     char name[256];
     int i;
@@ -83,7 +84,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     if (num_arguments != 1)
     {
         internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
-                        overloaded_function->symbol_name);
+                overloaded_function->symbol_name);
     }
 
     for(i=1; i<builtin_vr_list.size(); i++) 
@@ -99,7 +100,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
     //No Match: Add a new Symbol to the list.
     TL::ObjectList<TL::Type> param_type_list;
     param_type_list.append(types[0]);
-    
+
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VR_NAME;
     result->kind = SK_FUNCTION;
@@ -122,7 +123,8 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
 static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     char name[256];
     int i;
@@ -167,7 +169,8 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
 static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     char name[256];
     int i;
@@ -177,7 +180,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     if ((num_arguments != 2) && (num_arguments != 3))
     {
         internal_error("hlt-simd builtin '%s' only allows two or three parameter\n",
-                                overloaded_function->symbol_name);
+                overloaded_function->symbol_name);
     }
 
     for(i=1; i<builtin_vc_list.size(); i++) 
@@ -219,7 +222,8 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
 static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     char name[256];
     int i;
@@ -229,7 +233,7 @@ static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded
     if (num_arguments != 2)
     {
         internal_error("hlt-simd builtin '%s' only allows two parameter\n",
-                                overloaded_function->symbol_name);
+                overloaded_function->symbol_name);
     }
 
     for(i=1; i<builtin_vi_list.size(); i++) 
@@ -268,7 +272,8 @@ static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded
 static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_function,
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments,
+        const_value_t** const_value UNUSED_PARAMETER)
 {
     char name[256];
     int i;
@@ -278,7 +283,7 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     if (num_arguments != 1)
     {
         internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
-                        overloaded_function->symbol_name);
+                overloaded_function->symbol_name);
     }
 
     for(i=1; i<builtin_ve_list.size(); i++) 
@@ -293,13 +298,13 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     //No Match: Add a new Symbol to the list.
     TL::ObjectList<TL::Type> params_list;
     params_list.append(types[0]);
-    
+
     result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
     result->symbol_name = BUILTIN_VE_NAME;
     result->kind = SK_FUNCTION;
     result->type_information = ((TL::Type)types[0]).get_generic_vector_to()
-                                                   .get_function_returning(params_list)
-                                                   .get_internal_type();
+        .get_function_returning(params_list)
+        .get_internal_type();
     result->decl_context = builtin_ve_list.at(0).get_internal_symbol()->decl_context;
 
     builtin_ve_list.append(result);
@@ -482,11 +487,22 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //SSSE3
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
     //SSE4.1
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_pblendvb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
+
+
+
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_packusdw128(int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
 
+        << "int                                             __builtin_ia32_vec_ext_v4si (int __attribute__((vector_size(16))), const int);"
+        << "long long int                                   __builtin_ia32_vec_ext_v2di (long long int __attribute__((vector_size(16))), const int);"
+
+
         << "float __attribute__((vector_size(16)))          __builtin_ia32_roundps(float __attribute__((vector_size(16))), const int);"
+        << "float                                           __builtin_ia32_vec_ext_v4sf(float __attribute__((vector_size(16))), const int);"
+        << "float __attribute__((vector_size(16)))          __builtin_ia32_blendvps(float __attribute__((vector_size(16))), float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
 
         << "double __attribute__((vector_size(16)))         __builtin_ia32_roundpd(double __attribute__((vector_size(16))), const int);"
+        << "double __attribute__((vector_size(16)))         __builtin_ia32_blendvpd(double __attribute__((vector_size(16))), double __attribute__((vector_size(16))), double __attribute__((vector_size(16))));"
         ;
 
  
@@ -641,6 +657,31 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "int subscripted[], "
         <<      "int __attribute__((vector_size(16))) subscript)"
         << "{"
+        <<      "int __attribute__((vector_size(16))) result = (int __attribute__((vector_size(16)))){"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 0)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 1)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 2)],"
+        <<          "subscripted[__builtin_ia32_vec_ext_v4si(subscript, 3)]};"
+        <<      "return result;"
+        << "}"
+        /*
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_INDEX_W_VECTOR_SMP_16 << "("
+        <<      "int subscripted[], "
+        <<      "int __attribute__((vector_size(16))) subscript)"
+        << "{"
+        <<      "int __attribute__((vector_size(16))) result;"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 0)], 0);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 1)], 1);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 2)], 2);"
+        <<      "result = __builtin_ia32_vec_set_v4si(result, subscripted[__builtin_ia32_vec_ext_v4si(subscript, 3)], 3);"
+        <<      "return result;"
+        << "}"
+        */
+        /*
+        << "static inline int __attribute__((vector_size(16))) " << COMPILER_INDEX_W_VECTOR_SMP_16 << "("
+        <<      "int subscripted[], "
+        <<      "int __attribute__((vector_size(16))) subscript)"
+        << "{"
         <<      "union"
         <<      "{"
         <<          "int __attribute__((vector_size(16))) (*v);"
@@ -658,6 +699,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "_result.w[3] = subscripted[u_a0.w[3]];"
         <<      "return _result.v;"
         << "}"
+        */
         ;
 
     //Global parsing

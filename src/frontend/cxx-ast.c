@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "cxx-ast.h"
+#include "cxx-limits.h"
 
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -52,7 +53,7 @@ struct AST_tag
     node_t node_type:10; 
 
     // This is a bitmap for the sons
-    unsigned int bitmap_sons:MAX_AST_CHILDREN;
+    unsigned int bitmap_sons:MCXX_MAX_AST_CHILDREN;
 
     // Number of ambiguities of this node
     int num_ambig;
@@ -84,7 +85,7 @@ static int count_bitmap(unsigned int bitmap)
 {
     int i;
     int s = 0;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         s += bitmap & 1;
         bitmap = bitmap >> 1;
@@ -241,7 +242,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
 
     // Now for every old son, update the new children
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         // Note that when shrinking the node ast_has_son
         // will always return false for num_child.
@@ -269,7 +270,7 @@ static void ast_reallocate_children(AST a, int num_child, AST new_child)
     _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
 }
 
-void ast_set_child(AST a, int num_child, AST new_child)
+void ast_set_child_but_parent(AST a, int num_child, AST new_child)
 {
     if (new_child == NULL)
     {
@@ -290,7 +291,14 @@ void ast_set_child(AST a, int num_child, AST new_child)
             // This will widen the node
             ast_reallocate_children(a, num_child, new_child);
         }
+    }
+}
 
+void ast_set_child(AST a, int num_child, AST new_child)
+{
+    ast_set_child_but_parent(a, num_child, new_child);
+    if (new_child != NULL)
+    {
         new_child->parent = a;
     }
 }
@@ -301,7 +309,7 @@ int ast_num_children(const_AST a)
     int max = 0;
     int i;
     unsigned int bitmap = a->bitmap_sons;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if ((1 << i) & bitmap)
         {
@@ -321,7 +329,7 @@ char ast_check(const_AST node)
     if (node != NULL)
     {
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             if (ast_get_child(node, i) != NULL)
             {
@@ -388,7 +396,7 @@ static int ast_get_number_of_son(const_AST a)
     const_AST parent = ASTParent(a);
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(parent, i) == a)
             return i;
@@ -422,7 +430,9 @@ static void ast_fix_one_ast_field_rec(
         }
 
         // Now update node 'new' with 'iter'
-        ASTAttrSetValueType(new, field_name, tl_type_t, tl_ast(iter));
+        // Note that we are not using ast_set_link_to_child since field_name is
+        // already mangled here
+        ast_set_field(new, field_name, iter);
     }
     else if (current == NULL)
     {
@@ -483,7 +493,7 @@ static void ast_copy_extended_data(AST new, const_AST orig)
 
     int num_fields = 0;
     const char ** keys = NULL;
-    const void ** values = NULL;
+    void ** values = NULL;
 
     extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
 
@@ -491,9 +501,8 @@ static void ast_copy_extended_data(AST new, const_AST orig)
     for (i = 0; i < num_fields; i++)
     {
         const char *field_name = keys[i];
-
-        tl_type_t* tl_data = (tl_type_t*)values[i];;
-        ASTAttrSetValueType(new, field_name, tl_type_t, (*tl_data));
+        void *data = values[i];
+        ast_set_field(new, field_name, data);
     }
 
     free(keys);
@@ -509,7 +518,7 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     // First get all TL_AST in 'orig' that point to its childrens
     int num_fields = 0;
     const char ** keys = NULL;
-    const void ** values = NULL;
+    void ** values = NULL;
 
     extensible_struct_get_all_data(orig->extended_data, &num_fields, &keys, &values);
 
@@ -527,15 +536,15 @@ static void ast_fix_extended_data(AST new, const_AST orig)
     for (i = 0; i < num_fields; i++)
     {
         const char* field_name = keys[i];
-        tl_type_t* tl_data = (tl_type_t*)values[i];
+        void *data = values[i];
 
-        if (tl_data->kind == TL_AST
-                && tl_data->data._ast != NULL)
+        if (ast_field_name_is_link_to_child(field_name))
         {
-            if (ast_is_parent(/* potential parent */ orig, /* node */ tl_data->data._ast))
+            AST tree = (AST)data;
+            if (ast_is_parent(/* potential parent */ orig, /* node */ tree))
             {
                 tl_data_index[num_ast_fields].field_name = field_name;
-                tl_data_index[num_ast_fields].ast = tl_data->data._ast;
+                tl_data_index[num_ast_fields].ast = tree;
                 num_ast_fields++;
             }
         }
@@ -561,7 +570,7 @@ AST ast_copy(const_AST a)
     ast_copy_one_node(result, (AST)a);
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy(ast_get_child(a, i)));
     }
@@ -598,7 +607,7 @@ void ast_clear_extended_data(AST a)
     {
         a->extended_data = NULL;
         int i;
-        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
         {
             ast_clear_extended_data(ast_get_child(a, i));
         }
@@ -629,7 +638,7 @@ AST ast_copy_for_instantiation(const_AST a)
     result->extended_data = NULL;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy_for_instantiation(ast_get_child(a, i)));
     }
@@ -804,7 +813,7 @@ char ast_equal (const_AST ast1, const_AST ast2)
     if (ast1 == NULL)
         return 1;
 
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (!ast_equal(ast_get_child(ast1, i), ast_get_child(ast2, i)))
             return 0;
@@ -926,7 +935,7 @@ void ast_free(AST a)
         else
         {
             int i;
-            for (i = 0; i < MAX_AST_CHILDREN; i++)
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
             {
                 ast_free(ast_get_child(a, i));
             }
@@ -989,7 +998,7 @@ void ast_replace_with_ambiguity(AST a, int n)
     // Correctly relink to the parent
     ast_set_parent(a, parent);
 
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(a, i) != NULL)
         {
@@ -1037,7 +1046,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
     }
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), sl));
     }
@@ -1103,4 +1112,34 @@ extensible_struct_t* ast_get_initalized_extensible_struct(AST a)
 {
     ast_init_extensible_struct(a);
     return a->extended_data;
+}
+
+static const char* ast_fields_prefix = ".ast_";
+
+char ast_field_name_is_link_to_child(const char* name)
+{
+    return (strlen(name) > strlen(ast_fields_prefix))
+        && (strncmp(name, ast_fields_prefix, strlen(ast_fields_prefix)) == 0);
+}
+
+static const char* mangle_name_for_ast_field(const char* name)
+{
+    int num_chars = strlen(name) + strlen(ast_fields_prefix);
+    char mangled_name[num_chars + 1];
+    memset(mangled_name, 0, sizeof(mangled_name));
+    snprintf(mangled_name, num_chars, "%s%s", ast_fields_prefix, name);
+
+    return uniquestr(mangled_name);
+}
+
+// Set a link to a (possibly indirect) child
+void ast_set_link_to_child(AST a, const char* name, AST child)
+{
+    ast_set_field(a, mangle_name_for_ast_field(name), child);
+}
+
+// Get child node
+AST ast_get_link_to_child(AST a, const char* name)
+{
+    return ast_get_field(a, mangle_name_for_ast_field(name));
 }

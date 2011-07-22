@@ -50,16 +50,6 @@ tl_type_t tl_integer(int i)
     return result;
 }
 
-tl_type_t tl_ast(AST a)
-{
-    tl_type_t result;
-
-    result.kind = TL_AST;
-    result.data._ast = a;
-
-    return result;
-}
-
 tl_type_t tl_type(type_t* t)
 {
     tl_type_t result;

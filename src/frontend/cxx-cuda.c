@@ -62,7 +62,7 @@ static type_t* cuda_get_dim3_type(void)
             member_sym->entity_specs.is_member = 1;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
-            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
         // FIXME - We should register the constructors and conversion
@@ -100,7 +100,7 @@ static type_t* cuda_get_uint3_type(void)
             member_sym->entity_specs.is_member = 1;
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
-            class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
+            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
 
@@ -186,14 +186,14 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
     AST call_args = ASTSon2(expression);
 
     AST arg_0 = ASTSon0(cuda_kernel_args);
-    if (!check_for_expression(arg_0, decl_context))
+    if (!check_expression(arg_0, decl_context))
     {
         expression_set_error(expression);
         return;
     }
 
     AST arg_1 = ASTSon1(cuda_kernel_args);
-    if (!check_for_expression(arg_1, decl_context))
+    if (!check_expression(arg_1, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -201,7 +201,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     AST arg_2 = ASTSon2(cuda_kernel_args);
     if (arg_2 != NULL
-            && !check_for_expression(arg_2, decl_context))
+            && !check_expression(arg_2, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -209,7 +209,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 
     AST arg_3 = ASTSon3(cuda_kernel_args);
     if (arg_3 != NULL
-            && !check_for_expression(arg_3, decl_context))
+            && !check_expression(arg_3, decl_context))
     {
         expression_set_error(expression);
         return;
@@ -287,7 +287,10 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
                 || ASTType(postfix_expr) == AST_OPERATOR_FUNCTION_ID);
     }
 
-    if (!_check_for_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
+    nodecl_t nodecl_argument_list = nodecl_null();
+    if (!_check_functional_expression(expression, postfix_expr, 
+                call_args, decl_context, 
+                might_require_koenig, &nodecl_argument_list))
     {
         expression_set_error(expression);
         return;
@@ -297,9 +300,9 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
     expression_set_type(expression, get_void_type());
 
     ASTAttrSetValueType(expression, LANG_IS_CUDA_KERNEL_CALL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expression, LANG_KERNEL_CONFIGURATION, tl_type_t, tl_ast(cuda_kernel_args));
-    ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(postfix_expr));
-    ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(call_args));
+    ast_set_link_to_child(expression, LANG_KERNEL_CONFIGURATION, cuda_kernel_args);
+    ast_set_link_to_child(expression, LANG_CALLED_EXPRESSION, postfix_expr);
+    ast_set_link_to_child(expression, LANG_FUNCTION_ARGUMENTS, call_args);
 }
 
 void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)

@@ -61,7 +61,8 @@ namespace TL
     class TemplateParameter : public TL::Object
     {
         private:
-            template_parameter_t* _tpl_param;
+            template_parameter_list_t* _tpl_param;
+            int _index;
         public:
             enum Kind
             {
@@ -74,7 +75,7 @@ namespace TL
                 TEMPLATE
             };
         public:
-            TemplateParameter(template_parameter_t* tpl_param);
+            TemplateParameter(template_parameter_list_t* tpl_param, int index);
 
             //! Gets the kind of this template parameter
             Kind get_kind() const;
@@ -105,9 +106,6 @@ namespace TL
             //! For those template parameters with template argument, returns the template argument
             TemplateArgument get_default_argument() const;
 
-            //! Returns the wrapped template parameter
-            template_parameter_t* get_internal_template_parameter() const;
-
             //! Returns the name of the template parameter
             std::string get_name() const;
 
@@ -132,7 +130,8 @@ namespace TL
     class TemplateArgument : public TL::Object
     {
         private:
-            template_argument_t* _tpl_arg;
+            template_parameter_list_t* _tpl_param;
+            int _index;
         public:
             enum Kind
             {
@@ -142,7 +141,7 @@ namespace TL
                 TEMPLATE
             };
         public:
-            TemplateArgument(template_argument_t* tpl_arg);
+            TemplateArgument(template_parameter_list_t* tpl_arg, int index);
 
             //! Returns the kind of the template argument
             Kind get_kind() const;
@@ -163,7 +162,7 @@ namespace TL
 
               You can wrap this tree into an Expression
               */
-            AST_t get_expression() const;
+            DEPRECATED AST_t get_expression() const;
 
             //! States whether the template argument was defined implicitly
             /*! 
@@ -185,9 +184,6 @@ namespace TL
               of template classes, this value will be higher
              */
             int get_nesting() const;
-
-            //! Returns the wrapped template parameter
-            template_argument_t* get_internal_template_argument() const;
     };
 }
 

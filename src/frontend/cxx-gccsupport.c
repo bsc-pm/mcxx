@@ -41,6 +41,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-attrnames.h"
 #include "cxx-tltype.h"
+#include "cxx-entrylist.h"
 
 /*
  * Very specific bits of gcc support should be in this file
@@ -127,6 +128,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
+    nodecl_t nodecl_expression_list = nodecl_null();
     /*
      * Vector support
      */
@@ -140,7 +142,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
 
         // Evaluate the expression
         AST argument = ASTSon1(expression_list);
-        if (check_for_expression(argument, decl_context))
+        if (check_expression(argument, decl_context))
         {
             if (expression_is_constant(argument))
             {
@@ -148,6 +150,8 @@ static void gather_one_gcc_attribute(const char* attribute_name,
 
                 gather_info->vector_size = vector_size;
                 gather_info->is_vector = 1;
+
+                nodecl_expression_list = nodecl_make_list_1(expression_get_nodecl(argument));
             }
             else
             {
@@ -190,6 +194,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                 // that (oh, miracle!) is the same as a SPU
                 gather_info->is_vector = 1;
                 gather_info->vector_size = 16;
+
+                nodecl_expression_list = 
+                    nodecl_make_list_1(nodecl_make_text("vector__", ASTFileName(argument), ASTLine(argument)));
             }
         }
     }
@@ -208,6 +215,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         if (ASTType(argument) == AST_SYMBOL)
         {
             const char *size_mode = ASTText(argument);
+
+            nodecl_expression_list = 
+                nodecl_make_list_1(nodecl_make_text(size_mode, ASTFileName(argument), ASTLine(argument)));
 
             // FIXME - Can a vector mode start with two underscores ?
             if (size_mode[0] != 'V')
@@ -421,6 +431,10 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         gather_info->is_inline = 1;
     }
+    else if (strcmp(attribute_name, "used") == 0)
+    {
+        gather_info->emit_always = 1;
+    }
     // CUDA attributes
     else if (CURRENT_CONFIGURATION->enable_cuda)
     {
@@ -446,17 +460,31 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             gather_info->cuda.is_constant = 1;
         }
     }
+    else
+    {
+        // Unknown attribute, keep its arguments as a literal list
+        if (expression_list != NULL)
+        {
+            AST it;
+            for_each_element(expression_list, it)
+            {
+                AST expr = ASTSon1(it);
+                nodecl_expression_list = nodecl_append_to_list(nodecl_expression_list, 
+                        nodecl_make_text(prettyprint_in_buffer(expr), ASTFileName(expr), ASTLine(expr)));
+            }
+        }
+    }
 
     // Save it in the gather_info structure
-    if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)
+    if (gather_info->num_gcc_attributes == MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)
     {
-        running_error("Too many gcc attributes, maximum supported is %d\n", MAX_GCC_ATTRIBUTES_PER_SYMBOL);
+        running_error("Too many gcc attributes, maximum supported is %d\n", MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL);
     }
     gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
     gather_info->num_gcc_attributes++;
 
     current_gcc_attribute->attribute_name = uniquestr(attribute_name);
-    current_gcc_attribute->expression_list = expression_list;
+    current_gcc_attribute->expression_list = nodecl_expression_list;
 }
 
 void gather_gcc_attribute(AST attribute, 
@@ -469,7 +497,7 @@ void gather_gcc_attribute(AST attribute,
     AST list = ASTSon0(attribute);
 
     ASTAttrSetValueType(attribute, LANG_IS_GCC_ATTRIBUTE, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(attribute, LANG_GCC_ATTRIBUTE_LIST, tl_type_t, tl_ast(list));
+    ast_set_link_to_child(attribute, LANG_GCC_ATTRIBUTE_LIST, list);
 
     if (list != NULL)
     {
@@ -483,8 +511,8 @@ void gather_gcc_attribute(AST attribute,
             const char *attribute_name = ASTText(identif);
 
             ASTAttrSetValueType(gcc_attribute_expr, LANG_IS_GCC_ATTRIBUTE_VALUE, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_NAME, tl_type_t, tl_ast(identif));
-            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_ARGS, tl_type_t, tl_ast(expression_list));
+            ast_set_link_to_child(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_NAME, identif);
+            ast_set_link_to_child(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_ARGS, expression_list);
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }
@@ -554,16 +582,27 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-        int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+
+        char result = 1;
+        for (it = entry_list_iterator_begin(copy_assignment_operators);
+                !entry_list_iterator_end(it) && result;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
-                return 0;
+            {
+                result = 0;
+            }
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(copy_assignment_operators);
+
+        return result;
     }
 
     return 0;
@@ -623,16 +662,24 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+        scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        char result = 1;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it) && result;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
+
+        return result;
     }
 
     return 0;
@@ -662,15 +709,23 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        scope_entry_list_t* copy_assignment_operators = class_type_get_copy_assignment_operators(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+
+        char result = 1;
+        for (it = entry_list_iterator_begin(copy_assignment_operators);
+                !entry_list_iterator_end(it) && result;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(copy_assignment_operators);
+
+        return result;
     }
 
     return 0;
@@ -726,15 +781,22 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
     {
         type_t* class_type = get_actual_class_type(first_type);
 
-        int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+        scope_entry_list_t* constructors = class_type_get_copy_constructors(class_type);
+        scope_entry_list_iterator_t* it = NULL;
+        char result = 1;
+        for (it = entry_list_iterator_begin(constructors);
+                !entry_list_iterator_end(it) && result;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (!entry->entity_specs.is_trivial)
-                return 0;
+                result = 0;
         }
 
-        return 1;
+        entry_list_iterator_free(it);
+        entry_list_free(constructors);
+
+        return result;
     }
 
     return 0;
@@ -921,7 +983,11 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-        return (class_type_get_num_virtual_functions(class_type) != 0);
+        scope_entry_list_t* virtual_functions = class_type_get_virtual_functions(class_type);
+        char there_are_virtual_functions = virtual_functions == NULL;
+        entry_list_free(virtual_functions);
+
+        return there_are_virtual_functions;
     }
 
     return 0;
@@ -971,11 +1037,11 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
-char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
+char check_gxx_type_traits(AST expression, decl_context_t decl_context)
 {
     AST first_type_id = ASTSon0(expression);
 
-    if (!check_for_type_id_tree(first_type_id, decl_context))
+    if (!check_type_id_tree(first_type_id, decl_context))
     {
         return 0;
     }
@@ -983,7 +1049,7 @@ char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
     AST second_type_id = ASTSon1(expression);
 
     if (second_type_id != NULL
-            && !check_for_type_id_tree(second_type_id, decl_context))
+            && !check_type_id_tree(second_type_id, decl_context))
     {
         return 0;
     }

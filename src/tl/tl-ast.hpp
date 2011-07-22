@@ -249,9 +249,7 @@ namespace TL
             {
             }
 
-            //! Given a RefPtr<Object> try to cast it to RefPtr<AST_t> and
-            //! wrap the contained tree.
-            AST_t(RefPtr<Object> obj)
+            explicit AST_t(RefPtr<Object> obj) 
             {
                 RefPtr<AST_t> cast = RefPtr<AST_t>::cast_dynamic(obj);
 
@@ -521,6 +519,9 @@ namespace TL
 
             //! Returns the parent tree
             AST_t get_parent() const;
+
+            //! Returns the tree name with this link
+            AST_t get_link_to_child(const std::string& str) const;
 
             friend class Type;
             friend class Scope;

@@ -218,7 +218,7 @@ namespace TL
 
     std::string PragmaCustomConstruct::get_directive() const
     {
-        TL::AST_t pragma_line = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        TL::AST_t pragma_line = this->get_ast().get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
 
         TL::String result = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_DIRECTIVE);
 
@@ -236,12 +236,12 @@ namespace TL
     {
         // The user will put it into a FunctionDefinition or a Declaration
         // depending on his needs
-        TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_DECLARATION);
+        TL::AST_t declaration = this->get_ast().get_link_to_child(LANG_PRAGMA_CUSTOM_DECLARATION);
 
         if (!declaration.is_valid())
         {
             // Try to find a statement which is a declaration itself
-            AST_t tree = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+            AST_t tree = this->get_ast().get_link_to_child(LANG_PRAGMA_CUSTOM_STATEMENT);
             if (tree.is_valid())
             {
                 Statement result(tree, this->get_scope_link());
@@ -257,7 +257,7 @@ namespace TL
 
     AST_t PragmaCustomConstruct::get_pragma_line() const
     {
-        TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        TL::AST_t declaration = this->get_ast().get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
         return declaration;
     }
 
@@ -270,7 +270,7 @@ namespace TL
 
     Statement PragmaCustomConstruct::get_statement() const
     {
-        AST_t tree = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+        AST_t tree = this->get_ast().get_link_to_child(LANG_PRAGMA_CUSTOM_STATEMENT);
         Statement result(tree, this->get_scope_link());
 
         return result;
@@ -279,7 +279,7 @@ namespace TL
     ObjectList<std::string> PragmaCustomConstruct::get_clause_names() const
     {
         ObjectList<std::string> result;
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
 
         ObjectList<AST_t> clause_list = pragma_line.depth_subtrees(PredicateAttr(LANG_IS_PRAGMA_CUSTOM_CLAUSE));
 
@@ -307,7 +307,7 @@ namespace TL
 
     PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name) const
     {
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
         PragmaCustomClause result(name, pragma_line, this->get_scope_link());
         if (_dto!=NULL)
         {
@@ -335,7 +335,7 @@ namespace TL
 
     bool PragmaCustomConstruct::is_parameterized() const
     {
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
         TL::Bool b = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED);
 
         return b;
@@ -344,8 +344,8 @@ namespace TL
     ObjectList<Expression> PragmaCustomConstruct::get_parameter_expressions() const
     {
         ObjectList<Expression> result;
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
-        AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t parameter = pragma_line.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
 
         ObjectList<AST_t> parameter_list;
         parameter_list.append(parameter);
@@ -408,8 +408,8 @@ namespace TL
     ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments(const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> result;
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
-        AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t parameter = pragma_line.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
 
         PredicateAttr clause_argument_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
 
@@ -455,7 +455,7 @@ namespace TL
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
         // get the translation_unit tree
-        AST_t translation_unit = data_flow["translation_unit"];
+        AST_t translation_unit (data_flow["translation_unit"]);
         // get the scope_link
         ScopeLink scope_link = data_flow["scope_link"];
         // Get the global_scope

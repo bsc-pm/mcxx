@@ -264,7 +264,7 @@ namespace TL
 			Bool generate_task_side = dto["superscalar_generate_task_side"];
 			Bool generate_adapters = dto["superscalar_generate_task_adapters"];
 			
-			AST_t translation_unit = dto["translation_unit"];
+			AST_t translation_unit ( dto["translation_unit"] );
 			ScopeLink scope_link = dto["scope_link"];
 			
 			if (generate_task_side)

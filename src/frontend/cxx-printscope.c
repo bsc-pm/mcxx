@@ -60,54 +60,12 @@ static void indent_at_level(FILE* f, int n)
         fprintf(f,  __VA_ARGS__ ); \
     } while (0);
 
-static char* symbol_kind_names[] =
-{
-    [SK_UNDEFINED] = "SK_UNDEFINED",
-    [SK_CLASS] = "SK_CLASS",
-    [SK_ENUM] = "SK_ENUM",
-    [SK_ENUMERATOR] = "SK_ENUMERATOR",
-    [SK_FUNCTION] = "SK_FUNCTION",
-    [SK_LABEL] = "SK_LABEL",
-    [SK_NAMESPACE] = "SK_NAMESPACE",
-    [SK_VARIABLE] = "SK_VARIABLE",
-    [SK_TYPEDEF] = "SK_TYPEDEF",
-    [SK_TEMPLATE] = "SK_TEMPLATE",
-    [SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
-    [SK_TEMPLATE_TYPE_PARAMETER] = "SK_TEMPLATE_TYPE_PARAMETER", 
-    [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
-    // GCC Extension for builtin types
-    [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
-    [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
-    // Artificial symbols
-    [SK_OTHER] = "SK_OTHER",
-#ifdef FORTRAN_SUPPORT
-    [SK_COMMON] = "SK_COMMON",
-    [SK_NAMELIST] = "SK_NAMELIST",
-    [SK_MODULE] = "SK_MODULE",
-    [SK_PROGRAM] = "SK_PROGRAM",
-    [SK_BLOCKDATA] = "SK_BLOCKDATA",
-#endif
-};
-
-// static char* scope_names[] =
-// {
-//     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
-//     [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
-//     [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
-//     [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
-//     [BLOCK_SCOPE] = "BLOCK_SCOPE",
-//     [CLASS_SCOPE] = "CLASS_SCOPE",
-//     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
-// };
-
-#define MAX_SCOPES_DEPTH 128
-
 typedef
 struct print_context_data_tag
 {
     int global_indent;
     int num_scopes;
-    scope_t* scope_set[MAX_SCOPES_DEPTH];
+    scope_t* scope_set[MCXX_MAX_SCOPES_NESTING];
     rb_red_blk_tree *symbol_set;
 } print_context_data_t;
 
@@ -134,18 +92,6 @@ void print_scope(decl_context_t decl_context)
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
-    scope_t* template_scope = decl_context.template_scope;
-    int k = 0;
-    while (template_scope != NULL)
-    {
-        PRINT_INDENTED_LINE(stderr, global_indent + k, "[TEMPLATE_SCOPE - %p]\n", 
-               template_scope);
-        print_scope_full(template_scope, global_indent + k + 1);
-
-        ++k;
-        template_scope = template_scope->contained_in;
-    }
-
     scope_t* st = decl_context.current_scope;
     if (st == NULL)
         return;
@@ -211,11 +157,11 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
 {
     if (strcmp(key, entry->symbol_name) == 0)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+        PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_name(entry));
     }
     else
     {
-        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_names[entry->kind]);
+        PRINT_INDENTED_LINE(stderr, global_indent, "* [ \"%s\" -> ] \"%s\" %s", key, entry->symbol_name, symbol_kind_name(entry));
     }
 
     if (rb_tree_query(print_context_data.symbol_set, entry) != NULL)
@@ -299,15 +245,16 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type is specialized:\n");
 
-        template_argument_list_t* arguments = 
-            template_specialized_type_get_template_arguments(entry->type_information);
+#if 0
+        template_parameter_list_t* arguments = 
+            template_specialized_type_get_template_parameters(entry->type_information);
 
         if (arguments != NULL)
         {
             int j;
             for (j = 0; j < arguments->num_arguments; j++)
             {
-                template_argument_t* current_argument = arguments->argument_list[j];
+                template_parameter_t* current_argument = arguments->argument_list[j];
 
                 char* argument_kind[] =
                 {
@@ -338,6 +285,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         {
             PRINT_INDENTED_LINE(stderr, global_indent + 2, "%s", "Invalid template arguments!!!\n");
         }
+#endif
 
         if (is_class_type(entry->type_information))
         {
@@ -383,10 +331,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
 
     if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
-            && entry->expression_value != NULL)
+            && entry->language_dependent_value != NULL)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: %s\n",
-                prettyprint_in_buffer(entry->expression_value));
+                prettyprint_in_buffer(entry->language_dependent_value));
     }
 
     if (entry->kind == SK_FUNCTION)
@@ -451,6 +399,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
+    if (entry->entity_specs.is_friend_declared)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is friend-declared symbol\n");
+    }
 #ifdef FORTRAN_SUPPORT
     if (entry->kind == SK_PROGRAM
             || entry->kind == SK_FUNCTION
@@ -469,8 +421,15 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
         {
             scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
-                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+            if (related_entry != NULL)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] \"%s\" at %s:%d\n",
+                        i, related_entry->symbol_name, related_entry->file, related_entry->line);
+            }
+            else
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%d] NULL SYMBOL!!!\n", i);
+            }
         }
     }
     else

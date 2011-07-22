@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5.7],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.99.0],[rferrer@ac.upc.edu])
 
 configure_orig_arguments="$@"
 
@@ -87,20 +87,21 @@ AC_MSG_CHECKING([whether gcc is new enough])
 AC_COMPILE_IFELSE(
    [AC_LANG_SOURCE([[
      #ifdef __GNUC__
-      #if __GNUC__ <= 2
+      #if __GNUC__ <= 3
        #error "Too old compiler"
       #endif
    
-      #if __GNUC__ == 3
-       #if __GNUC_MINOR__ <= 3
+      #if __GNUC__ == 4
+       #if __GNUC_MINOR__ <= 0
         #error "Too old compiler"
        #endif
       #endif
      #endif
    ]])],
    [AC_MSG_RESULT([ok])],
-   [AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])]
+   [AC_MSG_ERROR([too old compiler, gcc 4.1 or upper is required])]
 )
+
 
 dnl --------------------- end check of old gcc ---
 
@@ -1214,6 +1215,19 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
+dnl -- Check if our GCC supports quadmath.h (and __float128)
+have_float_128="no"
+quadmath_LIBS=""
+AC_CHECK_HEADERS([quadmath.h], [have_float_128="yes"])
+
+if test x$have_float_128 = xyes; 
+then
+ AC_DEFINE([HAVE_QUADMATH_H], 1, [Define to 1 if quadmath.h is available])
+ quadmath_LIBS="-lquadmath"
+fi
+
+AC_SUBST([quadmath_LIBS])
+
 dnl Check for compliant const
 AC_C_CONST
 
@@ -1354,6 +1368,7 @@ echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
+echo "   Host supports __float128 and quadmath.h : " $have_float_128
 echo ""
 echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
 if test x$is_enabled_fortran = xyes;

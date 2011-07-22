@@ -40,9 +40,8 @@ MCXX_BEGIN_DECLS
 typedef
 struct deduced_parameter_tag
 {
-    struct type_tag* type;
-    struct AST_tag* expression;
-    decl_context_t decl_context;
+    type_t* type;
+    nodecl_t value;
 } deduced_parameter_t;
 
 typedef 

@@ -28,13 +28,17 @@
 # work)
 mcxxexec_PROGRAMS = mcxx mcxx-embedder
 
-SUBDIRS=. 
 
 DIST_SUBDIRS=fortran
+
+SUBDIRS=
 
 if FORTRAN_SUPPORT
 SUBDIRS += fortran
 endif
+
+# We build the current directory the last one
+SUBDIRS += .
 
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
@@ -48,7 +52,11 @@ BUILT_SOURCES =
 
 END=
 
-mcxx_CFLAGS=-fexceptions \
+# _GNU_SOURCE is needed because of strsignal
+# although it is available directly since glibc >=2.10
+
+mcxx_CFLAGS=-D_GNU_SOURCE \
+			-fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/mcxx_tl \
@@ -61,6 +69,7 @@ mcxx_CFLAGS=-fexceptions \
 if FORTRAN_SUPPORT
 mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
 mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
+mcxx_CFLAGS += -I$(top_srcdir)/src/driver/fortran
 endif
 
 mcxx_SOURCES = \
@@ -101,6 +110,7 @@ mcxx_LDADD = \
 
 if FORTRAN_SUPPORT
 mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+mcxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
 mcxx_LDADD += $(sqlite3_LIBS)
 endif
 

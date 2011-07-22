@@ -29,8 +29,7 @@
 #ifndef CXX_CEXPR_DECLS_H
 #define CXX_CEXPR_DECLS_H
 
-#include <stdint.h>
+#include "cxx-cexpr-fwd.h"
 
-typedef struct const_value_tag const_value_t;
 
 #endif // CXX_CEXPR_DECLS_H

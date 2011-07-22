@@ -32,16 +32,23 @@
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 #include "cxx-gccsupport-decls.h"
+#include "cxx-limits.h"
 
 MCXX_BEGIN_DECLS
-
 
 // This structure gather things of a declaration in one place so we can use
 // along a whole declaration. Parts of a declaration belong just to type while
 // others belong to the symbol but they do not appear syntactically in the same
 // place
+
 typedef 
 struct gather_decl_spec_tag {
+    // context of the declaration
+    char no_declarators;
+    char parameter_declaration;
+    char is_template;
+    char is_explicit_instantiation;
+
     // type-specifiers and decl-specifiers
     char is_auto;
     char is_register;
@@ -63,8 +70,13 @@ struct gather_decl_spec_tag {
     char is_explicit;
     char is_complex;
     char is_overriden_type;
+    char emit_always;
 
-    // FIXME
+    // This type-spec defines (not just declares!) a new type which is
+    // accessible through this symbol
+    scope_entry_t* defined_type;
+
+    // Mode type for old GCC vector syntax
     struct type_tag* mode_type;
 
     // exception-specifiers
@@ -76,11 +88,16 @@ struct gather_decl_spec_tag {
     unsigned int vector_size;
     char is_vector;
     int num_parameters;
-    struct default_argument_info_tag **default_argument_info;
+    struct 
+    {
+        scope_entry_t* entry;
+        AST argument;
+        decl_context_t context;
+    } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
 
     // Attribute info
     int num_gcc_attributes;
-    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+    gather_gcc_attribute_t gcc_attributes[MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 
     // UPC info
     struct

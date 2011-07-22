@@ -74,9 +74,12 @@
 #include "cxx-profile.h"
 #include "cxx-multifile.h"
 #include "cxx-nodecl.h"
-#include "cxx-nodecl-output.h"
+#include "cxx-nodecl-checker.h"
+#include "cxx-limits.h"
+#include "cxx-diagnostic.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
+#include "cxx-codegen.h"
 
 #include "filename.h"
 
@@ -87,6 +90,8 @@
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
 #include "fortran03-nodecl.h"
+#include "fortran03-codegen.h"
+#include "cxx-driver-fortran.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -213,7 +218,7 @@
 "  --disable-intrinsics     Ignore all known Fortran intrinsics\n" \
 "  -J <dir>                 Sets <dir> as the output module directory\n" \
 "                           This flag is only meaningful for Fortran\n" \
-"  --nodecl                 Nodecl processing (EXPERIMENTAL)\n" \
+"  --disable-nodecl         Disable nodecl processing (UNSUPPORTED)\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -298,7 +303,7 @@ typedef enum
     OPTION_FORTRAN_FREE,
     OPTION_EMPTY_SENTINELS,
     OPTION_DISABLE_INTRINSICS,
-    OPTION_NODECL,
+    OPTION_DISABLE_NODECL,
     OPTION_FORTRAN_PRESCANNER,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
@@ -357,7 +362,7 @@ struct command_line_long_options command_line_long_options[] =
     {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
-    {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
+    {"disable-nodecl", CLP_NO_ARGUMENT, OPTION_DISABLE_NODECL },
     // sentinel
     {NULL, 0, 0}
 };
@@ -393,6 +398,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
+static const char* codegen_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
 
@@ -583,7 +589,16 @@ static void driver_initialization(int argc, const char* argv[])
 
     memset(&compilation_process, 0, sizeof(compilation_process));
     compilation_process.argc = argc;
-    compilation_process.argv = (const char**)argv;
+
+    // Copy argv strings
+    compilation_process.argv = calloc(compilation_process.argc, sizeof(const char*));
+    memcpy((void*)compilation_process.argv, argv, sizeof(const char*) * compilation_process.argc);
+
+    // Original versions
+    compilation_process.original_argc = argc;
+    compilation_process.original_argv = calloc(compilation_process.argc, sizeof(const char*));
+    memcpy((void*)compilation_process.original_argv, argv, sizeof(const char*) * compilation_process.argc);
+
     compilation_process.exec_basename = give_basename(argv[0]);
 
     // Find my own directory
@@ -1217,9 +1232,9 @@ int parse_arguments(int argc, const char* argv[],
 #endif
                         break;
                     }
-                case OPTION_NODECL:
+                case OPTION_DISABLE_NODECL:
                     {
-                        CURRENT_CONFIGURATION->enable_nodecl = 1;
+                        CURRENT_CONFIGURATION->disable_nodecl = 1;
                         break;
                     }
                 case OPTION_FORTRAN_PRESCANNER:
@@ -1720,6 +1735,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             {
                 if (strlen(argument) > strlen("-W"))
                 {
+                    if (!dry_run)
+                    {
+                        if (strcmp(argument, "-Werror") == 0)
+                        {
+                            CURRENT_CONFIGURATION->warnings_as_errors = 1;
+                        }
+                    }
                     add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
@@ -1845,7 +1867,9 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+#ifdef FORTRAN_SUPPORT
     char prescanner_flag = 0;
+#endif
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
 
@@ -1915,9 +1939,11 @@ static void parse_subcommand_arguments(const char* arguments)
             case 'l' : 
                 linker_flag = 1;
                 break;
+#ifdef FORTRAN_SUPPORT
             case 's':
                 prescanner_flag = 1;
                 break;
+#endif
             default:
                 fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
                         compilation_process.exec_basename,
@@ -1980,6 +2006,9 @@ static void initialize_default_values(void)
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
     SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
 
+    // Ensure that type environments have been initialized
+    init_type_environments();
+
     if (default_environment == NULL)
     {
         default_environment = get_environment(DEFAULT_TYPE_ENVIRONMENT);
@@ -2040,37 +2069,66 @@ static void load_configuration_file(const char *filename)
     config_file_parse(filename);
 }
 
+static void remove_parameter_from_argv(int i)
+{
+    int j;
+    for (j = i; (j + 1) < compilation_process.argc; j++)
+    {
+        compilation_process.argv[j] = compilation_process.argv[j + 1];
+    }
+    compilation_process.argc--;
+}
+
+
 static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file
-    // FIXME - save config directory properly
     int i;
-    for (i = 1; i < compilation_process.argc; i++)
-    {
-        if (strncmp(compilation_process.argv[i], 
-                    "--config-file=", strlen("--config-file=")) == 0)
-        {
-            const char *config_file = NULL;
-            config_file = compilation_process.config_file = 
-                uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
+    char restart = 1;
 
-            // Load the configuration file at this point should the user have
-            // specified more than one config file
-            load_configuration_file(config_file);
-        }
-        else if (strncmp(compilation_process.argv[i], 
-                    "--config-dir=", strlen("--config-dir=")) == 0)
+    // We will restart the scan whenever we remove an item from argv
+    while (restart)
+    {
+        restart = 0;
+        for (i = 1; i < compilation_process.argc; i++)
         {
-            compilation_process.config_dir = 
-                uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
-        }
-        else if (strncmp(compilation_process.argv[i], 
-                    "--profile=", strlen("--profile=")) == 0)
-        {
-            // Change the basename, from now it will look like the compiler
-            // has been called as this basename
-            compilation_process.exec_basename =
-                uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
+            if (strncmp(compilation_process.argv[i], 
+                        "--config-file=", strlen("--config-file=")) == 0)
+            {
+                const char *config_file = NULL;
+                config_file = compilation_process.config_file = 
+                    uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
+
+                // Load the configuration file at this point should the user have
+                // specified more than one config file
+                load_configuration_file(config_file);
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
+            else if (strncmp(compilation_process.argv[i], 
+                        "--config-dir=", strlen("--config-dir=")) == 0)
+            {
+                compilation_process.config_dir = 
+                    uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
+            else if (strncmp(compilation_process.argv[i], 
+                        "--profile=", strlen("--profile=")) == 0)
+            {
+                // Change the basename, from now it will look like the compiler
+                // has been called as this basename
+                compilation_process.exec_basename =
+                    uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
+
+                remove_parameter_from_argv(i);
+                restart = 1;
+                break;
+            }
         }
     }
 
@@ -2078,11 +2136,12 @@ static void load_configuration(void)
     DIR* config_dir = opendir(compilation_process.config_dir);
     if (config_dir == NULL)
     {
-        if (errno != ENOENT)
+        if (errno == ENOENT)
         {
             // Only give an error if it does exist
-            fprintf(stderr, "%s: could not open configuration directory (%s)\n", 
+            fprintf(stderr, "%s: could not open configuration directory '%s' (%s)\n", 
                     compilation_process.exec_basename,
+                    compilation_process.config_dir,
                     strerror(errno));
         }
     }
@@ -2449,42 +2508,54 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
-                if (CURRENT_CONFIGURATION->enable_nodecl)
+                if (!CURRENT_CONFIGURATION->disable_nodecl)
                 {
-                    AST simplified_tree = NULL;
-                    if (IS_C_LANGUAGE
-                            || IS_CXX_LANGUAGE)
+                    timing_t timing_check_tree;
+                    timing_start(&timing_check_tree);
+                    if (CURRENT_CONFIGURATION->verbose)
                     {
-                        c_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                        fprintf(stderr, "Checking integrity of nodecl tree\n");
                     }
-#ifdef FORTRAN_SUPPORT
-                    else if (IS_FORTRAN_LANGUAGE)
+                    nodecl_check_tree(nodecl_get_ast(translation_unit->nodecl));
+                    if (CURRENT_CONFIGURATION->verbose)
                     {
-                        fortran_simplify_tree_translation_unit(translation_unit->parsed_tree, &simplified_tree);
+                        fprintf(stderr, "Nodecl integrity verified in %.2f seconds\n",
+                                timing_elapsed(&timing_check_tree));
                     }
-#endif
-                    else
-                    {
-                        internal_error("Invalid language", 0);
-                    }
-
-                    ast_dump_graphviz(simplified_tree, stdout);
+                    timing_end(&timing_check_tree);
                 }
 
                 // 6. TL::run and TL::phase_cleanup
-                compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
+                if (CURRENT_CONFIGURATION->disable_nodecl)
+                {
+                    compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
+                }
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
                 {
                     fprintf(stderr, "Printing AST in graphviz format\n");
 
-                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                    if (!CURRENT_CONFIGURATION->disable_nodecl)
+                    {
+                        ast_dump_graphviz(nodecl_get_ast(translation_unit->nodecl), stdout);
+                    }
+                    else
+                    {
+                        ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                    }
                 }
                 else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
                 {
                     fprintf(stderr, "Printing AST in HTML format\n");
-                    ast_dump_html(translation_unit->parsed_tree, stdout);
+                    if (!CURRENT_CONFIGURATION->disable_nodecl)
+                    {
+                        ast_dump_html(nodecl_get_ast(translation_unit->nodecl), stdout);
+                    }
+                    else
+                    {
+                        ast_dump_html(translation_unit->parsed_tree, stdout);
+                    }
                 }
 
                 // 8. print symbol table if requested
@@ -2500,8 +2571,16 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             const char* prettyprinted_filename = NULL;
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
-                prettyprinted_filename
-                    = prettyprint_translation_unit(translation_unit, parsed_filename);
+                if (CURRENT_CONFIGURATION->disable_nodecl)
+                {
+                    prettyprinted_filename
+                        = prettyprint_translation_unit(translation_unit, parsed_filename);
+                }
+                else
+                {
+                    prettyprinted_filename
+                        = codegen_translation_unit(translation_unit, parsed_filename);
+                }
             }
 
             // Process secondary translation units
@@ -2523,6 +2602,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
+#ifdef FORTRAN_SUPPORT
+            // Hide all the wrap modules lest they were found by the native compiler
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                    && !CURRENT_CONFIGURATION->do_not_compile)
+            {
+                driver_fortran_hide_mercurium_modules();
+            }
+#endif
+
             if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ 1);
@@ -2532,6 +2620,30 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // Do not parse
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ 0);
             }
+
+#ifdef FORTRAN_SUPPORT
+            // Restore all the wrap modules for subsequent uses
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                    && !CURRENT_CONFIGURATION->do_not_compile)
+            {
+                driver_fortran_restore_mercurium_modules();
+            }
+#endif
+
+#ifdef FORTRAN_SUPPORT
+            // Wrap all the modules of Fortran, only if native compilation was actually performed
+            if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
+            {
+                if (!CURRENT_CONFIGURATION->do_not_compile)
+                {
+                    driver_fortran_wrap_all_modules();
+                }
+                else
+                {
+                    driver_fortran_discard_all_modules();
+                }
+            }
+#endif
         }
 
         // Restore CUDA flag
@@ -2670,6 +2782,8 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
 {
+    diagnostics_reset();
+
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
@@ -2699,7 +2813,165 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 timing_elapsed(&timing_semantic));
     }
 
+    char there_were_errors = (diagnostics_get_error_count() != 0);
+
+    if (CURRENT_CONFIGURATION->warnings_as_errors)
+    {
+        info_printf("%s: info: treating warnings as errors\n", translation_unit->input_filename);
+        there_were_errors = there_were_errors || (diagnostics_get_warn_count() != 0);
+    }
+
+    if (there_were_errors)
+    {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Frontend diagnosed errors for file '%s'. Ending compilation process\n", translation_unit->input_filename);
+        }
+        exit(EXIT_FAILURE);
+    }
+
+    timing_t timing_check_tree;
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Checking tree consistency\n");
+    }
+    timing_start(&timing_check_tree);
     check_tree(translation_unit->parsed_tree);
+    timing_end(&timing_check_tree);
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Tree consistency verified in %.2f seconds\n",
+                timing_elapsed(&timing_semantic));
+    }
+}
+
+static const char* codegen_translation_unit(translation_unit_t* translation_unit, 
+        const char* parsed_filename UNUSED_PARAMETER)
+{
+    if (CURRENT_CONFIGURATION->do_not_prettyprint)
+    {
+        return NULL;
+    }
+
+    FILE* prettyprint_file = NULL;
+    const char* output_filename = NULL;
+
+    if (CURRENT_CONFIGURATION->do_not_compile
+            && CURRENT_CONFIGURATION->do_not_link)
+    {
+        if (strcmp(translation_unit->output_filename, "-") == 0)
+        {
+            prettyprint_file = stdout;
+            output_filename = "(stdout)";
+        }
+        else
+        {
+            output_filename = translation_unit->output_filename;
+        }
+    }
+    else
+    {
+        const char* input_filename_basename = NULL;
+        input_filename_basename = give_basename(translation_unit->input_filename);
+
+        const char* preffix = strappend(compilation_process.exec_basename, "_");
+
+        const char* output_filename_basename = NULL; 
+
+#ifdef FORTRAN_SUPPORT
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Change the extension to be .f95 always
+            const char * ext = strrchr(input_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(input_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
+            c[ext - input_filename_basename + 1] = '\0';
+
+            input_filename_basename = strappend(c, ".f95");
+        }
+#endif
+
+        output_filename_basename = strappend(preffix,
+                input_filename_basename);
+
+        if (CURRENT_CONFIGURATION->output_directory != NULL)
+        {
+            output_filename = strappend(CURRENT_CONFIGURATION->output_directory, "/");
+            output_filename = strappend(output_filename, output_filename_basename);
+        }
+        else
+        {
+            output_filename = output_filename_basename;
+        }
+    }
+
+    if (CURRENT_CONFIGURATION->pass_through)
+        return output_filename;
+
+    // Open it, unless was an already opened descriptor
+    if (prettyprint_file == NULL)
+        prettyprint_file = fopen(output_filename, "w");
+
+    if (prettyprint_file == NULL)
+    {
+        running_error("Cannot create output file '%s' (%s)", output_filename,
+                strerror(errno));
+    }
+
+    timing_t time_print;
+    timing_start(&time_print);
+
+    // This will be used by a native compiler
+    prettyprint_set_not_internal_output();
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        if (CURRENT_CONFIGURATION->column_width != 0)
+        {
+            temporal_file_t raw_prettyprint = new_temporal_file();
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
+            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+            rewind(raw_prettyprint_file);
+
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fclose(raw_prettyprint_file);
+        }
+        else
+        {
+            fortran_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+        }
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language kind", 0);
+    }
+
+    timing_end(&time_print);
+    if (CURRENT_CONFIGURATION->verbose)
+    {
+        fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
+    }
+
+    if (prettyprint_file != stdout)
+    {
+        fclose(prettyprint_file);
+    }
+
+    return output_filename;
 }
 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
@@ -3226,6 +3498,16 @@ static void native_compilation(translation_unit_t* translation_unit,
     int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION->native_compiler_options);
 
     int num_arguments = num_args_compiler;
+
+#ifdef FORTRAN_SUPPORT
+    // This is a directory where we will put the unwrapped native modules
+    if (CURRENT_CONFIGURATION->module_native_dir != NULL)
+    {
+        // -Idir
+        num_arguments += 1;
+    }
+#endif // FORTRAN_SUPPORT
+
     // -c -o output input
     num_arguments += 4;
     // NULL
@@ -3234,26 +3516,49 @@ static void native_compilation(translation_unit_t* translation_unit,
     const char* native_compilation_args[num_arguments];
     memset(native_compilation_args, 0, sizeof(native_compilation_args));
 
-    int i;
-    for (i = 0; i < num_args_compiler; i++)
+    int ipos = 0;
+
+#ifdef FORTRAN_SUPPORT
+    // Force the unwrapped native module dir to be checked first
+    if (CURRENT_CONFIGURATION->module_native_dir != NULL)
     {
-        native_compilation_args[i] = CURRENT_CONFIGURATION->native_compiler_options[i];
+        char c[256];
+        snprintf(c, 255, "-I%s", CURRENT_CONFIGURATION->module_native_dir);
+        c[255] = '\0';
+
+        native_compilation_args[ipos] = uniquestr(c);
+        ipos++;
+    }
+#endif
+
+    {
+        int i;
+        for (i = 0; i < num_args_compiler; i++)
+        {
+            native_compilation_args[ipos] = CURRENT_CONFIGURATION->native_compiler_options[i];
+            ipos++;
+        }
     }
 
     if (!CURRENT_CONFIGURATION->generate_assembler)
     {
-        native_compilation_args[i] = uniquestr("-c");
+        native_compilation_args[ipos] = uniquestr("-c");
+        ipos++;
     }
     else
     {
-        native_compilation_args[i] = uniquestr("-S");
+        native_compilation_args[ipos] = uniquestr("-S");
+        ipos++;
     }
-    i++;
-    native_compilation_args[i] = uniquestr("-o");
-    i++;
-    native_compilation_args[i] = output_object_filename;
-    i++;
-    native_compilation_args[i] = prettyprinted_filename;
+
+    native_compilation_args[ipos] = uniquestr("-o");
+    ipos++;
+    int output_object_filename_index = ipos;
+    native_compilation_args[ipos] = output_object_filename;
+    ipos++;
+    int prettyprinted_filename_index = ipos;
+    native_compilation_args[ipos] = prettyprinted_filename;
+    ipos++;
 
     if (CURRENT_CONFIGURATION->verbose)
     {
@@ -3276,6 +3581,62 @@ static void native_compilation(translation_unit_t* translation_unit,
                 translation_unit->input_filename,
                 prettyprinted_filename,
                 timing_elapsed(&timing_compilation));
+    }
+
+    // Binary check enabled using --debug-flags=binary_check
+    if (CURRENT_CONFIGURATION->debug_options.binary_check)
+    {
+        fprintf(stderr, "Performing binary check of generated file '%s'\n",
+                output_object_filename);
+
+        native_compilation_args[prettyprinted_filename_index] = translation_unit->input_filename;
+        temporal_file_t new_obj_file = new_temporal_file_extension(".o");
+        native_compilation_args[output_object_filename_index] = new_obj_file->name;
+
+        if (execute_program(CURRENT_CONFIGURATION->native_compiler_name, native_compilation_args) != 0)
+        {
+            running_error("Binary check failed because native compiler failed on the original input source file '%s'\n",
+                    translation_unit->input_filename);
+        }
+
+        // Now strip both files
+
+        const char* strip_args[] =
+        {
+            "--strip-all",
+            NULL, // [1] filename
+            NULL,
+        };
+
+        const char* object_filenames[] = 
+        { 
+            output_object_filename,
+            new_obj_file->name,
+            NULL
+        };
+        
+        int i;
+        for (i = 0; object_filenames[i] != NULL; i++)
+        {
+            strip_args[1] = object_filenames[i];
+
+            fprintf(stderr, "Stripping '%s'\n", strip_args[1]);
+            if (execute_program("strip", strip_args) != 0)
+            {
+                running_error("Stripping failed on '%s'\n", strip_args[1]);
+            }
+        }
+
+        fprintf(stderr, "Comparing binaries\n");
+        const char* cmp_args[] = { output_object_filename, new_obj_file->name, NULL };
+        if (execute_program("cmp", cmp_args) != 0)
+        {
+            running_error("*** BINARY COMPARISON FAILED. Aborting ***\n", 0);
+        }
+        else
+        {
+            fprintf(stderr, "Binary comparison was OK!\n");
+        }
     }
 }
 
@@ -3896,7 +4257,7 @@ static void print_human(char *dest, unsigned long long num_bytes_)
     }
 }
 
-static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], int breakdown_real[MAX_AST_CHILDREN + 1], int *num_nodes)
+static void compute_tree_breakdown(AST a, int breakdown[MCXX_MAX_AST_CHILDREN + 1], int breakdown_real[MCXX_MAX_AST_CHILDREN + 1], int *num_nodes)
 {
     if (a == NULL)
         return;
@@ -3907,7 +4268,7 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
     (*num_nodes)++;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(a, i) != NULL)
         {
@@ -3916,10 +4277,10 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
         compute_tree_breakdown(ASTChild(a, i), breakdown, breakdown_real, num_nodes);
     }
 
-    if (num_intent <= (MAX_AST_CHILDREN + 1))
+    if (num_intent <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown[num_intent]++;
 
-    if (num_real <= (MAX_AST_CHILDREN + 1))
+    if (num_real <= (MCXX_MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
 #endif
@@ -4043,13 +4404,13 @@ static void print_memory_report(void)
     fprintf(stderr, "---------------------------------\n");
     fprintf(stderr, "\n");
 
-    int children_count[MAX_AST_CHILDREN + 1];
-    int children_real_count[MAX_AST_CHILDREN + 1];
+    int children_count[MCXX_MAX_AST_CHILDREN + 1];
+    int children_real_count[MCXX_MAX_AST_CHILDREN + 1];
 
     int num_nodes = 0;
 
     int i;
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         children_count[i] = 0;
         children_real_count[i] = 0;
@@ -4067,11 +4428,11 @@ static void print_memory_report(void)
     fprintf(stderr, " - AST node size (bytes): %d\n", ast_node_size());
     fprintf(stderr, " - Total number of AST nodes: %d\n", num_nodes);
 
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         fprintf(stderr, " - Nodes with %d children: %d\n", i, children_count[i]);
     }
-    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN + 1; i++)
     {
         fprintf(stderr, " - Nodes with %d real children: %d\n", i, children_real_count[i]);
     }

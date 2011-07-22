@@ -345,6 +345,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> initializer_list
 %type<ast> equal_initializer
 %type<ast> parent_initializer
+%type<ast> parent_initializer_ctor
 %type<ast> equal_or_parent_initializer
 %type<ast> iteration_statement
 %type<ast> jump_statement
@@ -369,6 +370,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> namespace_alias_definition
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
+%type<ast> nested_name_specifier_0
 %type<ast> new_declarator
 %type<ast> new_expression
 %type<ast> new_initializer
@@ -492,7 +494,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
-/*!include cxx-construct.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/
@@ -2417,6 +2418,16 @@ parent_initializer : '(' expression_list ')'
 }
 ;
 
+parent_initializer_ctor : '(' expression_list ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
+}
+| '(' ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_INITIALIZER, NULL, $1.token_file, $1.token_line, NULL);
+}
+;
+
 initializer : equal_initializer
 {
 	$$ = $1;
@@ -3335,26 +3346,18 @@ mem_initializer_list : mem_initializer
 }
 ;
 
-mem_initializer : mem_initializer_id '(' ')'
+mem_initializer : mem_initializer_id parent_initializer_ctor
 {
-	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| mem_initializer_id '(' expression_list ')'
-{
-	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 | mem_initializer_id braced_init_list
 {
 	$$ = ASTMake2(AST_MEM_INITIALIZER, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extensions
-| '(' expression_list ')'
+| parent_initializer_ctor
 {
-	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
-}
-| '(' ')'
-{
-	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_MEM_INITIALIZER, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -3580,6 +3583,10 @@ qualified_id_type_expr : qualified_id_type_name
 {
     $$ = $1;
 }
+| qualified_id_globals_template
+{
+    $$ = $1;
+}
 ;
 
 qualified_id : qualified_id_no_template
@@ -3673,13 +3680,27 @@ nested_name_specifier : class_or_namespace_name TWO_COLONS %merge<ambiguityHandl
 {
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| class_or_namespace_name TWO_COLONS nested_name_specifier %merge<ambiguityHandler>
+| class_or_namespace_name TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| class_or_namespace_name TWO_COLONS TEMPLATE nested_name_specifier 
+;
+
+nested_name_specifier_0 : class_or_namespace_name TWO_COLONS %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER_TEMPLATE, $1, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| TEMPLATE template_id TWO_COLONS %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER_TEMPLATE, $2, NULL, ASTFileName($2), ASTLine($2), NULL);
+}
+| class_or_namespace_name TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| TEMPLATE template_id TWO_COLONS nested_name_specifier_0 %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER_TEMPLATE, $2, $4, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 
@@ -3834,19 +3855,19 @@ postfix_expression : primary_expression
 }
 | DYNAMIC_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_DYNAMIC_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | STATIC_CAST '<' type_id '>' '(' expression ')' 
 {
-	$$ = ASTMake2(AST_STATIC_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_STATIC_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | REINTERPRET_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_REINTERPRET_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | CONST_CAST '<' type_id '>' '(' expression ')'
 {
-	$$ = ASTMake2(AST_CONST_CAST, $3, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CONST_CAST, $3, ASTListLeaf($6), $1.token_file, $1.token_line, NULL);
 }
 | TYPEID '(' expression ')' %merge<ambiguityHandler>
 {
@@ -3962,11 +3983,11 @@ unary_operator : '*'
 }
 | '!'
 {
-	$$ = AST_NOT;
+	$$ = AST_LOGICAL_NOT;
 }
 | '~'
 {
-	$$ = AST_COMPLEMENT;
+	$$ = AST_BITWISE_NOT;
 }
 ;
 
@@ -4156,7 +4177,7 @@ cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -4181,7 +4202,7 @@ multiplicative_expression : pm_expression %merge<ambiguityHandler>
 }
 | multiplicative_expression '*' pm_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | multiplicative_expression '/' pm_expression %merge<ambiguityHandler>
 {
@@ -4378,15 +4399,15 @@ assignment_operator : '='
 }
 | AND_ASSIGN
 {
-	$$ = AST_AND_ASSIGNMENT;
+	$$ = AST_BITWISE_AND_ASSIGNMENT;
 }
 | OR_ASSIGN
 {
-	$$ = AST_OR_ASSIGNMENT;
+	$$ = AST_BITWISE_OR_ASSIGNMENT;
 }
 | XOR_ASSIGN
 {
-	$$ = AST_XOR_ASSIGNMENT;
+	$$ = AST_BITWISE_XOR_ASSIGNMENT;
 }
 | MOD_ASSIGN
 {
@@ -4474,23 +4495,23 @@ operator : TOKEN_NEW
 }
 | '+'
 {
-	$$ = ASTLeaf(AST_ADDERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '-'
 {
-	$$ = ASTLeaf(AST_MINUSERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MINUS_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '*'
 {
-	$$ = ASTLeaf(AST_MULTERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MUL_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '/'
 {
-	$$ = ASTLeaf(AST_DIVERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIV_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '%' 
 {
-	$$ = ASTLeaf(AST_MODERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MOD_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '^'
 {
@@ -4546,15 +4567,15 @@ operator : TOKEN_NEW
 }
 | XOR_ASSIGN
 {
-	$$ = ASTLeaf(AST_XOR_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_XOR_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | AND_ASSIGN
 {
-	$$ = ASTLeaf(AST_AND_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_AND_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | OR_ASSIGN
 {
-	$$ = ASTLeaf(AST_OR_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_OR_ASSIGN_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | LEFT
 {
@@ -4574,11 +4595,11 @@ operator : TOKEN_NEW
 }
 | EQUAL
 {
-	$$ = ASTLeaf(AST_EQUALERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_EQUAL_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | NOT_EQUAL
 {
-	$$ = ASTLeaf(AST_DIFFERENTERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIFFERENT_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | LESS_OR_EQUAL
 {
@@ -4606,7 +4627,7 @@ operator : TOKEN_NEW
 }
 | ','
 {
-	$$ = ASTLeaf(AST_COMMAERATOR, $1.token_file, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_COMMA_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | PTR_OP
 {
@@ -5185,7 +5206,6 @@ right_bracket_token : '>'
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
-/*!include cxx-construct.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-cuda.y*/

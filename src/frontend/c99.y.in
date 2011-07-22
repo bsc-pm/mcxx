@@ -328,7 +328,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
-/*!include cxx-construct.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/
@@ -2188,11 +2187,11 @@ unary_operator : '*'
 }
 | '!'
 {
-	$$ = AST_NOT;
+	$$ = AST_LOGICAL_NOT;
 }
 | '~'
 {
-	$$ = AST_COMPLEMENT;
+	$$ = AST_BITWISE_NOT;
 }
 ;
 
@@ -2202,7 +2201,7 @@ cast_expression : unary_expression %merge<ambiguityHandler>
 }
 | '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_CAST_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_CAST, $2, ASTListLeaf($4), $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -2212,7 +2211,7 @@ multiplicative_expression : cast_expression %merge<ambiguityHandler>
 }
 | multiplicative_expression '*' cast_expression %merge<ambiguityHandler>
 {
-	$$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | multiplicative_expression '/' cast_expression %merge<ambiguityHandler>
 {
@@ -2405,15 +2404,15 @@ assignment_operator : '='
 }
 | AND_ASSIGN
 {
-	$$ = AST_AND_ASSIGNMENT;
+	$$ = AST_BITWISE_AND_ASSIGNMENT;
 }
 | OR_ASSIGN
 {
-	$$ = AST_OR_ASSIGNMENT;
+	$$ = AST_BITWISE_OR_ASSIGNMENT;
 }
 | XOR_ASSIGN
 {
-	$$ = AST_XOR_ASSIGNMENT;
+	$$ = AST_BITWISE_XOR_ASSIGNMENT;
 }
 | MOD_ASSIGN
 {
@@ -2497,7 +2496,6 @@ string_literal : STRING_LITERAL
 /*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
-/*!include cxx-construct.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include c99-upc.y*/

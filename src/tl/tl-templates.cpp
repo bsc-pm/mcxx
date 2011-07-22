@@ -30,14 +30,14 @@
 
 namespace TL
 {
-    TemplateParameter::TemplateParameter(template_parameter_t *tpl_param)
-        : _tpl_param(tpl_param)
+    TemplateParameter::TemplateParameter(template_parameter_list_t *tpl_param, int index)
+        : _tpl_param(tpl_param), _index(index)
     {
     }
 
     TemplateParameter::Kind TemplateParameter::get_kind() const
     {
-        switch (_tpl_param->kind)
+        switch (_tpl_param->parameters[_index]->kind)
         {
             case TPK_TYPE:
                 return TemplateParameter::TYPE;
@@ -52,17 +52,12 @@ namespace TL
 
     Symbol TemplateParameter::get_symbol() const
     {
-        return Symbol(_tpl_param->entry);
+        return Symbol(_tpl_param->parameters[_index]->entry);
     }
 
     bool TemplateParameter::has_default_argument() const
     {
-        return _tpl_param->has_default_argument;
-    }
-
-    template_parameter_t* TemplateParameter::get_internal_template_parameter() const
-    {
-        return _tpl_param;
+        return _tpl_param->arguments[_index]->is_default;
     }
 
     std::string TemplateParameter::get_name() const
@@ -72,27 +67,27 @@ namespace TL
 
     int TemplateParameter::get_position() const
     {
-        return _tpl_param->entry->entity_specs.template_parameter_position;
+        return _tpl_param->parameters[_index]->entry->entity_specs.template_parameter_position;
     }
 
     int TemplateParameter::get_nesting() const
     {
-        return _tpl_param->entry->entity_specs.template_parameter_nesting;
+        return _tpl_param->parameters[_index]->entry->entity_specs.template_parameter_nesting;
     }
 
     TemplateArgument TemplateParameter::get_default_argument() const
     {
-        return TemplateArgument(_tpl_param->default_template_argument);
+        return TemplateArgument(_tpl_param, _index);
     }
 
-    TemplateArgument::TemplateArgument(template_argument_t* tpl_arg)
-        : _tpl_arg(tpl_arg)
+    TemplateArgument::TemplateArgument(template_parameter_list_t* tpl_arg, int index)
+        : _tpl_param(tpl_arg), _index(index)
     {
     }
 
     TemplateArgument::Kind TemplateArgument::get_kind() const
     {
-        switch (_tpl_arg->kind)
+        switch (_tpl_param->arguments[_index]->kind)
         {
             case TPK_TYPE:
                 return TemplateArgument::TYPE;
@@ -107,32 +102,28 @@ namespace TL
 
     Type TemplateArgument::get_type() const
     {
-        return  Type(_tpl_arg->type);
+        return  Type(_tpl_param->arguments[_index]->type);
     }
 
     AST_t TemplateArgument::get_expression() const
     {
-        return AST_t(_tpl_arg->expression);
+        return AST_t();
+        // return AST_t(_tpl_param->arguments[_index]->expression);
     }
 
     bool TemplateArgument::is_implicit() const
     {
-        return _tpl_arg->implicit;
+        return false;
     }
 
     int TemplateArgument::get_position() const
     {
-        return _tpl_arg->position;
+        return _index;
     }
 
     int TemplateArgument::get_nesting() const
     {
-        return _tpl_arg->nesting;
-    }
-
-    template_argument_t* TemplateArgument::get_internal_template_argument() const
-    {
-        return _tpl_arg;
+        return ::get_template_nesting_of_template_parameters(_tpl_param);
     }
 }
 

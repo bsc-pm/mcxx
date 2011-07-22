@@ -36,13 +36,11 @@
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 
-#define MAX_ASSOCIATED_SCOPES (256)
-
 typedef 
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t* associated_scopes[MAX_ASSOCIATED_SCOPES];
+    scope_t* associated_scopes[MCXX_MAX_KOENIG_ASSOCIATED_SCOPES];
 } associated_scopes_t;
 
 static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
@@ -150,7 +148,7 @@ static void compute_set_of_associated_classes_scope(type_t* type_info, associate
 
 static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t* sc)
 {
-    ERROR_CONDITION(associated_scopes->num_associated_scopes >= MAX_ASSOCIATED_SCOPES,
+    ERROR_CONDITION(associated_scopes->num_associated_scopes >= MCXX_MAX_KOENIG_ASSOCIATED_SCOPES,
             "Too many associated scopes", 0);
     
     ERROR_CONDITION(sc->kind != NAMESPACE_SCOPE, 
@@ -232,13 +230,13 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
          */
         if (is_template_specialized_type(class_type))
         {
-            template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(class_type);
+            template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(class_type);
             int i;
-            for (i = 0; i < arg_list->num_arguments; i++)
+            for (i = 0; i < template_parameters->num_parameters; i++)
             {
-                template_argument_t* arg = arg_list->argument_list[i];
-                if (arg->kind == TAK_TYPE
-                        || arg->kind == TAK_TEMPLATE)
+                template_parameter_value_t* arg = template_parameters->arguments[i];
+                if (arg->kind == TPK_TYPE
+                        || arg->kind == TPK_TEMPLATE)
                 {
                     compute_associated_scopes_rec( associated_scopes, arg->type);
                 }
@@ -383,7 +381,10 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_dependent = 0;
-        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL, &is_dependent);
+        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, 
+                /* is_virtual */ NULL, 
+                &is_dependent, 
+                /* access_specifier */ NULL);
         if (is_dependent)
             continue;
 

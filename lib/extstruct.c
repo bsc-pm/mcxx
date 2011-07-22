@@ -82,7 +82,7 @@ struct data_tag
 {
     int num_fields;
     const char **keys;
-    const void **data;
+    void **data;
 } data_t;
 
 static void walk_func(const void* key, void* value, void* p)
@@ -100,7 +100,7 @@ static void walk_func(const void* key, void* value, void* p)
 void extensible_struct_get_all_data(extensible_struct_t* extensible_struct,
         int *num_fields,
         const char ***keys,
-        const void ***data)
+        void ***data)
 {
     data_t d;
     memset(&d, 0, sizeof(d));

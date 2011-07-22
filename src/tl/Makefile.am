@@ -47,6 +47,11 @@ BUILT_SOURCES=
 BUILT_SOURCES += $(top_builddir)/src/frontend/cxx-asttype.h 
 BUILT_SOURCES += tl-lexer-tokens.hpp
 
+BUILT_SOURCES += tl-nodecl-visitor.hpp
+BUILT_SOURCES += tl-nodecl-visitor.cpp
+BUILT_SOURCES += tl-nodecl.hpp
+BUILT_SOURCES += tl-nodecl.cpp
+
 CLEANFILES =
 CLEANFILES += tl-lexer-tokens.hpp
 
@@ -61,6 +66,13 @@ COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_builddir)/lib \
     $(END)
 
+# Silent rules
+if SUPPORTED_SILENT_RULES
+PYTHON_verbose = $(PYTHON_verbose_$(V))
+PYTHON_verbose_ = $(PYTHON_verbose_$(AM_DEFAULT_VERBOSITY))
+PYTHON_verbose_0 = @echo "  PYTHON" $@;
+endif
+
 libtl_la_CFLAGS = $(COMMON_CFLAGS)
 libtl_la_CXXFLAGS = $(COMMON_CFLAGS)
 
@@ -74,6 +86,10 @@ libtl_la_SOURCES = \
     tl-builtin.cpp \
     tl-ast.hpp \
     tl-ast.cpp \
+    tl-nodecl-visitor.hpp \
+    tl-nodecl-visitor.cpp \
+    tl-nodecl.hpp \
+    tl-nodecl.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
 	tl-scopelink.hpp \
@@ -177,6 +193,21 @@ tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_FORTRAN)
 	 echo "}";  \
 	 echo "#endif // TL_LEXER_TOKENS_HPP" ; \
 	) > $@)
+
+NODECL_DEPS=$(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def
+
+CLEANFILES += tl-nodecl.hpp
+tl-nodecl.hpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_header > $@
+CLEANFILES += tl-nodecl.cpp
+tl-nodecl.cpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_nodecl_class_impl > $@
+CLEANFILES += tl-nodecl-visitor.hpp
+tl-nodecl-visitor.hpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_visitor_decl > $@
+CLEANFILES += tl-nodecl-visitor.cpp
+tl-nodecl-visitor.cpp : $(NODECL_DEPS)
+	$(PYTHON_verbose)$(PYTHON) $(srcdir)/../frontend/nodecl-generator.py $(srcdir)/../frontend/cxx-nodecl.def cxx_visitor_impl > $@
 
 libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 libtl_la_LIBADD = \

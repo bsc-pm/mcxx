@@ -757,6 +757,16 @@ type {
         }
     }
 
+    CXX_LANGUAGE()
+    {
+        if (extern_c_block)
+        {
+            fprintf(stderr, "%s:%d: warning: preprocessor line marking an implicit 'extern C' block. This is not fully supported\n",
+                    scanning_now.current_filename,
+                    scanning_now.line_number);
+        }
+    }
+
     if (system_header_file)
     {
         char path[256];
@@ -1044,9 +1054,6 @@ type {
 "__shared__" {
     return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
 }
-
- /* mcxx extensions */
-"__construct__" { parse_token_text(); return CONSTRUCT; }
 
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }

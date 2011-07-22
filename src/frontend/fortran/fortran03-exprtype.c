@@ -30,6 +30,7 @@
 #include "fortran03-scope.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-typeutils.h"
+#include "fortran03-intrinsics.h"
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-ast.h"
@@ -37,19 +38,23 @@
 #include "cxx-utils.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+#include "cxx-nodecl.h"
+#include "cxx-nodecl-output.h"
+#include "cxx-diagnostic.h"
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
 
-static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context);
+static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 char fortran_check_expression(AST a, decl_context_t decl_context)
 {
-    fortran_check_expression_impl_(a, decl_context);
+    nodecl_t nodecl_output = nodecl_null();
+    fortran_check_expression_impl_(a, decl_context, &nodecl_output);
     return (!is_error_type(expression_get_type(a)));
 }
 
-typedef void (*check_expression_function_t)(AST statement, decl_context_t);
+typedef void (*check_expression_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
 typedef struct check_expression_handler_tag
 {
     node_t ast_kind;
@@ -82,9 +87,9 @@ typedef struct check_expression_handler_tag
  STATEMENT_HANDLER(AST_LOWER_OR_EQUAL_THAN, check_lower_or_equal_than) \
  STATEMENT_HANDLER(AST_LOWER_THAN, check_lower_than) \
  STATEMENT_HANDLER(AST_MINUS, check_minus_op) \
- STATEMENT_HANDLER(AST_MULT, check_mult_op) \
+ STATEMENT_HANDLER(AST_MUL, check_mult_op) \
  STATEMENT_HANDLER(AST_NEG, check_neg_op) \
- STATEMENT_HANDLER(AST_NOT, check_not_op) \
+ STATEMENT_HANDLER(AST_LOGICAL_NOT, check_not_op) \
  STATEMENT_HANDLER(AST_OCTAL_LITERAL, check_octal_literal) \
  STATEMENT_HANDLER(AST_PARENTHESIZED_EXPRESSION, check_parenthesized_expression) \
  STATEMENT_HANDLER(AST_PLUS, check_plus_op) \
@@ -118,7 +123,7 @@ typedef struct check_expression_handler_tag
       }
 #else
   #define STATEMENT_HANDLER(_kind, _handler) \
-      static void _handler(AST, decl_context_t); 
+      static void _handler(AST, decl_context_t, nodecl_t* nodecl_output); 
 #endif
 
 STATEMENT_HANDLER_TABLE
@@ -175,7 +180,7 @@ static int check_expression_function_compare(const void *a, const void *b)
 #define CREATE_NAMED_PAIR(x) \
             ASTMake2(AST_NAMED_PAIR_SPEC, NULL, ast_copy(x), ast_get_filename(x), ast_get_line(x), NULL)
 
-static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context)
+static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
     // Sort the array if needed
@@ -192,7 +197,10 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
 
     // Do not recalculate again
     if (expression_get_type(expression) != NULL)
+    {
+        *nodecl_output = expression_get_nodecl(expression);
         return;
+    }
 
     check_expression_handler_t key = { .ast_kind = ASTType(expression) };
     check_expression_handler_t *handler = NULL;
@@ -211,7 +219,12 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
                 ast_location(expression), 
                 ast_print_node_type(ASTType(expression)));
     }
-    (handler->handler)(expression, decl_context);
+    (handler->handler)(expression, decl_context, nodecl_output);
+    if (expression_is_error(expression))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+    }
+    expression_set_nodecl(expression, *nodecl_output);
 
     DEBUG_CODE()
     {
@@ -245,17 +258,18 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
     }
 }
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type, 
+        nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
-static void common_binary_check(AST expr, decl_context_t decl_context);
-static void common_unary_check(AST expr, decl_context_t decl_context);
+static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static void check_add_op(AST expr, decl_context_t decl_context)
+static void check_add_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context)
+static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     type_t* current_type = NULL;
     AST it;
@@ -267,33 +281,61 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context)
         {
             AST implied_do_ac_value = ASTSon0(ac_value);
 
-            decl_context_t new_context = fortran_new_block_context(decl_context);
-
             AST implied_do_control = ASTSon1(ac_value);
             AST ac_do_variable = ASTSon0(implied_do_control);
             AST lower_bound = ASTSon1(implied_do_control);
             AST upper_bound = ASTSon2(implied_do_control);
             AST stride = ASTSon3(implied_do_control);
 
-            fortran_check_expression_impl_(lower_bound, decl_context);
-            fortran_check_expression_impl_(upper_bound, decl_context);
+            nodecl_t nodecl_lower = nodecl_null();
+            fortran_check_expression_impl_(lower_bound, decl_context, &nodecl_lower);
+            nodecl_t nodecl_upper = nodecl_null();
+            fortran_check_expression_impl_(upper_bound, decl_context, &nodecl_upper);
+            nodecl_t nodecl_stride = nodecl_null();
             if (stride != NULL)
-                fortran_check_expression_impl_(stride, decl_context);
+                fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
 
-            scope_entry_t* do_variable = new_symbol(new_context, new_context.current_scope,
-                    ASTText(ac_do_variable));
+            scope_entry_t* do_variable = query_name_with_locus(decl_context, ac_do_variable, ASTText(ac_do_variable));
 
-            do_variable->kind = SK_VARIABLE;
-            do_variable->type_information 
-                = get_const_qualified_type(get_signed_int_type());
-            do_variable->file = ASTFileName(ac_do_variable);
-            do_variable->line = ASTLine(ac_do_variable);
+            if (do_variable == NULL)
+            {
+                running_error("%s: error: unknown symbol '%s' in ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+            }
 
-            check_ac_value_list(implied_do_ac_value, new_context);
+            if (do_variable->kind == SK_UNDEFINED)
+            {
+                do_variable->kind = SK_VARIABLE;
+            }
+            else if (do_variable->kind != SK_VARIABLE)
+            {
+                running_error("%s: error: invalid name '%s' for ac-implied-do\n", ast_location(ac_do_variable), ASTText(ac_do_variable));
+            }
+
+            nodecl_t nodecl_ac_value = nodecl_null();
+            check_ac_value_list(implied_do_ac_value, decl_context, &nodecl_ac_value);
+
+            expression_set_type(ac_value, expression_get_type(implied_do_ac_value));
+
+            nodecl_t nodecl_implied_do = 
+                nodecl_make_implied_do(
+                        nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
+                        nodecl_make_subscript_triplet(nodecl_lower, 
+                            nodecl_upper, 
+                            nodecl_stride, 
+                            ASTFileName(implied_do_control), 
+                            ASTLine(implied_do_control)),
+                        nodecl_ac_value,
+                        ASTFileName(implied_do_control), 
+                        ASTLine(implied_do_control));
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_implied_do);
         }
         else
         {
-            fortran_check_expression_impl_(ac_value, decl_context);
+            nodecl_t nodecl_expr = nodecl_null();
+            fortran_check_expression_impl_(ac_value, decl_context, &nodecl_expr);
+
+            *nodecl_output = nodecl_append_to_list(*nodecl_output, nodecl_expr);
         }
 
         if (is_error_type(expression_get_type(ac_value)))
@@ -309,26 +351,33 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context)
     }
 }
 
-static void check_array_constructor(AST expr, decl_context_t decl_context)
+static void check_array_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST ac_spec = ASTSon0(expr);
     AST type_spec = ASTSon0(ac_spec);
 
     if (type_spec != NULL)
     {
-        running_error("%s: sorry: type specifier in array constructors not supported\n",
+        error_printf("%s: error: type specifier in array constructors not supported\n",
                 ast_location(type_spec));
+        expression_set_error(expr);
+        return;
     }
 
     AST ac_value_list = ASTSon1(ac_spec);
-    check_ac_value_list(ac_value_list, decl_context);
+    nodecl_t nodecl_ac_value = nodecl_null();
+    check_ac_value_list(ac_value_list, decl_context, &nodecl_ac_value);
 
     expression_set_type(expr, expression_get_type(ac_value_list));
+
+    *nodecl_output = nodecl_make_structured_literal(nodecl_ac_value,
+            expression_get_type(ac_value_list), 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_substring(AST expr, decl_context_t decl_context)
+static void check_substring(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
-    type_t* subscripted_type = expression_get_type(ASTSon0(expr));
+    type_t* subscripted_type = no_ref(expression_get_type(ASTSon0(expr)));
 
     AST subscript_list = ASTSon1(expr);
 
@@ -341,9 +390,14 @@ static void check_substring(AST expr, decl_context_t decl_context)
 
     if (num_subscripts != 1)
     {
-        running_error("%s: error: invalid number of subscripts (%d) in substring expression\n",
-                ast_location(expr),
-                num_subscripts);
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid number of subscripts (%d) in substring expression\n",
+                    ast_location(expr),
+                    num_subscripts);
+        }
+        expression_set_error(expr);
+        return;
     }
 
     AST subscript = ASTSon1(subscript_list);
@@ -354,24 +408,39 @@ static void check_substring(AST expr, decl_context_t decl_context)
 
     if (stride != NULL)
     {
-        running_error("%s: error: a stride is not valid in a substring expression\n",
-                ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: a stride is not valid in a substring expression\n",
+                    ast_location(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
+    nodecl_t nodecl_lower = nodecl_null();
     if (lower != NULL)
-        fortran_check_expression_impl_(lower, decl_context);
+        fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
+
+    nodecl_t nodecl_upper = nodecl_null();
     if (upper != NULL)
-        fortran_check_expression_impl_(upper, decl_context);
+        fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
 
     type_t* synthesized_type = NULL;
 
     // Do not compute the exact size at the moment
-    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), NULL, NULL, decl_context);
+    synthesized_type = get_array_type_bounds(array_type_get_element_type(subscripted_type), nodecl_lower, nodecl_upper, decl_context);
 
     expression_set_type(expr, synthesized_type);
+
+    *nodecl_output = nodecl_make_array_subscript(
+            nodecl_subscripted,
+            nodecl_make_list_1(nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_null(), ASTFileName(expr), ASTLine(expr))),
+            synthesized_type,
+            ASTFileName(expr), ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
 }
 
-static void check_array_ref_(AST expr, decl_context_t decl_context)
+static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nodecl_subscripted, nodecl_t* nodecl_output)
 {
     char symbol_is_invalid = 0;
 
@@ -382,16 +451,16 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
 
     scope_entry_t* symbol = expression_get_symbol(ASTSon0(expr));
     if (symbol == NULL
-            || (!is_array_type(symbol->type_information)
-                && !is_pointer_to_array_type(symbol->type_information)))
+            || (!is_array_type(no_ref(symbol->type_information))
+                && !is_pointer_to_array_type(no_ref(symbol->type_information))))
     {
         symbol_is_invalid = 1;
     }
     else
     {
-        array_type = symbol->type_information;
-        if (is_pointer_to_array_type(symbol->type_information))
-            array_type = pointer_type_get_pointee_type(symbol->type_information);
+        array_type = no_ref(symbol->type_information);
+        if (is_pointer_to_array_type(no_ref(symbol->type_information)))
+            array_type = pointer_type_get_pointee_type(no_ref(symbol->type_information));
 
         synthesized_type = get_rank0_type(array_type);
         rank_of_type = get_rank_of_type(array_type);
@@ -403,6 +472,19 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
     AST it;
     for_each_element(subscript_list, it)
     {
+        num_subscripts++;
+    }
+
+    nodecl_t nodecl_indexes[num_subscripts];
+    int i;
+    for (i = 0; i < num_subscripts; i++)
+    {
+        nodecl_indexes[i] = nodecl_null();
+    }
+
+    num_subscripts = 0;
+    for_each_element(subscript_list, it)
+    {
         AST subscript = ASTSon1(it);
 
         if (ASTType(subscript) == AST_SUBSCRIPT_TRIPLET)
@@ -410,25 +492,34 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
             AST lower = ASTSon0(subscript);
             AST upper = ASTSon1(subscript);
             AST stride = ASTSon2(subscript);
+            nodecl_t nodecl_lower = nodecl_null();
+            nodecl_t nodecl_upper = nodecl_null();
+            nodecl_t nodecl_stride = nodecl_null();
             if (lower != NULL)
-                fortran_check_expression_impl_(lower, decl_context);
+                fortran_check_expression_impl_(lower, decl_context, &nodecl_lower);
             if (upper != NULL)
-                fortran_check_expression_impl_(upper, decl_context);
+                fortran_check_expression_impl_(upper, decl_context, &nodecl_upper);
             if (stride != NULL)
-                fortran_check_expression_impl_(stride, decl_context);
+                fortran_check_expression_impl_(stride, decl_context, &nodecl_stride);
 
             // Do not attempt to compute at the moment the sizes of the bounds
             // maybe we will in the future
             if (!symbol_is_invalid)
             {
-                synthesized_type = get_array_type_bounds(synthesized_type, NULL, NULL, decl_context);
+                // FIXME - Stride may imply an array with smaller sizer (rank is unaffected)
+                synthesized_type = get_array_type_bounds(synthesized_type, nodecl_lower, nodecl_upper, decl_context);
             }
 
-            // FIXME - Mark subscript triplets
+            nodecl_indexes[num_subscripts] = nodecl_make_subscript_triplet(
+                    nodecl_lower,
+                    nodecl_upper,
+                    nodecl_stride,
+                    ASTFileName(subscript),
+                    ASTLine(subscript));
         }
         else
         {
-            fortran_check_expression_impl_(subscript, decl_context);
+            fortran_check_expression_impl_(subscript, decl_context, &nodecl_indexes[num_subscripts]);
         }
         num_subscripts++;
     }
@@ -437,7 +528,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: data reference '%s' does not designate an array name\n",
+            error_printf("%s: error: data reference '%s' does not designate an array name\n",
                     ast_location(expr), fortran_prettyprint_in_buffer(ASTSon0(expr)));
         }
         expression_set_error(expr);
@@ -448,7 +539,7 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: mismatch in subscripts of array reference, expecting %d got %d\n",
+            error_printf("%s: error: mismatch in subscripts of array reference, expecting %d got %d\n",
                     ast_location(expr),
                     get_rank_of_type(symbol->type_information),
                     num_subscripts);
@@ -460,13 +551,27 @@ static void check_array_ref_(AST expr, decl_context_t decl_context)
     expression_set_type(expr, synthesized_type);
 
     ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_SUBSCRIPTED_EXPRESSION, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expr));
+
+    nodecl_t nodecl_list = nodecl_null();
+    for (i = num_subscripts-1; i >= 0; i--)
+    {
+        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_indexes[i]);
+    }
+
+    *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
+            nodecl_list,
+            synthesized_type,
+            ASTFileName(expr),
+            ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, nodecl_get_symbol(nodecl_subscripted));
 }
 
-static void check_array_ref(AST expr, decl_context_t decl_context)
+static void check_array_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context);
+    nodecl_t nodecl_subscripted = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_subscripted);
 
     if (is_error_type(expression_get_type(ASTSon0(expr))))
     {
@@ -476,22 +581,22 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
 
     type_t* subscripted_type = expression_get_type(ASTSon0(expr));
 
-    if (is_fortran_array_type(subscripted_type)
-            || is_pointer_to_fortran_array_type(subscripted_type))
+    if (is_fortran_array_type(no_ref(subscripted_type))
+            || is_pointer_to_fortran_array_type(no_ref(subscripted_type)))
     {
-        check_array_ref_(expr, decl_context);
+        check_array_ref_(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
-    else if (is_fortran_character_type(get_rank0_type(subscripted_type))
-            || is_pointer_to_fortran_character_type(get_rank0_type(subscripted_type)))
+    else if (is_fortran_character_type(get_rank0_type(no_ref(subscripted_type)))
+            || is_pointer_to_fortran_character_type(get_rank0_type(no_ref(subscripted_type))))
     {
-        check_substring(expr, decl_context);
+        check_substring(expr, decl_context, nodecl_subscripted, nodecl_output);
         return;
     }
 
     if (!checking_ambiguity())
     {
-        fprintf(stderr, "%s: warning: invalid entity '%s' for subscript expression\n",
+        error_printf("%s: error: invalid entity '%s' for subscript expression\n",
                 ast_location(expr),
                 fortran_prettyprint_in_buffer(ASTSon0(expr)));
     }
@@ -511,7 +616,7 @@ static char in_string_set(char c, const char* char_set)
     return 0;
 }
 
-static void compute_boz_literal(AST expr, const char *valid_prefix, int base)
+static void compute_boz_literal(AST expr, const char *valid_prefix, int base, nodecl_t* nodecl_output)
 {
     const char* literal_token = ASTText(expr);
 
@@ -551,30 +656,37 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base)
 
     long long int value = strtoll(literal_text, NULL, base);
 
-    expression_set_type(expr, get_signed_int_type());
-    expression_set_constant(expr, const_value_get(value, 4, 1));
+    const_value_t* const_value = const_value_get_signed_int(value);
+
+    expression_set_type(expr, fortran_get_default_integer_type());
+    expression_set_constant(expr, const_value);
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
+
+    *nodecl_output = nodecl_make_integer_literal(fortran_get_default_logical_type(), const_value, ASTFileName(expr), ASTLine(expr));
 }
 
 
-static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_binary_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    compute_boz_literal(expr, "b", 2);
+    compute_boz_literal(expr, "b", 2, nodecl_output);
 }
 
-static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
+    const_value_t* const_value = NULL;
     if (strcasecmp(ASTText(expr), ".true.") == 0)
     {
-        expression_set_type(expr, get_bool_type());
-        expression_set_constant(expr, const_value_get_one(1, 1));
+        const_value = const_value_get_one(1, 1);
+        expression_set_type(expr, fortran_get_default_logical_type());
+        expression_set_constant(expr, const_value);
     }
     else if (strcasecmp(ASTText(expr), ".false.") == 0)
     {
-        expression_set_type(expr, get_bool_type());
-        expression_set_constant(expr, const_value_get_zero(1, 1));
+        const_value = const_value_get_zero(1, 1);
+        expression_set_type(expr, fortran_get_default_logical_type());
+        expression_set_constant(expr, const_value);
     }
     else
     {
@@ -582,16 +694,20 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     }
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
+
+    *nodecl_output = nodecl_make_boolean_literal(fortran_get_default_logical_type(), const_value, 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_complex_literal(AST expr, decl_context_t decl_context)
+static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Const value does not support yet complex numbers, simply compute its
     // type
     AST real_part = ASTSon0(expr);
     AST imag_part = ASTSon1(expr);
 
-    fortran_check_expression_impl_(real_part, decl_context);
+    nodecl_t nodecl_real = nodecl_null();
+    fortran_check_expression_impl_(real_part, decl_context, &nodecl_real);
     if (is_error_type(expression_get_type(real_part)))
     {
         expression_set_error(imag_part);
@@ -599,15 +715,16 @@ static void check_complex_literal(AST expr, decl_context_t decl_context)
         return;
     }
 
-    fortran_check_expression_impl_(imag_part, decl_context);
+    nodecl_t nodecl_imag = nodecl_null();
+    fortran_check_expression_impl_(imag_part, decl_context, &nodecl_imag);
     if (is_error_type(expression_get_type(imag_part)))
     {
         expression_set_error(expr);
         return;
     }
 
-    type_t* real_part_type = expression_get_type(real_part);
-    type_t* imag_part_type = expression_get_type(imag_part);
+    type_t* real_part_type = no_ref(expression_get_type(real_part));
+    type_t* imag_part_type = no_ref(expression_get_type(imag_part));
 
     if (is_integer_type(real_part_type)
             && is_integer_type(imag_part_type))
@@ -644,20 +761,31 @@ static void check_complex_literal(AST expr, decl_context_t decl_context)
     }
     else
     {
-        running_error("%s: error: invalid complex constant '%s'\n", 
-                ast_location(expr),
-                fortran_prettyprint_in_buffer(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid complex constant '%s'\n", 
+                    ast_location(expr),
+                    fortran_prettyprint_in_buffer(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_COMPLEX_LITERAL, tl_type_t, tl_bool(1));
+
+    *nodecl_output = nodecl_make_complex_literal(
+            nodecl_real, nodecl_imag, 
+            expression_get_type(expr), 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_component_ref(AST expr, decl_context_t decl_context)
+static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context);
+    nodecl_t nodecl_base = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_base);
 
-    type_t* t = expression_get_type(ASTSon0(expr));
+    type_t* t = no_ref(expression_get_type(ASTSon0(expr)));
 
     if (is_error_type(t))
     {
@@ -670,7 +798,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' does not denote a derived type\n",
+            error_printf("%s: error: '%s' does not denote a derived type\n",
                     ast_location(expr),
                     fortran_prettyprint_in_buffer(ASTSon0(expr)));
         }
@@ -693,7 +821,7 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a component of '%s'\n",
+            error_printf("%s: error: '%s' is not a component of '%s'\n",
                     ast_location(expr),
                     field,
                     fortran_print_type_str(class_type));
@@ -707,8 +835,8 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(ASTSon1(expr), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
-    ASTAttrSetValueType(expr, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_ACCESSED_ENTITY, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_ACCESSED_MEMBER, ASTSon1(expr));
 
     if (is_pointer_to_class_type(t))
     {
@@ -718,11 +846,17 @@ static void check_component_ref(AST expr, decl_context_t decl_context)
     {
         ASTAttrSetValueType(expr, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
     }
+
+    *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
+            nodecl_make_symbol(entry, ASTFileName(ASTSon1(expr)), ASTLine(ASTSon1(expr))),
+            expression_get_type(expr),
+            ASTFileName(expr), ASTLine(expr));
+    nodecl_set_symbol(*nodecl_output, entry);
 }
 
-static void check_concat_op(AST expr, decl_context_t decl_context)
+static void check_concat_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
 static char kind_is_integer_literal(const char* c)
@@ -747,7 +881,7 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
         scope_entry_t* sym = query_name_with_locus(decl_context, expr, p);
         if (sym == NULL
                 || sym->kind != SK_VARIABLE
-                || !is_const_qualified_type(sym->type_information))
+                || !is_const_qualified_type(no_ref(sym->type_information)))
         {
             if (!checking_ambiguity())
             {
@@ -758,18 +892,18 @@ static int compute_kind_from_literal(const char* p, AST expr, decl_context_t dec
             return 0;
         }
 
-        ERROR_CONDITION(sym->expression_value == NULL,
+        ERROR_CONDITION(sym->language_dependent_value == NULL,
                 "Invalid constant for kind '%s'", sym->symbol_name);
 
-        ERROR_CONDITION(!expression_is_constant(sym->expression_value),
+        ERROR_CONDITION(!expression_is_constant(sym->language_dependent_value),
                 "Invalid nonconstant expression for kind '%s'", 
-                fortran_prettyprint_in_buffer(sym->expression_value));
+                fortran_prettyprint_in_buffer(sym->language_dependent_value));
 
-        return const_value_cast_to_4(expression_get_constant(sym->expression_value));
+        return const_value_cast_to_4(expression_get_constant(sym->language_dependent_value));
     }
 }
 
-static void check_decimal_literal(AST expr, decl_context_t decl_context)
+static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const char* c = ASTText(expr);
 
@@ -801,15 +935,19 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context)
 
     long long int value = strtoll(decimal_text, NULL, 10);
 
-    expression_set_type(expr, choose_int_type_from_kind(expr, kind));
-    expression_set_constant(expr, const_value_get(value, kind, 1));
+    const_value_t* const_value = const_value_get_integer(value, kind, 1);
+    type_t* t = choose_int_type_from_kind(expr, kind);
+    expression_set_type(expr, t);
+    expression_set_constant(expr, const_value);
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
+    *nodecl_output = nodecl_make_integer_literal(t, const_value, 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_derived_type_constructor(AST expr, decl_context_t decl_context)
+static void check_derived_type_constructor(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST derived_type_spec = ASTSon0(expr);
     AST component_spec_list = ASTSon1(expr);
@@ -817,7 +955,12 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     AST type_param_spec_list = ASTSon1(derived_type_spec);
     if (type_param_spec_list != NULL)
     {
-        running_error("%s: sorry: derived types with type parameters not supported\n", ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: sorry: derived types with type parameters not supported\n", ast_location(expr));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     AST derived_name = ASTSon0(derived_type_spec);
@@ -828,7 +971,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: '%s' is not a derived-type-name\n",
+            error_printf("%s: error: '%s' is not a derived-type-name\n",
                     ast_location(expr),
                     ASTText(derived_name));
         }
@@ -838,51 +981,128 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
 
     // decl_context_t class_context = class_type_get_inner_context(entry->type_information);
 
-    // FIXME - We should do some more things here
+    nodecl_t nodecl_initializer_list = nodecl_null();
+
+    int member_index = 0;
+    int component_position = 1;
     if (component_spec_list != NULL)
     {
         AST it;
         for_each_element(component_spec_list, it)
         {
             AST component_spec = ASTSon1(it);
+            AST component_name = ASTSon0(component_spec);
             AST component_data_source = ASTSon1(component_spec);
 
-            fortran_check_expression_impl_(component_data_source, decl_context);
+            scope_entry_t* member = NULL;
+            if (component_name == NULL)
+            {
+                if (member_index < 0)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: component specifier at position %d lacks a component name", ast_location(component_spec),
+                                component_position);
+                    }
+                    expression_set_error(expr);
+                    return;
+                }
+
+                int i;
+                scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(entry->type_information);
+
+                if (member_index > entry_list_size(nonstatic_data_members))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: too many specifiers in derived-type constructor\n", ast_location(component_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
+                }
+
+                scope_entry_list_iterator_t* iter = entry_list_iterator_begin(nonstatic_data_members);
+                for (i = 0; i < member_index; i++)
+                {
+                    entry_list_iterator_next(iter);
+                }
+                member = entry_list_iterator_current(iter);
+
+                entry_list_iterator_free(iter);
+                entry_list_free(nonstatic_data_members);
+
+                member_index++;
+            }
+            else
+            {
+                decl_context_t class_context = class_type_get_inner_context(get_actual_class_type(entry->type_information));
+
+                const char* field = ASTText(component_name);
+                member = query_name_in_class(class_context, field);
+                if (member == NULL)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: component specifier '%s' is not a component of '%s'\n",
+                                ast_location(expr),
+                                field,
+                                fortran_print_type_str(entry->type_information));
+                    }
+                    expression_set_error(expr);
+                    return;
+                }
+
+                member_index = -1;
+            }
+
+
+            nodecl_t nodecl_expr = nodecl_null();
+            fortran_check_expression_impl_(component_data_source, decl_context, &nodecl_expr);
+
+            nodecl_t nodecl_field = nodecl_make_symbol(member, ASTFileName(component_spec), ASTLine(component_spec));
+            nodecl_t nodecl_field_designator = nodecl_make_field_designator(nodecl_field, nodecl_expr, 
+                    ASTFileName(component_spec), ASTLine(component_spec));
+
+            nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list, nodecl_field_designator);
+
+            component_position++;
         }
     }
 
     expression_set_type(expr, entry->type_information);
 
     ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, tl_type_t, tl_ast(component_spec_list));
+    ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, component_spec_list);
+
+    *nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list, 
+            entry->type_information, 
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_different_op(AST expr, decl_context_t decl_context)
+static void check_different_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_div_op(AST expr, decl_context_t decl_context)
+static void check_div_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_equal_op(AST expr, decl_context_t decl_context)
+static void check_equal_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_floating_literal(AST expr, decl_context_t decl_context)
+static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-   const char* floating_text = strtolower(ASTText(expr));
+   char* floating_text = strdup(strtolower(ASTText(expr)));
 
-   // Our constant evaluation system does not support floats yet so simply
-   // compute the type
-
-   int kind = 4;
-   const char *q = NULL; 
+   unsigned int kind = 4;
+   char *q = NULL; 
    if ((q = strchr(floating_text, '_')) != NULL)
    {
+       *q = '\0';
        q++;
        kind = compute_kind_from_literal(q, expr, decl_context);
        if (kind == 0)
@@ -893,13 +1113,56 @@ static void check_floating_literal(AST expr, decl_context_t decl_context)
    }
    else if ((q = strchr(floating_text, 'd')) != NULL)
    {
+       *q = '\0';
        kind = 8;
    }
 
-   expression_set_type(expr, choose_float_type_from_kind(expr, kind));
+   type_t* t = choose_float_type_from_kind(expr, kind);
+   expression_set_type(expr, t);
 
    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
    ASTAttrSetValueType(expr, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
+
+   const_value_t *value = NULL;
+   if (kind == (floating_type_get_info(get_float_type())->bits / 8))
+   {
+       float f = strtof(floating_text, NULL);
+       value = const_value_get_float(f);
+   }
+   else if (kind == (floating_type_get_info(get_double_type())->bits / 8))
+   {
+       double d = strtod(floating_text, NULL);
+       value = const_value_get_double(d);
+   }
+   else if (kind == (floating_type_get_info(get_long_double_type())->bits / 8))
+   {
+       long double ld = strtold(floating_text, NULL);
+       value = const_value_get_long_double(ld);
+   }
+   else if (is_other_float_type(t))
+   {
+#ifdef HAVE_QUADMATH_H
+       // __float128
+       if (kind == 16)
+       {
+           __float128 f128 = strtoflt128(floating_text, NULL);
+           value = const_value_get_float128(f128);
+       }
+       else
+#endif
+       {
+           running_error("%s: error: literals of KIND=%d not supported yet\n", ast_location(expr), kind);
+       }
+   }
+   else
+   {
+       running_error("Code unreachable, invalid floating literal", 0);
+   }
+
+   *nodecl_output = nodecl_make_floating_literal(t, value, ASTFileName(expr), ASTLine(expr));
+   expression_set_constant(expr, value);
+
+   free(floating_text);
 }
 
 
@@ -908,9 +1171,8 @@ struct actual_argument_info_tag
 {
     const char* keyword;
     type_t* type;
+    char not_present;
 } actual_argument_info_t;
-
-#define MAX_ARGUMENTS 256
 
 static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_arguments, actual_argument_info_t* temp_argument_types)
 {
@@ -924,7 +1186,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
 
         // Complete with those arguments that are not present
         // Reorder the arguments
-        actual_argument_info_t argument_types[MAX_ARGUMENTS];
+        actual_argument_info_t argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_types, 0, sizeof(argument_types));
 
         int i;
@@ -979,6 +1241,7 @@ static scope_entry_t* get_specific_interface(scope_entry_t* symbol, int num_argu
                     if (related_sym->entity_specs.is_optional)
                     {
                         argument_types[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                        argument_types[related_sym->entity_specs.parameter_position].not_present = 1;
                         num_arguments++;
                     }
                     else 
@@ -1055,11 +1318,12 @@ static void check_called_symbol(
         char is_call_stmt,
         // out
         type_t** result_type,
-        scope_entry_t** called_symbol)
+        scope_entry_t** called_symbol,
+        nodecl_t* nodecl_simplify)
 {
     if (symbol != NULL
             && symbol->kind == SK_VARIABLE
-            && is_void_type(symbol->type_information))
+            && symbol->entity_specs.is_implicit_basic_type)
     {
         // Upgrade the symbol to a function with unknown arguments
         symbol->kind = SK_FUNCTION;
@@ -1069,6 +1333,7 @@ static void check_called_symbol(
             return_type = NULL;
 
         symbol->type_information = get_nonproto_function_type(return_type, 0);
+        symbol->entity_specs.is_implicit_basic_type = 0;
     }
 
     if (symbol == NULL
@@ -1076,7 +1341,7 @@ static void check_called_symbol(
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: in %s, '%s' does not designate a procedure\n",
+            error_printf("%s: error: in %s, '%s' does not designate a procedure\n",
                     ast_location(location),
                     !is_call_stmt ? "function reference" : "CALL statement",
                     fortran_prettyprint_in_buffer(procedure_designator));
@@ -1088,12 +1353,17 @@ static void check_called_symbol(
     if (inside_context_of_symbol(decl_context, symbol)
             && !symbol->entity_specs.is_recursive)
     {
-        running_error("%s: error: cannot call recursively '%s'\n",
-                ast_location(location),
-                fortran_prettyprint_in_buffer(procedure_designator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: cannot call recursively '%s'\n",
+                    ast_location(location),
+                    fortran_prettyprint_in_buffer(procedure_designator));
+        }
+        *result_type = get_error_type();
+        return;
     }
 
-    actual_argument_info_t temp_argument_types[MAX_ARGUMENTS];
+    actual_argument_info_t temp_argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(temp_argument_types, 0, sizeof(temp_argument_types));
 
     // Gather arguments (syntactic checking has happened before)
@@ -1126,7 +1396,7 @@ static void check_called_symbol(
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic '%s' not implemented\n", 
+                error_printf("%s: error: call to intrinsic '%s' not implemented\n", 
                         ast_location(location),
                         strtoupper(symbol->symbol_name));
             }
@@ -1134,12 +1404,10 @@ static void check_called_symbol(
             return;
         }
 
-        // OK, this is a builtin, aka a dreadful Fortran intrinsic, its type
-        // will be a computed function type
-
-        computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
-
-        scope_entry_t* entry = fun(symbol, argument_types, actual_arguments, num_actual_arguments);
+        scope_entry_t* entry = fortran_intrinsic_solve_call(symbol, argument_types, 
+                actual_arguments, 
+                num_actual_arguments, 
+                nodecl_simplify);
 
         if (entry == NULL)
         {
@@ -1159,7 +1427,7 @@ static void check_called_symbol(
             
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: call to intrinsic %s%s failed\n", 
+                error_printf("%s: error: call to intrinsic %s%s failed\n", 
                         ast_location(location),
                         strtoupper(symbol->symbol_name),
                         actual_arguments_str);
@@ -1168,7 +1436,11 @@ static void check_called_symbol(
             return;
         }
 
-        if (entry->entity_specs.is_elemental)
+        if (!nodecl_is_null(*nodecl_simplify))
+        {
+            return_type = nodecl_get_type(*nodecl_simplify);
+        }
+        else if (entry->entity_specs.is_elemental)
         {
             // Try to come up with a common_rank
             int common_rank = -1;
@@ -1202,7 +1474,7 @@ static void check_called_symbol(
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: mismatch of ranks in call to elemental intrinsic '%s'\n",
+                    error_printf("%s: error: mismatch of ranks in call to elemental intrinsic '%s'\n",
                             ast_location(location),
                             strtoupper(symbol->symbol_name));
                 }
@@ -1215,6 +1487,9 @@ static void check_called_symbol(
         {
             return_type = function_type_get_return_type(entry->type_information);
         }
+
+        // We are calling the deduced intrinsic
+        symbol = entry;
     }
     else
     {
@@ -1225,7 +1500,7 @@ static void check_called_symbol(
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: no specific interface matches generic interface '%s' in function reference\n",
+                    error_printf("%s: error: no specific interface matches generic interface '%s' in function reference\n",
                             ast_location(location),
                             fortran_prettyprint_in_buffer(procedure_designator));
                 }
@@ -1241,7 +1516,7 @@ static void check_called_symbol(
 
         // Complete with those arguments that are not present
         // Reorder the arguments
-        actual_argument_info_t argument_info_items[MAX_ARGUMENTS];
+        actual_argument_info_t argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
         memset(argument_info_items, 0, sizeof(argument_info_items));
 
         int i;
@@ -1269,17 +1544,27 @@ static void check_called_symbol(
                 }
                 if (position < 0)
                 {
-                    running_error("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
-                            ast_location(location), 
-                            temp_argument_types[i].keyword,
-                            symbol->symbol_name);
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: keyword '%s' is not a dummy argument of function '%s'\n",
+                                ast_location(location), 
+                                temp_argument_types[i].keyword,
+                                symbol->symbol_name);
+                    }
+                    *result_type = get_error_type();
+                    return;
                 }
             }
 
             if (argument_info_items[position].type != NULL)
             {
-                running_error("%s: error: argument keyword '%s' specified more than once\n",
-                        ast_location(location), temp_argument_types[i].keyword);
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: argument keyword '%s' specified more than once\n",
+                            ast_location(location), temp_argument_types[i].keyword);
+                }
+                *result_type = get_error_type();
+                return;
             }
             argument_info_items[position].type = temp_argument_types[i].type;
         }
@@ -1298,14 +1583,20 @@ static void check_called_symbol(
                     if (related_sym->entity_specs.is_optional)
                     {
                         argument_info_items[related_sym->entity_specs.parameter_position].type = related_sym->type_information;
+                        argument_info_items[related_sym->entity_specs.parameter_position].not_present = 1;
                         num_completed_arguments++;
                     }
                     else 
                     {
-                        running_error("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
-                                ast_location(location),
-                                related_sym->symbol_name,
-                                symbol->symbol_name);
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: dummy argument '%s' of function '%s' has not been specified in function reference\n",
+                                    ast_location(location),
+                                    related_sym->symbol_name,
+                                    symbol->symbol_name);
+                        }
+                        *result_type = get_error_type();
+                        return;
                     }
                 }
             }
@@ -1314,9 +1605,12 @@ static void check_called_symbol(
         if (!function_type_get_lacking_prototype(symbol->type_information) 
                 && num_completed_arguments > function_type_get_num_parameters(symbol->type_information))
         {
-            fprintf(stderr, "%s: warning: too many actual arguments in function reference to '%s'\n",
-                    ast_location(location),
-                    symbol->symbol_name);
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: too many actual arguments in function reference to '%s'\n",
+                        ast_location(location),
+                        symbol->symbol_name);
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1331,7 +1625,7 @@ static void check_called_symbol(
         int common_rank = -1;
         if (!function_type_get_lacking_prototype(symbol->type_information))
         {
-            actual_argument_info_t fixed_argument_info_items[MAX_ARGUMENTS];
+            actual_argument_info_t fixed_argument_info_items[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
             memcpy(fixed_argument_info_items, argument_info_items, sizeof(fixed_argument_info_items));
 
             if (symbol->entity_specs.is_elemental)
@@ -1372,7 +1666,7 @@ static void check_called_symbol(
                 {
                     if (!checking_ambiguity())
                     {
-                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
+                        error_printf("%s: error: type mismatch in argument %d between the "
                                 "real argument %s and the dummy argument %s\n",
                                 ast_location(location),
                                 i + 1,
@@ -1406,8 +1700,11 @@ static void check_called_symbol(
     {
         if (!is_call_stmt)
         {
-            fprintf(stderr, "%s: warning: invalid function reference to a SUBROUTINE\n",
-                    ast_location(location));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid function reference to a SUBROUTINE\n",
+                        ast_location(location));
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1417,8 +1714,11 @@ static void check_called_symbol(
     {
         if (is_call_stmt)
         {
-            fprintf(stderr, "%s: warning: invalid CALL statement to a FUNCTION\n",
-                    ast_location(location));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid CALL statement to a FUNCTION\n",
+                        ast_location(location));
+            }
             *result_type = get_error_type();
             return;
         }
@@ -1428,7 +1728,7 @@ static void check_called_symbol(
     *called_symbol = symbol;
 }
 
-static void check_function_call(AST expr, decl_context_t decl_context)
+static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     char is_call_stmt = (ASTText(expr) != NULL
             && (strcmp(ASTText(expr), "call") == 0));
@@ -1436,6 +1736,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     AST procedure_designator = ASTSon0(expr);
     AST actual_arg_spec_list = ASTSon1(expr);
 
+    nodecl_t nodecl_proc_designator = nodecl_null();
     if (ASTType(procedure_designator) == AST_SYMBOL
             && is_call_stmt)
     {
@@ -1465,10 +1766,13 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         expression_set_symbol(procedure_designator, call_sym);
         expression_set_type(procedure_designator, call_sym->type_information);
+
+        nodecl_proc_designator = nodecl_make_symbol(call_sym, 
+                ASTFileName(procedure_designator), ASTLine(procedure_designator));
     }
     else
     {
-        fortran_check_expression_impl_(procedure_designator, decl_context);
+        fortran_check_expression_impl_(procedure_designator, decl_context, &nodecl_proc_designator);
     }
 
     // Check arguments
@@ -1488,15 +1792,18 @@ static void check_function_call(AST expr, decl_context_t decl_context)
             }
             else if (with_keyword) // keyword == NULL
             {
-                running_error("%s: error: in function call, '%s' argument requires a keyword\n",
+                error_printf("%s: error: in function call, '%s' argument requires a keyword\n",
                         ast_location(actual_arg_spec),
                         fortran_prettyprint_in_buffer(actual_arg_spec));
+                return;
             }
+
             AST actual_arg = ASTSon1(actual_arg_spec);
 
             if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
             {
-                fortran_check_expression_impl_(actual_arg, decl_context);
+                nodecl_t nodecl_argument = nodecl_null();
+                fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
 
                 if (is_error_type(expression_get_type(actual_arg)))
                 {
@@ -1507,8 +1814,13 @@ static void check_function_call(AST expr, decl_context_t decl_context)
             {
                 if (!is_call_stmt)
                 {
-                    running_error("%s: error: only CALL statement allows an alternate return\n",
-                            ast_location(actual_arg_spec));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: only CALL statement allows an alternate return\n",
+                                ast_location(actual_arg_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
                 if (!seen_alternate_return)
                 {
@@ -1516,8 +1828,13 @@ static void check_function_call(AST expr, decl_context_t decl_context)
                 }
                 else
                 {
-                    running_error("%s: error: in a procedure reference an alternate return must be at the last position\n", 
-                            ast_location(actual_arg_spec));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: in a procedure reference an alternate return must be at the last position\n", 
+                                ast_location(actual_arg_spec));
+                    }
+                    expression_set_error(expr);
+                    return;
                 }
             }
         }
@@ -1539,10 +1856,10 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     int num_actual_arguments = 0;
 
-    type_t* argument_types[MAX_ARGUMENTS];
+    type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(argument_types, 0, sizeof(argument_types));
 
-    AST actual_arguments[MAX_ARGUMENTS];
+    AST actual_arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(actual_arguments, 0, sizeof(actual_arguments));
 
     // Gather arguments (syntactic checking has happened before)
@@ -1551,7 +1868,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         AST it;
         for_each_element(actual_arg_spec_list, it)
         {
-            ERROR_CONDITION(num_actual_arguments == MAX_ARGUMENTS, "Too many arguments %d\n", MAX_ARGUMENTS);
+            ERROR_CONDITION(num_actual_arguments == MCXX_MAX_FUNCTION_CALL_ARGUMENTS, "Too many arguments %d\n", MCXX_MAX_FUNCTION_CALL_ARGUMENTS);
 
             AST actual_arg_spec = ASTSon1(it);
             AST actual_arg = ASTSon1(actual_arg_spec);
@@ -1568,6 +1885,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(symbol, 
             decl_context, 
             expr, 
@@ -1578,14 +1896,17 @@ static void check_function_call(AST expr, decl_context_t decl_context)
             is_call_stmt,
             // out
             &result_type,
-            &called_symbol
+            &called_symbol,
+            &nodecl_simplify
             );
 
+    // ERROR_CONDITION(called_symbol == NULL, "Invalid symbol called returned by check_called_symbol", 0);
     ERROR_CONDITION(result_type == NULL, "Invalid type returned by check_called_symbol", 0);
 
     if (is_error_type(result_type))
     {
         expression_set_error(expr);
+        return;
     }
     else
     {
@@ -1593,85 +1914,192 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     }
 
     ASTAttrSetValueType(expr, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(procedure_designator));
-    ASTAttrSetValueType(expr, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(actual_arg_spec_list));
+    ast_set_link_to_child(expr, LANG_CALLED_EXPRESSION, procedure_designator);
+    ast_set_link_to_child(expr, LANG_FUNCTION_ARGUMENTS, actual_arg_spec_list);
+
+    // Check arguments
+    nodecl_t nodecl_argument_list = nodecl_null();
+    if (actual_arg_spec_list != NULL)
+    {
+        int parameter_index = 0;
+        AST it;
+        for_each_element(actual_arg_spec_list, it)
+        {
+            AST actual_arg_spec = ASTSon1(it);
+
+            AST keyword = ASTSon0(actual_arg_spec);
+            AST actual_arg = ASTSon1(actual_arg_spec);
+
+            nodecl_t nodecl_argument_spec = nodecl_null();
+            if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
+            {
+                char no_argument_info = 0;
+                scope_entry_t* parameter = NULL;
+                if (keyword == NULL)
+                {
+                    ERROR_CONDITION(parameter_index < 0, "Invalid index", 0);
+                    if (called_symbol->entity_specs.num_related_symbols <= parameter_index)
+                    {
+                        no_argument_info = 1;
+                    }
+                    else
+                    {
+                        parameter = called_symbol->entity_specs.related_symbols[parameter_index];
+                    }
+                    parameter_index++;
+                }
+                else
+                {
+                    const char* param_name = ASTText(keyword);
+                    int j;
+                    for (j = 0; j < called_symbol->entity_specs.num_related_symbols; j++)
+                    {
+                        if (strcasecmp(called_symbol->entity_specs.related_symbols[j]->symbol_name, param_name) == 0)
+                        {
+                            parameter = called_symbol->entity_specs.related_symbols[j];
+                            break;
+                        }
+                    }
+                    parameter_index = -1;
+                }
+
+                nodecl_t nodecl_argument = nodecl_null();
+                fortran_check_expression_impl_(actual_arg, decl_context, &nodecl_argument);
+
+                if (no_argument_info)
+                {
+                    nodecl_argument_spec = nodecl_argument;
+                }
+                else
+                {
+                    ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
+                    nodecl_argument_spec = nodecl_make_named_pair_spec(
+                            nodecl_make_symbol(parameter, ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec)),
+                            nodecl_argument,
+                            ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec));
+                }
+            }
+            else
+            {
+                internal_error("Alternate return not implemented yet", 0);
+                // nodecl_argument_spec = nodecl_make_named_pair_spec(
+                //         nodecl_null(),
+                //         nodecl_make_builtin_expr(
+                //             nodecl_make_any_list(
+                //                 nodecl_make_list_1(
+                //                     nodecl_make_string_literal(get_void_type(), 
+                //                         /* label */ ASTText(ASTSon0(actual_arg)), 
+                //                         ASTFileName(ASTSon0(actual_arg)), 
+                //                         ASTLine(ASTSon0(actual_arg)))),
+                //                 ASTFileName(ASTSon0(actual_arg)), 
+                //                 ASTLine(ASTSon0(actual_arg)) ),
+                //             get_void_type(),
+                //             "fortran-alternate-result",
+                //             ASTFileName(actual_arg),
+                //             ASTLine(actual_arg)),
+                //         ASTFileName(actual_arg),
+                //         ASTLine(actual_arg) );
+            }
+
+            nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, nodecl_argument_spec);
+        }
+    }
+
+    if (nodecl_is_null(nodecl_simplify))
+    {
+        *nodecl_output = nodecl_make_function_call(
+                nodecl_make_symbol(called_symbol, ASTFileName(procedure_designator), ASTLine(procedure_designator)),
+                nodecl_argument_list,
+                result_type,
+                ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_simplify;
+        if (nodecl_is_constant(nodecl_simplify))
+        {
+            expression_set_constant(expr, nodecl_get_constant(nodecl_simplify));
+        }
+    }
 }
 
-static void check_greater_or_equal_than(AST expr, decl_context_t decl_context)
+static void check_greater_or_equal_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_greater_than(AST expr, decl_context_t decl_context)
+static void check_greater_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_hexadecimal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // We allow X and Z
-    compute_boz_literal(expr, "xz", 16);
+    compute_boz_literal(expr, "xz", 16, nodecl_output);
 }
 
-static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_image_ref(AST expr UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    running_error("%s: sorry: image references not supported\n", 
+    error_printf("%s: sorry: image references not supported\n", 
             ast_location(expr));
+    expression_set_error(expr);
 }
 
-static void check_logical_and(AST expr, decl_context_t decl_context)
+static void check_logical_and(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_logical_equal(AST expr, decl_context_t decl_context)
+static void check_logical_equal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_logical_or(AST expr, decl_context_t decl_context)
+static void check_logical_or(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_lower_or_equal_than(AST expr, decl_context_t decl_context)
+static void check_lower_or_equal_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_lower_than(AST expr, decl_context_t decl_context)
+static void check_lower_than(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_minus_op(AST expr, decl_context_t decl_context)
+static void check_minus_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_mult_op(AST expr, decl_context_t decl_context)
+static void check_mult_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_neg_op(AST expr, decl_context_t decl_context)
+static void check_neg_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_unary_check(expr, decl_context);
+    common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_not_op(AST expr, decl_context_t decl_context)
+static void check_not_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_unary_check(expr, decl_context);
+    common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_octal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_octal_literal(AST expr, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
-    compute_boz_literal(expr, "o", 8);
+    compute_boz_literal(expr, "o", 8, nodecl_output);
 }
 
-static void check_parenthesized_expression(AST expr, decl_context_t decl_context)
+static void check_parenthesized_expression(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    fortran_check_expression_impl_(ASTSon0(expr), decl_context);
+    nodecl_t nodecl_expr = nodecl_null();
+    fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
     expression_set_type(expr, expression_get_type(ASTSon0(expr)));
 
     if (expression_is_constant(ASTSon0(expr)))
@@ -1680,22 +2108,27 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     }
 
     ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expr)));
+    ast_set_link_to_child(expr, LANG_EXPRESSION_NESTED, ASTSon0(expr));
+
+    *nodecl_output = nodecl_make_parenthesized_expression(
+            nodecl_expr,
+            expression_get_type(expr),
+            ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_plus_op(AST expr, decl_context_t decl_context)
+static void check_plus_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_unary_check(expr, decl_context);
+    common_unary_check(expr, decl_context, nodecl_output);
 }
 
-static void check_power_op(AST expr, decl_context_t decl_context)
+static void check_power_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    common_binary_check(expr, decl_context);
+    common_binary_check(expr, decl_context, nodecl_output);
 }
 
 static char* binary_expression_attr[] =
 {
-    [AST_MULT] = LANG_IS_MULT_OP,
+    [AST_MUL] = LANG_IS_MULT_OP,
     [AST_DIV] = LANG_IS_DIVISION_OP,
     [AST_MOD] = LANG_IS_MODULUS_OP,
     [AST_ADD] = LANG_IS_ADDITION_OP,
@@ -1716,63 +2149,70 @@ static char* binary_expression_attr[] =
     [AST_CONCAT] = LANG_IS_CONCAT_OP,
 };
 
-static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type);
-static void common_binary_check(AST expr, decl_context_t decl_context)
+static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type, 
+        nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
+static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST lhs = ASTSon0(expr);
     AST rhs = ASTSon1(expr);
-    fortran_check_expression_impl_(lhs, decl_context);
-    fortran_check_expression_impl_(rhs, decl_context);
+    nodecl_t nodecl_lhs = nodecl_null();
+    fortran_check_expression_impl_(lhs, decl_context, &nodecl_lhs);
+    nodecl_t nodecl_rhs = nodecl_null();
+    fortran_check_expression_impl_(rhs, decl_context, &nodecl_rhs);
 
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_2(lhs_type, rhs_type, expr);
 
-    common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type);
+    common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 }
 
-static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
+static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type,
+        nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output));
 }
 
-static void common_unary_intrinsic_check(AST expr, decl_context_t, type_t* rhs_type);
+static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
+        nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 
 static char* unary_expression_attr[] =
 {
-    [AST_PLUS]       = LANG_IS_PLUS_OP,
-    [AST_NEG]        = LANG_IS_NEGATE_OP,
-    [AST_NOT]        = LANG_IS_NOT_OP,
+    [AST_PLUS]         = LANG_IS_PLUS_OP,
+    [AST_NEG]          = LANG_IS_NEGATE_OP,
+    [AST_LOGICAL_NOT]  = LANG_IS_NOT_OP,
 };
 
-static void common_unary_check(AST expr, decl_context_t decl_context) 
+static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output) 
 {
     AST rhs = ASTSon0(expr);
-    fortran_check_expression_impl_(rhs, decl_context);
+    nodecl_t nodecl_expr = nodecl_null();
+    fortran_check_expression_impl_(rhs, decl_context, &nodecl_expr);
 
     type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_1(rhs_type, expr);
 
-    common_unary_intrinsic_check(expr, decl_context, rhs_type);
+    common_unary_intrinsic_check(expr, decl_context, rhs_type, nodecl_expr, nodecl_output);
 
     ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
+    ast_set_link_to_child(expr, LANG_UNARY_OPERAND, ASTSon0(expr));
 }
 
-static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type)
+static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
+        nodecl_t nodecl_rhs, nodecl_t* nodecl_output)
 {
-    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type));
+    expression_set_type(expr, compute_result_of_intrinsic_operator(expr, decl_context, NULL, rhs_type, nodecl_null(), nodecl_rhs, nodecl_output));
 }
 
-static void check_string_literal(AST expr, decl_context_t decl_context)
+static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     const char* literal = ASTText(expr);
 
@@ -1790,8 +2230,11 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
         }
         if (*literal != '_')
         {
-            running_error("%s: error: KIND specificier is too long\n",
-                    ast_location(expr));
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: KIND specifier is too long\n",
+                        ast_location(expr));
+            }
             expression_set_error(expr);
             return;
         }
@@ -1799,7 +2242,7 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
 
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: ignoring KIND=%s of character-literal\n",
+            warn_printf("%s: warning: ignoring KIND=%s of character-literal, assuming KIND=1\n",
                     kind,
                     ast_location(expr));
         }
@@ -1807,23 +2250,63 @@ static void check_string_literal(AST expr, decl_context_t decl_context)
 
     int length = strlen(literal);
 
-    AST one = const_value_to_tree(const_value_get_one(4, 1));
-    AST length_tree = const_value_to_tree(const_value_get(length, 4, 1));
+    char real_string[length + 1];
+    int real_length = 0;
+    char delim = literal[0];
+    literal++; // Jump delim
 
-    expression_set_type(expr, get_array_type_bounds(get_signed_char_type(), one, length_tree, decl_context));
+    while (*literal != delim
+                || *(literal+1) == delim)
+    {
+        ERROR_CONDITION(real_length >= (length+1), "Wrong construction of real string", 0);
+
+        if (*literal !=  delim)
+        {
+            real_string[real_length] = *literal;
+            literal++;
+        }
+        else 
+        {
+            real_string[real_length] = *literal;
+            // Jump both '' or ""
+            literal += 2;
+        }
+
+        real_length++;
+    }
+    real_string[real_length] = '\0';
+
+    nodecl_t one = nodecl_make_integer_literal(
+            fortran_get_default_logical_type(), 
+            const_value_get_signed_int(1), 
+            ASTFileName(expr),
+            ASTLine(expr));
+    nodecl_t length_tree = nodecl_make_integer_literal(fortran_get_default_logical_type(), 
+            const_value_get_signed_int(real_length), 
+            ASTFileName(expr),
+            ASTLine(expr));
+
+    type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
+    expression_set_type(expr, t);
 
     ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
+
+    const_value_t* value = const_value_make_string(real_string, real_length);
+    expression_set_constant(expr, value);
+
+    *nodecl_output = nodecl_make_string_literal(t, value, ASTFileName(expr), ASTLine(expr));
 }
 
-static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
+static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
     // reuse common function call code
     AST operand = ASTSon1(expr);
     AST operand_expr = ASTSon1(operand);
 
-    fortran_check_expression_impl_(operand_expr, decl_context);
+    nodecl_t nodecl_expr = nodecl_null();
+    fortran_check_expression_impl_(operand_expr, decl_context, &nodecl_expr);
 
     if (expression_is_error(operand_expr))
     {
@@ -1837,7 +2320,12 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     int num_actual_arguments = 1;
@@ -1846,6 +2334,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
             expr, 
@@ -1856,19 +2345,32 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context)
             /* is_call_stmt */ 0,
             // out
             &result_type,
-            &called_symbol);
+            &called_symbol,
+            &nodecl_simplify);
 
     expression_set_type(expr, result_type);
+
+    *nodecl_output = nodecl_make_function_call(
+            nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
+            nodecl_make_list_1(
+                nodecl_make_named_pair_spec(nodecl_null(),
+                    nodecl_expr,
+                    ASTFileName(operand_expr),
+                    ASTLine(operand_expr))),
+            result_type,
+            ASTFileName(expr),
+            ASTLine(expr));
 }
 
-static void check_user_defined_binary_op(AST expr, decl_context_t decl_context UNUSED_PARAMETER)
+static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // This is an AST_NAMED_PAIR_SPEC with no name. This way it is easier to
     // reuse common function call code
     AST lhs = ASTSon1(expr);
     AST lhs_expr = ASTSon1(lhs);
 
-    fortran_check_expression_impl_(lhs_expr, decl_context);
+    nodecl_t nodecl_lhs = nodecl_null();
+    fortran_check_expression_impl_(lhs_expr, decl_context, &nodecl_lhs);
 
     if (expression_is_error(lhs_expr))
     {
@@ -1879,7 +2381,8 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
     AST rhs = ASTSon2(expr);
     AST rhs_expr = ASTSon1(rhs);
 
-    fortran_check_expression_impl_(rhs_expr, decl_context);
+    nodecl_t nodecl_rhs = nodecl_null();
+    fortran_check_expression_impl_(rhs_expr, decl_context, &nodecl_rhs);
 
     if (expression_is_error(rhs_expr))
     {
@@ -1893,7 +2396,12 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
 
     if (call_sym == NULL)
     {
-        running_error("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: unknown user-defined operator '%s'\n", ast_location(expr), ASTText(operator));
+        }
+        expression_set_error(expr);
+        return;
     }
 
     int num_actual_arguments = 2;
@@ -1902,6 +2410,7 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
 
     type_t* result_type = NULL;
     scope_entry_t* called_symbol = NULL;
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context, 
             /* location */ expr, 
@@ -1912,21 +2421,39 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context U
             /* is_call_stmt */ 0,
             // out
             &result_type,
-            &called_symbol);
+            &called_symbol,
+            &nodecl_simplify);
 
     expression_set_type(expr, result_type);
+
+    *nodecl_output = nodecl_make_function_call(
+            nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
+            nodecl_make_list_2(
+                nodecl_make_named_pair_spec(nodecl_null(),
+                    nodecl_lhs,
+                    ASTFileName(lhs_expr),
+                    ASTLine(lhs_expr)),
+                nodecl_make_named_pair_spec(nodecl_null(),
+                    nodecl_rhs,
+                    ASTFileName(rhs_expr),
+                    ASTLine(rhs_expr))),
+            result_type,
+            ASTFileName(expr),
+            ASTLine(expr));
 }
 
-static char function_has_result(scope_entry_t* entry)
+static char function_has_named_result(scope_entry_t* entry)
 {
     int i;
     for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
     {
-        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result)
+        if (entry->entity_specs.related_symbols[i]->entity_specs.is_result
+                && strcasecmp(entry->entity_specs.related_symbols[i]->symbol_name, entry->symbol_name) != 0)
             return 1;
     }
     return 0;
 }
+
 
 static char is_name_of_funtion_call(AST expr)
 {
@@ -1951,7 +2478,7 @@ static char is_name_in_actual_arg_spec_list(AST expr)
     return (hierarchy[i] == AST_INVALID_NODE);
 }
 
-static void check_symbol(AST expr, decl_context_t decl_context)
+static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     scope_entry_t* entry = query_name_with_locus(decl_context, expr, ASTText(expr));
 
@@ -1959,7 +2486,7 @@ static void check_symbol(AST expr, decl_context_t decl_context)
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: unknown entity '%s'\n",
+            error_printf("%s: error: unknown entity '%s'\n",
                     ast_location(expr),
                     fortran_prettyprint_in_buffer(expr));
         }
@@ -1974,14 +2501,48 @@ static void check_symbol(AST expr, decl_context_t decl_context)
             entry->kind = SK_FUNCTION;
             entry->type_information = get_nonproto_function_type(entry->type_information, 0);
         }
-        else if (is_name_in_actual_arg_spec_list(expr))
-        {
-            // If we are an actual argument do not change our status
-        }
+        // else if (is_name_in_actual_arg_spec_list(expr))
+        // {
+        //     // If we are an actual argument do not change our status
+        // }
         else
         {
             // Otherwise we are a variable
             entry->kind = SK_VARIABLE;
+        }
+    }
+
+    if (entry->kind == SK_FUNCTION)
+    {
+        // This must act as a variable
+        if (!is_name_of_funtion_call(expr)
+                && !is_name_in_actual_arg_spec_list(expr))
+        {
+            // FIXME: This is not exactly OK here, we may be passing a function
+            // name as a variable to another function
+            type_t* return_type = NULL; 
+            if (is_function_type(no_ref(entry->type_information)))
+                return_type = function_type_get_return_type(entry->type_information);
+            if (return_type == NULL
+                    || function_has_named_result(entry))
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
+                            ast_location(expr),
+                            fortran_prettyprint_in_buffer(expr));
+                }
+                expression_set_error(expr);
+                return;
+            }
+
+            // Update to the result symbol
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Reference to function name '%s' where a variable is expected, using result symbol\n",
+                        entry->symbol_name);
+            }
+            entry = function_get_result_symbol(entry);
         }
     }
 
@@ -1993,7 +2554,7 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning: entity '%s' does not have any IMPLICIT type\n",
+                error_printf("%s: error: entity '%s' does not have any IMPLICIT type\n",
                         ast_location(expr),
                         fortran_prettyprint_in_buffer(expr));
             }
@@ -2004,46 +2565,45 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
 
-        if (is_const_qualified_type(entry->type_information)
-                && entry->expression_value != NULL
-                && expression_is_constant(entry->expression_value))
+        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+
+        if (is_const_qualified_type(no_ref(entry->type_information))
+                && !nodecl_is_null(entry->value)
+                && nodecl_is_constant(entry->value))
         {
             // PARAMETER are const qualified
-            expression_set_constant(expr, expression_get_constant(entry->expression_value));
+            const_value_t* v = nodecl_get_constant(entry->value);
+            expression_set_constant(expr, v);
+
+            // Effectively replace the synthesized nodecl by its constant 
+            *nodecl_output = entry->value;
+        }
+
+        if (is_pointer_type(no_ref(entry->type_information)))
+        {
+            *nodecl_output = 
+                nodecl_make_derreference(
+                        *nodecl_output,
+                        pointer_type_get_pointee_type(entry->type_information),
+                        ASTFileName(expr), ASTLine(expr));
+            nodecl_set_symbol(*nodecl_output, entry);
         }
     }
     else if (entry->kind == SK_UNDEFINED)
     {
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
+        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        if (is_name_of_funtion_call(expr)
-                || is_name_in_actual_arg_spec_list(expr))
+        if (!is_name_of_funtion_call(expr) 
+                && !is_name_in_actual_arg_spec_list(expr))
         {
-            expression_set_type(expr, entry->type_information);
+            expression_set_error(expr);
+            return;
         }
-        else
-        {
-            // This must act as a variable
-            type_t* return_type = NULL; 
-            if (is_function_type(entry->type_information))
-                return_type = function_type_get_return_type(entry->type_information);
-            if (return_type == NULL
-                    || function_has_result(entry))
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: error: '%s' is not a variable\n",
-                            ast_location(expr),
-                            fortran_prettyprint_in_buffer(expr));
-                }
-                expression_set_error(expr);
-                return;
-            }
-            expression_set_type(expr, function_type_get_return_type(entry->type_information));
-        }
+        expression_set_type(expr, entry->type_information);
         expression_set_symbol(expr, entry);
     }
     else
@@ -2051,55 +2611,62 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         expression_set_error(expr);
     }
 
+
     ASTAttrSetValueType(expr, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expr));
+    ast_set_link_to_child(expr, LANG_UNQUALIFIED_ID, expr);
 }
+
+static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
 
 static char is_intrinsic_assignment(type_t* lvalue_type, type_t* rvalue_type)
 {
+    lvalue_type = no_ref(lvalue_type);
+    rvalue_type = no_ref(rvalue_type);
+
     if (is_pointer_type(lvalue_type))
     {
         lvalue_type = pointer_type_get_pointee_type(lvalue_type);
-    }
-    if (is_fortran_array_type(lvalue_type))
-    {
-        lvalue_type = get_rank0_type(lvalue_type);
     }
     if (is_pointer_type(rvalue_type))
     {
         rvalue_type = pointer_type_get_pointee_type(rvalue_type);
     }
 
-    if ((is_integer_type(lvalue_type)
-                || is_floating_type(lvalue_type)
-                || is_complex_type(lvalue_type))
-            && (is_integer_type(rvalue_type)
-                || is_floating_type(rvalue_type)
-                || is_complex_type(rvalue_type)))
+    type_t* conf_lhs_type = NULL;
+    type_t* conf_rhs_type = NULL;
+
+    conform_types(lvalue_type, rvalue_type, &conf_lhs_type, &conf_rhs_type);
+
+    if ((is_integer_type(conf_lhs_type)
+                || is_floating_type(conf_lhs_type)
+                || is_complex_type(conf_lhs_type))
+            && (is_integer_type(conf_rhs_type)
+                || is_floating_type(conf_rhs_type)
+                || is_complex_type(conf_rhs_type)))
         return 1;
 
-    if (is_fortran_character_type(lvalue_type)
-            && is_fortran_character_type(rvalue_type)
-            && equivalent_types(array_type_get_element_type(lvalue_type), 
-                array_type_get_element_type(rvalue_type))) 
+    if (is_fortran_character_type(conf_lhs_type)
+            && is_fortran_character_type(conf_rhs_type)
+            && equivalent_types(array_type_get_element_type(conf_lhs_type), 
+                array_type_get_element_type(conf_rhs_type))) 
     {
         return 1;
     }
 
-    if (is_bool_type(lvalue_type)
-            && is_bool_type(rvalue_type))
+    if (is_bool_type(conf_lhs_type)
+            && is_bool_type(conf_rhs_type))
         return 1;
 
-    if (is_class_type(lvalue_type)
-            && is_class_type(rvalue_type)
-            && equivalent_types(lvalue_type, rvalue_type))
+    if (is_class_type(conf_lhs_type)
+            && is_class_type(conf_rhs_type)
+            && equivalent_types(conf_lhs_type, conf_rhs_type))
         return 1;
 
     return 0;
 }
 
-static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context_t decl_context)
+static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context_t decl_context, scope_entry_t** entry)
 {
     const char* operator_name = ".operator.=";
     scope_entry_t* call_sym = query_name_no_implicit(decl_context, operator_name);
@@ -2113,10 +2680,10 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
 
     type_t* result_type = NULL;
 
-    scope_entry_t* called_symbol = NULL;
-
     AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(lvalue), ast_get_line(lvalue), "=");
 
+    enter_test_expression();
+    nodecl_t nodecl_simplify = nodecl_null();
     check_called_symbol(call_sym, 
             decl_context,
             /* location */ expr,
@@ -2127,7 +2694,9 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
             /* is_call_stmt */ 1, // Assignments must be subroutines!
             // out
             &result_type,
-            &called_symbol);
+            entry,
+            &nodecl_simplify);
+    leave_test_expression();
 
     ast_free(actual_arguments[0]);
     ast_free(actual_arguments[1]);
@@ -2136,12 +2705,13 @@ static char is_defined_assignment(AST expr, AST lvalue, AST rvalue, decl_context
     return !is_error_type(result_type);
 }
 
-static void check_assignment(AST expr, decl_context_t decl_context)
+static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
     AST rvalue = ASTSon1(expr);
 
-    fortran_check_expression_impl_(lvalue, decl_context);
+    nodecl_t nodecl_lvalue = nodecl_null();
+    fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
 
     type_t* lvalue_type = expression_get_type(lvalue);
     if (is_error_type(lvalue_type))
@@ -2150,7 +2720,8 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
-    fortran_check_expression_impl_(rvalue, decl_context);
+    nodecl_t nodecl_rvalue = nodecl_null();
+    fortran_check_expression_impl_(rvalue, decl_context, &nodecl_rvalue);
 
     type_t* rvalue_type = expression_get_type(rvalue);
     if (is_error_type(rvalue_type))
@@ -2159,12 +2730,15 @@ static void check_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
-    if (!is_intrinsic_assignment(lvalue_type, rvalue_type)
-            && !is_defined_assignment(expr, lvalue, rvalue, decl_context))
+    scope_entry_t* assignment_op = NULL;
+    char is_defined_assig = is_defined_assignment(expr, lvalue, rvalue, decl_context, &assignment_op);
+
+    if (!is_defined_assig
+            && !is_intrinsic_assignment(lvalue_type, rvalue_type))
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: cannot assign to a variable of type '%s' a value of type '%s'\n",
+            error_printf("%s: error: cannot assign to a variable of type '%s' a value of type '%s'\n",
                     ast_location(expr),
                     fortran_print_type_str(lvalue_type),
                     fortran_print_type_str(rvalue_type));
@@ -2182,16 +2756,39 @@ static void check_assignment(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
+
+    if (!is_defined_assig)
+    {
+        *nodecl_output = nodecl_make_assignment(nodecl_lvalue, nodecl_rvalue, get_void_type(), ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_function_call(
+                nodecl_make_symbol(assignment_op, ASTFileName(expr), ASTLine(expr)),
+                nodecl_make_list_2(
+                    nodecl_make_named_pair_spec(
+                        nodecl_null(),
+                        nodecl_lvalue,
+                        ASTFileName(lvalue), ASTLine(lvalue)),
+                    nodecl_make_named_pair_spec(
+                        nodecl_null(),
+                        nodecl_rvalue,
+                        ASTFileName(rvalue), ASTLine(rvalue))),
+                get_void_type(),
+                ASTFileName(expr), ASTLine(expr));
+
+    }
 }
 
-static void check_ptr_assignment(AST expr, decl_context_t decl_context)
+static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST lvalue = ASTSon0(expr);
     AST rvalue = ASTSon1(expr);
 
-    fortran_check_expression_impl_(lvalue, decl_context);
+    nodecl_t nodecl_lvalue = nodecl_null();
+    fortran_check_expression_impl_(lvalue, decl_context, &nodecl_lvalue);
 
     type_t* lvalue_type = expression_get_type(lvalue);
     if (is_error_type(lvalue_type))
@@ -2200,7 +2797,8 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context)
         return;
     }
 
-    fortran_check_expression_impl_(rvalue, decl_context);
+    nodecl_t nodecl_rvalue = nodecl_null();
+    fortran_check_expression_impl_(rvalue, decl_context, &nodecl_rvalue);
 
     type_t* rvalue_type = expression_get_type(rvalue);
     if (is_error_type(rvalue_type))
@@ -2216,10 +2814,13 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context)
     }
     if (sym == NULL
             || sym->kind != SK_VARIABLE
-            || !is_pointer_type(sym->type_information))
+            || !is_pointer_type(no_ref(sym->type_information)))
     {
-        fprintf(stderr, "%s: warning: left hand of pointer assignment is not a pointer data-reference\n",
-                ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: left hand of pointer assignment is not a pointer data-reference\n",
+                    ast_location(expr));
+        }
         expression_set_error(expr);
         return;
     }
@@ -2228,11 +2829,24 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context)
 
     ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expr)));
-    ASTAttrSetValueType(expr, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expr)));
+    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
+    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
+            "A reference to a pointer entity must be derreferenced", 0);
+
+    // Get the inner part of the derreference
+    nodecl_lvalue = nodecl_get_child(nodecl_lvalue, 0);
+
+    *nodecl_output = nodecl_make_assignment(
+            nodecl_lvalue,
+            nodecl_rvalue,
+            get_void_type(),
+            ASTFileName(expr),
+            ASTLine(expr));
 }
 
-static void disambiguate_expression(AST expr, decl_context_t decl_context)
+static void disambiguate_expression(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     int num_ambig = ast_get_num_ambiguities(expr);
 
@@ -2249,7 +2863,8 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
             case AST_DERIVED_TYPE_CONSTRUCTOR:
                 {
                     enter_test_expression();
-                    fortran_check_expression_impl_(current_expr, decl_context);
+                    nodecl_t nodecl_check_expr = nodecl_null();
+                    fortran_check_expression_impl_(current_expr, decl_context, &nodecl_check_expr);
                     leave_test_expression();
 
                     if (ASTType(current_expr) == AST_FUNCTION_CALL)
@@ -2294,11 +2909,14 @@ static void disambiguate_expression(AST expr, decl_context_t decl_context)
 
     // We want the diagnostics again
     expression_clear_computed_info(expr);
-    fortran_check_expression_impl_(expr, decl_context);
+    fortran_check_expression_impl_(expr, decl_context, nodecl_output);
 }
 
 static type_t* common_kind(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     ERROR_CONDITION(!is_scalar_type(t1)
             || !is_scalar_type(t2), "One of the types is not scalar", 0);
 
@@ -2323,13 +2941,16 @@ static type_t* second_type(type_t* t1 UNUSED_PARAMETER, type_t* t2)
 
 static type_t* combine_character_array(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_to_fortran_character_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_to_fortran_character_type(t2))
         t1 = pointer_type_get_pointee_type(t2);
 
-    AST length1 = array_type_get_array_size_expr(t1);
-    AST length2 = array_type_get_array_size_expr(t2);
+    nodecl_t length1 = array_type_get_array_size_expr(t1);
+    nodecl_t length2 = array_type_get_array_size_expr(t2);
 
     type_t* char1 = array_type_get_element_type(t1);
     type_t* char2 = array_type_get_element_type(t2);
@@ -2338,24 +2959,38 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
         return NULL;
 
     type_t* result = NULL;
-    if (length1 != NULL
-            && length2 != NULL)
+    if (!nodecl_is_null(length1)
+            && !nodecl_is_null(length2))
     {
-        AST new_lower_bound = const_value_to_tree(const_value_get_one(4, 1));
-        AST new_upper_bound = 
-            ASTMake2(AST_ADD,
-                    ast_copy_for_instantiation(array_type_get_array_size_expr(t1)),
-                    ast_copy_for_instantiation(array_type_get_array_size_expr(t2)),
-                    NULL, 0, NULL);
+        nodecl_t lower = nodecl_make_integer_literal(
+                fortran_get_default_logical_type(), 
+                const_value_get_signed_int(1), 
+                NULL, 0);
+        nodecl_t upper = nodecl_null();
+        if (nodecl_is_constant(length1) 
+                && nodecl_is_constant(length2))
+        {
+            upper = const_value_to_nodecl(
+                    const_value_add(nodecl_get_constant(length1),
+                        nodecl_get_constant(length2)));
+        }
+        else
+        {
+            upper = nodecl_make_add(
+                    nodecl_copy(length1),
+                    nodecl_copy(length2),
+                    fortran_get_default_logical_type(),
+                    NULL, 0);
+        }
 
         result = get_array_type_bounds(char1, 
-                new_lower_bound, 
-                new_upper_bound, 
+                lower, 
+                upper, 
                 array_type_get_array_size_expr_context(t1));
     }
     else
     {
-        result = get_array_type(char1, NULL, array_type_get_array_size_expr_context(t1));
+        result = get_array_type(char1, nodecl_null(), array_type_get_array_size_expr_context(t1));
     }
 
     return result;
@@ -2363,11 +2998,12 @@ static type_t* combine_character_array(type_t* t1, type_t* t2)
 
 static type_t* logical_type(type_t* t1 UNUSED_PARAMETER, type_t* t2 UNUSED_PARAMETER)
 {
-    return get_bool_type();
+    return fortran_get_default_logical_type();
 }
 
 static char is_logical_type(type_t* t1)
 {
+    t1 = no_ref(t1);
     return is_bool_type(t1);
 }
 
@@ -2401,6 +3037,7 @@ static operand_types_t arithmetic_binary[] =
 
 static char is_fortran_character_type_or_pointer_to(type_t* t)
 {
+    t = no_ref(t);
     return is_pointer_to_fortran_character_type(t)
         || is_fortran_character_type(t);
 }
@@ -2452,10 +3089,12 @@ typedef struct operand_map_tag
     void (*compute_const)(AST expr, AST lhs, AST rhs);
 
     const char* op_symbol_name;
+
+    nodecl_t (*compute_nodecl)(nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, type_t* t, const char* filename, int line);
 } operand_map_t;
 
-#define HANDLER_MAP(_node_op, _operands, _compute_const, _operator_symbol_name) \
-{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const, _operator_symbol_name }
+#define HANDLER_MAP(_node_op, _operands, _compute_const, _operator_symbol_name, _nodecl_fun) \
+{ _node_op, _operands, sizeof(_operands) / sizeof(_operands[0]), _compute_const, _operator_symbol_name, _nodecl_fun }
 
 static void const_unary_plus(AST expr, AST lhs, AST rhs);
 static void const_unary_neg(AST expr, AST lhs, AST rhs);
@@ -2473,35 +3112,48 @@ static void const_bin_gte(AST expr, AST lhs, AST rhs);
 static void const_unary_not(AST expr, AST lhs, AST rhs);
 static void const_bin_and(AST expr, AST lhs, AST rhs);
 static void const_bin_or(AST expr, AST lhs, AST rhs);
+static void const_bin_concat(AST expr, AST lhs, AST rhs);
+
+#define NODECL_FUN_2BIN(x) binary_##x
+
+#define NODECL_FUN_2BIN_DEF(x) \
+static nodecl_t binary_##x(nodecl_t nodecl_lhs UNUSED_PARAMETER, nodecl_t nodecl_rhs, type_t* t, const char* filename, int line) \
+{ \
+    return x(nodecl_rhs, t, filename, line); \
+}
+
+NODECL_FUN_2BIN_DEF(nodecl_make_plus)
+NODECL_FUN_2BIN_DEF(nodecl_make_neg)
+NODECL_FUN_2BIN_DEF(nodecl_make_logical_not)
 
 static operand_map_t operand_map[] =
 {
     // Arithmetic unary
-    HANDLER_MAP(AST_PLUS, arithmetic_unary, const_unary_plus, ".operator.+"),
-    HANDLER_MAP(AST_NEG, arithmetic_unary, const_unary_neg, ".operator.-"),
+    HANDLER_MAP(AST_PLUS, arithmetic_unary, const_unary_plus, ".operator.+", NODECL_FUN_2BIN(nodecl_make_plus)),
+    HANDLER_MAP(AST_NEG, arithmetic_unary, const_unary_neg, ".operator.-", NODECL_FUN_2BIN(nodecl_make_neg)),
     // Arithmetic binary
-    HANDLER_MAP(AST_ADD, arithmetic_binary, const_bin_add, ".operator.+"),
-    HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-"),
-    HANDLER_MAP(AST_MULT, arithmetic_binary, const_bin_mult, ".operator.*"),
-    HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./"),
-    HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**"),
+    HANDLER_MAP(AST_ADD, arithmetic_binary, const_bin_add, ".operator.+", nodecl_make_add),
+    HANDLER_MAP(AST_MINUS, arithmetic_binary, const_bin_sub, ".operator.-", nodecl_make_minus),
+    HANDLER_MAP(AST_MUL, arithmetic_binary, const_bin_mult, ".operator.*", nodecl_make_mul),
+    HANDLER_MAP(AST_DIV, arithmetic_binary, const_bin_div, ".operator./", nodecl_make_div),
+    HANDLER_MAP(AST_POWER, arithmetic_binary, const_bin_power, ".operator.**", nodecl_make_power),
     // String concat
-    HANDLER_MAP(AST_CONCAT, concat_op, NULL, ".operator.//"),
+    HANDLER_MAP(AST_CONCAT, concat_op, const_bin_concat, ".operator.//", nodecl_make_concat),
     // Relational strong
-    HANDLER_MAP(AST_EQUAL, relational_equality, const_bin_equal, ".operator.=="),
-    HANDLER_MAP(AST_DIFFERENT, relational_equality, const_bin_not_equal, ".operator./="),
+    HANDLER_MAP(AST_EQUAL, relational_equality, const_bin_equal, ".operator.==", nodecl_make_equal),
+    HANDLER_MAP(AST_DIFFERENT, relational_equality, const_bin_not_equal, ".operator./=", nodecl_make_different),
     // Relational weak
-    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt, ".operator.<"),
-    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte, ".operator.<="),
-    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>"),
-    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>="),
+    HANDLER_MAP(AST_LOWER_THAN, relational_weak, const_bin_lt, ".operator.<", nodecl_make_lower_than),
+    HANDLER_MAP(AST_LOWER_OR_EQUAL_THAN, relational_weak, const_bin_lte, ".operator.<=", nodecl_make_lower_or_equal_than),
+    HANDLER_MAP(AST_GREATER_THAN, relational_weak, const_bin_gt, ".operator.>", nodecl_make_greater_than),
+    HANDLER_MAP(AST_GREATER_OR_EQUAL_THAN, relational_weak, const_bin_gte, ".operator.>=", nodecl_make_greater_or_equal_than),
     // Unary logical
-    HANDLER_MAP(AST_NOT, logical_unary, const_unary_not, ".operator..not."),
+    HANDLER_MAP(AST_LOGICAL_NOT, logical_unary, const_unary_not, ".operator..not.", NODECL_FUN_2BIN(nodecl_make_logical_not)),
     // Binary logical
-    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv."),
-    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv."),
-    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and, ".operator..and."),
-    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or, ".operator..or."),
+    HANDLER_MAP(AST_LOGICAL_EQUAL, logical_binary, const_bin_equal, ".operator..eqv.", nodecl_make_equal),
+    HANDLER_MAP(AST_LOGICAL_DIFFERENT, logical_binary, const_bin_not_equal, ".operator..neqv.", nodecl_make_different),
+    HANDLER_MAP(AST_LOGICAL_AND, logical_binary, const_bin_and, ".operator..and.", nodecl_make_logical_and),
+    HANDLER_MAP(AST_LOGICAL_OR, logical_binary, const_bin_or, ".operator..or.", nodecl_make_logical_or),
 };
 static char operand_map_init = 0;
 
@@ -2520,12 +3172,18 @@ static int compare_map_items(const void* a, const void* b)
 
 static const char * get_operator_for_expr(AST expr);
 
-static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
-
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type);
 
-static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type)
+static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t decl_context, 
+        type_t* lhs_type, 
+        type_t* rhs_type,
+        nodecl_t nodecl_lhs,
+        nodecl_t nodecl_rhs,
+        nodecl_t* nodecl_output)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     // Remove pointer, which is actually only used for data refs
     if (is_pointer_type(lhs_type))
         lhs_type = pointer_type_get_pointee_type(lhs_type);
@@ -2608,6 +3266,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             AST operator_designation = ASTLeaf(AST_SYMBOL, ast_get_filename(expr), ast_get_line(expr), get_operator_for_expr(expr));
 
             scope_entry_t* called_symbol = NULL;
+            nodecl_t nodecl_simplify = nodecl_null();
             check_called_symbol(call_sym, 
                     decl_context, 
                     /* location */ expr, 
@@ -2618,7 +3277,8 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     /* is_call_stmt */ 0,
                     // out
                     &result,
-                    &called_symbol);
+                    &called_symbol,
+                    &nodecl_simplify);
 
             ast_free(operator_designation);
             ast_free(actual_arguments[0]);
@@ -2631,7 +3291,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
+                    error_printf("%s: error: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
                             ast_location(expr),
                             fortran_print_type_str(lhs_type),
                             fortran_print_type_str(rhs_type),
@@ -2643,7 +3303,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "%s: warning: invalid operand types %s for intrinsic unary operator '%s'\n",
+                    error_printf("%s: error: invalid operand types %s for intrinsic unary operator '%s'\n",
                             ast_location(expr),
                             fortran_print_type_str(rhs_type),
                             get_operator_for_expr(expr));
@@ -2651,23 +3311,36 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 return get_error_type();
             }
         }
-    }
 
-    if (value->compute_const != NULL)
+        // Restore the rank of the common type
+        result = rerank_type(result, lhs_type, rhs_type);
+    }
+    else
     {
-        if (lhs_type != NULL) 
+        // Restore the rank of the common type
+        result = rerank_type(result, lhs_type, rhs_type);
+
+        if (value->compute_const != NULL)
         {
-            // Binary
-            value->compute_const(expr, ASTSon0(expr), ASTSon1(expr));
+            if (lhs_type != NULL) 
+            {
+                // Binary
+                value->compute_const(expr, ASTSon0(expr), ASTSon1(expr));
+            }
+            else
+            {
+                value->compute_const(expr, NULL, ASTSon0(expr));
+            }
+
         }
-        else
+
+        *nodecl_output = value->compute_nodecl(nodecl_lhs, nodecl_rhs, result, ASTFileName(expr), ASTLine(expr));
+        if (expression_is_constant(expr))
         {
-            value->compute_const(expr, NULL, ASTSon0(expr));
+            nodecl_set_constant(*nodecl_output, expression_get_constant(expr));
         }
     }
 
-    // Restore the rank of the common type
-    result = rerank_type(result, lhs_type, rhs_type);
 
     return result;
 }
@@ -2678,7 +3351,7 @@ const char* operator_names[] =
     [AST_NEG] = "-",
     [AST_ADD] = "+",
     [AST_MINUS] = "-",
-    [AST_MULT] = "*",
+    [AST_MUL] = "*",
     [AST_DIV] = "/",
     [AST_POWER] = "**",
     [AST_CONCAT] = "//",
@@ -2688,7 +3361,7 @@ const char* operator_names[] =
     [AST_LOWER_OR_EQUAL_THAN] = "<=",
     [AST_GREATER_THAN] = ">",
     [AST_GREATER_OR_EQUAL_THAN] = ">=",
-    [AST_NOT] = ".NOT.",
+    [AST_LOGICAL_NOT] = ".NOT.",
     [AST_LOGICAL_EQUAL] = ".EQV.",
     [AST_LOGICAL_DIFFERENT] = ".NEQV.",
     [AST_LOGICAL_AND] = ".AND.",
@@ -2702,6 +3375,9 @@ static const char * get_operator_for_expr(AST expr)
 
 static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     if (!is_fortran_array_type(lhs_type)
             && !is_fortran_array_type(rhs_type))
     {
@@ -2735,6 +3411,9 @@ static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_
 
 static type_t* rerank_type(type_t* rank0_common, type_t* lhs_type, type_t* rhs_type)
 {
+    lhs_type = no_ref(lhs_type);
+    rhs_type = no_ref(rhs_type);
+
     if (is_fortran_array_type(lhs_type))
     {
         // They should have the same rank and shape so it does not matter very much which one we use, right?
@@ -2806,6 +3485,11 @@ static void const_bin_power(AST expr, AST lhs, AST rhs)
     const_bin_(expr, lhs, rhs, const_value_pow);
 }
 
+static void const_bin_concat(AST expr, AST lhs, AST rhs)
+{
+    const_bin_(expr, lhs, rhs, const_value_string_concat);
+}
+
 static void const_bin_equal(AST expr, AST lhs, AST rhs)
 {
     const_bin_(expr, lhs, rhs, const_value_eq);
@@ -2853,6 +3537,9 @@ static void const_bin_or(AST expr, AST lhs, AST rhs)
 
 type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_type(t2))
@@ -2883,6 +3570,9 @@ type_t* common_type_of_binary_operation(type_t* t1, type_t* t2)
 
 type_t* common_type_of_equality_operation(type_t* t1, type_t* t2)
 {
+    t1 = no_ref(t1);
+    t2 = no_ref(t2);
+
     if (is_pointer_type(t1))
         t1 = pointer_type_get_pointee_type(t1);
     if (is_pointer_type(t2))

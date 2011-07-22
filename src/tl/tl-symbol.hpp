@@ -251,18 +251,6 @@ namespace TL
               */
             bool is_intrinsic() const;
 
-            //! States whether the symbol has been create because of a typedef
-            //against an unnamed struct/enum
-            /*!
-             * @code
-             * typedef struct { int b; } A;
-             * @endcode
-             *
-             * Symbol 'A' will be created as a class-name (and not as a
-             * typedef-name) because of typedef against the unnamed struct
-             */
-            bool is_created_after_typedef() const;
-
             //! Returns the definition tree
             /*! 
               This is only valid for functions and class symbols.  It will be

@@ -60,12 +60,15 @@ libmf03_la_SOURCES = \
                      fortran03-exprtype.h \
                      fortran03-exprtype.c \
                      fortran03-intrinsics.h \
+                     fortran03-intrinsics-simplify.h \
                      fortran03-intrinsics.c \
                      fortran03-nodecl.c \
                      fortran03-nodecl.h \
                      fortran03-modules.h \
                      fortran03-modules-bits.h \
                      fortran03-modules.c \
+                     fortran03-codegen.h \
+                     fortran03-codegen.c \
                      libmf03-common.h \
                      $(END)
 
@@ -86,6 +89,7 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_srcdir)/src/frontend \
 				    -I$(top_builddir)/src/frontend \
 				    -I$(top_srcdir)/src/driver \
+				    -I$(top_srcdir)/src/driver/fortran \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\" \
                     $(sqlite3_CFLAGS) \

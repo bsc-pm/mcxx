@@ -126,7 +126,7 @@ namespace TL
             // Reset any data computed so far
             _openmp_info->reset();
 
-            AST_t translation_unit = dto["translation_unit"];
+            AST_t translation_unit ( dto["translation_unit"] );
             ScopeLink scope_link = dto["scope_link"];
 
             Scope global_scope = scope_link.get_scope(translation_unit);
@@ -451,16 +451,7 @@ namespace TL
 				            }
 
 				            // Lower array types
-				            int num_dimensions = 0;
-				            if (!var_sym.is_parameter()
-				                    && var_type.is_array())
-				            {
-				                while (var_type.is_array())
-				                {
-				                    var_type = var_type.array_element();
-				                    num_dimensions++;
-				                }
-				            }
+				            int num_dimensions = var_type.get_num_dimensions();
 
                             UDRInfoItem udr;
                             if (udr_is_builtin_operator(reductor_name))

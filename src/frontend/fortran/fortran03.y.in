@@ -201,8 +201,13 @@ static void append_statement_to_block(AST block, AST stmt)
 %type<ast> array_name_dim_spec
 %type<ast> real_literal_constant
 %type<ast> forall_construct_stmt
+%type<ast> forall_block
 %type<ast> ac_spec
 %type<ast> pointer_stmt
+%type<ast> cray_pointer_stmt
+%type<ast> cray_pointer_pointee
+%type<ast> cray_pointer_spec
+%type<ast> cray_pointer_spec_list
 %type<ast> enumerator_def_stmt
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
@@ -2017,7 +2022,7 @@ data_i_do_variable : do_variable
 data_stmt_value : mult_operand
 | add_operand '*' mult_operand 
 {
-    $$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 dimension_stmt : labeldef TOK_DIMENSION ':' ':' array_name_dim_spec_list eos
@@ -2071,6 +2076,27 @@ pointer_stmt : labeldef TOK_POINTER ':' ':' pointer_decl_list eos
 | labeldef TOK_POINTER pointer_decl_list eos
 {
     $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+}
+;
+cray_pointer_stmt : labeldef TOK_POINTER cray_pointer_spec_list eos
+{
+    $$ = ASTMake2Label(AST_CRAY_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+}
+;
+cray_pointer_pointee : pointer_decl
+;
+cray_pointer_spec : '(' name ',' cray_pointer_pointee ')'
+{
+    $$ = ASTMake2(AST_CRAY_POINTER_SPEC, $2, $4, $1.token_file, $1.token_line, NULL);
+}
+;
+cray_pointer_spec_list : cray_pointer_spec
+{
+    $$ = ASTListLeaf($1);
+}
+| cray_pointer_spec_list ',' cray_pointer_spec
+{
+    $$ = ASTList($1, $3);
 }
 ;
 pointer_decl : name '(' array_spec ')'
@@ -2422,7 +2448,7 @@ mult_operand : level_1_expr power_op mult_operand
 ;
 add_operand : add_operand '*' mult_operand 
 {
-    $$ = ASTMake2(AST_MULT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_MUL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | add_operand '/' mult_operand 
 {
@@ -2491,7 +2517,7 @@ rel_op : TOK_EQUAL
 ;
 and_operand : not_op level_4_expr
 {
-    $$ = ASTMake1(AST_NOT, $2, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_LOGICAL_NOT, $2, $1.token_file, $1.token_line, NULL);
 }
 | level_4_expr
 ;
@@ -2689,13 +2715,18 @@ end_where_stmt : labeldef TOK_END TOK_WHERE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
-forall_construct : forall_construct_stmt forall_body_construct_seq end_forall_stmt
+forall_construct : forall_construct_stmt forall_block end_forall_stmt
 {
     $$ = ASTMake3(AST_FORALL_CONSTRUCT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | forall_construct_stmt end_forall_stmt
 {
     $$ = ASTMake3(AST_FORALL_CONSTRUCT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+forall_block : forall_body_construct_seq
+{
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 forall_construct_stmt : labeldef name ':' TOK_FORALL forall_header eos
@@ -2717,11 +2748,11 @@ forall_header : '(' type_spec ':' ':' forall_triplet_spec_list ',' mask_expr ')'
 }
 | '(' type_spec ':' ':' forall_triplet_spec_list ')'
 {
-    $$ = ASTMake3(AST_FORALL_HEADER, $2, NULL, $5, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake3(AST_FORALL_HEADER, $2, $5, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '(' forall_triplet_spec_list ')'
 {
-    $$ = ASTMake3(AST_FORALL_HEADER, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake3(AST_FORALL_HEADER, NULL, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 forall_triplet_spec : name '=' forall_limit ':' forall_limit ':' forall_step
@@ -4158,8 +4189,9 @@ inquire_spec : TOK_UNIT '=' file_unit_number
 // Note the use of label instead of labeldef
 format_stmt : label TOK_FORMAT FORMAT_SPEC eos
 {
-    $$ = ASTMake2Label(AST_FORMAT_STATEMENT, $1, 
-            ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text),
+    $$ = ASTMake3Label(AST_FORMAT_STATEMENT, $1, 
+            // We keep the label twice for convenience
+            ast_copy($1), ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text),
             $2.token_file, $2.token_line, $2.token_text);
 }
 ;
@@ -4249,6 +4281,7 @@ non_top_level_program_unit_stmts : access_stmt
 | parameter_stmt
 | pointer_assignment_stmt
 | pointer_stmt
+| cray_pointer_stmt
 | print_stmt
 | procedure_declaration_stmt
 | protected_stmt

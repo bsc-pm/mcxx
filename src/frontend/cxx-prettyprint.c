@@ -45,6 +45,7 @@
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-prettyprint-internal.h"
+#include "cxx-diagnostic.h"
 
 #ifdef FORTRAN_SUPPORT
 #include "fortran/fortran03-prettyprint.h"
@@ -59,6 +60,7 @@ HANDLER_PROTOTYPE(simple_parameter_handler);
 HANDLER_PROTOTYPE(indented_simple_parameter_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(parenthesized_son_handler);
+HANDLER_PROTOTYPE(list_parenthesized_son_handler);
 HANDLER_PROTOTYPE(nested_name_handler);
 HANDLER_PROTOTYPE(simple_text_handler);
 HANDLER_PROTOTYPE(template_id_handler);
@@ -170,11 +172,6 @@ HANDLER_PROTOTYPE(pragma_custom_directive_handler);
 HANDLER_PROTOTYPE(pragma_custom_construct_handler);
 HANDLER_PROTOTYPE(pragma_custom_clause_handler);
 HANDLER_PROTOTYPE(pragma_custom_line_handler);
-
-// Custom construct
-HANDLER_PROTOTYPE(custom_construct_statement_handler);
-HANDLER_PROTOTYPE(custom_construct_header_handler);
-HANDLER_PROTOTYPE(custom_construct_parameter);
 
 // OpenMP
 HANDLER_PROTOTYPE(omp_udr_member_op_handler);
@@ -312,9 +309,9 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_SUB_ASSIGNMENT, binary_operator_handler, "-="),
     NODE_HANDLER(AST_SHL_ASSIGNMENT, binary_operator_handler, "<<="),
     NODE_HANDLER(AST_SHR_ASSIGNMENT, binary_operator_handler, ">>="),
-    NODE_HANDLER(AST_AND_ASSIGNMENT, binary_operator_handler, "&="),
-    NODE_HANDLER(AST_OR_ASSIGNMENT, binary_operator_handler, "|="),
-    NODE_HANDLER(AST_XOR_ASSIGNMENT, binary_operator_handler, "^="),
+    NODE_HANDLER(AST_BITWISE_AND_ASSIGNMENT, binary_operator_handler, "&="),
+    NODE_HANDLER(AST_BITWISE_OR_ASSIGNMENT, binary_operator_handler, "|="),
+    NODE_HANDLER(AST_BITWISE_XOR_ASSIGNMENT, binary_operator_handler, "^="),
     NODE_HANDLER(AST_MOD_ASSIGNMENT, binary_operator_handler, "%="),
     NODE_HANDLER(AST_THROW_EXPRESSION, throw_expression_handler, NULL),
     NODE_HANDLER(AST_LOGICAL_OR, binary_operator_handler, "||"),
@@ -334,21 +331,21 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_ADD, binary_operator_handler, "+"),
     NODE_HANDLER(AST_DIV, binary_operator_handler, "/"),
     NODE_HANDLER(AST_MOD, binary_operator_handler, "%"),
-    NODE_HANDLER(AST_MULT, binary_operator_handler, "*"),
+    NODE_HANDLER(AST_MUL, binary_operator_handler, "*"),
 #ifdef FORTRAN_SUPPORT
     NODE_HANDLER(AST_POWER, binary_operator_handler, "^^"),
 #endif
-    NODE_HANDLER(AST_POINTER_TO_MEMBER, binary_operator_handler, ".*"),
-    NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, binary_operator_handler, "->*"),
-    NODE_HANDLER(AST_CAST_EXPRESSION, cast_expression_handler, NULL),
+    NODE_HANDLER(AST_POINTER_TO_MEMBER, infix_parameter_handler, ".*"),
+    NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, infix_parameter_handler, "->*"),
+    NODE_HANDLER(AST_CAST, cast_expression_handler, NULL),
     NODE_HANDLER(AST_PREDECREMENT, prefix_with_parameter_then_son_handler, "--"),
     NODE_HANDLER(AST_PREINCREMENT, prefix_with_parameter_then_son_handler, "++"),
     NODE_HANDLER(AST_DERREFERENCE, prefix_with_parameter_then_son_handler, "*"),
     NODE_HANDLER(AST_REFERENCE, prefix_with_parameter_then_son_handler, "&"),
     NODE_HANDLER(AST_PLUS, prefix_with_parameter_then_son_handler, "+"),
     NODE_HANDLER(AST_NEG, prefix_with_parameter_then_son_handler, "-"),
-    NODE_HANDLER(AST_NOT, prefix_with_parameter_then_son_handler, "!"),
-    NODE_HANDLER(AST_COMPLEMENT, prefix_with_parameter_then_son_handler, "~"),
+    NODE_HANDLER(AST_LOGICAL_NOT, prefix_with_parameter_then_son_handler, "!"),
+    NODE_HANDLER(AST_BITWISE_NOT, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_SIZEOF, prefix_with_parameter_then_son_handler, "sizeof "),
     NODE_HANDLER(AST_SIZEOF_TYPEID, sizeof_typeid_handler, "sizeof"),
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
@@ -441,11 +438,11 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DELETE_OPERATOR, simple_parameter_handler, "delete"),
     NODE_HANDLER(AST_NEW_ARRAY_OPERATOR, simple_parameter_handler, "new[]"),
     NODE_HANDLER(AST_DELETE_ARRAY_OPERATOR, simple_parameter_handler, "delete[]"),
-    NODE_HANDLER(AST_ADDERATOR, simple_parameter_handler, "+"),
-    NODE_HANDLER(AST_MINUSERATOR, simple_parameter_handler, "-"),
-    NODE_HANDLER(AST_MULTERATOR, simple_parameter_handler, "*"),
-    NODE_HANDLER(AST_DIVERATOR, simple_parameter_handler, "/"),
-    NODE_HANDLER(AST_MODERATOR, simple_parameter_handler, "%"),
+    NODE_HANDLER(AST_ADD_OPERATOR, simple_parameter_handler, "+"),
+    NODE_HANDLER(AST_MINUS_OPERATOR, simple_parameter_handler, "-"),
+    NODE_HANDLER(AST_MUL_OPERATOR, simple_parameter_handler, "*"),
+    NODE_HANDLER(AST_DIV_OPERATOR, simple_parameter_handler, "/"),
+    NODE_HANDLER(AST_MOD_OPERATOR, simple_parameter_handler, "%"),
     NODE_HANDLER(AST_BITWISE_XOR_OPERATOR, simple_parameter_handler, "^"),
     NODE_HANDLER(AST_BITWISE_AND_OPERATOR, simple_parameter_handler, "&"),
     NODE_HANDLER(AST_BITWISE_OR_OPERATOR, simple_parameter_handler, "|"),
@@ -458,15 +455,15 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_MUL_ASSIGN_OPERATOR, simple_parameter_handler, "*="),
     NODE_HANDLER(AST_DIV_ASSIGN_OPERATOR, simple_parameter_handler, "/="),
     NODE_HANDLER(AST_MOD_ASSIGN_OPERATOR, simple_parameter_handler, "%="),
-    NODE_HANDLER(AST_XOR_ASSIGN_OPERATOR, simple_parameter_handler, "^="),
-    NODE_HANDLER(AST_OR_ASSIGN_OPERATOR, simple_parameter_handler,  "|="),
-    NODE_HANDLER(AST_AND_ASSIGN_OPERATOR, simple_parameter_handler,  "&="),
+    NODE_HANDLER(AST_BITWISE_XOR_ASSIGN_OPERATOR, simple_parameter_handler, "^="),
+    NODE_HANDLER(AST_BITWISE_OR_ASSIGN_OPERATOR, simple_parameter_handler,  "|="),
+    NODE_HANDLER(AST_BITWISE_AND_ASSIGN_OPERATOR, simple_parameter_handler,  "&="),
     NODE_HANDLER(AST_LEFT_OPERATOR, simple_parameter_handler, "<<"),
     NODE_HANDLER(AST_RIGHT_OPERATOR, simple_parameter_handler, ">>"),
     NODE_HANDLER(AST_LEFT_ASSIGN_OPERATOR, simple_parameter_handler, "<<="),
     NODE_HANDLER(AST_RIGHT_ASSIGN_OPERATOR, simple_parameter_handler, ">>="),
-    NODE_HANDLER(AST_EQUALERATOR, simple_parameter_handler, "=="),
-    NODE_HANDLER(AST_DIFFERENTERATOR, simple_parameter_handler, "!="),
+    NODE_HANDLER(AST_EQUAL_OPERATOR, simple_parameter_handler, "=="),
+    NODE_HANDLER(AST_DIFFERENT_OPERATOR, simple_parameter_handler, "!="),
     NODE_HANDLER(AST_LESS_OR_EQUAL_OPERATOR, simple_parameter_handler, "<="),
     NODE_HANDLER(AST_GREATER_OR_EQUAL_OPERATOR, simple_parameter_handler, ">="),
     NODE_HANDLER(AST_LOGICAL_AND_OPERATOR, simple_parameter_handler, "&&"),
@@ -474,7 +471,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_LOGICAL_NOT_OPERATOR, simple_parameter_handler, "!"),
     NODE_HANDLER(AST_INCREMENT_OPERATOR, simple_parameter_handler, "++"),
     NODE_HANDLER(AST_DECREMENT_OPERATOR, simple_parameter_handler, "--"),
-    NODE_HANDLER(AST_COMMAERATOR, simple_parameter_handler, ","),
+    NODE_HANDLER(AST_COMMA_OPERATOR, simple_parameter_handler, ","),
     NODE_HANDLER(AST_POINTER_OPERATOR, simple_parameter_handler, "->"),
     NODE_HANDLER(AST_POINTER_DERREF_OPERATOR, simple_parameter_handler, "->*"),
     NODE_HANDLER(AST_FUNCTION_CALL_OPERATOR, simple_parameter_handler, "()"),
@@ -495,7 +492,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NAMESPACE_ALIAS, namespace_alias_definition_handler, NULL),
     NODE_HANDLER(AST_USING_NAMESPACE_DIRECTIVE, using_directive_handler, NULL),
     NODE_HANDLER(AST_NAMESPACE_DEFINITION, namespace_definition_handler, NULL),
-    NODE_HANDLER(AST_NEW_PLACEMENT, parenthesized_son_handler, NULL),
+    NODE_HANDLER(AST_NEW_PLACEMENT, list_parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, pseudo_destructor_template_name_handler, NULL),
     NODE_HANDLER(AST_KR_PARAMETER_LIST, kr_parameter_list_handler, NULL),
@@ -517,10 +514,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
-    // Custom code constructs
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, custom_construct_statement_handler, NULL),
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_HEADER, custom_construct_header_handler, NULL),
-    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_PARAMETER, custom_construct_parameter, NULL),
     // OpenMP special nodes
     NODE_HANDLER(AST_OMP_UDR_BUILTIN_OP, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_MEMBER_OP, omp_udr_member_op_handler, NULL),
@@ -774,7 +767,7 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
     if (hnd == NULL)
     {
-        fprintf(stderr, "Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
+        error_printf("Node '%s' has NULL handler\n", ast_node_names[ASTType(a)]);
         return;
     }
     else
@@ -895,18 +888,26 @@ static void parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_
     token_fprintf(f, a, pt_ctx, ")");
 }
 
+static void list_parenthesized_son_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "(");
+    list_handler(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+}
+
 static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
+    {
+        token_fprintf(f, a, pt_ctx, "template ");
+    }
+
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     double_colon_handler(f, a, pt_ctx);
 
     if (ASTSon1(a) != NULL)
     {
-        if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
-        {
-            token_fprintf(f, a, pt_ctx, "template ");
-        }
 
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
@@ -2212,36 +2213,6 @@ static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt
     {
         token_fprintf(f, a, pt_ctx, "%s", "#pragma mcxx verbatim end\n");
     }
-}
-
-static void custom_construct_statement_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void custom_construct_header_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "__construct__ %s ", ASTText(a));
-
-    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, "\n");
-        indent_at_level(f, a, new_pt_ctx);
-        list_handler(f, ASTSon0(a), pt_ctx);
-    }
-
-    token_fprintf(f, a, pt_ctx, "\n");
-}
-
-static void custom_construct_parameter(FILE *f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " : ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void pragma_custom_line_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

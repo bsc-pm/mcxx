@@ -25,6 +25,7 @@
 ##########################################################################
 
 mcxxexec_PROGRAMS = mf03-prescanner
+noinst_LTLIBRARIES = libmf03-driver.la
 
 
 if ENABLE_PKGLIB_INSTALL
@@ -33,7 +34,7 @@ else
 mcxxexecdir = @bindir@
 endif
 
-mf03_prescanner_CFLAGS=-fexceptions \
+common_cflags= -fexceptions \
 			-I$(top_srcdir)/lib \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/frontend/fortran \
@@ -46,6 +47,8 @@ mf03_prescanner_CFLAGS=-fexceptions \
 			-I$(top_builddir)/src/driver \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
+
+mf03_prescanner_CFLAGS= $(common_cflags)
 
 mf03_prescanner_SOURCES = \
                           prescanner-driver.h \
@@ -60,3 +63,10 @@ mf03_prescanner_LDADD = \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/fortran/libmf03-prescanner.la \
    $(END)
+
+libmf03_driver_la_SOURCES = \
+  cxx-driver-fortran.c \
+  cxx-driver-fortran.h \
+  $(END)
+
+libmf03_driver_la_CFLAGS= $(common_cflags)

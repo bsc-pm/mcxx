@@ -1130,4 +1130,9 @@ namespace TL
         free((void*)c);
         return result;
     } 
+
+    AST_t AST_t::get_link_to_child(const std::string& str) const
+    {
+        return AST_t(ast_get_link_to_child(_ast, str.c_str()));
+    }
 }

@@ -118,7 +118,7 @@ namespace OpenMP
 
     void FunctionTasks::convert_calls(DTO& dto)
     {
-        AST_t translation_unit = dto["translation_unit"];
+        AST_t translation_unit ( dto["translation_unit"] );
         ScopeLink scope_link = dto["scope_link"];
 
         struct IsFunctionCall : Predicate<AST_t>

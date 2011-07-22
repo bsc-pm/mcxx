@@ -62,7 +62,7 @@ namespace TL
 
     Expression Condition::get_expression() const
     {
-        TL::AST_t ast = _ref.get_attribute(LANG_EXPRESSION_NESTED);
+        TL::AST_t ast = _ref.get_link_to_child(LANG_EXPRESSION_NESTED);
         Expression expr(ast, _scope_link);
         return expr;
     }
@@ -85,7 +85,7 @@ namespace TL
 
         if (is_compound_statement())
         {
-            AST_t list = _ref.get_attribute(LANG_COMPOUND_STATEMENT_LIST);
+            AST_t list = _ref.get_link_to_child(LANG_COMPOUND_STATEMENT_LIST);
             ASTIterator ast_iterator = list.get_list_iterator();
 
             ast_iterator.rewind();
@@ -105,7 +105,7 @@ namespace TL
 
     Statement Statement::get_pragma_line() const
     {
-        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t pragma_line = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_LINE);
         Statement st(pragma_line, _scope_link);
         return st;
     }
@@ -118,7 +118,7 @@ namespace TL
 
     Statement Statement::get_pragma_construct_statement() const
     {
-        AST_t pragma_statement = _ref.get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+        AST_t pragma_statement = _ref.get_link_to_child(LANG_PRAGMA_CUSTOM_STATEMENT);
         Statement st(pragma_statement, _scope_link);
         return st;
     }
@@ -165,7 +165,7 @@ namespace TL
     {
         // First gather init expression and lower bound
         // // std::cerr << "Gathering for-init-construct" << std::endl;
-        AST_t init_expr = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
+        AST_t init_expr = _ref.get_link_to_child(LANG_FOR_INIT_CONSTRUCT);
 
         if (!init_expr.is_valid())
             return;
@@ -216,7 +216,7 @@ namespace TL
 
         // Now gather upper bound
         // std::cerr << "Gathering upper bound" << std::endl;
-        AST_t condition = _ref.get_attribute(LANG_FOR_CONDITION);
+        AST_t condition = _ref.get_link_to_child(LANG_FOR_CONDITION);
 
         if (!condition.is_valid())
             return;
@@ -274,7 +274,7 @@ namespace TL
         }
 
         // Now get the step
-        AST_t iteration_expression_tree = _ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION);
+        AST_t iteration_expression_tree = _ref.get_link_to_child(LANG_FOR_ITERATION_EXPRESSION);
 
         if (!iteration_expression_tree.is_valid())
             return;
@@ -414,7 +414,7 @@ namespace TL
 
     Statement ForStatement::get_loop_body() const
     {
-        AST_t loop_body = _ref.get_attribute(LANG_FOR_BODY_STATEMENT);
+        AST_t loop_body = _ref.get_link_to_child(LANG_FOR_BODY_STATEMENT);
         Statement result(loop_body, _scope_link);
 
         return result;
@@ -423,20 +423,20 @@ namespace TL
 
     AST_t ForStatement::get_iterating_init() const
     {
-        AST_t result = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
+        AST_t result = _ref.get_link_to_child(LANG_FOR_INIT_CONSTRUCT);
         return result;
     }
 
     Expression ForStatement::get_iterating_condition() const
     {
-        Expression result(_ref.get_attribute(LANG_FOR_CONDITION),
+        Expression result(_ref.get_link_to_child(LANG_FOR_CONDITION),
                 _scope_link);
         return result;
     }
 
     Expression ForStatement::get_iterating_expression() const
     {
-        Expression result(_ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION),
+        Expression result(_ref.get_link_to_child(LANG_FOR_ITERATION_EXPRESSION),
                 _scope_link);
         return result;
     }
@@ -463,7 +463,7 @@ namespace TL
 //     {
 //         std::string result = "";
 // 
-//         TL::AST_t ast = _ref.get_attribute(LANG_STATEMENT_LABEL);
+//         TL::AST_t ast = _ref.get_link_to_child(LANG_STATEMENT_LABEL);
 //         if (ast.is_valid())
 //         {
 //             result = ast.prettyprint();
@@ -526,80 +526,80 @@ namespace TL
 
     Statement WhileStatement::get_body() const
     {
-        TL::AST_t body_tree = _ref.get_attribute(LANG_WHILE_STATEMENT_BODY);
+        TL::AST_t body_tree = _ref.get_link_to_child(LANG_WHILE_STATEMENT_BODY);
 
         return Statement(body_tree, _scope_link);
     }
 
     Condition WhileStatement::get_condition() const
     {
-        TL::AST_t condition_tree = _ref.get_attribute(LANG_WHILE_STATEMENT_CONDITION);
+        TL::AST_t condition_tree = _ref.get_link_to_child(LANG_WHILE_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
     Condition IfStatement::get_condition() const
     {
-        TL::AST_t condition_tree = _ref.get_attribute(LANG_IF_STATEMENT_CONDITION);
+        TL::AST_t condition_tree = _ref.get_link_to_child(LANG_IF_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
     Statement IfStatement::get_then_body() const
     {
-        TL::AST_t then_tree = _ref.get_attribute(LANG_IF_STATEMENT_THEN_BODY);
+        TL::AST_t then_tree = _ref.get_link_to_child(LANG_IF_STATEMENT_THEN_BODY);
         return Statement(then_tree, _scope_link);
     }
 
     bool IfStatement::has_else() const
     {
-        TL::AST_t else_tree = _ref.get_attribute(LANG_IF_STATEMENT_ELSE_BODY);
+        TL::AST_t else_tree = _ref.get_link_to_child(LANG_IF_STATEMENT_ELSE_BODY);
         return else_tree.is_valid();
     }
 
     Statement IfStatement::get_else_body() const
     {
-        TL::AST_t else_tree = _ref.get_attribute(LANG_IF_STATEMENT_ELSE_BODY);
+        TL::AST_t else_tree = _ref.get_link_to_child(LANG_IF_STATEMENT_ELSE_BODY);
         return Statement(else_tree, _scope_link);
     }
 
     Statement DoWhileStatement::get_body() const
     {
-        TL::AST_t do_while_body = _ref.get_attribute(LANG_DO_STATEMENT_BODY);
+        TL::AST_t do_while_body = _ref.get_link_to_child(LANG_DO_STATEMENT_BODY);
         return Statement(do_while_body, _scope_link);
     }
 
     Expression DoWhileStatement::get_expression() const
     {
-        TL::AST_t do_while_body = _ref.get_attribute(LANG_DO_STATEMENT_EXPRESSION);
+        TL::AST_t do_while_body = _ref.get_link_to_child(LANG_DO_STATEMENT_EXPRESSION);
         return Expression(do_while_body, _scope_link);
     }
 
     Condition SwitchStatement::get_condition() const
     {
-        TL::AST_t condition_tree = _ref.get_attribute(LANG_SWITCH_STATEMENT_CONDITION);
+        TL::AST_t condition_tree = _ref.get_link_to_child(LANG_SWITCH_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
     Statement SwitchStatement::get_switch_body() const
     {
-        TL::AST_t switch_body_tree = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        TL::AST_t switch_body_tree = _ref.get_link_to_child(LANG_SWITCH_STATEMENT_BODY);
         return Statement(switch_body_tree, _scope_link);
     }
 
     Expression CaseStatement::get_case_expression() const
     {
-        TL::AST_t case_expression = _ref.get_attribute(LANG_CASE_EXPRESSION);
+        TL::AST_t case_expression = _ref.get_link_to_child(LANG_CASE_EXPRESSION);
         return Expression(case_expression, _scope_link);
     }
 
     Statement CaseStatement::get_statement() const
     {
-        TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
+        TL::AST_t case_statement_body = _ref.get_link_to_child(LANG_CASE_STATEMENT_BODY);
         return Statement(case_statement_body, _scope_link);
     }
 
     Statement DefaultStatement::get_statement() const
     {
-        TL::AST_t default_statement_body = _ref.get_attribute(LANG_DEFAULT_STATEMENT_BODY);
+        TL::AST_t default_statement_body = _ref.get_link_to_child(LANG_DEFAULT_STATEMENT_BODY);
         return Statement(default_statement_body, _scope_link);
     }
 
@@ -659,7 +659,7 @@ namespace TL
 
     ObjectList<CaseStatement> SwitchStatement::get_cases() const
     {
-        /*TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
+        /*TL::AST_t case_statement_body = _ref.get_link_to_child(LANG_CASE_STATEMENT_BODY);
         std::cout << "CASE STATEMENT BODY '" << case_statement_body.prettyprint() << "'" << std::endl;
         
         ObjectList<AST_t> case_tree_list = case_statement_body.depth_subtrees(
@@ -676,7 +676,7 @@ namespace TL
             result.append(case_statement);
         }*/
 
-        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        TL::AST_t switch_statement_body = _ref.get_link_to_child(LANG_SWITCH_STATEMENT_BODY);
 
         ObjectList<AST_t> case_tree_list = switch_statement_body.depth_subtrees(
                 PredicateAttr(LANG_IS_CASE_STATEMENT), 
@@ -696,7 +696,7 @@ namespace TL
 
     ObjectList<DefaultStatement> SwitchStatement::get_defaults() const
     {
-        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        TL::AST_t switch_statement_body = _ref.get_link_to_child(LANG_SWITCH_STATEMENT_BODY);
         
         ObjectList<AST_t> default_tree_list = switch_statement_body.depth_subtrees(
                 PredicateAttr(LANG_IS_DEFAULT_STATEMENT), 
@@ -716,7 +716,7 @@ namespace TL
 
     Statement TryStatement::get_try_protected_block() const
     {
-        TL::AST_t try_block_tree = _ref.get_attribute(LANG_TRY_BLOCK_BODY);
+        TL::AST_t try_block_tree = _ref.get_link_to_child(LANG_TRY_BLOCK_BODY);
         Statement try_statement(try_block_tree, _scope_link);
         return try_statement;
     }
@@ -725,7 +725,7 @@ namespace TL
     {
         ObjectList<Declaration> handler_decls;
         
-        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        AST_t try_handlers_list = _ref.get_link_to_child(LANG_TRY_BLOCK_HANDLER_LIST);
         ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
                 
         handlers_iterator.rewind();
@@ -743,7 +743,7 @@ namespace TL
     {
         ObjectList<Statement> handler_blocks;
         
-        AST_t try_handlers_list = _ref.get_attribute(LANG_TRY_BLOCK_HANDLER_LIST);
+        AST_t try_handlers_list = _ref.get_link_to_child(LANG_TRY_BLOCK_HANDLER_LIST);
         ASTIterator handlers_iterator = try_handlers_list.get_list_iterator();
         
         handlers_iterator.rewind();
@@ -764,26 +764,26 @@ namespace TL
 
     Expression ReturnStatement::get_return_expression() const
     {
-        AST_t tree = _ref.get_attribute(LANG_RETURN_EXPRESSION);
+        AST_t tree = _ref.get_link_to_child(LANG_RETURN_EXPRESSION);
         Expression expr(tree, _scope_link);
         return expr;
     }
 
     std::string GotoStatement::get_label() const
     {
-        AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
+        AST_t tree = _ref.get_link_to_child(LANG_GOTO_STATEMENT_LABEL);
         return tree.prettyprint();
     }
     
     std::string LabeledStatement::get_label() const
     {
-        AST_t tree = _ref.get_attribute(LANG_STATEMENT_LABEL);
+        AST_t tree = _ref.get_link_to_child(LANG_STATEMENT_LABEL);
         return tree.prettyprint();
     }
     
     Statement LabeledStatement::get_labeled_statement() const
     {
-        AST_t tree = _ref.get_attribute(LANG_LABELED_STATEMENT);
+        AST_t tree = _ref.get_link_to_child(LANG_LABELED_STATEMENT);
         return Statement(tree, _scope_link);
     }
 }

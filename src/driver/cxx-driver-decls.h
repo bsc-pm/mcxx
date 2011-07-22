@@ -33,6 +33,7 @@
 #include "cxx-scope-decls.h"
 #include "cxx-scopelink-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-nodecl-decls.h"
 #include <stddef.h>
 
 MCXX_BEGIN_DECLS
@@ -78,6 +79,13 @@ typedef struct top_level_include_tag
     char system_include;
 } top_level_include_t;
 
+typedef struct module_to_wrap_info_tag
+{
+    const char* module_name;
+    const char* native_file;
+    const char* mercurium_file;
+} module_to_wrap_info_t;
+
 // Represents one translation unit
 typedef struct translation_unit_tag
 {
@@ -85,6 +93,7 @@ typedef struct translation_unit_tag
     const char* output_filename;
 
     struct AST_tag* parsed_tree;
+    nodecl_t nodecl;
     decl_context_t global_decl_context;
     scope_link_t* scope_link;
 
@@ -93,6 +102,12 @@ typedef struct translation_unit_tag
 
 #ifdef FORTRAN_SUPPORT
     rb_red_blk_tree *module_cache;
+
+    int num_modules_to_wrap;
+    module_to_wrap_info_t** modules_to_wrap;
+
+    int num_module_files_to_hide;
+    const char** module_files_to_hide;
 #endif // FORTRAN_SUPPORT
 
     // Opaque pointer used when running compiler phases
@@ -128,6 +143,8 @@ typedef struct debug_options_tag
     char print_memory_report_in_bytes;
     char debug_sizeof;
     char do_not_run_gdb;
+    char binary_check;
+    char disable_module_cache;
 } debug_options_t;
 
 typedef struct external_var_tag {
@@ -173,10 +190,15 @@ typedef struct compilation_process_tag
     struct compilation_file_process_tag** translation_units;
     int num_translation_units;
     
-    // For further use
+    // For further use. They can be modified as we need
     int argc;
     const char** argv;
+    // These should not be modified
+    int original_argc;
+    const char** original_argv; 
+
     const char* exec_basename;
+
     const char* home_directory;
 
     // The set of configurations as defined by the user in the configuration file
@@ -285,6 +307,9 @@ typedef struct compilation_configuration_tag
     char disable_openmp;
 	char force_language;
 
+    // -Werror
+    char warnings_as_errors;
+
     debug_options_t debug_options;
     
     // Source language information
@@ -310,10 +335,15 @@ typedef struct compilation_configuration_tag
 
     char disable_intrinsics;
 
+    // Directories where we look for modules
     int num_module_dirs;
     const char** module_dirs;
 
+    // Directory where we generate modules
     const char* module_out_dir;
+
+    // Directory where we unwrap the native modules
+    const char* module_native_dir;
 #endif
     source_kind_t force_source_kind;
 
@@ -380,8 +410,8 @@ typedef struct compilation_configuration_tag
     // Enable CUDA
     char enable_cuda;
 
-    // Enable nodecl
-    char enable_nodecl;
+    // Disable nodecl (this is UNSUPPORTED)
+    char disable_nodecl;
 
     // Target options
     int num_target_option_maps;

@@ -78,6 +78,8 @@ struct sentence_information_tag
 	char has_free_doublecolon;
 	// Does not includes label
 	char* statement;
+    // Original text of the statement
+    char* original_text;
 };
 
 struct line_information_tag
@@ -121,7 +123,7 @@ statements_information_t statements_info[] =
 	STATEMENT_INFO(ST_USE, 1, 1, "use"),
 	STATEMENT_INFO(ST_IMPLICIT, 1, 1, "implicit"),
 	STATEMENT_INFO(ST_PARAMETER, 1, 0, "parameter"),
-	STATEMENT_INFO(ST_FORMAT, 1, 0, "format"),
+	STATEMENT_INFO(ST_FORMAT, 1, 1, "format"),
 	STATEMENT_INFO(ST_ENTRY, 1, 1, "entry"),
 	STATEMENT_INFO(ST_ACCESS, 1, 1, "access"),
 	STATEMENT_INFO(ST_ALLOCATABLE, 1, 1, "allocatable"),
@@ -454,6 +456,8 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 	// Now we remove spaces
 	for (i = 0; i < li->num_of_statements; i++)
 	{
+        // Keep the original text (it's been continuated)
+        li->statement_list[i].original_text = strdup(li->statement_list[i].statement);
 		remove_all_spaces(&li->statement_list[i].statement);
 	}
 
@@ -640,20 +644,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 
 		if (statements_info[statement].needs_space)
 		{
-			if (statement != ST_TYPESPEC && 
-					statement != ST_FUNCTION &&
-					statement != ST_SUBROUTINE &&
-					statement != ST_END &&
-					statement != ST_IF_STMT && 
-					statement != ST_LABELED_DO &&
-					statement != ST_MODULE_PROCEDURE &&
-					statement != ST_LABEL_ASSIGN &&
-					statement != ST_ENTRY)
-			{
-				// add_blank(&li->statement_list[statement_index].statement, statements_info[statement].keyword);
-				add_blank(&li->statement_list[statement_index].statement, yytext);
-			}
-			else if (statement == ST_FUNCTION)
+			if (statement == ST_FUNCTION)
 			{
 				add_blank_function(&li->statement_list[statement_index].statement);
 			}
@@ -701,6 +692,28 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			else if (statement == ST_ENTRY)
 			{
 				add_blank_entry_statement(&li->statement_list[statement_index].statement, yytext);
+			}
+            else if (statement == ST_FORMAT)
+            {
+                // Format requires a special treatment as we cannot wipe its blanks because
+                // of Hollerith constants.
+                // It can't be larger than that
+                int n = strlen(li->statement_list[statement_index].original_text) + 10;
+                char *c = malloc(n*sizeof(char));
+                c[0] = '\n';
+
+                char* p = strchr(li->statement_list[statement_index].original_text, '(');
+                ERROR_CONDITION(p == NULL, "This cannot be null", 0);
+
+                free(li->statement_list[statement_index].statement);
+
+                snprintf(c, n, "FORMAT %s", p);
+                c[n-1] = '\0';
+                li->statement_list[statement_index].statement = c;
+            }
+            else
+			{
+				add_blank(&li->statement_list[statement_index].statement, yytext);
 			}
 		}
 	}
@@ -965,7 +978,7 @@ static void add_blank_end(char** line)
 static void add_blank_module_procedure(char** line)
 {
 	char* temp;
-	int  keyword, scanned_length = 0;
+	int scanned_length = 0;
 
 	temp = (char*)calloc(strlen(*line)*2, sizeof(char));
 
@@ -981,13 +994,13 @@ static void add_blank_module_procedure(char** line)
 	BEGIN(MODULE_PROC);
 
 	// This will be MODULE
-	keyword = yylex();
+	yylex();
 	scanned_length += strlen(yytext);
 	strcat(temp, yytext);
 	strcat(temp, " ");
 
 	// This will be PROCEDURE
-	keyword = yylex();
+	yylex();
 	scanned_length += strlen(yytext);
 	strcat(temp, yytext);
 	strcat(temp, " ");
@@ -1235,7 +1248,7 @@ static void identify_and_convert_omp_directive(line_information_t* li)
 		return;
 	}
 
-	int parenthesis_level;
+	int parenthesis_level = 0;
 
 	// The directive
 	strcat(result, yytext);

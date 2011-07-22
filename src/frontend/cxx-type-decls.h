@@ -29,16 +29,23 @@
 #ifndef CXX_TYPE_DECLS_H
 #define CXX_TYPE_DECLS_H
 
+#include "cxx-ast-fwd.h"
+#include "cxx-scope-fwd.h"
+#include "cxx-type-fwd.h"
+#include "cxx-cexpr-fwd.h"
+
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
 
-struct type_tag;
-typedef struct type_tag type_t;
+typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
+        type_t** argument_types, 
+        AST *argument_expressions,
+        int num_arguments,
+        const_value_t** const_value);
 
 // Information of a parameter feeded to get_new_function_type
-typedef 
 struct parameter_info_tag
 {
     // This parameter is '...'
@@ -47,7 +54,7 @@ struct parameter_info_tag
     struct type_tag* type_info;
     // Nonadjusted type
     struct type_tag* nonadjusted_type_info;
-} parameter_info_t;
+};
 
 // Standard conversions info
 typedef
@@ -84,23 +91,21 @@ enum class_kind_t {
 };
 
 // Standard conversion info
-typedef
 struct standard_conversion_tag
 {
     struct type_tag* orig;
     struct type_tag* dest;
     standard_conversion_item_t conv[3];
-} standard_conversion_t;
+};
 
 // Dependent typenames
-typedef
 struct dependent_name_part_tag
 {
     const char* name;
-    struct template_argument_list_tag* template_arguments;
+    template_parameter_list_t* template_arguments;
     struct type_tag* related_type;
     struct dependent_name_part_tag* next;
-} dependent_name_part_t;
+};
 
 LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 

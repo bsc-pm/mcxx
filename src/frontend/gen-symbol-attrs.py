@@ -110,6 +110,9 @@ typedef struct entity_specifiers_tag\n{"""
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
+      if name[0] == "*":
+          name = name[1:]
+
       language = language.strip(" \n")
       if (language != current_language) :
           if (current_language == "all" and language == "fortran"):
@@ -170,7 +173,7 @@ def insert_extra_attr_code(_type, name, suffix):
             _insert_code.append("insert_extra_attr_data(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ", "\
                     "insert_default_argument_info_ptr);");
         else:
-            sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s: info: typeof '%s' is not handled\n" % (sys.argv[0], type_name))
     else:
         pass
     return _insert_code
@@ -194,6 +197,15 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_types, get_extra_types);")
         result.append("sym->entity_specs." + num_name + " = extra_types.num_types;")
         result.append("sym->entity_specs." + list_name + " = extra_types.types;")
+        result.append("}")
+    elif (_type == "AST"):
+        result.append("{")
+        result.append("extra_trees_t extra_trees;")
+        result.append("memset(&extra_trees, 0, sizeof(extra_trees));")
+        result.append("extra_trees.handle = handle;");
+        result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_trees, get_extra_trees);")
+        result.append("sym->entity_specs." + num_name + " = extra_trees.num_trees;")
+        result.append("sym->entity_specs." + list_name + " = extra_trees.trees;")
         result.append("}")
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
@@ -277,13 +289,13 @@ def get_load_code(_type, name):
             result.append("   sym->entity_specs." + name + " = safe_atoll(values[i]);")
             result.append("}")
         else:
-            sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+            sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
         pass
     elif (_type == "scope"):
         result.append("// Scope is not stored (yet)");
         result.append("sym->entity_specs." + name + " = CURRENT_COMPILED_FILE->global_decl_context;")
     else :
-        sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+        sys.stderr.write("%s: info: not handling '%s'\n" % (sys.argv[0], type_name))
         pass
     result.append("}");
     return string.join(result, "\n");
@@ -296,6 +308,8 @@ def print_fortran_modules_functions(lines):
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
+      if (name[0] == "*"):
+          continue
       if (_type == "bool"):
           attr_names.append(name)
           _format.append("%d")
@@ -322,7 +336,7 @@ def print_fortran_modules_functions(lines):
                 attr_names.append(name)
                 _format.append("%lld")
             else:
-                sys.stderr.write("%s: warning: unknown typeof '%s'\n" % (sys.argv[0], type_name))
+                sys.stderr.write("%s: info: not handling typeof '%s'\n" % (sys.argv[0], type_name))
       else:
           pass
     print "#ifndef FORTRAN03_MODULES_BITS_H"
@@ -342,6 +356,8 @@ def print_fortran_modules_functions(lines):
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
+      if name[0] == "*":
+          continue;
       if (_type.startswith("array") or _type.startswith("static_array")):
           _extra_attr_code = _extra_attr_code + insert_extra_attr_code(_type, name, "")
       else:
@@ -356,6 +372,8 @@ def print_fortran_modules_functions(lines):
     for l in lines:
       fields = l.split("|");
       (_type,language,name,description) = fields
+      if name[0] == "*":
+          continue;
       print get_load_code(_type, name)
     print "}"
     print "#endif // FORTRAN03_MODULES_BITS_H"

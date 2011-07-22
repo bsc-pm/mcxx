@@ -34,14 +34,14 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN char deduce_template_arguments_common(
+LIBMCXX_EXTERN char deduce_template_parameters_common(
         template_parameter_list_t* template_parameters,
         struct type_tag** arguments, int num_arguments,
         struct type_tag** parameters,
         decl_context_t decl_context,
         deduction_set_t **deduced_arguments,
         const char *filename, int line,
-        template_argument_list_t* explicit_template_arguments,
+        template_parameter_list_t* explicit_template_parameters,
         deduction_flags_t flags);
 
 LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
@@ -50,7 +50,7 @@ LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(str
         decl_context_t decl_context,
         deduction_set_t **deduction_result, 
         const char* filename, int line,
-        template_argument_list_t* explicit_template_arguments);
+        template_parameter_list_t* explicit_template_parameters);
 
 LIBMCXX_EXTERN char deduce_arguments_of_conversion(
         struct type_tag* destination_type,
@@ -60,7 +60,8 @@ LIBMCXX_EXTERN char deduce_arguments_of_conversion(
         deduction_set_t **deduction_result,
         const char *filename, int line);
 
-LIBMCXX_EXTERN template_argument_list_t* build_template_argument_list_from_deduction_set(
+LIBMCXX_EXTERN template_parameter_list_t* build_template_parameter_list_from_deduction_set(
+        template_parameter_list_t* template_parameters,
         deduction_set_t* deduction_set);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);

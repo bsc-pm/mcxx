@@ -39,22 +39,34 @@ namespace TL
             const std::string& initializer, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                initializer.c_str(), 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                initializer.c_str(), 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration_with_parameters(Scope sc,
             const std::string& symbol_name, ObjectList<std::string>& parameters,
             TypeDeclFlags flags) const
     {
-        const char** parameter_names = NULL;
         int num_parameters = 0;
+        if (this->is_function())
+        {
+            num_parameters = this->parameters().size();
+        }
+        const char** parameter_names = NULL;
+        if (num_parameters > 0)
+        {
+            // + 1 for the ellipsis
+            parameter_names = new const char*[num_parameters + 1];
+        }
+
         const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
-                "", 0, &num_parameters, &parameter_names, flags == PARAMETER_DECLARATION);
+                "", 0, num_parameters, parameter_names, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
         {
             parameters.push_back(std::string(parameter_names[i]));
         }
+
+        delete[] parameter_names;
 
         return result;
     }
@@ -63,14 +75,14 @@ namespace TL
             symbol_name, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
             TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._decl_context,
-                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
+                symbol_name.c_str(), "", 0, 0, NULL, flags == PARAMETER_DECLARATION);
     }
 
     Type Type::get_pointer_to()
@@ -112,7 +124,10 @@ namespace TL
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
-        type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
+
+        nodecl_t n = { array_expr._ast };
+// FIXME - This requires a nodecl
+        type_t* array_to = get_array_type(result_type, n, decl_context);
 
         return Type(array_to);
     }
@@ -122,7 +137,10 @@ namespace TL
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
-        type_t* array_to = get_array_type_bounds(result_type, lower_bound._ast, upper_bound._ast, decl_context);
+
+        nodecl_t l = { lower_bound._ast };
+        nodecl_t u = { upper_bound._ast };
+        type_t* array_to = get_array_type_bounds(result_type, l, u, decl_context);
 
         return Type(array_to);
     }
@@ -133,7 +151,7 @@ namespace TL
 
         decl_context_t null_decl_context;
         memset(&null_decl_context, 0, sizeof(null_decl_context));
-        type_t* array_to = get_array_type(result_type, NULL, null_decl_context);
+        type_t* array_to = get_array_type(result_type, nodecl_null(), null_decl_context);
 
         return Type(array_to);
     }
@@ -388,16 +406,23 @@ namespace TL
         return array_has_size();
     }
 
-    AST_t Type::array_dimension() const
+    int Type::get_num_dimensions() const
     {
-        return array_get_size();
+        Type t = *this;
+        int n_dim = 0;
+        while (t.is_array())
+        {
+            n_dim++;
+            t = t.array_element();
+        }
+        return n_dim;
     }
 
     bool Type::array_has_size() const
     {
         if (is_array())
         {
-            return (array_type_get_array_size_expr(_type_info));
+            return (!array_type_is_unknown_size(_type_info));
         }
 
         return false;
@@ -405,14 +430,31 @@ namespace TL
 
     AST_t Type::array_get_size() const
     {
-        AST expression = array_type_get_array_size_expr(_type_info);
+        AST expression = nodecl_get_ast(array_type_get_array_size_expr(_type_info));
         return expression;
     }
 
-    void Type::array_get_bounds(AST_t& lower, AST_t& upper)
+    void Type::array_get_bounds(AST_t& lower, AST_t& upper) const
     {
-        lower = AST_t(array_type_get_array_lower_bound(_type_info));
-        upper = AST_t(array_type_get_array_upper_bound(_type_info));
+        lower = AST_t(nodecl_get_ast(array_type_get_array_lower_bound(_type_info)));
+        upper = AST_t(nodecl_get_ast(array_type_get_array_upper_bound(_type_info)));
+    }
+
+    bool Type::array_is_region() const
+    {
+        return array_type_has_region(_type_info);
+    }
+
+    void Type::array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const
+    {
+        region_lower = nodecl_get_ast(array_type_get_region_lower_bound(_type_info));
+        region_upper = nodecl_get_ast(array_type_get_region_upper_bound(_type_info));
+    }
+
+    AST_t Type::array_get_region_size() const
+    {
+        AST expression = nodecl_get_ast(array_type_get_region_size_expr(_type_info));
+        return expression;
     }
 
     Type Type::get_void_type(void)
@@ -648,12 +690,8 @@ namespace TL
     ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_nonstatic_data_members(::get_actual_class_type(_type_info));
-
-        for (unsigned int i = 0; i < n; i++)
-        {
-            result.push_back(class_type_get_nonstatic_data_member_num(::get_actual_class_type(_type_info), i));
-        }
+        Scope::convert_to_vector(class_type_get_nonstatic_data_members(
+                    ::get_actual_class_type(_type_info)), result);
 
         return result;
     }
@@ -661,12 +699,8 @@ namespace TL
     ObjectList<Symbol> Type::get_static_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_static_data_members(::get_actual_class_type(_type_info));
-
-        for (unsigned int i = 0; i < n; i++)
-        {
-            result.push_back(class_type_get_static_data_member_num(::get_actual_class_type(_type_info), i));
-        }
+        Scope::convert_to_vector(class_type_get_static_data_members(
+                    ::get_actual_class_type(_type_info)), result);
 
         return result;
     }
@@ -727,11 +761,9 @@ namespace TL
         }
 
         int i;
-        for (i = 0; i < template_parameters->num_template_parameters; i++)
+        for (i = 0; i < template_parameters->num_parameters; i++)
         {
-            template_parameter_t* template_parameter = template_parameters->template_parameters[i];
-
-            result.append(template_parameter);
+            result.append(TemplateParameter(template_parameters, i));
         }
 
         return result;
@@ -740,11 +772,11 @@ namespace TL
     ObjectList<TemplateArgument> Type::get_template_arguments() const
     {
         ObjectList<TemplateArgument> result;
-        template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
+        template_parameter_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
 
-        for (int i = 0; i < arg_list->num_arguments; i++)
+        for (int i = 0; i < arg_list->num_parameters; i++)
         {
-            result.append(TemplateArgument(arg_list->argument_list[i]));
+            result.append(TemplateArgument(arg_list, i));
         }
 
         return result;

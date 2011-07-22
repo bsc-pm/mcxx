@@ -314,7 +314,8 @@ namespace TL
             {
                 decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
             }
-            build_scope_statement_seq_with_scope_link(a, decl_context, scope_link);
+            nodecl_t dummy_nodecl_output = { NULL };
+            build_scope_statement_seq_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
             if (do_not_check_expression)
             {
                 leave_test_expression();
@@ -334,7 +335,8 @@ namespace TL
             scope_link_t* scope_link,
             AST a)
     {
-        fortran_build_scope_statement(a, decl_context);
+        nodecl_t nodecl_output = nodecl_null();
+        fortran_build_scope_statement(a, decl_context, &nodecl_output);
         scope_link_set(scope_link, a, decl_context);
 
         return AST_t(a);
@@ -382,7 +384,7 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_for_expression(a, decl_context);
+            char c = check_expression(a, decl_context);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -462,7 +464,7 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_for_expression_list(a, decl_context);
+            char c = check_expression_list(a, decl_context);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -516,7 +518,8 @@ namespace TL
 
         if (a != NULL)
         {
-            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link);
+            nodecl_t dummy_nodecl_output = { NULL };
+            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
         }
 
         // Set properly the context of the reference tree
@@ -569,9 +572,10 @@ namespace TL
         }
         
         // Fix the context for the user (the reference tree is unused in this function actually...)
+        nodecl_t dummy_nodecl_output = { NULL };
         decl_context_t decl_context = class_type_get_inner_context(get_actual_class_type(class_type._type_info));
         build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
-                class_type._type_info);
+                class_type._type_info, &dummy_nodecl_output);
 
         // Set properly the context of the reference tree
         scope_link_set(scope_link._scope_link, a, decl_context);
@@ -662,7 +666,7 @@ namespace TL
         decl_context_t decl_context = scope.get_decl_context();
 
         enter_test_expression();
-        check_for_expression(a, decl_context);
+        check_expression(a, decl_context);
         leave_test_expression();
 
         // Set properly the context of the reference tree
@@ -694,12 +698,13 @@ namespace TL
         AST type_specifier_seq = ASTSon0(type_id);
         AST abstract_decl = ASTSon1(type_id);
 
+        nodecl_t dummy_nodecl_output = { NULL };
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                decl_context);
+                decl_context, &dummy_nodecl_output);
 
         type_t* declarator_type = type_info;
         compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                decl_context);
+                decl_context, &dummy_nodecl_output);
 
         return Type(declarator_type);
     }
@@ -738,8 +743,9 @@ namespace TL
             gather_decl_spec_t gather_info;
             memset(&gather_info, 0, sizeof(gather_info));
 
+            nodecl_t dummy_nodecl_output = { NULL };
             build_scope_decl_specifier_seq(type_spec, &gather_info, &type_info,
-                    decl_context);
+                    decl_context, &dummy_nodecl_output);
 
             result.append(Type(type_info));
         }
@@ -769,10 +775,12 @@ namespace TL
     {
         decl_context_t (*new_context_fun)(decl_context_t) = NULL;
 
+        nodecl_t nodecl_output = nodecl_null();
         build_scope_program_unit(a, 
                 decl_context, 
                 new_context_fun,
-                NULL);
+                NULL,
+                &nodecl_output);
 
         return AST_t(a);
     }
