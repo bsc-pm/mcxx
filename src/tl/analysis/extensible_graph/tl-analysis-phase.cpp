@@ -37,7 +37,7 @@ namespace TL
     void AnalysisPhase::run(TL::DTO& dto)
     {
         _sl = dto["scope_link"];
-        TL::AST_t translation_unit = dto["translation_unit"];        
+        TL::AST_t translation_unit = AST_t(dto["translation_unit"]);
         
         if (IS_FORTRAN_LANGUAGE)
         {
