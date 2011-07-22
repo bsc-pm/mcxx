@@ -89,9 +89,6 @@ namespace TL
                 RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
                 dto.set_object("translation_unit", ast);
 
-                RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
-                dto.set_object("nodecl", top_level_nodecl);
-
                 RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
                 dto.set_object("scope_link", scope);
 
@@ -173,6 +170,9 @@ namespace TL
 
                 TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
                 TL::DTO& dto = *_dto;
+
+                RefPtr<Nodecl::TopLevel> top_level_nodecl(new Nodecl::TopLevel(translation_unit->nodecl));
+                dto.set_object("nodecl", top_level_nodecl);
 
                 compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
 
