@@ -532,19 +532,15 @@ double _Complex * Alloc_FFT_Matrix (long N) {
 	return ptr;
 }
 
-#define ENTERING_FUN fprintf(stderr, "Entering -> %s\n", __PRETTY_FUNCTION__)
-#define LEAVING_FUN fprintf(stderr, "Leaving -> %s\n", __PRETTY_FUNCTION__)
 
 #pragma css task input(N_SQRT, FFT_BS, I) output(A)
 void zz_initializeBlock(long N_SQRT, long FFT_BS, long I, double _Complex A[FFT_BS][N_SQRT]) {
-    ENTERING_FUN;
     long i, j;    
 	for (i=0; i < FFT_BS; i++) {
 		for (j=0; j < N_SQRT; j++) {
 			A[i][j] = I+i+j;
 		}
 	}
-    LEAVING_FUN;
 }
 
 void initialize(long N_SQRT, long FFT_BS, double _Complex A[N_SQRT][N_SQRT]) {
@@ -561,7 +557,6 @@ void initialize(long N_SQRT, long FFT_BS, double _Complex A[N_SQRT][N_SQRT]) {
 
 #pragma css task input(N, N_SQRT, TR_BS) inout(data{0:TR_BS}{0:TR_BS})
 void trsp_blk(long N, long N_SQRT, long TR_BS, double _Complex data[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
     long i, j;    
 	for (i=0; i < TR_BS; i+=middleBS) {
 		for (j=0; j < i; j+=middleBS) {
@@ -569,24 +564,20 @@ void trsp_blk(long N, long N_SQRT, long TR_BS, double _Complex data[N_SQRT][N_SQ
 		}
 		middle_trsp_blk(N, N_SQRT, (double _Complex (*) [N_SQRT]) &data[i][i]);
 	}
-    LEAVING_FUN;
 }
 
 #pragma css task input(N, N_SQRT, TR_BS) inout(data1{0:TR_BS}{0:TR_BS}, data2{0:TR_BS}{0:TR_BS})
 void trsp_swap (long N, long N_SQRT, long TR_BS, double _Complex data1[N_SQRT][N_SQRT], double _Complex data2[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
     long i, j;
     for (i=0; i < TR_BS; i+=middleBS) {
 		for (j=0; j < TR_BS; j+=middleBS) {
 			middle_trsp_swap(N, N_SQRT, (double _Complex (*) [N_SQRT]) &data1[i][j], (double _Complex (*) [N_SQRT]) &data2[j][i]);
 		}
 	}
-    LEAVING_FUN;
 }
 
 #pragma css task input(N, N_SQRT, TR_BS, I) inout(data{0:TR_BS}{0:TR_BS})
 void tw_trsp_blk(long N, long N_SQRT, long TR_BS, long I, double _Complex data[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
     long i, j;	
     for (i=0; i < TR_BS; i+=middleBS) {
 		for (j=0; j < i; j+=middleBS) {
@@ -595,13 +586,11 @@ void tw_trsp_blk(long N, long N_SQRT, long TR_BS, long I, double _Complex data[N
 		}
 		middle_tw_trsp_blk(N, N_SQRT, I+i, (double _Complex (*) [N_SQRT]) &data[i][i]);
 	}
-    LEAVING_FUN;
 }
 
 #pragma css task input (N, N_SQRT, TR_BS, I, J) inout(data1{0:TR_BS}{0:TR_BS}, data2{0:TR_BS}{0:TR_BS})
 void tw_trsp_swap (long N, long N_SQRT, long TR_BS, long I, long J, double _Complex data1[N_SQRT][N_SQRT], 
                    double _Complex data2[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
     long i, j;
     for (i=0; i < TR_BS; i+=middleBS) {
 		for (j=0; j < TR_BS; j+=middleBS) {
@@ -609,27 +598,22 @@ void tw_trsp_swap (long N, long N_SQRT, long TR_BS, long I, long J, double _Comp
                                 (double _Complex (*) [N_SQRT]) &data2[j][i]);
 		}
 	}
-    LEAVING_FUN;
 }
 
 #pragma css task input(N_SQRT, FFT_BS) inout(data{0:FFT_BS}{}) highpriority
 static void FFT1D (long N_SQRT, long FFT_BS, double _Complex data[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
 	long i;
     for (i=0; i < FFT_BS; i++) {
 		fftw_execute_dft(plan, (double _Complex *) &data[i][0], (double _Complex *) &data[i][0]);
 	}
-    LEAVING_FUN;
 }
 
 #pragma css task input(N_SQRT, FFT_BS) inout(data{0:FFT_BS}{}) highpriority
 static void FFT1D_2 (long N_SQRT, long FFT_BS, double _Complex data[N_SQRT][N_SQRT]) {
-    ENTERING_FUN;
 	long i;
     for (i=0; i < FFT_BS; i++) {
 		fftw_execute_dft(plan, (double _Complex *) &data[i][0], (double _Complex *) &data[i][0]);
 	}
-    LEAVING_FUN;
 }
 
 
