@@ -199,6 +199,7 @@ namespace OpenMP
                 ;
 
             ReplaceSrcIdExpression replace(scope_link);
+            replace.add_this_replacement("__tmp_this");
 
             ObjectList<Type> parameter_types = sym.get_type().parameters();
 
@@ -250,7 +251,8 @@ namespace OpenMP
             Source input_args;
             Source output_args;
             Source inout_args;
-	    Source reduction_args;
+            Source reduction_args;
+            Source shared_args;
 
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
@@ -347,7 +349,7 @@ namespace OpenMP
                 }
                 else
                 {
-                    inout_args.append_with_separator("__tmp_this", ",");
+                    shared_args.append_with_separator("__tmp_this", ",");
                 }
 
                 additional_decls
@@ -442,11 +444,14 @@ namespace OpenMP
             {
                 arg_clauses << " __fp_inout(" << inout_args << ")";
             }
-           if (!reduction_args.empty())
+            if (!reduction_args.empty())
             {
                 arg_clauses << " __fp_reduction(" << reduction_args << ")";
             }
-
+            if (!shared_args.empty())
+            {
+                arg_clauses << " shared(" << shared_args << ")";
+            }
 
 
             // Add the task symbol name to the clause

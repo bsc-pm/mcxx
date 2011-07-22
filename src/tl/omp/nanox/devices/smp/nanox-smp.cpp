@@ -2732,4 +2732,20 @@ void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
             replaced_src);
 }
 
+void DeviceSMP::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
+{
+    if (!is_copy)
+    {
+        ctr.get_ast().replace(ctr.get_declaration());
+    }
+}
+
+void DeviceSMP::insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
+{
+    if (!is_copy)
+    {
+        ctr.get_ast().replace(ctr.get_declaration());
+    }
+}
+
 EXPORT_PHASE(TL::Nanox::DeviceSMP);
