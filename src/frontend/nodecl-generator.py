@@ -320,10 +320,12 @@ def generate_visitor_class_header(rule_map):
     print "#ifndef TL_NODECL_VISITOR_HPP"
     print "#define TL_NODECL_VISITOR_HPP"
     print ""
-    print "namespace Nodecl {"
-    print "   class NodeclBase;"
-    generate_nodecl_classes_fwd_decls(rule_map)
+    print "#include <tl-nodecl.hpp>"
     print ""
+    print "namespace Nodecl {"
+    # print "   class NodeclBase;"
+    # generate_nodecl_classes_fwd_decls(rule_map)
+    # print ""
     classes = get_all_class_names(rule_map)
     print "class BaseNodeclVisitor"
     print "{"
@@ -336,8 +338,9 @@ def generate_visitor_class_header(rule_map):
     print "class NodeclVisitor : public BaseNodeclVisitor"
     print "{"
     print "   public:"
+    print "   virtual void unhandled_node(const Nodecl::NodeclBase &) { }"
     for class_name in classes:
-        print "     virtual void visit(const Nodecl::%s &) { }" % (class_name)
+        print "     virtual void visit(const Nodecl::%s & n) { this->unhandled_node(n); }" % (class_name)
     print "   virtual ~NodeclVisitor() { }"
     print "};"
     print ""
@@ -385,11 +388,11 @@ def generate_nodecl_classes_base(rule_map):
    print "#define TL_NODECL_HPP"
    print ""
    print "#include \"cxx-nodecl.h\""
-   print "#include \"tl-nodecl-visitor.hpp\""
    print "#include \"tl-object.hpp\""
    print "#include \"tl-symbol.hpp\""
    print "#include \"tl-type.hpp\""
    print "#include <string>"
+   print "#include <sstream>"
    print "namespace Nodecl {"
    print ""
    print "class NodeclBase : public TL::Object"
@@ -402,9 +405,13 @@ def generate_nodecl_classes_base(rule_map):
    print "    bool is_null() const { return ::nodecl_is_null(_n); }"
    print "    static NodeclBase null() { return NodeclBase(::nodecl_null()); }"
    print "    virtual ~NodeclBase() { }"
-   print "    TL::Type get_type() { return TL::Type(::nodecl_get_type(_n)); }"
-   print "    TL::Symbol get_symbol() { return TL::Symbol(::nodecl_get_symbol(_n)); }"
-   print "    std::string get_text() { return std::string(::nodecl_get_text(_n)); }"
+   print "    TL::Type get_type() const { return TL::Type(::nodecl_get_type(_n)); }"
+   print "    TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }"
+   print "    std::string get_text() const { return std::string(::nodecl_get_text(_n)); }"
+   # TODO add const_value_t*
+   print "    std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = \"(null)\"; return c; }"
+   print "    int get_line() const { return nodecl_get_line(_n); }"
+   print "    std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << \":\" << this->get_line(); return ss.str(); }"
    print "    // Simple RTTI"
    print "    template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }"
    print "    template <typename T> T as() const { return T(this->_n); }"
