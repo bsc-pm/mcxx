@@ -89,6 +89,9 @@ namespace TL
                         const DataEnvironInfo& data_env_info,
                         Source &initial_code,
                         Source &replaced_outline);
+
+                virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy);
+                virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy);
         };
 
         class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction

@@ -172,11 +172,11 @@ namespace TL
             return result;
         }
 
-        ObjectList<FunctionTaskInfo::implementation_pair_t> FunctionTaskInfo::get_devices_with_implementation()
+        ObjectList<FunctionTaskInfo::implementation_pair_t> FunctionTaskInfo::get_devices_with_implementation() const
         {
             ObjectList<implementation_pair_t> result;
 
-            for (implementation_table_t::iterator it = _implementation_table.begin();
+            for (implementation_table_t::const_iterator it = _implementation_table.begin();
                     it != _implementation_table.end();
                     it++)
             {
@@ -197,6 +197,32 @@ namespace TL
         bool FunctionTaskSet::is_function_task(Symbol sym) const
         {
             return (_map.find(sym) != _map.end());
+        }
+
+        bool FunctionTaskSet::is_function_task_or_implements(Symbol sym) const
+        {
+            if (is_function_task(sym))
+                return true;
+
+            typedef std::map<Symbol, FunctionTaskInfo>::const_iterator iterator;
+
+            for (iterator it = _map.begin();
+                    it != _map.end();
+                    it++)
+            {
+                typedef ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator dev_iterator;
+                ObjectList<FunctionTaskInfo::implementation_pair_t> devices_and_implementations = it->second.get_devices_with_implementation();
+
+                for (dev_iterator dev_it = devices_and_implementations.begin();
+                        dev_it != devices_and_implementations.end();
+                        dev_it++)
+                {
+                    if (dev_it->second == sym)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         FunctionTaskInfo& FunctionTaskSet::get_function_task(Symbol sym)
@@ -402,7 +428,6 @@ namespace TL
 
             if (!decl_entity.is_functional_declaration())
             {
-                std::cerr << "LAla -> " << decl_entity.get_ast().prettyprint() << decl_entity.get_ast().internal_ast_type() << std::endl;
                 std::cerr << construct.get_ast().get_locus() 
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;
