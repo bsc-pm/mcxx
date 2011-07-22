@@ -36,62 +36,6 @@ namespace TL
 {
     namespace Nanox
     {
-        class DeviceSMP : public DeviceProvider
-        {
-            public:
-
-                virtual void run(DTO& dto);
-                virtual void pre_run(DTO& dto);
-
-                DeviceSMP();
-
-                virtual ~DeviceSMP() { }
-
-                virtual void create_outline(
-                        const std::string& task_name,
-                        const std::string& struct_typename,
-                        DataEnvironInfo &data_environ,
-                        const OutlineFlags& outline_flags,
-                        AST_t reference_tree,
-                        ScopeLink sl,
-                        Source initial_setup,
-                        Source outline_body);
-
-                virtual void do_replacements(DataEnvironInfo& data_environ,
-                        AST_t body,
-                        ScopeLink scope_link,
-                        Source &initial_setup,
-                        Source &replace_src);
-
-                virtual void get_device_descriptor(const std::string& task_name,
-                        DataEnvironInfo &data_environ,
-                        const OutlineFlags& outline_flags,
-                        AST_t reference_tree,
-                        ScopeLink sl,
-                        Source &ancillary_device_description,
-                        Source &device_descriptor);
-                        
-                virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
-                virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
-
-            private:
-                void do_smp_inline_get_addresses(
-                        const Scope& sc,
-                        const DataEnvironInfo& data_env_info,
-                        Source &copy_setup,
-                        ReplaceSrcIdExpression& replace_src,
-                        bool &err_declared);
-
-                void do_smp_outline_replacements(AST_t body,
-                        ScopeLink scope_link,
-                        const DataEnvironInfo& data_env_info,
-                        Source &initial_code,
-                        Source &replaced_outline);
-
-                virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy);
-                virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy);
-        };
-
         class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
         {
             private:
@@ -156,6 +100,65 @@ namespace TL
                 int needs_epilog(Expression upper_bound_exp, 
                         Expression lower_bound_exp,
                         Expression step_exp);
+        };
+
+
+        class DeviceSMP : public DeviceProvider
+        {
+            public:
+
+                virtual void run(DTO& dto);
+                virtual void pre_run(DTO& dto);
+
+                DeviceSMP();
+
+                virtual ~DeviceSMP() { }
+
+                virtual void create_outline(
+                        const std::string& task_name,
+                        const std::string& struct_typename,
+                        DataEnvironInfo &data_environ,
+                        const OutlineFlags& outline_flags,
+                        AST_t reference_tree,
+                        ScopeLink sl,
+                        Source initial_setup,
+                        Source outline_body);
+
+                virtual void do_replacements(DataEnvironInfo& data_environ,
+                        AST_t body,
+                        ScopeLink scope_link,
+                        Source &initial_setup,
+                        Source &replace_src);
+
+                virtual void get_device_descriptor(const std::string& task_name,
+                        DataEnvironInfo &data_environ,
+                        const OutlineFlags& outline_flags,
+                        AST_t reference_tree,
+                        ScopeLink sl,
+                        Source &ancillary_device_description,
+                        Source &device_descriptor);
+                        
+                virtual Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
+                virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
+
+            private:
+                void do_smp_inline_get_addresses(
+                        const Scope& sc,
+                        const DataEnvironInfo& data_env_info,
+                        Source &copy_setup,
+                        ReplaceSrcIdExpression& replace_src,
+                        bool &err_declared);
+
+                void do_smp_outline_replacements(AST_t body,
+                        ScopeLink scope_link,
+                        const DataEnvironInfo& data_env_info,
+                        Source &initial_code,
+                        Source &replaced_outline);
+
+                virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy);
+                virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy);
+
+                void simd_replacements(ReplaceSrcSMP& replace_src, AST_t body);
         };
     }
 }

@@ -696,7 +696,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
         <<      "int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps(vi);"
@@ -726,7 +726,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
         <<      "unsigned int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps((int __attribute__((vector_size(16)))) vi);"
@@ -916,7 +916,7 @@ void HLTPragmaPhase::run(TL::DTO& dto)
         PragmaCustomCompilerPhase::run(dto);
 
         //Intermediate SIMD code flag is on
-        if (1)
+        if (0)
         {
             AST_t translation_unit = dto["translation_unit"];
             std::cout << translation_unit.prettyprint();

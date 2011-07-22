@@ -1792,268 +1792,19 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         Source &replaced_outline)
 {   
     int i, counter;
-    bool constant_evaluation;
-    AST_t ast;
+    //AST_t ast;
 
-    ObjectList<AST_t> builtin_ast_list;
-    ObjectList<Expression> arg_list;
+    //ObjectList<AST_t> builtin_ast_list;
+    //ObjectList<Expression> arg_list;
 
     ReplaceSrcSMP replace_src(scope_link, _vector_width);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
     ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
-    
+
+    //SIMD INITIAL REPLACEMENTS
+    simd_replacements(replace_src, body);
+
     replace_src.add_this_replacement("_args->_this");
-
-    //Loop unrolling
-    builtin_ast_list =
-        body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));
-
-    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
-            it != builtin_ast_list.end();
-            it++)
-    {
-        ForStatement for_stmt (*it, scope_link);
-        const int min_expr_size = dynamic_cast<ForStatementInfo*>(
-                for_stmt.get_ast().get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer())->get_min_expr_size();
-
-        replace_src.set_min_expr_size(min_expr_size);
-
-        //Unrolling
-        Expression it_exp = for_stmt.get_iterating_expression();
-        Expression upper_bound_exp = for_stmt.get_upper_bound();
-        Expression lower_bound_exp = for_stmt.get_lower_bound(); 
-        Expression step_exp = for_stmt.get_step();
-        IdExpression ind_var = for_stmt.get_induction_variable();
-
-        //Unrolling
-        AST_t it_exp_ast = it_exp.get_ast();
-        Source it_exp_source;
-
-        if (it_exp.is_unary_operation())
-        {
-            it_exp_source
-                << it_exp.get_unary_operand();
-        } 
-        else if (it_exp.is_binary_operation())
-        {
-            it_exp_source
-                << it_exp.get_first_operand();
-        }
-        else
-        {
-            internal_error("Wrong Expression in ForStatement iterating Expression", 0);
-        }
-
-        int new_step = replace_src.compute_new_step(
-                step_exp.evaluate_constant_int_expression(constant_evaluation));
-
-        it_exp_source
-            << " += "
-            << new_step
-            ;
-
-        it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
-
-        //Modifying the upper_bound if needs_epilog is necessary. 
-        if(replace_src.needs_epilog(upper_bound_exp, 
-                    lower_bound_exp,
-                    step_exp))
-        {
-            Expression it_cond_exp = for_stmt.get_iterating_condition();
-            if (!it_cond_exp.is_binary_operation())
-            {
-                running_error("Iterating condition Expression '%s'is not a binary operation.",
-                        it_cond_exp.prettyprint().c_str());
-            }
-
-            Expression first_op_exp = it_cond_exp.get_first_operand();
-            Expression second_op_exp = it_cond_exp.get_second_operand();
-            int first_num_occurs = 0;
-            int second_num_occurs = 0;
-
-            //Looking for ind_var occurrences in the first expression
-            ObjectList<IdExpression> first_symbol_occurrs = first_op_exp.all_symbol_occurrences();
-            for (ObjectList<IdExpression>::const_iterator it = first_symbol_occurrs.begin();
-                    it != first_symbol_occurrs.end();
-                    it++)
-            {
-                const IdExpression& id_exp = *it;
-                if (id_exp.get_symbol() == ind_var.get_symbol())
-                {
-                    first_num_occurs++;
-                    break;
-                }
-            }
-
-            //Looking for ind_var occurrences in the second expression
-            ObjectList<IdExpression> second_symbol_occurrs = second_op_exp.all_symbol_occurrences();
-            for (ObjectList<IdExpression>::const_iterator it = second_symbol_occurrs.begin();
-                    it != second_symbol_occurrs.end();
-                    it++)
-            {
-                const IdExpression& id_exp = *it;
-                if (id_exp.get_symbol() == ind_var.get_symbol())
-                {
-                    second_num_occurs++;
-                    break;
-                }
-            }
-
-            if ((first_num_occurs != 0) && (second_num_occurs != 0))
-            {
-                running_error("Induction variable cannot be present in both sides of the iterating condition Expression '%s'.",
-                        it_cond_exp.prettyprint().c_str());
-            }
-            else if (first_num_occurs == 0)
-            {
-                AST_t first_ast = first_op_exp.get_ast();
-                Source new_upper_bound_src;
-
-                new_upper_bound_src << "(("
-                    << first_op_exp
-                    << ")"
-                    << "- (" << new_step << "-1)"
-                    << ")"
-                    ;
-
-                first_ast.replace(new_upper_bound_src.parse_expression(first_ast, scope_link));
-            }
-            else if (second_num_occurs == 0)
-            {
-                AST_t second_ast = second_op_exp.get_ast();
-                Source new_upper_bound_src;
-
-                new_upper_bound_src << "(("
-                    << second_op_exp
-                    << ")"
-                    << "- (" << new_step << "-1)"
-                    << ")"
-                    ;
-
-                second_ast.replace(new_upper_bound_src.parse_expression(second_ast, scope_link));
-            }
-            else
-            {
-                running_error("Induction variable is not present in the iterating condition Expression '%s'.",
-                        it_cond_exp.prettyprint().c_str());
-            }
-        }
-                          
-
-
-        //Statements replication
-        /*
-        Statement stmt = for_stmt.get_loop_body();
-    
-        if (stmt.is_compound_statement())
-        {
-            ObjectList<Statement> stmt_list = stmt.get_inner_statements();
-
-            for (ObjectList<Statement>::iterator it = stmt_list.begin();
-                    it != stmt_list.end();
-                    it++)
-            {
-                Statement& statement = (Statement&)*it;
-
-                if (statement.is_expression())
-                {
-                    Expression exp = statement.get_expression();
-                    if (exp.is_assignment() 
-                            || exp.is_operation_assignment()
-                            || exp.is_function_call())
-                    {
-                        int exp_size = exp.get_type().get_size();
-
-                        if (exp_size > min_stmt_size)
-                        {
-                            Source compound_stmt_src;
-                            AST_t stmt_ast = statement.get_ast();
-                            int num_repls = exp_size/min_stmt_size;
-                            int i;
-
-                            DEBUG_CODE()
-                            {
-                                std::cerr << "SIMD-SMP: Replicating statement '" 
-                                    << statement.prettyprint()
-                                    << "' "
-                                    << num_repls
-                                    << " times."
-                                    << std::endl;
-                            }
-
-                            compound_stmt_src 
-                                << "{" 
-                                << statement
-                                ;
-
-                            for (i=1; i < num_repls; i++)
-                            {
-                                Source new_stmt_src;
-
-                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
-                                std::stringstream new_ind_var;
-
-                                new_ind_var
-                                    << "(" 
-                                    << for_stmt.get_induction_variable().get_symbol().get_name()
-                                    << "+" 
-                                    << i*(_vector_width/exp_size)
-                                    << ")"
-                                    ;
-
-                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
-                                        new_ind_var.str());
-
-                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
-                            }
-
-                            compound_stmt_src << "}";
-
-                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
-                        }
-                    }
-                }
-            }
-        }*/
-
-    }
-
-    //FIXME: Move me to prettyprint_callback
-    //__builtin_vector_reference AST replacement
-    builtin_ast_list =
-        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
-
-    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
-            it != builtin_ast_list.end();
-            it++)
-    {
-        ast = (AST_t)*it;
-        Expression expr(ast, scope_link);
-
-        ObjectList<Expression> arg_list = expr.get_argument_list();
-        if (arg_list.size() != 1){
-            internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
-        }
-
-        Source builtin_vr_replacement;
-
-        Type casting_type = arg_list[0].get_type();
-
-        //C++
-        if (casting_type.is_reference())
-            casting_type = casting_type.references_to();
-
-        builtin_vr_replacement << "*((" 
-            << casting_type.get_generic_vector_to()
-                .get_pointer_to()
-                .get_simple_declaration(scope_link.get_scope(ast),"")
-            << ") &("
-            << arg_list[0]
-            << "))"
-            ;
-
-        ast.replace(builtin_vr_replacement.parse_expression(ast, scope_link));
-    }
 
     Source copy_setup;
     initial_code
@@ -2438,7 +2189,7 @@ void DeviceSMP::create_outline(
         << "}"
         ;
 
-    //generic_functions
+    //Prettyprinting generic_functions
     ReplaceSrcSMP function_replacement(sl, _vector_width);
 
     std::string generic_declaration_str;
@@ -2805,18 +2556,322 @@ void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
 
 void DeviceSMP::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
 {
-    if (!is_copy)
+    ERROR_CONDITION(is_copy, "Invalid copied pragma tree", 0);
+
+    ScopeLink scope_link = ctr.get_scope_link();
+    FunctionDefinition func_def(ctr.get_declaration(), scope_link);
+    AST_t body_ast = func_def.get_function_body().get_ast();
+
+    ReplaceSrcSMP replace_src(scope_link, _vector_width);
+    Source replaced_body;
+
+    //SIMD replacements
+    simd_replacements(replace_src, body_ast);
+
+    replaced_body
+        << replace_src.replace(body_ast);
+
+    //Prettyprinting generic_functions
+    ReplaceSrcSMP function_replacement(ctr.get_scope_link(), _vector_width);
+    Source generic_declarations_src, generic_functions_src;
+    std::string generic_declaration_str;
+
+    while(!(generic_declaration_str
+                = generic_functions.get_pending_specific_declarations(function_replacement).get_source()).empty())
     {
-        ctr.get_ast().replace(ctr.get_declaration());
+        generic_declarations_src
+            << generic_declaration_str;
+
+        generic_functions_src
+            << generic_functions.get_pending_specific_functions(function_replacement).get_source();
     }
+
+    AST_t generic_declarations_tree = generic_declarations_src.parse_declaration(
+            ctr.get_ast(),
+            ctr.get_scope_link());
+    AST_t generic_functions_tree = generic_functions_src.parse_declaration(
+            ctr.get_ast(),
+            ctr.get_scope_link());
+
+
+    // Replace function body with SIMD replacements
+    body_ast.replace(replaced_body.parse_statement(body_ast, scope_link));
+
+    // Prepend generic functions definitions
+    ctr.get_ast().prepend_sibling_global(generic_declarations_tree);
+    ctr.get_ast().prepend_sibling_global(generic_functions_tree);
+
+    // Remove #pragma with its nested declaration
+    ctr.get_ast().replace(ctr.get_declaration());
 }
 
 void DeviceSMP::insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
 {
-    if (!is_copy)
+    ERROR_CONDITION(is_copy, "Invalid copied pragma tree", 0);
+
+    ctr.get_ast().replace(ctr.get_declaration());
+}
+
+void DeviceSMP::simd_replacements(ReplaceSrcSMP& replace_src, AST_t body)
+{
+    ScopeLink scope_link = replace_src.get_scope_link();
+    ObjectList<AST_t> builtin_ast_list;
+    ObjectList<Expression> arg_list;
+
+    AST_t ast;
+    bool constant_evaluation;
+
+
+    //SIMD loop unrolling
+    builtin_ast_list =
+        body.depth_subtrees(PredicateAttr(LANG_HLT_SIMD_FOR_INFO));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
     {
-        ctr.get_ast().replace(ctr.get_declaration());
+        ForStatement for_stmt (*it, scope_link);
+        const int min_expr_size = dynamic_cast<ForStatementInfo*>(
+                for_stmt.get_ast().get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer())->get_min_expr_size();
+
+        replace_src.set_min_expr_size(min_expr_size);
+
+        //Unrolling
+        Expression it_exp = for_stmt.get_iterating_expression();
+        Expression upper_bound_exp = for_stmt.get_upper_bound();
+        Expression lower_bound_exp = for_stmt.get_lower_bound(); 
+        Expression step_exp = for_stmt.get_step();
+        IdExpression ind_var = for_stmt.get_induction_variable();
+
+        AST_t it_exp_ast = it_exp.get_ast();
+        Source it_exp_source;
+
+        if (it_exp.is_unary_operation())
+        {
+            it_exp_source
+                << it_exp.get_unary_operand();
+        } 
+        else if (it_exp.is_binary_operation())
+        {
+            it_exp_source
+                << it_exp.get_first_operand();
+        }
+        else
+        {
+            internal_error("Wrong Expression in ForStatement iterating Expression", 0);
+        }
+
+        int new_step = replace_src.compute_new_step(
+                step_exp.evaluate_constant_int_expression(constant_evaluation));
+
+        it_exp_source
+            << " += "
+            << new_step
+            ;
+
+        it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+
+        //Modifying the upper_bound if needs_epilog is necessary. 
+        if(replace_src.needs_epilog(upper_bound_exp, 
+                    lower_bound_exp,
+                    step_exp))
+        {
+            Expression it_cond_exp = for_stmt.get_iterating_condition();
+            if (!it_cond_exp.is_binary_operation())
+            {
+                running_error("Iterating condition Expression '%s'is not a binary operation.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+
+            Expression first_op_exp = it_cond_exp.get_first_operand();
+            Expression second_op_exp = it_cond_exp.get_second_operand();
+            int first_num_occurs = 0;
+            int second_num_occurs = 0;
+
+            //Looking for ind_var occurrences in the first expression
+            ObjectList<IdExpression> first_symbol_occurrs = first_op_exp.all_symbol_occurrences();
+            for (ObjectList<IdExpression>::const_iterator it = first_symbol_occurrs.begin();
+                    it != first_symbol_occurrs.end();
+                    it++)
+            {
+                const IdExpression& id_exp = *it;
+                if (id_exp.get_symbol() == ind_var.get_symbol())
+                {
+                    first_num_occurs++;
+                    break;
+                }
+            }
+
+            //Looking for ind_var occurrences in the second expression
+            ObjectList<IdExpression> second_symbol_occurrs = second_op_exp.all_symbol_occurrences();
+            for (ObjectList<IdExpression>::const_iterator it = second_symbol_occurrs.begin();
+                    it != second_symbol_occurrs.end();
+                    it++)
+            {
+                const IdExpression& id_exp = *it;
+                if (id_exp.get_symbol() == ind_var.get_symbol())
+                {
+                    second_num_occurs++;
+                    break;
+                }
+            }
+
+            if ((first_num_occurs != 0) && (second_num_occurs != 0))
+            {
+                running_error("Induction variable cannot be present in both sides of the iterating condition Expression '%s'.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+            else if (first_num_occurs == 0)
+            {
+                AST_t first_ast = first_op_exp.get_ast();
+                Source new_upper_bound_src;
+
+                new_upper_bound_src << "(("
+                    << first_op_exp
+                    << ")"
+                    << "- (" << new_step << "-1)"
+                    << ")"
+                    ;
+
+                first_ast.replace(new_upper_bound_src.parse_expression(first_ast, scope_link));
+            }
+            else if (second_num_occurs == 0)
+            {
+                AST_t second_ast = second_op_exp.get_ast();
+                Source new_upper_bound_src;
+
+                new_upper_bound_src << "(("
+                    << second_op_exp
+                    << ")"
+                    << "- (" << new_step << "-1)"
+                    << ")"
+                    ;
+
+                second_ast.replace(new_upper_bound_src.parse_expression(second_ast, scope_link));
+            }
+            else
+            {
+                running_error("Induction variable is not present in the iterating condition Expression '%s'.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+        }
+                          
+
+
+        //Statements replication
+        /*
+        Statement stmt = for_stmt.get_loop_body();
+    
+        if (stmt.is_compound_statement())
+        {
+            ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+
+            for (ObjectList<Statement>::iterator it = stmt_list.begin();
+                    it != stmt_list.end();
+                    it++)
+            {
+                Statement& statement = (Statement&)*it;
+
+                if (statement.is_expression())
+                {
+                    Expression exp = statement.get_expression();
+                    if (exp.is_assignment() 
+                            || exp.is_operation_assignment()
+                            || exp.is_function_call())
+                    {
+                        int exp_size = exp.get_type().get_size();
+
+                        if (exp_size > min_stmt_size)
+                        {
+                            Source compound_stmt_src;
+                            AST_t stmt_ast = statement.get_ast();
+                            int num_repls = exp_size/min_stmt_size;
+                            int i;
+
+                            DEBUG_CODE()
+                            {
+                                std::cerr << "SIMD-SMP: Replicating statement '" 
+                                    << statement.prettyprint()
+                                    << "' "
+                                    << num_repls
+                                    << " times."
+                                    << std::endl;
+                            }
+
+                            compound_stmt_src 
+                                << "{" 
+                                << statement
+                                ;
+
+                            for (i=1; i < num_repls; i++)
+                            {
+                                Source new_stmt_src;
+
+                                ReplaceSrcIdExpression induct_var_rmplmt(statement.get_scope_link());
+                                std::stringstream new_ind_var;
+
+                                new_ind_var
+                                    << "(" 
+                                    << for_stmt.get_induction_variable().get_symbol().get_name()
+                                    << "+" 
+                                    << i*(_vector_width/exp_size)
+                                    << ")"
+                                    ;
+
+                                induct_var_rmplmt.add_replacement(for_stmt.get_induction_variable().get_symbol(), 
+                                        new_ind_var.str());
+
+                                compound_stmt_src << induct_var_rmplmt.replace(stmt_ast);
+                            }
+
+                            compound_stmt_src << "}";
+
+                            stmt_ast.replace(compound_stmt_src.parse_statement(stmt_ast,scope_link));
+                        }
+                    }
+                }
+            }
+        }*/
+
+    }
+
+    //FIXME: Move me to prettyprint_callback
+    //__builtin_vector_reference AST replacement
+    builtin_ast_list =
+        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ast = (AST_t)*it;
+        Expression expr(ast, scope_link);
+
+        ObjectList<Expression> arg_list = expr.get_argument_list();
+        if (arg_list.size() != 1){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
+        }
+
+        Source builtin_vr_replacement;
+
+        Type casting_type = arg_list[0].get_type();
+
+        //C++
+        if (casting_type.is_reference())
+            casting_type = casting_type.references_to();
+
+        builtin_vr_replacement << "*((" 
+            << casting_type.get_generic_vector_to()
+                .get_pointer_to()
+                .get_simple_declaration(scope_link.get_scope(ast),"")
+            << ") &("
+            << arg_list[0]
+            << "))"
+            ;
+
+        ast.replace(builtin_vr_replacement.parse_expression(ast, scope_link));
     }
 }
+
 
 EXPORT_PHASE(TL::Nanox::DeviceSMP);
