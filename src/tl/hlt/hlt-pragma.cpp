@@ -43,6 +43,7 @@
 #include "hlt-simd.hpp"
 #include "tl-simd.hpp"
 #include "tl-refptr.hpp"
+#include "cxx-exprtype.h"
 
 
 #include <algorithm>
@@ -73,8 +74,8 @@ static void update_identity_flag(const std::string &str)
 //__builtin_induction_variable
 static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
-        AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        AST *arguments,
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -85,6 +86,14 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
     {
         internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
                         overloaded_function->symbol_name);
+    }
+
+    if (expression_is_constant(arguments[0]))
+    {
+        if (const_value != NULL )
+        {
+            *const_value = expression_get_constant(arguments[0]);
+        }
     }
 
     for(i=1; i<builtin_iv_list.size(); i++) 
@@ -122,7 +131,7 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
 static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -171,7 +180,7 @@ static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_f
 static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -216,7 +225,7 @@ static scope_entry_t* solve_generic_func_overload_name(scope_entry_t* overloaded
 static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -271,7 +280,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
 static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -320,7 +329,7 @@ static scope_entry_t* solve_vector_index_overload_name(scope_entry_t* overloaded
 static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_function,
         type_t** types,  
         AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        int num_arguments, const_value_t** const_value)
 {
     char name[256];
     int i;

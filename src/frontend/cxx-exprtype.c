@@ -7790,12 +7790,18 @@ char _check_for_functional_expression(AST whole_function_call, AST called_expres
                 P_LIST_ADD(argument_types, num_arguments_tmp, expression_get_type(current_arg));
             }
 
-            scope_entry_t* solved_function = compute_type_function(entry, argument_types, argument_exprs, num_arguments_tmp);
+            const_value_t* const_value = NULL;
+            scope_entry_t* solved_function = compute_type_function(entry, argument_types, argument_exprs, num_arguments_tmp, &const_value);
+
 
             if (solved_function != NULL)
             {
                 expression_set_type(called_expression, solved_function->type_information);
                 expression_set_symbol(called_expression,solved_function);
+                if (const_value != NULL)
+                {
+                    expression_set_constant(called_expression, const_value);
+                }
             }
             else
             {
@@ -8617,6 +8623,11 @@ static void check_for_function_call(AST expr, decl_context_t decl_context)
     scope_entry_t *builtin_sym = expression_get_symbol(called_expression);
     if (builtin_sym != NULL && builtin_sym->entity_specs.is_builtin && builtin_sym->entity_specs.is_mutable)
         expression_set_is_lvalue(expr,1);
+
+    if (expression_is_constant(called_expression))
+    {
+        expression_set_constant(expr, expression_get_constant(called_expression));
+    }
 }
 
 static void check_for_cast_expr(AST expr, AST type_id, AST casted_expression, decl_context_t decl_context)

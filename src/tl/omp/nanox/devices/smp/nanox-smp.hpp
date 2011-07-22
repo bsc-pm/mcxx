@@ -34,10 +34,8 @@
 
 namespace TL
 {
-
     namespace Nanox
     {
-
         class DeviceSMP : public DeviceProvider
         {
             public:
@@ -145,11 +143,19 @@ namespace TL
                     
                 }
 
+                void set_min_expr_size(int min_expr_size);
+
                 void add_replacement(Symbol sym, const std::string& str);
                 void add_this_replacement(const std::string& str);
+
                 Source replace(AST_t a) const;
                 Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name);
                 Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name);
+
+                int compute_new_step(int step);
+                int needs_epilog(Expression upper_bound_exp, 
+                        Expression lower_bound_exp,
+                        Expression step_exp);
         };
     }
 }
