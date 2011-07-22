@@ -210,7 +210,8 @@ namespace Nanox
               */
             virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
             { 
-                ctr.get_ast().replace(ctr.get_declaration());
+                internal_error("Device '%s' does not provide a way to insert a function definition\n", 
+                        _device_name.c_str());
             }
 
             /*!
@@ -226,7 +227,8 @@ namespace Nanox
               */
             virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
             { 
-                ctr.get_ast().replace(ctr.get_declaration());
+                internal_error("Device '%s' does not provide a way to insert a declaration\n", 
+                        _device_name.c_str());
             }
 
             /*!
