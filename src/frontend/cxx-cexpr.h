@@ -29,6 +29,8 @@
 #ifndef CXX_CEXPR_H
 #define CXX_CEXPR_H
 
+#include <stdint.h>
+
 #include "libmcxx-common.h"
 #include "cxx-ast-decls.h"
 #include "cxx-cexpr-decls.h"

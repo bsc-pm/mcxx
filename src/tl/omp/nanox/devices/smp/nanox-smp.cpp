@@ -38,15 +38,66 @@ using namespace TL::SIMD;
 
 const unsigned int _vector_width = 16;
 
+void ReplaceSrcSMP::set_min_expr_size(const int min_expr_size)
+{
+    _min_expr_size = min_expr_size;
+}
+
+int ReplaceSrcSMP::compute_new_step(const int step)
+{
+    return step * (_vector_width / _min_expr_size);
+}
+
 //TODO: Move this function to ForStatement Class
 //EPILOG: if (Epilog is necessary) then upper-bound = upper-bound - (step-1)
 //TODO: This approach does not work with decreasing loops
-bool needs_epilog(Expression upper_bound_exp, 
+int ReplaceSrcSMP:: needs_epilog(Expression upper_bound_exp, 
         Expression lower_bound_exp,
         Expression step_exp)
 {
+   /* 
+       if (upper_bound_exp.is_constant())
+       {
+       std::cout << "UPPER IS CONSTANT "
+       << upper_bound_exp.prettyprint()
+       << std::endl;
+       }
+       else
+       {
+       std::cout << "UPPER IS NOT CONSTANT "
+       << upper_bound_exp.prettyprint()
+       << std::endl;
+       }
+
+       if (lower_bound_exp.is_constant())
+       {
+       std::cout << "LOWER IS CONSTANT "
+       << lower_bound_exp.prettyprint()
+       << std::endl;
+       }
+       else
+       {
+       std::cout << "LOWER IS NOT CONSTANT "
+       << lower_bound_exp.prettyprint()
+       << std::endl;
+       }
+
+       if (step_exp.is_constant())
+       {
+       std::cout << "STEP IS CONSTANT "
+       << step_exp.prettyprint()
+       << std::endl;
+       }
+       else
+       {
+       std::cout << "STEP IS NOT CONSTANT "
+       << step_exp.prettyprint()
+       << std::endl;
+       }
+    */
+
     if (upper_bound_exp.is_constant() 
-            &&  lower_bound_exp.is_constant() 
+            && lower_bound_exp.is_constant() 
             && step_exp.is_constant())
     {
         bool valid_upper, valid_lower, valid_step;
@@ -57,13 +108,13 @@ bool needs_epilog(Expression upper_bound_exp,
 
         if (valid_upper && valid_lower && valid_step)
         {
-            if (((upper_i - lower_i)%step_i) == 0)
-            {
-                return false;;
-            }
+            int new_step = compute_new_step(step_i);
+            int remain = ((upper_i - lower_i + 1) % new_step);
+
+            return remain;
         }
     }
-    return true;
+    return -1;
 }
 
 
@@ -1572,14 +1623,20 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
             Expression upper_bound_exp = for_stmt.get_upper_bound();
             Expression step_exp = for_stmt.get_step();
 
-            if (!needs_epilog(upper_bound_exp,
-                        lower_bound_exp,
-                        step_exp))
+            int iters_epilog = _this->needs_epilog(
+                    upper_bound_exp,
+                    lower_bound_exp,
+                    step_exp);
+
+            if (iters_epilog == 0)
             {
                 return "";
             }
-            //Replacements don't have to be applied
-            //return ReplaceSrcGenericFunction::prettyprint_callback(a, data);
+            else if (iters_epilog == 1)
+            {
+                return recursive_prettyprint_with_only_symbols(
+                        for_stmt.get_loop_body().get_ast(), data);
+            }
         }
 
         return NULL;
@@ -1759,6 +1816,8 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
         const int min_expr_size = dynamic_cast<ForStatementInfo*>(
                 for_stmt.get_ast().get_attribute(LANG_HLT_SIMD_FOR_INFO).get_pointer())->get_min_expr_size();
 
+        replace_src.set_min_expr_size(min_expr_size);
+
         //Unrolling
         Expression it_exp = for_stmt.get_iterating_expression();
         Expression upper_bound_exp = for_stmt.get_upper_bound();
@@ -1785,9 +1844,8 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             internal_error("Wrong Expression in ForStatement iterating Expression", 0);
         }
 
-        int new_step = (step_exp.evaluate_constant_int_expression(constant_evaluation)
-                                    * (_vector_width / min_expr_size));
-
+        int new_step = replace_src.compute_new_step(
+                step_exp.evaluate_constant_int_expression(constant_evaluation));
 
         it_exp_source
             << " += "
@@ -1796,8 +1854,8 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
 
         it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
 
-
-        if(needs_epilog(upper_bound_exp, 
+        //Modifying the upper_bound if needs_epilog is necessary. 
+        if(replace_src.needs_epilog(upper_bound_exp, 
                     lower_bound_exp,
                     step_exp))
         {
@@ -1813,6 +1871,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             int first_num_occurs = 0;
             int second_num_occurs = 0;
 
+            //Looking for ind_var occurrences in the first expression
             ObjectList<IdExpression> first_symbol_occurrs = first_op_exp.all_symbol_occurrences();
             for (ObjectList<IdExpression>::const_iterator it = first_symbol_occurrs.begin();
                     it != first_symbol_occurrs.end();
@@ -1826,6 +1885,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
                 }
             }
 
+            //Looking for ind_var occurrences in the second expression
             ObjectList<IdExpression> second_symbol_occurrs = second_op_exp.all_symbol_occurrences();
             for (ObjectList<IdExpression>::const_iterator it = second_symbol_occurrs.begin();
                     it != second_symbol_occurrs.end();
