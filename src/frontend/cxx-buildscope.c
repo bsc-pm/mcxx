@@ -211,9 +211,9 @@ static void build_scope_defaulted_function_definition(AST a, decl_context_t decl
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void build_scope_using_directive(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
-static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
         char is_explicit_instantiation, nodecl_t* nodecl_output);
@@ -623,7 +623,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         case AST_USING_DECLARATION_TYPENAME :
             {
                 // using A::b;
-                build_scope_using_declaration(a, decl_context, nodecl_output);
+                build_scope_using_declaration(a, decl_context, AS_UNKNOWN, nodecl_output);
                 break;
             }
         case AST_STATIC_ASSERT:
@@ -914,44 +914,44 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
             entry);
 }
 
-static void introduce_using_entity(AST id_expression, decl_context_t decl_context)
+static void introduce_using_entity(AST id_expression, decl_context_t decl_context, access_specifier_t current_access)
 {
-    scope_entry_list_t* used_entity = query_id_expression_flags(decl_context, 
+    scope_entry_list_t* used_entities = query_id_expression_flags(decl_context, 
             id_expression, 
             // Do not examine uninstantiated templates
             DF_DEPENDENT_TYPENAME);
 
-    if (used_entity == NULL)
+    if (used_entities == NULL)
     {
-        running_error("%s: error: named entity '%s' in using-declaration is unknown",
+        running_error("%s: error: entity '%s' in using-declaration is unknown",
                 ast_location(id_expression),
                 prettyprint_in_buffer(id_expression));
     }
 
-    type_t* current_class_type = NULL;
+    scope_entry_t* current_class = NULL;
     char is_class_scope = 0;
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        current_class_type = decl_context.current_scope->related_entry->type_information;
+        current_class = decl_context.current_scope->related_entry;
         is_class_scope = 1;
     }
 
     // Now add all the used entities to the current scope
     scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(used_entity);
+    for (it = entry_list_iterator_begin(used_entities);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        insert_entry(decl_context.current_scope, entry);
+        char is_hidden = 0;
 
         if (is_class_scope)
         {
             if (entry->kind != SK_DEPENDENT_ENTITY)
             {
                 if (!entry->entity_specs.is_member
-                        || !class_type_is_base(entry->entity_specs.class_type, current_class_type))
+                        || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
                 {
                     running_error("%s: error: '%s' is not a member of a base class\n",
                             ast_location(id_expression),
@@ -959,13 +959,64 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                                 decl_context));
                 }
             }
+            else
+            {
+                // Dependent entity
+                continue;
+            }
+
+            // If this entity is being hidden by another member of this class, do not add it
+            scope_entry_list_t* member_functions = class_type_get_member_functions(current_class->type_information);
+            scope_entry_list_iterator_t* it2 = NULL;
+            for (it2 = entry_list_iterator_begin(member_functions);
+                    !entry_list_iterator_end(it2);
+                    entry_list_iterator_next(it2))
+            {
+                scope_entry_t* current_member = entry_list_iterator_current(it2);
+
+                if ((strcmp(current_member->symbol_name, entry->symbol_name) == 0)
+                        && function_type_same_parameter_types(current_member->type_information, entry->type_information))
+                {
+                    // This one is being hidden by a member function of the current class
+                    is_hidden = 1;
+                    break;
+                }
+            }
+
+            entry_list_iterator_free(it2);
+            entry_list_free(member_functions);
         }
+
+        if (is_hidden)
+            continue;
+
+        scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
+        used_name->kind = SK_USING;
+        used_name->file = ASTFileName(id_expression);
+        used_name->line = ASTLine(id_expression);
+        used_name->entity_specs.alias_to = entry;
+        used_name->entity_specs.is_member = 1;
+        used_name->entity_specs.class_type = get_user_defined_type(current_class);
+        used_name->entity_specs.access = current_access;
+
+        insert_entry(decl_context.current_scope, used_name);
     }
+
     entry_list_iterator_free(it);
-    entry_list_free(used_entity);
+
+    if (current_class != NULL)
+    {
+        scope_entry_t* used_hub_symbol = counted_calloc(1, sizeof(*used_hub_symbol), &_bytes_used_buildscope);
+        used_hub_symbol->kind = SK_USING;
+        used_hub_symbol->type_information = get_unresolved_overloaded_type(used_entities, NULL);
+        used_hub_symbol->entity_specs.access = current_access;
+
+        class_type_add_member(current_class->type_information, used_hub_symbol);
+    }
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
+static void build_scope_using_declaration(AST a, decl_context_t decl_context, access_specifier_t current_access,
+        nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
 
@@ -977,14 +1028,15 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, no
                 ast_location(a));
     }
 
-    introduce_using_entity(id_expression, decl_context);
+    introduce_using_entity(id_expression, decl_context, current_access);
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
+        access_specifier_t current_access,
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
-    introduce_using_entity(id_expression, decl_context);
+    introduce_using_entity(id_expression, decl_context, current_access);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -6710,6 +6762,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 || entry->kind == SK_ENUM)
             continue;
 
+        entry = entry_advance_aliases(entry);
+
         if (entry->kind != SK_FUNCTION
                 && (entry->kind != SK_TEMPLATE
                     || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_FUNCTION))
@@ -8451,13 +8505,13 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_USING_DECLARATION :
             {
-                build_scope_using_declaration(a, inner_decl_context, nodecl_output);
+                build_scope_using_declaration(a, inner_decl_context, current_access, nodecl_output);
                 break;
             }
         case AST_MEMBER_DECLARATION_QUALIF:
             {
                 // This is a deprecated syntax meaning the same of AST_USING_DECLARATION
-                build_scope_member_declaration_qualified(a, inner_decl_context, nodecl_output);
+                build_scope_member_declaration_qualified(a, inner_decl_context, current_access, nodecl_output);
                 break;
             }
         case AST_STATIC_ASSERT:
@@ -8841,6 +8895,41 @@ static void update_member_function_info(AST declarator_name,
     }
 }
 
+static void hide_using_declarations(type_t* class_info, scope_entry_t* currently_declared)
+{
+    decl_context_t class_context = class_type_get_inner_context(class_info);
+
+    scope_entry_list_t* member_functions = query_in_scope_str(class_context, currently_declared->symbol_name);
+
+    scope_entry_t* hidden = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(member_functions);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* orig_entry = entry_list_iterator_current(it);
+
+        if (orig_entry->kind == SK_USING)
+        {
+            scope_entry_t* entry = entry_advance_aliases(orig_entry);
+            if (entry->kind == SK_FUNCTION
+                    && function_type_same_parameter_types(entry->type_information, 
+                        currently_declared->type_information))
+            {
+                hidden = orig_entry;
+            }
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(member_functions);
+
+    if (hidden != NULL)
+    {
+        remove_entry(class_context.current_scope, hidden);
+    }
+}
+
 /*
  * This is a function definition inlined in a class
  */
@@ -8932,6 +9021,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
+
+    // This function might be hiding using declarations, remove those
+    hide_using_declarations(class_info, entry);
 
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context, is_template, is_explicit_instantiation);
 
@@ -9361,6 +9453,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             update_member_function_info(declarator_name, is_constructor, entry, class_type);
                             entry->point_of_declaration = get_enclosing_declaration(declarator);
+                            
+                            // This function might be hiding using declarations, remove those
+                            hide_using_declarations(class_type, entry);
                         }
                         else if (entry->kind == SK_VARIABLE)
                         {
@@ -11248,4 +11343,13 @@ AST internal_expression_parse(const char *source, decl_context_t decl_context)
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, decl_context);
 
     return a;
+}
+
+scope_entry_t* entry_advance_aliases(scope_entry_t* entry)
+{
+    if (entry != NULL 
+            && entry->kind == SK_USING)
+        return entry_advance_aliases(entry->entity_specs.alias_to);
+
+    return entry;
 }

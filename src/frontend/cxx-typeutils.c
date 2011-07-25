@@ -8515,6 +8515,11 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
+char function_type_same_parameter_types(type_t* t1, type_t* t2)
+{
+    return compatible_parameters(t1->function, t2->function);
+}
+
 char class_type_is_trivially_copiable(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);

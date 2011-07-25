@@ -504,9 +504,14 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
     }
 }
 
-void remove_entry(scope_t* sc UNUSED_PARAMETER, scope_entry_t* entry UNUSED_PARAMETER)
+void remove_entry(scope_t* sc, scope_entry_t* entry)
 {
-    internal_error("Not yet implemented", 0);
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n == NULL)
+        return;
+
+    scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
+    entry_list_remove(entry_list, entry);
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)

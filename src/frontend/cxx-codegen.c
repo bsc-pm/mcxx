@@ -827,20 +827,7 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         }
         CXX_LANGUAGE()
         {
-            if (member->kind != SK_CLASS)
-            {
-                declare_symbol(visitor, member);
-                if (member->kind == SK_VARIABLE && 
-                        !member->entity_specs.is_static)
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                }
-                else
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
-                }
-            }
-            else
+            if (member->kind == SK_CLASS)
             {
                 if (entry_list_contains(symbols_defined_inside_class, member))
                 {
@@ -850,6 +837,36 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 else
                 {
                     declare_symbol(visitor, member);
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                }
+            }
+            else if (member->kind == SK_USING)
+            {
+                indent(visitor);
+                ERROR_CONDITION(!is_unresolved_overloaded_type(member->type_information), "Invalid SK_USING symbol\n", 0);
+
+                scope_entry_list_t* used_entities = unresolved_overloaded_type_get_overload_set(member->type_information);
+                scope_entry_t* entry = entry_list_head(used_entities);
+                entry_list_free(used_entities);
+
+                char is_dependent = 0;
+                int max_qualif_level = 0;
+                fprintf(visitor->file, "using %s;\n", 
+                        get_fully_qualified_symbol_name_without_template(entry, 
+                            entry->decl_context, 
+                            &is_dependent, 
+                            &max_qualif_level));
+            }
+            else 
+            {
+                declare_symbol(visitor, member);
+                if (member->kind == SK_VARIABLE && 
+                        !member->entity_specs.is_static)
+                {
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
                     member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
                 }
             }

@@ -427,6 +427,9 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t *orig_entry = entry;
+
+        entry = entry_advance_aliases(entry);
 
         if (entry->kind == SK_TEMPLATE)
         {
@@ -441,7 +444,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         }
         else if (entry->kind == SK_FUNCTION)
         {
-            overload_set = entry_list_add(overload_set, entry);
+            overload_set = entry_list_add(overload_set, orig_entry);
         }
     }
     entry_list_iterator_free(it);
@@ -459,7 +462,7 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
                 !entry_list_iterator_end(it2) && !found;
                 entry_list_iterator_next(it2))
         {
-            scope_entry_t* ovl = entry_list_iterator_current(it2);
+            scope_entry_t* ovl = entry_advance_aliases(entry_list_iterator_current(it2));
 
             found = equivalent_types(ovl->type_information, builtin->type_information);
         }
@@ -1814,7 +1817,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         expression,
                         nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression)));
             }
-            else if (!checking_ambiguity())
+            else if (!checking_ambiguity()
+                    && !is_unresolved_overloaded_type(expression_get_type(expression)))
             {
                 internal_error("Expression '%s' at '%s' lacks a nodecl and it is not dependent\n",
                         prettyprint_in_buffer(expression),
@@ -2969,13 +2973,14 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = entry_list_iterator_current(it);
+            scope_entry_t* orig_entry = entry_list_iterator_current(it);
+            scope_entry_t* entry = entry_advance_aliases(orig_entry);
             // It is impossible to deduce anything since a unary overloaded
             // operator has zero parameters, so discard templates at this point
             if (entry->kind != SK_TEMPLATE)
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        entry,
+                        orig_entry,
                         num_arguments,
                         argument_types);
             }
@@ -6234,7 +6239,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         }
     }
 
-    scope_entry_t* entry = entry_list_head(result);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(result));
 
     if (entry->kind == SK_VARIABLE
             || entry->kind == SK_DEPENDENT_ENTITY
@@ -6541,7 +6546,8 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             return;
         }
 
-        scope_entry_t* entry = entry_list_head(result_list);
+        scope_entry_t* entry = entry_advance_aliases(entry_list_head(result_list));
+
         if (entry->kind != SK_VARIABLE
                 && entry->kind != SK_ENUMERATOR
                 && entry->kind != SK_FUNCTION
@@ -6553,7 +6559,6 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         }
 
         expression_set_symbol(expr, entry);
-
 
         if (entry->kind == SK_VARIABLE)
         {
@@ -7765,18 +7770,19 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     !entry_list_iterator_end(it);
                     entry_list_iterator_next(it))
             {
-                scope_entry_t* entry = entry_list_iterator_current(it);
+                scope_entry_t* orig_entry = entry_list_iterator_current(it);
+                scope_entry_t* entry = entry_advance_aliases(orig_entry);
                 if (entry->entity_specs.is_member)
                 {
                     candidate_set = add_to_candidate_set(candidate_set,
-                            entry,
+                            orig_entry,
                             num_arguments,
                             arguments);
                 }
                 else
                 {
                     candidate_set = add_to_candidate_set(candidate_set,
-                            entry,
+                            orig_entry,
                             num_arguments - 1,
                             arguments + 1);
                 }
@@ -8599,7 +8605,8 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
         SK_VARIABLE,
         SK_FUNCTION,
         SK_TEMPLATE, 
-        SK_DEPENDENT_ENTITY
+        SK_DEPENDENT_ENTITY,
+        SK_USING,
     };
 
     scope_entry_list_t* old_entry_list = entry_list;
@@ -8620,7 +8627,8 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
                 !entry_list_iterator_end(it) && !invalid;
                 entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = entry_list_iterator_current(it);
+            scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
@@ -9213,6 +9221,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 // If possible, simplify it
                 scope_entry_t* entry =
                     unresolved_overloaded_type_simplify(argument_type, decl_context, ASTLine(argument_tree), ASTFileName(argument_tree));
+                entry = entry_advance_aliases(entry);
+
                 if (entry != NULL)
                 {
                     if (!entry->entity_specs.is_member
@@ -9353,8 +9363,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             }
             else
             {
-                // FIXME - See ticket #337
-                scope_entry_t* sym = entry_list_head(candidates);
+                scope_entry_t* sym = entry_advance_aliases(entry_list_head(candidates));
                 argument_types[0] = sym->entity_specs.class_type;
                 implicit_argument = nodecl_make_symbol(sym, ASTFileName(called_expression), ASTLine(called_expression));
             }
@@ -9405,7 +9414,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            scope_entry_t* conversion = entry_list_iterator_current(it);
+            scope_entry_t* conversion = entry_advance_aliases(entry_list_iterator_current(it));
 
             type_t* destination_type = function_type_get_return_type(conversion->type_information);
 
@@ -9511,20 +9520,21 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* orig_entry = entry_list_iterator_current(it);
+        scope_entry_t* entry = entry_advance_aliases(orig_entry);
 
         if (entry->entity_specs.is_member
                 || entry->entity_specs.is_surrogate_function)
         {
             candidate_set = add_to_candidate_set(candidate_set,
-                    entry,
+                    orig_entry,
                     num_arguments,
                     argument_types);
         }
         else
         {
             candidate_set = add_to_candidate_set(candidate_set,
-                    entry,
+                    orig_entry,
                     num_arguments - 1,
                     argument_types + 1);
         }
@@ -10357,7 +10367,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     }
 
     char ok = 0;
-    scope_entry_t* entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
     C_LANGUAGE()
     {
         // Store the symbol found
@@ -14387,6 +14397,7 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
 
 static void diagnostic_single_candidate(scope_entry_t* entry, const char* filename, int line)
 {
+    entry = entry_advance_aliases(entry);
     info_printf("%s:%d: note:    %s",
             filename, line,
             print_decl_type_str(entry->type_information, entry->decl_context, 
