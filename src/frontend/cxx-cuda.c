@@ -50,7 +50,6 @@ static type_t* cuda_get_dim3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -75,7 +74,6 @@ static type_t* cuda_get_dim3_type(void)
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
             class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
-            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
         // FIXME - We should register the constructors and conversion
@@ -105,7 +103,6 @@ static type_t* cuda_get_uint3_type(void)
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
-	class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         class_type_set_inner_context(new_class_sym->type_information, class_context);
 
@@ -126,7 +123,6 @@ static type_t* cuda_get_uint3_type(void)
             member_sym->entity_specs.class_type = get_user_defined_type(new_class_sym);
 
             class_type_add_nonstatic_data_member(new_class_sym->type_information, member_sym);
-            class_type_add_member(new_class_sym->type_information, member_sym);
         }
 
 

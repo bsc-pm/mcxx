@@ -2711,7 +2711,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "static nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
         ;
 
     device_descriptor

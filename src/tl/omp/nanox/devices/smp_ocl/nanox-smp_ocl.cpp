@@ -1073,7 +1073,7 @@ void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
 
     ancillary_device_description
         << comment("SMP_OCL device descriptor")
-        << "static nanos_smp_args_t " 
+        << "nanos_smp_args_t " 
         << task_name << "_smp_ocl_args = { (void(*)(void*))" 
         << additional_casting 
         << "__OpenCL_" << outline_name << "_kernel" <<"};"
