@@ -71,11 +71,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            ancillary_device_description;
     device_descriptor << outline_name << "_devices";
     device_description
-        << ancillary_device_description
-        << "nanos_device_t " << device_descriptor << "[] ="
+        << "static nanos_device_t " << device_descriptor << "[ " << num_devices << " ];"
+        << "static void __register_" << device_descriptor << "(void *p __attribute__((unused)))"
         << "{"
-        << device_description_line
-        << "};"
+        <<    ancillary_device_description
+        <<    "nanos_device_t tmp[ " << num_devices << " ] = { " << device_description_line << "};"
+        <<    "__builtin_memcpy(" << device_descriptor << ", tmp,"
+        <<    "                 sizeof(" << device_descriptor << "));"
+        << "}"
+        << "__attribute__((section(\"nanos_post_init\"))) "
+        << "nanos_init_desc_t __register_" << device_descriptor << "_list = { __register_" << device_descriptor << ", (void*)0 };"
         ;
 
     // Check for __symbol clause, and if found, get the task function symbol
@@ -775,10 +780,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    // Global device
+    AST_t device_tree = device_description.parse_declaration(ctr.get_ast().get_enclosing_function_definition_declaration().get_parent(), 
+            ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(device_tree);
+
     spawn_code
         << "{"
-        // Devices related to this task
-        <<     device_description
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
