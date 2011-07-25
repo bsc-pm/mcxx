@@ -456,7 +456,7 @@ void DeviceSMP_NUMA::get_device_descriptor(const std::string& task_name,
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_numa_args = { (void(*)(void*))" << outline_name << "};"
+        << "static nanos_smp_args_t " << task_name << "_smp_numa_args = { (void(*)(void*))" << outline_name << "};"
         ;
 
     device_descriptor
