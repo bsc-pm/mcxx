@@ -2897,7 +2897,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
             expression_set_nodecl(
                     lhs,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(lhs), ASTLine(lhs)),
                         expression_get_nodecl(lhs),
                         actual_type_of_conversor(conversors[0]), ASTFileName(lhs), ASTLine(lhs)));
@@ -2914,7 +2914,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
             expression_set_nodecl(
                     rhs,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[1], ASTFileName(rhs), ASTLine(rhs)),
                         expression_get_nodecl(rhs),
                         actual_type_of_conversor(conversors[1]), ASTFileName(rhs), ASTLine(rhs)));
@@ -3047,7 +3047,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
 
             expression_set_nodecl(op,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(op), ASTLine(op)),
                         nodecl_argument,
                         actual_type_of_conversor(conversors[0]), ASTFileName(op), ASTLine(op)));
@@ -3234,7 +3234,7 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -3345,7 +3345,7 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -3526,7 +3526,7 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -3715,7 +3715,7 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -3826,7 +3826,7 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -4105,7 +4105,7 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -4390,7 +4390,7 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -4643,7 +4643,7 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -4769,7 +4769,7 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -4963,7 +4963,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -5092,7 +5092,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         result, ASTFileName(expr), ASTLine(expr)));
@@ -5400,7 +5400,7 @@ static type_t* compute_operator_derreference_type(AST expression,
         }
         else
         {
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                     nodecl_make_list_1(expression_get_nodecl(op)),
                     result, ASTFileName(expression), ASTLine(expression));
@@ -5547,7 +5547,7 @@ static type_t* compute_operator_plus_type(AST expression,
         }
         else
         {
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                     nodecl_make_list_1(expression_get_nodecl(op)),
                     result, ASTFileName(expression), ASTLine(expression));
@@ -5677,7 +5677,7 @@ static type_t* compute_operator_minus_type(AST expression,
         }
         else
         {
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                     nodecl_make_list_1(expression_get_nodecl(op)),
                     result, ASTFileName(expression), ASTLine(expression));
@@ -5801,7 +5801,7 @@ static type_t* compute_operator_complement_type(AST expression,
         }
         else
         {
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                     nodecl_make_list_1(expression_get_nodecl(op)),
                     result, ASTFileName(expression), ASTLine(expression));
@@ -5939,7 +5939,7 @@ static type_t* compute_operator_not_type(AST expression,
         }
         else
         {
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                     nodecl_make_list_1(expression_get_nodecl(op)),
                     result, ASTFileName(expression), ASTLine(expression));
@@ -6841,7 +6841,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
                 ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
 
-                subscript_expr_nodecl = nodecl_make_function_call(
+                subscript_expr_nodecl = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[1], ASTFileName(subscript_expr), ASTLine(subscript_expr)),
                         nodecl_make_list_1(subscript_expr_nodecl),
                         actual_type_of_conversor(conversors[1]), ASTFileName(subscript_expr), ASTLine(subscript_expr));
@@ -6854,7 +6854,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
             expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
-            nodecl_t nodecl_output = nodecl_make_function_call(
+            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(overloaded_call, ASTFileName(expr), ASTLine(expr)),
                     subscript_expr_nodecl,
                     function_type_get_return_type(overloaded_call->type_information), ASTFileName(expr), ASTLine(expr));
@@ -7406,7 +7406,7 @@ static void check_conditional_expression_impl(AST expression,
                     ASTAttrSetValueType(ops[k],
                             LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
 
-                    nodecl_conditional[k] = nodecl_make_function_call(
+                    nodecl_conditional[k] = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[k], ASTFileName(expression), ASTLine(expression)),
                             nodecl_make_list_1(nodecl_conditional[k]),
                             actual_type_of_conversor(conversors[k]),
@@ -7860,7 +7860,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                             ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                             ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
 
-                            nodecl_expr = nodecl_make_function_call(
+                            nodecl_expr = cxx_nodecl_make_function_call(
                                     nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
                                     nodecl_make_list_1(nodecl_expr),
                                     actual_type_of_conversor(conversors[i]),
@@ -7975,7 +7975,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                                     ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                                     ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
 
-                                    nodecl_current_argument = nodecl_make_function_call(
+                                    nodecl_current_argument = cxx_nodecl_make_function_call(
                                             nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
                                             nodecl_make_list_1(nodecl_current_argument),
                                             actual_type_of_conversor(conversors[i]),
@@ -7989,7 +7989,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                         }
                     }
 
-                    nodecl_init = nodecl_make_function_call(
+                    nodecl_init = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)),
                             nodecl_argument_list,
                             get_void_type(), // Constructors return void
@@ -8386,7 +8386,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                         ASTAttrSetValueType(current_expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(current_expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
 
-                        nodecl_output = nodecl_make_function_call(
+                        nodecl_output = cxx_nodecl_make_function_call(
                                 nodecl_make_symbol(conversors[k], ASTFileName(current_expression), ASTLine(current_expression)),
                                 nodecl_make_list_1(nodecl_output),
                                 actual_type_of_conversor(conversors[k]), ASTFileName(current_expression), ASTLine(current_expression));
@@ -8402,7 +8402,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(constructor));
 
             expression_set_nodecl(expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, ASTFileName(expr), ASTLine(expr)),
                         nodecl_argument_list,
                         actual_type_of_conversor(constructor),
@@ -9574,7 +9574,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                     ASTAttrSetValueType(argument, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(argument, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[arg_i]));
 
-                    nodecl_t nodecl_argument = nodecl_make_function_call(
+                    nodecl_t nodecl_argument = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[arg_i], ASTFileName(argument), ASTLine(argument)),
                             nodecl_make_list_1(expression_get_nodecl(argument)),
                             actual_type_of_conversor(conversors[arg_i]), ASTFileName(argument), ASTLine(argument));
@@ -9837,7 +9837,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         expression_set_is_lvalue(expr,1);
     }
 
-    nodecl_t nodecl_output = nodecl_make_function_call(
+    nodecl_t nodecl_output = cxx_nodecl_make_function_call(
             expression_get_nodecl(called_expression),
             nodecl_argument_list,
             return_type,
@@ -10028,7 +10028,7 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
             ERROR_CONDITION(selected_operator == NULL, "Invalid operator", 0);
             expression_set_nodecl(
                     expression,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
                         nodecl_make_list_2(expression_get_nodecl(lhs), expression_get_nodecl(rhs)),
                         function_type_get_return_type(selected_operator->type_information),
@@ -10223,7 +10223,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         // The accessed type is the pointed type
         accessed_type = pointer_type_get_pointee_type(no_ref(expression_get_type(class_expr)));
 
-        nodecl_t nodecl_output = nodecl_make_function_call(
+        nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_make_symbol(selected_operator_arrow, ASTFileName(class_expr), ASTLine(class_expr)),
                 nodecl_make_list_1(expression_get_nodecl(class_expr)),
                 t, ASTFileName(class_expr), ASTLine(class_expr));
@@ -10637,7 +10637,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
 
             expression_set_nodecl(
                     postoperated_expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(postoperated_expr), ASTLine(postoperated_expr)),
                         nodecl_make_list_1(expression_get_nodecl(postoperated_expr)),
                         actual_type_of_conversor(conversors[0]), ASTFileName(postoperated_expr), ASTLine(postoperated_expr)));
@@ -10655,7 +10655,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(overloaded_call, ASTFileName(postoperated_expr), ASTLine(postoperated_expr)),
                         nodecl_make_list_1(expression_get_nodecl(postoperated_expr)),
                         function_type_get_return_type(overloaded_call->type_information), 
@@ -10762,7 +10762,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
 
             expression_set_nodecl(
                     preoperated_expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(preoperated_expr), ASTLine(preoperated_expr)),
                         nodecl_make_list_1(expression_get_nodecl(preoperated_expr)),
                         actual_type_of_conversor(conversors[0]), ASTFileName(preoperated_expr), ASTLine(preoperated_expr)));
@@ -10780,7 +10780,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
         {
             expression_set_nodecl(
                     expr,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         nodecl_make_symbol(overloaded_call, ASTFileName(expr), ASTLine(expr)),
                         nodecl_make_list_1(expression_get_nodecl(preoperated_expr)),
                         function_type_get_return_type(overloaded_call->type_information), ASTFileName(expr), ASTLine(expr)));
@@ -11719,7 +11719,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     if (conversors[i] != NULL)
                     {
                         nodecl_current = 
-                            nodecl_make_function_call(
+                            cxx_nodecl_make_function_call(
                                     nodecl_make_symbol(conversors[i], ASTFileName(expr), ASTLine(expr)),
                                     nodecl_make_list_1(nodecl_current),
                                     actual_type_of_conversor(conversors[i]),
@@ -11734,7 +11734,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
                 expression_set_type(initializer, declared_type);
 
-                nodecl_t nodecl_output = nodecl_make_function_call(
+                nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
                         nodecl_arguments,
                         declared_type,
@@ -11830,7 +11830,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                     if (conversors[i] != NULL)
                     {
                         nodecl_current = 
-                            nodecl_make_function_call(
+                            cxx_nodecl_make_function_call(
                                     nodecl_make_symbol(conversors[i], ASTFileName(expr), ASTLine(expr)),
                                     nodecl_make_list_1(nodecl_current),
                                     actual_type_of_conversor(conversors[i]),
@@ -11845,7 +11845,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
                 expression_set_type(initializer, declared_type);
 
-                nodecl_t nodecl_output = nodecl_make_function_call(
+                nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
                         nodecl_make_structured_literal(nodecl_arguments,
                             specialized_std_initializer,
@@ -11960,7 +11960,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                         ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
 
-                        nodecl_output = nodecl_make_function_call(
+                        nodecl_output = cxx_nodecl_make_function_call(
                                 nodecl_make_symbol(conversor, ASTFileName(initializer), ASTLine(initializer)),
                                 nodecl_make_list_1(nodecl_output),
                                 actual_type_of_conversor(conversor),
@@ -12270,7 +12270,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
         {
             expression_set_nodecl(
                     expression,
-                    nodecl_make_function_call(
+                    cxx_nodecl_make_function_call(
                         expression_get_nodecl(rhs),
                         nodecl_make_list_1(expression_get_nodecl(lhs)),
                         function_type_get_return_type(selected_operator->type_information),
@@ -12464,7 +12464,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
             ASTAttrSetValueType(single_initializer_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(single_initializer_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
 
-            *nodecl_output = nodecl_make_function_call(
+            *nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(conversor, ASTFileName(single_initializer_expr), ASTLine(single_initializer_expr)),
                     nodecl_make_list_1(expression_get_nodecl(single_initializer_expr)),
                     actual_type_of_conversor(conversor), ASTFileName(single_initializer_expr), ASTLine(single_initializer_expr));
@@ -12526,7 +12526,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
                     ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
 
-                    nodecl_current_arg = nodecl_make_function_call(
+                    nodecl_current_arg = cxx_nodecl_make_function_call(
                             nodecl_make_symbol(conversors[k], ASTFileName(initializer), ASTLine(initializer)),
                             nodecl_make_list_1(nodecl_current_arg),
                             actual_type_of_conversor(conversors[k]), ASTFileName(initializer), ASTLine(initializer));
@@ -12539,7 +12539,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
             }
         }
 
-        *nodecl_output = nodecl_make_function_call(
+        *nodecl_output = cxx_nodecl_make_function_call(
                 nodecl_make_symbol(constructor, ASTFileName(context_tree), ASTLine(context_tree)),
                 nodecl_argument_list,
                 actual_type_of_conversor(constructor),
@@ -14435,5 +14435,20 @@ static void error_message_overload_failed(candidate_t* candidates, const char* f
     else
     {
         info_printf("%s:%d: info: no candidate functions\n", filename, line);
+    }
+}
+
+nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_t* t, const char* filename, int line)
+{
+    scope_entry_t* called_symbol = nodecl_get_symbol(called);
+
+    if (called_symbol == NULL
+            || !called_symbol->entity_specs.is_virtual)
+    {
+        return nodecl_make_function_call(called, arg_list, t, filename, line);
+    }
+    else
+    {
+        return nodecl_make_virtual_function_call(called, arg_list, t, filename, line);
     }
 }

@@ -2345,7 +2345,7 @@ static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
-static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t node, char is_virtual_call)
 {
     nodecl_t called_entity = nodecl_get_child(node, 0);
     nodecl_t arguments = nodecl_get_child(node, 1);
@@ -2414,13 +2414,14 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 fprintf(visitor->file, ".");
 
-                if (!called_symbol->entity_specs.is_virtual)
+                if (is_virtual_call)
                 {
-                    codegen_walk(visitor, called_entity);
+                    ERROR_CONDITION(called_symbol == NULL, "Virtual call lacks called symbol", 0);
+                    fprintf(visitor->file, "%s", unmangle_symbol_name(called_symbol));
                 }
                 else
                 {
-                    fprintf(visitor->file, "%s", unmangle_symbol_name(called_symbol));
+                    codegen_walk(visitor, called_entity);
                 }
 
                 fprintf(visitor->file, "(");
@@ -2457,6 +2458,16 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 internal_error("Unhandled function call kind", 0);
             }
     }
+}
+
+static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_function_call_(visitor, node, /* is_virtual_call */ 0);
+}
+
+static void codegen_virtual_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_function_call_(visitor, node, /* is_virtual_call */ 1);
 }
 
 static void codegen_any_list_sep(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* separator)
@@ -3319,6 +3330,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
     NODECL_VISITOR(codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
     NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
+    NODECL_VISITOR(codegen_visitor)->visit_virtual_function_call = codegen_visitor_fun(codegen_virtual_function_call);
     NODECL_VISITOR(codegen_visitor)->visit_cast = codegen_visitor_fun(codegen_cast);
     NODECL_VISITOR(codegen_visitor)->visit_sizeof = codegen_visitor_fun(codegen_sizeof);
     NODECL_VISITOR(codegen_visitor)->visit_conditional_expression = codegen_visitor_fun(codegen_conditional_expression);
