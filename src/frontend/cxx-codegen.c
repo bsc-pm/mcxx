@@ -3272,6 +3272,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     indent(visitor);
     fprintf(visitor->file, "%s%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec, asm_specification);
 
+    symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
     if (!nodecl_is_null(initializers))
     {
         visitor->indent_level++;
