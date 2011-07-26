@@ -9874,11 +9874,9 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
 
     if (entry->kind == SK_VARIABLE
             && is_class_type(entry->type_information)
+            && !is_dependent_type(entry->type_information)
             && !entry->entity_specs.is_static
-            && !entry->entity_specs.is_extern
-            // Has been defined in this scope and has not been inserted because
-            // of using declarations
-            && entry->decl_context.current_scope == destructor_data->scope)
+            && !entry->entity_specs.is_extern)
     {
         type_t* class_type = get_actual_class_type(entry->type_information);
 
