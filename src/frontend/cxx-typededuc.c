@@ -1229,9 +1229,10 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
                     argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' template template parameter\n",
+                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' template template parameter %s\n",
                                 current_deduction->parameter_position,
-                                nesting);
+                                nesting,
+                                print_declarator(argument->type));
                     }
                 }
                 break;
