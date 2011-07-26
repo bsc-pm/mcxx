@@ -2202,8 +2202,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
                     prettyprint_in_buffer(id_expression));
         }
 
-        // Update template parameters only if not defined
+        // Update template parameters only if not defined and they are not
+        // empty (this happens for explicit instantiations)
         if (is_template_specialized_type(class_entry->type_information)
+                && decl_context.template_parameters != NULL
                 && !class_entry->defined)
         {
             template_specialized_type_update_template_parameters(class_entry->type_information,
@@ -4595,8 +4597,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                             prettyprint_in_buffer(class_id_expression));
                 }
 
-                template_specialized_type_update_template_parameters(class_entry->type_information,
-                        decl_context.template_parameters);
+                // Update the template parameters only if they are not empty
+                // (this may happen with explicit instantiations)
+                if (decl_context.template_parameters != NULL)
+                {
+                    template_specialized_type_update_template_parameters(class_entry->type_information,
+                            decl_context.template_parameters);
+                }
             }
 
             // Update the template_scope
