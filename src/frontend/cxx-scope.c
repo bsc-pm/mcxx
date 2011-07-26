@@ -2103,10 +2103,47 @@ template_parameter_value_t* update_template_parameter_value(
     return result;
 }
 
+template_parameter_list_t* update_template_argument_list_in_dependent_typename(
+        decl_context_t class_context,
+        template_parameter_list_t* primary_template_parameters,
+        template_parameter_list_t* dependent_type_template_arguments,
+        const char* filename, int line)
+{
+    template_parameter_list_t* result = duplicate_template_argument_list(dependent_type_template_arguments);
+    result->enclosing = class_context.template_parameters;
+
+    decl_context_t new_template_context = class_context;
+    class_context.template_parameters = result;
+
+    int i;
+    for (i = 0; i < result->num_parameters; i++)
+    {
+        result->arguments[i] = update_template_parameter_value(
+                dependent_type_template_arguments->arguments[i],
+                new_template_context,
+                filename, line);
+    }
+
+    // Complete with default template arguments
+    for (; i < primary_template_parameters->num_parameters; i++)
+    {
+        int num_parameters = result->num_parameters;
+        P_LIST_ADD(result->parameters,
+                num_parameters,
+                primary_template_parameters->parameters[i]);
+        template_parameter_value_t* v = update_template_parameter_value(primary_template_parameters->arguments[i],
+                new_template_context,
+                filename, line);
+        P_LIST_ADD(result->arguments, result->num_parameters, v);
+    }
+
+    return result;
+}
+
 static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        decl_context_t decl_context,
         const char* filename, int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
@@ -2248,22 +2285,16 @@ static type_t* update_dependent_typename(
             }
 
             template_parameter_list_t *primary_template_parameters = template_type_get_template_parameters(template_type);
-            template_parameter_list_t *updated_template_parameters = duplicate_template_argument_list(dependent_parts->template_arguments);
-
+            template_parameter_list_t *updated_template_parameters = 
+                 update_template_argument_list_in_dependent_typename(
+                         decl_context,
+                         primary_template_parameters,
+                         dependent_parts->template_arguments,
+                         filename, line);
+                
             decl_context_t new_template_context = class_context;
             new_template_context.template_parameters = updated_template_parameters;
-            // This modifies updated_template_parameters
-            new_template_context.template_parameters->enclosing = class_context.template_parameters;
-
-            int i;
-            for (i = 0; i < updated_template_parameters->num_parameters; i++)
-            {
-                updated_template_parameters->arguments[i] = update_template_parameter_value(
-                        dependent_parts->template_arguments->arguments[i],
-                        new_template_context,
-                        filename, line);
-            }
-
+            
             if (updated_template_parameters->num_parameters != primary_template_parameters->num_parameters)
             {
                 DEBUG_CODE()
@@ -2276,7 +2307,7 @@ static type_t* update_dependent_typename(
             type_t* specialized_type = template_type_get_specialized_type(
                     template_type,
                     updated_template_parameters,
-                    class_context, line, filename);
+                    new_template_context, line, filename);
 
             current_member = named_type_get_symbol(specialized_type);
         }
@@ -2384,22 +2415,16 @@ static type_t* update_dependent_typename(
             return NULL;
         }
 
-        template_parameter_list_t* primary_template_parameters = template_type_get_template_parameters(template_type);
-        template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(dependent_parts->template_arguments);
+        template_parameter_list_t *primary_template_parameters = template_type_get_template_parameters(template_type);
+        template_parameter_list_t *updated_template_parameters = 
+            update_template_argument_list_in_dependent_typename(
+                    decl_context,
+                    primary_template_parameters,
+                    dependent_parts->template_arguments,
+                    filename, line);
 
         decl_context_t new_template_context = class_context;
         new_template_context.template_parameters = updated_template_parameters;
-        // This modifies updated_template_parameters
-        new_template_context.template_parameters->enclosing = class_context.template_parameters;
-
-        int i;
-        for (i = 0; i < updated_template_parameters->num_parameters; i++)
-        {
-            updated_template_parameters->arguments[i] = update_template_parameter_value(
-                    dependent_parts->template_arguments->arguments[i],
-                    new_template_context,
-                    filename, line);
-        }
 
         if (updated_template_parameters->num_parameters != primary_template_parameters->num_parameters)
         {
@@ -2419,7 +2444,7 @@ static type_t* update_dependent_typename(
         type_t* specialized_type = template_type_get_specialized_type(
                 template_type,
                 updated_template_parameters,
-                class_context, line, filename);
+                new_template_context, line, filename);
 
         current_member = named_type_get_symbol(specialized_type);
 
