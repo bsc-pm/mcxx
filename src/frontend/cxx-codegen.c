@@ -593,6 +593,48 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     return result;
 }
 
+static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor, template_parameter_list_t* template_arguments)
+{
+    int i;
+    for (i = 0; i < template_arguments->num_parameters; i++)
+    {
+        template_parameter_value_t* argument =  template_arguments->arguments[i];
+
+        switch (argument->kind)
+        {
+            case TPK_TYPE:
+                {
+                    walk_type_for_symbols(visitor,
+                            argument->type,
+                            /* needs_def */ 0,
+                            declare_symbol,
+                            define_symbol,
+                            define_all_entities_in_trees);
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    walk_type_for_symbols(visitor,
+                            argument->type,
+                            /* needs_def */ 1,
+                            declare_symbol,
+                            define_symbol,
+                            define_all_entities_in_trees);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    declare_symbol(visitor, named_type_get_symbol(argument->type));
+                    break;
+                }
+            default:
+                {
+                    internal_error("Code unreachable", 0);
+                }
+        }
+    }
+}
+
 static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol, 
         scope_entry_list_t* symbols_defined_inside_class, int level)
 {
@@ -660,6 +702,15 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             {
                 is_primary_template = 1;
             }
+
+            type_t* class_type = get_actual_class_type(symbol->type_information);
+            if (class_type_is_complete_independent(class_type)
+                    || class_type_is_incomplete_independent(class_type))
+            {
+                template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                        symbol->type_information);
+                declare_all_in_template_arguments(visitor, template_arguments);
+            }
         }
 
         if (class_type_get_num_bases(symbol->type_information) != 0)
@@ -672,6 +723,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 define_symbol(visitor, entry);
             }
         }
+
+        // *** From here everything required should have been declared ***
 
         codegen_move_to_namespace_of_symbol(visitor, symbol);
 
@@ -1034,7 +1087,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_ENUMERATOR:
             {
-                internal_error("Not implemented yet", 0);
+                define_symbol(visitor, named_type_get_symbol(symbol->type_information));
                 break;
             }
         case SK_ENUM:
@@ -1152,6 +1205,7 @@ static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, templ
         }
     }
 }
+
 
 static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node);
 
@@ -1314,6 +1368,15 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         else
                         {
                             is_primary_template = 1;
+                        }
+
+                        type_t* class_type = get_actual_class_type(symbol->type_information);
+                        if (class_type_is_complete_independent(class_type)
+                                || class_type_is_incomplete_independent(class_type))
+                        {
+                            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                                    symbol->type_information);
+                            declare_all_in_template_arguments(visitor, template_arguments);
                         }
                     }
 
