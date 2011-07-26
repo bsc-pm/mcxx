@@ -3180,19 +3180,22 @@ static void build_scope_ctor_initializer(
 {
     scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
 
-    if (is_dependent_type(class_sym->type_information)
-            || is_dependent_type(function_entry->type_information))
-    {
-        // Do nothing in dependent contexts
-        return;
-    }
+    char dependent_context =  (is_dependent_type(class_sym->type_information)
+            || is_dependent_type(function_entry->type_information));
 
-    scope_entry_list_t* virtual_bases =
-        class_type_get_virtual_base_classes(class_sym->type_information);
-    scope_entry_list_t* direct_base_classes =
-        class_type_get_direct_base_classes(class_sym->type_information);
-    scope_entry_list_t* nonstatic_data_members =
-        class_type_get_nonstatic_data_members(class_sym->type_information);
+    scope_entry_list_t* virtual_bases = NULL;
+    scope_entry_list_t* direct_base_classes = NULL;
+    scope_entry_list_t* nonstatic_data_members = NULL;
+
+    if (!dependent_context)
+    {
+        virtual_bases =
+            class_type_get_virtual_base_classes(class_sym->type_information);
+        direct_base_classes =
+            class_type_get_direct_base_classes(class_sym->type_information);
+        nonstatic_data_members =
+            class_type_get_nonstatic_data_members(class_sym->type_information);
+    }
 
     scope_entry_list_t* already_initialized = NULL;
 
@@ -3219,6 +3222,11 @@ static void build_scope_ctor_initializer(
 
                         scope_entry_list_t* result_list = NULL;
                         result_list = query_id_expression(decl_context, id_expression);
+
+                        // In dependent contexts, just disambiguate by
+                        // querying, but nothing else)
+                        if (dependent_context)
+                            break;
 
                         if (result_list == NULL)
                         {
@@ -3323,6 +3331,8 @@ static void build_scope_ctor_initializer(
         }
     }
 
+    if (dependent_context)
+        return;
 
     // Now review the remaining objects not initialized yet
     scope_entry_list_iterator_t* it = NULL;
