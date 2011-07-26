@@ -3529,7 +3529,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_type);
     scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
     scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
-    scope_entry_list_t* all_bases = entry_list_merge(direct_base_classes, nonstatic_data_members);
+    scope_entry_list_t* all_bases = entry_list_merge(direct_base_classes, virtual_base_classes);
     // Force instantiation of required types since we need them full when laying out
     {
         scope_entry_list_iterator_t* it = NULL;
