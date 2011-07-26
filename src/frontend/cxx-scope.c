@@ -2072,6 +2072,7 @@ template_parameter_value_t* update_template_parameter_value(
     template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     *result = *v;
+    result->is_default = 0;
 
     result->type = update_type(result->type, decl_context, filename, line);
 
