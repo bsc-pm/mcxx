@@ -1797,6 +1797,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     // State that this is a template specialized type
     specialized_type->info->is_template_specialized_type = 1;
+    specialized_type->template_parameters = template_arguments;
     specialized_type->template_arguments = template_arguments;
     specialized_type->related_template_type = t;
 
