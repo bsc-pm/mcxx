@@ -8766,7 +8766,7 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = entry_list_iterator_current(it);
+            scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE

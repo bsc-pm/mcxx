@@ -995,9 +995,12 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
         used_name->file = ASTFileName(id_expression);
         used_name->line = ASTLine(id_expression);
         used_name->entity_specs.alias_to = entry;
-        used_name->entity_specs.is_member = 1;
-        used_name->entity_specs.class_type = get_user_defined_type(current_class);
-        used_name->entity_specs.access = current_access;
+        if (current_class != NULL)
+        {
+            used_name->entity_specs.is_member = 1;
+            used_name->entity_specs.class_type = get_user_defined_type(current_class);
+            used_name->entity_specs.access = current_access;
+        }
 
         insert_entry(decl_context.current_scope, used_name);
     }

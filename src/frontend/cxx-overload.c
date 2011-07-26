@@ -2118,7 +2118,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         }
     }
 
-    return best_viable->candidate->entry;
+    return entry_advance_aliases(best_viable->candidate->entry);
 }
 
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
