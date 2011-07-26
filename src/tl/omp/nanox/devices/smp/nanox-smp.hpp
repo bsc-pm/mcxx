@@ -49,20 +49,18 @@ namespace TL
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
                 static const char* recursive_prettyprint (AST_t a, void* data);
-                static const char* recursive_prettyprint_with_only_symbols (AST_t a, void* data);
-                static std::string get_integer_casting(AST_t a, Type type1, Type type2);
-                static std::string scalar_expansion(Expression expr, void* data);
-                static std::string ind_var_scalar_expansion(Expression expr, void* data);
-                static std::string statement_replication(
+                static const char* recursive_prettyprint_without_simd_repls (AST_t a, void* data);
+                std::string get_integer_casting(AST_t a, Type type1, Type type2);
+                std::string scalar_expansion(Expression expr);
+                std::string ind_var_scalar_expansion(Expression expr);
+                std::string statement_replication(
                         Expression expr, 
                         int num_repls, 
-                        AST_t statement_ast,
-                        ReplaceSrcSMP * _this);
-                static std::string declaration_replication(
+                        AST_t statement_ast);
+                std::string declaration_replication(
                         Declaration declaration, 
                         int num_repls, 
-                        AST_t declaration_ast,
-                        ReplaceSrcSMP * _this);
+                        AST_t declaration_ast);
 
             public:
                 ReplaceSrcSMP(ScopeLink sl, int width) 

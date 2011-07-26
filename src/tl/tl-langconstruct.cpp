@@ -1420,6 +1420,24 @@ namespace TL
         _repl_map[sym] = str;
     }
 
+    bool ReplaceSrcIdExpression::has_replacement(Symbol sym) const
+    {
+        return _repl_map.find(sym) != _repl_map.end();
+    }
+
+    std::string ReplaceSrcIdExpression::get_replacement(Symbol sym) const
+    {
+        if (!this->has_replacement(sym))
+        {
+            // Return something useful
+            return sym.get_qualified_name();
+        }
+        else
+        {
+            return _repl_map.find(sym)->second;
+        }
+    }
+
     ScopeLink ReplaceSrcIdExpression::get_scope_link() const
     {
         return _sl;
