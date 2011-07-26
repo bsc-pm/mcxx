@@ -2463,7 +2463,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
         if (entry->kind != SK_ENUM 
                 && entry->kind != SK_CLASS 
                 && entry->kind != SK_TYPEDEF 
@@ -2479,7 +2479,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
 
     entry_list_free(entry_list);
 
