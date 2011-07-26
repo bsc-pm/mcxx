@@ -3059,7 +3059,9 @@ template_parameter_list_t* get_template_parameters_from_syntax(
                     compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
                             template_parameters_context, &dummy_nodecl_output);
 
-                    if (is_template_type(declarator_type))
+                    if (is_named_type(declarator_type)
+                            && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE
+                                || named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
                     {
                         t_argument->kind = TPK_TEMPLATE;
                     }
@@ -3738,10 +3740,14 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     {
         if (value->entry == NULL)
         {
-            value->entry = counted_calloc(1, sizeof(*value->entry), &_bytes_used_scopes);
-            value->entry->symbol_name = parameter_entry->symbol_name;
-            value->entry->decl_context = context;
-            value->entry->entity_specs.is_template_parameter = 1;
+            if (value->kind == TPK_NONTYPE
+                    || value->kind == TPK_TYPE)
+            {
+                value->entry = counted_calloc(1, sizeof(*value->entry), &_bytes_used_scopes);
+                value->entry->symbol_name = parameter_entry->symbol_name;
+                value->entry->decl_context = context;
+                value->entry->entity_specs.is_template_parameter = 1;
+            }
 
             switch (value->kind)
             {
@@ -3760,10 +3766,9 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     }
                 case TPK_TEMPLATE:
                     {
-                        value->entry->kind = SK_TEMPLATE;
-                        value->entry->type_information = value->type;
-                        value->entry->type_information = 
-                            named_type_get_symbol(value->type)->type_information;
+                        // Use the original symbol (we will not know it is a
+                        // template_parameter name, though)
+                        value->entry = named_type_get_symbol(value->type);
                         break;
                     }
                 default:
