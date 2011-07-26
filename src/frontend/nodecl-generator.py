@@ -596,12 +596,16 @@ def generate_routines_impl(rule_map):
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
+          print "  if (symbol == NULL) internal_error(\"Node requires a symbol\", 0);"
           print "  expression_set_symbol(result.tree, symbol);"
        if rhs_rule.needs_type:
+          print "  if (type == NULL) internal_error(\"This node requires a type\", 0);"
           print "  expression_set_type(result.tree, type);"
        if rhs_rule.needs_text:
+          print "  if (text == NULL) internal_error(\"This node requires a text\", 0);"
           print "  ast_set_text(result.tree, text);"
        if rhs_rule.needs_cval:
+          print "  if (cval == NULL) internal_error(\"This node requires a constant value\", 0);"
           print "  expression_set_constant(result.tree, cval);"
 
        print "  return result;"
