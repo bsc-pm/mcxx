@@ -686,7 +686,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             }
             else
             {
-                ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+                ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                        "as a dependent template specialized type!\n", 0);
 
                 template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
                         symbol->type_information);
@@ -1347,7 +1348,9 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         }
                         else
                         {
-                            ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+                            ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                                    "as a dependent template specialized type!\n", 0);
+
                             template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
                                     symbol->type_information);
 
