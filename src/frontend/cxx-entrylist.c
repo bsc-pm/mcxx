@@ -148,7 +148,10 @@ void entry_list_free(scope_entry_list_t* list)
 
 int entry_list_size(const scope_entry_list_t* list)
 {
-    return list->num_items_list;
+    if (list != NULL)
+        return list->num_items_list;
+    else
+        return 0;
 }
 
 scope_entry_t* entry_list_head(const scope_entry_list_t* list)
