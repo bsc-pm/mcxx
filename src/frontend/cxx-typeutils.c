@@ -2700,7 +2700,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        if (nodecl_is_cxx_dependent_expr(whole_size))
+        if (!nodecl_is_cxx_dependent_expr(whole_size))
         {
             nodecl_t t = nodecl_copy(whole_size);
 
