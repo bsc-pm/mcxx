@@ -504,9 +504,14 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
     }
 }
 
-void remove_entry(scope_t* sc UNUSED_PARAMETER, scope_entry_t* entry UNUSED_PARAMETER)
+void remove_entry(scope_t* sc, scope_entry_t* entry)
 {
-    internal_error("Not yet implemented", 0);
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n == NULL)
+        return;
+
+    scope_entry_list_t* entry_list = (scope_entry_list_t*)rb_node_get_info(n);
+    entry_list_remove(entry_list, entry);
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
@@ -2067,6 +2072,7 @@ template_parameter_value_t* update_template_parameter_value(
     template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     *result = *v;
+    result->is_default = 0;
 
     result->type = update_type(result->type, decl_context, filename, line);
 
@@ -2097,10 +2103,47 @@ template_parameter_value_t* update_template_parameter_value(
     return result;
 }
 
+template_parameter_list_t* update_template_argument_list_in_dependent_typename(
+        decl_context_t class_context,
+        template_parameter_list_t* primary_template_parameters,
+        template_parameter_list_t* dependent_type_template_arguments,
+        const char* filename, int line)
+{
+    template_parameter_list_t* result = duplicate_template_argument_list(dependent_type_template_arguments);
+    result->enclosing = class_context.template_parameters;
+
+    decl_context_t new_template_context = class_context;
+    class_context.template_parameters = result;
+
+    int i;
+    for (i = 0; i < result->num_parameters; i++)
+    {
+        result->arguments[i] = update_template_parameter_value(
+                dependent_type_template_arguments->arguments[i],
+                new_template_context,
+                filename, line);
+    }
+
+    // Complete with default template arguments
+    for (; i < primary_template_parameters->num_parameters; i++)
+    {
+        int num_parameters = result->num_parameters;
+        P_LIST_ADD(result->parameters,
+                num_parameters,
+                primary_template_parameters->parameters[i]);
+        template_parameter_value_t* v = update_template_parameter_value(primary_template_parameters->arguments[i],
+                new_template_context,
+                filename, line);
+        P_LIST_ADD(result->arguments, result->num_parameters, v);
+    }
+
+    return result;
+}
+
 static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
-        decl_context_t decl_context UNUSED_PARAMETER,
+        decl_context_t decl_context,
         const char* filename, int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
@@ -2242,22 +2285,16 @@ static type_t* update_dependent_typename(
             }
 
             template_parameter_list_t *primary_template_parameters = template_type_get_template_parameters(template_type);
-            template_parameter_list_t *updated_template_parameters = duplicate_template_argument_list(dependent_parts->template_arguments);
-
+            template_parameter_list_t *updated_template_parameters = 
+                 update_template_argument_list_in_dependent_typename(
+                         decl_context,
+                         primary_template_parameters,
+                         dependent_parts->template_arguments,
+                         filename, line);
+                
             decl_context_t new_template_context = class_context;
             new_template_context.template_parameters = updated_template_parameters;
-            // This modifies updated_template_parameters
-            new_template_context.template_parameters->enclosing = class_context.template_parameters;
-
-            int i;
-            for (i = 0; i < updated_template_parameters->num_parameters; i++)
-            {
-                updated_template_parameters->arguments[i] = update_template_parameter_value(
-                        dependent_parts->template_arguments->arguments[i],
-                        new_template_context,
-                        filename, line);
-            }
-
+            
             if (updated_template_parameters->num_parameters != primary_template_parameters->num_parameters)
             {
                 DEBUG_CODE()
@@ -2270,7 +2307,7 @@ static type_t* update_dependent_typename(
             type_t* specialized_type = template_type_get_specialized_type(
                     template_type,
                     updated_template_parameters,
-                    class_context, line, filename);
+                    new_template_context, line, filename);
 
             current_member = named_type_get_symbol(specialized_type);
         }
@@ -2378,22 +2415,16 @@ static type_t* update_dependent_typename(
             return NULL;
         }
 
-        template_parameter_list_t* primary_template_parameters = template_type_get_template_parameters(template_type);
-        template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(dependent_parts->template_arguments);
+        template_parameter_list_t *primary_template_parameters = template_type_get_template_parameters(template_type);
+        template_parameter_list_t *updated_template_parameters = 
+            update_template_argument_list_in_dependent_typename(
+                    decl_context,
+                    primary_template_parameters,
+                    dependent_parts->template_arguments,
+                    filename, line);
 
         decl_context_t new_template_context = class_context;
         new_template_context.template_parameters = updated_template_parameters;
-        // This modifies updated_template_parameters
-        new_template_context.template_parameters->enclosing = class_context.template_parameters;
-
-        int i;
-        for (i = 0; i < updated_template_parameters->num_parameters; i++)
-        {
-            updated_template_parameters->arguments[i] = update_template_parameter_value(
-                    dependent_parts->template_arguments->arguments[i],
-                    new_template_context,
-                    filename, line);
-        }
 
         if (updated_template_parameters->num_parameters != primary_template_parameters->num_parameters)
         {
@@ -2413,7 +2444,7 @@ static type_t* update_dependent_typename(
         type_t* specialized_type = template_type_get_specialized_type(
                 template_type,
                 updated_template_parameters,
-                class_context, line, filename);
+                new_template_context, line, filename);
 
         current_member = named_type_get_symbol(specialized_type);
 
@@ -2996,7 +3027,6 @@ template_parameter_list_t* get_template_parameters_from_syntax(
         decl_context_t template_parameters_context)
 {
     template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-    result->enclosing = template_parameters_context.template_parameters;
 
     if (template_parameters_list_tree == NULL)
     {
@@ -3053,7 +3083,9 @@ template_parameter_list_t* get_template_parameters_from_syntax(
                     compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
                             template_parameters_context, &dummy_nodecl_output);
 
-                    if (is_template_type(declarator_type))
+                    if (is_named_type(declarator_type)
+                            && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE
+                                || named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
                     {
                         t_argument->kind = TPK_TEMPLATE;
                     }
@@ -3128,6 +3160,11 @@ static template_parameter_list_t *get_template_parameters_of_template_id(
     // Get the types raw from the syntax
     template_parameter_list_t *template_parameters = get_template_parameters_from_syntax(template_parameters_list_tree, 
             template_parameters_context);
+
+    // Note: we are creating a new template parameter list but it is a sibling
+    // of the primary template so we must ensure they have the same nesting in the
+    // hierarchy of template parameters
+    template_parameters->enclosing = primary_template_parameters->enclosing;
 
     if (template_parameters->num_parameters > primary_template_parameters->num_parameters)
     {
@@ -3732,10 +3769,14 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     {
         if (value->entry == NULL)
         {
-            value->entry = counted_calloc(1, sizeof(*value->entry), &_bytes_used_scopes);
-            value->entry->symbol_name = parameter_entry->symbol_name;
-            value->entry->decl_context = context;
-            value->entry->entity_specs.is_template_parameter = 1;
+            if (value->kind == TPK_NONTYPE
+                    || value->kind == TPK_TYPE)
+            {
+                value->entry = counted_calloc(1, sizeof(*value->entry), &_bytes_used_scopes);
+                value->entry->symbol_name = parameter_entry->symbol_name;
+                value->entry->decl_context = context;
+                value->entry->entity_specs.is_template_parameter = 1;
+            }
 
             switch (value->kind)
             {
@@ -3754,10 +3795,9 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
                     }
                 case TPK_TEMPLATE:
                     {
-                        value->entry->kind = SK_TEMPLATE;
-                        value->entry->type_information = value->type;
-                        value->entry->type_information = 
-                            named_type_get_symbol(value->type)->type_information;
+                        // Use the original symbol (we will not know it is a
+                        // template_parameter name, though)
+                        value->entry = named_type_get_symbol(value->type);
                         break;
                     }
                 default:

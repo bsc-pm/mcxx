@@ -811,16 +811,16 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
                 if (!found)
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEUNIF: Adding unification for '%s' <- '%s'\n",
-                                c_cxx_codegen_to_str(left_tree),
-                                c_cxx_codegen_to_str(right_tree));
-                    }
                     deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                     *new_deduced_parameter = current_deduced_parameter;
 
                     P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Added unification for '%s' <- '%s'\n",
+                                c_cxx_codegen_to_str(left_tree),
+                                c_cxx_codegen_to_str(right_tree));
+                    }
                 }
 
                 char equivalent = 0;
@@ -870,60 +870,10 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUNIF: Trying structural equivalence on nodecls\n");
+            fprintf(stderr, "TYPEUNIF: Nodecls are not comparable\n");
         }
 
-        if (nodecl_get_kind(left_tree) != nodecl_get_kind(right_tree))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Expression '%s' is different to '%s', they can't be equivalent\n", 
-                        c_cxx_codegen_to_str(left_tree),
-                        c_cxx_codegen_to_str(right_tree));
-            }
-
-            return 0;
-        }
-
-        // If both are nodecls we should do a syntactical check, just traverse all the trees
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            nodecl_t left_child = nodecl_get_child(left_tree, i);
-            nodecl_t right_child = nodecl_get_child(right_tree, i);
-
-            char equiv = 0;
-            if (nodecl_is_null(left_child) == nodecl_is_null(right_child))
-            {
-                if (!nodecl_is_null(left_child))
-                {
-                    equiv = equivalent_dependent_expressions(left_child, right_child, unif_set, flags);
-                }
-                else
-                {
-                    // Null trees are trivially equivalent
-                    equiv = 1;
-                }
-            }
-            if (!equiv)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: Child %d of '%s' is different to '%s', they can't be equivalent\n", 
-                            i,
-                            c_cxx_codegen_to_str(left_tree),
-                            c_cxx_codegen_to_str(right_tree));
-                }
-                return 0;
-            }
-        }
-
-        // They look like the same structurally
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUNIF: Nodecls look like structurally equivalent\n");
-        }
-        return 1;
+        return 0;
     }
     else if (nodecl_is_cxx_raw(left_tree)
             && nodecl_is_cxx_raw(right_tree))
@@ -935,15 +885,37 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     }
     else
     {
-        // This is a special case we allow
+        // These are special cases we allow
         if (nodecl_is_cxx_raw(left_tree))
         {
             AST left_expr = nodecl_unwrap_cxx_raw(left_tree);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Left is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(left_expr), 
+                        ast_print_node_type(ASTType(left_expr)));
+            }
 
             if (expression_has_symbol(left_expr))
             {
                 scope_entry_t* sym = expression_get_symbol(left_expr);
                 return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
+            }
+        }
+        if (nodecl_is_cxx_raw(right_tree))
+        {
+            AST right_expr = nodecl_unwrap_cxx_raw(right_tree);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Right is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(right_expr), 
+                        ast_print_node_type(ASTType(right_expr)));
+            }
+
+            if (expression_has_symbol(right_expr))
+            {
+                scope_entry_t* sym = expression_get_symbol(right_expr);
+                return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
             }
         }
 

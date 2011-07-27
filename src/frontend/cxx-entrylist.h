@@ -40,6 +40,9 @@ LIBMCXX_EXTERN scope_entry_list_t* entry_list_new(scope_entry_t*);
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
         scope_entry_t* entry);
 
+LIBMCXX_EXTERN scope_entry_list_t* entry_list_remove(scope_entry_list_t* list, 
+        scope_entry_t* entry);
+
 LIBMCXX_EXTERN scope_entry_list_t* entry_list_add_once(scope_entry_list_t* list, 
         scope_entry_t* entry);
 

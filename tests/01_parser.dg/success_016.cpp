@@ -109,6 +109,7 @@ namespace A
 {
     void g()
     {
-         typedef string::size_type size_type;
+         string::size_type size_type;
+         size_type = 0;
     }
 }

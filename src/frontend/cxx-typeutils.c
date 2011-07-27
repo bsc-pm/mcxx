@@ -1797,6 +1797,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     // State that this is a template specialized type
     specialized_type->info->is_template_specialized_type = 1;
+    specialized_type->template_parameters = template_arguments;
     specialized_type->template_arguments = template_arguments;
     specialized_type->related_template_type = t;
 
@@ -8513,6 +8514,11 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
 {
     return compatible_parameters(potential_overrider->function, function_type->function)
         && covariant_return(potential_overrider, function_type);
+}
+
+char function_type_same_parameter_types(type_t* t1, type_t* t2)
+{
+    return compatible_parameters(t1->function, t2->function);
 }
 
 char class_type_is_trivially_copiable(type_t* t)

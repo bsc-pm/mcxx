@@ -320,10 +320,12 @@ def generate_visitor_class_header(rule_map):
     print "#ifndef TL_NODECL_VISITOR_HPP"
     print "#define TL_NODECL_VISITOR_HPP"
     print ""
-    print "namespace Nodecl {"
-    print "   class NodeclBase;"
-    generate_nodecl_classes_fwd_decls(rule_map)
+    print "#include <tl-nodecl.hpp>"
     print ""
+    print "namespace Nodecl {"
+    # print "   class NodeclBase;"
+    # generate_nodecl_classes_fwd_decls(rule_map)
+    # print ""
     classes = get_all_class_names(rule_map)
     print "class BaseNodeclVisitor"
     print "{"
@@ -336,8 +338,9 @@ def generate_visitor_class_header(rule_map):
     print "class NodeclVisitor : public BaseNodeclVisitor"
     print "{"
     print "   public:"
+    print "   virtual void unhandled_node(const Nodecl::NodeclBase &) { }"
     for class_name in classes:
-        print "     virtual void visit(const Nodecl::%s &) { }" % (class_name)
+        print "     virtual void visit(const Nodecl::%s & n) { this->unhandled_node(n); }" % (class_name)
     print "   virtual ~NodeclVisitor() { }"
     print "};"
     print ""
@@ -385,11 +388,11 @@ def generate_nodecl_classes_base(rule_map):
    print "#define TL_NODECL_HPP"
    print ""
    print "#include \"cxx-nodecl.h\""
-   print "#include \"tl-nodecl-visitor.hpp\""
    print "#include \"tl-object.hpp\""
    print "#include \"tl-symbol.hpp\""
    print "#include \"tl-type.hpp\""
    print "#include <string>"
+   print "#include <sstream>"
    print "namespace Nodecl {"
    print ""
    print "class NodeclBase : public TL::Object"
@@ -594,12 +597,16 @@ def generate_routines_impl(rule_map):
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
+          print "  if (symbol == NULL) internal_error(\"Node requires a symbol\", 0);"
           print "  expression_set_symbol(result.tree, symbol);"
        if rhs_rule.needs_type:
+          print "  if (type == NULL) internal_error(\"This node requires a type\", 0);"
           print "  expression_set_type(result.tree, type);"
        if rhs_rule.needs_text:
+          print "  if (text == NULL) internal_error(\"This node requires a text\", 0);"
           print "  ast_set_text(result.tree, text);"
        if rhs_rule.needs_cval:
+          print "  if (cval == NULL) internal_error(\"This node requires a constant value\", 0);"
           print "  expression_set_constant(result.tree, cval);"
 
        print "  return result;"

@@ -593,6 +593,48 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     return result;
 }
 
+static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor, template_parameter_list_t* template_arguments)
+{
+    int i;
+    for (i = 0; i < template_arguments->num_parameters; i++)
+    {
+        template_parameter_value_t* argument =  template_arguments->arguments[i];
+
+        switch (argument->kind)
+        {
+            case TPK_TYPE:
+                {
+                    walk_type_for_symbols(visitor,
+                            argument->type,
+                            /* needs_def */ 0,
+                            declare_symbol,
+                            define_symbol,
+                            define_all_entities_in_trees);
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    walk_type_for_symbols(visitor,
+                            argument->type,
+                            /* needs_def */ 1,
+                            declare_symbol,
+                            define_symbol,
+                            define_all_entities_in_trees);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    declare_symbol(visitor, named_type_get_symbol(argument->type));
+                    break;
+                }
+            default:
+                {
+                    internal_error("Code unreachable", 0);
+                }
+        }
+    }
+}
+
 static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol, 
         scope_entry_list_t* symbols_defined_inside_class, int level)
 {
@@ -660,6 +702,15 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             {
                 is_primary_template = 1;
             }
+
+            type_t* class_type = get_actual_class_type(symbol->type_information);
+            if (class_type_is_complete_independent(class_type)
+                    || class_type_is_incomplete_independent(class_type))
+            {
+                template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                        symbol->type_information);
+                declare_all_in_template_arguments(visitor, template_arguments);
+            }
         }
 
         if (class_type_get_num_bases(symbol->type_information) != 0)
@@ -672,6 +723,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 define_symbol(visitor, entry);
             }
         }
+
+        // *** From here everything required should have been declared ***
 
         codegen_move_to_namespace_of_symbol(visitor, symbol);
 
@@ -686,7 +739,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             }
             else
             {
-                ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+                ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                        "as a dependent template specialized type!\n", 0);
 
                 template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
                         symbol->type_information);
@@ -827,20 +881,7 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         }
         CXX_LANGUAGE()
         {
-            if (member->kind != SK_CLASS)
-            {
-                declare_symbol(visitor, member);
-                if (member->kind == SK_VARIABLE && 
-                        !member->entity_specs.is_static)
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                }
-                else
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
-                }
-            }
-            else
+            if (member->kind == SK_CLASS)
             {
                 if (entry_list_contains(symbols_defined_inside_class, member))
                 {
@@ -850,6 +891,36 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 else
                 {
                     declare_symbol(visitor, member);
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                }
+            }
+            else if (member->kind == SK_USING)
+            {
+                indent(visitor);
+                ERROR_CONDITION(!is_unresolved_overloaded_type(member->type_information), "Invalid SK_USING symbol\n", 0);
+
+                scope_entry_list_t* used_entities = unresolved_overloaded_type_get_overload_set(member->type_information);
+                scope_entry_t* entry = entry_list_head(used_entities);
+                entry_list_free(used_entities);
+
+                char is_dependent = 0;
+                int max_qualif_level = 0;
+                fprintf(visitor->file, "using %s;\n", 
+                        get_fully_qualified_symbol_name_without_template(entry, 
+                            entry->decl_context, 
+                            &is_dependent, 
+                            &max_qualif_level));
+            }
+            else 
+            {
+                declare_symbol(visitor, member);
+                if (member->kind == SK_VARIABLE && 
+                        !member->entity_specs.is_static)
+                {
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                }
+                else
+                {
                     member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
                 }
             }
@@ -1016,7 +1087,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_ENUMERATOR:
             {
-                internal_error("Not implemented yet", 0);
+                define_symbol(visitor, named_type_get_symbol(symbol->type_information));
                 break;
             }
         case SK_ENUM:
@@ -1134,6 +1205,7 @@ static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, templ
         }
     }
 }
+
 
 static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node);
 
@@ -1297,6 +1369,15 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         {
                             is_primary_template = 1;
                         }
+
+                        type_t* class_type = get_actual_class_type(symbol->type_information);
+                        if (class_type_is_complete_independent(class_type)
+                                || class_type_is_incomplete_independent(class_type))
+                        {
+                            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                                    symbol->type_information);
+                            declare_all_in_template_arguments(visitor, template_arguments);
+                        }
                     }
 
 
@@ -1330,7 +1411,9 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         }
                         else
                         {
-                            ERROR_CONDITION(!is_primary_template, "Only the primary template is actually allowed!\n", 0);
+                            ERROR_CONDITION(!is_primary_template, "Only the primary template is allowed "
+                                    "as a dependent template specialized type!\n", 0);
+
                             template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(
                                     symbol->type_information);
 
@@ -2345,7 +2428,7 @@ static void codegen_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
-static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t node, char is_virtual_call)
 {
     nodecl_t called_entity = nodecl_get_child(node, 0);
     nodecl_t arguments = nodecl_get_child(node, 1);
@@ -2414,13 +2497,14 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 }
                 fprintf(visitor->file, ".");
 
-                if (!called_symbol->entity_specs.is_virtual)
+                if (is_virtual_call)
                 {
-                    codegen_walk(visitor, called_entity);
+                    ERROR_CONDITION(called_symbol == NULL, "Virtual call lacks called symbol", 0);
+                    fprintf(visitor->file, "%s", unmangle_symbol_name(called_symbol));
                 }
                 else
                 {
-                    fprintf(visitor->file, "%s", unmangle_symbol_name(called_symbol));
+                    codegen_walk(visitor, called_entity);
                 }
 
                 fprintf(visitor->file, "(");
@@ -2457,6 +2541,16 @@ static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 internal_error("Unhandled function call kind", 0);
             }
     }
+}
+
+static void codegen_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_function_call_(visitor, node, /* is_virtual_call */ 0);
+}
+
+static void codegen_virtual_function_call(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_function_call_(visitor, node, /* is_virtual_call */ 1);
 }
 
 static void codegen_any_list_sep(nodecl_codegen_visitor_t* visitor, nodecl_t node, const char* separator)
@@ -3244,6 +3338,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     indent(visitor);
     fprintf(visitor->file, "%s%s%s%s%s\n", decl_spec_seq, gcc_attributes, declarator, exception_spec, asm_specification);
 
+    symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
     if (!nodecl_is_null(initializers))
     {
         visitor->indent_level++;
@@ -3319,6 +3415,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_delete_array = codegen_visitor_fun(codegen_delete_array);
     NODECL_VISITOR(codegen_visitor)->visit_throw = codegen_visitor_fun(codegen_throw);
     NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
+    NODECL_VISITOR(codegen_visitor)->visit_virtual_function_call = codegen_visitor_fun(codegen_virtual_function_call);
     NODECL_VISITOR(codegen_visitor)->visit_cast = codegen_visitor_fun(codegen_cast);
     NODECL_VISITOR(codegen_visitor)->visit_sizeof = codegen_visitor_fun(codegen_sizeof);
     NODECL_VISITOR(codegen_visitor)->visit_conditional_expression = codegen_visitor_fun(codegen_conditional_expression);

@@ -124,6 +124,8 @@ LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list,
         decl_context_t decl_context, decl_context_t *template_context,
         nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN scope_entry_t* entry_advance_aliases(scope_entry_t* entry);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H
