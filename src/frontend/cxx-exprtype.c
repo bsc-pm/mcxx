@@ -47,6 +47,7 @@
 #include "cxx-entrylist.h"
 #include "cxx-limits.h"
 #include "cxx-diagnostic.h"
+#include "cxx-codegen.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -799,10 +800,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
                     expression_set_constant(expression, expression_get_constant(ASTSon0(expression)));
                     expression_set_is_value_dependent(expression, expression_is_value_dependent(ASTSon0(expression)));
+                    expression_set_symbol(expression, expression_get_symbol(ASTSon0(expression)));
                 }
 
-                expression_set_nodecl(expression, expression_get_nodecl(ASTSon0(expression)));
-
+                nodecl_t nodecl_output = expression_get_nodecl(ASTSon0(expression));
+                expression_set_nodecl(expression, nodecl_output);
                 break;
             }
             // Primaries
@@ -862,7 +864,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_constant(expression, val);
 
                 nodecl_t nodecl_output = nodecl_make_boolean_literal(t, val, ASTFileName(expression), ASTLine(expression));
-                nodecl_set_constant(nodecl_output, val);
 
                 expression_set_nodecl(expression, nodecl_output);
                 break;
@@ -879,7 +880,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 expression_set_constant(expression, val);
 
                 nodecl_t nodecl_output = nodecl_make_integer_literal(t, val, ASTFileName(expression), ASTLine(expression));
-                nodecl_set_constant(nodecl_output, val);
 
                 expression_set_nodecl(expression, nodecl_output);
                 break;
@@ -1825,6 +1825,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         ast_location(expression));
             }
         }
+    }
+
+    if (expression_is_constant(expression))
+    {
+        nodecl_set_constant(
+                expression_get_nodecl(expression),
+                expression_get_constant(expression));
     }
 }
 
@@ -6355,14 +6362,34 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     if (!entry->entity_specs.is_parameter
                             && (is_const_qualified_type(entry->type_information)
                                 || entry->entity_specs.is_template_parameter)
-                            && entry->language_dependent_value != NULL)
+                            // FIXME - Remove language_dependent_value
+                            && (entry->language_dependent_value != NULL
+                                || !nodecl_is_null(entry->value)))
                     {
-                        if (val != NULL
-                                && expression_is_constant(entry->language_dependent_value))
-                            *val = expression_get_constant(entry->language_dependent_value);
+                        if (val != NULL)
+                        {
+                            if (!nodecl_is_null(entry->value)
+                                    && nodecl_is_constant(entry->value))
+                            {
+                                *val = nodecl_get_constant(entry->value);
+                            }
+                            else if (entry->language_dependent_value != NULL
+                                    && expression_is_constant(entry->language_dependent_value))
+                            {
+                                *val = expression_get_constant(entry->language_dependent_value);
+                            }
+                        }
 
-                        if (expression_is_value_dependent(entry->language_dependent_value))
+                        if (!nodecl_is_null(entry->value)
+                                && nodecl_is_cxx_raw(entry->value))
+                        {
                             expression_set_is_value_dependent(expr, 1);
+                        }
+                        else if (entry->language_dependent_value != NULL
+                                && expression_is_value_dependent(entry->language_dependent_value))
+                        {
+                            expression_set_is_value_dependent(expr, 1);
+                        }
                     }
                 }
                 else
@@ -6374,6 +6401,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     }
                     expression_set_dependent(expr);
                 }
+
                 if (entry->entity_specs.is_template_parameter)
                 {
                     expression_set_nodecl(expr, entry->value);
@@ -6575,14 +6603,34 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             if (!entry->entity_specs.is_parameter
                     && (is_const_qualified_type(entry->type_information)
                         || entry->entity_specs.is_template_parameter)
-                    && entry->language_dependent_value != NULL)
+                    // FIXME - Remove language_dependent_value
+                    && (entry->language_dependent_value != NULL
+                        || !nodecl_is_null(entry->value)))
             {
-                if (val != NULL
-                        && expression_is_constant(entry->language_dependent_value))
-                    *val = expression_get_constant(entry->language_dependent_value);
+                if (val != NULL)
+                {
+                    if (!nodecl_is_null(entry->value)
+                            && nodecl_is_constant(entry->value))
+                    {
+                        *val = nodecl_get_constant(entry->value);
+                    }
+                    else if (entry->language_dependent_value != NULL
+                            && expression_is_constant(entry->language_dependent_value))
+                    {
+                        *val = expression_get_constant(entry->language_dependent_value);
+                    }
+                }
 
-                if (expression_is_value_dependent(entry->language_dependent_value))
+                if (!nodecl_is_null(entry->value)
+                        && nodecl_is_cxx_raw(entry->value))
+                {
                     expression_set_is_value_dependent(expr, 1);
+                }
+                else if (entry->language_dependent_value != NULL
+                        && expression_is_value_dependent(entry->language_dependent_value))
+                {
+                    expression_set_is_value_dependent(expr, 1);
+                }
             }
 
             nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));

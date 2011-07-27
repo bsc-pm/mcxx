@@ -3027,7 +3027,6 @@ template_parameter_list_t* get_template_parameters_from_syntax(
         decl_context_t template_parameters_context)
 {
     template_parameter_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-    result->enclosing = template_parameters_context.template_parameters;
 
     if (template_parameters_list_tree == NULL)
     {
@@ -3161,6 +3160,11 @@ static template_parameter_list_t *get_template_parameters_of_template_id(
     // Get the types raw from the syntax
     template_parameter_list_t *template_parameters = get_template_parameters_from_syntax(template_parameters_list_tree, 
             template_parameters_context);
+
+    // Note: we are creating a new template parameter list but it is a sibling
+    // of the primary template so we must ensure they have the same nesting in the
+    // hierarchy of template parameters
+    template_parameters->enclosing = primary_template_parameters->enclosing;
 
     if (template_parameters->num_parameters > primary_template_parameters->num_parameters)
     {

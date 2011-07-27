@@ -2755,10 +2755,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
 
                 enumeration_item->language_dependent_value = enumeration_expr;
+                enumeration_item->value = expression_get_nodecl(enumeration_expr);
+
                 delta = 1;
                 base_enumerator = enumeration_expr;
-
-                enumeration_item->value = expression_get_nodecl(enumeration_expr);
             }
             else
             {
