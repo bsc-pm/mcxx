@@ -2076,12 +2076,13 @@ template_parameter_value_t* update_template_parameter_value(
 
     result->type = update_type(result->type, decl_context, filename, line);
 
-    if (nodecl_is_cxx_raw(result->value))
+    if (nodecl_is_cxx_dependent_expr(result->value))
     {
-        AST expr = nodecl_unwrap_cxx_raw(result->value);
+        ERROR_CONDITION(v->kind != TPK_NONTYPE, "Invalid parameter value\n", 0);
+        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value);
         expr = ast_copy_for_instantiation(expr);
 
-        if(!check_expression(expr, decl_context))
+        if(!check_nontype_template_argument_expression(expr, decl_context))
         {
             internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                     prettyprint_in_buffer(expr));
@@ -2798,7 +2799,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
         decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
 
-        if (nodecl_is_cxx_raw(array_size))
+        if (nodecl_is_cxx_dependent_expr(array_size))
         {
             DEBUG_CODE()
             {
@@ -2810,7 +2811,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             array_size_context = decl_context;
 
             // NODECL_CXX_RAW have as its zero-th children a C++ expression tree
-            AST new_array_size = nodecl_unwrap_cxx_raw(array_size);
+            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size);
             new_array_size = ast_copy_for_instantiation(new_array_size);
             if (!check_expression(new_array_size, array_size_context))
             {
@@ -2819,7 +2820,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             array_size = expression_get_nodecl(new_array_size);
-            if (nodecl_is_cxx_raw(array_size))
+            if (nodecl_is_cxx_dependent_expr(array_size))
             {
                 internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
                         nodecl_get_locus(array_size));
@@ -3046,19 +3047,11 @@ template_parameter_list_t* get_template_parameters_from_syntax(
                 {
                     AST expr = ASTSon0(template_parameter);
 
-                    // FIXME - Maybe this expr has already been checked in another context
-                    check_expression(expr, template_parameters_context);
-
-                    type_t* expr_type = expression_get_type(expr);
+                    check_nontype_template_argument_expression(expr, template_parameters_context);
 
                     t_argument->value = expression_get_nodecl(expr);
 
-                    if (expression_is_constant(expr))
-                    {
-                        t_argument->value = const_value_to_nodecl(expression_get_constant(expr));
-                    }
-
-                    t_argument->type = expr_type;
+                    t_argument->type = expression_get_type(expr);
                     t_argument->kind = TPK_NONTYPE;
                     break;
                 }
@@ -3221,8 +3214,68 @@ static template_parameter_list_t *get_template_parameters_of_template_id(
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "SCOPE: Template parameter kind and template argument kind do not match\n");
-                    *valid = 0;
-                    return NULL;
+                }
+                *valid = 0;
+                return NULL;
+            }
+        }
+        
+        // Nontype template arguments must be adjusted first
+        if (template_parameters->arguments[i]->kind == TPK_NONTYPE)
+        {
+            // We need to do this because of cases like this
+            //
+            // N in    template <typename T, T N>                       
+            // PF in   template <typename R, typename A, R (*PF)(A)>    
+            template_parameters->arguments[i]->type = update_type(
+                    template_parameters->parameters[i]->entry->type_information,
+                    new_template_context,
+                    ASTFileName(template_id), ASTLine(template_id));
+
+            type_t* dest_type = template_parameters->arguments[i]->type;
+
+            if (!nodecl_is_cxx_dependent_expr(template_parameters->arguments[i]->value))
+            {
+                type_t* arg_type = nodecl_get_type(template_parameters->arguments[i]->value);
+                if (is_unresolved_overloaded_type(arg_type))
+                {
+                    // We got an unresolved entity here, try to solve it
+                    scope_entry_t* entry = address_of_overloaded_function(
+                            unresolved_overloaded_type_get_overload_set(arg_type),
+                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+                            dest_type,
+                            new_template_context,
+                            ASTFileName(template_id),
+                            ASTLine(template_id));
+                    if (entry == NULL)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "SCOPE: Cannot solve unresolved overload in template argument expression to"
+                                    " the type of the template parameter\n");
+                        }
+                        *valid = 0;
+                        return NULL;
+                    }
+
+                    // If the symbol is not null, update the argument with its real function
+                    template_parameters->arguments[i]->value = nodecl_make_symbol(entry, ASTFileName(template_id), ASTLine(template_id));
+                }
+                else
+                {
+                    // We can't allow a user defined conversion here since it
+                    // would mean running code at compile time, which is not
+                    // possible, so we check for a SCS.
+                    standard_conversion_t result;
+                    if (!standard_conversion_between_types(&result, arg_type, dest_type))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
+                        }
+                        *valid = 0;
+                        return NULL;
+                    }
                 }
             }
         }

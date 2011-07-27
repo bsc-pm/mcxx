@@ -62,9 +62,9 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
 nodecl_t _nodecl_wrap(AST);
 
 // C++ specific stuff
-char nodecl_is_cxx_raw(nodecl_t n);
-nodecl_t nodecl_wrap_cxx_raw_expr(AST expression);
-AST nodecl_unwrap_cxx_raw(nodecl_t n);
+char nodecl_is_cxx_dependent_expr(nodecl_t n);
+nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression);
+AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n);
 
 MCXX_END_DECLS
 

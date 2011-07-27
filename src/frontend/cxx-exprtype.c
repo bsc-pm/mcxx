@@ -1804,7 +1804,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
     if (expression_is_value_dependent(expression)
             || is_dependent_expr_type(expression_get_type(expression)))
     {
-        nodecl_t nodecl_raw = nodecl_wrap_cxx_raw_expr(expression);
+        nodecl_t nodecl_raw = nodecl_wrap_cxx_dependent_expr(expression);
         expression_set_nodecl(expression, nodecl_raw);
     }
     else
@@ -6381,7 +6381,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         }
 
                         if (!nodecl_is_null(entry->value)
-                                && nodecl_is_cxx_raw(entry->value))
+                                && nodecl_is_cxx_dependent_expr(entry->value))
                         {
                             expression_set_is_value_dependent(expr, 1);
                         }
@@ -6417,17 +6417,19 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 type_t* t = get_unresolved_overloaded_type(result, /* template_args */ NULL);
                 scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
                         decl_context, ASTLine(expr), ASTFileName(expr));
+                nodecl_t nodecl_output = nodecl_null();
                 if (simplified == NULL)
                 {
                     expression_set_type(expr, t);
+                    nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
                 }
                 else
                 {
                     expression_set_type(expr, lvalue_ref(simplified->type_information));
-                    nodecl_t nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
                     expression_set_is_lvalue(expr, 1);
-                    expression_set_nodecl(expr, nodecl_output);
+                    nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
                 }
+                expression_set_nodecl(expr, nodecl_output);
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
             {
@@ -6464,7 +6466,11 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             }
             else if (entry->kind == SK_TEMPLATE)
             {
-                expression_set_type(expr, get_unresolved_overloaded_type(result, /* template_args*/ NULL));
+                type_t* t =  get_unresolved_overloaded_type(result, /* template_args*/ NULL);
+                expression_set_type(expr, t);
+
+                nodecl_t nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
+                expression_set_nodecl(expr, nodecl_output);
             }
             else
             {
@@ -6550,6 +6556,8 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 // expression, but ok, lvalueness is such a mystic thing throughout the
                 // standard.
                 expression_set_is_lvalue(expr, 1);
+                expression_set_nodecl(expr, 
+                        nodecl_make_cxx_unresolved_overload(solved, ASTFileName(expr), ASTLine(expr)));
             }
             else if (dependent_template_parameters)
             {
@@ -6622,7 +6630,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 }
 
                 if (!nodecl_is_null(entry->value)
-                        && nodecl_is_cxx_raw(entry->value))
+                        && nodecl_is_cxx_dependent_expr(entry->value))
                 {
                     expression_set_is_value_dependent(expr, 1);
                 }
@@ -6661,17 +6669,19 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             type_t* t = get_unresolved_overloaded_type(result_list, /* template_args */ NULL);
             scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
                     decl_context, ASTLine(expr), ASTFileName(expr));
+            nodecl_t nodecl_output = nodecl_null();
             if (simplified == NULL)
             {
                 expression_set_type(expr, t);
+                nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
             }
             else
             {
                 expression_set_type(expr, lvalue_ref(simplified->type_information));
-                nodecl_t nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
                 expression_set_is_lvalue(expr, 1);
-                expression_set_nodecl(expr, nodecl_output);
+                nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
             }
+            expression_set_nodecl(expr, nodecl_output);
         }
         else if (entry->kind == SK_TEMPLATE)
         {
@@ -6691,7 +6701,11 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 return;
             }
 
-            expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+            type_t* t =  get_unresolved_overloaded_type(result_list, /* template_args*/ NULL);
+            expression_set_type(expr, t);
+
+            nodecl_t nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
+            expression_set_nodecl(expr, nodecl_output);
         }
 
         entry_list_free(result_list);
@@ -8844,8 +8858,12 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
 
     if (entry_list != NULL)
     {
-        expression_set_type(called_expression, get_unresolved_overloaded_type(entry_list, 
-                /* explicit template arguments */ NULL));
+        type_t* t = get_unresolved_overloaded_type(entry_list, 
+                /* explicit template arguments */ NULL);
+        expression_set_type(called_expression, t);
+
+        nodecl_t nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(called_expression), ASTLine(called_expression));
+        expression_set_nodecl(called_expression, nodecl_output);
         return 1;
     }
 
@@ -10398,6 +10416,9 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             if (solved != NULL)
             {
                 expression_set_type(member_access, solved);
+                expression_set_nodecl(
+                        member_access,
+                        nodecl_make_cxx_unresolved_overload(solved, ASTFileName(member_access), ASTLine(member_access)));
                 return;
             }
             else if (dependent_template_parameters)
@@ -10464,8 +10485,12 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
         {
-            expression_set_type(member_access, get_unresolved_overloaded_type(entry_list, 
-                        /* explicit_template_parameters */ NULL));
+            type_t* t = get_unresolved_overloaded_type(entry_list, 
+                        /* explicit_template_parameters */ NULL);
+            expression_set_type(member_access, t);
+
+            expression_set_nodecl(member_access,
+                    nodecl_make_cxx_unresolved_overload(t, ASTFileName(member_access), ASTLine(member_access)));
             ok = 1;
         }
     }
@@ -14510,4 +14535,98 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
     {
         return nodecl_make_virtual_function_call(called, arg_list, t, filename, line);
     }
+}
+
+char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context)
+{
+    if (!check_expression(expression, decl_context))
+        return 0;
+
+    nodecl_t nodecl = expression_get_nodecl(expression);
+
+    if (nodecl_is_cxx_dependent_expr(nodecl))
+        return 1;
+
+    type_t* expr_type = nodecl_get_type(nodecl);
+
+    scope_entry_t* related_symbol = NULL;
+
+    char valid = 0;
+    if (is_integral_type(no_ref(expr_type))
+            || is_enum_type(no_ref(expr_type)))
+    {
+        valid = 1;
+    }
+    else if (is_pointer_type(no_ref(expr_type))
+            || is_function_type(no_ref(expr_type)))
+    {
+        // &a
+        // a
+        nodecl_t current_expr = nodecl;
+        char lacks_ref = 1;
+        if (nodecl_get_kind(current_expr) == NODECL_REFERENCE)
+        {
+            current_expr = nodecl_get_child(current_expr, 0);
+            lacks_ref = 0;
+        }
+        related_symbol = nodecl_get_symbol(current_expr);
+        if (related_symbol != NULL
+                && ((related_symbol->kind == SK_VARIABLE 
+                        && (!related_symbol->entity_specs.is_member 
+                            || related_symbol->entity_specs.is_static))
+                    || (related_symbol->kind == SK_FUNCTION)
+                    || (related_symbol->kind == SK_TEMPLATE 
+                        && is_function_type(template_type_get_primary_type(related_symbol->type_information)))))
+        {
+            if (!lacks_ref)
+            {
+                valid = 1;
+            }
+            else if ((related_symbol->kind == SK_VARIABLE 
+                        && (is_array_type(related_symbol->type_information) 
+                         || is_pointer_to_function_type(related_symbol->type_information)))
+                    || (related_symbol->kind == SK_FUNCTION)
+                    || (related_symbol->kind == SK_TEMPLATE 
+                        && is_function_type(template_type_get_primary_type(related_symbol->type_information))))
+            {
+                valid = 1;
+            }
+        }
+    }
+    else if (is_unresolved_overloaded_type(expr_type))
+    {
+        valid = 1;
+    }
+    else if (is_pointer_to_member_type(no_ref(expr_type)))
+    {
+        // &C::id
+        nodecl_t current_expr = nodecl;
+        related_symbol = nodecl_get_symbol(current_expr);
+        if (related_symbol != NULL)
+        {
+            valid = 1;
+        }
+    }
+
+    if (!valid)
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: invalid template argument '%s' for a nontype template parameter\n",
+                    ast_location(expression),
+                    prettyprint_in_buffer(expression));
+        }
+
+        expression_set_nodecl(expression, nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression)));
+        return 0;
+    }
+
+    if (related_symbol != NULL
+            && !related_symbol->entity_specs.is_template_parameter)
+    {
+        expression_set_symbol(expression, related_symbol);
+        nodecl_set_symbol(expression_get_nodecl(expression), related_symbol);
+    }
+
+    return 1;
 }

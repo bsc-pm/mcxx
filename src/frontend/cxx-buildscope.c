@@ -7701,7 +7701,7 @@ static void build_scope_nontype_template_parameter(AST a,
     template_parameter_value_t* default_argument = NULL;
     if (default_expression != NULL)
     {
-        if (!check_expression(default_expression, template_context))
+        if (!check_nontype_template_argument_expression(default_expression, template_context))
         {
             error_printf("%s: error: could not check default argument of template parameter '%s'\n",
                     ast_location(default_expression),

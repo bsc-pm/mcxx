@@ -622,7 +622,7 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
     return result;
 }
 
-static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tree,
+static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, AST right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags);
 
@@ -637,8 +637,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 c_cxx_codegen_to_str(left_tree),
                 c_cxx_codegen_to_str(right_tree));
     }
-    if (nodecl_is_cxx_raw(left_tree)
-            || nodecl_is_cxx_raw(right_tree))
+    if (nodecl_is_cxx_dependent_expr(left_tree)
+            || nodecl_is_cxx_dependent_expr(right_tree))
     {
         DEBUG_CODE()
         {
@@ -670,8 +670,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         }
     }
 
-    if (!nodecl_is_cxx_raw(left_tree)
-            && !nodecl_is_cxx_raw(right_tree))
+    if (!nodecl_is_cxx_dependent_expr(left_tree)
+            && !nodecl_is_cxx_dependent_expr(right_tree))
     {
         scope_entry_t* left_symbol = nodecl_get_symbol(left_tree);
         scope_entry_t* right_symbol = nodecl_get_symbol(right_tree);
@@ -875,20 +875,20 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
         return 0;
     }
-    else if (nodecl_is_cxx_raw(left_tree)
-            && nodecl_is_cxx_raw(right_tree))
+    else if (nodecl_is_cxx_dependent_expr(left_tree)
+            && nodecl_is_cxx_dependent_expr(right_tree))
     {
-        return equivalent_dependent_expressions_cxx_raw(nodecl_unwrap_cxx_raw(left_tree),
-                nodecl_unwrap_cxx_raw(right_tree),
+        return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree),
+                nodecl_unwrap_cxx_dependent_expr(right_tree),
                 unif_set,
                 flags);
     }
     else
     {
         // These are special cases we allow
-        if (nodecl_is_cxx_raw(left_tree))
+        if (nodecl_is_cxx_dependent_expr(left_tree))
         {
-            AST left_expr = nodecl_unwrap_cxx_raw(left_tree);
+            AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree);
 
             DEBUG_CODE()
             {
@@ -902,9 +902,9 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
             }
         }
-        if (nodecl_is_cxx_raw(right_tree))
+        if (nodecl_is_cxx_dependent_expr(right_tree))
         {
-            AST right_expr = nodecl_unwrap_cxx_raw(right_tree);
+            AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree);
 
             DEBUG_CODE()
             {
@@ -929,7 +929,7 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     return 0;
 }
 
-static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tree,
+static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, AST right_tree,
         deduction_set_t** unif_set,
         deduction_flags_t flags)
 {
@@ -941,14 +941,14 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
     }
     nodecl_t nodecl_left = expression_get_nodecl(left_tree);
     if (!nodecl_is_null(nodecl_left)
-            && nodecl_is_cxx_raw(nodecl_left))
+            && nodecl_is_cxx_dependent_expr(nodecl_left))
     {
         nodecl_left = nodecl_null();
     }
 
     nodecl_t nodecl_right = expression_get_nodecl(right_tree);
     if (!nodecl_is_null(nodecl_right)
-            && nodecl_is_cxx_raw(nodecl_right))
+            && nodecl_is_cxx_dependent_expr(nodecl_right))
     {
         nodecl_right = nodecl_null();
     }
@@ -1013,9 +1013,9 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                 AST right_tree_0 = ASTSon0(right_tree);
                 AST right_tree_1 = ASTSon1(right_tree);
 
-                return equivalent_dependent_expressions_cxx_raw(left_tree_0,
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_tree_0,
                         right_tree_0, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_raw(left_tree_1, 
+                    && equivalent_dependent_expressions_cxx_dependent_expr(left_tree_1, 
                             right_tree_1, unif_set, flags);
                 break;
             }
@@ -1039,11 +1039,11 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                 AST right_true = ASTSon1(right_tree);
                 AST right_false = ASTSon2(right_tree);
 
-                return equivalent_dependent_expressions_cxx_raw(left_condition, 
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_condition, 
                         right_condition, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_raw(left_true, 
+                    && equivalent_dependent_expressions_cxx_dependent_expr(left_true, 
                             right_true, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_raw(left_false, 
+                    && equivalent_dependent_expressions_cxx_dependent_expr(left_false, 
                             right_false, unif_set, flags);
                 break;
             }
@@ -1065,7 +1065,7 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                 AST left_operand = ASTSon0(left_tree);
                 AST right_operand = ASTSon0(right_tree);
 
-                return equivalent_dependent_expressions_cxx_raw(left_operand, 
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_operand, 
                         right_operand, unif_set, flags);
             }
         case AST_SIZEOF :
@@ -1074,7 +1074,7 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                 AST left_sizeof = ASTSon0(left_tree);
                 AST right_sizeof = ASTSon0(right_tree);
 
-                return equivalent_dependent_expressions_cxx_raw(left_sizeof, 
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_sizeof, 
                         right_sizeof, unif_set, flags);
             }
         case AST_SIZEOF_TYPEID :
@@ -1101,7 +1101,7 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                         ast_location(right_tree));
                 AST right_first_expression = ASTSon1(right_expression_list);
 
-                return equivalent_dependent_expressions_cxx_raw(left_first_expression,
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_first_expression,
                         right_first_expression, 
                         unif_set, flags);
             }
@@ -1110,7 +1110,7 @@ static char equivalent_dependent_expressions_cxx_raw(AST left_tree, AST right_tr
                 AST left_reference = advance_expression_nest(ASTSon0(left_tree));
                 AST right_reference = advance_expression_nest(ASTSon0(right_tree));
 
-                return equivalent_dependent_expressions_cxx_raw(left_reference,
+                return equivalent_dependent_expressions_cxx_dependent_expr(left_reference,
                         right_reference, 
                         unif_set, flags);
             }

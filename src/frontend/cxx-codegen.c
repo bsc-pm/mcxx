@@ -3360,9 +3360,10 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     codegen_walk(visitor, statement);
 }
 
+// This should never happen
 static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    prettyprint(visitor->file, nodecl_unwrap_cxx_raw(node));
+    prettyprint(visitor->file, nodecl_unwrap_cxx_dependent_expr(node));
 }
 
 // Top level
@@ -3438,7 +3439,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_raw = codegen_visitor_fun(codegen_cxx_raw);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
 }
 
 // External interface
