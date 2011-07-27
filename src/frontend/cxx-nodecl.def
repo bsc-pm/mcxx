@@ -77,7 +77,7 @@ expression : literal
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
            | NODECL_MUL([lhs]expression, [rhs]expression) type
-           | NODECL_POWER([lsh]expression, [rhs]expression) type
+           | NODECL_POWER([lhs]expression, [rhs]expression) type
            | NODECL_DIV([lhs]expression, [rhs]expression) type
            | NODECL_MOD([lhs]expression, [rhs]expression) type
            | NODECL_ADD([lhs]expression, [rhs]expression) type
