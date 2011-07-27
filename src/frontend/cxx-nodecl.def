@@ -147,7 +147,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POSTINCREMENT([rhs]expression) type
                   | NODECL_PREDECREMENT([rhs]expression) type
                   | NODECL_POSTDECREMENT([rhs]expression) type
-                  | NODECL_SIZEOF([type]type) type
+                  | NODECL_SIZEOF([size_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
                   | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt) type
