@@ -115,12 +115,12 @@ initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | expression
           | fortran-implied-do
 
-fortran-implied-do: NODECL_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
+fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]subscript-triplet, [items]initializer-item-seq)
 
 argument : named-pair
          | expression
 
-named-pair: NODECL_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
+named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
 
 subscript : expression
@@ -165,24 +165,24 @@ cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
 type-or-expr : type
              | expression
 
-fortran-only-statements : NODECL_ALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
-                        | NODECL_ARITHMETIC_IF_STATEMENT([expr]expression, [lower]name, [equal]name, [upper]name)
-                        | NODECL_ASSIGNED_GOTO_STATEMENT([index]name, [label_seq]name-seq)
-                        | NODECL_OPEN_STATEMENT([io_items] fortran-io-spec-seq-opt)
-                        | NODECL_CLOSE_STATEMENT([io_items] fortran-io-spec-seq-opt)
-                        | NODECL_COMPUTED_GOTO_STATEMENT([label_seq]name-seq, [index] expression)
-                        | NODECL_DEALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
-                        | NODECL_IO_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt) text
-                        | NODECL_LABEL_ASSIGN_STATEMENT([label_var]name, [value]expression)
-                        | NODECL_NULLIFY_STATEMENT([items]expression-seq)
-                        | NODECL_PRINT_STATEMENT([format] expression, [io_items]fortran-io-item-seq-opt)
-                        | NODECL_READ_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
-                        | NODECL_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
-                        | NODECL_STOP_STATEMENT([stop_code]expression-opt)
-                        | NODECL_WHERE([where_set] where-pair-seq)
-                        | NODECL_FORALL([loop_control] loop-control-seq, [mask] expression-opt, [statement] statement-seq)
+fortran-only-statements : NODECL_FORTRAN_ALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
+                        | NODECL_FORTRAN_ARITHMETIC_IF_STATEMENT([expr]expression, [lower]name, [equal]name, [upper]name)
+                        | NODECL_FORTRAN_ASSIGNED_GOTO_STATEMENT([index]name, [label_seq]name-seq)
+                        | NODECL_FORTRAN_OPEN_STATEMENT([io_items] fortran-io-spec-seq-opt)
+                        | NODECL_FORTRAN_CLOSE_STATEMENT([io_items] fortran-io-spec-seq-opt)
+                        | NODECL_FORTRAN_COMPUTED_GOTO_STATEMENT([label_seq]name-seq, [index] expression)
+                        | NODECL_FORTRAN_DEALLOCATE_STATEMENT([items]expression-seq, [options]fortran-io-spec-seq-opt)
+                        | NODECL_FORTRAN_IO_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt) text
+                        | NODECL_FORTRAN_LABEL_ASSIGN_STATEMENT([label_var]name, [value]expression)
+                        | NODECL_FORTRAN_NULLIFY_STATEMENT([items]expression-seq)
+                        | NODECL_FORTRAN_PRINT_STATEMENT([format] expression, [io_items]fortran-io-item-seq-opt)
+                        | NODECL_FORTRAN_READ_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
+                        | NODECL_FORTRAN_WRITE_STATEMENT([io_spec_list]fortran-io-spec-seq-opt, [io_items]fortran-io-item-seq-opt)
+                        | NODECL_FORTRAN_STOP_STATEMENT([stop_code]expression-opt)
+                        | NODECL_FORTRAN_WHERE([where_set] where-pair-seq)
+                        | NODECL_FORTRAN_FORALL([loop_control] loop-control-seq, [mask] expression-opt, [statement] statement-seq)
 
-where-pair: NODECL_WHERE_PAIR([mask] expression-opt, [statement] statement-seq)
+where-pair: NODECL_FORTRAN_WHERE_PAIR([mask] expression-opt, [statement] statement-seq)
 
 # NODECL_FORTRAN_DATA
 #   This is used only for .data variable which holds the initializations by means

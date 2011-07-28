@@ -317,7 +317,7 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context, 
             expression_set_type(ac_value, expression_get_type(implied_do_ac_value));
 
             nodecl_t nodecl_implied_do = 
-                nodecl_make_implied_do(
+                nodecl_make_fortran_implied_do(
                         nodecl_make_symbol(do_variable, ASTFileName(ac_do_variable), ASTLine(ac_do_variable)),
                         nodecl_make_subscript_triplet(nodecl_lower, 
                             nodecl_upper, 
@@ -1973,7 +1973,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
                 else
                 {
                     ERROR_CONDITION(parameter == NULL, "We did not find the parameter", 0);
-                    nodecl_argument_spec = nodecl_make_named_pair_spec(
+                    nodecl_argument_spec = nodecl_make_fortran_named_pair_spec(
                             nodecl_make_symbol(parameter, ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec)),
                             nodecl_argument,
                             ASTFileName(actual_arg_spec), ASTLine(actual_arg_spec));
@@ -1982,7 +1982,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
             else
             {
                 internal_error("Alternate return not implemented yet", 0);
-                // nodecl_argument_spec = nodecl_make_named_pair_spec(
+                // nodecl_argument_spec = nodecl_make_fortran_named_pair_spec(
                 //         nodecl_null(),
                 //         nodecl_make_builtin_expr(
                 //             nodecl_make_any_list(
@@ -2353,7 +2353,7 @@ static void check_user_defined_unary_op(AST expr, decl_context_t decl_context, n
     *nodecl_output = nodecl_make_function_call(
             nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
             nodecl_make_list_1(
-                nodecl_make_named_pair_spec(nodecl_null(),
+                nodecl_make_fortran_named_pair_spec(nodecl_null(),
                     nodecl_expr,
                     ASTFileName(operand_expr),
                     ASTLine(operand_expr))),
@@ -2429,11 +2429,11 @@ static void check_user_defined_binary_op(AST expr, decl_context_t decl_context, 
     *nodecl_output = nodecl_make_function_call(
             nodecl_make_symbol(called_symbol, ASTFileName(expr), ASTLine(expr)),
             nodecl_make_list_2(
-                nodecl_make_named_pair_spec(nodecl_null(),
+                nodecl_make_fortran_named_pair_spec(nodecl_null(),
                     nodecl_lhs,
                     ASTFileName(lhs_expr),
                     ASTLine(lhs_expr)),
-                nodecl_make_named_pair_spec(nodecl_null(),
+                nodecl_make_fortran_named_pair_spec(nodecl_null(),
                     nodecl_rhs,
                     ASTFileName(rhs_expr),
                     ASTLine(rhs_expr))),
@@ -2768,11 +2768,11 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         *nodecl_output = nodecl_make_function_call(
                 nodecl_make_symbol(assignment_op, ASTFileName(expr), ASTLine(expr)),
                 nodecl_make_list_2(
-                    nodecl_make_named_pair_spec(
+                    nodecl_make_fortran_named_pair_spec(
                         nodecl_null(),
                         nodecl_lvalue,
                         ASTFileName(lvalue), ASTLine(lvalue)),
-                    nodecl_make_named_pair_spec(
+                    nodecl_make_fortran_named_pair_spec(
                         nodecl_null(),
                         nodecl_rvalue,
                         ASTFileName(rvalue), ASTLine(rvalue))),
