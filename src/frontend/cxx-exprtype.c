@@ -1984,7 +1984,7 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
     const char *literal = ASTText(expr);
 
     type_t* result = NULL;
-    if (*literal != 'L')
+    if (*literal == 'L')
     {
         result = get_wchar_t_type();
         literal++;
