@@ -959,7 +959,7 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
 
     // Try to go back to nodecl if possible
     if (!nodecl_is_null(nodecl_left)
-            && nodecl_is_null(nodecl_right))
+            && !nodecl_is_null(nodecl_right))
         return equivalent_dependent_expressions(nodecl_left, nodecl_right, unif_set, flags);
 
     if (ASTType(left_tree) != ASTType(right_tree))
