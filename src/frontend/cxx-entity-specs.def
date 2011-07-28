@@ -77,6 +77,7 @@ bool|fortran|is_module_procedure|This function has been named in an interface co
 bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
+symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist
@@ -89,7 +90,6 @@ integer|all|parameter_position|States the position of this parameter. See is_par
 type|all|class_type|The class type where a member belongs. See is_member
 symbol|fortran|from_module|If not NULL, it states that this symbol comes from this module
 symbol|fortran|in_module|If not NULL it means that this symbol is a component of the module
-symbol|fortran|alias_to|If this symbol is_renamed this is the original symbol in the module
 symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray pointer
 string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception

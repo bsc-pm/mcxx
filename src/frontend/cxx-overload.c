@@ -1518,13 +1518,14 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
 
     while (it != NULL)
     {
-        scope_entry_t* candidate = it->entry;
+        scope_entry_t* orig_candidate = it->entry;
+        int num_arguments = it->num_args;
+        type_t** argument_types = it->args;
+
+        scope_entry_t* candidate = entry_advance_aliases(orig_candidate);
 
         ERROR_CONDITION(!is_function_type(candidate->type_information),
                 "This is not a function", 0);
-
-        int num_arguments = it->num_args;
-        type_t** argument_types = it->args;
 
         if (can_be_called_with_number_of_arguments_ovl(candidate, num_arguments))
         {
@@ -1562,7 +1563,19 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                         && candidate->entity_specs.is_member
                         && !candidate->entity_specs.is_constructor)
                 {
-                    type_t* member_object_type = candidate->entity_specs.class_type;
+                    // Set 'this' parameter (not argument!)
+                    type_t* member_object_type = NULL;
+
+                    // Using entities use the class where they are used, not
+                    // their original type
+                    if (orig_candidate->kind == SK_USING)
+                    {
+                        member_object_type = orig_candidate->entity_specs.class_type;
+                    }
+                    else
+                    {
+                        member_object_type = candidate->entity_specs.class_type;
+                    }
                     member_object_type = get_cv_qualified_type(member_object_type, 
                             get_cv_qualifier(candidate->type_information));
                     member_object_type = get_lvalue_reference_type(member_object_type);
@@ -1832,13 +1845,14 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             candidate_t *it = candidate_set;
             while (it != NULL)
             {
+                scope_entry_t* entry = entry_advance_aliases(it->entry);
                 fprintf(stderr, "OVERLOAD: Candidate %d: %s, %s:%d [%s] %s\n",
                         i,
-                        it->entry->symbol_name,
-                        it->entry->file,
-                        it->entry->line,
-                        print_declarator(it->entry->type_information),
-                        (it->entry->entity_specs.is_builtin ? "<builtin function>" : ""));
+                        entry->symbol_name,
+                        entry->file,
+                        entry->line,
+                        print_declarator(entry->type_information),
+                        (entry->entity_specs.is_builtin ? "<builtin function>" : ""));
 
                 fprintf(stderr, "OVERLOAD: Candidate %d: called with (", i);
                 if (it->num_args == 0)
@@ -1851,8 +1865,8 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                     for (j = 0; j < it->num_args; j++)
                     {
                         if (j == 0 
-                                && it->entry->entity_specs.is_member
-                                && !it->entry->entity_specs.is_constructor)
+                                && entry->entity_specs.is_member
+                                && !entry->entity_specs.is_constructor)
                         {
                             fprintf(stderr, "[[implicit argument]] ");
                         }
@@ -1915,6 +1929,13 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             {
                 internal_error("Normal overloaded functions got somehow mixed with computed function types", 0);
             }
+
+            if (entry->kind != SK_FUNCTION
+                    && entry->kind != SK_USING)
+            {
+                internal_error("Invalid symbol of kind '%s' found during overload\n", symbol_kind_name(entry));
+            }
+
             it = it->next;
         }
     }
@@ -1939,13 +1960,14 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             overload_entry_list_t *it = viable_functions;
             while (it != NULL)
             {
+                scope_entry_t* entry = entry_advance_aliases(it->candidate->entry);
                 fprintf(stderr, "OVERLOAD:    %s:%d: %s\n",
-                        it->candidate->entry->file,
-                        it->candidate->entry->line,
+                        entry->file,
+                        entry->line,
                         print_decl_type_str(
-                            it->candidate->entry->type_information,
-                            it->candidate->entry->decl_context,
-                            it->candidate->entry->symbol_name));
+                            entry->type_information,
+                            entry->decl_context,
+                            entry->symbol_name));
 
                 it = it->next;
             }
@@ -1988,10 +2010,11 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             {
                 DEBUG_CODE()
                 {
+                    scope_entry_t* entry = entry_advance_aliases(current->candidate->entry);
                     fprintf(stderr, "Ambiguous call to '%s'\n",
-                            get_declaration_string_internal(current->candidate->entry->type_information,
-                                current->candidate->entry->decl_context,
-                                current->candidate->entry->symbol_name, 
+                            get_declaration_string_internal(entry->type_information,
+                                entry->decl_context,
+                                entry->symbol_name, 
                                 "", // initializer
                                 0, // semicolon
                                 0, // num_parameter_names
@@ -2011,10 +2034,11 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         // Write also the one that was the best
         DEBUG_CODE()
         {
+            scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
             fprintf(stderr, "Ambiguous call to '%s'\n",
-                    get_declaration_string_internal(best_viable->candidate->entry->type_information,
-                        best_viable->candidate->entry->decl_context,
-                        best_viable->candidate->entry->symbol_name, 
+                    get_declaration_string_internal(entry->type_information,
+                        entry->decl_context,
+                        entry->symbol_name, 
                         "", // initializer
                         0, // semicolon
                         0, // num_parameter_names
@@ -2031,10 +2055,11 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         {
             DEBUG_CODE()
             {
+                scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
                 fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
-                        get_declaration_string_internal(best_viable->candidate->entry->type_information,
-                            best_viable->candidate->entry->decl_context,
-                            best_viable->candidate->entry->symbol_name, 
+                        get_declaration_string_internal(entry->type_information,
+                            entry->decl_context,
+                            entry->symbol_name, 
                             "", // initializer
                             0, // semicolon
                             0, // num_parameter_names
@@ -2049,9 +2074,10 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
 
     DEBUG_CODE()
     {
+        scope_entry_t* entry = entry_advance_aliases(best_viable->candidate->entry);
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
-                best_viable->candidate->entry->symbol_name,
-                print_declarator(best_viable->candidate->entry->type_information));
+                entry->symbol_name,
+                print_declarator(entry->type_information));
     }
 
     if (conversors != NULL)
@@ -2092,7 +2118,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         }
     }
 
-    return best_viable->candidate->entry;
+    return entry_advance_aliases(best_viable->candidate->entry);
 }
 
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 

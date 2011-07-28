@@ -375,6 +375,8 @@ LIBMCXX_EXTERN type_t* function_type_get_return_type(type_t* t);
 
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
+LIBMCXX_EXTERN char function_type_same_parameter_types(type_t* t1, type_t* t2);
+
 LIBMCXX_EXTERN type_t* pointer_type_get_pointee_type(type_t *t);
 LIBMCXX_EXTERN scope_entry_t* pointer_to_member_type_get_class(type_t *t);
 LIBMCXX_EXTERN type_t* pointer_to_member_type_get_class_type(type_t *t);

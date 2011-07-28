@@ -1871,7 +1871,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_parenthesized_expression = codegen_visitor_fun(codegen_parenthesized_expression);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
     NODECL_VISITOR(codegen_visitor)->visit_function_call = codegen_visitor_fun(codegen_function_call);
-    NODECL_VISITOR(codegen_visitor)->visit_named_pair_spec = codegen_visitor_fun(codegen_named_pair_spec);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_named_pair_spec = codegen_visitor_fun(codegen_named_pair_spec);
     NODECL_VISITOR(codegen_visitor)->visit_empty_statement = codegen_visitor_fun(codegen_empty_statement);
     NODECL_VISITOR(codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
     NODECL_VISITOR(codegen_visitor)->visit_return_statement = codegen_visitor_fun(codegen_return_statement);
@@ -1887,26 +1887,26 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_continue_statement = codegen_visitor_fun(codegen_continue_statement);
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_io_spec = codegen_visitor_fun(codegen_fortran_io_spec);
-    NODECL_VISITOR(codegen_visitor)->visit_print_statement = codegen_visitor_fun(codegen_print_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_write_statement = codegen_visitor_fun(codegen_write_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_read_statement = codegen_visitor_fun(codegen_read_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_stop_statement = codegen_visitor_fun(codegen_stop_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_computed_goto_statement = codegen_visitor_fun(codegen_computed_goto_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_io_statement = codegen_visitor_fun(codegen_io_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_open_statement = codegen_visitor_fun(codegen_open_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_close_statement = codegen_visitor_fun(codegen_close_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_allocate_statement = codegen_visitor_fun(codegen_allocate_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_deallocate_statement = codegen_visitor_fun(codegen_deallocate_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_nullify_statement = codegen_visitor_fun(codegen_nullify_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_arithmetic_if_statement = codegen_visitor_fun(codegen_arithmetic_if_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_label_assign_statement = codegen_visitor_fun(codegen_label_assign_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_assigned_goto_statement = codegen_visitor_fun(codegen_assigned_goto_statement);
-    NODECL_VISITOR(codegen_visitor)->visit_implied_do = codegen_visitor_fun(codegen_implied_do);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_print_statement = codegen_visitor_fun(codegen_print_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_write_statement = codegen_visitor_fun(codegen_write_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_read_statement = codegen_visitor_fun(codegen_read_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_stop_statement = codegen_visitor_fun(codegen_stop_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_computed_goto_statement = codegen_visitor_fun(codegen_computed_goto_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_io_statement = codegen_visitor_fun(codegen_io_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_open_statement = codegen_visitor_fun(codegen_open_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_close_statement = codegen_visitor_fun(codegen_close_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_allocate_statement = codegen_visitor_fun(codegen_allocate_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_deallocate_statement = codegen_visitor_fun(codegen_deallocate_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_nullify_statement = codegen_visitor_fun(codegen_nullify_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_arithmetic_if_statement = codegen_visitor_fun(codegen_arithmetic_if_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_label_assign_statement = codegen_visitor_fun(codegen_label_assign_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_assigned_goto_statement = codegen_visitor_fun(codegen_assigned_goto_statement);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_implied_do = codegen_visitor_fun(codegen_implied_do);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_data = codegen_visitor_fun(codegen_fortran_data);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_equivalence = codegen_visitor_fun(codegen_fortran_equivalence);
 
-    NODECL_VISITOR(codegen_visitor)->visit_forall = codegen_visitor_fun(codegen_forall);
-    NODECL_VISITOR(codegen_visitor)->visit_where = codegen_visitor_fun(codegen_where);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
+    NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, nodecl_t node, scope_link_t* sl UNUSED_PARAMETER)

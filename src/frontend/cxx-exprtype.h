@@ -133,6 +133,11 @@ LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const char* filename,
         int line);
 
+LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context);
+
+// Like nodecl_make_function_call but takes care of virtual function calls
+LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);
+
 // Internal function for the frontend only
 char _check_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig,

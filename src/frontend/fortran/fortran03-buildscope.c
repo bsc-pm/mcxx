@@ -2253,7 +2253,7 @@ static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, alloc_opt_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_allocate_statement(nodecl_allocate_list, 
+    *nodecl_output = nodecl_make_fortran_allocate_statement(nodecl_allocate_list, 
                 nodecl_opt_value,
                 ASTFileName(a), ASTLine(a));
 }
@@ -2294,7 +2294,7 @@ static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context, n
     scope_entry_t* equal_label = query_label(equal, decl_context, /* is_definition */ 0);
     scope_entry_t* upper_label = query_label(upper, decl_context, /* is_definition */ 0);
 
-    *nodecl_output = nodecl_make_arithmetic_if_statement(
+    *nodecl_output = nodecl_make_fortran_arithmetic_if_statement(
                 expression_get_nodecl(numeric_expr),
                 nodecl_make_symbol(lower_label, ASTFileName(lower), ASTLine(lower)),
                 nodecl_make_symbol(equal_label, ASTFileName(equal), ASTLine(equal)),
@@ -2366,7 +2366,7 @@ static void build_io_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_o
         build_scope_input_output_item_list(input_output_item_list, decl_context, &nodecl_io_items);
     }
 
-   *nodecl_output = nodecl_make_io_statement(nodecl_io_spec_list, nodecl_io_items, ASTText(a), ASTFileName(a), ASTLine(a));
+   *nodecl_output = nodecl_make_fortran_io_statement(nodecl_io_spec_list, nodecl_io_items, ASTText(a), ASTFileName(a), ASTLine(a));
 }
 
 static const char* get_common_name_str(const char* common_name)
@@ -2568,7 +2568,7 @@ static void build_scope_close_stmt(AST a, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, close_spec_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_close_statement(nodecl_opt_value, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_close_statement(nodecl_opt_value, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, 
@@ -2695,7 +2695,7 @@ static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, n
 
     fortran_check_expression(ASTSon1(a), decl_context);
 
-    *nodecl_output = nodecl_make_computed_goto_statement(
+    *nodecl_output = nodecl_make_fortran_computed_goto_statement(
             nodecl_label_list,
             expression_get_nodecl(ASTSon1(a)),
             ASTFileName(a),
@@ -2722,7 +2722,7 @@ static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_
                 nodecl_make_symbol(label_sym, ASTFileName(label), ASTLine(label)));
     }
 
-    *nodecl_output = nodecl_make_assigned_goto_statement(
+    *nodecl_output = nodecl_make_fortran_assigned_goto_statement(
             nodecl_make_symbol(label_var, ASTFileName(a), ASTLine(a)),
             nodecl_label_list,
             ASTFileName(a),
@@ -2742,7 +2742,7 @@ static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t
 
     scope_entry_t* label_var = query_name_with_locus(decl_context, ASTSon0(a), ASTText(ASTSon0(a)));
 
-    *nodecl_output = nodecl_make_label_assign_statement(
+    *nodecl_output = nodecl_make_fortran_label_assign_statement(
             nodecl_make_symbol(label_var, ASTFileName(label_name), ASTLine(label_name)),
             expression_get_nodecl(literal_const),
             ASTFileName(a),
@@ -2883,7 +2883,7 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
     nodecl_t nodecl_rec = nodecl_null();
     rec_handler(implied_do_object_list, decl_context, &nodecl_rec);
 
-    *nodecl_output = nodecl_make_implied_do(
+    *nodecl_output = nodecl_make_fortran_implied_do(
             nodecl_make_symbol(do_variable, ASTFileName(io_do_variable), ASTLine(io_do_variable)),
             nodecl_make_subscript_triplet(nodecl_lower, nodecl_upper, nodecl_stride, 
                 ASTFileName(implied_do_control), ASTLine(implied_do_control)),
@@ -3016,7 +3016,7 @@ static void build_scope_deallocate_stmt(AST a,
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, dealloc_opt_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_deallocate_statement(nodecl_expr_list, 
+    *nodecl_output = nodecl_make_fortran_deallocate_statement(nodecl_expr_list, 
             nodecl_opt_value, 
             ASTFileName(a), 
             ASTLine(a));
@@ -3590,7 +3590,7 @@ static void build_scope_forall_construct(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(forall_body_construct_seq, decl_context, &nodecl_statement);
 
-    *nodecl_output = nodecl_make_forall(nodecl_loop_control_list, 
+    *nodecl_output = nodecl_make_fortran_forall(nodecl_loop_control_list, 
             nodecl_mask, 
             nodecl_statement,
             ASTFileName(a), ASTLine(a));
@@ -3612,7 +3612,7 @@ static void build_scope_forall_stmt(AST a,
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(forall_assignment_stmts, decl_context, &nodecl_statement);
 
-    *nodecl_output = nodecl_make_forall(nodecl_loop_control_list, 
+    *nodecl_output = nodecl_make_fortran_forall(nodecl_loop_control_list, 
             nodecl_mask, 
             nodecl_make_list_1(nodecl_statement),
             ASTFileName(a), ASTLine(a));
@@ -4043,7 +4043,7 @@ static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_
     }
 
     // Could we disguise this as a "x = NULL" expression?
-    *nodecl_output = nodecl_make_nullify_statement(nodecl_expr_list, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_nullify_statement(nodecl_expr_list, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_open_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4052,7 +4052,7 @@ static void build_scope_open_stmt(AST a, decl_context_t decl_context, nodecl_t* 
     nodecl_t nodecl_opt_value = nodecl_null();
     handle_opt_value_list(a, connect_spec_list, decl_context, &nodecl_opt_value);
 
-    *nodecl_output = nodecl_make_open_statement(nodecl_opt_value, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_open_statement(nodecl_opt_value, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4284,7 +4284,7 @@ static void build_scope_print_stmt(AST a, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_format = nodecl_null();
     opt_fmt_value(format, decl_context, &nodecl_format);
 
-    *nodecl_output = nodecl_make_print_statement(nodecl_get_child(nodecl_format, 0), nodecl_io_items, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_print_statement(nodecl_get_child(nodecl_format, 0), nodecl_io_items, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_procedure_decl_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4311,7 +4311,7 @@ static void build_scope_read_stmt(AST a, decl_context_t decl_context, nodecl_t* 
         build_scope_input_output_item_list(ASTSon1(a), decl_context, &nodecl_io_items);
     }
 
-   *nodecl_output = nodecl_make_read_statement(nodecl_opt_value, nodecl_io_items, ASTFileName(a), ASTLine(a));
+   *nodecl_output = nodecl_make_fortran_read_statement(nodecl_opt_value, nodecl_io_items, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_return_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4479,7 +4479,7 @@ static void build_scope_stop_stmt(AST a, decl_context_t decl_context,
     
     ASTAttrSetValueType(a, LANG_IS_FORTRAN_STOP_STATEMENT, tl_type_t, tl_bool(1));
 
-    *nodecl_output = nodecl_make_stop_statement(nodecl_stop_code, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_stop_statement(nodecl_stop_code, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_pause_stmt(AST a UNUSED_PARAMETER, 
@@ -5223,7 +5223,7 @@ static void build_scope_mask_elsewhere_part_seq(AST mask_elsewhere_part_seq, dec
         build_scope_where_body_construct_seq(where_body_construct_seq, decl_context, &nodecl_statement);
 
         *nodecl_output = nodecl_append_to_list(*nodecl_output,
-                nodecl_make_where_pair(
+                nodecl_make_fortran_where_pair(
                     expression_get_nodecl(expr),
                     nodecl_statement,
                     ASTFileName(expr),
@@ -5244,7 +5244,7 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
     nodecl_t nodecl_body = nodecl_null();
     build_scope_where_body_construct_seq(main_where_body, decl_context, &nodecl_body);
 
-    nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_where_pair(
+    nodecl_t nodecl_where_parts = nodecl_make_list_1( nodecl_make_fortran_where_pair(
                 expression_get_nodecl(mask_expr),
                 nodecl_body, ASTFileName(a), ASTLine(a)));
 
@@ -5263,11 +5263,11 @@ static void build_scope_where_construct(AST a, decl_context_t decl_context, node
         nodecl_t nodecl_elsewhere_body = nodecl_null();
         build_scope_where_body_construct_seq(elsewhere_body, decl_context, &nodecl_elsewhere_body);
         nodecl_where_parts = nodecl_concat_lists(nodecl_where_parts,
-            nodecl_make_list_1(nodecl_make_where_pair(nodecl_null(), nodecl_elsewhere_body, ASTFileName(a), ASTLine(a))));
+            nodecl_make_list_1(nodecl_make_fortran_where_pair(nodecl_null(), nodecl_elsewhere_body, ASTFileName(a), ASTLine(a))));
     }
 
 
-    *nodecl_output = nodecl_make_where(nodecl_where_parts, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_fortran_where(nodecl_where_parts, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5278,9 +5278,9 @@ static void build_scope_where_stmt(AST a, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_expression = nodecl_null();
     build_scope_expression_stmt(where_assignment_stmt, decl_context, &nodecl_expression);
 
-    *nodecl_output = nodecl_make_where(
+    *nodecl_output = nodecl_make_fortran_where(
             nodecl_make_list_1(
-                nodecl_make_where_pair(
+                nodecl_make_fortran_where_pair(
                     expression_get_nodecl(mask_expr),
                     nodecl_make_list_1(nodecl_expression),
                     ASTFileName(a), ASTLine(a))),
@@ -5326,7 +5326,7 @@ static void build_scope_write_stmt(AST a, decl_context_t decl_context, nodecl_t*
         build_scope_input_output_item_list(input_output_item_list, decl_context, &nodecl_io_items);
     }
 
-   *nodecl_output = nodecl_make_write_statement(nodecl_opt_value, nodecl_io_items, ASTFileName(a), ASTLine(a));
+   *nodecl_output = nodecl_make_fortran_write_statement(nodecl_opt_value, nodecl_io_items, ASTFileName(a), ASTLine(a));
 }
 
 void fortran_build_scope_statement_pragma(AST a, 

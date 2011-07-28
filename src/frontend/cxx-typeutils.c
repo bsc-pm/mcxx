@@ -1441,7 +1441,7 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                     expression_set_symbol(symbol, param->entry);
                     set_as_template_parameter_name(symbol, param->entry);
 
-                    new_value->value = nodecl_wrap_cxx_raw_expr(symbol);
+                    new_value->value = nodecl_wrap_cxx_dependent_expr(symbol);
 
                     break;
                 }
@@ -1677,7 +1677,7 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
         }
         else if (curr_argument->kind == TPK_NONTYPE)
         {
-            if (nodecl_is_cxx_raw(curr_argument->value))
+            if (nodecl_is_cxx_dependent_expr(curr_argument->value))
             {
                 return 1;
             }
@@ -1797,6 +1797,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     // State that this is a template specialized type
     specialized_type->info->is_template_specialized_type = 1;
+    specialized_type->template_parameters = template_arguments;
     specialized_type->template_arguments = template_arguments;
     specialized_type->related_template_type = t;
 
@@ -2666,7 +2667,7 @@ static type_t* _get_array_type(type_t* element_type,
 
             if (expression_sizes_ok
                     && !result->info->is_dependent
-                    && nodecl_get_kind(whole_size) == NODECL_CXX_RAW)
+                    && nodecl_is_cxx_dependent_expr(whole_size))
             {
                 result->info->is_dependent = 1;
             }
@@ -2699,7 +2700,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        if (nodecl_get_kind(whole_size) != NODECL_CXX_RAW)
+        if (!nodecl_is_cxx_dependent_expr(whole_size))
         {
             nodecl_t t = nodecl_copy(whole_size);
 
@@ -2725,7 +2726,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                         ASTLeaf(AST_DECIMAL_LITERAL, nodecl_get_filename(whole_size), nodecl_get_line(whole_size), "1"),
                         nodecl_get_filename(whole_size), nodecl_get_line(whole_size), NULL);
 
-            upper_bound = nodecl_wrap_cxx_raw_expr(minus_one);
+            upper_bound = nodecl_wrap_cxx_dependent_expr(minus_one);
         }
     }
 
@@ -8513,6 +8514,11 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
 {
     return compatible_parameters(potential_overrider->function, function_type->function)
         && covariant_return(potential_overrider, function_type);
+}
+
+char function_type_same_parameter_types(type_t* t1, type_t* t2)
+{
+    return compatible_parameters(t1->function, t2->function);
 }
 
 char class_type_is_trivially_copiable(type_t* t)

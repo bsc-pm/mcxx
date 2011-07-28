@@ -200,24 +200,24 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
-char nodecl_is_cxx_raw(nodecl_t n)
+char nodecl_is_cxx_dependent_expr(nodecl_t n)
 {
-    return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_RAW);
+    return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_DEPENDENT_EXPR);
 }
 
-nodecl_t nodecl_wrap_cxx_raw_expr(AST expression)
+nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression)
 {
     // Create a raw tree
-    nodecl_t nodecl_raw = nodecl_make_cxx_raw(ASTFileName(expression), ASTLine(expression));
+    nodecl_t nodecl_raw = nodecl_make_cxx_dependent_expr(ASTFileName(expression), ASTLine(expression));
     // Note that we do not want this nodecl_raw to become the parent of expression
     ast_set_child_but_parent(nodecl_get_ast(nodecl_raw), 0, expression);
 
     return nodecl_raw;
 }
 
-AST nodecl_unwrap_cxx_raw(nodecl_t n)
+AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n)
 {
-    ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_RAW, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
+    ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_DEPENDENT_EXPR, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
 
     return nodecl_get_ast(nodecl_get_child(n, 0));
 }
