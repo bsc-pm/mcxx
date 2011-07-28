@@ -3451,6 +3451,10 @@ static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, voi
 static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
+
+    if (!is_class_type(entry->type_information))
+        return;
+
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* destructor = class_type_get_destructor(entry->type_information);

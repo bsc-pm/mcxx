@@ -180,6 +180,9 @@ LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 // Utility
 LIBMCXX_EXTERN const char* unmangle_symbol_name(scope_entry_t* entry);
 
+// Debug
+LIBMCXX_EXTERN void print_template_parameter_list(template_parameter_list_t* template_parameters);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

@@ -984,7 +984,7 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
 
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "TYPEUNIF: One of the symbolic trees lacks a symbol, they can't be equivalent");
+                    fprintf(stderr, "TYPEUNIF: One of the symbolic trees lacks a symbol, they can't be equivalent\n");
                 }
                 return 0;
                 break;

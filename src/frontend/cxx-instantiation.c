@@ -88,6 +88,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
             member_of_template->symbol_name);
 
     template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
+    updated_template_parameters->enclosing = context_of_being_instantiated.template_parameters->enclosing;
 
     decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
     new_context_for_template_parameters.template_parameters = updated_template_parameters;
@@ -275,6 +276,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->symbol_name,
                             print_type_str(new_member->type_information, context_of_being_instantiated));
                 }
+                ERROR_CONDITION(is_dependent_type(new_member->type_information), "Invalid type", 0);
 
                 break;
             }
@@ -621,10 +623,19 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     // Update the template parameter with the deduced template parameters
     decl_context_t instantiation_context = named_class->decl_context;
-    instantiation_context.template_parameters = 
+
+    // Build the template arguments. We use the selected template to update its deduction
+    template_parameter_list_t* template_arguments = 
         build_template_parameter_list_from_deduction_set(
                 template_specialized_type_get_template_parameters(get_actual_class_type(selected_template)),
                 deduction_set);
+    // But the selected_template might be a nested one in a dependent context so we must update
+    // the enclosing template arguments with those of the original class
+    ERROR_CONDITION(named_class->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
+    template_arguments->enclosing = named_class->decl_context.template_parameters->enclosing;
+
+    // Our instantiation context is ready
+    instantiation_context.template_parameters = template_arguments;
 
     template_specialized_type_update_template_parameters(named_class->type_information,
             instantiation_context.template_parameters);

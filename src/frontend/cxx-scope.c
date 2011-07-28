@@ -1023,6 +1023,109 @@ static scope_entry_list_t* query_final_part_of_qualified(
     return result;
 }
 
+// This is not very efficient but will do at the moment
+static int _num_dependent_entities = 0;
+scope_entry_t** _dependent_entities = NULL;
+
+static scope_entry_t* create_new_dependent_entity(AST global_op, 
+        AST nested_name, 
+        AST unqualified_name,
+        decl_context_t nested_name_context,
+        type_t* dependent_type)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Need to return a dependent entity for '%s%s%s'\n",
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name),
+                prettyprint_in_buffer(unqualified_name));
+    }
+
+    // First lookup the type
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Looking up for a previous dependent entity '%s%s%s'\n",
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name),
+                prettyprint_in_buffer(unqualified_name));
+    }
+    int i;
+    for (i = 0; i < _num_dependent_entities; i++)
+    {
+        scope_entry_t* dep_entity = _dependent_entities[i];
+        if (equivalent_types(dep_entity->type_information, 
+                    dependent_type))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Found a previous dependent entity for '%s%s%s'. Returning '%p'\n",
+                        prettyprint_in_buffer(global_op),
+                        prettyprint_in_buffer(nested_name),
+                        prettyprint_in_buffer(unqualified_name),
+                        dep_entity);
+            }
+            return dep_entity;
+        }
+    }
+
+    // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
+    // dependent
+    scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
+    if (ASTType(unqualified_name) == AST_SYMBOL)
+    {
+        dependent_entity->symbol_name = ASTText(unqualified_name);
+    }
+    else if (ASTType(unqualified_name) == AST_TEMPLATE_ID)
+    {
+        dependent_entity->symbol_name = ASTText(ASTSon0(unqualified_name));
+    }
+    else if (ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID
+            || ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    {
+        dependent_entity->symbol_name = get_operator_function_name(unqualified_name);
+    }
+    else if (ASTType(unqualified_name) == AST_CONVERSION_FUNCTION_ID)
+    {
+        nodecl_t dummy_nodecl_output = nodecl_null();
+        dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
+                unqualified_name, /* result_type */ NULL, &dummy_nodecl_output);
+    }
+    else if (ASTType(unqualified_name) == AST_DESTRUCTOR_ID
+            || ASTType(unqualified_name) == AST_DESTRUCTOR_TEMPLATE_ID)
+    {
+        AST symbol = ASTSon0(unqualified_name);
+        const char *name = ASTText(symbol);
+        dependent_entity->symbol_name = name;
+    }
+    else
+    {
+        internal_error("unhandled dependent name '%s'\n", prettyprint_in_buffer(unqualified_name));
+    }
+
+    dependent_entity->decl_context = nested_name_context;
+    dependent_entity->kind = SK_DEPENDENT_ENTITY;
+    dependent_entity->type_information = dependent_type;
+    dependent_entity->language_dependent_value = 
+        ASTMake3(AST_QUALIFIED_ID,
+                ast_copy(global_op), 
+                ast_copy(nested_name), 
+                ast_copy(unqualified_name),
+                ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Not found a previous dependent entity for '%s%s%s'. Creating a new one '%p'\n",
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name),
+                prettyprint_in_buffer(unqualified_name),
+                dependent_entity);
+    }
+
+    P_LIST_ADD(_dependent_entities, _num_dependent_entities, dependent_entity);
+
+    return dependent_entity;
+}
+
 static scope_entry_list_t* query_qualified_name(
         decl_context_t nested_name_context,
         AST global_op,
@@ -1104,56 +1207,8 @@ static scope_entry_list_t* query_qualified_name(
     {
         if (dependent_type != NULL)
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Returning a dependent entity for '%s%s%s'\n",
-                        prettyprint_in_buffer(global_op),
-                        prettyprint_in_buffer(nested_name),
-                        prettyprint_in_buffer(unqualified_name));
-            }
-            // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
-            // dependent
-            scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
-            if (ASTType(unqualified_name) == AST_SYMBOL)
-            {
-                dependent_entity->symbol_name = ASTText(unqualified_name);
-            }
-            else if (ASTType(unqualified_name) == AST_TEMPLATE_ID)
-            {
-                dependent_entity->symbol_name = ASTText(ASTSon0(unqualified_name));
-            }
-            else if (ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID
-                    || ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-            {
-                dependent_entity->symbol_name = get_operator_function_name(unqualified_name);
-            }
-            else if (ASTType(unqualified_name) == AST_CONVERSION_FUNCTION_ID)
-            {
-                nodecl_t dummy_nodecl_output = nodecl_null();
-                dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
-                        unqualified_name, /* result_type */ NULL, &dummy_nodecl_output);
-            }
-            else if (ASTType(unqualified_name) == AST_DESTRUCTOR_ID
-                    || ASTType(unqualified_name) == AST_DESTRUCTOR_TEMPLATE_ID)
-            {
-                AST symbol = ASTSon0(unqualified_name);
-                const char *name = ASTText(symbol);
-                dependent_entity->symbol_name = name;
-            }
-            else
-            {
-                internal_error("unhandled dependent name '%s'\n", prettyprint_in_buffer(unqualified_name));
-            }
-
-            dependent_entity->decl_context = nested_name_context;
-            dependent_entity->kind = SK_DEPENDENT_ENTITY;
-            dependent_entity->type_information = dependent_type;
-            dependent_entity->language_dependent_value = 
-                ASTMake3(AST_QUALIFIED_ID,
-                        ast_copy(global_op), 
-                        ast_copy(nested_name), 
-                        ast_copy(unqualified_name),
-                        ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
+            scope_entry_t* dependent_entity = create_new_dependent_entity(global_op, nested_name, unqualified_name, 
+                    nested_name_context, dependent_type);
 
             result = entry_list_new(dependent_entity);
             return result;
@@ -3266,6 +3321,7 @@ static template_parameter_list_t *get_template_parameters_of_template_id(
                     // We can't allow a user defined conversion here since it
                     // would mean running code at compile time, which is not
                     // possible, so we check for a SCS.
+                    //
                     standard_conversion_t result;
                     if (!standard_conversion_between_types(&result, arg_type, dest_type))
                     {
@@ -4017,4 +4073,70 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     }
 
     return nesting;
+}
+
+// Debugging
+void print_template_parameter_list_aux(template_parameter_list_t* template_parameters, int* n)
+{
+    if (template_parameters == NULL)
+        return;
+
+    print_template_parameter_list_aux(template_parameters->enclosing, n);
+
+    (*n)++;
+
+    int i;
+    for (i = 0; i < template_parameters->num_parameters; i++)
+    {
+        const char* kind_name = "<<unknown>>";
+        switch (template_parameters->parameters[i]->kind)
+        {
+            case TPK_NONTYPE: kind_name = "nontype"; break;
+            case TPK_TYPE: kind_name = "type"; break;
+            case TPK_TEMPLATE: kind_name = "template"; break;
+            default: break;
+        }
+        fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
+                template_parameters->parameters[i]->entry->symbol_name,
+                kind_name);
+
+        template_parameter_value_t* v = template_parameters->arguments[i];
+        if (v == NULL)
+        {
+            fprintf(stderr, "  Argument: <<NONE>>\n");
+        }
+        else
+        {
+            switch (v->kind)
+            {
+                case TPK_TYPE:
+                case TPK_TEMPLATE:
+                    {
+                        fprintf(stderr, "  Argument: %s\n", print_declarator(v->type));
+                        break;
+                    }
+                case TPK_NONTYPE:
+                    {
+                        fprintf(stderr, "  Argument: %s\n", c_cxx_codegen_to_str(v->value));
+                        fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
+                        break;
+                    }
+                default:
+                    {
+                        fprintf(stderr, "  Argument: ????\n");
+                        break;
+                    }
+            }
+        }
+    }
+}
+
+void print_template_parameter_list(template_parameter_list_t* template_parameters)
+{
+    if (template_parameters == NULL)
+    {
+        fprintf(stderr, "<<<No template parameters>>>\n");
+    }
+    int n = 0;
+    print_template_parameter_list_aux(template_parameters, &n);
 }

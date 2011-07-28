@@ -1338,13 +1338,13 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 // non member declarations or member declarations if they have
                 // integral or enum type
                 char emit_initializer = 0;
-                if (!symbol->entity_specs.is_member
-                        || (symbol->entity_specs.is_static
-                            && (!visitor->in_member_declaration
-                                || ((is_integral_type(symbol->type_information) 
-                                        || is_enum_type(symbol->type_information))
-                                    && is_const_qualified_type(symbol->type_information)))
-                            && !nodecl_is_null(symbol->value)))
+                if (!nodecl_is_null(symbol->value)
+                        && (!symbol->entity_specs.is_member
+                            || (symbol->entity_specs.is_static
+                                && (!visitor->in_member_declaration
+                                    || ((is_integral_type(symbol->type_information) 
+                                            || is_enum_type(symbol->type_information))
+                                        && is_const_qualified_type(symbol->type_information))))))
                 {
                     emit_initializer = 1;
                     define_nonnested_entities_in_trees(visitor, symbol->value);
