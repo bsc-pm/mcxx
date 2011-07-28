@@ -26,7 +26,8 @@ Cambridge, MA 02139, USA.
 #include <sstream>
 #include <unistd.h>
 
-#include "extensible_graph.hpp"
+#include "cxx-codegen.h"
+#include "tl-extensible-graph.hpp"
 
 namespace TL
 {
@@ -100,6 +101,7 @@ namespace TL
         
         char buffer[1024];
         getcwd(buffer, 1024);
+        std::stringstream ss; ss << rand();
         std::string dot_file_name = std::string(buffer) + "/" + _name + ".dot";
         dot_cfg.open(dot_file_name.c_str());
         
@@ -126,40 +128,40 @@ namespace TL
         {
             actual_node->set_visited(true);
             Node_type ntype = actual_node->get_data <Node_type> ("type");
-            if (ntype == GRAPH_NODE)
-            {
-                std::stringstream ssgid; ssgid << subgraph_id;
-                std::string subgraph_label = actual_node->get_data<AST_t>("label").prettyprint();
-                std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
-                                             "LO: " + prettyprint_set(actual_node->get_live_out_vars());
-                dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
-                
-                makeup_dot_block(subgraph_label);
-                dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
-                subgraph_id++;
-                
-                std::vector<std::string> new_outer_edges;
-                std::vector<Node*> new_outer_nodes;
-                get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
-                std::stringstream ss; ss << actual_node->get_id();
-                dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + "\", shape=box]\n";
-                dot_graph += indent + "}\n";
-                
-                for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
-                        it != new_outer_nodes.end();
-                        ++it)
-                {
-                    std::vector<std::string> new_outer_edges_2;
-                    std::vector<Node*> new_outer_nodes_2;
-                    get_nodes_dot_data(*it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id);
-                }                
-                for(std::vector<std::string>::iterator it = new_outer_edges.begin();
-                        it != new_outer_edges.end();
-                        ++it)
-                {
-                    dot_graph += indent + (*it);
-                }
-            }
+//             if (ntype == GRAPH_NODE)
+//             {
+//                 std::stringstream ssgid; ssgid << subgraph_id;
+//                 std::string subgraph_label = actual_node->get_data<AST_t>("label").prettyprint();
+//                 std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
+//                                              "LO: " + prettyprint_set(actual_node->get_live_out_vars());
+//                 dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
+//                 
+//                 makeup_dot_block(subgraph_label);
+//                 dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
+//                 subgraph_id++;
+//                 
+//                 std::vector<std::string> new_outer_edges;
+//                 std::vector<Node*> new_outer_nodes;
+//                 get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
+//                 std::stringstream ss; ss << actual_node->get_id();
+//                 dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + "\", shape=box]\n";
+//                 dot_graph += indent + "}\n";
+//                 
+//                 for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
+//                         it != new_outer_nodes.end();
+//                         ++it)
+//                 {
+//                     std::vector<std::string> new_outer_edges_2;
+//                     std::vector<Node*> new_outer_nodes_2;
+//                     get_nodes_dot_data(*it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id);
+//                 }                
+//                 for(std::vector<std::string>::iterator it = new_outer_edges.begin();
+//                         it != new_outer_edges.end();
+//                         ++it)
+//                 {
+//                     dot_graph += indent + (*it);
+//                 }
+//             }
             
             if (ntype == BASIC_EXIT_NODE)
             {   // Ending the graph traversal, either the master graph or any subgraph
@@ -251,12 +253,6 @@ namespace TL
     {
         Node* entry_node = actual_node->get_data<Node*>("entry");
         get_nodes_dot_data(entry_node, dot_graph, outer_edges, outer_nodes, indent+"\t", subgraph_id);
-        
-//         Node* exit_node = actual_node->get_data<Node*>("exit");
-//         if (!exit_node->get_entry_edges().empty())
-//         {
-//             get_node_dot_data(exit_node, dot_graph, indent+"\t");
-//         }
     }
 
     void ExtensibleGraph::get_node_dot_data(Node* actual_node, std::string& dot_graph, std::string indent)
@@ -293,13 +289,14 @@ namespace TL
         else
         {
             // Get the Statements within the BB
-            ObjectList<AST_t> node_block = actual_node->get_data <ObjectList<AST_t> >("statements");
+            ObjectList<Nodecl::NodeclBase> node_block = actual_node->get_data <ObjectList<Nodecl::NodeclBase> >("statements");
             std::string aux_str = "";
-            for (ObjectList<AST_t>::iterator it = node_block.begin();
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = node_block.begin();
                     it != node_block.end();
                     it++)
             {
-                aux_str = it->prettyprint();
+                std::cerr << "Adding statement " << c_cxx_codegen_to_str(it->get_internal_nodecl()) << std::endl;
+                aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
                 makeup_dot_block(aux_str);
                 basic_block += aux_str + "\\n";
             }
@@ -311,11 +308,11 @@ namespace TL
             {
                 special_attrs = actual_node->get_data<std::string>("label") + " |";
             }
-            dot_graph += indent + ss.str() + "[label=\"{" + special_attrs + basic_block +
+            dot_graph += indent + ss.str() + "[label=\"{" + special_attrs + basic_block /*+
                             " | LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + 
                             " | KILL: " + prettyprint_set(actual_node->get_killed_vars()) +
                             " | UE: "   + prettyprint_set(actual_node->get_ue_vars()) +
-                            " | LO: "   + prettyprint_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";
+                            " | LO: "   + prettyprint_set(actual_node->get_live_out_vars())*/ + "}\", shape=record];\n";
         }
     }
     

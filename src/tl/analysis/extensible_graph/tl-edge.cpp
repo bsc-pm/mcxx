@@ -22,7 +22,7 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
-#include "edge.hpp"
+#include "tl-edge.hpp"
 
 namespace TL
 {

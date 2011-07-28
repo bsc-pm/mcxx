@@ -22,8 +22,8 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
-#include "node.hpp"
 #include "cxx-process.h"
+#include "tl-node.hpp"
 
 namespace TL
 {

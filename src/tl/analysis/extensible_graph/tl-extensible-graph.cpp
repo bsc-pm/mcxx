@@ -22,7 +22,7 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
-#include "extensible_graph.hpp"
+#include "tl-extensible-graph.hpp"
 #include "tl-pragmasupport.hpp"
 
 namespace TL
@@ -35,7 +35,8 @@ namespace TL
             _continue_stack(), _break_stack(),
             _unhand_try_excpt_list(), _labeled_node_list(), 
             _goto_node_list(), _throw_node_list(), _tasks_node_list(), 
-            _continue_stmt(false), _break_stmt(false), _goto_stmt(false)
+            _continue_stmt(false), _break_stmt(false), _goto_stmt(false), 
+            _last_node(NULL), _next_node(), _outer_graph()
     {}
 
     ExtensibleGraph::ExtensibleGraph(const ExtensibleGraph& graph)
@@ -54,11 +55,65 @@ namespace TL
         _throw_node_list = graph._throw_node_list;
         _tasks_node_list = graph._tasks_node_list;
         _goto_stmt = graph._goto_stmt;
+        _last_node = graph._last_node;
+        _next_node = graph._next_node;
+        _outer_graph = graph._outer_graph;
     }
-    
-    ExtensibleGraph::~ExtensibleGraph()
-    {}
 
+    void ExtensibleGraph::append_new_node_to_parent(Node* parent, ObjectList<Nodecl::NodeclBase> nodecls,
+                                                    Node_type ntype, Edge_type etype)
+    {
+        if (ntype == GRAPH_NODE)
+        {
+            internal_error("A Graph node must be created with the function 'create_graph_node' "
+                           "and connected by hand [new id = %d]", _nid);
+        }
+        
+        Node* outer_graph = NULL;
+        if (!_outer_graph.empty())
+        {
+            outer_graph = _outer_graph.top();
+        }
+        Node* new_node = new Node(_nid, ntype, outer_graph);
+        
+        if (ntype != BASIC_ENTRY_NODE && ntype != BASIC_EXIT_NODE && ntype != GRAPH_NODE && 
+            ntype != UNCLASSIFIED_NODE && ntype != FLUSH_NODE && ntype != BARRIER_NODE)
+        {
+            new_node->set_data("statements", nodecls);
+        }
+        if (parent != NULL)
+        {
+            connect_nodes(parent, new_node, etype);
+        }
+       
+        _last_node = new_node;
+    }
+
+    void connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label)
+    {
+        if (parent != NULL && child != NULL)
+        {
+            Edge* new_edge = new Edge(parent, child, etype, label);
+            parent->set_exit_edge(new_edge);
+            child->set_entry_edge(new_edge);
+        }
+        else
+        {
+            internal_error("Using a NULL node when connecting two nodes. Parent is NULL? '', Child is NULL? ''",
+                           parent == NULL, child == NULL);
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+    // OLD method
     void ExtensibleGraph::build_CFG(Statement stmt)
     {
         ObjectList<Statement> stmts;
@@ -71,6 +126,7 @@ namespace TL
         build_CFG(stmts);
     }
     
+    // OLD method
     void ExtensibleGraph::build_CFG(ObjectList<Statement> stmts)
     {
         _entry = new Node(_nid, BASIC_ENTRY_NODE, NULL);
@@ -79,16 +135,16 @@ namespace TL
         
         // FIXME The task subgraphs may be included, conservatively, at the end of the node
         //       But, before or after the return / _exit nodes ??
-        Node* last_node = graph;
+        _last_node = graph;
         for (ObjectList<Node*>::iterator it = _tasks_node_list.begin();
             it != _tasks_node_list.end();
             ++it)
         {
-            connect_nodes(last_node, *it);
-            last_node = *it;
+            connect_nodes(_last_node, *it);
+            _last_node = *it;
         }
         
-        _exit = append_new_node_to_parent(last_node, ObjectList<AST_t>(), NULL, BASIC_EXIT_NODE);
+        _exit = append_new_node_to_parent(_last_node, ObjectList<AST_t>(), NULL, BASIC_EXIT_NODE);
         connect_nodes(_unhand_try_excpt_list, _exit);
         connect_nodes(_throw_node_list, _exit);
         
@@ -260,7 +316,9 @@ namespace TL
         
         return last_node;
     }
+
     
+    // OLD method
     Node* ExtensibleGraph::build_node_from_sequential_statements(Node *parent, 
                                                                  ObjectList<Statement> stmts, 
                                                                  Node* outer_graph)

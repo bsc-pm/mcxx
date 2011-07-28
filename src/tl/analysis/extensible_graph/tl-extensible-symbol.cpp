@@ -24,7 +24,7 @@ Cambridge, MA 02139, USA.
 
 #include <algorithm>
 
-#include "extensible_symbol.hpp"
+#include "tl-extensible-symbol.hpp"
 
 namespace TL
 {

@@ -29,10 +29,11 @@ Cambridge, MA 02139, USA.
 #include <stack>
 
 #include "cxx-utils.h"
-#include "node.hpp"
+#include "tl-node.hpp"
+#include "tl-nodecl.hpp"
 #include "tl-fortran.hpp"
-#include "tl-statement.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-statement.hpp"
 
 namespace TL
 {
@@ -57,13 +58,16 @@ namespace TL
             ObjectList<Node*> _throw_node_list;
             ObjectList<Node*> _tasks_node_list;
             
+            //! Auxiliary values to know where we are
             bool _continue_stmt;
             bool _break_stmt;
             bool _goto_stmt;
-            
+            Node* _last_node;
+            Node* _next_node;
+            std::stack<Node*> _outer_graph;
             
             // *** Private methods *** //
-            
+
             
             //! Builds a set of connected nodes that are contained between two iterators.
             //! These statements must be a set contained within a SwitchStatement.
@@ -180,17 +184,59 @@ namespace TL
               \param sl ScopeLink context where the code is located.
               \param name Name which will identify the graph.
              */
-            ExtensibleGraph(ScopeLink sl, std::string name="");
+            ExtensibleGraph(ScopeLink sl, std::string name);
             
             //! Copy constructor
             ExtensibleGraph(const ExtensibleGraph& graph);
             
-            //! Destructor
-            ~ExtensibleGraph();
+           
+            // *** Modifiers *** //
+            
+            //! This method creates a new node containing a Basic Block and connects it to its
+            //! parent node with a new edge.
+            /*!
+              The method modifies the attribute #_last_node that will be the new node created.
+              \param parent Parent of the new node.
+              \param nodecls Set of NodeclBase containing the Statements of a Basic Bloc.
+              \param ntype Type of the node to be created. 
+                           By default is BASIC_NORMAL_NODE.
+              \param etype Type of the new edge that connects the new node with @_last_node.
+                           By default is ALWAYS_EDGE.
+             */
+            void append_new_node_to_parent(Node* parent,
+                                           ObjectList<Nodecl::NodeclBase> child_nodecls,
+                                           Node_type ntype = BASIC_NORMAL_NODE,
+                                           Edge_type etype = ALWAYS_EDGE);
+            
+            //! Connects two nodes by creating a new edge between them.
+            /*!
+              \param parent Source node of the connection.             
+              \param child Target node of the connection.
+              \param etype Type of the connection between the two nodes.
+              \param label Label for the connection. It will be used when a Catch or a Case edges
+                           are built.
+             */
+            void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
+                               std::string label = "");        
+            
+           
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             
             
             // *** Modifiers *** //
-            
+           
             //! Wrapper method for #build_CFG, when the code is contained in an only Statement
             void build_CFG(Statement stmt);
             
@@ -468,6 +514,8 @@ namespace TL
             void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
             
+            
+            // OLD method
             //! Connects two nodes by creating a new edge between them.
             /*!
               \param parent Source node of the connection. 
@@ -476,8 +524,8 @@ namespace TL
               \param label Label for the connection. It will be used when a Catch or a Case edges
                            are built.
              */
-            void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
-                               std::string label = "");
+//             void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
+//                                std::string label = "");
             
             //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
             void disconnect_nodes(ObjectList<Node*> parents, Node* child);
@@ -524,6 +572,7 @@ namespace TL
             //! Computes the define-use chain of the cfg
             void live_variable_analysis();
             
+        friend class CfgVisitor;
     };
 }
 

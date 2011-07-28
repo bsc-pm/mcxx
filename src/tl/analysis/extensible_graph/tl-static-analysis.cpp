@@ -22,8 +22,8 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
-#include "extensible_graph.hpp"
-#include "extensible_symbol.hpp"
+#include "tl-extensible-graph.hpp"
+#include "tl-extensible-symbol.hpp"
 
 namespace TL
 {

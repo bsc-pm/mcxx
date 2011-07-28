@@ -26,7 +26,6 @@ Cambridge, MA 02139, USA.
 #define TL_ANALYSIS_PHASE_HPP
 
 #include "tl-objectlist.hpp"
-#include "extensible_graph.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-fortran.hpp"
 
@@ -35,11 +34,6 @@ namespace TL
     //! Phase that allows several analysis of code
     class LIBTL_CLASS AnalysisPhase : public CompilerPhase
     {
-        private:
-            ObjectList<FunctionDefinition> _func_defs;
-            ObjectList<Fortran::ProgramUnit> _prog_units;
-            ScopeLink _sl;
-        
         public:
             //! Constructor of this phase
             AnalysisPhase();

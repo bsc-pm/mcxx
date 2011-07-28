@@ -25,8 +25,8 @@ Cambridge, MA 02139, USA.
 #ifndef EDGE_HPP
 #define EDGE_HPP
 
-#include "node.hpp"
-#include "structures.hpp"
+#include "tl-node.hpp"
+#include "tl-structures.hpp"
 #include "tl-builtin.hpp"
 
 namespace TL

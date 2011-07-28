@@ -25,9 +25,10 @@ Cambridge, MA 02139, USA.
 #ifndef NODE_HPP
 #define NODE_HPP
 
-#include "edge.hpp"
-#include "extensible_symbol.hpp"
-#include "structures.hpp"
+#include "tl-edge.hpp"
+#include "tl-extensible-symbol.hpp"
+#include "tl-structures.hpp"
+
 #include "tl-ast.hpp"
 #include "tl-builtin.hpp"
 #include "tl-objectlist.hpp"

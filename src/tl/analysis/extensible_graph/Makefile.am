@@ -35,16 +35,18 @@ END=
 EXTRA_DIST =
 
 libextensible_graph_la_SOURCES = \
-   edge.hpp \
-   edge.cpp \
-   node.hpp \
-   node.cpp \
-   extensible_graph.cpp \
-   extensible_graph.hpp \
-   dot_graph.cpp \
-   extensible_symbol.hpp \
-   extensible_symbol.cpp \
-   static_analysis.cpp \
+   tl-edge.hpp \
+   tl-edge.cpp \
+   tl-node.hpp \
+   tl-node.cpp \
+   tl-extensible-graph.cpp \
+   tl-extensible-graph.hpp \
+   tl-dot-graph.cpp \
+   tl-extensible-symbol.hpp \
+   tl-extensible-symbol.cpp \
+   tl-static-analysis.cpp \
+   tl-cfg-visitor.hpp \
+   tl-cfg-visitor.cpp \
    tl-analysis-phase.hpp \
    tl-analysis-phase.cpp \
    $(END)
