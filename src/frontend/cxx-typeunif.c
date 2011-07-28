@@ -933,12 +933,16 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
         deduction_set_t** unif_set,
         deduction_flags_t flags)
 {
+    left_tree = advance_expression_nest(left_tree);
+    right_tree = advance_expression_nest(right_tree);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Checking whether raw C++ trees %s and %s are equivalent\n",
                 prettyprint_in_buffer(left_tree),
                 prettyprint_in_buffer(right_tree));
     }
+
     nodecl_t nodecl_left = expression_get_nodecl(left_tree);
     if (!nodecl_is_null(nodecl_left)
             && nodecl_is_cxx_dependent_expr(nodecl_left))
@@ -957,9 +961,6 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
     if (!nodecl_is_null(nodecl_left)
             && nodecl_is_null(nodecl_right))
         return equivalent_dependent_expressions(nodecl_left, nodecl_right, unif_set, flags);
-
-    left_tree = advance_expression_nest(left_tree);
-    right_tree = advance_expression_nest(right_tree);
 
     if (ASTType(left_tree) != ASTType(right_tree))
         return 0;
