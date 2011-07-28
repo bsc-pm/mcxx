@@ -40,6 +40,10 @@ struct nodecl_codegen_visitor_tag
     scope_entry_t* classes_being_defined[MCXX_MAX_SCOPES_NESTING];
 
     scope_entry_list_t* pending_nested_types_to_define;
+
+    char in_member_declaration;
+
+    char do_not_emit_declarations;
 } nodecl_codegen_visitor_t;
 
 
@@ -508,6 +512,12 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
             if (member->kind != SK_CLASS
                     && member->kind != SK_ENUM)
             {
+                if (member->kind == SK_VARIABLE
+                        && member->entity_specs.is_static
+                        && !nodecl_is_null(member->value))
+                {
+                    define_nonnested_entities_in_trees(visitor, member->value);
+                }
                 walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
                         declare_symbol_if_nonnested, 
                         define_symbol_if_nonnested,
@@ -607,9 +617,9 @@ static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor,
                     walk_type_for_symbols(visitor,
                             argument->type,
                             /* needs_def */ 0,
-                            declare_symbol,
-                            define_symbol,
-                            define_all_entities_in_trees);
+                            declare_symbol_if_nonnested,
+                            define_symbol_if_nonnested,
+                            define_nonnested_entities_in_trees);
                     break;
                 }
             case TPK_NONTYPE:
@@ -617,9 +627,10 @@ static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor,
                     walk_type_for_symbols(visitor,
                             argument->type,
                             /* needs_def */ 1,
-                            declare_symbol,
-                            define_symbol,
-                            define_all_entities_in_trees);
+                            declare_symbol_if_nonnested,
+                            define_symbol_if_nonnested,
+                            define_nonnested_entities_in_trees);
+                    define_nonnested_entities_in_trees(visitor, argument->value);
                     break;
                 }
             case TPK_TEMPLATE:
@@ -873,6 +884,9 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
         visitor->indent_level += 1;
 
+        char old_in_member_declaration = visitor->in_member_declaration;
+        visitor->in_member_declaration = 1;
+
         C_LANGUAGE()
         {
             // Everything must be properly defined in C
@@ -914,8 +928,11 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             else 
             {
                 declare_symbol(visitor, member);
-                if (member->kind == SK_VARIABLE && 
-                        !member->entity_specs.is_static)
+                if (member->kind == SK_VARIABLE 
+                        && (!member->entity_specs.is_static
+                            || ((is_integral_type(member->type_information) 
+                                    || is_enum_type(member->type_information))
+                                && is_const_qualified_type(member->type_information))))
                 {
                     member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                 }
@@ -925,6 +942,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 }
             }
         }
+        visitor->in_member_declaration = old_in_member_declaration;
+
         visitor->indent_level--;
 
         CXX_LANGUAGE()
@@ -1037,14 +1056,10 @@ static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t
 {
     scope_entry_list_t* old_pending = visitor->pending_nested_types_to_define;
 
-    ERROR_CONDITION(visitor->num_classes_being_defined == MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
+    ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
     visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
     visitor->num_classes_being_defined++;
 
-    // FIXME - We should do likewise for declared friends
-
-    // 1. Only for top level classes Make sure that every non-member type (or not belonging to this class)
-    // needed by the members has been declared/defined before
     scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
@@ -1052,15 +1067,30 @@ static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t
     visitor->pending_nested_types_to_define = old_pending;
 }
 
+static char symbol_is_nested_in_defined_classes(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol);
+
 static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
     ERROR_CONDITION(symbol == NULL, "Invalid symbol", 0);
 
-    if (symbol->entity_specs.is_injected_class_name)
-        symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+    if (visitor->do_not_emit_declarations)
+        return;
 
     if (symbol->do_not_print)
         return;
+
+    if (symbol->entity_specs.is_injected_class_name)
+        symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+
+    if (symbol->entity_specs.is_member)
+    {
+        scope_entry_t* class_entry = named_type_get_symbol(symbol->entity_specs.class_type);
+        if (!symbol_is_nested_in_defined_classes(visitor, class_entry))
+        {
+            define_symbol_if_nonnested(visitor, class_entry);
+            return;
+        }
+    }
 
     // Do nothing if already defined
     if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED)
@@ -1158,6 +1188,32 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
 static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, template_parameter_list_t* template_parameters)
 {
     int i;
+    // First traversal to ensure that everything is declared
+    for (i = 0; i < template_parameters->num_parameters; i++)
+    {
+        template_parameter_t* tpl_param = template_parameters->parameters[i];
+        switch (tpl_param->kind)
+        {
+            case TPK_NONTYPE:
+                {
+                    walk_type_for_symbols(visitor, tpl_param->entry->type_information,
+                            /* needs_def */ 1,
+                            declare_symbol_if_nonnested,
+                            define_symbol_if_nonnested,
+                            define_nonnested_entities_in_trees);
+                    break;
+                }
+            case TPK_TYPE:
+            case TPK_TEMPLATE:
+                {
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid template parameter kind", 0);
+                }
+        }
+    }
     for (i = 0; i < template_parameters->num_parameters; i++)
     {
         template_parameter_t* tpl_param = template_parameters->parameters[i];
@@ -1206,13 +1262,28 @@ static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, templ
     }
 }
 
-
 static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node);
 
 static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
+    if (visitor->do_not_emit_declarations)
+        return;
+
     if (symbol->entity_specs.is_injected_class_name)
         symbol = named_type_get_symbol(symbol->entity_specs.class_type);
+
+    if (symbol->do_not_print)
+        return;
+
+    if (symbol->entity_specs.is_member)
+    {
+        scope_entry_t* class_entry = named_type_get_symbol(symbol->entity_specs.class_type);
+        if (!symbol_is_nested_in_defined_classes(visitor, class_entry))
+        {
+            define_symbol_if_nonnested(visitor, class_entry);
+            return;
+        }
+    }
 
     // Do nothing if already defined or declared
     if (symbol->entity_specs.codegen_status == CODEGEN_STATUS_DEFINED
@@ -1221,9 +1292,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
     add_to_clear_list(symbol);
     symbol->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
-
-    if (symbol->do_not_print)
-        return;
 
     switch (symbol->kind)
     {
@@ -1266,13 +1334,29 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
                         unmangle_symbol_name(symbol));
 
+                // Emit the initializer for nonmembers and nonstatic members in
+                // non member declarations or member declarations if they have
+                // integral or enum type
+                char emit_initializer = 0;
+                if (!symbol->entity_specs.is_member
+                        || (symbol->entity_specs.is_static
+                            && (!visitor->in_member_declaration
+                                || ((is_integral_type(symbol->type_information) 
+                                        || is_enum_type(symbol->type_information))
+                                    && is_const_qualified_type(symbol->type_information)))
+                            && !nodecl_is_null(symbol->value)))
+                {
+                    emit_initializer = 1;
+                    define_nonnested_entities_in_trees(visitor, symbol->value);
+                }
+
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 indent(visitor);
                 fprintf(visitor->file, "%s%s%s",
                         decl_specifiers, gcc_attributes, declarator);
 
                 // Initializer
-                if (!nodecl_is_null(symbol->value))
+                if (emit_initializer)
                 {
                     char equal_is_needed = 0;
                     C_LANGUAGE()
@@ -1430,8 +1514,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     if (is_template_specialized
                             && !is_primary_template)
                     {
-                        fprintf(visitor->file, "%s", 
-                                get_template_arguments_str(symbol, symbol->decl_context));
+                        fprintf(visitor->file, "%s", get_template_arguments_str(symbol, symbol->decl_context));
                     }
 
                     fprintf(visitor->file, ";\n");
@@ -1455,8 +1538,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 walk_type_for_symbols(visitor,
                         symbol->type_information,
                         /* needs_def */ 0,
-                        declare_symbol,
-                        define_symbol,
+                        declare_symbol_if_nonlocal,
+                        define_symbol_if_nonlocal,
                         define_nonlocal_entities_in_trees);
                 break;
             }
@@ -1470,8 +1553,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 walk_type_for_symbols(visitor,
                         symbol->type_information,
                         0,
-                        declare_symbol,
-                        define_symbol,
+                        declare_symbol_if_nonlocal,
+                        define_symbol_if_nonlocal,
                         define_nonlocal_entities_in_trees);
 
                 CXX_LANGUAGE()
@@ -1817,6 +1900,11 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
     ERROR_CONDITION(entry == NULL, "Invalid symbol", 0);
+
+    if (entry->entity_specs.is_member)
+    {
+        define_symbol(visitor, named_type_get_symbol(entry->entity_specs.class_type));
+    }
 
     CXX_LANGUAGE()
     {
@@ -3552,6 +3640,7 @@ char* c_cxx_codegen_to_str(nodecl_t node)
     FILE* temporal_stream = open_memstream(&str, &size);
 
     nodecl_codegen_visitor_t codegen_visitor;
+    memset(&codegen_visitor, 0, sizeof(codegen_visitor));
 
     c_cxx_codegen_init(&codegen_visitor);
 
@@ -3561,6 +3650,8 @@ char* c_cxx_codegen_to_str(nodecl_t node)
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;
+
+    codegen_visitor.do_not_emit_declarations = 1;
 
     codegen_walk(&codegen_visitor, node);
 
