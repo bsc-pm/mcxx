@@ -1840,15 +1840,89 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     const_value_t* value = nodecl_get_constant(node);
     ERROR_CONDITION(value == NULL, "Invalid value", 0);
 
-    // FIXME: Improve this to use integer literal suffix when possible
-    // FIXME: Write 'A' instead of 65
-    if (const_value_is_signed(value))
+    type_t* t = nodecl_get_type(node);
+
+    if (is_char_type(t))
     {
-        fprintf(visitor->file, "%lld", (long long int)const_value_cast_to_8(value));
+        unsigned char b = const_value_cast_to_1(value);
+
+        switch (b)
+        {
+            case '\'' : { fprintf(visitor->file, "%s", "'\\''"); break; }
+            case '\\': { fprintf(visitor->file, "%s",  "'\\\\'"); break; }
+            case '\a' : { fprintf(visitor->file, "%s", "'\\a'"); break; }
+            case '\b' : { fprintf(visitor->file, "%s", "'\\b'"); break; }
+            case '\e' : { fprintf(visitor->file, "%s", "'\\e'"); break; } // GCC extension
+            case '\f' : { fprintf(visitor->file, "%s", "'\\f'"); break; }
+            case '\n' : { fprintf(visitor->file, "%s", "'\\n'"); break; }
+            case '\r' : { fprintf(visitor->file, "%s", "'\\r'"); break; }
+            case '\t' : { fprintf(visitor->file, "%s", "'\\t'"); break; }
+            case '\v' : { fprintf(visitor->file, "%s", "'\\v'"); break; }
+            case '\"' : { fprintf(visitor->file, "%s", "'\\\"'"); break; }
+            default: {
+                         if (isprint(b))
+                         {
+                             if (is_signed_char_type(t))
+                             {
+                                 fprintf(visitor->file, "'%c'", (signed char) b);
+                             }
+                             else
+                             {
+                                 fprintf(visitor->file, "'%c'", (unsigned char) b);
+                             }
+                         }
+                         else
+                         {
+                             fprintf(visitor->file, "'\\x%x'", b);
+                         }
+                     }
+        }
     }
-    else
+    else if (is_wchar_t_type(t))
     {
-        fprintf(visitor->file, "%llu", (unsigned long long)const_value_cast_to_8(value));
+        unsigned int mb = const_value_cast_to_4(value);
+        fprintf(visitor->file, "L'\\x%x'", mb);
+    }
+    else 
+    {
+        unsigned long long int v = const_value_cast_to_8(value);
+
+        if (is_signed_int_type(t))
+        {
+            fprintf(visitor->file, "%lld", (signed long long int)v);
+        }
+        else if (is_unsigned_int_type(t))
+        {
+            fprintf(visitor->file, "%lluU", v);
+        }
+        else if (is_signed_long_int_type(t))
+        {
+            fprintf(visitor->file, "%lldL", v);
+        }
+        else if (is_unsigned_long_int_type(t)) 
+        {
+            fprintf(visitor->file, "%lluLU", v);
+        }
+        else if (is_signed_long_long_int_type(t))
+        {
+            fprintf(visitor->file, "%lldLL", v);
+        }
+        else if (is_unsigned_long_long_int_type(t))
+        {
+            fprintf(visitor->file, "%lluLLU", v);
+        }
+        else
+        {
+            // Remaining integers like 'short'
+            if (const_value_is_signed(value))
+            {
+                fprintf(visitor->file, "%lld", v);
+            }
+            else
+            {
+                fprintf(visitor->file, "%llu", v);
+            }
+        }
     }
 }
 
