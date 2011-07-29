@@ -6898,7 +6898,6 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 entry_list,
                 explicit_template_parameters,
                 function_type_being_declared,
-                decl_context,
                 ASTFileName(declarator_id),
                 ASTLine(declarator_id)
                 );
