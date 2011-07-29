@@ -88,16 +88,16 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
             member_of_template->symbol_name);
 
     template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
-    updated_template_parameters->enclosing = context_of_being_instantiated.template_parameters->enclosing;
+    updated_template_parameters->enclosing = context_of_being_instantiated.template_parameters;
 
     decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
     new_context_for_template_parameters.template_parameters = updated_template_parameters;
         
     // Update the template parameters
     int i;
-    for (i = 0; i < template_parameters->num_parameters; i++)
+    for (i = 0; i < updated_template_parameters->num_parameters; i++)
     {
-        if (template_parameters->arguments[i] != NULL)
+        if (updated_template_parameters->arguments[i] != NULL)
         {
             updated_template_parameters->arguments[i] = update_template_parameter_value(
                     template_parameters->arguments[i],
@@ -866,7 +866,7 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 
     deduction_set_t* unification_set = NULL;
 
-    type_t* selected_template = solve_class_template(decl_context,
+    type_t* selected_template = solve_class_template(
             template_type, 
             get_user_defined_type(entry),
             &unification_set, filename, line);
