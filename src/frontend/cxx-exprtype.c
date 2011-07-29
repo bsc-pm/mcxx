@@ -11491,6 +11491,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 || is_vector_type(declared_type))
             && is_aggregate_type(declared_type))
     {
+        nodecl_t nodecl_initializer_list = nodecl_null();
         if (expression_list != NULL)
         {
             if (!is_array_type(declared_type)
@@ -11636,20 +11637,23 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             }
             // FIXME - Vector???
 
-            nodecl_t nodecl_initializer_list = nodecl_null();
             for_each_element(expression_list, iter)
             {
                 AST current_init = ASTSon1(iter);
                 nodecl_initializer_list = nodecl_append_to_list(nodecl_initializer_list,
                         expression_get_nodecl(current_init));
             }
-
-            nodecl_t nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list,
-                    expression_get_type(initializer), 
-                    ASTFileName(initializer), 
-                    ASTLine(initializer));
-            expression_set_nodecl(initializer, nodecl_output);
         }
+        else
+        {
+            expression_set_type(initializer, declared_type);
+        }
+
+        nodecl_t nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list,
+                expression_get_type(initializer), 
+                ASTFileName(initializer), 
+                ASTLine(initializer));
+        expression_set_nodecl(initializer, nodecl_output);
         return 1;
     }
     // Not an aggregate class
