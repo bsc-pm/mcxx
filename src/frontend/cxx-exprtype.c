@@ -6406,20 +6406,11 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             else if (entry->kind == SK_FUNCTION)
             {
                 type_t* t = get_unresolved_overloaded_type(result, /* template_args */ NULL);
-                scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
-                        decl_context, ASTLine(expr), ASTFileName(expr));
+
                 nodecl_t nodecl_output = nodecl_null();
-                if (simplified == NULL)
-                {
-                    expression_set_type(expr, t);
-                    nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-                }
-                else
-                {
-                    expression_set_type(expr, lvalue_ref(simplified->type_information));
-                    expression_set_is_lvalue(expr, 1);
-                    nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
-                }
+
+                expression_set_type(expr, t);
+                nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
                 expression_set_nodecl(expr, nodecl_output);
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -6661,20 +6652,10 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         else if (entry->kind == SK_FUNCTION)
         {
             type_t* t = get_unresolved_overloaded_type(result_list, /* template_args */ NULL);
-            scope_entry_t* simplified = unresolved_overloaded_type_simplify(t, 
-                    decl_context, ASTLine(expr), ASTFileName(expr));
+
             nodecl_t nodecl_output = nodecl_null();
-            if (simplified == NULL)
-            {
-                expression_set_type(expr, t);
-                nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-            }
-            else
-            {
-                expression_set_type(expr, lvalue_ref(simplified->type_information));
-                expression_set_is_lvalue(expr, 1);
-                nodecl_output = nodecl_make_symbol(simplified, ASTFileName(expr), ASTLine(expr));
-            }
+            expression_set_type(expr, t);
+            nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
             expression_set_nodecl(expr, nodecl_output);
         }
         else if (entry->kind == SK_TEMPLATE)
