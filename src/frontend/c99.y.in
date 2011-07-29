@@ -221,7 +221,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> functional_declarator
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
-%type<ast> final_declarator_id
+%type<ast> functional_final_declarator_id
 %type<ast> decl_specifier_seq
 %type<ast> decl_specifier_seq_may_end_with_declarator
 %type<ast> abstract_direct_declarator
@@ -1067,6 +1067,35 @@ ptr_operator : '*'
    A functional declarator is a syntactic enforced declarator that will have
    a functional nature
  */
+// functional_declarator : functional_direct_declarator
+// {
+// 	$$ = ASTMake1(AST_DECLARATOR, $1, ASTFileName($1), ASTLine($1), NULL);
+// }
+// | ptr_operator functional_declarator
+// {
+// 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+// }
+// // GNU extension
+// | attributes functional_direct_declarator
+// {
+// 	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+// }
+// | attributes ptr_operator functional_declarator
+// {
+// 	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+// }
+// ;
+// 
+// functional_direct_declarator : functional_declarator_id
+// {
+// 	$$ = $1;
+// }
+// | '(' functional_declarator ')'
+// {
+// 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
+// }
+// ;
+
 functional_declarator : functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ASTFileName($1), ASTLine($1), NULL);
@@ -1075,14 +1104,14 @@ functional_declarator : functional_direct_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-// GNU extension
+/* GNU Extension */
 | attributes functional_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 | attributes ptr_operator functional_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -1090,9 +1119,60 @@ functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
+| functional_direct_declarator '(' ')'
+{
+	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL,  ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' array_cv_qualifier_seq optional_array_static_qualif optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $3, $4,  ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' array_static_qualif optional_array_cv_qualifier_seq optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $4, $3,  ASTFileName($1), ASTLine($1), NULL);
+}
 | '(' functional_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
+}
+;
+
+functional_declarator_id : functional_final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_final_declarator_id '(' ')'
+{
+	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+}
+;
+
+functional_final_declarator_id : declarator_id
+{
+    $$ = $1;
+}
+// This rule is needed because of redundant parentheses
+| '(' functional_final_declarator_id ')'
+{
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1141,34 +1221,6 @@ optional_array_expression : /* empty */
 | assignment_expression
 {
     $$ = $1;
-}
-;
-
-functional_declarator_id : final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| final_declarator_id '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-;
-
-// This rule is needed because of redundant parentheses
-final_declarator_id : declarator_id
-{
-    $$ = $1;
-}
-|
-'(' final_declarator_id ')'
-{
-    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
