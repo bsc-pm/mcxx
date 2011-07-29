@@ -8847,11 +8847,11 @@ static void update_member_function_info(AST declarator_name,
         type_t* class_type)
 {
     // Update information in the class about this member function
+    entry->entity_specs.is_user_declared = 1;
     switch (ASTType(declarator_name))
     {
         case AST_SYMBOL :
             {
-                entry->entity_specs.is_user_declared = 1;
                 if (is_constructor)
                 {
                     // This is a constructor
@@ -8911,7 +8911,6 @@ static void update_member_function_info(AST declarator_name,
                     entry->entity_specs.is_virtual = 1;
                 }
                 entry->entity_specs.is_destructor = 1;
-                entry->entity_specs.is_user_declared = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -8921,7 +8920,6 @@ static void update_member_function_info(AST declarator_name,
                 if (is_copy_assignment_operator(entry, class_type))
                 {
                     entry->entity_specs.is_copy_assignment_operator = 1;
-                    entry->entity_specs.is_user_declared = 1;
                 }
 
                 CXX1X_LANGUAGE()
@@ -10063,7 +10061,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
         AST initializer = ASTSon2(a);
 
-        if (check_initialization(initializer, decl_context, entry->type_information))
+        if (!check_initialization(initializer, decl_context, entry->type_information))
         {
             error_printf("%s: error: initializer '%s' could not be checked\n",
                     ast_location(initializer),
@@ -10654,7 +10652,8 @@ static void build_scope_try_block(AST a,
             build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_statement);
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
-                    nodecl_make_catch_handler(exception_name, nodecl_catch_statement, 
+                    nodecl_make_catch_handler(exception_name, 
+                        nodecl_catch_statement, 
                         declarator_type,
                         ASTFileName(exception_declaration), 
                         ASTLine(exception_declaration)));

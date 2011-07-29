@@ -765,11 +765,11 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
         indent(visitor);
         const char* qualified_name = NULL;
-        if (level == 0)
-        {
-            qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
-        }
-        else
+        // if (level == 0)
+        // {
+        //     qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
+        // }
+        // else
         {
             qualified_name = symbol->symbol_name;
             if (is_template_specialized
@@ -778,12 +778,6 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 qualified_name = strappend(qualified_name, 
                         get_template_arguments_str(symbol, symbol->decl_context));
             }
-        }
-
-        // Global qualification is not valid here
-        while (qualified_name[0] == ':')
-        {
-            qualified_name++;
         }
 
         fprintf(visitor->file, "%s %s", class_key, qualified_name);
@@ -2882,7 +2876,7 @@ static void codegen_array_subscript(nodecl_codegen_visitor_t* visitor, nodecl_t 
 static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t name = nodecl_get_child(node, 0);
-    nodecl_t statement = nodecl_get_child(node, 0);
+    nodecl_t statement = nodecl_get_child(node, 1);
     type_t* type = nodecl_get_type(node);
 
     indent(visitor);
@@ -2897,17 +2891,20 @@ static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t no
     {
         int old_condition = visitor->in_condition;
         nodecl_t old_condition_top = visitor->condition_top;
+        int old_indent = visitor->indent_level;
+        visitor->indent_level = 0;
 
         visitor->in_condition = 1;
         visitor->condition_top = name;
 
         codegen_walk(visitor, name);
 
+        visitor->indent_level = old_indent;
         visitor->condition_top = old_condition_top;
         visitor->in_condition = old_condition;
     }
 
-    fprintf(visitor->file, ")");
+    fprintf(visitor->file, ")\n");
 
     codegen_walk(visitor, statement);
 }
@@ -2915,8 +2912,8 @@ static void codegen_catch_handler(nodecl_codegen_visitor_t* visitor, nodecl_t no
 static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t statement = nodecl_get_child(node, 0);
-    nodecl_t catch_handlers = nodecl_get_child(node, 0);
-    nodecl_t any_catch_handler = nodecl_get_child(node, 0);
+    nodecl_t catch_handlers = nodecl_get_child(node, 1);
+    nodecl_t any_catch_handler = nodecl_get_child(node, 2);
     indent(visitor);
     fprintf(visitor->file, "try\n");
 
@@ -3526,7 +3523,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 // This should never happen
 static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    prettyprint(visitor->file, nodecl_unwrap_cxx_dependent_expr(node));
+    decl_context_t dummy;
+    prettyprint(visitor->file, nodecl_unwrap_cxx_dependent_expr(node, &dummy));
 }
 
 // Top level

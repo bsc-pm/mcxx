@@ -878,8 +878,9 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     else if (nodecl_is_cxx_dependent_expr(left_tree)
             && nodecl_is_cxx_dependent_expr(right_tree))
     {
-        return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree),
-                nodecl_unwrap_cxx_dependent_expr(right_tree),
+        decl_context_t dummy;
+        return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy),
+                nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy),
                 unif_set,
                 flags);
     }
@@ -888,7 +889,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         // These are special cases we allow
         if (nodecl_is_cxx_dependent_expr(left_tree))
         {
-            AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree);
+            decl_context_t dummy;
+            AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy);
 
             DEBUG_CODE()
             {
@@ -904,7 +906,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         }
         if (nodecl_is_cxx_dependent_expr(right_tree))
         {
-            AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree);
+            decl_context_t dummy;
+            AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy);
 
             DEBUG_CODE()
             {

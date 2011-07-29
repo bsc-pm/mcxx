@@ -2248,7 +2248,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             // type_specifier_seq declarator '=' assignment_expr
             AST type_specifier_seq = ASTSon0(current_condition);
             AST declarator = ASTSon1(current_condition);
-            AST expr = ASTSon2(current_condition);
+            AST equal_initializer = ASTSon2(current_condition);
 
             AST type_specifier = ASTSon1(type_specifier_seq);
 
@@ -2256,6 +2256,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
                 && check_declarator(declarator, decl_context);
 
             enter_test_expression();
+            AST expr = ASTSon0(equal_initializer);
             current_check = current_check && check_expression(expr, decl_context);
             leave_test_expression();
         }

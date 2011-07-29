@@ -3125,13 +3125,13 @@ condition : expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_0 declarator '=' initializer_clause %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator '=' initializer_clause %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | type_specifier_seq_0 declarator braced_init_list %merge<ambiguityHandler>
 {

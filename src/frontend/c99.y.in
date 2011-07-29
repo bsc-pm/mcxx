@@ -1888,9 +1888,9 @@ condition : expression
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq declarator '=' assignment_expression
+| type_specifier_seq declarator initializer
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extension
 | type_specifier_seq declarator asm_specification attributes '=' assignment_expression

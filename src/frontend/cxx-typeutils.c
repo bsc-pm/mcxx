@@ -1441,7 +1441,7 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                     expression_set_symbol(symbol, param->entry);
                     set_as_template_parameter_name(symbol, param->entry);
 
-                    new_value->value = nodecl_wrap_cxx_dependent_expr(symbol);
+                    new_value->value = nodecl_wrap_cxx_dependent_expr(symbol, param->entry->decl_context);
 
                     break;
                 }
@@ -2727,7 +2727,7 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
                         ASTLeaf(AST_DECIMAL_LITERAL, nodecl_get_filename(whole_size), nodecl_get_line(whole_size), "1"),
                         nodecl_get_filename(whole_size), nodecl_get_line(whole_size), NULL);
 
-            upper_bound = nodecl_wrap_cxx_dependent_expr(minus_one);
+            upper_bound = nodecl_wrap_cxx_dependent_expr(minus_one, decl_context);
         }
     }
 

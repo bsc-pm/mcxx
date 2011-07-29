@@ -197,22 +197,21 @@ void expression_set_is_lvalue(AST expr, char is_lvalue)
     expr_info->is_lvalue = is_lvalue;
 }
 
-void expression_set_is_value_dependent(AST expr, char value_dependent)
+void expression_set_is_value_dependent(AST expr, char value_dependent, decl_context_t decl_context)
 {
     expression_info_t* expr_info = expression_get_expression_info(expr);
     expr_info->is_value_dependent = value_dependent;
     if (value_dependent)
     {
-        expression_set_nodecl(expr, nodecl_wrap_cxx_dependent_expr(expr));
+        expression_set_nodecl(expr, nodecl_wrap_cxx_dependent_expr(expr, decl_context));
     }
 }
 
 // This sets both the dependent_expr_type and the value_dependent attribute
-static void expression_set_dependent(AST expr)
+static void expression_set_dependent(AST expr, decl_context_t decl_context)
 {
     expression_set_type(expr, get_dependent_expr_type());
-    expression_set_is_value_dependent(expr, 1);
-    expression_set_nodecl(expr, nodecl_wrap_cxx_dependent_expr(expr));
+    expression_set_is_value_dependent(expr, 1, decl_context);
 }
 
 void expression_set_error(AST expr)
@@ -805,7 +804,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
                     expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
                     expression_set_constant(expression, expression_get_constant(ASTSon0(expression)));
-                    expression_set_is_value_dependent(expression, expression_is_value_dependent(ASTSon0(expression)));
+                    expression_set_is_value_dependent(expression, expression_is_value_dependent(ASTSon0(expression)), decl_context);
                     expression_set_symbol(expression, expression_get_symbol(ASTSon0(expression)));
                 }
 
@@ -921,7 +920,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         }
                         else
                         {
-                            expression_set_dependent(expression);
+                            expression_set_dependent(expression, decl_context);
                         }
 
                         ASTAttrSetValueType(expression, LANG_IS_THIS_VARIABLE, tl_type_t, tl_bool(1));
@@ -1087,7 +1086,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     ast_set_link_to_child(expression, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
-                            expression_is_value_dependent(ASTSon0(expression)));
+                            expression_is_value_dependent(ASTSon0(expression)), decl_context);
                 }
                 break;
             }
@@ -1273,7 +1272,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     expression_set_constant(expression, val);
 
                     expression_set_is_value_dependent(expression, 
-                            expression_is_value_dependent(ASTSon0(expression)));
+                            expression_is_value_dependent(ASTSon0(expression)), decl_context);
                 }
 
                 break;
@@ -1329,7 +1328,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression))
-                            || expression_is_value_dependent(ASTSon1(expression)));
+                            || expression_is_value_dependent(ASTSon1(expression)), decl_context);
 
                     expression_set_constant(expression, val);
                 }
@@ -1355,9 +1354,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         expression_set_is_value_dependent(expression,
                                 expression_is_value_dependent(ASTSon0(expression))
                                 || expression_is_value_dependent(ASTSon1(expression))
-                                || expression_is_value_dependent(ASTSon2(expression)));
+                                || expression_is_value_dependent(ASTSon2(expression)), decl_context);
                     }
-                    else
+                    else if (ASTType(expression) == AST_GCC_CONDITIONAL_EXPRESSION)
                     {
                         ast_set_link_to_child(expression, LANG_CONDITIONAL_EXPRESSION, ASTSon0(expression));
                         ast_set_link_to_child(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, ASTSon0(expression));
@@ -1365,7 +1364,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
                         expression_set_is_value_dependent(expression,
                                 expression_is_value_dependent(ASTSon0(expression))
-                                || expression_is_value_dependent(ASTSon1(expression)));
+                                || expression_is_value_dependent(ASTSon1(expression)), decl_context);
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
                     }
                 }
 
@@ -1394,7 +1397,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 
                     expression_set_is_value_dependent(expression,
                             expression_is_value_dependent(ASTSon0(expression))
-                            || expression_is_value_dependent(ASTSon1(expression)));
+                            || expression_is_value_dependent(ASTSon1(expression)), decl_context);
                 }
                 break;
             }
@@ -1431,7 +1434,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     ast_set_link_to_child(expression, LANG_LHS_OPERAND, ASTSon1(expression));
 
                     expression_set_is_value_dependent(expression,
-                            expression_is_value_dependent(ASTSon0(expression)));
+                            expression_is_value_dependent(ASTSon0(expression)), decl_context);
                 }
                 break;
             }
@@ -1837,7 +1840,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
     if (is_dependent_expr_type(t1) \
             || is_dependent_expr_type(t2)) \
     { \
-      expression_set_dependent(e); \
+      expression_set_dependent(e, decl_context); \
       DEBUG_CODE() \
         { \
             fprintf(stderr, "EXPRTYPE: Found expression '%s' to be dependent\n", \
@@ -1857,7 +1860,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
     } \
     if (is_dependent_expr_type(t1)) \
     { \
-      expression_set_dependent(e); \
+      expression_set_dependent(e, decl_context); \
       DEBUG_CODE() \
         { \
             fprintf(stderr, "EXPRTYPE: Found expression '%s' to be dependent\n", \
@@ -5997,7 +6000,7 @@ static type_t* compute_operator_reference_type(AST expression,
 
                 if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
-                    expression_set_dependent(expression);
+                    expression_set_dependent(expression, decl_context);
                     return expression_get_type(expression);
                 }
 
@@ -6018,7 +6021,7 @@ static type_t* compute_operator_reference_type(AST expression,
 
         if (is_dependent_expr_type(op_type))
         {
-            expression_set_dependent(expression);
+            expression_set_dependent(expression, decl_context);
             return expression_get_type(expression);
         }
 
@@ -6129,7 +6132,7 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -6163,7 +6166,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
 
     if (is_dependent_expr_type(expression_get_type(op)))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -6314,11 +6317,11 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    expression_set_dependent(expr);
+                    expression_set_dependent(expr, decl_context);
                 }
                 else if (expression_is_value_dependent(entry->language_dependent_value))
                 {
-                    expression_set_is_value_dependent(expr, 1);
+                    expression_set_is_value_dependent(expr, 1, decl_context);
                 }
                 else
                 {
@@ -6374,12 +6377,12 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         if (!nodecl_is_null(entry->value)
                                 && nodecl_is_cxx_dependent_expr(entry->value))
                         {
-                            expression_set_is_value_dependent(expr, 1);
+                            expression_set_is_value_dependent(expr, 1, decl_context);
                         }
                         else if (entry->language_dependent_value != NULL
                                 && expression_is_value_dependent(entry->language_dependent_value))
                         {
-                            expression_set_is_value_dependent(expr, 1);
+                            expression_set_is_value_dependent(expr, 1, decl_context);
                         }
                     }
                 }
@@ -6390,7 +6393,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    expression_set_dependent(expr);
+                    expression_set_dependent(expr, decl_context);
                 }
 
                 if (entry->entity_specs.is_template_parameter)
@@ -6415,8 +6418,8 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
             {
-                expression_set_is_value_dependent(expr, 1);
-                expression_set_dependent(expr);
+                expression_set_is_value_dependent(expr, 1, decl_context);
+                expression_set_dependent(expr, decl_context);
                 expression_set_symbol(expr, entry);
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
@@ -6426,7 +6429,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
                 // Nontype template parameter
                 // Mark it as value dependent
-                expression_set_is_value_dependent(expr, 1);
+                expression_set_is_value_dependent(expr, 1, decl_context);
 
                 // Template parameters may have a dependent type
 
@@ -6436,7 +6439,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 }
                 else
                 {
-                    expression_set_dependent(expr);
+                    expression_set_dependent(expr, decl_context);
                 }
 
             }
@@ -6498,7 +6501,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         scope_entry_t* entry = entry_list_head(result_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            expression_set_dependent(expr);
+            expression_set_dependent(expr, decl_context);
             expression_set_symbol(expr, entry);
             entry_list_free(result_list);
             return;
@@ -6535,7 +6538,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             }
             else if (dependent_template_parameters)
             {
-                expression_set_dependent(expr);
+                expression_set_dependent(expr, decl_context);
             }
             else
             {
@@ -6579,7 +6582,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             }
             else
             {
-                expression_set_dependent(expr);
+                expression_set_dependent(expr, decl_context);
             }
 
             if (!entry->entity_specs.is_parameter
@@ -6606,12 +6609,12 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 if (!nodecl_is_null(entry->value)
                         && nodecl_is_cxx_dependent_expr(entry->value))
                 {
-                    expression_set_is_value_dependent(expr, 1);
+                    expression_set_is_value_dependent(expr, 1, decl_context);
                 }
                 else if (entry->language_dependent_value != NULL
                         && expression_is_value_dependent(entry->language_dependent_value))
                 {
-                    expression_set_is_value_dependent(expr, 1);
+                    expression_set_is_value_dependent(expr, 1, decl_context);
                 }
             }
 
@@ -6628,11 +6631,11 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                     fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                             prettyprint_in_buffer(expr), ast_location(expr));
                 }
-                expression_set_dependent(expr);
+                expression_set_dependent(expr, decl_context);
             }
             else if (expression_is_value_dependent(entry->language_dependent_value))
             {
-                expression_set_is_value_dependent(expr, 1);
+                expression_set_is_value_dependent(expr, 1, decl_context);
             }
             else
             {
@@ -6714,7 +6717,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         expression_set_type(expr, get_dependent_expr_type());
         CXX_LANGUAGE()
         {
-            expression_set_is_value_dependent(expr, 1);
+            expression_set_is_value_dependent(expr, 1, decl_context);
         }
         return;
     }
@@ -6936,7 +6939,7 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     if (is_dependent_type(conversion_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -7196,7 +7199,7 @@ static void check_conditional_expression_impl(AST expression,
             || is_dependent_expr_type(second_type)
             || is_dependent_expr_type(third_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -8041,7 +8044,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                 else 
                 {
                     // Constructor args are dependent
-                    expression_set_dependent(new_expr);
+                    expression_set_dependent(new_expr, decl_context);
                     expression_set_is_lvalue(new_expr, 0);
                     return;
                 }
@@ -8065,7 +8068,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
         else 
         {
             // Placement expression is dependent
-            expression_set_dependent(new_expr);
+            expression_set_dependent(new_expr, decl_context);
             expression_set_is_lvalue(new_expr, 0);
             return;
         }
@@ -8074,7 +8077,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
     else
     {
         // The new type is dependent
-        expression_set_dependent(new_expr);
+        expression_set_dependent(new_expr, decl_context);
         expression_set_is_lvalue(new_expr, 0);
         return;
     }
@@ -8371,7 +8374,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
     if (is_dependent_type(type_info)
             || has_dependent_arguments)
     {
-        expression_set_dependent(expr);
+        expression_set_dependent(expr, decl_context);
     }
     else
     {
@@ -8524,7 +8527,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 
         // Everything might have a non dependent type but it might carry a
         // dependent value
-        expression_set_is_value_dependent(expr, has_value_dependent_arguments);
+        expression_set_is_value_dependent(expr, has_value_dependent_arguments, decl_context);
     }
 }
 
@@ -8744,7 +8747,7 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
             if (is_dependent_expr_type(argument_type))
             {
                 // Everything turned out to be dependent
-                expression_set_dependent(called_expression);
+                expression_set_dependent(called_expression, decl_context);
                 return 1;
             }
             else if (is_unresolved_overloaded_type(argument_type))
@@ -9253,7 +9256,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
             if (is_dependent_expr_type(argument_type))
             {
-                expression_set_dependent(called_expression);
+                expression_set_dependent(called_expression, decl_context);
                 return 1;
             }
 
@@ -9327,7 +9330,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             {
                 // Nothing else to do this is a dependent call
                 entry_list_free(candidates);
-                expression_set_dependent(called_expression);
+                expression_set_dependent(called_expression, decl_context);
                 return 1;
             }
             else
@@ -9359,7 +9362,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             {
                 // Nothing else to do this is a dependent call
                 entry_list_free(candidates);
-                expression_set_dependent(called_expression);
+                expression_set_dependent(called_expression, decl_context);
                 return 1;
             }
             else
@@ -9391,7 +9394,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 if (is_dependent_type(this_symbol->type_information))
                 {
                     entry_list_free(candidates);
-                    expression_set_dependent(called_expression);
+                    expression_set_dependent(called_expression, decl_context);
                     return 1;
                 }
                 else
@@ -9877,7 +9880,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     {
         if (is_dependent_type(return_type))
         {
-            expression_set_dependent(expr);
+            expression_set_dependent(expr, decl_context);
         }
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
@@ -9950,7 +9953,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
         if (is_dependent_type(declarator_type))
         {
-            expression_set_dependent(expr);
+            expression_set_dependent(expr, decl_context);
         }
         else
         {
@@ -10001,7 +10004,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
 
             if (expression_is_value_dependent(casted_expression))
             {
-                expression_set_is_value_dependent(expr, 1);
+                expression_set_is_value_dependent(expr, 1, decl_context);
             }
             else
             {
@@ -10050,7 +10053,7 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -10317,7 +10320,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         // If the computed type is dependent then all the expression is dependent
         if (is_dependent_type(conversion_type))
         {
-            expression_set_dependent(member_access);
+            expression_set_dependent(member_access, decl_context);
             return;
         }
     }
@@ -10403,7 +10406,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             }
             else if (dependent_template_parameters)
             {
-                expression_set_dependent(member_access);
+                expression_set_dependent(member_access, decl_context);
                 return;
             }
             else
@@ -10457,7 +10460,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             }
             else
             {
-                expression_set_dependent(member_access);
+                expression_set_dependent(member_access, decl_context);
                 ok = 1;
             }
         }
@@ -10600,7 +10603,7 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
     {
         // This might well be a function template name but with wrong template-parameters
         // because of type dependency. So give it a second chance
-        expression_set_dependent(expr);
+        expression_set_dependent(expr, decl_context);
         ok = 1;
     }
 
@@ -10905,7 +10908,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
 
     if (is_dependent_expr_type(operated_type))
     {
-        expression_set_dependent(expr);
+        expression_set_dependent(expr, decl_context);
         return;
     }
 
@@ -11028,7 +11031,7 @@ static void check_preoperator(AST expr, AST operator,
 
     if (is_dependent_expr_type(operated_type))
     {
-        expression_set_dependent(expr);
+        expression_set_dependent(expr, decl_context);
         return;
     }
 
@@ -11299,7 +11302,7 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
     type_t* type = compute_type_for_type_id_tree(ASTSon0(expr), decl_context);
     if (is_dependent_type(type))
     {
-        expression_set_is_value_dependent(expr, 1);
+        expression_set_is_value_dependent(expr, 1, decl_context);
     }
 
     scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
@@ -11331,7 +11334,7 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
     if (is_dependent_expr_type(expression_get_type(ASTSon0(expr)))
             || expression_is_value_dependent(ASTSon0(expr)))
     {
-        expression_set_is_value_dependent(expr, 1);
+        expression_set_is_value_dependent(expr, 1, decl_context);
     }
 
     scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
@@ -12209,7 +12212,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -12371,7 +12374,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -12642,7 +12645,7 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
 
                     expression_set_constant(initializer, expression_get_constant(initializer_clause));
 
-                    expression_set_is_value_dependent(initializer, expression_is_value_dependent(initializer_clause));
+                    expression_set_is_value_dependent(initializer, expression_is_value_dependent(initializer_clause), decl_context);
 
                     expression_set_nodecl(initializer, expression_get_nodecl(initializer_clause));
                 }
@@ -12672,7 +12675,7 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
                             expression_get_constant(parenthesized_initializer));
 
                     expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(parenthesized_initializer));
+                            expression_is_value_dependent(parenthesized_initializer), decl_context);
 
                     expression_set_nodecl(initializer, nodecl_output);
 
@@ -13215,7 +13218,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
         }
         else if (is_dependent_expr_type(t))
         {
-            expression_set_is_value_dependent(expr, 1);
+            expression_set_is_value_dependent(expr, 1, decl_context);
         }
     }
 
@@ -13338,7 +13341,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
     }
     else if (is_dependent_type(declarator_type))
     {
-        expression_set_is_value_dependent(expr, 1);
+        expression_set_is_value_dependent(expr, 1, decl_context);
     }
 
     // Set the type of the type_id
@@ -13402,7 +13405,7 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
 
     if (is_dependent_expr_type(no_ref(considered_type)))
     {
-        expression_set_dependent(expression);
+        expression_set_dependent(expression, decl_context);
         return;
     }
 
@@ -13651,7 +13654,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
             if (is_dependent_type(type))
             {
                 // Give up
-                expression_set_is_value_dependent(expression, 1);
+                expression_set_is_value_dependent(expression, 1, decl_context);
                 break;
             }
 
@@ -13683,7 +13686,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                 if (expression_is_value_dependent(const_expr))
                 {
                     // Give up
-                    expression_set_is_value_dependent(expression, 1);
+                    expression_set_is_value_dependent(expression, 1, decl_context);
                     break;
                 }
 
@@ -13749,7 +13752,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
     {
         // If the type is dependent, any offset should be considered as value
         // dependent even if the type of the whole expression is size_t
-        expression_set_is_value_dependent(expression, 1);
+        expression_set_is_value_dependent(expression, 1, decl_context);
     }
 
     expression_set_type(expression, get_size_t_type());
@@ -13836,7 +13839,7 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
     }
     else
     {
-        expression_set_is_value_dependent(expression, 1);
+        expression_set_is_value_dependent(expression, 1, decl_context);
     }
 
     expression_set_type(expression, get_signed_int_type());

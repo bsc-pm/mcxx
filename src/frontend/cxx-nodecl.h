@@ -63,8 +63,8 @@ nodecl_t _nodecl_wrap(AST);
 
 // C++ specific stuff
 char nodecl_is_cxx_dependent_expr(nodecl_t n);
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression);
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n);
+nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t);
+AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t*);
 
 MCXX_END_DECLS
 

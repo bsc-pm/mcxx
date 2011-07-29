@@ -2134,10 +2134,11 @@ template_parameter_value_t* update_template_parameter_value(
     if (nodecl_is_cxx_dependent_expr(result->value))
     {
         ERROR_CONDITION(v->kind != TPK_NONTYPE, "Invalid parameter value\n", 0);
-        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value);
+        decl_context_t cxx_decl_context;
+        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value, &cxx_decl_context);
         expr = ast_copy_for_instantiation(expr);
 
-        if(!check_nontype_template_argument_expression(expr, decl_context))
+        if(!check_nontype_template_argument_expression(expr, cxx_decl_context))
         {
             internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                     prettyprint_in_buffer(expr));
@@ -2866,7 +2867,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             array_size_context = decl_context;
 
             // NODECL_CXX_RAW have as its zero-th children a C++ expression tree
-            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size);
+            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size, &array_size_context);
             new_array_size = ast_copy_for_instantiation(new_array_size);
             if (!check_expression(new_array_size, array_size_context))
             {

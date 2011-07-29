@@ -157,7 +157,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | cxx-unresolved-overload
 
 # Special node used only to hold a C++ tree found to be value or type dependent
-cxx-dependent-expr: NODECL_CXX_DEPENDENT_EXPR()
+cxx-dependent-expr: NODECL_CXX_DEPENDENT_EXPR() symbol
 
 # Special node used only to hold cases where we have an unresolved overload
 cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
