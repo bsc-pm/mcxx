@@ -8330,6 +8330,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
             this_symbol->defined = 1;
+            this_symbol->do_not_print = 1;
         }
     }
 
