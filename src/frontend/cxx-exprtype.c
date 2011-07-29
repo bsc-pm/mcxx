@@ -9399,7 +9399,12 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                     type_t* class_type = this_symbol->type_information;
                     class_type = pointer_type_get_pointee_type(class_type);
                     argument_types[0] = class_type;
-                    implicit_argument = nodecl_make_symbol(this_symbol, ASTFileName(called_expression), ASTLine(called_expression));
+                    implicit_argument = 
+                        nodecl_make_derreference(
+                                nodecl_make_symbol(this_symbol, ASTFileName(called_expression), ASTLine(called_expression)),
+                                get_lvalue_reference_type(pointer_type_get_pointee_type(this_symbol->type_information)),
+                                ASTFileName(called_expression), ASTLine(called_expression));
+
                 }
             }
             else
