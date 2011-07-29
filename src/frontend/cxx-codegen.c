@@ -3448,8 +3448,9 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         qualified_name = strappend(strappend(class_name, "::"), qualified_name);
     }
 
-    // FIXME: non-template member functions of template classes require special treatment
-    if (is_template_specialized_type(symbol->type_information))
+    if (is_template_specialized_type(symbol->type_information)
+            // Conversions do not allow templates
+            && !symbol->entity_specs.is_conversion)
     {
         qualified_name = strappend(qualified_name, 
                 get_template_arguments_str(symbol, symbol->decl_context));
