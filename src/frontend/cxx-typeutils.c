@@ -1492,6 +1492,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 
     primary_symbol->line = line;
     primary_symbol->file = filename;
+    primary_symbol->entity_specs.is_user_declared = 1;
 
     primary_type->info->is_template_specialized_type = 1;
     primary_type->template_parameters = template_parameter_list;
