@@ -51,6 +51,9 @@
 %union {
 	token_atrib_t token_atrib;
 	AST ast;
+	AST ast2[2];
+	AST ast3[3];
+	AST ast4[4];
 	node_t node_type;
     const char *text;
 };
@@ -246,6 +249,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> for_init_statement
 %type<ast> function_body
 %type<ast> function_definition
+%type<ast> function_definition_header
 %type<ast> function_specifier
 %type<ast> id_expression
 %type<ast> if_else_eligible_statements
@@ -1067,35 +1071,6 @@ ptr_operator : '*'
    A functional declarator is a syntactic enforced declarator that will have
    a functional nature
  */
-// functional_declarator : functional_direct_declarator
-// {
-// 	$$ = ASTMake1(AST_DECLARATOR, $1, ASTFileName($1), ASTLine($1), NULL);
-// }
-// | ptr_operator functional_declarator
-// {
-// 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-// }
-// // GNU extension
-// | attributes functional_direct_declarator
-// {
-// 	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-// }
-// | attributes ptr_operator functional_declarator
-// {
-// 	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-// }
-// ;
-// 
-// functional_direct_declarator : functional_declarator_id
-// {
-// 	$$ = $1;
-// }
-// | '(' functional_declarator ')'
-// {
-// 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
-// }
-// ;
-
 functional_declarator : functional_direct_declarator
 {
 	$$ = ASTMake1(AST_DECLARATOR, $1, ASTFileName($1), ASTLine($1), NULL);
@@ -1612,27 +1587,29 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition : decl_specifier_seq functional_declarator function_body
+function_definition : function_definition_header function_body
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq functional_declarator old_style_parameter_list function_body
+| function_definition_header old_style_parameter_list function_body
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-/* This is an ugly heritage from C90 */
-| functional_declarator function_body 
-{
-    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_declarator old_style_parameter_list function_body 
-{
-    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-}
+
 // GCC extension
 | EXTENSION function_definition
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+function_definition_header : decl_specifier_seq functional_declarator %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_declarator %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

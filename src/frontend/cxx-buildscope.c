@@ -7986,8 +7986,15 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         void (*set)(AST, scope_entry_t*, decl_context_t),
         nodecl_t* nodecl_output)
 {
-    AST decl_spec_seq = ASTSon0(a);
-    AST declarator = ASTSon1(a);
+    AST function_header = ASTSon0(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST function_declarator = ASTSon1(function_header);
     /* AST attributes = ASTSon2(a); */
 
     gather_decl_spec_t gather_info;
@@ -8008,7 +8015,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         }
     }
 
-    // declarator
+    // function_declarator
     type_t* declarator_type = NULL;
     scope_entry_t* entry = NULL;
 
@@ -8018,7 +8025,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         new_decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
 
-    compute_declarator_type(declarator, &gather_info, type_info, &declarator_type, new_decl_context, nodecl_output);
+    compute_declarator_type(function_declarator, &gather_info, type_info, &declarator_type, new_decl_context, nodecl_output);
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context, nodecl_output);
 
     if (check)
@@ -8039,6 +8046,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 static void set_deleted(AST a UNUSED_PARAMETER, scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER)
 {
     entry->entity_specs.is_deleted = 1;
+    entry->defined = 1;
 }
 
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8072,6 +8080,7 @@ static void set_defaulted(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     entry->entity_specs.is_defaulted = 1;
+    entry->defined = 1;
 }
 
 static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8107,11 +8116,21 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     type_t* type_info = NULL;
 
-    AST decl_spec_seq = ASTSon0(a);
+    AST function_header = ASTSon0(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST function_declarator = ASTSon1(function_header);
+    AST gcc_attributes = ASTSon2(function_header);
+
+    gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
+
     char is_constructor = 0;
-    if (decl_spec_seq != NULL 
-            && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
-             || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
+    if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info, decl_context, nodecl_output);
     }
@@ -8119,7 +8138,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     {
         CXX_LANGUAGE()
         {
-            if (is_constructor_declarator(ASTSon1(a)))
+            if (is_constructor_declarator(ASTSon1(function_header)))
             {
                 is_constructor = 1;
             }
@@ -8163,17 +8182,16 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     block_context = new_function_context(block_context);
 
     // block-context will be updated for qualified-id to reflect the exact context
-    build_scope_declarator_with_parameter_context(ASTSon1(a), &gather_info, type_info, &declarator_type, 
+    build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type, 
             new_decl_context, &block_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context, nodecl_output);
+    entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
 
-    // ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), ast_location(a));
     if (entry == NULL)
     {
         running_error("%s: error: function '%s' was not found in the scope\n", 
-                ast_location(a), 
+                ast_location(function_header), 
                 print_decl_type_str(declarator_type, new_decl_context, 
-                    prettyprint_in_buffer(get_declarator_name(ASTSon1(a), new_decl_context))));
+                    prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));
     }
 
     // Set the related entry
@@ -8230,7 +8248,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             if (gather_info.arguments_info[i].entry == NULL)
             {
                 running_error("%s: error: parameter '%d' does not have name\n", 
-                        ast_location(ASTSon1(a)),
+                        ast_location(function_declarator),
                         i);
             }
         }
@@ -8241,7 +8259,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     {
         // Function declaration name
-        AST declarator_name = get_declarator_name(ASTSon1(a), decl_context);
+        AST declarator_name = get_declarator_name(function_declarator, decl_context);
         ast_set_link_to_child(a, LANG_FUNCTION_NAME, declarator_name);
 
         if (ASTType(declarator_name) == AST_QUALIFIED_ID)
@@ -8292,15 +8310,15 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             "This is not a function!!!", 0);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
-    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
+    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, decl_spec_seq);
+    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, function_declarator);
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // Keep the function definition, it may be needed later
     entry->entity_specs.definition_tree = a;
 
     // Function_body
-    AST function_body = ASTSon3(a);
+    AST function_body = ASTSon1(a);
     AST statement = ASTSon0(function_body);
 
     if (entry->entity_specs.is_member)
@@ -8460,7 +8478,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
     {
         // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-        ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, ASTSon1(a));
+        ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, function_declarator);
     }
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
@@ -8991,33 +9009,37 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     type_t* type_info = NULL;
 
-    AST declarator = ASTSon1(a);
-    // Get the declarator name
-    AST declarator_name = get_declarator_name(declarator, decl_context);
+    AST function_header = ASTSon1(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST function_declarator = ASTSon1(function_header);
+    // Get the function_declarator name
+    AST declarator_name = get_declarator_name(function_declarator, decl_context);
 
     char is_constructor = 0;
-    AST decl_spec_seq = ASTSon0(a);
+    AST decl_spec_seq = ASTSon0(function_header);
 
     // If ambiguous is due because we don't know how to "lay" the type_specifier
     // but it has type_specifier
-    if (decl_spec_seq != NULL 
-            && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
-                || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
+    if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info,
                 decl_context, nodecl_output);
-
     }
     else
     {
         // This is a constructor
-        if (is_constructor_declarator(declarator))
+        if (is_constructor_declarator(function_declarator))
         {
             is_constructor = 1;
         }
     }
 
-    // declarator
+    // function_declarator
     type_t* declarator_type = NULL;
 
     if (is_constructor)
@@ -9025,8 +9047,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
 
-    compute_declarator_type(ASTSon1(a), &gather_info, type_info, &declarator_type, decl_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, decl_context, nodecl_output);
+    compute_declarator_type(function_declarator, &gather_info, type_info, &declarator_type, decl_context, nodecl_output);
+    entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
@@ -9065,10 +9087,16 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     type_t* class_type = get_actual_class_type(class_info);
     const char* class_name = named_type_get_symbol(class_info)->symbol_name;
 
-    AST decl_spec_seq = ASTSon0(a);
-    AST declarator = ASTSon1(a);
+    AST function_header = ASTSon0(a);
 
-    // AST attributes = ASTSon2(a);
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST declarator = ASTSon1(function_header);
+
     type_t* member_type = NULL;
 
     decl_context_t new_decl_context = decl_context;

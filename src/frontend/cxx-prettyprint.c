@@ -1533,45 +1533,48 @@ static void member_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_
     }
 }
 
-static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void function_header_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    indent_at_level(f, a, pt_ctx);
+    // Decl specifier seq
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, " ");
     }
 
+    // Functional declarator
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 
-    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-
-    CXX_LANGUAGE()
+    // C: This is always NULL
+    // C++: GCC attributes
+    if (ASTSon2(a) != NULL)
     {
-        if (ASTSon2(a) != NULL)
-        {
-            token_fprintf(f, a, pt_ctx, "\n");
-            indent_at_level(f, a, new_pt_ctx);
-            prettyprint_level(f, ASTSon2(a), new_pt_ctx);
-            token_fprintf(f, a, pt_ctx, " ");
-        }
+        token_fprintf(f, a, pt_ctx, " ");
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
+    }
+}
+
+static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+
+    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
+    token_fprintf(f, a, pt_ctx, "\n");
+
+    if (ASTSon1(a) != NULL)
+    {
+        // C++: Member initializers
+        // C90: Old-style-function definition
+        token_fprintf(f, a, pt_ctx, "\n");
+        prettyprint_level(f, ASTSon1(a), new_pt_ctx);
+    }
+    else
+    {
         token_fprintf(f, a, pt_ctx, "\n");
     }
 
-    C_LANGUAGE()
-    {
-        if (ASTSon2(a) != NULL)
-        {
-            token_fprintf(f, a, pt_ctx, "\n");
-            prettyprint_level(f, ASTSon2(a), new_pt_ctx);
-        }
-        else
-        {
-            token_fprintf(f, a, pt_ctx, "\n");
-        }
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
 static void defaulted_or_deleted_function_def(FILE* f, AST a, prettyprint_context_t* pt_ctx)

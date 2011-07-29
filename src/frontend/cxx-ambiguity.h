@@ -52,6 +52,7 @@ LIBMCXX_EXTERN void solve_ambiguous_for_init_statement(AST for_init_statement, d
 LIBMCXX_EXTERN void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_exception_decl(AST exception_decl, decl_context_t decl_context);
 LIBMCXX_EXTERN void solve_ambiguous_type_specifier(AST type_specifier, decl_context_t decl_context);
+LIBMCXX_EXTERN void solve_ambiguous_function_header(AST function_header, decl_context_t decl_context);
 
 // These two are misleading, should be 'check_' instead of 'solve_'
 LIBMCXX_EXTERN char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_context_t decl_context);

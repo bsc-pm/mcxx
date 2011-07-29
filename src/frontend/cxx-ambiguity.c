@@ -371,6 +371,66 @@ void solve_ambiguous_qualified_member_declaration(AST a, decl_context_t decl_con
     }
 }
 
+static char check_function_header(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    internal_error("Not yet implemented", 0);
+    return 1;
+}
+
+void solve_ambiguous_function_header(AST a, decl_context_t decl_context)
+{
+    int option_lacking_decl_spec = -1;
+    int correct_option = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        C_LANGUAGE()
+        {
+            if (ASTSon0(option) == NULL)
+            {
+                option_lacking_decl_spec = i;
+            }
+        }
+
+        if (check_function_header(option, decl_context))
+        {
+            if (correct_option < 0)
+            {
+                correct_option = i;
+            }
+            else
+            {
+                AST previous_option = ast_get_ambiguity(a, correct_option);
+                AST current_option = option;
+                internal_error("More than one valid alternative! %s vs %s\n", 
+                        ast_print_node_type(ASTType(previous_option)),
+                        ast_print_node_type(ASTType(current_option)));
+            }
+        }
+    }
+
+    if (correct_option < 0)
+    {
+        // Silly case for a declaration like 'f(a) { ... } in K&R C
+        C_LANGUAGE()
+        {
+            if (option_lacking_decl_spec >= 0)
+            {
+                choose_option(a, option_lacking_decl_spec);
+                return;
+            }
+        }
+
+        internal_error("Ambiguity not solved %s", ast_location(a));
+    }
+    else
+    {
+        choose_option(a, correct_option);
+    }
+}
+
 
 /*
  * Ambiguity in a high order declaration
