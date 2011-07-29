@@ -1815,7 +1815,7 @@ functional_final_declarator_id : declarator_id
 {
     $$ = $1;
 }
-| '(' functional_final_declarator_id ')'
+| '(' functional_declarator ')'
 {
     $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
@@ -1873,7 +1873,7 @@ nonglobal_functional_final_declarator_id : nonglobal_declarator_id
 {
     $$ = $1;
 }
-| '(' functional_final_declarator_id ')'
+| '(' functional_declarator ')'
 {
     $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
