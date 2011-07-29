@@ -822,11 +822,6 @@ type_specifier : type_specifier_alone
 {
     $$ = $1;
 }
-// GNU Extensions
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 ;
 
 type_specifier_alone : class_specifier
@@ -921,25 +916,9 @@ builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_BOOL_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 | TOKEN_INT
 {
 	$$ = ASTLeaf(AST_INT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SIGNED
-{
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOKEN_FLOAT
 {

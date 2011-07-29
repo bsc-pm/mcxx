@@ -1360,12 +1360,6 @@ void build_scope_decl_specifier_seq(AST a,
 {
     AST iter, list;
 
-    if (ASTType(a) == AST_AMBIGUITY)
-    {
-        solve_ambiguous_decl_specifier_seq(a, decl_context);
-        ERROR_CONDITION((ASTType(a) == AST_AMBIGUITY), "Ambiguity not solved", 0);
-    }
-
     // Gather decl specifier sequence information previous to type_spec
     list = ASTSon0(a);
     if (list != NULL)
@@ -1388,12 +1382,42 @@ void build_scope_decl_specifier_seq(AST a,
         }
     }
 
+    AST type_spec = ASTSon1(a);
+
     // Now gather information of the type_spec
-    if (ASTSon1(a) != NULL) 
+    if (type_spec != NULL
+            || gather_info->is_unsigned
+            || gather_info->is_signed
+            || gather_info->is_short
+            || gather_info->is_long
+            || gather_info->is_complex)
     {
         ast_set_link_to_child(a, LANG_TYPE_SPECIFIER, ASTSon1(a));
 
-        gather_type_spec_information(ASTSon1(a), type_info, gather_info, decl_context, nodecl_output);
+        if (type_spec == NULL)
+        {
+            if( gather_info->is_unsigned
+                    || gather_info->is_signed
+                    || gather_info->is_short
+                    || gather_info->is_long)
+            {
+                // Manually add the int tree to make things easier
+                ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                type_spec = ASTSon1(a);
+            }
+            // This is a GCC extension
+            else if (gather_info->is_complex)
+            {
+                ast_set_child(a, 1, ASTLeaf(AST_DOUBLE_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                type_spec = ASTSon1(a);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        gather_type_spec_information(type_spec, type_info, gather_info, decl_context, nodecl_output);
         
         // Now update the type_spec with type information that was caught in the decl_specifier_seq
         // First "long"/"short"
@@ -1479,7 +1503,6 @@ void build_scope_decl_specifier_seq(AST a,
             // Add restrict
             *type_info = get_restrict_qualified_type(*type_info);
         }
-
     }
     else
     {
@@ -1487,6 +1510,10 @@ void build_scope_decl_specifier_seq(AST a,
         {
             fprintf(stderr, "%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
                     ast_location(a));
+
+            // Manually add the int tree to make things easier
+            ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+            type_spec = ASTSon1(a);
 
             *type_info = get_signed_int_type();
         }
@@ -1697,11 +1724,6 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_GCC_COMPLEX_TYPE :
             *simple_type_info = get_signed_int_type();
             gather_info->is_complex = 1;
-            break;
-        case AST_AMBIGUITY :
-            solve_ambiguous_type_specifier(a, decl_context);
-            // Restart function
-            gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
             break;
             // C++0x
         case AST_DECLTYPE :
@@ -8318,7 +8340,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     entry->entity_specs.definition_tree = a;
 
     // Function_body
-    AST function_body = ASTSon1(a);
+    AST function_body = ASTSon2(a);
     AST statement = ASTSon0(function_body);
 
     if (entry->entity_specs.is_member)
@@ -8354,8 +8376,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     C_LANGUAGE()
     {
-        AST kr_parameter_declaration = ASTSon2(a);
-        AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), decl_context);
+        AST kr_parameter_declaration = ASTSon1(a);
+        AST kr_parameter_list = get_function_declarator_parameter_list(function_declarator, decl_context);
 
         if (kr_parameter_declaration != NULL
                 || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
@@ -8368,7 +8390,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     nodecl_t nodecl_initializers = nodecl_null();
     CXX_LANGUAGE()
     {
-        AST ctor_initializer = ASTSon2(a);
+        AST ctor_initializer = ASTSon1(a);
         if (entry->entity_specs.is_member
                 && entry->entity_specs.is_constructor)
         {
@@ -9009,7 +9031,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     type_t* type_info = NULL;
 
-    AST function_header = ASTSon1(a);
+    AST function_header = ASTSon0(a);
 
     if (ASTType(function_header) == AST_AMBIGUITY)
     {
@@ -10022,11 +10044,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         AST type_specifier_seq = ASTSon0(a);
         AST declarator = ASTSon1(a);
 
-        if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_decl_specifier_seq(type_specifier_seq, decl_context);
-        }
-        
         ERROR_CONDITION((ASTType(declarator) == AST_AMBIGUITY), "Unexpected ambiguity", 0);
 
         // A type_specifier_seq is essentially a subset of a
