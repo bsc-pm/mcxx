@@ -6602,7 +6602,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 if (type_info->function->return_type != NULL)
                 {
                     get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
-                            num_parameter_names, parameter_names, is_parameter);
+                            0, NULL, 0);
                 }
                 break;
             }
