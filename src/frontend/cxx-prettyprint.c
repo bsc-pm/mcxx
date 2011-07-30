@@ -109,6 +109,7 @@ HANDLER_PROTOTYPE(template_declaration_handler);
 HANDLER_PROTOTYPE(type_parameter_class_or_typename_handler);
 HANDLER_PROTOTYPE(type_parameter_template_handler);
 HANDLER_PROTOTYPE(function_definition_handler);
+HANDLER_PROTOTYPE(function_header_handler);
 HANDLER_PROTOTYPE(compound_statement_handler);
 HANDLER_PROTOTYPE(labeled_statement_handler);
 HANDLER_PROTOTYPE(default_statement_handler);
@@ -399,6 +400,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_TYPE_PARAMETER_TYPENAME, type_parameter_class_or_typename_handler, "typename"),
     NODE_HANDLER(AST_TYPE_PARAMETER_TEMPLATE, type_parameter_template_handler, NULL),
     NODE_HANDLER(AST_SIMPLE_TYPE_SPEC, unary_container_handler, NULL),
+    NODE_HANDLER(AST_FUNCTION_DEFINITION_HEADER, function_header_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_DEFINITION, function_definition_handler, NULL),
     NODE_HANDLER(AST_COMPOUND_STATEMENT, compound_statement_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_BODY, unary_container_handler, NULL),

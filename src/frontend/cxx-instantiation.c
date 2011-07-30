@@ -70,11 +70,43 @@ struct type_map_tag
     type_t* new_type;
 } type_map_t;
 
+typedef
+struct translation_info_tag
+{
+    decl_context_t context_of_template;
+    decl_context_t context_of_being_instantiated;
+} translation_info_t;
+
+static decl_context_t translation_function(decl_context_t decl_context, void *d)
+{
+    translation_info_t * p = (translation_info_t*)d;
+
+    decl_context_t result = decl_context;
+
+    fprintf(stderr, "CLASS SCOPE IS %p (template = %p || being instantiated = %p)\n", 
+            result.class_scope, 
+            p->context_of_template.class_scope, 
+            p->context_of_being_instantiated.class_scope);
+
+    if (result.class_scope == p->context_of_template.class_scope)
+    {
+        result.class_scope = p->context_of_being_instantiated.class_scope;
+    }
+    if (result.current_scope == p->context_of_template.current_scope)
+    {
+        result.current_scope = p->context_of_being_instantiated.class_scope;
+    }
+
+    return result;
+}
+
 static scope_entry_t* instantiate_template_type_member(type_t* template_type, 
         decl_context_t context_of_being_instantiated,
         scope_entry_t *member_of_template,
         type_t* being_instantiated, 
         char is_class,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void *translation_data,
         const char* filename, 
         int line,
         type_map_t** template_map, 
@@ -117,6 +149,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         base_type = update_type_for_instantiation(
                 member_of_template->type_information,
                 new_context_for_template_parameters,
+                context_translation_function, translation_data,
                 filename, line);
     }
 
@@ -176,6 +209,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void *translation_data,
         const char* filename, int line,
         type_map_t** template_map, 
         int *num_items_template_map,
@@ -202,6 +237,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
+                        context_translation_function, translation_data,
                         filename, line);
 
                 if (is_named_class_type(new_member->type_information))
@@ -268,6 +304,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
+                        context_translation_function, translation_data,
                         filename, line);
 
                 DEBUG_CODE()
@@ -292,7 +329,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 type_map_t new_map;
                 new_map.orig_type = member_of_template->type_information;
-                new_map.new_type = new_member->type_information;
+                new_map.new_type = get_user_defined_type(new_member);
 
                 P_LIST_ADD((*enum_map), (*num_items_enum_map), new_map);
 
@@ -407,10 +444,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template,
                                 being_instantiated, 
                                 /* is_class */ 1,
-                                filename, 
-                                line,
-                                template_map, 
-                                num_items_template_map);
+                                context_translation_function, translation_data,
+                                filename, line,
+                                template_map, num_items_template_map);
                     }
                     else
                     {
@@ -481,6 +517,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
+                            context_translation_function, translation_data,
                             filename, line);
 
                     // Remember that this function has not been instantiated (it
@@ -503,10 +540,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             member_of_template,
                             being_instantiated, 
                             /* is_class */ 0,
-                            filename, 
-                            line,
-                            template_map, 
-                            num_items_template_map);
+                            context_translation_function, translation_data,
+                            filename, line,
+                            template_map, num_items_template_map);
 
                     new_member->defined = 0;
 
@@ -595,9 +631,10 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void *translation_data,
         const char* filename, int line);
 
-// Using typesystem
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
         deduction_set_t* deduction_set,
@@ -647,12 +684,18 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     class_type_set_inner_context(named_class->type_information, inner_decl_context);
 
+    translation_info_t translation_info;
+    translation_info.context_of_template = class_type_get_inner_context(get_actual_class_type(selected_template));
+    translation_info.context_of_being_instantiated = inner_decl_context;
+
     if (instantiation_base_clause != NULL)
     {
         instantiate_bases(
                 get_actual_class_type(selected_template),
                 get_actual_class_type(being_instantiated),
                 inner_decl_context,
+                translation_function,
+                &translation_info,
                 filename, line
                 );
     }
@@ -721,6 +764,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", entry_list_size(members));
     }
+
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(members);
             !entry_list_iterator_end(it);
@@ -732,6 +776,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated, 
                 member, 
                 inner_decl_context,
+                translation_function,
+                &translation_info,
                 filename, line,
                 &template_map, &num_items_template_map,
                 &enum_map, &num_items_enum_map);
@@ -776,6 +822,8 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void *translation_data,
         const char* filename, int line)
 {
     int i, num_bases = class_type_get_num_bases(selected_class_type);
@@ -811,6 +859,7 @@ static void instantiate_bases(
 
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
+                context_translation_function, translation_data,
                 filename, line);
 
         scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);

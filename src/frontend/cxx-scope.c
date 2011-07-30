@@ -2119,9 +2119,11 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     return result;
 }
 
-template_parameter_value_t* update_template_parameter_value(
+static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* translation_data,
         const char* filename, int line)
 {
     template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
@@ -2134,11 +2136,18 @@ template_parameter_value_t* update_template_parameter_value(
     if (nodecl_is_cxx_dependent_expr(result->value))
     {
         ERROR_CONDITION(v->kind != TPK_NONTYPE, "Invalid parameter value\n", 0);
-        decl_context_t cxx_decl_context;
-        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value, &cxx_decl_context);
+        decl_context_t expr_decl_context;
+        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value, &expr_decl_context);
         expr = ast_copy_for_instantiation(expr);
 
-        if(!check_nontype_template_argument_expression(expr, cxx_decl_context))
+        if (context_translation_function != NULL)
+        {
+            expr_decl_context = context_translation_function(expr_decl_context, translation_data);
+        }
+
+        expr_decl_context.template_parameters = decl_context.template_parameters;
+
+        if(!check_nontype_template_argument_expression(expr, expr_decl_context))
         {
             internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                     prettyprint_in_buffer(expr));
@@ -2158,6 +2167,14 @@ template_parameter_value_t* update_template_parameter_value(
     }
 
     return result;
+}
+
+template_parameter_value_t* update_template_parameter_value(
+        template_parameter_value_t* v,
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    return update_template_parameter_value_aux(v, decl_context, NULL, NULL, filename, line);
 }
 
 template_parameter_list_t* update_template_argument_list_in_dependent_typename(
@@ -2522,6 +2539,8 @@ static type_t* update_dependent_typename(
 
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* translation_data,
         const char* filename, int line)
 {
     ERROR_CONDITION(orig_type == NULL, "Error, type is null", 0);
@@ -2668,9 +2687,11 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Updating template argument %d of specialized template class\n", i);
                 }
-                template_parameter_value_t* updated_argument = update_template_parameter_value(
+                template_parameter_value_t* updated_argument = update_template_parameter_value_aux(
                         template_parameters->arguments[i],
-                        decl_context, filename, line);
+                        decl_context, 
+                        context_translation_function, translation_data,
+                        filename, line);
 
                 updated_template_parameters->arguments[i] = updated_argument;
             }
@@ -2708,7 +2729,9 @@ static type_t* update_type_aux_(type_t* orig_type,
             cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
             return get_cv_qualified_type(
                     update_type_aux_(entry->type_information, 
-                        decl_context, filename, line),
+                        decl_context, 
+                        context_translation_function, translation_data,
+                        filename, line),
                     cv_qualif);
         }
         else
@@ -2725,7 +2748,9 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
-        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line);
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context, 
+                context_translation_function, translation_data,
+                filename, line);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -2740,7 +2765,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, 
+                context_translation_function, translation_data,
+                filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -2756,13 +2783,17 @@ static type_t* update_type_aux_(type_t* orig_type,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, 
+                context_translation_function, translation_data,
+                filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
-        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line);
+        pointee_class = update_type_aux_(pointee_class, decl_context, 
+                context_translation_function, translation_data,
+                filename, line);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -2788,7 +2819,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* return_type = function_type_get_return_type(orig_type);
         if (return_type != NULL)
         {
-            return_type = update_type_aux_(return_type, decl_context, filename, line);
+            return_type = update_type_aux_(return_type, decl_context, 
+                    context_translation_function, translation_data,
+                    filename, line);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -2809,8 +2842,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         {
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
-            param_orig_type = update_type_aux_(param_orig_type, 
-                    decl_context, filename, line);
+            param_orig_type = update_type_aux_(param_orig_type, decl_context, 
+                    context_translation_function, translation_data,
+                    filename, line);
 
             if (param_orig_type == NULL)
                 return NULL;
@@ -2853,6 +2887,8 @@ static type_t* update_type_aux_(type_t* orig_type,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
+
+        // Context of the array
         decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
 
         if (nodecl_is_cxx_dependent_expr(array_size))
@@ -2863,11 +2899,11 @@ static type_t* update_type_aux_(type_t* orig_type,
                         c_cxx_codegen_to_str(array_size));
             }
 
-            // Update the context
-            array_size_context = decl_context;
+            decl_context_t dummy;
+            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size, &dummy);
 
-            // NODECL_CXX_RAW have as its zero-th children a C++ expression tree
-            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size, &array_size_context);
+            array_size_context.template_parameters = decl_context.template_parameters;
+
             new_array_size = ast_copy_for_instantiation(new_array_size);
             if (!check_expression(new_array_size, array_size_context))
             {
@@ -2898,8 +2934,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
-        element_type = update_type_aux_(element_type,
-                decl_context, filename, line);
+        element_type = update_type_aux_(element_type, decl_context, 
+                context_translation_function, translation_data,
+                filename, line);
 
         if (element_type == NULL)
             return NULL;
@@ -2930,7 +2967,9 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
-                decl_context, filename, line);
+                decl_context,
+                context_translation_function, translation_data,
+                filename, line);
 
         if (fixed_type == NULL)
         {
@@ -3035,6 +3074,7 @@ type_t* update_type(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, decl_context,
+            NULL, NULL,
             filename, line);
 
     DEBUG_CODE()
@@ -3054,6 +3094,8 @@ type_t* update_type(type_t* orig_type,
 
 type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* data,
         const char* filename, int line)
 {
     DEBUG_CODE()
@@ -3062,6 +3104,7 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
+            context_translation_function, data,
             filename, line);
 
     if (result == NULL)
@@ -3070,7 +3113,6 @@ type_t* update_type_for_instantiation(type_t* orig_type,
                 filename, line, print_type_str(orig_type, context_of_being_instantiated));
     }
 
-    ERROR_CONDITION(result == NULL, "Invalid type update of '%s' during instantiation", print_declarator(orig_type));
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
@@ -3535,14 +3577,13 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
-const char* get_template_arguments_str(scope_entry_t* entry, 
+const char* template_arguments_to_str(
+        template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
     const char* result = "";
-
     // It is not enough with the name, we have to print the arguments
     result = strappend(result, "<");
-    template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
 
     int i;
     for (i = 0; i < template_parameters->num_parameters; i++)
@@ -3607,6 +3648,14 @@ const char* get_template_arguments_str(scope_entry_t* entry,
     }
 
     return result;
+} 
+
+
+const char* get_template_arguments_str(scope_entry_t* entry, 
+        decl_context_t decl_context)
+{
+    template_parameter_list_t* template_parameters = template_specialized_type_get_template_arguments(entry->type_information);
+    return template_arguments_to_str(template_parameters, decl_context);
 }
 
 const char* unmangle_symbol_name(scope_entry_t* entry)

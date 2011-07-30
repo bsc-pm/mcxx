@@ -61,6 +61,9 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
 // Wrap (use sparingly)
 nodecl_t _nodecl_wrap(AST);
 
+// Free a temporally allocated nodecl
+void nodecl_free(nodecl_t);
+
 // C++ specific stuff
 char nodecl_is_cxx_dependent_expr(nodecl_t n);
 nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t);

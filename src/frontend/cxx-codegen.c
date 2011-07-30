@@ -160,6 +160,8 @@ static void codegen_move_to_namespace_of_symbol(nodecl_codegen_visitor_t* visito
     visitor->opened_namespace = namespace_sym;
 }
 
+static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor, template_parameter_list_t* template_arguments);
+
 #define MAX_WALK_TYPES 2048
 int _stack_walked_types_top = 0;
 type_t* _stack_walked_types[MAX_WALK_TYPES];
@@ -715,12 +717,24 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             }
 
             type_t* class_type = get_actual_class_type(symbol->type_information);
-            if (class_type_is_complete_independent(class_type)
-                    || class_type_is_incomplete_independent(class_type))
+            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                    symbol->type_information);
+            declare_all_in_template_arguments(visitor, template_arguments);
+
+            if (!class_type_is_complete_independent(class_type)
+                    && !class_type_is_incomplete_independent(class_type))
             {
-                template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
-                        symbol->type_information);
-                declare_all_in_template_arguments(visitor, template_arguments);
+                // If this is dependent and it is not the primary template do
+                // not continue, declaring the primary should have been enough
+                //
+                // This may happen for template functions which implicitly name
+                // dependent specializations (such as those defined using
+                // default template arguments). It also may be caused by a bug
+                // in the frontend, though
+                if (!is_primary_template)
+                {
+                    return; 
+                }
             }
         }
 
@@ -784,6 +798,13 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
         // From here we assume its already defined
         symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+
+        if (is_primary_template)
+        {
+            // We do not define primary templates
+            fprintf(visitor->file, ";\n");
+            return;
+        }
 
         if (class_type_get_num_bases(symbol->type_information) != 0)
         {
@@ -1170,6 +1191,31 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                 declare_symbol(visitor, symbol);
                 break;
             }
+        case SK_TEMPLATE_PARAMETER:
+        case SK_TEMPLATE_TYPE_PARAMETER:
+        case SK_TEMPLATE_TEMPLATE_PARAMETER:
+            {
+                // Do nothing
+                break;
+            }
+        case SK_DEPENDENT_ENTITY:
+            {
+                scope_entry_t* entry = NULL;
+                dependent_name_part_t* dependent_parts = NULL;
+                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+
+                define_symbol(visitor, entry);
+
+                while (dependent_parts != NULL)
+                {
+                    if (dependent_parts->template_arguments != NULL)
+                    {
+                        declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
+                    }
+                    dependent_parts = dependent_parts->next;
+                }
+                break;
+            }
         default:
             {
                 internal_error("I do not know how to define a %s\n", symbol_kind_name(symbol));
@@ -1449,12 +1495,24 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         }
 
                         type_t* class_type = get_actual_class_type(symbol->type_information);
-                        if (class_type_is_complete_independent(class_type)
-                                || class_type_is_incomplete_independent(class_type))
+                        template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                                symbol->type_information);
+                        declare_all_in_template_arguments(visitor, template_arguments);
+
+                        if (!class_type_is_complete_independent(class_type)
+                                && !class_type_is_incomplete_independent(class_type))
                         {
-                            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
-                                    symbol->type_information);
-                            declare_all_in_template_arguments(visitor, template_arguments);
+                            // If this is dependent and it is not the primary template do
+                            // not continue, declaring the primary should have been enough
+                            //
+                            // This may happen for template functions which implicitly name
+                            // dependent specializations (such as those defined using
+                            // default template arguments). It also may be caused by a bug
+                            // in the frontend, though
+                            if (!is_primary_template)
+                            {
+                                return; 
+                            }
                         }
                     }
 
@@ -1551,6 +1609,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         define_symbol_if_nonlocal,
                         define_nonlocal_entities_in_trees);
 
+                char is_primary_template = 0;
                 CXX_LANGUAGE()
                 {
                     codegen_move_to_namespace_of_symbol(visitor, symbol);
@@ -1574,6 +1633,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
                             codegen_template_parameters(visitor, template_parameters);
                             fprintf(visitor->file, ">\n");
+                            is_primary_template = 1;
                         }
                     }
                 }
@@ -1659,9 +1719,20 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     real_type = get_new_function_type(NULL, NULL, 0);
                 }
 
+                const char* function_name = unmangle_symbol_name(symbol);
+
+                if (is_template_specialized_type(symbol->type_information)
+                        // Conversions do not allow templates
+                        && !is_primary_template
+                        && !symbol->entity_specs.is_conversion)
+                {
+                    function_name = strappend(function_name, 
+                            get_template_arguments_str(symbol, symbol->decl_context));
+                }
+
                 const char* declarator = print_decl_type_str(real_type,
                         symbol->decl_context,
-                        unmangle_symbol_name(symbol));
+                        function_name);
 
                 const char* exception_spec = "";
                 CXX_LANGUAGE()
@@ -1683,6 +1754,31 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 indent(visitor);
                 fprintf(visitor->file, "%s%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, gcc_attributes, asm_specification);
+                break;
+            }
+        case SK_TEMPLATE_PARAMETER:
+        case SK_TEMPLATE_TYPE_PARAMETER:
+        case SK_TEMPLATE_TEMPLATE_PARAMETER:
+            {
+                // Do nothing
+                break;
+            }
+        case SK_DEPENDENT_ENTITY:
+            {
+                scope_entry_t* entry = NULL;
+                dependent_name_part_t* dependent_parts = NULL;
+                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+
+                declare_symbol(visitor, entry);
+
+                while (dependent_parts != NULL)
+                {
+                    if (dependent_parts->template_arguments != NULL)
+                    {
+                        declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
+                    }
+                    dependent_parts = dependent_parts->next;
+                }
                 break;
             }
         default:
@@ -1902,6 +1998,21 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     CXX_LANGUAGE()
     {
+        dependent_name_part_t* dependent_parts = NULL;
+        if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            dependent_typename_get_components(entry->type_information, &entry, &dependent_parts);
+            dependent_name_part_t* it_dependent_parts = dependent_parts;
+
+            while (it_dependent_parts != NULL)
+            {
+                if (it_dependent_parts->template_arguments != NULL)
+                {
+                    declare_all_in_template_arguments(visitor, it_dependent_parts->template_arguments);
+                }
+                it_dependent_parts = it_dependent_parts->next;
+            }
+        }
         if (!entry->entity_specs.is_template_parameter)
         {
             fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
@@ -1909,6 +2020,20 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         else
         {
             fprintf(visitor->file, "%s", entry->symbol_name);
+        }
+
+        while (dependent_parts != NULL)
+        {
+            if (dependent_parts->template_arguments != NULL)
+            {
+                fprintf(visitor->file, "::template %s<%s>", dependent_parts->name, 
+                        template_arguments_to_str(dependent_parts->template_arguments, entry->decl_context));
+            }
+            else
+            {
+                fprintf(visitor->file, "::%s", dependent_parts->name);
+            }
+            dependent_parts = dependent_parts->next;
         }
     }
     C_LANGUAGE()
@@ -3520,11 +3645,32 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     codegen_walk(visitor, statement);
 }
 
+static const char* prettyprint_callback_codegen(AST a, void *data UNUSED_PARAMETER)
+{
+    // nodecl_codegen_visitor_t* visitor = (nodecl_codegen_visitor_t*)data;
+
+    scope_entry_t* entry = expression_get_symbol(a);
+    if (entry != NULL)
+    {
+        nodecl_t nodecl_sym = nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
+        const char* result = c_cxx_codegen_to_str(nodecl_sym);
+        nodecl_free(nodecl_sym);
+        return result;
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
 // This should never happen
 static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     decl_context_t dummy;
-    prettyprint(visitor->file, nodecl_unwrap_cxx_dependent_expr(node, &dummy));
+    AST tree = nodecl_unwrap_cxx_dependent_expr(node, &dummy);
+
+    fprintf(visitor->file, 
+            cxx_prettyprint_in_buffer_callback(tree, prettyprint_callback_codegen, visitor));
 }
 
 // Top level

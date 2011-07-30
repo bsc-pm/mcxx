@@ -221,6 +221,17 @@ AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t* decl_context)
 {
     ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_DEPENDENT_EXPR, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
 
-    *decl_context = nodecl_get_symbol(nodecl_get_child(n, 0))->decl_context;
-    return nodecl_get_ast(nodecl_get_child(n, 0));
+    nodecl_t wrap = nodecl_get_child(n, 0);
+    AST tree = nodecl_get_ast(wrap);
+
+    scope_entry_t* entry = nodecl_get_symbol(n);
+    ERROR_CONDITION(entry == NULL, "Invalid cxx dependent expr", 0);
+    *decl_context = entry->decl_context;
+
+    return tree;
+}
+
+void nodecl_free(nodecl_t n)
+{
+    ast_free(nodecl_get_ast(n));
 }

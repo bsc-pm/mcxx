@@ -122,6 +122,8 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* translation_data,
         const char* filename, int line);
 
 // Other stuff
@@ -154,6 +156,9 @@ LIBMCXX_EXTERN template_parameter_list_t* get_template_parameters_from_syntax(
 LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
+        decl_context_t decl_context);
+
+LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* template_parameters,
         decl_context_t decl_context);
 
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
