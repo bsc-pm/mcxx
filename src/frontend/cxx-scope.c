@@ -2119,6 +2119,39 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     return result;
 }
 
+static nodecl_t update_nodecl_expression(nodecl_t nodecl, 
+		decl_context_t decl_context,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* translation_data,
+        decl_context_t* translated_context)
+{
+    *translated_context = decl_context;
+    if (nodecl_is_cxx_dependent_expr(nodecl))
+    {
+        decl_context_t expr_decl_context;
+        AST expr = nodecl_unwrap_cxx_dependent_expr(nodecl, &expr_decl_context);
+        expr = ast_copy_for_instantiation(expr);
+
+        if (context_translation_function != NULL)
+        {
+            expr_decl_context = context_translation_function(expr_decl_context, translation_data);
+        }
+
+        expr_decl_context.template_parameters = decl_context.template_parameters;
+        *translated_context = expr_decl_context;
+
+        if (expression_is_constant(expr))
+        {
+            nodecl = const_value_to_nodecl(expression_get_constant(expr));
+        }
+        else
+        {
+            nodecl = expression_get_nodecl(expr);
+        }
+    }
+    return nodecl;
+}
+
 static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
         decl_context_t decl_context,
@@ -2133,37 +2166,24 @@ static template_parameter_value_t* update_template_parameter_value_aux(
 
     result->type = update_type(result->type, decl_context, filename, line);
 
-    if (nodecl_is_cxx_dependent_expr(result->value))
+    if (result->kind == TPK_NONTYPE)
     {
-        ERROR_CONDITION(v->kind != TPK_NONTYPE, "Invalid parameter value\n", 0);
-        decl_context_t expr_decl_context;
-        AST expr = nodecl_unwrap_cxx_dependent_expr(result->value, &expr_decl_context);
-        expr = ast_copy_for_instantiation(expr);
-
-        if (context_translation_function != NULL)
+        if (!nodecl_is_null(result->value))
         {
-            expr_decl_context = context_translation_function(expr_decl_context, translation_data);
-        }
+            decl_context_t translated_context;
+            nodecl_t orig = result->value;
+            result->value = update_nodecl_expression(result->value, decl_context, 
+                    context_translation_function, translation_data,
+                    &translated_context);
 
-        expr_decl_context.template_parameters = decl_context.template_parameters;
-
-        if(!check_nontype_template_argument_expression(expr, expr_decl_context))
-        {
-            internal_error("Updated nontype template parameter has an invalid expression '%s'", 
-                    prettyprint_in_buffer(expr));
+            if (nodecl_get_kind(result->value) == NODECL_ERR_EXPR)
+            {
+                internal_error("Updated nontype template parameter has an invalid expression '%s'", 
+                        c_cxx_codegen_to_str(orig));
+            }
+            // Force the type of the expression
+            nodecl_set_type(result->value, result->type);
         }
-
-        if (expression_is_constant(expr))
-        {
-            result->value = const_value_to_nodecl(expression_get_constant(expr));
-        }
-        else
-        {
-            result->value = expression_get_nodecl(expr);
-        }
-        
-        // Force the type of the expression
-        nodecl_set_type(result->value, result->type);
     }
 
     return result;
@@ -2889,48 +2909,27 @@ static type_t* update_type_aux_(type_t* orig_type,
         nodecl_t array_size = array_type_get_array_size_expr(orig_type);
 
         // Context of the array
-        decl_context_t array_size_context = array_type_get_array_size_expr_context(orig_type);
+        decl_context_t array_size_context;
+
+        array_size = update_nodecl_expression(array_size, decl_context,
+                context_translation_function, translation_data,
+                &array_size_context);
+
+        if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
+        {
+            running_error("%s: error: could not update array dimension",
+                    nodecl_get_locus(array_size));
+        }
 
         if (nodecl_is_cxx_dependent_expr(array_size))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Updating expression '%s' as it is dependent\n",
-                        c_cxx_codegen_to_str(array_size));
-            }
-
-            decl_context_t dummy;
-            AST new_array_size = nodecl_unwrap_cxx_dependent_expr(array_size, &dummy);
-
-            array_size_context.template_parameters = decl_context.template_parameters;
-
-            new_array_size = ast_copy_for_instantiation(new_array_size);
-            if (!check_expression(new_array_size, array_size_context))
-            {
-                running_error("%s: error: could not update array dimension",
-                        ast_location(new_array_size));
-            }
-
-            array_size = expression_get_nodecl(new_array_size);
-            if (nodecl_is_cxx_dependent_expr(array_size))
-            {
-                internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
-                        nodecl_get_locus(array_size));
-            }
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
-                        c_cxx_codegen_to_str(array_size));
-            }
+            internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
+                    nodecl_get_locus(array_size));
         }
-        else
+        DEBUG_CODE()
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Not updating expression '%s' (%s) does not seem to be dependent\n",
-                        c_cxx_codegen_to_str(array_size),
-                        ast_print_node_type(nodecl_get_kind(array_size)));
-            }
+            fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
+                    c_cxx_codegen_to_str(array_size));
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
