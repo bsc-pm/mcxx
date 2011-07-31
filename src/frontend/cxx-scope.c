@@ -2121,6 +2121,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
 static nodecl_t update_nodecl_expression(nodecl_t nodecl, 
 		decl_context_t decl_context,
+        char (*checking_function)(AST, decl_context_t),
         decl_context_t context_translation_function(decl_context_t, void*),
         void* translation_data,
         decl_context_t* translated_context)
@@ -2140,11 +2141,13 @@ static nodecl_t update_nodecl_expression(nodecl_t nodecl,
         expr_decl_context.template_parameters = decl_context.template_parameters;
         *translated_context = expr_decl_context;
 
-        if (expression_is_constant(expr))
-        {
-            nodecl = const_value_to_nodecl(expression_get_constant(expr));
-        }
-        else
+        checking_function(expr, expr_decl_context);
+
+        // if (expression_is_constant(expr))
+        // {
+        //     nodecl = const_value_to_nodecl(expression_get_constant(expr));
+        // }
+        // else
         {
             nodecl = expression_get_nodecl(expr);
         }
@@ -2173,6 +2176,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
             decl_context_t translated_context;
             nodecl_t orig = result->value;
             result->value = update_nodecl_expression(result->value, decl_context, 
+                    check_nontype_template_argument_expression,
                     context_translation_function, translation_data,
                     &translated_context);
 
@@ -2911,25 +2915,29 @@ static type_t* update_type_aux_(type_t* orig_type,
         // Context of the array
         decl_context_t array_size_context;
 
-        array_size = update_nodecl_expression(array_size, decl_context,
-                context_translation_function, translation_data,
-                &array_size_context);
+        if (!nodecl_is_null(array_size))
+        {
+            array_size = update_nodecl_expression(array_size, decl_context,
+                    check_expression,
+                    context_translation_function, translation_data,
+                    &array_size_context);
 
-        if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
-        {
-            running_error("%s: error: could not update array dimension",
-                    nodecl_get_locus(array_size));
-        }
+            if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
+            {
+                running_error("%s: error: could not update array dimension",
+                        nodecl_get_locus(array_size));
+            }
 
-        if (nodecl_is_cxx_dependent_expr(array_size))
-        {
-            internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
-                    nodecl_get_locus(array_size));
-        }
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
-                    c_cxx_codegen_to_str(array_size));
+            if (nodecl_is_cxx_dependent_expr(array_size))
+            {
+                internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
+                        nodecl_get_locus(array_size));
+            }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Expression '%s' successfully updated\n",
+                        c_cxx_codegen_to_str(array_size));
+            }
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
