@@ -56,6 +56,7 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     *new_member = *member_of_template;
 
     new_member->decl_context = context_of_being_instantiated;
+    new_member->entity_specs.is_member = 1;
     new_member->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
@@ -161,6 +162,9 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 context_of_being_instantiated,
                 member_of_template->line,
                 member_of_template->file);
+
+    new_member->entity_specs.is_member = 1;
+    new_member->entity_specs.class_type = being_instantiated;
 
     new_member->file = member_of_template->file;
     new_member->line = member_of_template->line;
@@ -648,7 +652,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
 
-    scope_entry_t* named_class = named_type_get_symbol(being_instantiated);
+    scope_entry_t* being_instantiated_sym = named_type_get_symbol(being_instantiated);
 
     AST instantiation_body = NULL;
     AST instantiation_base_clause = NULL;
@@ -659,7 +663,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
 
     // Update the template parameter with the deduced template parameters
-    decl_context_t instantiation_context = named_class->decl_context;
+    decl_context_t instantiation_context = being_instantiated_sym->decl_context;
 
     // Build the template arguments. We use the selected template to update its deduction
     template_parameter_list_t* template_arguments = 
@@ -668,21 +672,21 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 deduction_set);
     // But the selected_template might be a nested one in a dependent context so we must update
     // the enclosing template arguments with those of the original class
-    ERROR_CONDITION(named_class->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
-    template_arguments->enclosing = named_class->decl_context.template_parameters->enclosing;
+    ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
+    template_arguments->enclosing = being_instantiated_sym->decl_context.template_parameters->enclosing;
 
     // Our instantiation context is ready
     instantiation_context.template_parameters = template_arguments;
 
-    template_specialized_type_update_template_parameters(named_class->type_information,
+    template_specialized_type_update_template_parameters(being_instantiated_sym->type_information,
             instantiation_context.template_parameters);
 
     decl_context_t inner_decl_context = new_class_context(instantiation_context, 
-            named_class);
+            being_instantiated_sym);
 
-    named_class->decl_context = instantiation_context;
+    being_instantiated_sym->decl_context = instantiation_context;
 
-    class_type_set_inner_context(named_class->type_information, inner_decl_context);
+    class_type_set_inner_context(being_instantiated_sym->type_information, inner_decl_context);
 
     translation_info_t translation_info;
     translation_info.context_of_template = class_type_get_inner_context(get_actual_class_type(selected_template));
@@ -702,13 +706,13 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     
     // Inject the class name
     scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-            inner_decl_context.current_scope, named_class->symbol_name);
+            inner_decl_context.current_scope, being_instantiated_sym->symbol_name);
 
-    *injected_symbol = *named_class;
+    *injected_symbol = *being_instantiated_sym;
 
     injected_symbol->do_not_print = 1;
     injected_symbol->entity_specs.is_member = 1;
-    injected_symbol->entity_specs.class_type = get_user_defined_type(named_class);
+    injected_symbol->entity_specs.class_type = get_user_defined_type(being_instantiated_sym);
     injected_symbol->entity_specs.is_injected_class_name = 1;
 
     /*
@@ -786,29 +790,18 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     entry_list_free(members);
 
     // The symbol is defined after this
-    named_class->defined = 1;
+    being_instantiated_sym->defined = 1;
 
     // Finish the class (this order does not match the one used in buildscope, does it?)
     nodecl_t nodecl_finish_class = nodecl_null();
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
-            named_class->decl_context, filename, line, &nodecl_finish_class);
+            being_instantiated_sym->decl_context, filename, line, &nodecl_finish_class);
 
-    if (CURRENT_CONFIGURATION->explicit_instantiation)
+    scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
+    if (selected_template_sym->entity_specs.is_member)
     {
-        // Caution this is experimental code not intended for production
-        // Caution 2, at the moment just print to stdout to see we are not going nuts with the tree
-
-        AST orig_definition_tree = named_type_get_symbol(selected_template)->entity_specs.definition_tree;
-
-        fprintf(stderr, "============== ORIGINAL DEFINITION TREE of '%s' =======================\n",
-                print_type_str(selected_template, inner_decl_context));
-        fprintf(stderr, "%s\n", prettyprint_in_buffer(orig_definition_tree));
-        fprintf(stderr, "============== INSTANTIATED DEFINITION TREE of '%s' ===================\n",
-                print_type_str(being_instantiated, inner_decl_context));
-        AST instantiated_definition_tree 
-            = instantiate_tree(orig_definition_tree, inner_decl_context);
-        fprintf(stderr, "%s\n", prettyprint_in_buffer(instantiated_definition_tree));
-        fprintf(stderr, "===============================================================\n");
+        scope_entry_t* enclosing_class = named_type_get_symbol(selected_template_sym->entity_specs.class_type);
+        // class_type_add_member(enclosing_class->type_information, being_instantiated_sym);
     }
 
     DEBUG_CODE()
