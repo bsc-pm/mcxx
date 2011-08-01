@@ -510,7 +510,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         {
             scope_entry_t* member = entry_list_iterator_current(it);
 
-            // Nested types are not considered first here
             if (member->kind != SK_CLASS
                     && member->kind != SK_ENUM)
             {
@@ -646,6 +645,19 @@ static void declare_all_in_template_arguments(nodecl_codegen_visitor_t* visitor,
                 }
         }
     }
+}
+
+static char is_member_type(scope_entry_t* t)
+{
+    return t->kind == SK_ENUM
+        || t->kind == SK_CLASS
+        || t->kind == SK_TYPEDEF
+        /* || t->kind == SK_TEMPLATE */;
+}
+
+static char is_member_nontype(scope_entry_t* t)
+{
+    return !is_member_type(t);
 }
 
 static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol, 
@@ -862,116 +874,138 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
     scope_entry_list_t* members = class_type_get_members(symbol->type_information);
 
     access_specifier_t current_access_spec = default_access_spec;
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
+
+    struct iteration_member_tag
     {
-        scope_entry_t* member = entry_list_iterator_current(it);
-        access_specifier_t access_spec = member->entity_specs.access;
+        char (*filter)(scope_entry_t*);
+    } filter_set[] = { 
+        { is_member_type }, 
+        { is_member_nontype }, 
+        { NULL } 
+    };
 
-        CXX_LANGUAGE()
+    // We have to iterate several times
+    int i = 0;
+    while (filter_set[i].filter != NULL)
+    {
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(members);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            visitor->indent_level += 1;
-            if (current_access_spec != access_spec)
-            {
-                current_access_spec = access_spec;
+            scope_entry_t* member = entry_list_iterator_current(it);
+            if (!(filter_set[i].filter)(member))
+                continue;
 
-                indent(visitor);
-                if (current_access_spec == AS_PUBLIC)
+            access_specifier_t access_spec = member->entity_specs.access;
+
+            CXX_LANGUAGE()
+            {
+                visitor->indent_level += 1;
+                if (current_access_spec != access_spec)
                 {
-                    fprintf(visitor->file, "public:\n");
-                }
-                else if (current_access_spec == AS_PRIVATE)
-                {
-                    fprintf(visitor->file, "private:\n");
-                }
-                else if (current_access_spec == AS_PROTECTED)
-                {
-                    fprintf(visitor->file, "protected:\n");
-                }
-                else
-                {
-                    internal_error("Unreachable code", 0);
+                    current_access_spec = access_spec;
+
+                    indent(visitor);
+                    if (current_access_spec == AS_PUBLIC)
+                    {
+                        fprintf(visitor->file, "public:\n");
+                    }
+                    else if (current_access_spec == AS_PRIVATE)
+                    {
+                        fprintf(visitor->file, "private:\n");
+                    }
+                    else if (current_access_spec == AS_PROTECTED)
+                    {
+                        fprintf(visitor->file, "protected:\n");
+                    }
+                    else
+                    {
+                        internal_error("Unreachable code", 0);
+                    }
                 }
             }
-        }
 
-        visitor->indent_level += 1;
+            visitor->indent_level += 1;
 
-        char old_in_member_declaration = visitor->in_member_declaration;
-        visitor->in_member_declaration = 1;
+            char old_in_member_declaration = visitor->in_member_declaration;
+            visitor->in_member_declaration = 1;
 
-        C_LANGUAGE()
-        {
-            // Everything must be properly defined in C
-            define_symbol(visitor, member);
-            member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-        }
-        CXX_LANGUAGE()
-        {
-            if (member->kind == SK_CLASS)
+            C_LANGUAGE()
             {
-                if (entry_list_contains(symbols_defined_inside_class, member))
+                // Everything must be properly defined in C
+                define_symbol(visitor, member);
+                member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+            }
+            CXX_LANGUAGE()
+            {
+                if (member->kind == SK_CLASS)
                 {
-                    define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                    if (entry_list_contains(symbols_defined_inside_class, member))
+                    {
+                        define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
+                        member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                    }
+                    else
+                    {
+                        declare_symbol(visitor, member);
+                        member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                    }
                 }
-                else
+                else if (member->kind == SK_USING)
+                {
+                    indent(visitor);
+                    ERROR_CONDITION(!is_unresolved_overloaded_type(member->type_information), "Invalid SK_USING symbol\n", 0);
+
+                    scope_entry_list_t* used_entities = unresolved_overloaded_type_get_overload_set(member->type_information);
+                    scope_entry_t* entry = entry_list_head(used_entities);
+                    entry_list_free(used_entities);
+
+                    char is_dependent = 0;
+                    int max_qualif_level = 0;
+                    fprintf(visitor->file, "using %s;\n", 
+                            get_fully_qualified_symbol_name_without_template(entry, 
+                                entry->decl_context, 
+                                &is_dependent, 
+                                &max_qualif_level));
+                }
+                else 
                 {
                     declare_symbol(visitor, member);
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                    if (member->kind == SK_VARIABLE 
+                            && (!member->entity_specs.is_static
+                                || ((is_integral_type(member->type_information) 
+                                        || is_enum_type(member->type_information))
+                                    && is_const_qualified_type(member->type_information))))
+                    {
+                        member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                    }
+                    else
+                    {
+                        member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                    }
                 }
             }
-            else if (member->kind == SK_USING)
-            {
-                indent(visitor);
-                ERROR_CONDITION(!is_unresolved_overloaded_type(member->type_information), "Invalid SK_USING symbol\n", 0);
+            visitor->in_member_declaration = old_in_member_declaration;
 
-                scope_entry_list_t* used_entities = unresolved_overloaded_type_get_overload_set(member->type_information);
-                scope_entry_t* entry = entry_list_head(used_entities);
-                entry_list_free(used_entities);
-
-                char is_dependent = 0;
-                int max_qualif_level = 0;
-                fprintf(visitor->file, "using %s;\n", 
-                        get_fully_qualified_symbol_name_without_template(entry, 
-                            entry->decl_context, 
-                            &is_dependent, 
-                            &max_qualif_level));
-            }
-            else 
-            {
-                declare_symbol(visitor, member);
-                if (member->kind == SK_VARIABLE 
-                        && (!member->entity_specs.is_static
-                            || ((is_integral_type(member->type_information) 
-                                    || is_enum_type(member->type_information))
-                                && is_const_qualified_type(member->type_information))))
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                }
-                else
-                {
-                    member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
-                }
-            }
-        }
-        visitor->in_member_declaration = old_in_member_declaration;
-
-        visitor->indent_level--;
-
-        CXX_LANGUAGE()
-        {
             visitor->indent_level--;
+
+            CXX_LANGUAGE()
+            {
+                visitor->indent_level--;
+            }
         }
+        entry_list_iterator_free(it);
+
+        i++;
     }
-    entry_list_iterator_free(it);
+
     entry_list_free(members);
 
     // 3. Declare friends
     scope_entry_list_t* friends = class_type_get_friends(symbol->type_information);
 
+    scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(friends);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
@@ -1061,8 +1095,6 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
     entry_list_iterator_free(it);
     entry_list_free(friends);
 
-    visitor->num_classes_being_defined--;
-
     indent(visitor);
     fprintf(visitor->file, "};\n");
 }
@@ -1078,6 +1110,8 @@ static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t
     scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
+
+    visitor->num_classes_being_defined--;
 
     visitor->pending_nested_types_to_define = old_pending;
 }

@@ -801,7 +801,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     if (selected_template_sym->entity_specs.is_member)
     {
         scope_entry_t* enclosing_class = named_type_get_symbol(selected_template_sym->entity_specs.class_type);
-        // class_type_add_member(enclosing_class->type_information, being_instantiated_sym);
+        class_type_add_member(enclosing_class->type_information, being_instantiated_sym);
     }
 
     DEBUG_CODE()
