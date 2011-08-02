@@ -10666,7 +10666,10 @@ static void build_scope_try_block(AST a,
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
                         declarator_type, &gather_info, block_context, &dummy);
 
-                exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
+                if (entry != NULL)
+                {
+                    exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
+                }
             }
 
             nodecl_t nodecl_catch_statement = nodecl_null();
