@@ -518,10 +518,26 @@ static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* cl
     }
 }
 
+
+
 // Classes are so complex that they reserve a whole routine for them
 static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
+    static int _num_being_checked_for_required = 0;
+    static scope_entry_t* _being_checked_for_required[MCXX_MAX_SCOPES_NESTING] = { 0 };
+
     visitor->pending_nested_types_to_define = NULL;
+
+    int i;
+    for (i = 0; i < _num_being_checked_for_required; i++)
+    {
+        if (_being_checked_for_required[i] == symbol)
+            return NULL;
+    }
+
+    ERROR_CONDITION(_num_being_checked_for_required == MCXX_MAX_SCOPES_NESTING, "Too much required before class recursion", 0);
+    _being_checked_for_required[_num_being_checked_for_required] = symbol;
+    _num_being_checked_for_required++;
 
     scope_entry_list_iterator_t* it = NULL;
     if (symbol->kind == SK_CLASS)
@@ -623,6 +639,8 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     }
 
     entry_list_free(must_be_defined_inside_class);
+
+    _num_being_checked_for_required--;
 
     return result;
 }
