@@ -3315,7 +3315,7 @@ static void build_scope_ctor_initializer(
                             }
 
                             check_initialization(initializer,
-                                    entry->decl_context,
+                                    decl_context,
                                     get_unqualified_type(entry->type_information));
 
                             entry_list_add(already_initialized, entry);
@@ -3332,7 +3332,7 @@ static void build_scope_ctor_initializer(
                             }
 
                             check_initialization(initializer,
-                                    entry->decl_context,
+                                    decl_context,
                                     get_user_defined_type(entry));
 
                             entry_list_add(already_initialized, entry);
