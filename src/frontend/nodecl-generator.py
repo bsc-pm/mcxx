@@ -561,7 +561,7 @@ def generate_routines_impl(rule_map):
           if not subrule_ref.is_nullable():
               print "if (checked_tree == NULL)"
               print "{"
-              print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s\\n\", 0);" % (i, key)
+              print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
               print "}"
           if subrule_ref.is_nullable():
              print "if (checked_tree != NULL)"
@@ -569,7 +569,7 @@ def generate_routines_impl(rule_map):
           if subrule_ref.is_seq():
              print " if (ASTType(checked_tree) != AST_NODE_LIST)"
              print " {"
-             print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s\\n\", 0);" % (i, key)
+             print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
              print " }"
              print "AST it, list = checked_tree;"
              print "for_each_element(list, it)"
@@ -578,7 +578,7 @@ def generate_routines_impl(rule_map):
           checks = map(lambda x : "(ASTType(checked_tree) != %s)" % (x), first_set)
           print "if (%s)" % (string.join(checks, "\n&& "))
           print "{"
-          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s\\n\", ast_print_node_type(ASTType(checked_tree)));" % (i, key)
+          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s:%%d\\n\", ast_print_node_type(ASTType(checked_tree)), filename, line);" % (i, key)
           print "}"
           if subrule_ref.is_seq():
              print "}"
@@ -597,17 +597,17 @@ def generate_routines_impl(rule_map):
                  string.join(map(lambda x : x + ".tree", param_name_list), ", "));
 
        if rhs_rule.needs_symbol:
-          print "  if (symbol == NULL) internal_error(\"Node requires a symbol\", 0);"
-          print "  expression_set_symbol(result.tree, symbol);"
+           print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s:%d\", filename, line);"
+           print "  expression_set_symbol(result.tree, symbol);"
        if rhs_rule.needs_type:
-          print "  if (type == NULL) internal_error(\"This node requires a type\", 0);"
-          print "  expression_set_type(result.tree, type);"
+           print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s:%d\", filename, line);"
+           print "  expression_set_type(result.tree, type);"
        if rhs_rule.needs_text:
-          print "  if (text == NULL) internal_error(\"This node requires a text\", 0);"
-          print "  ast_set_text(result.tree, text);"
+           print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s:%d\", filename, line);"
+           print "  ast_set_text(result.tree, text);"
        if rhs_rule.needs_cval:
-          print "  if (cval == NULL) internal_error(\"This node requires a constant value\", 0);"
-          print "  expression_set_constant(result.tree, cval);"
+           print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s:%d\", filename, line);"
+           print "  expression_set_constant(result.tree, cval);"
 
        print "  return result;"
        print "}"
