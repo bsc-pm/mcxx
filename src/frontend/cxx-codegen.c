@@ -283,6 +283,29 @@ static void walk_type_for_symbols(
             symbol_to_declare(visitor, enum_entry);
         }
     }
+    else if (is_unresolved_overloaded_type(t))
+    {
+        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(t);
+
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(unresolved_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* current_sym = entry_list_iterator_current(it);
+
+            if (needs_def)
+            {
+                symbol_to_define(visitor, current_sym);
+            }
+            else
+            {
+                symbol_to_declare(visitor, current_sym);
+            }
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(unresolved_set);
+    }
     else
     {
         // Do nothing as it will be a builtin type
