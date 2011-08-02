@@ -3440,6 +3440,7 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
         enum cxx_symbol_kind template_name_filter[] = {
             SK_TEMPLATE_TEMPLATE_PARAMETER,
             SK_TEMPLATE,
+            SK_USING,
         };
 
         template_symbol_list = filter_symbol_kind_set(template_symbol_list, 
@@ -3455,7 +3456,7 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
             return NULL;
         }
 
-        template_symbol = entry_list_head(template_symbol_list);
+        template_symbol = entry_advance_aliases(entry_list_head(template_symbol_list));
     }
 
     type_t* generic_type = template_symbol->type_information;
@@ -3685,7 +3686,7 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
 // Get the fully qualified symbol name in the scope of the ocurrence
 static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
-        char no_templates)
+        char no_templates, char only_classes)
 {
     // DEBUG_CODE()
     // {
@@ -3737,7 +3738,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         char prev_is_dependent = 0;
         const char* class_qualification = 
-            get_fully_qualified_symbol_name(class_symbol, decl_context, &prev_is_dependent, max_qualif_level);
+            get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level, 
+                    /* no_templates */ 0, only_classes);
 
         class_qualification = strappend(class_qualification, "::");
 
@@ -3751,7 +3753,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
 
         result = strappend(class_qualification, result);
     } 
-    else if (!entry->entity_specs.is_member)
+    else if (!entry->entity_specs.is_member
+            && !only_classes)
     {
         // This symbol is already simple enough
         result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);
@@ -3764,14 +3767,21 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0);
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0, /* only_classes */ 0);
 }
 
 const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     return get_fully_qualified_symbol_name_ex(entry,
-            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1);
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1, /* only_classes */ 0);
+}
+
+const char* get_class_qualification_of_symbol(scope_entry_t* entry,
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0, /* only_classes */ 1);
 }
 
 const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
