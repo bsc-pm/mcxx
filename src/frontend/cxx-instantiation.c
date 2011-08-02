@@ -84,10 +84,13 @@ static decl_context_t translation_function(decl_context_t decl_context, void *d)
 
     decl_context_t result = decl_context;
 
-    // fprintf(stderr, "CLASS SCOPE IS %p (template = %p || being instantiated = %p)\n", 
-    //         result.class_scope, 
-    //         p->context_of_template.class_scope, 
-    //         p->context_of_being_instantiated.class_scope);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Translating context %p (template = %p || being instantiated = %p)\n", 
+                result.class_scope, 
+                p->context_of_template.class_scope, 
+                p->context_of_being_instantiated.class_scope);
+    }
 
     if (result.class_scope == p->context_of_template.class_scope)
     {
@@ -392,16 +395,21 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             {
                 if (!is_template_specialized_type(member_of_template->type_information))
                 {
-                    scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                    template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
+                    tpl_empty->enclosing = context_of_being_instantiated.template_parameters;
+
+                    decl_context_t new_context_of_being_instantiated = context_of_being_instantiated;
+                    new_context_of_being_instantiated.template_parameters = tpl_empty;
+
+                    scope_entry_t* new_member = add_duplicate_member_to_class(new_context_of_being_instantiated,
                             being_instantiated,
                             member_of_template);
 
-                    template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
 
                     type_t* template_type = get_new_template_type(tpl_empty, 
                             member_of_template->type_information, 
                             new_member->symbol_name, 
-                            context_of_being_instantiated, 
+                            new_context_of_being_instantiated, 
                             new_member->line, 
                             new_member->file);
 
@@ -416,14 +424,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
-                    template_parameter_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
-
                     // FIXME - Update class type internal class info -> trees, at least
                     new_member->type_information = 
                         named_type_get_symbol(
                                 template_type_get_specialized_type(template_type,
-                                    tpl_arg_empty,
-                                    context_of_being_instantiated,
+                                    tpl_empty,
+                                    new_context_of_being_instantiated,
                                     new_member->line, new_member->file))->type_information;
 
                     AST orig_bases_tree, orig_body_tree;
@@ -673,6 +679,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // But the selected_template might be a nested one in a dependent context so we must update
     // the enclosing template arguments with those of the original class
     ERROR_CONDITION(being_instantiated_sym->decl_context.template_parameters == NULL, "Wrong nesting in template parameters", 0);
+
     template_arguments->enclosing = being_instantiated_sym->decl_context.template_parameters->enclosing;
 
     // Our instantiation context is ready

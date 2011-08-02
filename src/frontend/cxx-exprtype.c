@@ -6424,8 +6424,65 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     }
                     if (!is_value_dependent)
                     {
-                        nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                        expression_set_nodecl(expr, nodecl_output);
+                        if (!entry->entity_specs.is_member
+                                || entry->entity_specs.is_static)
+                        {
+                            nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                            expression_set_nodecl(expr, nodecl_output);
+                        }
+                        else
+                        {
+                            scope_entry_list_t* this_symbol_list 
+                                = query_unqualified_name_str(decl_context, "this");
+                            if (this_symbol_list != NULL)
+                            {
+                                scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
+
+                                if (is_dependent_type(this_symbol->type_information))
+                                {
+                                    expression_set_dependent(expr, decl_context);
+                                }
+                                else
+                                {
+                                    // Construct (*this).x
+                                    type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                                    cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
+
+                                    nodecl_t nodecl_this_derref = 
+                                        nodecl_make_derreference(
+                                                nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
+                                                get_lvalue_reference_type(this_type),
+                                                ASTFileName(expr), ASTLine(expr));
+
+                                    type_t* qualified_data_member_type = entry->type_information;
+                                    if (!entry->entity_specs.is_mutable)
+                                    {
+                                        qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
+                                    }
+                                    qualified_data_member_type = lvalue_ref(qualified_data_member_type);
+
+                                    nodecl_t nodecl_output =
+                                        nodecl_make_class_member_access(nodecl_this_derref,
+                                                nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr)),
+                                                qualified_data_member_type,
+                                                ASTFileName(expr), ASTLine(expr));
+                                    expression_set_nodecl(expr, nodecl_output);
+                                    expression_set_type(expr, qualified_data_member_type);
+                                }
+                            }
+                            else
+                            {
+                                // Invalid access to a nonstatic member from a "this" lacking context
+                                if (!checking_ambiguity())
+                                {
+                                    error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                                            ast_location(expr),
+                                            get_qualified_symbol_name(entry, entry->decl_context));
+                                }
+                                expression_set_error(expr);
+                            }
+                            entry_list_free(this_symbol_list);
+                        }
                     }
                 }
             }
@@ -9270,6 +9327,17 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             fprintf(stderr, "EXPRTYPE: Fortunately we do not have to resolve any overload in the call '%s' at '%s'\n",
                     prettyprint_in_buffer(called_expression),
                     ast_location(called_expression));
+        }
+        // Fill nodecl
+        if (arguments != NULL)
+        {
+            AST iter;
+            for_each_element(arguments, iter)
+            {
+                AST argument = ASTSon1(iter);
+                (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
+                        expression_get_nodecl(argument));
+            }
         }
         return 1;
     }

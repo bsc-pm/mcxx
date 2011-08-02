@@ -754,7 +754,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         type_t* primary_template = NULL;
         scope_entry_t* primary_symbol = NULL;
 
-        if (is_template_specialized_type(symbol->type_information))
+        if (is_template_specialized_type(symbol->type_information)
+                && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
         {
             is_template_specialized = 1;
             template_type = template_specialized_type_get_related_template_type(symbol->type_information);
@@ -991,7 +992,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             {
                 if (member->kind == SK_CLASS)
                 {
-                    if (is_template_specialized_type(member->type_information))
+                    if (is_template_specialized_type(member->type_information)
+                            && template_specialized_type_get_template_arguments(member->type_information)->num_parameters != 0)
                     {
                         type_t* related_template = template_specialized_type_get_related_template_type(member->type_information);
                         type_t* primary_template = template_type_get_primary_type(related_template);
@@ -1131,7 +1133,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
         visitor->indent_level++;
         // Since friends are a tad bit special we will handle them here
-        if (is_template_specialized_type(friend->type_information))
+        if (is_template_specialized_type(friend->type_information)
+                && template_specialized_type_get_template_arguments(friend->type_information)->num_parameters != 0)
         {
             type_t* template_type = template_specialized_type_get_related_template_type(friend->type_information);
             template_symbol = template_type_get_related_symbol(template_type);
@@ -1620,7 +1623,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     type_t* primary_template = NULL;
                     scope_entry_t* primary_symbol = NULL;
 
-                    if (is_template_specialized_type(symbol->type_information))
+                    if (is_template_specialized_type(symbol->type_information)
+                            && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
                     {
                         is_template_specialized = 1;
                         template_type = template_specialized_type_get_related_template_type(symbol->type_information);
@@ -1757,7 +1761,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     codegen_move_to_namespace_of_symbol(visitor, symbol);
 
-                    if (is_template_specialized_type(symbol->type_information))
+                    if (is_template_specialized_type(symbol->type_information)
+                            && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
                     {
                         type_t* template_type = template_specialized_type_get_related_template_type(symbol->type_information);
                         type_t* primary_template = template_type_get_primary_type(template_type);
@@ -2156,7 +2161,8 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
                 it_dependent_parts = it_dependent_parts->next;
             }
         }
-        if (!entry->entity_specs.is_template_parameter)
+        if (!entry->entity_specs.is_template_parameter
+                && !entry->entity_specs.is_builtin)
         {
             fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
         }
@@ -3584,7 +3590,9 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
     else
     {
-        if (is_template_specialized_type(symbol->type_information))
+        if (is_template_specialized_type(symbol->type_information)
+                && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
+
         {
             type_t* template_type = template_specialized_type_get_related_template_type(symbol->type_information);
             type_t* primary_template = template_type_get_primary_type(template_type);
@@ -3719,7 +3727,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
         const char* class_name = class_symbol->symbol_name;
 
-        if (is_template_specialized_type(class_symbol->type_information))
+        if (is_template_specialized_type(class_symbol->type_information)
+                && template_specialized_type_get_template_arguments(class_symbol->type_information)->num_parameters != 0)
         {
             class_name = strappend(class_name, 
                     get_template_arguments_str(class_symbol, class_symbol->decl_context));
@@ -3772,7 +3781,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
     codegen_move_to_namespace_of_symbol(visitor, symbol);
 
-    if (is_template_specialized_type(symbol->type_information))
+    if (is_template_specialized_type(symbol->type_information)
+            && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
     {
         indent(visitor);
         fprintf(visitor->file, "template <>\n");

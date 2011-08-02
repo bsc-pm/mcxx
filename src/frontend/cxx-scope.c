@@ -3589,6 +3589,9 @@ const char* template_arguments_to_str(
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
+    if (template_parameters->num_parameters == 0)
+        return "";
+
     const char* result = "";
     // It is not enough with the name, we have to print the arguments
     result = strappend(result, "<");
@@ -3904,9 +3907,9 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
             levels[i] = template_parameters->parameters;
             value_levels[i] = template_parameters->arguments;
             num_items[i] = template_parameters->num_parameters;
-            i++;
         }
 
+        i++;
         template_parameters = template_parameters->enclosing;
     }
 
@@ -4152,49 +4155,56 @@ void print_template_parameter_list_aux(template_parameter_list_t* template_param
 
     (*n)++;
 
-    int i;
-    for (i = 0; i < template_parameters->num_parameters; i++)
+    if (template_parameters->num_parameters > 0)
     {
-        const char* kind_name = "<<unknown>>";
-        switch (template_parameters->parameters[i]->kind)
+        int i;
+        for (i = 0; i < template_parameters->num_parameters; i++)
         {
-            case TPK_NONTYPE: kind_name = "nontype"; break;
-            case TPK_TYPE: kind_name = "type"; break;
-            case TPK_TEMPLATE: kind_name = "template"; break;
-            default: break;
-        }
-        fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
-                template_parameters->parameters[i]->entry->symbol_name,
-                kind_name);
-
-        template_parameter_value_t* v = template_parameters->arguments[i];
-        if (v == NULL)
-        {
-            fprintf(stderr, "  Argument: <<NONE>>\n");
-        }
-        else
-        {
-            switch (v->kind)
+            const char* kind_name = "<<unknown>>";
+            switch (template_parameters->parameters[i]->kind)
             {
-                case TPK_TYPE:
-                case TPK_TEMPLATE:
-                    {
-                        fprintf(stderr, "  Argument: %s\n", print_declarator(v->type));
-                        break;
-                    }
-                case TPK_NONTYPE:
-                    {
-                        fprintf(stderr, "  Argument: %s\n", c_cxx_codegen_to_str(v->value));
-                        fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
-                        break;
-                    }
-                default:
-                    {
-                        fprintf(stderr, "  Argument: ????\n");
-                        break;
-                    }
+                case TPK_NONTYPE: kind_name = "nontype"; break;
+                case TPK_TYPE: kind_name = "type"; break;
+                case TPK_TEMPLATE: kind_name = "template"; break;
+                default: break;
+            }
+            fprintf(stderr, "* Nesting: %d | Position: %d | Name: %s | Kind : %s\n", *n, i, 
+                    template_parameters->parameters[i]->entry->symbol_name,
+                    kind_name);
+
+            template_parameter_value_t* v = template_parameters->arguments[i];
+            if (v == NULL)
+            {
+                fprintf(stderr, "  Argument: <<NONE>>\n");
+            }
+            else
+            {
+                switch (v->kind)
+                {
+                    case TPK_TYPE:
+                    case TPK_TEMPLATE:
+                        {
+                            fprintf(stderr, "  Argument: %s\n", print_declarator(v->type));
+                            break;
+                        }
+                    case TPK_NONTYPE:
+                        {
+                            fprintf(stderr, "  Argument: %s\n", c_cxx_codegen_to_str(v->value));
+                            fprintf(stderr, "  (Type: %s)\n", print_declarator(v->type));
+                            break;
+                        }
+                    default:
+                        {
+                            fprintf(stderr, "  Argument: ????\n");
+                            break;
+                        }
+                }
             }
         }
+    }
+    else
+    {
+        fprintf(stderr, "* Nesting: %d <<<EMPTY>>>\n", *n);
     }
 }
 

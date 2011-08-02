@@ -1207,6 +1207,7 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
         fprintf(stderr, "TYPEDEDUC: Creating template argument list after deduction set\n");
     }
     template_parameter_list_t* result = duplicate_template_argument_list(template_parameters);
+
     int nesting = get_template_nesting_of_template_parameters(template_parameters);
 
     int i;

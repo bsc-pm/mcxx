@@ -806,6 +806,8 @@ static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void character_separated_sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx, 
         const char* separator, prettyprint_handler_t specific_handler)
 {
+    if (a == NULL)
+        return;
     if (ASTType(a) == AST_AMBIGUITY)
     {
         character_separated_sequence_handler(f, ast_get_ambiguity(a, 0), pt_ctx, separator, specific_handler);
