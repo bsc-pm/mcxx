@@ -7,6 +7,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-entrylist.h"
 #include "cxx-nodecl-visitor.h"
+#include "cxx-buildscope.h"
 #include "cxx-prettyprint.h"
 #include <string.h>
 #include <ctype.h>
@@ -565,7 +566,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
             }
             else if (member->kind == SK_ENUM)
             {
-                int i;
                 for (i = 0; i < enum_type_get_num_enumerators(member->type_information); i++)
                 {
                     scope_entry_t* enumerator = enum_type_get_enumerator_num(member->type_information, i);
@@ -744,6 +744,7 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         fprintf(visitor->file, "{\n");
     }
 
+    char is_dependent_class = 0;
     CXX_LANGUAGE()
     {
         char is_template_specialized = 0;
@@ -788,6 +789,7 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                 {
                     return; 
                 }
+                is_dependent_class = 1;
             }
         }
 
@@ -832,19 +834,26 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
         indent(visitor);
         const char* qualified_name = NULL;
-        // if (level == 0)
-        // {
-        //     qualified_name = get_qualified_symbol_name(symbol, symbol->decl_context);
-        // }
-        // else
+        if (level == 0)
+        {
+            char is_dependent = 0;
+            int max_qualif_level = 0;
+
+            qualified_name = get_class_qualification_of_symbol(symbol, symbol->decl_context, &is_dependent, &max_qualif_level);
+            
+            // Note that this case will already have template arguments if needed
+        }
+        else
         {
             qualified_name = symbol->symbol_name;
+
             if (is_template_specialized
                     && !is_primary_template)
             {
                 qualified_name = strappend(qualified_name, 
                         get_template_arguments_str(symbol, symbol->decl_context));
             }
+
         }
 
         fprintf(visitor->file, "%s %s", class_key, qualified_name);
@@ -852,12 +861,12 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         // From here we assume its already defined
         symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 
-        if (is_primary_template)
-        {
-            // We do not define primary templates
-            fprintf(visitor->file, ";\n");
-            return;
-        }
+        // if (is_primary_template)
+        // {
+        //     // We do not define primary templates
+        //     fprintf(visitor->file, ";\n");
+        //     return;
+        // }
 
         if (class_type_get_num_bases(symbol->type_information) != 0)
         {
@@ -982,15 +991,76 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             {
                 if (member->kind == SK_CLASS)
                 {
-                    if (entry_list_contains(symbols_defined_inside_class, member))
+                    if (is_template_specialized_type(member->type_information))
                     {
-                        define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
-                        member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                        type_t* related_template = template_specialized_type_get_related_template_type(member->type_information);
+                        type_t* primary_template = template_type_get_primary_type(related_template);
+                        char is_primary_template = (named_type_get_symbol(primary_template) == member);
+
+                        // C++ has a problem here: we cannot explicitly
+                        // specialize a member template class in non
+                        // namespace scope but we need the definition, here
+                        // EXCEPTIONALLY we will emit dependent code
+                        // because this language quirk. Other solutions
+                        // (like flattening the members) are more
+                        // cumbersome, more painstaking and more
+                        // painstaking than this one.
+                        if (is_primary_template)
+                        {
+                            // Check every complete specialization
+                            char one_specialization_defined_inside_the_class = 0;
+                            int j;
+                            for (j = 0; 
+                                    j < template_type_get_num_specializations(related_template);
+                                    j++)
+                            {
+                                type_t* current_specialization = template_type_get_specialization_num(related_template, j);
+                                scope_entry_t* current_spec_sym = named_type_get_symbol(current_specialization);
+
+                                if (class_type_is_complete_independent(current_specialization)
+                                        && entry_list_contains(symbols_defined_inside_class, current_spec_sym))
+                                {
+                                    one_specialization_defined_inside_the_class = 1;
+                                }
+                            }
+
+                            if (one_specialization_defined_inside_the_class
+                                    || is_dependent_class)
+                            {
+                                define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
+                                member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                            }
+                            else
+                            {
+                                declare_symbol(visitor, member);
+                                member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                            }
+                        }
+                        else
+                        {
+                            // Do not emit anything but mark the symbols 
+                            if (entry_list_contains(symbols_defined_inside_class, member))
+                            {
+                                member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                            }
+                            else
+                            {
+                                member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                            }
+                        }
                     }
                     else
                     {
-                        declare_symbol(visitor, member);
-                        member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                        if (entry_list_contains(symbols_defined_inside_class, member))
+                        {
+                            define_class_symbol_aux(visitor, member, symbols_defined_inside_class, level + 1);
+                            member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+                        }
+                        else
+                        {
+                            declare_symbol(visitor, member);
+                            member->entity_specs.codegen_status = CODEGEN_STATUS_DECLARED;
+                        }
                     }
                 }
                 else if (member->kind == SK_USING)
@@ -1178,7 +1248,6 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
         if (!symbol_is_nested_in_defined_classes(visitor, class_entry))
         {
             define_symbol_if_nonnested(visitor, class_entry);
-            return;
         }
     }
 
@@ -1396,7 +1465,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
         if (!symbol_is_nested_in_defined_classes(visitor, class_entry))
         {
             define_symbol_if_nonnested(visitor, class_entry);
-            return;
         }
     }
 
@@ -1828,7 +1896,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 indent(visitor);
-                fprintf(visitor->file, "%s%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, gcc_attributes, asm_specification);
+                fprintf(visitor->file, "%s%s%s%s%s;\n", decl_spec_seq, declarator, exception_spec, asm_specification, gcc_attributes);
                 break;
             }
         case SK_TEMPLATE_PARAMETER:
@@ -2794,6 +2862,7 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
         INVALID_CALL = 0,
         ORDINARY_CALL,
         NONSTATIC_MEMBER_CALL,
+        STATIC_MEMBER_CALL,
         CONSTRUCTOR_INITIALIZATION
     } kind = ORDINARY_CALL;
 
@@ -2810,6 +2879,10 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
             else if (!called_symbol->entity_specs.is_static)
             {
                 kind = NONSTATIC_MEMBER_CALL;
+            }
+            else if (called_symbol->entity_specs.is_static)
+            {
+                kind = STATIC_MEMBER_CALL;
             }
         }
     }
@@ -2832,6 +2905,7 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
                 fprintf(visitor->file, ")");
                 break;
             }
+        case STATIC_MEMBER_CALL:
         case NONSTATIC_MEMBER_CALL:
             {
                 int num_items = 0;
@@ -2842,16 +2916,19 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
                 char needs_parentheses = (get_rank(unpacked_list[0])
                         < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, NULL));
                 
-                if (needs_parentheses)
+                if (kind == NONSTATIC_MEMBER_CALL)
                 {
-                    fprintf(visitor->file, "(");
+                    if (needs_parentheses)
+                    {
+                        fprintf(visitor->file, "(");
+                    }
+                    codegen_walk(visitor, unpacked_list[0]);
+                    if (needs_parentheses)
+                    {
+                        fprintf(visitor->file, ")");
+                    }
+                    fprintf(visitor->file, ".");
                 }
-                codegen_walk(visitor, unpacked_list[0]);
-                if (needs_parentheses)
-                {
-                    fprintf(visitor->file, ")");
-                }
-                fprintf(visitor->file, ".");
 
                 if (is_virtual_call)
                 {
@@ -2996,6 +3073,12 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         fprintf(visitor->file, ")");
 
         free(unpacked_list);
+    }
+    else if (strcmp(builtin_name, "unknown-pragma") == 0)
+    {
+        fprintf(visitor->file, "#pragma ");
+        codegen_walk(visitor, any_list);
+        fprintf(visitor->file, "\n");
     }
     else
     {
@@ -3748,6 +3831,25 @@ static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
             cxx_prettyprint_in_buffer_callback(tree, prettyprint_callback_codegen, visitor));
 }
 
+static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(t);
+
+    if (entry_list_size(unresolved_set) == 1)
+    {
+        scope_entry_t* function = entry_list_head(unresolved_set);
+        codegen_walk(visitor, nodecl_make_symbol(function, nodecl_get_filename(node), nodecl_get_line(node)));
+    }
+    else
+    {
+        scope_entry_t* entry = entry_advance_aliases(entry_list_head(unresolved_set));
+        fprintf(visitor->file, unmangle_symbol_name(entry));
+    }
+    entry_list_free(unresolved_set);
+}
+
 // Top level
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -3822,6 +3924,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef BINARY_EXPRESSION
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);
 }
 
 // External interface
