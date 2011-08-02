@@ -380,13 +380,17 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonabstract_declarator
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
+%type<ast> nontype_specifier_but_SUSL
 %type<ast> nontype_specifier_for_named
 %type<ast> nontype_specifier_for_named_without_attribute
 %type<ast> nontype_specifier_no_end_attrib_seq
 %type<ast> nontype_specifier_no_end_attrib_seq_for_named
 %type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier_seq_but_SUSL
+%type<ast> nontype_specifier_seq_with_SUSL
 %type<ast> nontype_specifier_seq_for_named
 %type<ast> nontype_specifier_without_attribute
+%type<ast> type_specifier_SUSL
 %type<ast> operator
 %type<ast> operator_function_id
 %type<ast> parameter_declaration
@@ -1089,6 +1093,16 @@ nontype_specifier_seq : nontype_specifier
 }
 ;
 
+nontype_specifier_seq_but_SUSL : nontype_specifier_but_SUSL
+{
+	$$ = ASTListLeaf($1);
+}
+| nontype_specifier_seq_but_SUSL nontype_specifier_but_SUSL
+{
+	$$ = ASTList($1, $2);
+}
+;
+
 nontype_specifier_seq_for_named : nontype_specifier_for_named
 {
 	$$ = ASTListLeaf($1);
@@ -1131,7 +1145,7 @@ nontype_specifier : nontype_specifier_without_attribute
 }
 ;
 
-nontype_specifier_for_named_without_attribute : storage_class_specifier
+nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
 }
@@ -1147,22 +1161,6 @@ nontype_specifier_for_named_without_attribute : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_TYPEDEF_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
-| TOKEN_SIGNED
-{
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 | cv_qualifier
 {
 	$$ = $1;
@@ -1171,6 +1169,34 @@ nontype_specifier_for_named_without_attribute : storage_class_specifier
 | COMPLEX
 {
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+
+
+nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL
+{
+    $$ = $1;
+}
+| type_specifier_SUSL
+{
+    $$ = $1;
+}
+;
+
+type_specifier_SUSL : TOKEN_SIGNED
+{
+	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_UNSIGNED
+{
+	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_SHORT
+{
+	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_LONG
+{
+	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1205,21 +1231,9 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
-| TOKEN_SIGNED
+| type_specifier_SUSL
 {
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
+    $$ = $1;
 }
 // GNU Extension
 | COMPLEX
@@ -1327,6 +1341,12 @@ type_specifier_seq_0 : nontype_specifier_seq no_named_type_specifier nontype_spe
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, 
+        ASTLeaf(AST_INT_TYPE, ASTFileName($1), ASTLine($1), NULL), 
+        NULL, ASTFileName($1), ASTLine($1), NULL);
+}
 ;
 
 type_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
@@ -1352,6 +1372,30 @@ type_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_typ
 | no_named_type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, 
+        ASTLeaf(AST_INT_TYPE, ASTFileName($1), ASTLine($1), NULL), 
+        NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+nontype_specifier_seq_with_SUSL : nontype_specifier_seq type_specifier_SUSL nontype_specifier_seq_but_SUSL
+{
+    $$ = ast_list_concat($1, ast_list_concat(ASTListLeaf($2), $3));
+}
+| type_specifier_SUSL nontype_specifier_seq_but_SUSL
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
+}
+| nontype_specifier_seq type_specifier_SUSL
+{
+    $$ = ast_list_concat($1, ASTListLeaf($2));
+}
+| type_specifier_SUSL
+{
+    $$ = ASTListLeaf($1);
 }
 ;
 
