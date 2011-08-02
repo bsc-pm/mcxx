@@ -6722,7 +6722,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             snprintf(user_defined_str, MAX_LENGTH, "<dependent entity>");
             break;
         default :
-            snprintf(user_defined_str, MAX_LENGTH, "<<<unknown user defined type>>> (kind=%d)", user_defined_type->kind);
+            snprintf(user_defined_str, MAX_LENGTH, "<<<unknown user defined type %s>>>", symbol_kind_name(user_defined_type));
     }
     result = strappend(result, user_defined_str);
 
