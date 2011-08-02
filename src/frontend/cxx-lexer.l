@@ -81,8 +81,11 @@ static lexer_keyword_t gxx_43_keywords[] =
     { "__is_convertible_to", GXX_IS_CONVERTIBLE_TO },
     { "__is_empty", GXX_IS_EMPTY },
     { "__is_enum", GXX_IS_ENUM },
+    { "__is_literal_type", GXX_IS_LITERAL_TYPE },
     { "__is_pod", GXX_IS_POD },
     { "__is_polymorphic", GXX_IS_POLYMORPHIC },
+    { "__is_std_layout", GXX_IS_STD_LAYOUT },
+    { "__is_trivial", GXX_IS_TRIVIAL },
     { "__is_union", GXX_IS_UNION },
     // Sentinel
     { NULL, 0 },
@@ -899,6 +902,7 @@ type {
 
  /*!if CPLUSPLUS*/
 "decltype"      { parse_token_text(); return DECLTYPE; }
+"__decltype"      { parse_token_text(); return DECLTYPE; }
 "explicit"      { parse_token_text(); return EXPLICIT; } 
 "private"       { parse_token_text(); return PRIVATE; } 
 "protected"     { parse_token_text(); return PROTECTED; } 
