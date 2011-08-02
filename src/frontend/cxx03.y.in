@@ -189,6 +189,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> GXX_IS_POD "__is_pod"
 %token<token_atrib> GXX_IS_POLYMORPHIC "__is_polymorphic"
 %token<token_atrib> GXX_IS_UNION "__is_union"
+%token<token_atrib> GXX_IS_TRIVIAL "__is_trivial"
+%token<token_atrib> GXX_IS_LITERAL_TYPE "__is_literal_type"
+%token<token_atrib> GXX_IS_STD_LAYOUT "__is_std_layout"
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -3519,8 +3522,19 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
 {
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
+| GXX_IS_TRIVIAL '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_STD_LAYOUT '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_LITERAL_TYPE '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
 ;
-
 
 /* GNU extension */
 /*
