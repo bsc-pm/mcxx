@@ -3256,8 +3256,10 @@ static void build_scope_ctor_initializer(
                         // In dependent contexts, just disambiguate by
                         // querying, but nothing else)
                         if (dependent_context)
+                        {
+                            check_initialization(initializer, decl_context, get_user_defined_type(class_sym));
                             break;
-
+                        }
                         if (result_list == NULL)
                         {
                             running_error("%s: initialized entity '%s' not found\n", 
