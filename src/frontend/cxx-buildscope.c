@@ -10653,7 +10653,7 @@ static void build_scope_try_block(AST a,
 
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, exception_declaration, block_context);
 
-            type_t* declarator_type = NULL;
+            type_t* declarator_type = type_info;
 
             nodecl_t exception_name = nodecl_null();
             if (declarator != NULL)
