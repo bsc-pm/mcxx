@@ -1162,6 +1162,7 @@ char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t**
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        entry = entry_advance_aliases(entry);
         if (entry->kind != SK_TYPEDEF
                 && entry->kind != SK_ENUM
                 && entry->kind != SK_CLASS
@@ -1185,7 +1186,7 @@ char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t**
     }
     entry_list_iterator_free(it);
 
-    scope_entry_t* entry = entry_list_head(entry_list);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
     entry_list_free(entry_list);
 
     if (ok && computed_type != NULL)
