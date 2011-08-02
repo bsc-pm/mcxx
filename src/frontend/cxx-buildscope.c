@@ -6543,6 +6543,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
         {
             function_name = strprepend(function_name, "constructor ");
+            decl_context.decl_flags &= ~DF_CONSTRUCTOR;
         }
         scope_entry_t* new_entry = NULL;
 
