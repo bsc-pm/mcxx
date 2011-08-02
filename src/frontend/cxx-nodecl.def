@@ -56,7 +56,7 @@ pragma-custom-clause: NODECL_PRAGMA_CUSTOM_CLAUSE([arguments]pragma-clause-arg-s
 pragma-clause-arg: NODECL_PRAGMA_CLAUSE_ARG() text
 pragma-construct : NODECL_PRAGMA_CUSTOM_CONSTRUCT([pragma_line]pragma-line, [statement]statement-seq) text
 
-c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq, [any]statement-seq-opt)
+c-cxx-only-statements : NODECL_TRY_BLOCK([statement]statement-seq, [catch_handlers]catch-handler-seq-opt, [any]statement-seq-opt)
 
 catch-handler : NODECL_CATCH_HANDLER([name]object-init-opt, [statement]statement-seq) type
 

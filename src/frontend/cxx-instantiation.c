@@ -84,10 +84,10 @@ static decl_context_t translation_function(decl_context_t decl_context, void *d)
 
     decl_context_t result = decl_context;
 
-    fprintf(stderr, "CLASS SCOPE IS %p (template = %p || being instantiated = %p)\n", 
-            result.class_scope, 
-            p->context_of_template.class_scope, 
-            p->context_of_being_instantiated.class_scope);
+    // fprintf(stderr, "CLASS SCOPE IS %p (template = %p || being instantiated = %p)\n", 
+    //         result.class_scope, 
+    //         p->context_of_template.class_scope, 
+    //         p->context_of_being_instantiated.class_scope);
 
     if (result.class_scope == p->context_of_template.class_scope)
     {

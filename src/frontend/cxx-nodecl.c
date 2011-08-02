@@ -212,7 +212,8 @@ nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t decl_cont
             new_scope_symbol(decl_context),
             ASTFileName(expression), ASTLine(expression));
     // Note that we do not want this nodecl_raw to become the parent of expression
-    ast_set_child_but_parent(nodecl_get_ast(nodecl_raw), 0, expression);
+    // FIXME - This may create lots of copies
+    ast_set_child(nodecl_get_ast(nodecl_raw), 0, ast_copy(expression));
 
     return nodecl_raw;
 }

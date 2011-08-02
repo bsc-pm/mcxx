@@ -466,7 +466,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                 }
                 else
                 {
-                    internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                    internal_error("More than one valid choice! '%s' vs '%s' %s", 
                             ast_print_node_type(ASTType(first_option)),
                                 ast_print_node_type(ASTType(second_option)),
                                 ast_location(second_option));
@@ -2272,7 +2272,7 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             {
                 AST first_option = ast_get_ambiguity(a, correct_choice);
                 AST second_option = current_condition;
-                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                internal_error("More than one valid choice! '%s' vs '%s' %s", 
                         ast_print_node_type(ASTType(first_option)),
                         ast_print_node_type(ASTType(second_option)),
                         ast_location(second_option));
@@ -2341,7 +2341,7 @@ static char solve_ambiguous_nested_name_specifier_rec(AST a, decl_context_t decl
             {
                 AST first_option = ast_get_ambiguity(a, correct_choice);
                 AST second_option = current;
-                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                internal_error("More than one valid choice! '%s' vs '%s' %s", 
                         ast_print_node_type(ASTType(first_option)),
                         ast_print_node_type(ASTType(second_option)),
                         ast_location(second_option));

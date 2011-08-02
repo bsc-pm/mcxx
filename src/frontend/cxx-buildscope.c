@@ -1786,7 +1786,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
                         case AST_QUALIFIED_ID :
                         case AST_QUALIFIED_TEMPLATE :
-                        // class member accesses
+                            // class member accesses
                         case AST_CLASS_MEMBER_ACCESS :
                         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
                         case AST_POINTER_CLASS_MEMBER_ACCESS :
@@ -3208,6 +3208,7 @@ static void build_scope_ctor_initializer(
         int line,
         nodecl_t* nodecl_output)
 {
+    decl_context.decl_flags = DF_NONE;
     scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
 
     char dependent_context =  (is_dependent_type(class_sym->type_information)
@@ -8378,7 +8379,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             // It is a constant pointer, so qualify like it is
             this_type = get_cv_qualified_type(this_type, CV_CONST);
 
-            // This will put the symbol in the function scope, but this is fine
             scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
 
             this_symbol->line = ASTLine(function_body);
@@ -8415,7 +8415,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             AST location = ctor_initializer;
             if (ctor_initializer == NULL)
                 location = a;
-            build_scope_ctor_initializer(ctor_initializer, entry, block_context, 
+            build_scope_ctor_initializer(ctor_initializer, 
+                    entry, block_context, 
                     ASTFileName(location), ASTLine(location),
                     &nodecl_initializers);
         }
@@ -10112,7 +10113,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
-                            &ambiguous_conversion, &conversor))
+                            &ambiguous_conversion, &conversor, ASTFileName(initializer), ASTLine(initializer)))
                 {
                     error_printf("%s: error: value of type '%s' cannot be converted to 'bool' type\n",
                             ast_location(a),
@@ -10559,7 +10560,8 @@ static void build_scope_return_statement(AST a,
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
                     if (!type_can_be_implicitly_converted_to(expression_get_type(expression),
-                                return_type, decl_context, &ambiguous_conversion, &conversor))
+                                return_type, decl_context, &ambiguous_conversion, &conversor, 
+                                ASTFileName(expression), ASTLine(expression)))
                     {
                         error_printf("%s: error: cannot convert type '%s' to '%s'\n",
                                 ast_location(expression),

@@ -1187,7 +1187,18 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 AST type_id = ASTSon0(expression);
                 AST casted_expr = ASTSon1(expression);
 
-                check_cast_expr(expression, type_id, casted_expr, decl_context, ast_print_node_type(ASTType(expression)));
+                const char* cast_kind = NULL;
+                switch (ASTType(expression))
+                {
+                    case AST_DYNAMIC_CAST : cast_kind = "dynamic_cast"; break;
+                    case AST_STATIC_CAST : cast_kind = "static_cast"; break;
+                    case AST_REINTERPRET_CAST : cast_kind = "reinterpret_cast"; break;
+                    case AST_CONST_CAST : cast_kind = "const_cast"; break;
+                    default:
+                          internal_error("Code unreachable", 0);
+                }
+
+                check_cast_expr(expression, type_id, casted_expr, decl_context, cast_kind);
                 break;
             }
         case AST_TYPEID_TYPE :
@@ -1200,7 +1211,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 check_typeid_expr(expression, decl_context);
                 break;
             }
-        // Unary expressions
+            // Unary expressions
         case AST_PREINCREMENT :
             {
                 check_preincrement(expression, decl_context);
@@ -1747,7 +1758,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
-                ast_location(expression));
+                        ast_location(expression));
                 break;
             }
     }
@@ -1825,6 +1836,14 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         nodecl_set_constant(
                 expression_get_nodecl(expression),
                 expression_get_constant(expression));
+    }
+
+    if (!checking_ambiguity()
+            && CURRENT_CONFIGURATION->strict_typecheck
+            && (nodecl_get_kind(expression_get_nodecl(expression)) == NODECL_ERR_EXPR
+                || is_error_type(expression_get_type(expression))))
+    {
+        internal_error("Invalid expression '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
     }
 }
 
@@ -5975,6 +5994,9 @@ static type_t* compute_operator_reference_type(AST expression,
             {
                 // This is an easy case
                 expression_set_type(expression, op_type);
+                expression_set_nodecl(expression,
+                        nodecl_make_cxx_unresolved_overload(op_type, 
+                            ASTFileName(expression), ASTLine(expression)));
                 return expression_get_type(expression);
             }
             else
@@ -6029,6 +6051,8 @@ static type_t* compute_operator_reference_type(AST expression,
         {
             // Bypass the type for overload addresses
             expression_set_type(expression, op_type);
+            expression_set_nodecl(expression,
+                    nodecl_make_cxx_unresolved_overload(op_type, ASTFileName(expression), ASTLine(expression)));
             return expression_get_type(expression);
         }
     }
@@ -6340,70 +6364,69 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             }
             else if (entry->kind == SK_VARIABLE)
             {
-                if (!is_dependent_type(entry->type_information))
-                {
-                    if (!entry->entity_specs.is_template_parameter)
-                    {
-                        expression_set_type(expr, lvalue_ref(entry->type_information));
-                        expression_set_is_lvalue(expr, 1);
-                    }
-                    else
-                    {
-                        expression_set_type(expr, entry->type_information);
-                        expression_set_is_lvalue(expr, 0);
-                    }
-
-                    if (!entry->entity_specs.is_parameter
-                            && (is_const_qualified_type(entry->type_information)
-                                || entry->entity_specs.is_template_parameter)
-                            // FIXME - Remove language_dependent_value
-                            && (entry->language_dependent_value != NULL
-                                || !nodecl_is_null(entry->value)))
-                    {
-                        if (val != NULL)
-                        {
-                            if (!nodecl_is_null(entry->value)
-                                    && nodecl_is_constant(entry->value))
-                            {
-                                *val = nodecl_get_constant(entry->value);
-                            }
-                            else if (entry->language_dependent_value != NULL
-                                    && expression_is_constant(entry->language_dependent_value))
-                            {
-                                *val = expression_get_constant(entry->language_dependent_value);
-                            }
-                        }
-
-                        if (!nodecl_is_null(entry->value)
-                                && nodecl_is_cxx_dependent_expr(entry->value))
-                        {
-                            expression_set_is_value_dependent(expr, 1, decl_context);
-                        }
-                        else if (entry->language_dependent_value != NULL
-                                && expression_is_value_dependent(entry->language_dependent_value))
-                        {
-                            expression_set_is_value_dependent(expr, 1, decl_context);
-                        }
-                    }
-                }
-                else
+                if (is_dependent_type(entry->type_information))
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
+                        fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
                     expression_set_dependent(expr, decl_context);
                 }
+                else 
+                {
+                    char is_value_dependent = 0;
+                    if (!nodecl_is_null(entry->value)
+                            || entry->language_dependent_value != NULL)
+                    {
+                        if ((!nodecl_is_null(entry->value) 
+                                    && nodecl_is_cxx_dependent_expr(entry->value))
+                                || (entry->language_dependent_value != NULL 
+                                    && expression_is_value_dependent(entry->language_dependent_value)))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
+                                        prettyprint_in_buffer(expr), ast_location(expr));
+                            }
+                            is_value_dependent = 1;
+                            expression_set_is_value_dependent(expr, 1, decl_context);
+                        }
+                        else
+                        {
+                            if (!entry->entity_specs.is_parameter
+                                    && (is_const_qualified_type(entry->type_information)
+                                        || entry->entity_specs.is_template_parameter))
+                            {
+                                if (!nodecl_is_null(entry->value) 
+                                        && nodecl_is_constant(entry->value))
+                                {
+                                    *val = nodecl_get_constant(entry->value);
+                                }
+                                else if (entry->language_dependent_value != NULL
+                                        && expression_is_value_dependent(entry->language_dependent_value))
+                                {
+                                    *val = expression_get_constant(entry->language_dependent_value);
+                                }
+                            }
+                        }
+                    }
 
-                if (entry->entity_specs.is_template_parameter)
-                {
-                    expression_set_nodecl(expr, entry->value);
-                }
-                else
-                {
-                    nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                    expression_set_nodecl(expr, nodecl_output);
+                    if (entry->entity_specs.is_template_parameter)
+                    {
+                        expression_set_type(expr, entry->type_information);
+                        expression_set_is_lvalue(expr, 0);
+                    }
+                    else
+                    {
+                        expression_set_type(expr, lvalue_ref(entry->type_information));
+                        expression_set_is_lvalue(expr, 1);
+                    }
+                    if (!is_value_dependent)
+                    {
+                        nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                        expression_set_nodecl(expr, nodecl_output);
+                    }
                 }
             }
             else if (entry->kind == SK_FUNCTION)
@@ -6575,52 +6598,61 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
 
         if (entry->kind == SK_VARIABLE)
         {
-            if (!is_dependent_type(entry->type_information))
+            if (is_dependent_type(entry->type_information))
             {
-                expression_set_type(expr, lvalue_ref(entry->type_information));
-                expression_set_is_lvalue(expr, 1);
-            }
-            else
-            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
+                            prettyprint_in_buffer(expr), ast_location(expr));
+                }
                 expression_set_dependent(expr, decl_context);
             }
-
-            if (!entry->entity_specs.is_parameter
-                    && (is_const_qualified_type(entry->type_information)
-                        || entry->entity_specs.is_template_parameter)
-                    // FIXME - Remove language_dependent_value
-                    && (entry->language_dependent_value != NULL
-                        || !nodecl_is_null(entry->value)))
+            else 
             {
-                if (val != NULL)
+                char is_value_dependent = 0;
+                if (!nodecl_is_null(entry->value)
+                        || entry->language_dependent_value != NULL)
                 {
-                    if (!nodecl_is_null(entry->value)
-                            && nodecl_is_constant(entry->value))
+                    if ((!nodecl_is_null(entry->value) 
+                                && nodecl_is_cxx_dependent_expr(entry->value))
+                            || (entry->language_dependent_value != NULL 
+                                && expression_is_value_dependent(entry->language_dependent_value)))
                     {
-                        *val = nodecl_get_constant(entry->value);
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
+                                    prettyprint_in_buffer(expr), ast_location(expr));
+                        }
+                        is_value_dependent = 1;
+                        expression_set_is_value_dependent(expr, 1, decl_context);
                     }
-                    else if (entry->language_dependent_value != NULL
-                            && expression_is_constant(entry->language_dependent_value))
+                    else
                     {
-                        *val = expression_get_constant(entry->language_dependent_value);
+                        if (!entry->entity_specs.is_parameter
+                                && is_const_qualified_type(entry->type_information))
+                        {
+                            if (!nodecl_is_null(entry->value) 
+                                    && nodecl_is_constant(entry->value))
+                            {
+                                *val = nodecl_get_constant(entry->value);
+                            }
+                            else if (entry->language_dependent_value != NULL
+                                    && expression_is_value_dependent(entry->language_dependent_value))
+                            {
+                                *val = expression_get_constant(entry->language_dependent_value);
+                            }
+                        }
                     }
                 }
 
-                if (!nodecl_is_null(entry->value)
-                        && nodecl_is_cxx_dependent_expr(entry->value))
+                expression_set_type(expr, lvalue_ref(entry->type_information));
+                expression_set_is_lvalue(expr, 1);
+                if (!is_value_dependent)
                 {
-                    expression_set_is_value_dependent(expr, 1, decl_context);
-                }
-                else if (entry->language_dependent_value != NULL
-                        && expression_is_value_dependent(entry->language_dependent_value))
-                {
-                    expression_set_is_value_dependent(expr, 1, decl_context);
+                    nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                    expression_set_nodecl(expr, nodecl_output);
                 }
             }
-
-            nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-
-            expression_set_nodecl(expr, nodecl_output);
         }
         else if (entry->kind == SK_ENUMERATOR)
         {
@@ -6979,7 +7011,9 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
 static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2, 
         char *is_ambiguous_conversion,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        const char* filename,
+        int line)
 {
     *is_ambiguous_conversion = 0;
 
@@ -7016,7 +7050,8 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
             return type_can_be_implicitly_converted_to(from_t1, 
                     to_t2, 
                     decl_context,
-                    is_ambiguous_conversion, /* conversor */ NULL);
+                    is_ambiguous_conversion, /* conversor */ NULL,
+                    filename, line);
         }
         else
         {
@@ -7319,14 +7354,18 @@ static void check_conditional_expression_impl(AST expression,
                 convert_in_conditional_expr(second_type, 
                         third_type, 
                         &second_to_third_is_ambig,
-                        decl_context);
+                        decl_context,
+                        ASTFileName(expression),
+                        ASTLine(expression));
 
             char third_to_second_is_ambig = 0;
             char third_to_second = 
                 convert_in_conditional_expr(third_type, 
                         second_type, 
                         &third_to_second_is_ambig,
-                        decl_context);
+                        decl_context,
+                        ASTFileName(expression),
+                        ASTLine(expression));
 
             if (second_to_third 
                     && third_to_second)
@@ -9846,7 +9885,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         //    tag all the expression as dependent
         if (is_dependent_expr_type(function_type))
         {
-            expression_set_type(expr, function_type);
+            expression_set_dependent(expr, decl_context);
             return;
         }
     }
@@ -10147,7 +10186,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
     {
         if (is_dependent_expr_type(accessed_type))
         {
-            expression_set_type(member_access, accessed_type);
+            expression_set_dependent(member_access, decl_context);
             // Best effort to remove ambiguities
             query_id_expression(decl_context, id_expression);
             return;
@@ -11996,7 +12035,8 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                                     declared_type_no_cv, 
                                     decl_context, 
                                     &ambiguous_conversion, 
-                                    &conversor))
+                                    &conversor,
+                                    ASTFileName(initializer), ASTLine(initializer)))
                             // A cv char[x] can be initialized with a string literal, we do not check the size
                             && !(is_array_type(declared_type_no_cv)
                                 && is_character_type(array_type_get_element_type(declared_type_no_cv))
@@ -12516,7 +12556,8 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
         if (!is_dependent_type(declared_type)
                 && !is_dependent_expr_type(argument_types[0])
                 && !type_can_be_implicitly_converted_to(argument_types[0], declared_type, decl_context, 
-                    &ambiguous_conversion, &conversor))
+                    &ambiguous_conversion, &conversor,
+                    ASTFileName(context_tree), ASTLine(context_tree)))
         {
             if (!checking_ambiguity())
             {
