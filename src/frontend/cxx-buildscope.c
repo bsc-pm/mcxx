@@ -1909,8 +1909,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 }
                 break;
             }
+        case AST_AMBIGUITY:
+            {
+                // GCC typeof
+                solve_ambiguous_type_specifier(a, decl_context);
+                return gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+            }
         default:
-            internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+            {
+                internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+            }
     }
     ASTAttrSetValueType(a, LANG_IS_TYPE_SPECIFIER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER_TYPE, tl_type_t, tl_type(*simple_type_info));
