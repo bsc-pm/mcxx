@@ -8664,19 +8664,26 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
     //   T ( e );
     //
     // T has to be a valid typename
-    char result = 0;
     AST type_specifier_seq = ASTSon0(expr);
+    AST type_specifier = ASTSon1(type_specifier_seq);
 
     type_t *type_info = NULL;
 
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
-    nodecl_t dummy_nodecl_output = nodecl_null();
-    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
+    if (check_type_specifier(type_specifier, decl_context))
+    {
+        nodecl_t dummy_nodecl_output = nodecl_null();
+        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
 
-    AST expression_list = ASTSon1(expr);
-    check_explicit_type_conversion_common(type_info, expr, expression_list, decl_context);
+        AST expression_list = ASTSon1(expr);
+        check_explicit_type_conversion_common(type_info, expr, expression_list, decl_context);
+    }
+    else
+    {
+        expression_set_error(expr);
+    }
 }
 
 static char check_function_arguments(AST arguments, decl_context_t decl_context, int *num_arguments)
