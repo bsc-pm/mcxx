@@ -8665,26 +8665,18 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
     //
     // T has to be a valid typename
     char result = 0;
-    AST simple_type_spec = ASTSon0(expr);
+    AST type_specifier_seq = ASTSon0(expr);
 
-    type_t* type_info = NULL;
-    result = check_simple_type_spec(simple_type_spec, decl_context, &type_info);
-    if (!result)
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: invalid type-name '%s'\n", 
-                    ast_location(simple_type_spec),
-                    prettyprint_in_buffer(simple_type_spec));
-        }
-        expression_set_error(expr);
-        return;
-    }
-    else
-    {
-        AST expression_list = ASTSon1(expr);
-        check_explicit_type_conversion_common(type_info, expr, expression_list, decl_context);
-    }
+    type_t *type_info = NULL;
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    nodecl_t dummy_nodecl_output = nodecl_null();
+    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context, &dummy_nodecl_output);
+
+    AST expression_list = ASTSon1(expr);
+    check_explicit_type_conversion_common(type_info, expr, expression_list, decl_context);
 }
 
 static char check_function_arguments(AST arguments, decl_context_t decl_context, int *num_arguments)

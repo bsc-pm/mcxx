@@ -450,14 +450,15 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                 //
                 //      T(a);
                 //
-                // where "T" is a typename, this is a declaration instead of an
-                // expression.
+                // where "T" is a typename, if the expression is OK it must be an expression
+                // if it were a declaration the symbol would not have been declared and thus
+                // it can't be an expression
                 AST first_option = ASTSon0(ast_get_ambiguity(a, correct_choice));
                 AST second_option = ASTSon0(ast_get_ambiguity(a, i));
 
                 int either;
                 if ((either = either_type(first_option, second_option, 
-                            AST_SIMPLE_DECLARATION, AST_EXPRESSION)))
+                            AST_EXPRESSION, AST_SIMPLE_DECLARATION)))
                 {
                     if (either < 0)
                     {

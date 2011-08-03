@@ -3319,7 +3319,7 @@ static void build_scope_ctor_initializer(
                                     decl_context,
                                     get_unqualified_type(entry->type_information));
 
-                            entry_list_add(already_initialized, entry);
+                            already_initialized = entry_list_add(already_initialized, entry);
                         }
                         else if (entry->kind == SK_CLASS)
                         {
@@ -3336,7 +3336,7 @@ static void build_scope_ctor_initializer(
                                     decl_context,
                                     get_user_defined_type(entry));
 
-                            entry_list_add(already_initialized, entry);
+                            already_initialized = entry_list_add(already_initialized, entry);
                         }
                         else
                         {
@@ -3374,6 +3374,9 @@ static void build_scope_ctor_initializer(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry_list_contains(already_initialized, entry))
+            continue;
+
         scope_entry_t* constructor = NULL;
         check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
     }
@@ -3384,6 +3387,9 @@ static void build_scope_ctor_initializer(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry_list_contains(already_initialized, entry))
+            continue;
+
         scope_entry_t* constructor = NULL;
         check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
     }
@@ -3394,6 +3400,9 @@ static void build_scope_ctor_initializer(
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry_list_contains(already_initialized, entry))
+            continue;
+
         scope_entry_t* constructor = NULL;
         check_default_initialization(entry, entry->decl_context, filename, line, &constructor);
     }
