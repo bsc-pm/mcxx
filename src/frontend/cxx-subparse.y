@@ -69,11 +69,11 @@ subparse_type_list : type_specifier_seq_0
 {
     $$ = ASTListLeaf($1);
 }
-| type_specifier_seq_ended_with_named_type_spec
+| type_specifier_seq_ended_with_identifier
 {
     $$ = ASTListLeaf($1);
 }
-| subparse_type_list ',' type_specifier_seq_ended_with_named_type_spec
+| subparse_type_list ',' type_specifier_seq_ended_with_identifier
 {
     $$ = ASTList($1, $3);
 }

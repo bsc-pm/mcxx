@@ -8402,6 +8402,12 @@ static void check_explicit_type_conversion_common(type_t* type_info,
     ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
     ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, expression_list);
 
+    if (expression_list != NULL
+            && ASTType(expression_list) == AST_INITIALIZER_BRACES)
+    {
+        expression_list = ASTSon0(expression_list);
+    }
+
     if (expression_list != NULL)
     {
         if (!check_expression_list(expression_list, decl_context))

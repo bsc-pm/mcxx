@@ -1987,7 +1987,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
-                && !gather_info->parameter_declaration)
+                && !gather_info->parameter_declaration
+                && !gather_info->is_friend)
         {
             if (is_unqualified_id_expression(id_expression))
             {

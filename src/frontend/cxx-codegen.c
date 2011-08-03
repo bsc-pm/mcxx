@@ -544,7 +544,7 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     if (symbol->kind == SK_CLASS)
     {
         if (is_template_specialized_type(symbol->type_information)
-                && template_specialized_type_get_template_arguments(symbol->type_information) != 0)
+                && template_specialized_type_get_template_arguments(symbol->type_information)->num_parameters != 0)
         {
             template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
                     symbol->type_information);
@@ -556,7 +556,7 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
 
             if (primary_symbol != symbol)
             {
-                declare_symbol(visitor, primary_symbol);
+                declare_symbol_if_nonnested(visitor, primary_symbol);
             }
         }
 
@@ -566,7 +566,7 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
             for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
             {
                 scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
-                define_symbol(visitor, entry);
+                define_symbol_if_nonnested(visitor, entry);
             }
         }
 
@@ -2071,19 +2071,19 @@ static void declare_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope
     }
     else
     {
-        // If we only need a declaration, we need the definition(s) of the enclosing class(es)
-        if (symbol->entity_specs.is_member
-                && (symbol->kind == SK_CLASS
-                    || symbol->kind == SK_ENUM))
-        {
-            scope_entry_t* current_sym = named_type_get_symbol(symbol->entity_specs.class_type);
-            while (current_sym->entity_specs.is_member)
-            {
-                visitor->pending_nested_types_to_define = 
-                    entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
-                current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
-            }
-        }
+        // // If we only need a declaration, we need the definition(s) of the enclosing class(es)
+        // if (symbol->entity_specs.is_member
+        //         && (symbol->kind == SK_CLASS
+        //             || symbol->kind == SK_ENUM))
+        // {
+        //     scope_entry_t* current_sym = named_type_get_symbol(symbol->entity_specs.class_type);
+        //     while (current_sym->entity_specs.is_member)
+        //     {
+        //         visitor->pending_nested_types_to_define = 
+        //             entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
+        //         current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
+        //     }
+        // }
     }
 }
 
@@ -2095,19 +2095,6 @@ static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_
     }
     else
     {
-        // Add all the nested_classes
-        // scope_entry_t* current_sym = symbol;
-        // while (current_sym->entity_specs.is_member)
-        // {
-        //     walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
-        //             declare_symbol_if_nonnested, 
-        //             define_symbol_if_nonnested,
-        //             define_nonnested_entities_in_trees);
-
-        //     visitor->pending_nested_types_to_define = 
-        //         entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
-        //     current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
-        // }
         visitor->pending_nested_types_to_define = 
             entry_list_add_once(visitor->pending_nested_types_to_define, symbol);
     }

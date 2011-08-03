@@ -401,22 +401,19 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     decl_context_t new_context_of_being_instantiated = context_of_being_instantiated;
                     new_context_of_being_instantiated.template_parameters = tpl_empty;
 
-                    scope_entry_t* new_member = add_duplicate_member_to_class(new_context_of_being_instantiated,
-                            being_instantiated,
-                            member_of_template);
 
                     scope_entry_t* new_fake_template_symbol = calloc(1, sizeof(*new_fake_template_symbol));
                     new_fake_template_symbol->kind = SK_TEMPLATE;
-                    new_fake_template_symbol->symbol_name = new_member->symbol_name;
-                    new_fake_template_symbol->file = new_member->file;
-                    new_fake_template_symbol->line = new_member->line;
+                    new_fake_template_symbol->symbol_name = member_of_template->symbol_name;
+                    new_fake_template_symbol->file = member_of_template->file;
+                    new_fake_template_symbol->line = member_of_template->line;
 
                     type_t* template_type = get_new_template_type(tpl_empty, 
                             member_of_template->type_information, 
-                            new_member->symbol_name, 
+                            member_of_template->symbol_name, 
                             new_context_of_being_instantiated, 
-                            new_member->line, 
-                            new_member->file);
+                            member_of_template->line, 
+                            member_of_template->file);
 
                     new_fake_template_symbol->type_information = template_type;
                     template_type_set_related_symbol(template_type, new_fake_template_symbol);
@@ -432,13 +429,19 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
-                    // FIXME - Update class type internal class info -> trees, at least
-                    new_member->type_information = 
-                        named_type_get_symbol(
+                    scope_entry_t* new_member = named_type_get_symbol(
                                 template_type_get_specialized_type(template_type,
                                     tpl_empty,
                                     new_context_of_being_instantiated,
-                                    new_member->line, new_member->file))->type_information;
+                                    member_of_template->line, member_of_template->file));
+
+                    insert_entry(context_of_being_instantiated.current_scope, new_member);
+
+                    new_member->entity_specs = member_of_template->entity_specs;
+                    new_member->entity_specs.is_member = 1;
+                    new_member->entity_specs.class_type = being_instantiated;
+
+                    class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
                     AST orig_bases_tree, orig_body_tree;
                     class_type_get_instantiation_trees(member_of_template->type_information,
@@ -854,10 +857,10 @@ static void instantiate_bases(
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
-        char is_dependent = 0;
+        char is_dependent_base = 0;
         access_specifier_t access_specifier = AS_UNKNOWN;
         scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i, &is_virtual, 
-                &is_dependent, &access_specifier);
+                &is_dependent_base, &access_specifier);
 
         type_t* base_class_named_type = NULL;
         if (base_class_sym->kind == SK_DEPENDENT_ENTITY)
@@ -866,7 +869,15 @@ static void instantiate_bases(
         }
         else
         {
-            base_class_named_type = get_user_defined_type(base_class_sym);
+            if (!is_dependent_base)
+            {
+                // Maybe we do not need to update anything...
+                base_class_named_type = get_user_defined_type(base_class_sym);
+            }
+            else
+            {
+                base_class_named_type = get_dependent_typename_type_from_parts(base_class_sym, NULL);
+            }
         }
 
         DEBUG_CODE()
@@ -879,6 +890,9 @@ static void instantiate_bases(
                 context_of_being_instantiated,
                 context_translation_function, translation_data,
                 filename, line);
+
+        ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
+                print_type_str(upd_base_class_named_type, context_of_being_instantiated));
 
         scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
 

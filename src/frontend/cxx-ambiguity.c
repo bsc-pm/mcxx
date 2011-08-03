@@ -580,11 +580,22 @@ static char check_simple_or_member_declaration(AST a, decl_context_t decl_contex
         {
             AST first_declarator = ASTSon0(first_init_declarator);
 
+            // This ambiguity brought to you by C++0x
+            // struct X :   T { }; 
+            // enum E : class { }; 
+            if (ASTType(first_init_declarator) == AST_BITFIELD_DECLARATOR
+                    && (ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
+                        || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC))
+            {
+                return 0;
+            }
+
             AST parenthesized_declarator;
             AST inner_declarator;
             AST declarator_id_expression;
             // T is just a parenthesized declarator_id_expr
-            if (ASTType(first_declarator) == AST_DECLARATOR
+            if (first_declarator != NULL
+                    && ASTType(first_declarator) == AST_DECLARATOR
                     && (parenthesized_declarator = ASTSon0(first_declarator)) != NULL
                     && ASTType(parenthesized_declarator) == AST_PARENTHESIZED_DECLARATOR
                     && (inner_declarator = ASTSon0(parenthesized_declarator)) != NULL
@@ -1216,16 +1227,6 @@ char check_type_specifier(AST type_id, decl_context_t decl_context)
             break;
         case AST_CLASS_SPECIFIER :
         case AST_ENUM_SPECIFIER :
-            {
-                type_t* type_info = NULL;
-
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                nodecl_t dummy_nodecl_output = nodecl_null();
-                gather_type_spec_information(type_id, &type_info, &gather_info, decl_context, &dummy_nodecl_output);
-                return 1;
-            }
         case AST_ELABORATED_TYPENAME_SPEC :
         case AST_ELABORATED_TYPE_ENUM_SPEC :
         case AST_ELABORATED_TYPE_CLASS_SPEC :
