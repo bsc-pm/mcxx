@@ -51,6 +51,9 @@
 %union {
 	token_atrib_t token_atrib;
 	AST ast;
+	AST ast2[2];
+	AST ast3[3];
+	AST ast4[4];
 	node_t node_type;
     const char *text;
 };
@@ -221,7 +224,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> functional_declarator
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
-%type<ast> final_declarator_id
+%type<ast> functional_final_declarator_id
 %type<ast> decl_specifier_seq
 %type<ast> decl_specifier_seq_may_end_with_declarator
 %type<ast> abstract_direct_declarator
@@ -246,6 +249,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> for_init_statement
 %type<ast> function_body
 %type<ast> function_definition
+%type<ast> function_definition_header
 %type<ast> function_specifier
 %type<ast> id_expression
 %type<ast> if_else_eligible_statements
@@ -818,11 +822,6 @@ type_specifier : type_specifier_alone
 {
     $$ = $1;
 }
-// GNU Extensions
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 ;
 
 type_specifier_alone : class_specifier
@@ -917,25 +916,9 @@ builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_BOOL_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 | TOKEN_INT
 {
 	$$ = ASTLeaf(AST_INT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SIGNED
-{
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOKEN_FLOAT
 {
@@ -1075,14 +1058,14 @@ functional_declarator : functional_direct_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-// GNU extension
+/* GNU Extension */
 | attributes functional_direct_declarator
 {
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 | attributes ptr_operator functional_declarator
 {
-	$$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_GCC_POINTER_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -1090,9 +1073,60 @@ functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
+| functional_direct_declarator '(' ')'
+{
+	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL,  ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' array_cv_qualifier_seq optional_array_static_qualif optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $3, $4,  ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' array_static_qualif optional_array_cv_qualifier_seq optional_array_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $4, $3,  ASTFileName($1), ASTLine($1), NULL);
+}
 | '(' functional_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
+}
+;
+
+functional_declarator_id : functional_final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_final_declarator_id '(' ')'
+{
+	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+}
+;
+
+functional_final_declarator_id : declarator_id
+{
+    $$ = $1;
+}
+// This rule is needed because of redundant parentheses
+| '(' functional_final_declarator_id ')'
+{
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1141,34 +1175,6 @@ optional_array_expression : /* empty */
 | assignment_expression
 {
     $$ = $1;
-}
-;
-
-functional_declarator_id : final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| final_declarator_id '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-;
-
-// This rule is needed because of redundant parentheses
-final_declarator_id : declarator_id
-{
-    $$ = $1;
-}
-|
-'(' final_declarator_id ')'
-{
-    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1560,27 +1566,29 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition : decl_specifier_seq functional_declarator function_body
+function_definition : function_definition_header function_body
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq functional_declarator old_style_parameter_list function_body
+| function_definition_header old_style_parameter_list function_body
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-/* This is an ugly heritage from C90 */
-| functional_declarator function_body 
-{
-    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_declarator old_style_parameter_list function_body 
-{
-    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-}
+
 // GCC extension
 | EXTENSION function_definition
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+function_definition_header : decl_specifier_seq functional_declarator %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_declarator %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -1880,9 +1888,9 @@ condition : expression
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq declarator '=' assignment_expression
+| type_specifier_seq declarator initializer
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extension
 | type_specifier_seq declarator asm_specification attributes '=' assignment_expression

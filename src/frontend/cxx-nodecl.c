@@ -205,19 +205,34 @@ char nodecl_is_cxx_dependent_expr(nodecl_t n)
     return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_DEPENDENT_EXPR);
 }
 
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression)
+nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t decl_context)
 {
     // Create a raw tree
-    nodecl_t nodecl_raw = nodecl_make_cxx_dependent_expr(ASTFileName(expression), ASTLine(expression));
+    nodecl_t nodecl_raw = nodecl_make_cxx_dependent_expr(
+            new_scope_symbol(decl_context),
+            ASTFileName(expression), ASTLine(expression));
     // Note that we do not want this nodecl_raw to become the parent of expression
-    ast_set_child_but_parent(nodecl_get_ast(nodecl_raw), 0, expression);
+    // FIXME - This may create lots of copies
+    ast_set_child(nodecl_get_ast(nodecl_raw), 0, ast_copy(expression));
 
     return nodecl_raw;
 }
 
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n)
+AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t* decl_context)
 {
     ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_DEPENDENT_EXPR, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
 
-    return nodecl_get_ast(nodecl_get_child(n, 0));
+    nodecl_t wrap = nodecl_get_child(n, 0);
+    AST tree = nodecl_get_ast(wrap);
+
+    scope_entry_t* entry = nodecl_get_symbol(n);
+    ERROR_CONDITION(entry == NULL, "Invalid cxx dependent expr", 0);
+    *decl_context = entry->decl_context;
+
+    return tree;
+}
+
+void nodecl_free(nodecl_t n)
+{
+    ast_free(nodecl_get_ast(n));
 }

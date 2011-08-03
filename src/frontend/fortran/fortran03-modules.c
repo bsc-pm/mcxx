@@ -1340,7 +1340,7 @@ static int get_ast(void *datum,
     char is_lvalue = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 2]);
     char is_const_val = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 3]);
     sqlite3_int64 const_val = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 4]);
-    char is_value_dependent = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
+    // char is_value_dependent = safe_atoll(values[5 + MCXX_MAX_AST_CHILDREN + 5]);
 
     p->a = ASTLeaf(node_kind, filename, line, text);
     AST a = p->a;
@@ -1374,7 +1374,7 @@ static int get_ast(void *datum,
         expression_set_constant(a, v);
     }
 
-    expression_set_is_value_dependent(a, is_value_dependent != 0);
+    // expression_set_is_value_dependent(a, is_value_dependent != 0);
 
     return 0;
 }

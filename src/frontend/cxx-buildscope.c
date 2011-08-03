@@ -1360,12 +1360,6 @@ void build_scope_decl_specifier_seq(AST a,
 {
     AST iter, list;
 
-    if (ASTType(a) == AST_AMBIGUITY)
-    {
-        solve_ambiguous_decl_specifier_seq(a, decl_context);
-        ERROR_CONDITION((ASTType(a) == AST_AMBIGUITY), "Ambiguity not solved", 0);
-    }
-
     // Gather decl specifier sequence information previous to type_spec
     list = ASTSon0(a);
     if (list != NULL)
@@ -1388,12 +1382,42 @@ void build_scope_decl_specifier_seq(AST a,
         }
     }
 
+    AST type_spec = ASTSon1(a);
+
     // Now gather information of the type_spec
-    if (ASTSon1(a) != NULL) 
+    if (type_spec != NULL
+            || gather_info->is_unsigned
+            || gather_info->is_signed
+            || gather_info->is_short
+            || gather_info->is_long
+            || gather_info->is_complex)
     {
         ast_set_link_to_child(a, LANG_TYPE_SPECIFIER, ASTSon1(a));
 
-        gather_type_spec_information(ASTSon1(a), type_info, gather_info, decl_context, nodecl_output);
+        if (type_spec == NULL)
+        {
+            if( gather_info->is_unsigned
+                    || gather_info->is_signed
+                    || gather_info->is_short
+                    || gather_info->is_long)
+            {
+                // Manually add the int tree to make things easier
+                ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                type_spec = ASTSon1(a);
+            }
+            // This is a GCC extension
+            else if (gather_info->is_complex)
+            {
+                ast_set_child(a, 1, ASTLeaf(AST_DOUBLE_TYPE, ASTFileName(a), ASTLine(a), NULL));
+                type_spec = ASTSon1(a);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        gather_type_spec_information(type_spec, type_info, gather_info, decl_context, nodecl_output);
         
         // Now update the type_spec with type information that was caught in the decl_specifier_seq
         // First "long"/"short"
@@ -1479,7 +1503,6 @@ void build_scope_decl_specifier_seq(AST a,
             // Add restrict
             *type_info = get_restrict_qualified_type(*type_info);
         }
-
     }
     else
     {
@@ -1487,6 +1510,10 @@ void build_scope_decl_specifier_seq(AST a,
         {
             fprintf(stderr, "%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
                     ast_location(a));
+
+            // Manually add the int tree to make things easier
+            ast_set_child(a, 1, ASTLeaf(AST_INT_TYPE, ASTFileName(a), ASTLine(a), NULL));
+            type_spec = ASTSon1(a);
 
             *type_info = get_signed_int_type();
         }
@@ -1698,11 +1725,6 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             *simple_type_info = get_signed_int_type();
             gather_info->is_complex = 1;
             break;
-        case AST_AMBIGUITY :
-            solve_ambiguous_type_specifier(a, decl_context);
-            // Restart function
-            gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
-            break;
             // C++0x
         case AST_DECLTYPE :
             {
@@ -1764,7 +1786,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
                         case AST_QUALIFIED_ID :
                         case AST_QUALIFIED_TEMPLATE :
-                        // class member accesses
+                            // class member accesses
                         case AST_CLASS_MEMBER_ACCESS :
                         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
                         case AST_POINTER_CLASS_MEMBER_ACCESS :
@@ -1887,8 +1909,16 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 }
                 break;
             }
+        case AST_AMBIGUITY:
+            {
+                // GCC typeof
+                solve_ambiguous_type_specifier(a, decl_context);
+                return gather_type_spec_information(a, simple_type_info, gather_info, decl_context, nodecl_output);
+            }
         default:
-            internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+            {
+                internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+            }
     }
     ASTAttrSetValueType(a, LANG_IS_TYPE_SPECIFIER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER_TYPE, tl_type_t, tl_type(*simple_type_info));
@@ -3178,6 +3208,7 @@ static void build_scope_ctor_initializer(
         int line,
         nodecl_t* nodecl_output)
 {
+    decl_context.decl_flags = DF_NONE;
     scope_entry_t* class_sym = named_type_get_symbol(function_entry->entity_specs.class_type);
 
     char dependent_context =  (is_dependent_type(class_sym->type_information)
@@ -3226,8 +3257,10 @@ static void build_scope_ctor_initializer(
                         // In dependent contexts, just disambiguate by
                         // querying, but nothing else)
                         if (dependent_context)
+                        {
+                            check_initialization(initializer, decl_context, get_user_defined_type(class_sym));
                             break;
-
+                        }
                         if (result_list == NULL)
                         {
                             running_error("%s: initialized entity '%s' not found\n", 
@@ -3283,7 +3316,7 @@ static void build_scope_ctor_initializer(
                             }
 
                             check_initialization(initializer,
-                                    entry->decl_context,
+                                    decl_context,
                                     get_unqualified_type(entry->type_information));
 
                             entry_list_add(already_initialized, entry);
@@ -3300,7 +3333,7 @@ static void build_scope_ctor_initializer(
                             }
 
                             check_initialization(initializer,
-                                    entry->decl_context,
+                                    decl_context,
                                     get_user_defined_type(entry));
 
                             entry_list_add(already_initialized, entry);
@@ -3451,6 +3484,10 @@ static void ensure_copy_assignment_operator_is_emitted(scope_entry_t* entry, voi
 static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 {
     ERROR_CONDITION(entry->kind != SK_CLASS && entry->kind != SK_VARIABLE, "Invalid symbol", 0);
+
+    if (!is_class_type(entry->type_information))
+        return;
+
     struct check_constructor_helper* p = (struct check_constructor_helper*)data;
 
     scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
@@ -6509,6 +6546,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
         {
             function_name = strprepend(function_name, "constructor ");
+            decl_context.decl_flags &= ~DF_CONSTRUCTOR;
         }
         scope_entry_t* new_entry = NULL;
 
@@ -6896,7 +6934,6 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 entry_list,
                 explicit_template_parameters,
                 function_type_being_declared,
-                decl_context,
                 ASTFileName(declarator_id),
                 ASTLine(declarator_id)
                 );
@@ -7233,6 +7270,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
 
     char is_constructor = 0;
     
+    AST type_specifier = NULL;
     if (decl_specifier_seq != NULL)
     {
         if (init_declarator_list == NULL)
@@ -7240,6 +7278,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             gather_info.no_declarators = 1;
         }
         build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &simple_type_info, decl_context, nodecl_output);
+        type_specifier = ASTSon1(decl_specifier_seq);
     }
 
     // There can be just one declarator here if this is not a class specifier nor a function declaration
@@ -7262,10 +7301,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         AST declarator = ASTSon0(init_declarator);
         AST initializer = ASTSon1(init_declarator);
 
-
-        if (decl_specifier_seq != NULL 
-                && ((ASTType(decl_specifier_seq) != AST_AMBIGUITY && ASTSon1(decl_specifier_seq) != NULL)
-                    || (ASTType(decl_specifier_seq) == AST_AMBIGUITY)))
+        if (type_specifier == NULL)
         {
             // This is not a constructor
             is_constructor = 0;
@@ -7985,8 +8021,15 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         void (*set)(AST, scope_entry_t*, decl_context_t),
         nodecl_t* nodecl_output)
 {
-    AST decl_spec_seq = ASTSon0(a);
-    AST declarator = ASTSon1(a);
+    AST function_header = ASTSon0(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST function_declarator = ASTSon1(function_header);
     /* AST attributes = ASTSon2(a); */
 
     gather_decl_spec_t gather_info;
@@ -7995,11 +8038,15 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 
     char is_constructor = 0;
 
+    AST type_spec = NULL;
+
     if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info, decl_context, nodecl_output);
+        type_spec = ASTSon1(decl_spec_seq);
     }
-    else
+
+    if (type_spec == NULL)
     {
         if (is_constructor_declarator(ASTSon1(a)))
         {
@@ -8007,7 +8054,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         }
     }
 
-    // declarator
+    // function_declarator
     type_t* declarator_type = NULL;
     scope_entry_t* entry = NULL;
 
@@ -8017,7 +8064,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
         new_decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
 
-    compute_declarator_type(declarator, &gather_info, type_info, &declarator_type, new_decl_context, nodecl_output);
+    compute_declarator_type(function_declarator, &gather_info, type_info, &declarator_type, new_decl_context, nodecl_output);
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context, nodecl_output);
 
     if (check)
@@ -8038,6 +8085,7 @@ static void common_defaulted_or_deleted(AST a, decl_context_t decl_context,
 static void set_deleted(AST a UNUSED_PARAMETER, scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER)
 {
     entry->entity_specs.is_deleted = 1;
+    entry->defined = 1;
 }
 
 static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8071,6 +8119,7 @@ static void set_defaulted(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER)
 {
     entry->entity_specs.is_defaulted = 1;
+    entry->defined = 1;
 }
 
 static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8106,19 +8155,33 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     type_t* type_info = NULL;
 
-    AST decl_spec_seq = ASTSon0(a);
+    AST function_header = ASTSon0(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST function_declarator = ASTSon1(function_header);
+    AST gcc_attributes = ASTSon2(function_header);
+
+    gather_gcc_attribute_list(gcc_attributes, &gather_info, decl_context);
+
+    AST type_spec = NULL;
+
     char is_constructor = 0;
-    if (decl_spec_seq != NULL 
-            && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
-             || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
+    if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info, decl_context, nodecl_output);
+        type_spec = ASTSon1(decl_spec_seq);
     }
-    else
+
+    if (type_spec == NULL)
     {
         CXX_LANGUAGE()
         {
-            if (is_constructor_declarator(ASTSon1(a)))
+            if (is_constructor_declarator(ASTSon1(function_header)))
             {
                 is_constructor = 1;
             }
@@ -8162,17 +8225,16 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     block_context = new_function_context(block_context);
 
     // block-context will be updated for qualified-id to reflect the exact context
-    build_scope_declarator_with_parameter_context(ASTSon1(a), &gather_info, type_info, &declarator_type, 
+    build_scope_declarator_with_parameter_context(ASTSon1(function_header), &gather_info, type_info, &declarator_type, 
             new_decl_context, &block_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context, nodecl_output);
+    entry = build_scope_declarator_name(ASTSon1(function_header), declarator_type, &gather_info, new_decl_context, nodecl_output);
 
-    // ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), ast_location(a));
     if (entry == NULL)
     {
         running_error("%s: error: function '%s' was not found in the scope\n", 
-                ast_location(a), 
+                ast_location(function_header), 
                 print_decl_type_str(declarator_type, new_decl_context, 
-                    prettyprint_in_buffer(get_declarator_name(ASTSon1(a), new_decl_context))));
+                    prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));
     }
 
     // Set the related entry
@@ -8229,7 +8291,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             if (gather_info.arguments_info[i].entry == NULL)
             {
                 running_error("%s: error: parameter '%d' does not have name\n", 
-                        ast_location(ASTSon1(a)),
+                        ast_location(function_declarator),
                         i);
             }
         }
@@ -8240,7 +8302,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     {
         // Function declaration name
-        AST declarator_name = get_declarator_name(ASTSon1(a), decl_context);
+        AST declarator_name = get_declarator_name(function_declarator, decl_context);
         ast_set_link_to_child(a, LANG_FUNCTION_NAME, declarator_name);
 
         if (ASTType(declarator_name) == AST_QUALIFIED_ID)
@@ -8291,15 +8353,15 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             "This is not a function!!!", 0);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
-    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
+    ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, decl_spec_seq);
+    ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, function_declarator);
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // Keep the function definition, it may be needed later
     entry->entity_specs.definition_tree = a;
 
     // Function_body
-    AST function_body = ASTSon3(a);
+    AST function_body = ASTSon2(a);
     AST statement = ASTSon0(function_body);
 
     if (entry->entity_specs.is_member)
@@ -8319,7 +8381,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             // It is a constant pointer, so qualify like it is
             this_type = get_cv_qualified_type(this_type, CV_CONST);
 
-            // This will put the symbol in the function scope, but this is fine
             scope_entry_t* this_symbol = new_symbol(block_context, block_context.current_scope, "this");
 
             this_symbol->line = ASTLine(function_body);
@@ -8329,13 +8390,14 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
             this_symbol->defined = 1;
+            this_symbol->do_not_print = 1;
         }
     }
 
     C_LANGUAGE()
     {
-        AST kr_parameter_declaration = ASTSon2(a);
-        AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), decl_context);
+        AST kr_parameter_declaration = ASTSon1(a);
+        AST kr_parameter_list = get_function_declarator_parameter_list(function_declarator, decl_context);
 
         if (kr_parameter_declaration != NULL
                 || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
@@ -8348,14 +8410,15 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     nodecl_t nodecl_initializers = nodecl_null();
     CXX_LANGUAGE()
     {
-        AST ctor_initializer = ASTSon2(a);
+        AST ctor_initializer = ASTSon1(a);
         if (entry->entity_specs.is_member
                 && entry->entity_specs.is_constructor)
         {
             AST location = ctor_initializer;
             if (ctor_initializer == NULL)
                 location = a;
-            build_scope_ctor_initializer(ctor_initializer, entry, block_context, 
+            build_scope_ctor_initializer(ctor_initializer, 
+                    entry, block_context, 
                     ASTFileName(location), ASTLine(location),
                     &nodecl_initializers);
         }
@@ -8458,7 +8521,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
     {
         // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-        ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, ASTSon1(a));
+        ast_set_link_to_child(a, LANG_FUNCTION_DECLARATOR, function_declarator);
     }
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
@@ -8805,11 +8868,11 @@ static void update_member_function_info(AST declarator_name,
         type_t* class_type)
 {
     // Update information in the class about this member function
+    entry->entity_specs.is_user_declared = 1;
     switch (ASTType(declarator_name))
     {
         case AST_SYMBOL :
             {
-                entry->entity_specs.is_user_declared = 1;
                 if (is_constructor)
                 {
                     // This is a constructor
@@ -8869,7 +8932,6 @@ static void update_member_function_info(AST declarator_name,
                     entry->entity_specs.is_virtual = 1;
                 }
                 entry->entity_specs.is_destructor = 1;
-                entry->entity_specs.is_user_declared = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -8879,7 +8941,6 @@ static void update_member_function_info(AST declarator_name,
                 if (is_copy_assignment_operator(entry, class_type))
                 {
                     entry->entity_specs.is_copy_assignment_operator = 1;
-                    entry->entity_specs.is_user_declared = 1;
                 }
 
                 CXX1X_LANGUAGE()
@@ -8989,33 +9050,40 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     type_t* type_info = NULL;
 
-    AST declarator = ASTSon1(a);
-    // Get the declarator name
-    AST declarator_name = get_declarator_name(declarator, decl_context);
+    AST function_header = ASTSon0(a);
+
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST function_declarator = ASTSon1(function_header);
+    // Get the function_declarator name
+    AST declarator_name = get_declarator_name(function_declarator, decl_context);
 
     char is_constructor = 0;
-    AST decl_spec_seq = ASTSon0(a);
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST type_spec = NULL;
 
     // If ambiguous is due because we don't know how to "lay" the type_specifier
     // but it has type_specifier
-    if (decl_spec_seq != NULL 
-            && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
-                || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
+    if (decl_spec_seq != NULL)
     {
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info,
                 decl_context, nodecl_output);
-
+        type_spec = ASTSon1(decl_spec_seq);
     }
-    else
+
+    if (type_spec == NULL)
     {
         // This is a constructor
-        if (is_constructor_declarator(declarator))
+        if (is_constructor_declarator(function_declarator))
         {
             is_constructor = 1;
         }
     }
 
-    // declarator
+    // function_declarator
     type_t* declarator_type = NULL;
 
     if (is_constructor)
@@ -9023,8 +9091,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         decl_context.decl_flags |= DF_CONSTRUCTOR;
     }
 
-    compute_declarator_type(ASTSon1(a), &gather_info, type_info, &declarator_type, decl_context, nodecl_output);
-    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, decl_context, nodecl_output);
+    compute_declarator_type(function_declarator, &gather_info, type_info, &declarator_type, decl_context, nodecl_output);
+    entry = build_scope_declarator_name(function_declarator, declarator_type, &gather_info, decl_context, nodecl_output);
 
     ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
@@ -9063,10 +9131,16 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     type_t* class_type = get_actual_class_type(class_info);
     const char* class_name = named_type_get_symbol(class_info)->symbol_name;
 
-    AST decl_spec_seq = ASTSon0(a);
-    AST declarator = ASTSon1(a);
+    AST function_header = ASTSon0(a);
 
-    // AST attributes = ASTSon2(a);
+    if (ASTType(function_header) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_function_header(function_header, decl_context);
+    }
+
+    AST decl_spec_seq = ASTSon0(function_header);
+    AST declarator = ASTSon1(function_header);
+
     type_t* member_type = NULL;
 
     decl_context_t new_decl_context = decl_context;
@@ -9992,11 +10066,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         AST type_specifier_seq = ASTSon0(a);
         AST declarator = ASTSon1(a);
 
-        if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_decl_specifier_seq(type_specifier_seq, decl_context);
-        }
-        
         ERROR_CONDITION((ASTType(declarator) == AST_AMBIGUITY), "Unexpected ambiguity", 0);
 
         // A type_specifier_seq is essentially a subset of a
@@ -10016,7 +10085,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
         AST initializer = ASTSon2(a);
 
-        if (check_initialization(initializer, decl_context, entry->type_information))
+        if (!check_initialization(initializer, decl_context, entry->type_information))
         {
             error_printf("%s: error: initializer '%s' could not be checked\n",
                     ast_location(initializer),
@@ -10046,7 +10115,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
                 if (!type_can_be_implicitly_converted_to(entry->type_information, get_bool_type(), decl_context, 
-                            &ambiguous_conversion, &conversor))
+                            &ambiguous_conversion, &conversor, ASTFileName(initializer), ASTLine(initializer)))
                 {
                     error_printf("%s: error: value of type '%s' cannot be converted to 'bool' type\n",
                             ast_location(a),
@@ -10493,7 +10562,8 @@ static void build_scope_return_statement(AST a,
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
                     if (!type_can_be_implicitly_converted_to(expression_get_type(expression),
-                                return_type, decl_context, &ambiguous_conversion, &conversor))
+                                return_type, decl_context, &ambiguous_conversion, &conversor, 
+                                ASTFileName(expression), ASTLine(expression)))
                     {
                         error_printf("%s: error: cannot convert type '%s' to '%s'\n",
                                 ast_location(expression),
@@ -10587,7 +10657,7 @@ static void build_scope_try_block(AST a,
 
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, exception_declaration, block_context);
 
-            type_t* declarator_type = NULL;
+            type_t* declarator_type = type_info;
 
             nodecl_t exception_name = nodecl_null();
             if (declarator != NULL)
@@ -10600,14 +10670,18 @@ static void build_scope_try_block(AST a,
                 scope_entry_t* entry = build_scope_declarator_name(declarator,
                         declarator_type, &gather_info, block_context, &dummy);
 
-                exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
+                if (entry != NULL)
+                {
+                    exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
+                }
             }
 
             nodecl_t nodecl_catch_statement = nodecl_null();
             build_scope_statement(handler_compound_statement, block_context, &nodecl_catch_statement);
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
-                    nodecl_make_catch_handler(exception_name, nodecl_catch_statement, 
+                    nodecl_make_catch_handler(exception_name, 
+                        nodecl_catch_statement, 
                         declarator_type,
                         ASTFileName(exception_declaration), 
                         ASTLine(exception_declaration)));

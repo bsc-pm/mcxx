@@ -279,7 +279,8 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
                         expression_get_type(tree), 
                         get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
                         decl_context, 
-                        &ambiguous_conversion, &conversor)
+                        &ambiguous_conversion, &conversor,
+                        ASTFileName(tree), ASTLine(tree))
                     && !ambiguous_conversion);
         }
 

@@ -109,6 +109,9 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(scop
         decl_context_t decl_context, char* is_dependent, int*
         max_qualif_level);
 
+LIBMCXX_EXTERN const char* get_class_qualification_of_symbol(scope_entry_t* entry,
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
+
 // A simpler version of get_fully_qualified_symbol_name
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
@@ -122,6 +125,8 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void* translation_data,
         const char* filename, int line);
 
 // Other stuff
@@ -156,6 +161,9 @@ LIBMCXX_EXTERN template_parameter_list_t* duplicate_template_argument_list(templ
 LIBMCXX_EXTERN const char* get_template_arguments_str(scope_entry_t* entry, 
         decl_context_t decl_context);
 
+LIBMCXX_EXTERN const char* template_arguments_to_str(template_parameter_list_t* template_parameters,
+        decl_context_t decl_context);
+
 LIBMCXX_EXTERN template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
@@ -179,6 +187,9 @@ LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);
 
 // Utility
 LIBMCXX_EXTERN const char* unmangle_symbol_name(scope_entry_t* entry);
+
+// Debug
+LIBMCXX_EXTERN void print_template_parameter_list(template_parameter_list_t* template_parameters);
 
 MCXX_END_DECLS
 

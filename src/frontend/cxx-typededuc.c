@@ -104,13 +104,24 @@ char deduce_template_parameters_common(
     if (explicit_template_parameters != NULL)
     {
         /* If we are given explicit template arguments register them in the deduction result */
-        updated_context.template_parameters = explicit_template_parameters;
+        updated_context.template_parameters = duplicate_template_argument_list(updated_context.template_parameters);
+        int j;
+        int nargs = 0;
+        for (j = 0; j < updated_context.template_parameters->num_parameters; j++)
+        {
+            if (j < explicit_template_parameters->num_parameters)
+            {
+                P_LIST_ADD(updated_context.template_parameters->arguments,
+                        nargs,
+                        explicit_template_parameters->arguments[j]);
+            }
+            // Should we NULL the remaining arguments?
+        }
 
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEDEDUC: Parameter types updated with explicit template arguments\n");
         }
-        int j;
         deduction_set_t *explicit_deductions = counted_calloc(1, sizeof(*explicit_deductions), &_bytes_typededuc);
         for (j = 0; j < explicit_template_parameters->num_parameters; j++)
         {
@@ -1196,6 +1207,7 @@ template_parameter_list_t* build_template_parameter_list_from_deduction_set(
         fprintf(stderr, "TYPEDEDUC: Creating template argument list after deduction set\n");
     }
     template_parameter_list_t* result = duplicate_template_argument_list(template_parameters);
+
     int nesting = get_template_nesting_of_template_parameters(template_parameters);
 
     int i;

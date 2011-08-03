@@ -108,7 +108,8 @@ LIBMCXX_EXTERN void expression_set_is_lvalue(AST expr, char is_lvalue);
 LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
 
 LIBMCXX_EXTERN char expression_is_value_dependent(AST expr);
-LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_dependent);
+LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, 
+        char value_dependent, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);

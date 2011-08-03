@@ -1026,13 +1026,14 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
 }
 
 char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion, scope_entry_t** conversor)
+        char *ambiguous_conversion, scope_entry_t** conversor,
+        const char* filename, int line)
 {
     CXX_LANGUAGE()
     {
         implicit_conversion_sequence_t result;
         compute_ics(orig, dest, decl_context, &result, 
-                /* filename = */ NULL, /* line = */ 0);
+                filename, line);
 
         *ambiguous_conversion = result.is_ambiguous_ics;
 

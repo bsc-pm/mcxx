@@ -1089,7 +1089,7 @@ char check_gxx_type_traits(AST expression, decl_context_t decl_context)
 
         if (is_dependent_type(first_type))
         {
-            expression_set_is_value_dependent(expression, 1);
+            expression_set_is_value_dependent(expression, 1, decl_context);
             return 1;
         }
 
@@ -1099,7 +1099,7 @@ char check_gxx_type_traits(AST expression, decl_context_t decl_context)
 
             if (is_dependent_type(second_type))
             {
-                expression_set_is_value_dependent(expression, 1);
+                expression_set_is_value_dependent(expression, 1, decl_context);
                 return 1;
             }
         }

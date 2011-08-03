@@ -189,6 +189,9 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %token<token_atrib> GXX_IS_POD "__is_pod"
 %token<token_atrib> GXX_IS_POLYMORPHIC "__is_polymorphic"
 %token<token_atrib> GXX_IS_UNION "__is_union"
+%token<token_atrib> GXX_IS_TRIVIAL "__is_trivial"
+%token<token_atrib> GXX_IS_LITERAL_TYPE "__is_literal_type"
+%token<token_atrib> GXX_IS_STD_LAYOUT "__is_std_layout"
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -324,10 +327,10 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonglobal_non_functional_direct_declarator
 %type<ast> functional_declarator
 %type<ast> functional_declarator_id
-%type<ast> functional_final_declarator_id
 %type<ast> functional_direct_declarator
+%type<ast> functional_final_declarator_id
 %type<ast> function_body
-%type<ast3> function_definition_header
+%type<ast> function_definition_header
 %type<ast> function_definition
 %type<ast> function_specifier
 %type<ast> handler
@@ -380,13 +383,17 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> nonabstract_declarator
 %type<ast> nonabstract_direct_declarator
 %type<ast> nontype_specifier
+%type<ast> nontype_specifier_but_SUSL
 %type<ast> nontype_specifier_for_named
 %type<ast> nontype_specifier_for_named_without_attribute
 %type<ast> nontype_specifier_no_end_attrib_seq
 %type<ast> nontype_specifier_no_end_attrib_seq_for_named
 %type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier_seq_but_SUSL
+%type<ast> nontype_specifier_seq_with_SUSL
 %type<ast> nontype_specifier_seq_for_named
 %type<ast> nontype_specifier_without_attribute
+%type<ast> type_specifier_SUSL
 %type<ast> operator
 %type<ast> operator_function_id
 %type<ast> parameter_declaration
@@ -1089,6 +1096,16 @@ nontype_specifier_seq : nontype_specifier
 }
 ;
 
+nontype_specifier_seq_but_SUSL : nontype_specifier_but_SUSL
+{
+	$$ = ASTListLeaf($1);
+}
+| nontype_specifier_seq_but_SUSL nontype_specifier_but_SUSL
+{
+	$$ = ASTList($1, $2);
+}
+;
+
 nontype_specifier_seq_for_named : nontype_specifier_for_named
 {
 	$$ = ASTListLeaf($1);
@@ -1131,7 +1148,7 @@ nontype_specifier : nontype_specifier_without_attribute
 }
 ;
 
-nontype_specifier_for_named_without_attribute : storage_class_specifier
+nontype_specifier_but_SUSL : storage_class_specifier
 {
 	$$ = $1;
 }
@@ -1147,7 +1164,6 @@ nontype_specifier_for_named_without_attribute : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_TYPEDEF_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
-// To ease things
 | cv_qualifier
 {
 	$$ = $1;
@@ -1156,6 +1172,34 @@ nontype_specifier_for_named_without_attribute : storage_class_specifier
 | COMPLEX
 {
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+
+
+nontype_specifier_for_named_without_attribute : nontype_specifier_but_SUSL
+{
+    $$ = $1;
+}
+| type_specifier_SUSL
+{
+    $$ = $1;
+}
+;
+
+type_specifier_SUSL : TOKEN_SIGNED
+{
+	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_UNSIGNED
+{
+	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_SHORT
+{
+	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
+}
+| TOKEN_LONG
+{
+	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1186,27 +1230,13 @@ nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_TYPEDEF_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
-// To ease things
 | cv_qualifier
 {
 	$$ = $1;
 }
-// Repeat them
-| TOKEN_SIGNED
+| type_specifier_SUSL
 {
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
+    $$ = $1;
 }
 // GNU Extension
 | COMPLEX
@@ -1264,11 +1294,6 @@ no_named_type_specifier : type_specifier_alone
 {
     $$ = $1;
 }
-// GNU Extensions
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 ;
 
 named_type_specifier : named_simple_type_specifier
@@ -1319,6 +1344,12 @@ type_specifier_seq_0 : nontype_specifier_seq no_named_type_specifier nontype_spe
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, 
+        ASTLeaf(AST_INT_TYPE, ASTFileName($1), ASTLine($1), NULL), 
+        NULL, ASTFileName($1), ASTLine($1), NULL);
+}
 ;
 
 type_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
@@ -1344,6 +1375,30 @@ type_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_typ
 | no_named_type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq_with_SUSL %merge<ambiguityHandler>
+{
+    $$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, 
+        ASTLeaf(AST_INT_TYPE, ASTFileName($1), ASTLine($1), NULL), 
+        NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+nontype_specifier_seq_with_SUSL : nontype_specifier_seq type_specifier_SUSL nontype_specifier_seq_but_SUSL
+{
+    $$ = ast_list_concat($1, ast_list_concat(ASTListLeaf($2), $3));
+}
+| type_specifier_SUSL nontype_specifier_seq_but_SUSL
+{
+    $$ = ast_list_concat(ASTListLeaf($1), $2);
+}
+| nontype_specifier_seq type_specifier_SUSL
+{
+    $$ = ast_list_concat($1, ASTListLeaf($2));
+}
+| type_specifier_SUSL
+{
+    $$ = ASTListLeaf($1);
 }
 ;
 
@@ -1405,25 +1460,9 @@ builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_BOOL_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| TOKEN_SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
 | TOKEN_INT
 {
 	$$ = ASTLeaf(AST_INT_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_SIGNED
-{
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
-}
-| TOKEN_UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOKEN_FLOAT
 {
@@ -1786,6 +1825,30 @@ functional_direct_declarator : functional_declarator_id %dprec 2
 {
 	$$ = $1;
 }
+| functional_direct_declarator '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' ']' %dprec 1
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
 | '(' functional_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
@@ -1843,6 +1906,30 @@ nonglobal_functional_declarator : nonglobal_functional_direct_declarator
 nonglobal_functional_direct_declarator : nonglobal_functional_declarator_id %dprec 2
 {
 	$$ = $1;
+}
+| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTFileName($1), ASTLine($1), NULL);
+}
+| nonglobal_functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTFileName($1), ASTLine($1), NULL);
+}
+| nonglobal_functional_direct_declarator '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nonglobal_functional_direct_declarator '[' ']' %dprec 1
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | '(' functional_declarator ')'
 {
@@ -2545,42 +2632,30 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition_header : functional_declarator
+function_definition_header : functional_declarator %merge<ambiguityHandler>
 {
-    $$[0] = NULL;
-    $$[1] = $1;
-    $$[2] = NULL;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq_0 functional_declarator
+| decl_specifier_seq_0 functional_declarator %merge<ambiguityHandler>
 {
-    $$[0] = $1;
-    $$[1] = $2;
-    $$[2] = NULL;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator %merge<ambiguityHandler>
 {
-    $$[0] = $1;
-    $$[1] = $2;
-    $$[2] = NULL;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 /* GCC */
-| functional_declarator attributes
+| functional_declarator attributes %merge<ambiguityHandler>
 {
-    $$[0] = NULL;
-    $$[1] = $1;
-    $$[2] = $2;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq_0 functional_declarator attributes
+| decl_specifier_seq_0 functional_declarator attributes %merge<ambiguityHandler>
 {
-    $$[0] = $1;
-    $$[1] = $2;
-    $$[2] = $3;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes %merge<ambiguityHandler>
 {
-    $$[0] = $1;
-    $$[1] = $2;
-    $$[2] = $3;
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION_HEADER, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -2595,67 +2670,15 @@ ctor_initializer_opt : /* empty */
 
 function_definition : function_definition_header ctor_initializer_opt function_body 
 {
-    const char* filename = NULL;
-    int line = 0;
-    // This is a bit crude but effective
-    AST trees[] = { $1[0], $1[1], $1[2], $2, $3 };
-    int num_trees = sizeof(trees) / sizeof(trees[0]);
-    int i;
-    for (i = 0; i < num_trees; i++)
-    {
-        if (trees[i] != NULL)
-        {
-            filename = ASTFileName(trees[i]);
-            line = ASTLine(trees[i]);
-        }
-    }
-
-    if ($1[2] == NULL)
-    {
-        $$ = ASTMake4(AST_FUNCTION_DEFINITION, $1[0], $1[1], $2, $3, filename, line, NULL);
-    }
-    else
-    {
-        // GCC
-        AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1[1], $1[2], filename, line, NULL);
-        $$ = ASTMake4(AST_FUNCTION_DEFINITION, $1[0], functional_decl, $2, $3, filename, line, NULL);
-    }
+    $$ = ASTMake3(AST_FUNCTION_DEFINITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | function_definition_header '=' TOKEN_DELETE ';'
 {
-    const char* filename = NULL;
-    int line = 0;
-    // This is a bit crude but effective
-    AST trees[] = { $1[0], $1[1], $1[2] };
-    int num_trees = sizeof(trees) / sizeof(trees[0]);
-    int i;
-    for (i = 0; i < num_trees; i++)
-    {
-        if (trees[i] != NULL)
-        {
-            filename = ASTFileName(trees[i]);
-            line = ASTLine(trees[i]);
-        }
-    }
-    $$ = ASTMake3(AST_DELETED_FUNCTION_DEFINITION, $1[0], $1[1], $1[2], filename, line, $3.token_text);
+    $$ = ASTMake1(AST_DELETED_FUNCTION_DEFINITION, $1, ASTFileName($1), ASTLine($1), $3.token_text);
 }
 | function_definition_header '=' DEFAULT ';'
 {
-    const char* filename = NULL;
-    int line = 0;
-    // This is a bit crude but effective
-    AST trees[] = { $1[0], $1[1], $1[2] };
-    int num_trees = sizeof(trees) / sizeof(trees[0]);
-    int i;
-    for (i = 0; i < num_trees; i++)
-    {
-        if (trees[i] != NULL)
-        {
-            filename = ASTFileName(trees[i]);
-            line = ASTLine(trees[i]);
-        }
-    }
-    $$ = ASTMake3(AST_DEFAULTED_FUNCTION_DEFINITION, $1[0], $1[1], $1[2], filename, line, $3.token_text);
+    $$ = ASTMake1(AST_DEFAULTED_FUNCTION_DEFINITION, $1, ASTFileName($1), ASTLine($1), $3.token_text);
 }
 | EXTENSION function_definition
 {
@@ -3149,13 +3172,13 @@ condition : expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_0 declarator '=' initializer_clause %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator '=' initializer_clause %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator equal_initializer %merge<ambiguityHandler>
 {
-	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | type_specifier_seq_0 declarator braced_init_list %merge<ambiguityHandler>
 {
@@ -3499,8 +3522,19 @@ gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
 {
     $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
+| GXX_IS_TRIVIAL '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_STD_LAYOUT '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_LITERAL_TYPE '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
 ;
-
 
 /* GNU extension */
 /*
