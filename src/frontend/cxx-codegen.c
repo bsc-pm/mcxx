@@ -178,14 +178,14 @@ static void walk_type_for_symbols(
     if (t == NULL)
         return;
 
-    {
-        int i;
-        for (i = _stack_walked_types_top - 1; i >= 0; i--)
-        {
-            if (_stack_walked_types[i] == t)
-                return;
-        }
-    }
+    // {
+    //     int i;
+    //     for (i = _stack_walked_types_top - 1; i >= 0; i--)
+    //     {
+    //         if (_stack_walked_types[i] == t)
+    //             return;
+    //     }
+    // }
 
     // This poisons return, do not return from this function
 #define return 1=1;
@@ -543,6 +543,37 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
     scope_entry_list_iterator_t* it = NULL;
     if (symbol->kind == SK_CLASS)
     {
+        if (is_template_specialized_type(symbol->type_information)
+                && template_specialized_type_get_template_arguments(symbol->type_information) != 0)
+        {
+            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
+                    symbol->type_information);
+            declare_all_in_template_arguments(visitor, template_arguments);
+
+            type_t* template_type = template_specialized_type_get_related_template_type(symbol->type_information);
+            type_t* primary_template = template_type_get_primary_type(template_type);
+            scope_entry_t* primary_symbol = named_type_get_symbol(primary_template);
+
+            if (primary_symbol != symbol)
+            {
+                declare_symbol(visitor, primary_symbol);
+            }
+        }
+
+        if (class_type_get_num_bases(symbol->type_information) != 0)
+        {
+            // We need to define all the bases first
+            for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
+            {
+                scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
+                define_symbol(visitor, entry);
+            }
+        }
+
+        ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
+        visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
+        visitor->num_classes_being_defined++;
+
         scope_entry_list_t* members = class_type_get_members(symbol->type_information);
         for (it = entry_list_iterator_begin(members);
                 !entry_list_iterator_end(it);
@@ -576,7 +607,8 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         entry_list_iterator_free(it);
         entry_list_free(members);
 
-        scope_entry_list_t* friends = class_type_get_members(symbol->type_information);
+
+        scope_entry_list_t* friends = class_type_get_friends(symbol->type_information);
         for (it = entry_list_iterator_begin(friends);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
@@ -589,6 +621,8 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         }
         entry_list_iterator_free(it);
         entry_list_free(friends);
+
+        visitor->num_classes_being_defined--;
     }
     else if (symbol->kind == SK_ENUM
              || symbol->kind == SK_ENUMERATOR)
@@ -762,20 +796,12 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             primary_template = template_type_get_primary_type(template_type);
             primary_symbol = named_type_get_symbol(primary_template);
 
-            if (primary_symbol != symbol)
-            {
-                declare_symbol(visitor, primary_symbol);
-            }
-            else
+            if (primary_symbol == symbol)
             {
                 is_primary_template = 1;
             }
 
             type_t* class_type = get_actual_class_type(symbol->type_information);
-            template_parameter_list_t* template_arguments = template_specialized_type_get_template_arguments(
-                    symbol->type_information);
-            declare_all_in_template_arguments(visitor, template_arguments);
-
             if (!class_type_is_complete_independent(class_type)
                     && !class_type_is_incomplete_independent(class_type))
             {
@@ -791,17 +817,6 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                     return; 
                 }
                 is_dependent_class = 1;
-            }
-        }
-
-        if (class_type_get_num_bases(symbol->type_information) != 0)
-        {
-            // We need to define all the bases first
-            int i;
-            for (i = 0; i < class_type_get_num_bases(symbol->type_information); i++)
-            {
-                scope_entry_t* entry = class_type_get_base_num(symbol->type_information, i, NULL, NULL, NULL);
-                define_symbol(visitor, entry);
             }
         }
 
@@ -1215,13 +1230,15 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
 static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
+    fprintf(stderr, "DEFINING CLASS '%s'\n", get_qualified_symbol_name(symbol, symbol->decl_context));
+
     scope_entry_list_t* old_pending = visitor->pending_nested_types_to_define;
+
+    scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
     visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
     visitor->num_classes_being_defined++;
-
-    scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
 
@@ -2027,18 +2044,20 @@ static void define_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_
     else
     {
         // Add all the nested_classes
-        scope_entry_t* current_sym = symbol;
-        while (current_sym->entity_specs.is_member)
-        {
-            walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
-                    declare_symbol_if_nonnested, 
-                    define_symbol_if_nonnested,
-                    define_nonnested_entities_in_trees);
+        // scope_entry_t* current_sym = symbol;
+        // while (current_sym->entity_specs.is_member)
+        // {
+        //     walk_type_for_symbols(visitor, current_sym->type_information, /* needs_def */ 1, 
+        //             declare_symbol_if_nonnested, 
+        //             define_symbol_if_nonnested,
+        //             define_nonnested_entities_in_trees);
 
-            visitor->pending_nested_types_to_define = 
-                entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
-            current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
-        }
+        //     visitor->pending_nested_types_to_define = 
+        //         entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
+        //     current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
+        // }
+        visitor->pending_nested_types_to_define = 
+            entry_list_add_once(visitor->pending_nested_types_to_define, symbol);
     }
 }
 
