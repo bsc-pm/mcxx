@@ -80,8 +80,6 @@ static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static char check_declaration_statement(AST a, decl_context_t decl_context);
 static char check_expression_statement(AST a, decl_context_t decl_context);
 
-static char check_type_specifier(AST type_id, decl_context_t decl_context);
-
 static char check_typeless_declarator(AST declarator, decl_context_t decl_context);
 
 static char check_init_declarator(AST init_declarator, decl_context_t decl_context);
@@ -1107,7 +1105,7 @@ static char check_template_parameter_list(AST argument_list, decl_context_t decl
 
 // This function is used in cxx-exprtype.c in explicit type conversions
 // Maybe we should refactor somehow with gather_type_spec_information
-char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t** computed_type)
+static char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t** computed_type)
 {
     if (computed_type != NULL)
     {
@@ -1198,7 +1196,7 @@ char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t**
     return ok;
 }
 
-static char check_type_specifier(AST type_id, decl_context_t decl_context)
+char check_type_specifier(AST type_id, decl_context_t decl_context)
 {
     C_LANGUAGE()
     {
@@ -1235,6 +1233,10 @@ static char check_type_specifier(AST type_id, decl_context_t decl_context)
         case AST_WCHAR_TYPE :
         case AST_BOOL_TYPE :
         case AST_INT_TYPE :
+        case AST_SHORT_TYPE :
+        case AST_LONG_TYPE :
+        case AST_SIGNED_TYPE :
+        case AST_UNSIGNED_TYPE :
         case AST_DOUBLE_TYPE :
         case AST_FLOAT_TYPE :
         case AST_VOID_TYPE :

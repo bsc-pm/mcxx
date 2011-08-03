@@ -59,7 +59,7 @@ LIBMCXX_EXTERN char solve_possibly_ambiguous_template_id(AST type_name, decl_con
 
 LIBMCXX_EXTERN char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context);
 LIBMCXX_EXTERN char check_type_id_tree(AST type_id, decl_context_t decl_context);
-LIBMCXX_EXTERN char check_simple_type_spec(AST type_spec, decl_context_t decl_context, struct type_tag** computed_type);
+LIBMCXX_EXTERN char check_type_specifier(AST type_spec, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void solve_ambiguous_nested_name_specifier(AST a, decl_context_t decl_context);
 
