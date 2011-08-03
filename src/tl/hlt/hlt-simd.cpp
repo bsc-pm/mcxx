@@ -143,8 +143,13 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         else if (expr.is_array_subscript())
                         {
                             //a[b]
+                            int num_dims = 1;
                             Expression subscripted_expr = expr.get_subscripted_expression(); //a
-                            Expression subscript_expr = expr.get_subscript_expression(); //b
+
+                            while (subscripted_expr.is_array_subscript())
+                            {
+                                subscripted_expr = subscripted_expr.get_subscripted_expression();
+                            }
 
                             if (subscripted_expr.is_id_expression())
                             {
@@ -170,18 +175,35 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                                 << "("
                                                 //Don't use recursive.
                                                 << subscripted_expr.prettyprint()   
-                                                << "["
                                                 ;
+                                                
+                                                Expression current_subscripted_expr = expr;
+                                                std::string subscripts_src;
 
-                                            //Disabling vector expansion inside the array subscription
-                                            _this->_inside_array_subscript.push(true);
+                                                //Multidimensional arrays
+                                                while(current_subscripted_expr.is_array_subscript())
+                                                {
+                                                    std::stringstream current_subscript;
 
-                                            result
-                                                << recursive_prettyprint(subscript_expr.get_ast(), data)
-                                                << "]"
-                                                << ")";
+                                                    //Disabling vector expansion inside the array subscription
+                                                    _this->_inside_array_subscript.push(true);
 
-                                            _this->_inside_array_subscript.pop();
+                                                    current_subscript 
+                                                       << "[" 
+                                                       << recursive_prettyprint(current_subscripted_expr.get_subscript_expression().get_ast(), data) 
+                                                       << "]"
+                                                       ;
+
+                                                    _this->_inside_array_subscript.pop();
+
+                                                    current_subscripted_expr = current_subscripted_expr.get_subscripted_expression();
+                                                    subscripts_src = current_subscript.str() + subscripts_src;
+                                                }
+
+                                                result 
+                                                    << subscripts_src
+                                                    << ")"
+                                                    ;
 
                                             return uniquestr(result.get_source().c_str());
                                         }
@@ -205,11 +227,37 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                             //Don't use recursive.
                                             << subscripted_expr.prettyprint()   
                                             << ", "
-                                            << recursive_prettyprint(subscript_expr.get_ast(), data)
+                                            ;
+
+                                        Expression current_subscripted_expr = expr;
+                                        std::string subscripts_src;
+
+                                        //Multidimensional arrays
+                                        while (current_subscripted_expr.is_array_subscript())
+                                        {
+                                            std::stringstream current_subscript;
+
+                                            //Disabling vector expansion inside the array subscription
+                                            _this->_inside_array_subscript.push(true);
+
+                                            current_subscript 
+                                                << "[" 
+                                                << recursive_prettyprint(current_subscripted_expr.get_subscript_expression().get_ast(), data)
+                                                << "]"
+                                                ;
+
+                                            _this->_inside_array_subscript.pop();
+
+                                            current_subscripted_expr = current_subscripted_expr.get_subscripted_expression();
+                                            subscripts_src = current_subscript.str() + subscripts_src;
+                                        }
+
+                                        result 
+                                            << subscripts_src
                                             << ")"
                                             ;
-                                            
-                                            return uniquestr(result.get_source().c_str());
+
+                                        return uniquestr(result.get_source().c_str());
                                     }
                                 }
                             }

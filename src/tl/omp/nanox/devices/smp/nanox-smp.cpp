@@ -38,6 +38,35 @@ using namespace TL::SIMD;
 
 const unsigned int _vector_width = 16;
 
+//TODO: Move this function to ForStatement Class
+//EPILOG: if (Epilog is necessary) then upper-bound = upper-bound - (step-1)
+//TODO: This approach does not work with decreasing loops
+bool needs_epilog(Expression upper_bound_exp, 
+        Expression lower_bound_exp,
+        Expression step_exp)
+{
+    if (upper_bound_exp.is_constant() 
+            &&  lower_bound_exp.is_constant() 
+            && step_exp.is_constant())
+    {
+        bool valid_upper, valid_lower, valid_step;
+
+        int upper_i = upper_bound_exp.evaluate_constant_int_expression(valid_upper);
+        int lower_i = lower_bound_exp.evaluate_constant_int_expression(valid_lower);
+        int step_i = step_exp.evaluate_constant_int_expression(valid_step);
+
+        if (valid_upper && valid_lower && valid_step)
+        {
+            if (((upper_i - lower_i)%step_i) == 0)
+            {
+                return false;;
+            }
+        }
+    }
+    return true;
+}
+
+
 std::string ReplaceSrcSMP::scalar_expansion(Expression expr, void* data)
 {
     ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
@@ -1528,26 +1557,16 @@ const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
         {
             ForStatement for_stmt(ast, _this->_sl);
 
-            Expression lower_exp = *dynamic_cast<Expression *>(
+            Expression lower_bound_exp = *dynamic_cast<Expression *>(
                     ast.get_attribute(LANG_HLT_SIMD_EPILOG).get_pointer());
-            Expression upper_exp = for_stmt.get_upper_bound();
+            Expression upper_bound_exp = for_stmt.get_upper_bound();
             Expression step_exp = for_stmt.get_step();
 
-            if (upper_exp.is_constant() && lower_exp.is_constant() && step_exp.is_constant())
+            if (!needs_epilog(upper_bound_exp,
+                        lower_bound_exp,
+                        step_exp))
             {
-                bool valid_upper, valid_lower, valid_step;
-
-                int upper_i = upper_exp.evaluate_constant_int_expression(valid_upper);
-                int lower_i = lower_exp.evaluate_constant_int_expression(valid_lower);
-                int step_i = step_exp.evaluate_constant_int_expression(valid_step);
-
-                if (valid_upper && valid_lower && valid_step)
-                {
-                    if (((upper_i - lower_i)%step_i) == 0)
-                    {
-                        return "";
-                    }
-                }
+                return "";
             }
             //Replacements don't have to be applied
             //return ReplaceSrcGenericFunction::prettyprint_callback(a, data);
@@ -1731,6 +1750,12 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
 
         //Unrolling
         Expression it_exp = for_stmt.get_iterating_expression();
+        Expression upper_bound_exp = for_stmt.get_upper_bound();
+        Expression lower_bound_exp = for_stmt.get_lower_bound(); 
+        Expression step_exp = for_stmt.get_step();
+        IdExpression ind_var = for_stmt.get_induction_variable();
+
+        //Unrolling
         AST_t it_exp_ast = it_exp.get_ast();
         Source it_exp_source;
 
@@ -1749,13 +1774,101 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             internal_error("Wrong Expression in ForStatement iterating Expression", 0);
         }
 
+        int new_step = (step_exp.evaluate_constant_int_expression(constant_evaluation)
+                                    * (_vector_width / min_expr_size));
+
+
         it_exp_source
             << " += "
-            << (for_stmt.get_step().evaluate_constant_int_expression(constant_evaluation)
-                    * (_vector_width / min_expr_size))
+            << new_step
             ;
 
         it_exp_ast.replace(it_exp_source.parse_expression(it_exp_ast, scope_link));
+
+
+        if(needs_epilog(upper_bound_exp, 
+                    lower_bound_exp,
+                    step_exp))
+        {
+            Expression it_cond_exp = for_stmt.get_iterating_condition();
+            if (!it_cond_exp.is_binary_operation())
+            {
+                running_error("Iterating condition Expression '%s'is not a binary operation.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+
+            Expression first_op_exp = it_cond_exp.get_first_operand();
+            Expression second_op_exp = it_cond_exp.get_second_operand();
+            int first_num_occurs = 0;
+            int second_num_occurs = 0;
+
+            ObjectList<IdExpression> first_symbol_occurrs = first_op_exp.all_symbol_occurrences();
+            for (ObjectList<IdExpression>::const_iterator it = first_symbol_occurrs.begin();
+                    it != first_symbol_occurrs.end();
+                    it++)
+            {
+                const IdExpression& id_exp = *it;
+                if (id_exp.get_symbol() == ind_var.get_symbol())
+                {
+                    first_num_occurs++;
+                    break;
+                }
+            }
+
+            ObjectList<IdExpression> second_symbol_occurrs = second_op_exp.all_symbol_occurrences();
+            for (ObjectList<IdExpression>::const_iterator it = second_symbol_occurrs.begin();
+                    it != second_symbol_occurrs.end();
+                    it++)
+            {
+                const IdExpression& id_exp = *it;
+                if (id_exp.get_symbol() == ind_var.get_symbol())
+                {
+                    second_num_occurs++;
+                    break;
+                }
+            }
+
+            if ((first_num_occurs != 0) && (second_num_occurs != 0))
+            {
+                running_error("Induction variable cannot be present in both sides of the iterating condition Expression '%s'.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+            else if (first_num_occurs == 0)
+            {
+                AST_t first_ast = first_op_exp.get_ast();
+                Source new_upper_bound_src;
+
+                new_upper_bound_src << "(("
+                    << first_op_exp
+                    << ")"
+                    << "- (" << new_step << "-1)"
+                    << ")"
+                    ;
+
+                first_ast.replace(new_upper_bound_src.parse_expression(first_ast, scope_link));
+            }
+            else if (second_num_occurs == 0)
+            {
+                AST_t second_ast = second_op_exp.get_ast();
+                Source new_upper_bound_src;
+
+                new_upper_bound_src << "(("
+                    << second_op_exp
+                    << ")"
+                    << "- (" << new_step << "-1)"
+                    << ")"
+                    ;
+
+                second_ast.replace(new_upper_bound_src.parse_expression(second_ast, scope_link));
+            }
+            else
+            {
+                running_error("Induction variable is not present in the iterating condition Expression '%s'.",
+                        it_cond_exp.prettyprint().c_str());
+            }
+        }
+                          
+
 
         //Statements replication
         /*
@@ -1853,9 +1966,14 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
 
         Source builtin_vr_replacement;
 
+        Type casting_type = arg_list[0].get_type();
+
+        //C++
+        if (casting_type.is_reference())
+            casting_type = casting_type.references_to();
+
         builtin_vr_replacement << "*((" 
-            << arg_list[0].get_type()
-                .get_generic_vector_to()
+            << casting_type.get_generic_vector_to()
                 .get_pointer_to()
                 .get_simple_declaration(scope_link.get_scope(ast),"")
             << ") &("
@@ -2612,6 +2730,22 @@ void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
             data_environ,
             initial_setup,
             replaced_src);
+}
+
+void DeviceSMP::insert_function_definition(PragmaCustomConstruct ctr, bool is_copy) 
+{
+    if (!is_copy)
+    {
+        ctr.get_ast().replace(ctr.get_declaration());
+    }
+}
+
+void DeviceSMP::insert_declaration(PragmaCustomConstruct ctr, bool is_copy) 
+{
+    if (!is_copy)
+    {
+        ctr.get_ast().replace(ctr.get_declaration());
+    }
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceSMP);

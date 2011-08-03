@@ -203,6 +203,9 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 it != range_set.end();
                 it++)
         {
+            if (current_type.is_reference())
+                current_type = current_type.references_to();
+
             if (!(current_type.is_array()
                     || (current_type.is_pointer()
                         && it == range_set.begin())))

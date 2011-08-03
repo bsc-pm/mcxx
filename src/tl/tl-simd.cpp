@@ -100,6 +100,11 @@ Source GenericFunctions::get_pending_specific_declarations(
 //Using add_generic_function you indicate that scalar_func_sym is actually in the code
 void GenericFunctions::add_generic_function(const Symbol& scalar_func_sym)
 {
+    if (!scalar_func_sym.is_valid())
+    {
+        internal_error("'scalar_func_sym' is invalid.", 0);
+    }
+
     DEBUG_CODE()
     {
         std::cerr << "SIMD: Adding generic function '" 
@@ -527,12 +532,12 @@ GenericFunctionInfo::GenericFunctionInfo(const Symbol& scalar_func_sym)
 {
     if (_scalar_func_sym.is_invalid())
     {
-        running_error("error: expected a valid scalar Symbol");
+        running_error("error: expected a valid scalar Symbol from a scalar function");
     }
 
     if (!_scalar_func_sym.is_function())
     {
-        running_error("error: expected a function Symbol");
+        running_error("error: expected a function Symbol from a scalar function");
     }
 }
 
