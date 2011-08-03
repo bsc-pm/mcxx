@@ -108,17 +108,17 @@ void f(void)
    A /= A + A;
  //B /= A + B;
 
-   A &= A + a;
-   A &= a + A;
-   A &= A + A;
+//   A &= A + a;
+//   A &= a + A;
+//   A &= A + A;
 
-   A |= A + a;
-   A |= a + A;
-   A |= A + A;
-
-   A ^= A + a;
-   A ^= a + A;
-   A ^= A + A;
+//   A |= A + a;
+//   A |= a + A;
+//   A |= A + A;
+//
+//   A ^= A + a;
+//   A ^= a + A;
+//   A ^= A + A;
 
    //%, <<, >>, >>=, <<=, ++, --, etc... not supported yet.
 

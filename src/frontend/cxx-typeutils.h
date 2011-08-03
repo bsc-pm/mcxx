@@ -34,6 +34,7 @@
 #include "cxx-type-decls.h"
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
+#include "cxx-cexpr-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
 #include "cxx-solvetemplate.h"

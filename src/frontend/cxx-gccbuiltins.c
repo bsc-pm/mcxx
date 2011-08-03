@@ -130,7 +130,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
     }
 
 // This is required for the sync overloaded functions
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, AST *arguments, int num_arguments,
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, AST *arguments, int num_arguments, 
         const_value_t** const_value);
 DEF_PRIMITIVE_TYPE(BT_FN_SYNC_OVERLOAD, get_computed_function_type(solve_gcc_sync_builtins_overload_name))
 

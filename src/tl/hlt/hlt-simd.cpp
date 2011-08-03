@@ -143,8 +143,13 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                         else if (expr.is_array_subscript())
                         {
                             //a[b]
+                            int num_dims = 1;
                             Expression subscripted_expr = expr.get_subscripted_expression(); //a
-                            Expression subscript_expr = expr.get_subscript_expression(); //b
+
+                            while (subscripted_expr.is_array_subscript())
+                            {
+                                subscripted_expr = subscripted_expr.get_subscripted_expression();
+                            }
 
                             if (subscripted_expr.is_id_expression())
                             {
@@ -170,18 +175,35 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                                 << "("
                                                 //Don't use recursive.
                                                 << subscripted_expr.prettyprint()   
-                                                << "["
                                                 ;
+                                                
+                                                Expression current_subscripted_expr = expr;
+                                                std::string subscripts_src;
 
-                                            //Disabling vector expansion inside the array subscription
-                                            _this->_inside_array_subscript.push(true);
+                                                //Multidimensional arrays
+                                                while(current_subscripted_expr.is_array_subscript())
+                                                {
+                                                    std::stringstream current_subscript;
 
-                                            result
-                                                << recursive_prettyprint(subscript_expr.get_ast(), data)
-                                                << "]"
-                                                << ")";
+                                                    //Disabling vector expansion inside the array subscription
+                                                    _this->_inside_array_subscript.push(true);
 
-                                            _this->_inside_array_subscript.pop();
+                                                    current_subscript 
+                                                       << "[" 
+                                                       << recursive_prettyprint(current_subscripted_expr.get_subscript_expression().get_ast(), data) 
+                                                       << "]"
+                                                       ;
+
+                                                    _this->_inside_array_subscript.pop();
+
+                                                    current_subscripted_expr = current_subscripted_expr.get_subscripted_expression();
+                                                    subscripts_src = current_subscript.str() + subscripts_src;
+                                                }
+
+                                                result 
+                                                    << subscripts_src
+                                                    << ")"
+                                                    ;
 
                                             return uniquestr(result.get_source().c_str());
                                         }
@@ -200,16 +222,30 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                     //Array indexed by vector
                                     else
                                     {
-                                        result << BUILTIN_VI_NAME 
+                                        if (subscripted_expr.is_array_subscript())
+                                        {
+                                            running_error("%s: error: Multidimensional arrays indexed by vectors are not supported yet.\n",
+                                                    ast.get_locus().c_str());
+                                        }
+
+                                        result << BUILTIN_VI_NAME
                                             << "("
                                             //Don't use recursive.
-                                            << subscripted_expr.prettyprint()   
+                                            << subscripted_expr.prettyprint()
                                             << ", "
-                                            << recursive_prettyprint(subscript_expr.get_ast(), data)
+                                            ;
+
+                                        //ENABLING vector expansion inside the array subscription
+                                        _this->_inside_array_subscript.push(false);
+
+                                        result
+                                            << recursive_prettyprint(expr.get_subscript_expression().get_ast(), data)
                                             << ")"
                                             ;
-                                            
-                                            return uniquestr(result.get_source().c_str());
+
+                                        _this->_inside_array_subscript.pop();
+
+                                        return uniquestr(result.get_source().c_str());
                                     }
                                 }
                             }
@@ -267,70 +303,86 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                     Expression first_op = expr.get_first_operand();
                     Expression second_op = expr.get_second_operand();
 
-                    unsigned int first_op_size = first_op.get_type().get_size();
-                    unsigned int second_op_size = second_op.get_type().get_size();
+                    //unsigned int first_op_size = first_op.get_type().get_size();
+                    //unsigned int second_op_size = second_op.get_type().get_size();
 
-                    if (first_op_size != second_op_size)
+                    Type expr_type = expr.get_type().get_unqualified_type();
+                    Type first_op_type = first_op.get_type().get_unqualified_type();
+                    Type second_op_type = second_op.get_type().get_unqualified_type();
+
+                    //if (first_op_size != second_op_size)
+                    if (!first_op_type.is_same_type(second_op_type)
+                            || (!expr_type.is_same_type(first_op_type) 
+                                && !expr_type.is_same_type(second_op_type)))
                     {
-                        DEBUG_CODE()
+                        Source first_vec_op_src, second_vec_op_src;
+
+                        first_vec_op_src 
+                            << recursive_prettyprint(first_op.get_ast(), data)
+                            ;
+                        second_vec_op_src 
+                            << recursive_prettyprint(second_op.get_ast(), data)
+                            ;
+
+                        if (expr_type.is_same_type(first_op_type))
                         {
-                            std::cerr << "SIMD: Implicit conversion from"
-                                << "'" <<  first_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
-                                << " to "
-                                << "'" <<  second_op.get_type().get_declaration(_this->_sl.get_scope(ast), "") << "'"
-                                << ": "
-                                << ast.prettyprint()
-                                << std::endl
-                                ;
-                        }
-
-                        Source target_expr_src;
-                        if (expr.is_assignment())//(first_op_size > second_op_size) || expr.is_assignment())
-                        {
-                            target_expr_src 
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                ;
-
-                            result 
-                                << target_expr_src
-                                << expr.get_operator_str()
-                                << BUILTIN_VC_NAME
-                                << "("
-                                << recursive_prettyprint(second_op.get_ast(), data)
-                                << ", " 
-                                << target_expr_src
-                                ;
-
-                            if (_this->_ind_var_sym.is_valid())
+                            DEBUG_CODE()
                             {
-                                result
-                                    << ", "
-                                    << _this->_ind_var_sym.get_name()
+                                std::cerr << "SIMD: Implicit conversion from"
+                                    << "'" <<  second_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << " to "
+                                    << "'" <<  first_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << ": "
+                                    << ast.prettyprint()
+                                    << std::endl
                                     ;
                             }
 
-                            result << ")"
-                                ;
-                        }
-                        else
-                        {
-                            target_expr_src
-                                << recursive_prettyprint(second_op.get_ast(), data)
+                            result << first_vec_op_src
+                                << expr.get_operator_str()
+                                << BUILTIN_VC_NAME
+                                << "(" 
+                                << second_vec_op_src
+                                << ","
+                                << first_vec_op_src
+                                << ")"
                                 ;
 
-                            result 
-                                << BUILTIN_VC_NAME
-                                << "("
-                                << recursive_prettyprint(first_op.get_ast(), data)
-                                << ", "
-                                << target_expr_src
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        else if (expr_type.is_same_type(second_op_type))
+                        {
+                            DEBUG_CODE()
+                            {
+                                std::cerr << "SIMD: Implicit conversion from"
+                                    << "'" <<  first_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << " to "
+                                    << "'" <<  second_op_type.get_declaration(_this->_sl.get_scope(ast), "") << "'"
+                                    << ": "
+                                    << ast.prettyprint()
+                                    << std::endl
+                                    ;
+                            }
+
+                            result << BUILTIN_VC_NAME
+                                << "(" 
+                                << first_vec_op_src
+                                << ","
+                                << second_vec_op_src
                                 << ")"
                                 << expr.get_operator_str()
-                                << target_expr_src
+                                << second_vec_op_src
                                 ;
-                        }
 
-                        return uniquestr(result.get_source().c_str());
+                            return uniquestr(result.get_source().c_str());
+                        }
+                        /*
+                        else
+                        {
+                             running_error("%s: error: this special kind of conversion are not supported yet in SIMD'\n",
+                                ast.get_locus().c_str());
+                        }
+                        */
                     }
                 }
                 //Explicit conversions
@@ -365,9 +417,9 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "(("
                                 << cast_type.get_generic_vector_to().get_simple_declaration(
                                         _this->_sl.get_scope(ast), "") 
-                                << ")"
+                                << ")("
                                 << recursive_prettyprint(casted_expr.get_ast(), data)
-                                << "))"
+                                << ")))"
                                 ;
                         }
                         else
@@ -376,9 +428,9 @@ const char* ReplaceSIMDSrc::prettyprint_callback(AST a, void* data)
                                 << "(("
                                 << cast_type.get_generic_vector_to().get_simple_declaration(
                                         _this->_sl.get_scope(ast), "")
-                                << ")"
+                                << ")("
                                 << recursive_prettyprint(casted_expr.get_ast(), data)
-                                << ")"
+                                << "))"
                                 ;
                         }    
                         return uniquestr(result.get_source().c_str());

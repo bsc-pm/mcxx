@@ -36,6 +36,7 @@
 
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
+#include "cxx-cexpr-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -106,6 +107,7 @@ struct dependent_name_part_tag
     struct type_tag* related_type;
     struct dependent_name_part_tag* next;
 };
+
 
 LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 
