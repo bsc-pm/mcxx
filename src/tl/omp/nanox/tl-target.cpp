@@ -120,6 +120,15 @@ void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
             internal_error("invalid device 'smp' at '%s'\n",
                     ctr.get_ast().get_locus().c_str());
         }
+
+        if (FunctionDefinition::predicate(ctr.get_declaration()))
+        {
+            device_provider->insert_function_definition(ctr, /* is_copy */ 0);
+        }
+        else
+        {
+            device_provider->insert_declaration(ctr, /* is_copy */ 0);
+        }
     }
     else
     {

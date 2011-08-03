@@ -43,6 +43,7 @@
 #include "hlt-simd.hpp"
 #include "tl-simd.hpp"
 #include "tl-refptr.hpp"
+#include "cxx-exprtype.h"
 
 
 #include <algorithm>
@@ -73,8 +74,9 @@ static void update_identity_flag(const std::string &str)
 //__builtin_induction_variable
 static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* overloaded_function, 
         type_t** types,  
-        AST *arguments UNUSED_PARAMETER,
-        int num_arguments)
+        AST *arguments,
+        int num_arguments, 
+        const_value_t** const_value)
 {
     char name[256];
     int i;
@@ -85,6 +87,14 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
     {
         internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
                         overloaded_function->symbol_name);
+    }
+
+    if (expression_is_constant(arguments[0]))
+    {
+        if (const_value != NULL )
+        {
+            *const_value = expression_get_constant(arguments[0]);
+        }
     }
 
     for(i=1; i<builtin_iv_list.size(); i++) 
@@ -226,7 +236,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     char found_match = 0;
     scope_entry_t* result = NULL;
 
-    if ((num_arguments != 2) && (num_arguments != 3))
+    if ((num_arguments != 2))// && (num_arguments != 3))
     {
         internal_error("hlt-simd builtin '%s' only allows two or three parameter\n",
                 overloaded_function->symbol_name);
@@ -234,9 +244,12 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
 
     for(i=1; i<builtin_vc_list.size(); i++) 
     {
-        if (equivalent_types(get_unqualified_type(types[1]),
-                    function_type_get_parameter_type_num(builtin_vc_list[i].get_type()
-                        .get_internal_type(), 1)))
+        if (equivalent_types(get_unqualified_type(types[0]),
+                    function_type_get_parameter_type_num(
+                        builtin_vc_list[i].get_type().get_internal_type(), 0))
+                && equivalent_types(get_unqualified_type(types[1]),
+                    function_type_get_parameter_type_num(builtin_vc_list[i].get_type().get_internal_type(), 1))
+           )
         {
             return builtin_vc_list[i].get_internal_symbol();
         }
@@ -689,7 +702,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
         <<      "int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps(vi);"
@@ -719,7 +732,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
         <<      "unsigned int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps((int __attribute__((vector_size(16)))) vi);"
@@ -911,7 +924,7 @@ void HLTPragmaPhase::run(TL::DTO& dto)
         //Intermediate SIMD code flag is on
         if (0)
         {
-            AST_t translation_unit = dto["translation_unit"];
+            AST_t translation_unit = AST_t(dto["translation_unit"]);
             std::cout << translation_unit.prettyprint();
         }
     }

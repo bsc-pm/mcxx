@@ -31,5 +31,4 @@
 
 #include "cxx-cexpr-fwd.h"
 
-
 #endif // CXX_CEXPR_DECLS_H

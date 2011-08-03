@@ -800,7 +800,7 @@ void DeviceCUDA::phase_cleanup(DTO& data_flow)
 void DeviceCUDA::pre_run(DTO& dto)
 {
 	_root = AST_t(dto["translation_unit"]);
-    
+
     if (dto.get_keys().contains("openmp_task_info"))
     {
         _function_task_set = RefPtr<OpenMP::FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
