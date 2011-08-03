@@ -37,10 +37,21 @@ static type_t* cuda_get_dim3_type(void)
     {
         decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
 
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct dim3");
+        scope_entry_t* new_class_sym = NULL; 
+        C_LANGUAGE()
+        {
+            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct dim3");
+            insert_alias(global_decl_context.current_scope, new_class_sym, "dim3");
+        }
+        CXX_LANGUAGE()
+        {
+            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "dim3");
+        }
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+
+        class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         // struct dim3
         // {
@@ -78,11 +89,22 @@ static type_t* cuda_get_uint3_type(void)
     {
         decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
 
-        scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct uint3");
-        new_class_sym->symbol_name = "uint3";
+        scope_entry_t* new_class_sym = NULL; 
+        C_LANGUAGE()
+        {
+            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct uint3");
+            insert_alias(global_decl_context.current_scope, new_class_sym, "uint3");
+        }
+        CXX_LANGUAGE()
+        {
+            new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "uint3");
+        }
+
         new_class_sym->kind = SK_CLASS;
         new_class_sym->type_information = get_new_class_type(global_decl_context, CK_STRUCT);
         decl_context_t class_context = new_class_context(global_decl_context, new_class_sym);
+
+        class_type_set_inner_context(new_class_sym->type_information, class_context);
 
         // struct uint3
         // {

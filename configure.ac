@@ -356,6 +356,9 @@ AC_ARG_ENABLE([nanox-gpu-device],
   ]
 )
 
+CUDA_INCLUDES=""
+CUDA_LIBS=""
+
 AC_ARG_WITH([cuda],
 AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
 	[
@@ -373,16 +376,12 @@ if test x$gpu_enabled = xyes ; then
             AC_MSG_WARN([nvcc not found. Disabling GPU support])
             gpu_valid=no
         else
-            CUDA_INC="$CUDADIR/include"
-            CUDA_LIB="$CUDADIR/lib"
+            CUDA_INCLUDES="$CUDADIR/include"
+            CUDA_LIBS="$CUDADIR/lib"
             if test -d "$CUDADIR/lib64" ; 
             then
-                CUDA_LIB="$CUDADIR/lib64"
+                CUDA_LIBS="$CUDADIR/lib64"
             fi
-
-            AC_SUBST([CUDA_INC])
-            AC_SUBST([CUDA_LIB])
-
             gpu_valid=yes
         fi
     else
@@ -390,6 +389,10 @@ if test x$gpu_enabled = xyes ; then
 	     gpu_valid=no
     fi
 fi
+
+AC_SUBST([CUDA_INCLUDES])
+AC_SUBST([CUDA_LIBS])
+
 
 if test x$gpu_valid = xyes;
 then
@@ -1345,6 +1348,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
+           tests/config/mercurium-simd
            tests/config/mercurium-nanox
            tests/config/mercurium-nanos4
            tests/config/mercurium-cuda

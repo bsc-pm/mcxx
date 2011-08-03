@@ -5871,7 +5871,9 @@ static void build_scope_declarator_rec(
                 AST enclosing_decl = enclosing_init_decl;
                 while (enclosing_init_decl != NULL
                         && ASTType(enclosing_init_decl) != AST_INIT_DECLARATOR
-                        && ASTType(enclosing_init_decl) != AST_GCC_INIT_DECLARATOR)
+                        && ASTType(enclosing_init_decl) != AST_MEMBER_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_INIT_DECLARATOR
+                        && ASTType(enclosing_init_decl) != AST_GCC_MEMBER_DECLARATOR)
                 {
                     enclosing_init_decl = ASTParent(enclosing_init_decl);
                 }

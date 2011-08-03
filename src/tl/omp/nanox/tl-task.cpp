@@ -814,6 +814,49 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             << "}"
             ;
 
+        // We need to create a replacement here
+        Source vla_adjustments;
+        ReplaceSrcIdExpression replacement_xlate(ctr.get_scope_link());
+        replacement_xlate.add_this_replacement("_args->_this");
+        ObjectList<DataEnvironItem> data_items = data_environ_info.get_items();
+        for (ObjectList<DataEnvironItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            DataEnvironItem& data_env_item(*it);
+            if (data_env_item.is_vla_type())
+            {
+                ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+                ObjectList<Source> arg_vla_dims;
+                for (ObjectList<Source>::iterator it = vla_dims.begin();
+                        it != vla_dims.end();
+                        it++)
+                {
+                    Source new_dim;
+                    new_dim << "_args->" << *it;
+
+                    arg_vla_dims.append(new_dim);
+                }
+
+                Type type = compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                        arg_vla_dims.begin(), arg_vla_dims.end());
+
+                vla_adjustments 
+                    << type.get_declaration(ctr.get_scope(), data_env_item.get_field_name())
+                    << "= (" << type.get_declaration(ctr.get_scope(), "") << ")"
+                    << "(_args->" << data_env_item.get_field_name() << ")"
+                    << ";"
+                    ;
+                replacement_xlate.add_replacement(data_env_item.get_symbol(), data_env_item.get_field_name() );
+            }
+            else
+            {
+                replacement_xlate.add_replacement(data_env_item.get_symbol(), "(_args-> " + data_env_item.get_field_name() + ")" );
+            }
+        }
+
+
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
                 it != copy_items.end();
@@ -843,6 +886,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
 
             DataReference data_ref = copy_item.get_copy_expression();
+
+            Source replaced_address;
+
+            if (!data_ref.is_id_expression())
+            {
+                AST_t base_addr = data_ref.get_address().parse_expression(data_ref.get_ast(), data_ref.get_scope_link());
+                replaced_address = replacement_xlate.replace(base_addr);
+            }
+            else
+            {
+                // &_args->x is not what we want
+                replaced_address = Source() << "_args->" << data_env_item.get_field_name();
+            }
+
             OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
@@ -851,9 +908,19 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             Source copy_sharing;
             copy_sharing << "NANOS_SHARED";
 
+
             translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                << "{"
+                // This should be a proper type
+                << vla_adjustments
+                << "signed long offset = "
+                << "((char*)(" << replaced_address << ") - " << "((char*)_args->" << data_env_item.get_field_name() << "));"
+                << "cp_err = nanos_get_addr(" << i << ", (void**)(&_args->" << data_env_item.get_field_name() << ") " << wd_arg << ");"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                << "_args->" << data_env_item.get_field_name() << " = "
+                << "(" << data_env_item.get_type().get_declaration(ctr.get_scope(), "") << ")"
+                << "(((char*)_args->" << data_env_item.get_field_name() << ") - offset);"
+                << "}"
                 ;
 
             struct {

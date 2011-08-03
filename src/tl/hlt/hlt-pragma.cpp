@@ -43,6 +43,7 @@
 #include "hlt-simd.hpp"
 #include "tl-simd.hpp"
 #include "tl-refptr.hpp"
+#include "cxx-exprtype.h"
 
 
 #include <algorithm>
@@ -55,6 +56,7 @@ static std::string _allow_identity_str;
 
 
 static TL::ObjectList<TL::Symbol> builtin_vr_list;
+static TL::ObjectList<TL::Symbol> builtin_iv_list;
 static TL::ObjectList<TL::Symbol> builtin_ve_list;
 static TL::ObjectList<TL::Symbol> builtin_ivve_list;
 static TL::ObjectList<TL::Symbol> builtin_gf_list;
@@ -68,6 +70,63 @@ static void update_identity_flag(const std::string &str)
             _allow_identity,
             "Option 'disable_identity' is a boolean flag");
 }
+
+//__builtin_induction_variable
+static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* overloaded_function, 
+        type_t** types,  
+        AST *arguments,
+        int num_arguments, 
+        const_value_t** const_value)
+{
+    char name[256];
+    int i;
+    char found_match = 0;
+    scope_entry_t* result = NULL;
+
+    if (num_arguments != 1)
+    {
+        internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
+                        overloaded_function->symbol_name);
+    }
+
+    if (expression_is_constant(arguments[0]))
+    {
+        if (const_value != NULL )
+        {
+            *const_value = expression_get_constant(arguments[0]);
+        }
+    }
+
+    for(i=1; i<builtin_iv_list.size(); i++) 
+    {
+        if (equivalent_types(get_unqualified_type(types[0]),
+                    function_type_get_parameter_type_num(builtin_iv_list[i].get_type()
+                        .get_internal_type(), 0)))
+        {
+            return builtin_iv_list[i].get_internal_symbol();
+        }
+    }
+
+    //No Match: Add a new Symbol to the list.
+    TL::ObjectList<TL::Type> param_type_list;
+    param_type_list.append(types[0]);
+    
+    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result->symbol_name = BUILTIN_IV_NAME;
+    result->kind = SK_FUNCTION;
+    result->type_information = ((TL::Type)types[0])
+        .get_function_returning(param_type_list)
+        .get_internal_type();
+    result->decl_context = builtin_iv_list.at(0).get_internal_symbol()->decl_context;
+    //BUILTIN + MUTABLE = LTYPE!
+    result->entity_specs.is_builtin = 1;
+    result->entity_specs.is_mutable = 1;
+
+    builtin_iv_list.append(TL::Symbol(result));
+
+    return result;
+}
+
 
 //__builtin_vector_reference overload
 static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, 
@@ -177,7 +236,7 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
     char found_match = 0;
     scope_entry_t* result = NULL;
 
-    if ((num_arguments != 2) && (num_arguments != 3))
+    if ((num_arguments != 2))// && (num_arguments != 3))
     {
         internal_error("hlt-simd builtin '%s' only allows two or three parameter\n",
                 overloaded_function->symbol_name);
@@ -185,9 +244,12 @@ static scope_entry_t* solve_vector_conv_overload_name(scope_entry_t* overloaded_
 
     for(i=1; i<builtin_vc_list.size(); i++) 
     {
-        if (equivalent_types(get_unqualified_type(types[1]),
-                    function_type_get_parameter_type_num(builtin_vc_list[i].get_type()
-                        .get_internal_type(), 1)))
+        if (equivalent_types(get_unqualified_type(types[0]),
+                    function_type_get_parameter_type_num(
+                        builtin_vc_list[i].get_type().get_internal_type(), 0))
+                && equivalent_types(get_unqualified_type(types[1]),
+                    function_type_get_parameter_type_num(builtin_vc_list[i].get_type().get_internal_type(), 1))
+           )
         {
             return builtin_vc_list[i].get_internal_symbol();
         }
@@ -371,6 +433,11 @@ HLTPragmaPhase::HLTPragmaPhase()
             "Enables mintaka instrumentation if set to '1'",
             _enable_hlt_instr_str,
             "0").connect(functor( &HLTPragmaPhase::set_instrument_hlt, *this ));
+
+    register_parameter("acml",
+            "Enables ACML library in SIMD regions if set to '1'",
+            _enable_hlt_acml_str,
+            "0").connect(functor( &HLTPragmaPhase::set_acml_hlt, *this ));
 }
 
 void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
@@ -381,11 +448,30 @@ void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
             "Option 'instrument' is a boolean flag");
 }
 
+void HLTPragmaPhase::set_acml_hlt(const std::string &str)
+{
+    TL::parse_boolean_option("acml",
+            str,
+            HLT::enable_acml_library,
+            "Option 'acml' is a boolean flag");
+}
+
 //FIXME: Move me to a new phase
 void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         ScopeLink scope_link)
 {
     Scope global_scope = scope_link.get_scope(translation_unit);
+
+    //New Artificial Symbol: __builtin_induction_variable
+    Symbol builtin_iv_sym = global_scope.new_artificial_symbol(BUILTIN_IV_NAME);
+    scope_entry_t* builtin_iv_se = builtin_iv_sym.get_internal_symbol();
+    builtin_iv_se->kind = SK_FUNCTION;
+    //BUILTIN + MUTABLE = LTYPE
+    builtin_iv_se->entity_specs.is_builtin = 1;
+    builtin_iv_se->entity_specs.is_mutable = 1;
+    builtin_iv_se->type_information = get_computed_function_type(solve_induction_variable_overload_name);
+    //Artificial Symbol in list[0]
+    builtin_iv_list.append(builtin_iv_sym);
 
     //New Artificial Symbol: __builtin_vector_reference
     Symbol builtin_vr_sym = global_scope.new_artificial_symbol(BUILTIN_VR_NAME);
@@ -462,7 +548,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     intel_builtins_src
     //SSE2
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pabsb128 (char __attribute__((vector_size(16))));"
-        << "char __attribute__((vector_size(16)))  __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
+        << "char __attribute__((vector_size(16)))           __builtin_ia32_packuswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_packsswb128(short int __attribute__((vector_size(16))) vs0, short int __attribute__((vector_size(16))) vs1);"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpeqb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
         << "char __attribute__((vector_size(16)))           __builtin_ia32_pcmpgtb128(char __attribute__((vector_size(16))), char __attribute__((vector_size(16))));"
@@ -470,6 +556,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         //<< "short int __attribute__((vector_size(16)))    __builtin_ia32_pabsw128 (short int __attribute__((vector_size(16))));"
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpeqw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
         << "short int __attribute__((vector_size(16)))      __builtin_ia32_pcmpgtw128(short int __attribute__((vector_size(16))), short int __attribute__((vector_size(16))));"
+        << "short int __attribute__((vector_size(16)))      __builtin_ia32_packssdw128 (int __attribute__((vector_size(16))), int __attribute__((vector_size(16))));"
 
         << "int __attribute__((vector_size(16)))            __builtin_ia32_pabsd128 (int __attribute__((vector_size(16))));"
         << "int __attribute__((vector_size(16)))            __builtin_ia32_cmpltps (float __attribute__((vector_size(16))), float __attribute__((vector_size(16))));"
@@ -615,7 +702,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_INT2FLOAT_SMP16 << "("
         <<      "int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps(vi);"
@@ -645,7 +732,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
         <<      "return __builtin_ia32_packsswb128(vs0, vs1);"
         << "}"
 
-        << "static float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
+        << "static inline float __attribute__((vector_size(16))) " << COMPILER_CONV_UINT2FLOAT_SMP16 << "("
         <<      "unsigned int __attribute__((vector_size(16))) vi)"
         << "{"
         <<      "return __builtin_ia32_cvtdq2ps((int __attribute__((vector_size(16)))) vi);"
@@ -752,6 +839,80 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     generic_functions.add_specific_definition(
             scope.get_symbol_from_name("ceil"), scope.get_symbol_from_name("_ceil_default_smp_16"), 
             TL::SIMD::ARCH_DEFAULT, device_name, width, false, true);
+
+
+    if (enable_acml_library)
+    {
+        //Float
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("expf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_expf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("logf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_logf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log2f"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_log2f"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log10f"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_log10f"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("powf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_powf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("sinf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_sinf"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("cosf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs4_cosf"));
+
+        /* It needs #define _GNU_SOURCE
+           generic_functions.add_specific_definition(
+           scope.get_symbol_from_name("sincosf"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+           false, false, std::string("__vrs4_sincosf"));
+         */
+
+        //Double
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("exp"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_exp"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log2"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log2"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("log10"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_log10"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("pow"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_pow"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("sin"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_sin"));
+
+        generic_functions.add_specific_definition(
+                scope.get_symbol_from_name("cos"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+                false, false, std::string("__vrs2_cos"));
+
+        /* It needs #define _GNU_SOURCE
+           generic_functions.add_specific_definition(
+           scope.get_symbol_from_name("sincos"), TL::SIMD::ARCH_DEFAULT, device_name, width,
+           false, false, std::string("__vrs2_sincos"));
+         */
+    }
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -759,6 +920,13 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     try
     {
         PragmaCustomCompilerPhase::run(dto);
+
+        //Intermediate SIMD code flag is on
+        if (0)
+        {
+            AST_t translation_unit = AST_t(dto["translation_unit"]);
+            std::cout << translation_unit.prettyprint();
+        }
     }
     catch (HLTException e)
     {
