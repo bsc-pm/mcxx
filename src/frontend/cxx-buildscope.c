@@ -3060,9 +3060,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
 static char class_has_const_copy_assignment_operator(type_t* t)
 {
     scope_entry_list_t* copy_assignment_ops = class_type_get_copy_assignment_operators(t);
-    ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
     ERROR_CONDITION(copy_assignment_ops == NULL, 
-            "Bad class type", 0);
+            "%s Bad class type", print_type_str(t, CURRENT_COMPILED_FILE->global_decl_context));
 
     char result = 0;
 
@@ -3104,9 +3103,8 @@ static char class_has_const_copy_constructor(type_t* t)
 {
     scope_entry_list_t* copy_constructors = class_type_get_copy_constructors(t);
 
-    ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
     ERROR_CONDITION(copy_constructors == NULL,
-            "Bad class type", 0);
+            "%s Bad class type", print_type_str(t, CURRENT_COMPILED_FILE->global_decl_context));
 
     char result = 0;
     scope_entry_list_iterator_t* it = NULL;
@@ -3501,7 +3499,8 @@ static void ensure_destructor_is_emitted(scope_entry_t* entry, void* data)
 
     scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
     ensure_function_is_emitted(destructor, p->filename, p->line);
-    ERROR_CONDITION(destructor == NULL, "Bad class lacking destructor", 0);
+    ERROR_CONDITION(destructor == NULL, "Bad class %s lacking destructor", 
+            print_type_str(get_user_defined_type(entry), entry->decl_context));
 }
 
 // These functions emit special members that may have to be defined by the compiler itself
@@ -3734,6 +3733,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 constructor_name);
 
         implicit_default_constructor->kind = SK_FUNCTION;
+        implicit_default_constructor->file = filename;
+        implicit_default_constructor->line = line;
         implicit_default_constructor->entity_specs.is_member = 1;
         implicit_default_constructor->entity_specs.access = AS_PUBLIC;
         implicit_default_constructor->entity_specs.class_type = type_info;
@@ -3856,10 +3857,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *base_class = entry_list_iterator_current(it);
 
-            type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
             const_parameter = const_parameter && 
-                class_has_const_copy_constructor(base_class_type);
+                class_has_const_copy_constructor(get_user_defined_type(base_class));
 
         }
         entry_list_iterator_free(it);
@@ -3881,13 +3880,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     member_class_type = array_type_get_element_type(member_class_type);
                 }
 
-                type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                if (is_named_class_type(member_actual_class_type))
-                {
-                    const_parameter = const_parameter &&
-                        class_has_const_copy_constructor(member_actual_class_type);
-                }
+                const_parameter = const_parameter &&
+                    class_has_const_copy_constructor(member_class_type);
             }
         }
         entry_list_iterator_free(it);
@@ -3927,6 +3921,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 constructor_name);
 
         implicit_copy_constructor->kind = SK_FUNCTION;
+        implicit_copy_constructor->file = filename;
+        implicit_copy_constructor->line = line;
         implicit_copy_constructor->entity_specs.is_member = 1;
         implicit_copy_constructor->entity_specs.access = AS_PUBLIC;
         implicit_copy_constructor->entity_specs.class_type = type_info;
@@ -4045,11 +4041,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             scope_entry_t *base_class = entry_list_iterator_current(it);
 
-            type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
             // Bases have always been instantiated
             const_parameter = const_parameter && 
-                class_has_const_copy_assignment_operator(base_class_type);
+                class_has_const_copy_assignment_operator(get_user_defined_type(base_class));
         }
         entry_list_iterator_free(it);
 
@@ -4070,10 +4064,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     member_class_type = array_type_get_element_type(member_class_type);
                 }
 
-                type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
                 const_parameter = const_parameter &&
-                    class_has_const_copy_assignment_operator(member_actual_class_type);
+                    class_has_const_copy_assignment_operator(member_class_type);
             }
         }
         entry_list_iterator_free(it);
@@ -4102,6 +4094,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 STR_OPERATOR_ASSIGNMENT);
 
         implicit_copy_assignment_function->kind = SK_FUNCTION;
+        implicit_copy_assignment_function->file = filename;
+        implicit_copy_assignment_function->line = line;
         implicit_copy_assignment_function->entity_specs.is_member = 1;
         implicit_copy_assignment_function->entity_specs.access = AS_PUBLIC;
         implicit_copy_assignment_function->entity_specs.class_type = type_info;
@@ -4228,6 +4222,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 );
 
         implicit_destructor->kind = SK_FUNCTION;
+        implicit_destructor->file = filename;
+        implicit_destructor->line = line;
         implicit_destructor->type_information = destructor_type;
         implicit_destructor->entity_specs.is_member = 1;
         implicit_destructor->entity_specs.access = AS_PUBLIC;
@@ -5655,7 +5651,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
 
         gather_info->arguments_info[num_parameters].entry = entry;
-        gather_info->arguments_info[num_parameters].argument = default_argument;
+        gather_info->arguments_info[num_parameters].argument = expression_get_nodecl(default_argument);
         gather_info->arguments_info[num_parameters].context = decl_context;
 
         num_parameters++;
@@ -6075,7 +6071,7 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         for (i = 0; i < gather_info->num_parameters; i++)
         {
             if (function_symbol->entity_specs.default_argument_info[i] == NULL
-                    && gather_info->arguments_info[i].argument != NULL)
+                    && !nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 if (function_symbol->entity_specs.default_argument_info[i] == NULL)
                 {
@@ -6335,7 +6331,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 for (i = 0; i < gather_info->num_parameters; i++)
                 {
                     if (entry->entity_specs.default_argument_info[i] == NULL
-                            && gather_info->arguments_info[i].argument != NULL)
+                            && !nodecl_is_null(gather_info->arguments_info[i].argument))
                     {
                         entry->entity_specs.default_argument_info[i] 
                             = (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
@@ -6395,7 +6391,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         int i;
         for (i = 0; i < gather_info->num_parameters; i++)
         {
-            if (gather_info->arguments_info[i].argument != NULL)
+            if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 entry->entity_specs.default_argument_info[i] = 
                     (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), &_bytes_used_buildscope);
@@ -6660,7 +6656,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         int i;
         for (i = 0; i < gather_info->num_parameters; i++)
         {
-            if (gather_info->arguments_info[i].argument != NULL)
+            if (!nodecl_is_null(gather_info->arguments_info[i].argument))
             {
                 new_entry->entity_specs.default_argument_info[i] = 
                     (default_argument_info_t*)counted_calloc(1, sizeof(default_argument_info_t), 

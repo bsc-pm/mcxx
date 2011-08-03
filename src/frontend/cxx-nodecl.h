@@ -58,6 +58,9 @@ char nodecl_is_list(nodecl_t);
 // Unpack a list. Do not forget to free the returned pointer
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
 
+// Length of a list
+int nodecl_list_length(nodecl_t list);
+
 // Wrap (use sparingly)
 nodecl_t _nodecl_wrap(AST);
 

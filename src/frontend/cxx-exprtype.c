@@ -744,28 +744,6 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     instantiate_symbol(entry, filename, line);
 }
 
-static void instantiate_recursively(nodecl_t node)
-{
-    // No need to check anything if this is not C++
-    if (!IS_CXX_LANGUAGE)
-    {
-        return;
-    }
-
-    if (nodecl_is_null(node))
-        return;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        instantiate_recursively(nodecl_get_child(node, i));
-
-        scope_entry_t* entry = nodecl_get_symbol(node);
-
-        instantiate_symbol(entry, nodecl_get_filename(node), nodecl_get_line(node));
-    }
-}
-
 static char c_check_for_expression(AST expression, decl_context_t decl_context)
 {
     if (expression_get_type(expression) == NULL)
@@ -774,12 +752,6 @@ static char c_check_for_expression(AST expression, decl_context_t decl_context)
     }
 
     char is_ok = !expression_is_error(expression);
-
-    if (IS_CXX_LANGUAGE 
-            && is_ok)
-    {
-        instantiate_recursively(expression_get_nodecl(expression));
-    }
 
     return is_ok;
 }
@@ -8129,6 +8101,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                                 i++;
                             }
                         }
+
                     }
 
                     nodecl_init = cxx_nodecl_make_function_call(
@@ -8486,20 +8459,21 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                         ASTFileName(expr), ASTLine(expr),
                         conversors,
                         &candidates);
-            entry_list_free(candidates);
 
             if (constructor == NULL)
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: cannot cast to type '%s' in '%s'\n",
+                    error_printf("%s: error: cannot cast to type '%s'\n",
                             ast_location(expr),
-                            print_decl_type_str(type_info, decl_context, ""),
-                            prettyprint_in_buffer(expr));
+                            print_decl_type_str(type_info, decl_context, ""));
+                    diagnostic_candidates(candidates, ASTFileName(expr), ASTLine(expr));
                 }
                 expression_set_error(expr);
+                entry_list_free(candidates);
                 return;
             }
+            entry_list_free(candidates);
 
             if (function_has_been_deleted(decl_context, constructor, ASTFileName(expr), ASTLine(expr)))
             {
@@ -9720,11 +9694,11 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         // Tag the node with symbol information (this is useful to know who is being called)
         expression_set_symbol(advanced_called_expression, overloaded_call);
 
+        int arg_i = 0;
         if (arguments != NULL)
         {
             // Set conversors of arguments if needed
             AST iter;
-            int arg_i = 0;
             for_each_element(arguments, iter)
             {
                 AST argument = ASTSon1(iter);
@@ -9749,12 +9723,13 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 arg_i++;
             }
         }
-
         nodecl_t nodecl_called = nodecl_make_symbol(overloaded_call, ASTFileName(called_expression), ASTLine(called_expression));
         expression_set_nodecl(called_expression, nodecl_called);
 
         // Now fill the nodecl
-        if (!nodecl_is_null(implicit_argument))
+        if (!nodecl_is_null(implicit_argument)
+                && overloaded_call->entity_specs.is_member 
+                && !overloaded_call->entity_specs.is_static)
         {
             (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
                     implicit_argument);
@@ -12146,20 +12121,12 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                     expression_set_nodecl(initializer, nodecl_output);
                 }
 
-                if (result)
-                {
-                    instantiate_recursively(expression_get_nodecl(initializer));
-                }
                 return result;
                 break;
             }
         case AST_INITIALIZER_BRACES:
             {
                 char result = check_braced_initializer_list(initializer, decl_context, declared_type);
-                if (result)
-                {
-                    instantiate_recursively(expression_get_nodecl(initializer));
-                }
                 return result;
             }
         case AST_DESIGNATED_INITIALIZER :
@@ -12762,10 +12729,6 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
         case AST_INITIALIZER_BRACES:
             {
                 result = check_braced_initializer_list(initializer, decl_context, declared_type);
-                if (result)
-                {
-                    instantiate_recursively(expression_get_nodecl(initializer));
-                }
                 return result;
             }
         case AST_PARENTHESIZED_INITIALIZER :
@@ -12786,8 +12749,6 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
                             expression_is_value_dependent(parenthesized_initializer), decl_context);
 
                     expression_set_nodecl(initializer, nodecl_output);
-
-                    instantiate_recursively(nodecl_output);
                 }
                 break;
             }
@@ -14334,10 +14295,6 @@ static char check_default_initialization_(scope_entry_t* entry,
                 return 0;
             }
 
-            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
-                        chosen_constructor->file, 
-                        chosen_constructor->line));
-
             if (constructor != NULL)
             {
                 *constructor = chosen_constructor;
@@ -14419,10 +14376,6 @@ char check_copy_constructor(scope_entry_t* entry,
             {
                 return 0;
             }
-
-            instantiate_recursively(nodecl_make_symbol(chosen_constructor, 
-                        chosen_constructor->file, 
-                        chosen_constructor->line));
 
             if (constructor != NULL)
             {
@@ -14527,10 +14480,6 @@ char check_copy_assignment_operator(scope_entry_t* entry,
                 return 0;
             }
 
-            instantiate_recursively(nodecl_make_symbol(overloaded_call, 
-                        overloaded_call->file, 
-                        overloaded_call->line));
-
             if (constructor != NULL)
             {
                 *constructor = overloaded_call;
@@ -14563,17 +14512,22 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
     return 1;
 }
 
-static void diagnostic_single_candidate(scope_entry_t* entry, const char* filename, int line)
+static void diagnostic_single_candidate(scope_entry_t* entry, 
+        const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
 {
     entry = entry_advance_aliases(entry);
     info_printf("%s:%d: note:    %s",
-            filename, line,
+            entry->file, entry->line,
             print_decl_type_str(entry->type_information, entry->decl_context, 
                 get_qualified_symbol_name(entry, entry->decl_context)));
 
     if (entry->entity_specs.is_builtin)
     {
         info_printf(" [built-in]");
+    }
+    if (!entry->entity_specs.is_user_declared)
+    {
+        info_printf(" [implicit]");
     }
     info_printf("\n");
 }
@@ -14621,14 +14575,51 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
 {
     scope_entry_t* called_symbol = nodecl_get_symbol(called);
 
-    if (called_symbol == NULL
-            || !called_symbol->entity_specs.is_virtual)
+    if (called_symbol != NULL
+            && called_symbol->kind == SK_FUNCTION)
     {
-        return nodecl_make_function_call(called, arg_list, t, filename, line);
+        ensure_function_is_emitted(called_symbol, nodecl_get_filename(called), nodecl_get_line(called));
+
+        // Default arguments
+        int arg_i = nodecl_list_length(arg_list);
+        if (called_symbol->entity_specs.is_member
+                && !called_symbol->entity_specs.is_static
+                // Constructors and destructors are nonstatic but do not have
+                // implicit argument
+                && !called_symbol->entity_specs.is_constructor
+                && !called_symbol->entity_specs.is_destructor)
+        {
+            // Do not count the implicit member
+            arg_i--;
+        }
+        ERROR_CONDITION(arg_i < 0, "Invalid argument count %d\n", arg_i);
+
+        int num_parameters = function_type_get_num_parameters(called_symbol->type_information);
+        if (function_type_get_has_ellipsis(called_symbol->type_information))
+            num_parameters--;
+        for(; arg_i < num_parameters; arg_i++)
+        {
+            ERROR_CONDITION(called_symbol->entity_specs.default_argument_info == NULL
+                    || called_symbol->entity_specs.default_argument_info[arg_i] == NULL,
+                    "Invalid default argument information %d", arg_i);
+
+            arg_list = nodecl_append_to_list(arg_list,
+                    called_symbol->entity_specs.default_argument_info[arg_i]->argument);
+        }
+
+        if (called_symbol->entity_specs.is_member 
+                && called_symbol->entity_specs.is_virtual)
+        {
+            return nodecl_make_virtual_function_call(called, arg_list, t, filename, line);
+        }
+        else
+        {
+            return nodecl_make_function_call(called, arg_list, t, filename, line);
+        }
     }
     else
     {
-        return nodecl_make_virtual_function_call(called, arg_list, t, filename, line);
+        return nodecl_make_function_call(called, arg_list, t, filename, line);
     }
 }
 

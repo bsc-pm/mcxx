@@ -176,6 +176,24 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
     return output;
 }
 
+int nodecl_list_length(nodecl_t list)
+{
+    if (nodecl_is_null(list))
+        return 0;
+
+    ERROR_CONDITION(!nodecl_is_list(list), "Invalid list", 0);
+    AST a = nodecl_get_ast(list);
+
+    int n = 0;
+    AST it = NULL;
+    for_each_element(a, it)
+    {
+        n++;
+    }
+
+    return n;
+}
+
 nodecl_t nodecl_list_head(nodecl_t list)
 {
     ERROR_CONDITION(nodecl_is_null(list), "Invalid list", 0);

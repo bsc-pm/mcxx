@@ -570,10 +570,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
             }
         }
 
-        ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
-        visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
-        visitor->num_classes_being_defined++;
-
         scope_entry_list_t* members = class_type_get_members(symbol->type_information);
         for (it = entry_list_iterator_begin(members);
                 !entry_list_iterator_end(it);
@@ -621,8 +617,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         }
         entry_list_iterator_free(it);
         entry_list_free(friends);
-
-        visitor->num_classes_being_defined--;
     }
     else if (symbol->kind == SK_ENUM
              || symbol->kind == SK_ENUMERATOR)
@@ -666,7 +660,6 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         // Now for each of these symbols define whatever they might require too
         scope_entry_t* entry = entry_list_iterator_current(it);
         scope_entry_list_t* pending_symbols = define_required_before_class(visitor, entry);
-
         scope_entry_list_t* old_result = result;
         result = entry_list_merge(result, pending_symbols);
         entry_list_free(old_result);
@@ -1230,15 +1223,15 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
 
 static void define_class_symbol(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
-    fprintf(stderr, "DEFINING CLASS '%s'\n", get_qualified_symbol_name(symbol, symbol->decl_context));
+    // fprintf(stderr, "DEFINING CLASS '%s'\n", get_qualified_symbol_name(symbol, symbol->decl_context));
 
     scope_entry_list_t* old_pending = visitor->pending_nested_types_to_define;
-
-    scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     ERROR_CONDITION(visitor->num_classes_being_defined >= MCXX_MAX_SCOPES_NESTING, "Too many classes", 0);
     visitor->classes_being_defined[visitor->num_classes_being_defined] = symbol;
     visitor->num_classes_being_defined++;
+
+    scope_entry_list_t* symbols_defined_inside_class = define_required_before_class(visitor, symbol);
 
     define_class_symbol_aux(visitor, symbol, symbols_defined_inside_class, /* level */ 0);
 
@@ -1801,6 +1794,22 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             is_primary_template = 1;
                         }
                     }
+
+                    // Default arguments
+                    //
+                    // int i;
+                    // int num_param_types = function_type_get_num_parameters(symbol->type_information);
+                    // char has_ellipsis = function_type_get_has_ellipsis(symbol->type_information);
+                    // if (has_ellipsis)
+                    //     num_param_types--;
+                    // for (i = 0; i < num_param_types; i++)
+                    // {
+                    //     if (symbol->entity_specs.default_argument_info != NULL 
+                    //             && symbol->entity_specs.default_argument_info[i] != NULL)
+                    //     {
+                    //         define_all_entities_in_trees(visitor, symbol->entity_specs.default_argument_info[i]->argument);
+                    //     }
+                    // }
                 }
 
                 const char* decl_spec_seq = "";
@@ -1895,6 +1904,49 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             get_template_arguments_str(symbol, symbol->decl_context));
                 }
 
+#if 0
+                const char *declarator = print_type_str(function_type_get_return_type(real_type),
+                        symbol->decl_context);
+
+                declarator = strappend(declarator, " ");
+                declarator = strappend(declarator, function_name);
+
+                declarator = strappend(declarator, "(");
+
+                int num_param_types = function_type_get_num_parameters(real_type);
+                char has_ellipsis = function_type_get_has_ellipsis(real_type);
+                if (has_ellipsis)
+                    num_param_types--;
+                for (i = 0; i < num_param_types; i++)
+                {
+                    if (i > 0)
+                    {
+                        declarator = strappend(declarator, ", ");
+                    }
+
+                    declarator = strappend(declarator, 
+                            print_type_str(function_type_get_parameter_type_num(real_type, i), symbol->decl_context));
+
+                    if (symbol->entity_specs.default_argument_info != NULL 
+                            && symbol->entity_specs.default_argument_info[i] != NULL)
+                    {
+                        declarator = strappend(declarator, " = ");
+                        declarator = strappend(declarator, 
+                                c_cxx_codegen_to_str(symbol->entity_specs.default_argument_info[i]->argument));
+                    }
+                }
+
+                declarator = strappend(declarator, ")");
+
+                if (is_const_qualified_type(real_type))
+                {
+                    declarator = strappend(declarator, " const");
+                }
+                if (is_volatile_qualified_type(real_type))
+                {
+                    declarator = strappend(declarator, " volatile");
+                }
+#endif
                 const char* declarator = print_decl_type_str(real_type,
                         symbol->decl_context,
                         function_name);
@@ -2915,9 +2967,11 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
     switch (kind)
     {
         case ORDINARY_CALL:
+        case STATIC_MEMBER_CALL:
             {
                 char needs_parentheses = operand_has_lower_priority(node, called_entity);
-                if (needs_parentheses) {
+                if (needs_parentheses) 
+                {
                     fprintf(visitor->file, "(");
                 }
                 codegen_walk(visitor, called_entity);
@@ -2930,7 +2984,6 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
                 fprintf(visitor->file, ")");
                 break;
             }
-        case STATIC_MEMBER_CALL:
         case NONSTATIC_MEMBER_CALL:
             {
                 int num_items = 0;
@@ -2941,19 +2994,16 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
                 char needs_parentheses = (get_rank(unpacked_list[0])
                         < get_rank_kind(NODECL_CLASS_MEMBER_ACCESS, NULL));
                 
-                if (kind == NONSTATIC_MEMBER_CALL)
+                if (needs_parentheses)
                 {
-                    if (needs_parentheses)
-                    {
-                        fprintf(visitor->file, "(");
-                    }
-                    codegen_walk(visitor, unpacked_list[0]);
-                    if (needs_parentheses)
-                    {
-                        fprintf(visitor->file, ")");
-                    }
-                    fprintf(visitor->file, ".");
+                    fprintf(visitor->file, "(");
                 }
+                codegen_walk(visitor, unpacked_list[0]);
+                if (needs_parentheses)
+                {
+                    fprintf(visitor->file, ")");
+                }
+                fprintf(visitor->file, ".");
 
                 if (is_virtual_call)
                 {

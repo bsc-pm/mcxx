@@ -405,6 +405,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             being_instantiated,
                             member_of_template);
 
+                    scope_entry_t* new_fake_template_symbol = calloc(1, sizeof(*new_fake_template_symbol));
+                    new_fake_template_symbol->kind = SK_TEMPLATE;
+                    new_fake_template_symbol->symbol_name = new_member->symbol_name;
+                    new_fake_template_symbol->file = new_member->file;
+                    new_fake_template_symbol->line = new_member->line;
 
                     type_t* template_type = get_new_template_type(tpl_empty, 
                             member_of_template->type_information, 
@@ -412,6 +417,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_context_of_being_instantiated, 
                             new_member->line, 
                             new_member->file);
+
+                    new_fake_template_symbol->type_information = template_type;
+                    template_type_set_related_symbol(template_type, new_fake_template_symbol);
 
                     scope_entry_t* primary_template = named_type_get_symbol(template_type_get_primary_type(template_type));
                     primary_template->entity_specs.is_user_declared = 1;
@@ -801,8 +809,18 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     // Finish the class (this order does not match the one used in buildscope, does it?)
     nodecl_t nodecl_finish_class = nodecl_null();
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Finishing class '%s'\n", 
+                print_declarator(being_instantiated));
+    }
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             being_instantiated_sym->decl_context, filename, line, &nodecl_finish_class);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Class '%s' finished\n", 
+                print_declarator(being_instantiated));
+    }
 
     scope_entry_t* selected_template_sym = named_type_get_symbol(selected_template);
     if (selected_template_sym->entity_specs.is_member)
@@ -983,12 +1001,12 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     // Remove dependent types
     AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
 
-    decl_context_t instantiation_context = entry->decl_context;
-
     // Why do we do this?
     // Temporarily disable ambiguity testing
     char old_test_status = get_test_expression_status();
     set_test_expression_status(0);
+
+    decl_context_t instantiation_context = entry->decl_context;
 
     nodecl_t nodecl_function_code = nodecl_null();
     build_scope_function_definition(dupl_function_definition, 
@@ -1099,6 +1117,40 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const char* f
     being_instantiated_now[num_being_instantiated_now] = NULL;
 }
 
+static void instantiate_default_arguments_of_function(scope_entry_t* entry)
+{
+    decl_context_t instantiation_context = entry->decl_context;
+    // Update the default arguments if any
+    if (entry->entity_specs.default_argument_info != NULL)
+    {
+        int i;
+        for (i = 0; i < entry->entity_specs.num_parameters; i++)
+        {
+            default_argument_info_t* argument_info = entry->entity_specs.default_argument_info[i];
+            if (argument_info != NULL
+                    && !nodecl_is_null(argument_info->argument)
+                    && nodecl_is_cxx_dependent_expr(argument_info->argument))
+            {
+                decl_context_t dummy;
+                AST expr = nodecl_unwrap_cxx_dependent_expr(argument_info->argument, &dummy);
+                expr = ast_copy_for_instantiation(expr);
+                char c = check_expression(expr, instantiation_context);
+
+                // Do not update anything on error
+                if (!c)
+                    continue;
+
+                nodecl_t new_nodecl = expression_get_nodecl(expr);
+
+                ERROR_CONDITION(nodecl_is_cxx_dependent_expr(new_nodecl), "Invalid dependent nodecl when updating default argument %d", i);
+
+                argument_info->argument = new_nodecl;
+                argument_info->context = instantiation_context;
+            }
+        }
+    }
+}
+
 void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line)
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
@@ -1116,6 +1168,8 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
 
     entry->entity_specs.is_non_emitted = 0;
     entry->entity_specs.emission_handler = NULL;
+    
+    instantiate_default_arguments_of_function(entry);
 
     if (!entry->defined)
     {

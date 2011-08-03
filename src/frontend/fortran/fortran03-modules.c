@@ -891,7 +891,7 @@ static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p)
 {
     // We cannot currently store the decl_context_t
     default_argument_info_t* d = (default_argument_info_t*)p;
-    return insert_ast(handle, d->argument);
+    return insert_ast(handle, nodecl_get_ast(d->argument));
 }
 
 static char query_contains_field(int ncols, char** names, const char* field_name, int *result)
@@ -991,7 +991,7 @@ static int get_extra_default_argument_info(void *datum,
     default_argument_info_t* d = calloc(1, sizeof(*d));
     // We are not storing the context yet
     d->context = CURRENT_COMPILED_FILE->global_decl_context;
-    d->argument = load_ast(p->handle, safe_atoll(values[0]));
+    d->argument = _nodecl_wrap(load_ast(p->handle, safe_atoll(values[0])));
 
     P_LIST_ADD(p->symbol->entity_specs.default_argument_info, p->symbol->entity_specs.num_parameters, d);
 

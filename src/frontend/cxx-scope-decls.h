@@ -257,7 +257,7 @@ typedef enum access_specifier_t
 
 struct default_argument_info_tag
 {
-    struct AST_tag* argument;
+    nodecl_t argument;
     decl_context_t context;
 };
 

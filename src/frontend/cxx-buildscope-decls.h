@@ -91,7 +91,7 @@ struct gather_decl_spec_tag {
     struct 
     {
         scope_entry_t* entry;
-        AST argument;
+        nodecl_t argument;
         decl_context_t context;
     } arguments_info[MCXX_MAX_FUNCTION_PARAMETERS];
 
