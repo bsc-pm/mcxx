@@ -22,6 +22,7 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
+#include "cxx-codegen.h"
 #include "cxx-process.h"
 
 #include "tl-cfg-visitor.hpp"
@@ -29,8 +30,20 @@ Cambridge, MA 02139, USA.
 namespace TL
 {
     CfgVisitor::CfgVisitor(ScopeLink sl)
-        : _actual_cfg(sl, ""), _sl(sl), _cfgs(), _seq_nodecl()
+        : _actual_cfg(new ExtensibleGraph(sl, "")), _sl(sl), 
+          _actual_loop_info(), _actual_switch_info(), _actual_try_info(),
+          _cfgs(), _seq_nodecl()
     {}
+    
+    CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
+    {
+        _actual_cfg = visitor._actual_cfg;
+        _sl = visitor._sl;
+        _actual_loop_info = visitor._actual_loop_info;
+        _actual_switch_info = visitor._actual_switch_info;
+        _cfgs = visitor._cfgs;
+        _seq_nodecl = visitor._seq_nodecl;
+    }
     
     void CfgVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
@@ -41,12 +54,12 @@ namespace TL
     {
         walk(n.get_top_level());
         
-        for (ObjectList<ExtensibleGraph>::iterator it = _cfgs.begin();
+        for (ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin();
             it != _cfgs.end(); 
             ++it)
         {
 //             it->live_variable_analysis();
-            it->print_graph_to_dot();
+            (*it)->print_graph_to_dot();
         }
     }
 
@@ -57,9 +70,7 @@ namespace TL
         std::cerr << "ESTIC A LA FUNCIO -> " << func_decl << std::endl;
 
         // Create a new graph for the current function
-        ExtensibleGraph cfg(_sl, s.get_name());
-        cfg._entry = new Node(cfg._nid, BASIC_ENTRY_NODE, NULL);
-        cfg._last_node = cfg._entry;
+        ExtensibleGraph* cfg = new ExtensibleGraph(_sl, s.get_name());
         
         _actual_cfg = cfg;
         walk(n.get_statements());
@@ -68,46 +79,78 @@ namespace TL
         // Connect the sequential statements, if there are
         if (!_seq_nodecl.empty())
         {
-            cfg.append_new_node_to_parent(cfg._last_node, _seq_nodecl);
+            cfg->append_new_node_to_parent(cfg->_last_nodes, _seq_nodecl);
             _seq_nodecl.clear();
         }
         // Task subgrpahs must be appended, conservatively, at the end of the master graph
         // FIXME Before or after the Return ??
-        for (ObjectList<Node*>::iterator it = cfg._tasks_node_list.begin();
-            it != cfg._tasks_node_list.end();
-            ++it)
-        {
-            cfg.connect_nodes(cfg._last_node, *it);
-            cfg._last_node = *it;
-        }
+//         for (ObjectList<Node*>::iterator it = cfg._tasks_node_list.begin();
+//             it != cfg._tasks_node_list.end();
+//             ++it)
+//         {
+//             cfg->connect_nodes(cfg._last_nodes[0], *it);
+//             cfg->_last_nodes[0] = *it;
+//         }
+
         // Connect the exit nodes to the Exit node of the master graph
-        cfg.append_new_node_to_parent(cfg._last_node, ObjectList<Nodecl::NodeclBase>(), BASIC_EXIT_NODE);
-        cfg._exit = cfg._last_node;
-        cfg.connect_nodes(cfg._unhand_try_excpt_list, cfg._exit);
-        cfg.connect_nodes(cfg._throw_node_list, cfg._exit);
+        Node* graph_exit = cfg->_graph->get_data<Node*>("exit");
+        graph_exit->set_id(++cfg->_nid);
+        cfg->connect_nodes(cfg->_last_nodes, graph_exit);
+        cfg->connect_nodes(cfg->_unhand_try_excpt_list, graph_exit);
+        cfg->connect_nodes(cfg->_throw_node_list, graph_exit);
         
         // Remove the unnecessary nodes and join these ones that are always executed consecutively
-        cfg.clear_unnecessary_nodes();
+        cfg->clear_unnecessary_nodes();
         
         _cfgs.append(cfg);
     }
 
     void CfgVisitor::visit(const Nodecl::TryBlock& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        ObjectList<Node*> try_parents = _actual_cfg->_last_nodes;
+        walk(n.get_statement());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        
+        std::cerr << "Number of try parents: " << try_parents.size() << std::endl;
+        std::cerr << "Number of exit edges in the first parent " << try_parents[0]->get_id()
+                  << ": " << try_parents[0]->get_exit_edges().size() << std::endl;
+        Node* first_try_node = try_parents[0]->get_exit_edges()[0]->get_target();
+        compute_catch_parents(first_try_node);
+        _actual_cfg->clear_visits(first_try_node);
+       
+        walk(n.get_catch_handlers());
+        
+        // This is the Ellipsis??
+        walk(n.get_any());
+        
+        _actual_try_info.clear();
     }  
 
     void CfgVisitor::visit(const Nodecl::CatchHandler& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        _actual_try_info.nhandlers++;
+        
+        // Build the handler nodes
+        _actual_cfg->_last_nodes = _actual_try_info.catch_parents;
+        walk(n.get_statement());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        
+        // Set the type of the edge between each handler parent and the actual handler
+        for (ObjectList<Node*>::iterator it = _actual_try_info.catch_parents.begin();
+            it != _actual_try_info.catch_parents.end();
+            it++)
+        {   
+            std::cerr << "Node " << (*it)->get_id() << " has " << (*it)->get_exit_edges().size() << " exit edges"<< std::endl;
+            Edge* catch_edge = (*it)->get_exit_edges()[_actual_try_info.nhandlers];
+            catch_edge->set_data("type", CATCH_EDGE);
+            std::string label = c_cxx_codegen_to_str(((Nodecl::NodeclBase)n.get_name()).get_internal_nodecl());
+            catch_edge->set_data("label", label);
+        }
     }
 
     void CfgVisitor::visit(const Nodecl::Throw& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_rhs());
     }  
 
     void CfgVisitor::visit(const Nodecl::CompoundStatement& n)
@@ -117,10 +160,8 @@ namespace TL
 
     void CfgVisitor::visit(const Nodecl::AnyList& n)
     {
-        std::cerr << "Visiting a List" << std::endl;
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }        
+        walk(n.get_list());
+    }
 
     void CfgVisitor::visit(const Nodecl::Symbol& n)
     {
@@ -132,233 +173,225 @@ namespace TL
     
     void CfgVisitor::visit(const Nodecl::ExpressionStatement& n)
     {
-        walk(n.get_nest());
-        _seq_nodecl.append(n);
+        std::cerr << "Expression '" << c_cxx_codegen_to_str(((Nodecl::NodeclBase)n).get_internal_nodecl()) << "'" << std::endl;
+        // Figure out if the expression will be broken into different nodes
+        BreakingExpressionVisitor visitor(_sl);
+        visitor.walk(n.get_nest());
+        if (visitor._broken_expression)
+        {// The expression will be built within a graph node
+            _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+            Node* expression_node;
+            switch (visitor._breakage_type)
+            {
+                case 1: // Function_call
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "function_call");
+                    break;
+                case 2: // Conditional expression
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "conditional_expression");
+                    break;
+                case 3: // Function call & Conditional Expression
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "splitted_instruction");
+                    break;
+                default:
+                    internal_error("Breaking type wrongly computed for the expression '%s'", 
+                                   c_cxx_codegen_to_str(((Nodecl::NodeclBase)n).get_internal_nodecl()));
+            }
+            
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, expression_node); 
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(expression_node->get_data<Node*>("entry"));
+            walk(n.get_nest());
+            _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n);
+            Node* exit = expression_node->get_data<Node*>("exit");
+            exit->set_id(++_actual_cfg->_nid);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit);
+            _actual_cfg->_outer_node.pop();
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(expression_node);
+        }
+        else
+        {
+            walk(n.get_nest());
+            _seq_nodecl.append(n);
+        }
     }
 
     void CfgVisitor::visit(const Nodecl::ParenthesizedExpression& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_nest());
     }
 
     void CfgVisitor::visit(const Nodecl::ErrExpr& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' should not arrive here. CFG construction failed.", 
+                       ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::ObjectInit& n)
     {
-        std::cerr << "This is an Object init" << std::endl;
+        std::cout << "Object init" << std::endl;
         walk(n.get_init_expr());
         _seq_nodecl.append(n);
     }
 
     void CfgVisitor::visit(const Nodecl::ArraySubscript& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_subscripted());
+        walk(n.get_subscripts());
     }
 
     void CfgVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }
-
-    // What's that??
-    void CfgVisitor::visit(const Nodecl::NamedPairSpec& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }
-
-    // What's that??
-    void CfgVisitor::visit(const Nodecl::Concat& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_member());
     }
 
     void CfgVisitor::visit(const Nodecl::New& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        std::cerr << "warning: node '" << ast_print_node_type(n.get_kind()) << "' not properly implemented!! "
+                  << "But the execution continues... " << std::endl;
+        walk(n.get_init());
+        walk(n.get_placement());
     }
 
     void CfgVisitor::visit(const Nodecl::Delete& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::DeleteArray& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::Sizeof& n)
     {
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str());            
-//             internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-//                            n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_size_type());
     }
 
     void CfgVisitor::visit(const Nodecl::Type& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
     void CfgVisitor::visit(const Nodecl::Typeid& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::Cast& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::Offset& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
-        if (!_seq_nodecl.empty())
-        {
-            _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        }
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
         walk(n.get_arguments());
-        if (!_seq_nodecl.empty())
-        {
-            _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        }        
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
         walk(n.get_called());
-        _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, ObjectList<Nodecl::NodeclBase>(1,n));
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n);
     }
 
     void CfgVisitor::visit(const Nodecl::FunctionCall& n)
     {
         // FIXME If this first condition necessary?? Or the arguments should be parsed with a different Visitor??
-        if (!_seq_nodecl.empty())
-        {
-            _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        }
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
         walk(n.get_arguments());
-        if (!_seq_nodecl.empty())
-        {
-            _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        }        
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
         walk(n.get_called());
-        _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, ObjectList<Nodecl::NodeclBase>(1,n));
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n);
+        ObjectList<Nodecl::NodeclBase> nodecls = _actual_cfg->_last_nodes[0]->get_data<ObjectList<Nodecl::NodeclBase> >("statements");
+    }
+
+    void CfgVisitor::visit(const Nodecl::Comma& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
 
     // ************* Literals ************* //
     void CfgVisitor::visit(const Nodecl::StringLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
     
     void CfgVisitor::visit(const Nodecl::BooleanLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
     void CfgVisitor::visit(const Nodecl::IntegerLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
     void CfgVisitor::visit(const Nodecl::ComplexLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
     void CfgVisitor::visit(const Nodecl::FloatingLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
     void CfgVisitor::visit(const Nodecl::StructuredLiteral& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    { // Nothing to be done
     }
 
 
     // ************* Special Statements ************* //       
     void CfgVisitor::visit(const Nodecl::EmptyStatement& n)
     {
+        std::cerr << "Empty Statement founded" << std::endl;
         _seq_nodecl.append(n);
     }
             
     void CfgVisitor::visit(const Nodecl::ReturnStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl);
+        _seq_nodecl.clear();
+        walk(n.get_value());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n);
+        
     }
 
 
     // ************* Built-in ************* //
     void CfgVisitor::visit(const Nodecl::BuiltinExpr& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::BuiltinDecl& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
 
     // ************* Pragmas ************* //
     void CfgVisitor::visit(const Nodecl::PragmaCustomDirective& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::PragmaCustomConstruct& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::PragmaCustomClause& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::PragmaClauseArg& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
-    
     
     // ************* Control Flow constructs ************* //
     void CfgVisitor::visit(const Nodecl::ForStatement& n)
@@ -366,147 +399,305 @@ namespace TL
         walk(n.get_loop_header());
         
         Node* empty_exit_node = new Node();
+       
+        _actual_cfg->_continue_stack.push(_actual_loop_info.next);
+        _actual_cfg->_break_stack.push(empty_exit_node);
         walk(n.get_statement());
+        if (!_seq_nodecl.empty())
+        {   // Some statements remaining to be added from the loop body
+            _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl);
+            _seq_nodecl.clear();
+        }
+        // Compute the true edge from the loop condition
+        Edge_type aux_etype = ALWAYS_EDGE;
+        if (!_actual_loop_info.cond->get_exit_edges().empty())
+        {
+            _actual_loop_info.cond->get_exit_edges()[0]->set_data<Edge_type>("type", TRUE_EDGE);
+        }
+        else
+        { // It will be empty when the loop's body is empty.
+            aux_etype = TRUE_EDGE;
+        }
+        _actual_cfg->_continue_stack.pop();
+        _actual_cfg->_break_stack.pop();
         
+        empty_exit_node->set_id(++_actual_cfg->_nid);
+        empty_exit_node->set_data("outer_graph", _actual_cfg->_outer_node.top());
+        _actual_cfg->connect_nodes(_actual_loop_info.cond, empty_exit_node, FALSE_EDGE);
         
+        // Fill the empty fields of the Increment node
+        if (!_actual_cfg->_break_stmt)
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_loop_info.next, aux_etype);
+            _actual_cfg->connect_nodes(_actual_loop_info.next, _actual_loop_info.cond);
+        }
+        else
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, empty_exit_node, aux_etype);
+            _actual_cfg->_break_stmt = false; // Reset this value
+        }
         
-//                 ForStatement inner_for_statement(for_stmt.get_ast(), _sl);
-//         
-//         
-//         Node* last_node = parent;
-//         
-//         // Fourth child is an AST_COMPOUND_STATEMENT 'FOR_loop_body'
-//         _continue_stack.push(increment_expr);
-//         _break_stack.push(empty_exit_node);
-//         Node* for_body = build_graph_from_statement(condition_expr,
-//                                                     inner_for_statement.get_loop_body(),
-//                                                     outer_graph);
-//         Edge_type aux_etype = ALWAYS_EDGE;
-//         if (!condition_expr->get_exit_edges().empty())
-//         {   // It will be empty when the loop's body is empty
-//             condition_expr->get_exit_edges()[0]->set_data<Edge_type>("type", TRUE_EDGE);
-//         }
-//         else
-//         {
-//             aux_etype = TRUE_EDGE;
-//         }
-//         _continue_stack.pop();
-//         _break_stack.pop();
-//         
-//         empty_exit_node->set_id(++_nid);
-//         connect_nodes(condition_expr, empty_exit_node, FALSE_EDGE);
-//         
-//         // Fill the empty fields of the Increment node
-//         if (!_break_stmt)
-//         {
-//             connect_nodes(for_body, increment_expr, aux_etype);
-//             connect_nodes(increment_expr, condition_expr);
-//         }
-//         else
-//         {
-//             connect_nodes(for_body, empty_exit_node, aux_etype);
-// 
-//             _break_stmt = false; // Reset this value
-//         }
-//         
-//         _continue_stmt = false; // Conservatively, reset this value
-//         
-//         return empty_exit_node;
+        _actual_cfg->_continue_stmt = false; // Conservatively, reset this value
         
-        
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(empty_exit_node);
     }        
 
     void CfgVisitor::visit(const Nodecl::LoopControl& n)
     {
-        // Build the init node
-        walk(n.get_init());
-        _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        _seq_nodecl.clear();
-        // Build the conditional node
-        walk(n.get_cond());
-        _actual_cfg.append_new_node_to_parent(_actual_cfg._last_node, _seq_nodecl);
-        _seq_nodecl.clear();
-        // Build and keep the next node
-        LoopNextVisitor n_visitor(_actual_cfg, _sl);
-        n_visitor.walk(n.get_next());
+        _actual_loop_info.init = get_expression_node(n.get_init());
+        _actual_loop_info.cond = get_expression_node(n.get_cond());
+        _actual_loop_info.next = get_expression_node(n.get_next(), /* Connect node */false);
     }  
 
     void CfgVisitor::visit(const Nodecl::WhileStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        // Build condition node
+        Node* condition_node = get_expression_node(n.get_condition());
+     
+        Node* empty_exit_node = new Node();
+        
+        // Build the while body node/s
+        _actual_cfg->_continue_stack.push(condition_node);
+        _actual_cfg->_break_stack.push(empty_exit_node);
+        walk(n.get_statement());
+        _actual_cfg->_continue_stack.pop();
+        _actual_cfg->_break_stack.pop();
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        condition_node->get_exit_edges()[0]->set_data<Edge_type>("type", TRUE_EDGE);
+        
+        // Build the exit node
+        empty_exit_node->set_id(++_actual_cfg->_nid);
+        empty_exit_node->set_data("outer_graph", _actual_cfg->_outer_node.top());
+        _actual_cfg->connect_nodes(condition_node, empty_exit_node, FALSE_EDGE);
+        if (_actual_cfg->_continue_stmt)
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_continue_stack.top(), empty_exit_node);
+            _actual_cfg->_continue_stmt = false; // Reset this value
+        }
+        else if(_actual_cfg->_break_stmt)
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_break_stack.top(), empty_exit_node);
+            _actual_cfg->_break_stmt = false; // Reset this value
+        }
+        else
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, condition_node);
+        }
+
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(empty_exit_node);
     }     
 
     void CfgVisitor::visit(const Nodecl::IfElseStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }        
+        Node* empty_exit_node = new Node();
+        
+        // Compose the condition node
+        Node* condition_node = get_expression_node(n.get_condition());
+        
+        // Compose the then node
+        walk(n.get_then());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        condition_node->get_exit_edges()[0]->set_data<Edge_type>("type", TRUE_EDGE);
+        if (_actual_cfg->_continue_stmt)
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_cfg->_continue_stack.top());
+            _actual_cfg->_continue_stmt = false; // Reset this value
+        }
+        else if (_actual_cfg->_break_stmt)
+        {
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_cfg->_break_stack.top());
+            _actual_cfg->_break_stmt = false; // Reset this value
+        }
+        else if (_actual_cfg->_goto_stmt)
+        {    
+            _actual_cfg->_goto_stmt = false; // Reset this value
+        }
+        else
+        {    
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, empty_exit_node);
+        }
+       
+        // Compose the else node, if it exists
+        ObjectList<Node*> then_last_nodes = _actual_cfg->_last_nodes;
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(condition_node);
+        walk(n.get_else());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        empty_exit_node->set_id(++_actual_cfg->_nid);
+        empty_exit_node->set_data("outer_graph", _actual_cfg->_outer_node.top());        
+        if (then_last_nodes != _actual_cfg->_last_nodes)
+        {   // There exists an else statement
+            if (_actual_cfg->_continue_stmt)
+            {
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_cfg->_continue_stack.top());
+                _actual_cfg->_continue_stmt = false; // Reset this value
+            }
+            else if (_actual_cfg->_break_stmt)
+            {
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_cfg->_break_stack.top());
+                _actual_cfg->_break_stmt = false; // Reset this value                
+            }
+            else if (_actual_cfg->_goto_stmt)
+            {    
+                _actual_cfg->_goto_stmt = false;
+            }
+            else
+            {   
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, empty_exit_node);
+            }
+        }
+        else
+        {
+            _actual_cfg->connect_nodes(condition_node, empty_exit_node);
+        }
+
+        // Link the If condition with the FALSE statement (else or empty node)
+        condition_node->get_exit_edges()[1]->set_data("type", FALSE_EDGE);
+        
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(empty_exit_node);
+    }
+
+
 
     void CfgVisitor::visit(const Nodecl::SwitchStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        // Compose the condition node
+        _actual_switch_info.cond = get_expression_node(n.get_switch());
+       
+        // Compose the statements nodes
+        walk(n.get_statement());
+        
+        // Link properly the exit node
+        Node* empty_exit_node = new Node();
+        empty_exit_node->set_id(++_actual_cfg->_nid);
+        empty_exit_node->set_data("outer_graph", _actual_cfg->_outer_node.top());
+        
+        // Finish computation of switch exit nodes
+        if (_actual_switch_info.ncases == -1)
+        {
+            _actual_cfg->connect_nodes(_actual_switch_info.cond, empty_exit_node);
+        }
+        else
+        {
+            if (_actual_cfg->_break_stmt)
+            {
+                _actual_switch_info.cases_break.append(_actual_cfg->_last_nodes);
+                _actual_cfg->_break_stmt = false;
+            }
+            else
+            {   // Avoid the case no statement appears within the switch statement
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes[0], empty_exit_node);
+            }
+
+            _actual_cfg->connect_nodes(_actual_switch_info.cases_break, empty_exit_node);
+        }
+
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(empty_exit_node);
+        _actual_switch_info.clear();
     }      
 
     void CfgVisitor::visit(const Nodecl::CaseStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }    
+        // If previous cases were parsed, now we have to decide their exit edges
+        if (_actual_switch_info.ncases > -1)
+        {    
+            if (_actual_cfg->_break_stmt)
+            {
+                _actual_switch_info.cases_break.append(_actual_cfg->_last_nodes);
+                _actual_cfg->_break_stmt = false;
+            }
+            else
+            {
+                _actual_switch_info.case_no_break = _actual_cfg->_last_nodes[0];
+            }
+        }
+        
+        _actual_switch_info.ncases++;
+        
+        // Prepare parent nodes list
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_actual_switch_info.cond);
+        if (_actual_switch_info.case_no_break != NULL)
+        {
+            _actual_cfg->_last_nodes.append(_actual_switch_info.case_no_break);
+            _actual_switch_info.case_no_break == NULL;
+        }
+        
+        // Build case nodes
+        walk(n.get_statement());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        
+        // Set the proper labels to the edge
+        int actual_case = _actual_switch_info.ncases;
+        Edge* case_edge = _actual_switch_info.cond->get_exit_edges()[actual_case];
+        case_edge->set_data("type", CASE_EDGE);
+        std::string label = c_cxx_codegen_to_str(((Nodecl::NodeclBase)n.get_case()).get_internal_nodecl());
+        case_edge->set_data("label", label);
+    }
 
     void CfgVisitor::visit(const Nodecl::DefaultStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }    
+        // If previous cases were parsed, now we have to decide their exit edges
+        if (_actual_switch_info.ncases > -1)
+        {    
+            if (_actual_cfg->_break_stmt)
+            {
+                _actual_switch_info.cases_break.append(_actual_cfg->_last_nodes);
+                _actual_cfg->_break_stmt = false;
+            }
+            else
+            {
+                _actual_switch_info.case_no_break = _actual_cfg->_last_nodes[0];
+            }
+        }
+        
+        _actual_switch_info.ncases++;
+        
+        // Prepare parent nodes list
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_actual_switch_info.cond);
+        if (_actual_switch_info.case_no_break != NULL)
+        {
+            _actual_cfg->_last_nodes.append(_actual_switch_info.case_no_break);
+            _actual_switch_info.case_no_break == NULL;
+        }        
 
-    void CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }    
+        // Build default nodes
+        walk(n.get_statement());
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
+        
+        // Set the proper labels to the edge
+        int actual_case = _actual_switch_info.ncases;
+        Edge* case_edge = _actual_switch_info.cond->get_exit_edges()[actual_case];
+        case_edge->set_data("type", CASE_EDGE);
+        case_edge->set_data("label", std::string("-1"));
+    }
 
-    void CfgVisitor::visit(const Nodecl::ComputedGotoStatement& n)
+    void CfgVisitor::visit(const Nodecl::BreakStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }   
+        _actual_cfg->_break_stmt = true;
+    }      
 
-    void CfgVisitor::visit(const Nodecl::AssignedGotoStatement& n)
+    void CfgVisitor::visit(const Nodecl::ContinueStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }   
+        _actual_cfg->_continue_stmt = true;
+    }
 
     void CfgVisitor::visit(const Nodecl::GotoStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    }  
+    
+    void CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }  
 
     void CfgVisitor::visit(const Nodecl::LabeledStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
-
-    void CfgVisitor::visit(const Nodecl::ContinueStatement& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }  
-
-    void CfgVisitor::visit(const Nodecl::BreakStatement& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }  
 
     void CfgVisitor::visit(const Nodecl::DoStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
     
 
@@ -645,52 +836,58 @@ namespace TL
         walk(n.get_rhs());
     }
 
+    void CfgVisitor::visit(const Nodecl::Concat& n)
+    {
+        walk(n.get_lhs());
+        walk(n.get_rhs());
+    }
+
     void CfgVisitor::visit(const Nodecl::Equal& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::Different& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::LowerThan& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());        
     }
 
     void CfgVisitor::visit(const Nodecl::GreaterThan& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::LowerOrEqualThan& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::GreaterOrEqualThan& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::Shr& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
     void CfgVisitor::visit(const Nodecl::Shl& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        walk(n.get_lhs());
+        walk(n.get_rhs());
     }
 
 
@@ -741,196 +938,260 @@ namespace TL
     {
 //             walk(n.get_rhs());
 //             std::cerr << "DERREF -> " << ast_print_node_type(n.get_kind()).get_declaration(Scope(), "") << std::endl;
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::Reference& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     
     // ************* Fortran specifics ************* //
     void CfgVisitor::visit(const Nodecl::Text& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+    {   // Nothing to be done
     }
     
-    void CfgVisitor::visit(const Nodecl::Where& n)
+    // What's that??
+    void CfgVisitor::visit(const Nodecl::FortranNamedPairSpec& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    }    
+    
+    void CfgVisitor::visit(const Nodecl::FortranWhere& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }   
 
-    void CfgVisitor::visit(const Nodecl::WherePair& n)
+    void CfgVisitor::visit(const Nodecl::FortranWherePair& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }   
 
     void CfgVisitor::visit(const Nodecl::SubscriptTriplet& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }   
 
-    void CfgVisitor::visit(const Nodecl::LabelAssignStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranLabelAssignStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }  
+
+    void CfgVisitor::visit(const Nodecl::FortranComputedGotoStatement& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    }   
+
+    void CfgVisitor::visit(const Nodecl::FortranAssignedGotoStatement& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    }   
 
     void CfgVisitor::visit(const Nodecl::FortranIoSpec& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }   
 
     void CfgVisitor::visit(const Nodecl::FieldDesignator& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }    
 
     void CfgVisitor::visit(const Nodecl::IndexDesignator& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::FortranEquivalence& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
     void CfgVisitor::visit(const Nodecl::FortranData& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
-    void CfgVisitor::visit(const Nodecl::ImpliedDo& n)
+    void CfgVisitor::visit(const Nodecl::FortranImpliedDo& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
-    void CfgVisitor::visit(const Nodecl::Forall& n)
+    void CfgVisitor::visit(const Nodecl::FortranForall& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
     
-    void CfgVisitor::visit(const Nodecl::ArithmeticIfStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranArithmeticIfStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }      
 
-    void CfgVisitor::visit(const Nodecl::NullifyStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranNullifyStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }   
     
-    void CfgVisitor::visit(const Nodecl::IoStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranIoStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
     
-    void CfgVisitor::visit(const Nodecl::OpenStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranOpenStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }  
 
-    void CfgVisitor::visit(const Nodecl::CloseStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranCloseStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     } 
 
-    void CfgVisitor::visit(const Nodecl::ReadStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranReadStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     } 
     
-    void CfgVisitor::visit(const Nodecl::WriteStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranWriteStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }  
 
-    void CfgVisitor::visit(const Nodecl::PrintStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranPrintStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
-    void CfgVisitor::visit(const Nodecl::StopStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranStopStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
 
-    void CfgVisitor::visit(const Nodecl::AllocateStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranAllocateStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
     
-    void CfgVisitor::visit(const Nodecl::DeallocateStatement& n)
+    void CfgVisitor::visit(const Nodecl::FortranDeallocateStatement& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
     }
-            
-    
-    
-    // ************* Cxx specifics ************* //
-    void CfgVisitor::visit(const Nodecl::CxxRaw& n)
+
+
+    /* *********************** Special Expression Visitors *********************** */
+    BreakingExpressionVisitor::BreakingExpressionVisitor(ScopeLink sl)
+        : CfgVisitor(sl), _broken_expression(false), _breakage_type(-1)
+    {}
+
+    void BreakingExpressionVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
-    }  
-    
-    void CfgVisitor::visit(const Nodecl::Comma& n)
-    {
-        internal_error("Node '%s' with type '%s' not implemented yet. CFG construction failed.", 
-                        n.get_text().c_str(), ast_print_node_type(n.get_kind()));
+        _broken_expression = true;
+        _breakage_type = 1;
     }
     
-    
-    // ************* Special visitors for Next node of a Loop Control ************* //
-    
-    LoopNextVisitor::LoopNextVisitor(ExtensibleGraph egraph, ScopeLink sl)
-        : CfgVisitor(sl), _next_nodecls()
+    void BreakingExpressionVisitor::visit(const Nodecl::FunctionCall& n)
     {
-        _actual_cfg = egraph;
+        _broken_expression = true;
+        _breakage_type = 1;
     }
     
-    void LoopNextVisitor::visit(const Nodecl::ExpressionStatement& n)
+    void BreakingExpressionVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
-        walk(n.get_nest());
-        _next_nodecls.append(n);
+        _broken_expression = true;
+        _breakage_type = 2;
     }
+
+
+    /* *********************** Non visiting methods *********************** */
     
-    void LoopNextVisitor::visit(const Nodecl::FunctionCall& n)
+    Node* CfgVisitor::get_expression_node(const Nodecl::NodeclBase& n, bool connect_node)
     {
+        // Compose the node with the sequential statements store until this moment
+        _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl); _seq_nodecl.clear();
         
-        _next_nodecls.append(n);
+        // Build the new node
+        BreakingExpressionVisitor visitor(_sl);
+        visitor.walk(n);
+        Node* expression_node;
+        if (visitor._broken_expression)
+        {// The expression will be built within a graph node
+            // When the node must not be connected, we have to preserve @_last_nodes attribute
+            ObjectList<Node*> last_nodes = _actual_cfg->_last_nodes;
+            
+            // Compose the graph node
+            switch (visitor._breakage_type)
+            {
+                case 1: // Function_call
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "function_call");
+                    break;
+                case 2: // Conditional expression
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "conditional_expression");
+                    break;
+                case 3: // Function call & Conditional Expression
+                    expression_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST_t(), "splitted_instruction");
+                    break;
+                default:
+                    internal_error("Breaking type wrongly computed for the expression '%s'", 
+                                   c_cxx_codegen_to_str(((Nodecl::NodeclBase)n).get_internal_nodecl()));
+            }
+            if (connect_node) {                
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, expression_node);
+            }
+            
+            // Connect the entry node
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(expression_node->get_data<Node*>("entry"));
+            
+            // Create and connect the statements nodes
+            walk(n);
+            _seq_nodecl.append(n);
+            _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, _seq_nodecl);
+            _seq_nodecl.clear();
+            
+            // Create and connect the exit nodes
+            Node* exit = expression_node->get_data<Node*>("exit");
+            exit->set_id(++_actual_cfg->_nid);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit);
+           
+            _actual_cfg->_outer_node.pop();
+            
+            // Recalculate @_last_nodes attribute
+            _actual_cfg->_last_nodes.clear();
+            if (connect_node) { 
+                _actual_cfg->_last_nodes.append(expression_node);
+            } else {
+                _actual_cfg->_last_nodes = last_nodes;
+            }             
+        }
+        else
+        {
+            if (connect_node)
+            {
+                _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n);
+                expression_node = _actual_cfg->_last_nodes[0];
+            }
+            else
+            {
+                expression_node = _actual_cfg->create_unconnected_node(n);
+            }
+        }
+        
+        return expression_node;
     }
-
-    void LoopNextVisitor::visit(const Nodecl::VirtualFunctionCall& n)
+    
+    void CfgVisitor::compute_catch_parents(Node* node)
     {
-        walk(n.get_arguments());
-        walk(n.get_called());
-        _next_nodecls.append(n);
+        while (!node->is_visited())
+        {
+            node->set_visited(true);
+            _actual_try_info.catch_parents.append(node);
+            ObjectList<Edge*> exit_edges = node->get_exit_edges();
+            for(ObjectList<Edge*>::iterator it = exit_edges.begin();
+                it != exit_edges.end();
+                it++)
+            {
+                compute_catch_parents((*it)->get_target());
+            }
+        }
     }
 }

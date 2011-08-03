@@ -39,10 +39,9 @@ namespace TL
 {
     class LIBTL_CLASS ExtensibleGraph
     {
-        private:
+        protected:
             // *** Class attributes *** //
-            Node* _entry;
-            Node* _exit;
+            Node* _graph;    // Node with type GRAPH_NODE which contains the whole graph
             ScopeLink _sl;
             std::string _name;
             int _nid;
@@ -62,9 +61,15 @@ namespace TL
             bool _continue_stmt;
             bool _break_stmt;
             bool _goto_stmt;
-            Node* _last_node;
-            Node* _next_node;
-            std::stack<Node*> _outer_graph;
+            
+            //! List of nodes that will be parents of a new node
+            ObjectList<Node*> _last_nodes;
+            
+            //! This attribute contains the node we are building
+            //! CfgVisitor will create and destroy this node depending on the statements it is traversing
+            std::stack<Node*> _outer_node;
+            
+            
             
             // *** Private methods *** //
 
@@ -191,22 +196,34 @@ namespace TL
             
            
             // *** Modifiers *** //
-            
+           
             //! This method creates a new node containing a Basic Block and connects it to its
             //! parent node with a new edge.
             /*!
-              The method modifies the attribute #_last_node that will be the new node created.
-              \param parent Parent of the new node.
-              \param nodecls Set of NodeclBase containing the Statements of a Basic Bloc.
-              \param ntype Type of the node to be created. 
-                           By default is BASIC_NORMAL_NODE.
-              \param etype Type of the new edge that connects the new node with @_last_node.
-                           By default is ALWAYS_EDGE.
+             * \param parents Set of Parents of the new node.
+             * \param nodecls Set of statements forming the new node.
+             * \param ntype Type of the node to be created. 
+             *              By default is BASIC_NORMAL_NODE.
+             * \param etype Type of the new edge that connects the new node with @_last_node.
+             *              By default is ALWAYS_EDGE. 
              */
-            void append_new_node_to_parent(Node* parent,
-                                           ObjectList<Nodecl::NodeclBase> child_nodecls,
-                                           Node_type ntype = BASIC_NORMAL_NODE,
+            void append_new_node_to_parent(ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
+                                           Node_type ntype = BASIC_NORMAL_NODE, 
                                            Edge_type etype = ALWAYS_EDGE);
+            
+            
+            void append_new_node_to_parent(Node* parent, Nodecl::NodeclBase nodecl,
+                                           Node_type ntype = BASIC_NORMAL_NODE, 
+                                           Edge_type etype = ALWAYS_EDGE);
+
+            
+            void append_new_node_to_parent(Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
+                                           Node_type ntype = BASIC_NORMAL_NODE, 
+                                           Edge_type etype = ALWAYS_EDGE);            
+
+            void append_new_node_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
+                                           Node_type ntype = BASIC_NORMAL_NODE, 
+                                           Edge_type etype = ALWAYS_EDGE);                   
             
             //! Connects two nodes by creating a new edge between them.
             /*!
@@ -218,11 +235,29 @@ namespace TL
              */
             void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
                                std::string label = "");        
-            
            
+            //! Wrapper method of #connect_nodes for the case of connecting many sources with one only target
+            void connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS_EDGE, 
+                               std::string label = "");         
             
+            //! Builds a composite node with an entry and an exit node.
+            /*!
+              \param outer_graph Node to which the new structure will belong to.
+                                 It must be a Composite node.
+              \param label AST containing the Statement represented with the new node. It will be
+                           the label of the node.
+              \param graph_type Type of the composite node. 
+                                It must be some of these values: 'splitted_instruction',
+                                'function_call', 'conditional_expression', 'omp_pragma'.
+              \return The new composite node.
+             */
+            Node* create_graph_node(Node* outer_graph, AST_t label, std::string graph_type);            
             
-            
+            //! Builds a basic normal node (BASIC_NORMAL_NODE)
+            /*!
+             * \param nodecl Statement that will be added to the new node
+             */
+            Node* create_unconnected_node(Nodecl::NodeclBase nodecl);
             
             
             
@@ -441,20 +476,7 @@ namespace TL
               \return Node containing the ReturnStatement.
             */ 
             Node* build_return_node(Node* parent, Statement return_stmt, Node* outer_graph = NULL);
-            
-            
-            //! Builds a composite node with an entry and an exit node.
-            /*!
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \param label AST containing the Statement represented with the new node. It will be
-                           the label of the node.
-              \param graph_type Type of the composite node. 
-                                It must be some of these values: 'splitted_instruction',
-                                'function_call', 'conditional_expression', 'omp_pragma'.
-              \return The new composite node.
-             */
-            Node* create_graph_node(Node* outer_graph, AST_t label, std::string graph_type);
+           
             
             //! Builds a barrier node with its flush nodes.
             /*!
@@ -490,29 +512,29 @@ namespace TL
                                             Node_type ntype = BASIC_NORMAL_NODE,
                                             Edge_type etype = ALWAYS_EDGE);
             
-            //! Wrapper method for #connect_nodes when a set of parents must be connected to an
-            //! only child and the nature of the connection is the same for all of them.
-            void connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype=ALWAYS_EDGE,
-                               std::string label = "");
-                               
-            //! Wrapper method for #connect_nodes when a parent must be connected to a set of
-            //! children and each connection may be different from the others. 
-            //! A set of edge types and labels must be provided.
-            void connect_nodes(Node* parent, ObjectList<Node*> children, 
-                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
-            
-            //! Wrapper method for #connect_nodes when a set of parents must be connected to a
-            //! child and each connection may be different from the others. 
-            //! A set of edge types and labels must be provided.
-            void connect_nodes(ObjectList<Node*> parents, Node* children, 
-                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
-                                
-            //! Wrapper method for #connect_nodes when a set of parents must be connected to a
-            //! set of children and each connection may be different from the others. 
-            //! A set of edge types and labels must be provided. It is assumed that each parent is
-            //! connected to all its children with the same type of edge.
-            void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
-                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+//             //! Wrapper method for #connect_nodes when a set of parents must be connected to an
+//             //! only child and the nature of the connection is the same for all of them.
+//             void connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype=ALWAYS_EDGE,
+//                                std::string label = "");
+//                                
+//             //! Wrapper method for #connect_nodes when a parent must be connected to a set of
+//             //! children and each connection may be different from the others. 
+//             //! A set of edge types and labels must be provided.
+//             void connect_nodes(Node* parent, ObjectList<Node*> children, 
+//                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+//             
+//             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
+//             //! child and each connection may be different from the others. 
+//             //! A set of edge types and labels must be provided.
+//             void connect_nodes(ObjectList<Node*> parents, Node* children, 
+//                                 ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+//                                 
+//             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
+//             //! set of children and each connection may be different from the others. 
+//             //! A set of edge types and labels must be provided. It is assumed that each parent is
+//             //! connected to all its children with the same type of edge.
+//             void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
+//                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
             
             
             // OLD method
@@ -573,6 +595,7 @@ namespace TL
             void live_variable_analysis();
             
         friend class CfgVisitor;
+        friend class InGraphNodeVisitor;
     };
 }
 

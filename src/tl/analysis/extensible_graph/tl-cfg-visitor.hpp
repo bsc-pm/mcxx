@@ -31,18 +31,83 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    struct loop_control_nodes {
+        Node* init;
+        Node* cond;
+        Node* next;
+        
+        loop_control_nodes() 
+            : init(NULL), cond(NULL), next(NULL) 
+        {}
+    };
+    
+    struct switch_nodes {
+        Node* cond;
+        Node* case_no_break;
+        ObjectList<Node*> cases_break;
+        int ncases;
+        bool last_case_no_break;
+        
+        switch_nodes() 
+            : cond(NULL), case_no_break(NULL), cases_break(), ncases(-1), last_case_no_break(true)
+        {}
+        
+        void clear()
+        {
+            cond = NULL;
+            case_no_break = NULL;
+            cases_break.clear();
+            ncases = -1;
+            last_case_no_break = true;
+        }
+    };
+    
+    struct try_block_nodes {
+        ObjectList<Node*> catch_parents;
+        int nhandlers;
+        
+        try_block_nodes()
+            : catch_parents(), nhandlers(-1)
+        {}
+        
+        void clear()
+        {
+            catch_parents.clear();
+            nhandlers = -1;
+        }
+    };
+    
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor
     {
     protected:
-        ExtensibleGraph _actual_cfg;
+        ExtensibleGraph* _actual_cfg;
         ScopeLink _sl;
+        struct loop_control_nodes _actual_loop_info;
+        struct switch_nodes _actual_switch_info;
+        struct try_block_nodes _actual_try_info;
         
     private:
-        ObjectList<ExtensibleGraph> _cfgs;
+        ObjectList<ExtensibleGraph*> _cfgs;
         ObjectList<Nodecl::NodeclBase> _seq_nodecl;
+        
+        //! This method creates a node from a expression
+        /*!
+         * \param n Source expression
+         * \param connect_node Boolean indicating whether the node must be connected with the last nodes
+         *                     created in the graph
+         * \return The new node created
+         */
+        Node* get_expression_node(const Nodecl::NodeclBase& n, bool connect_node = true);
+        
+        //! This method creates a list with the nodes in an specific subgraph
+        /*!
+         * \param node First node to be traversed. The method will visit all nodes from here.
+         */
+        void compute_catch_parents(Node* node);
         
     public:
         CfgVisitor(ScopeLink sl);
+        CfgVisitor(const CfgVisitor& visitor);
         
         void unhandled_node(const Nodecl::NodeclBase& n);
         void visit(const Nodecl::TopLevel& n);
@@ -59,7 +124,7 @@ namespace TL
         void visit(const Nodecl::ObjectInit& n);
         void visit(const Nodecl::ArraySubscript& n);
         void visit(const Nodecl::ClassMemberAccess& n);
-        void visit(const Nodecl::NamedPairSpec& n);
+        void visit(const Nodecl::FortranNamedPairSpec& n);
         void visit(const Nodecl::Concat& n);
         void visit(const Nodecl::New& n);
         void visit(const Nodecl::Delete& n);
@@ -93,8 +158,8 @@ namespace TL
         void visit(const Nodecl::CaseStatement& n);
         void visit(const Nodecl::DefaultStatement& n);
         void visit(const Nodecl::ConditionalExpression& n);
-        void visit(const Nodecl::ComputedGotoStatement& n);
-        void visit(const Nodecl::AssignedGotoStatement& n);
+        void visit(const Nodecl::FortranComputedGotoStatement& n);
+        void visit(const Nodecl::FortranAssignedGotoStatement& n);
         void visit(const Nodecl::GotoStatement& n);
         void visit(const Nodecl::LabeledStatement& n);
         void visit(const Nodecl::LoopControl& n);
@@ -142,40 +207,49 @@ namespace TL
         void visit(const Nodecl::Derreference& n);
         void visit(const Nodecl::Reference& n);
         void visit(const Nodecl::Text& n);
-        void visit(const Nodecl::Where& n);
-        void visit(const Nodecl::WherePair& n);
+        void visit(const Nodecl::FortranWhere& n);
+        void visit(const Nodecl::FortranWherePair& n);
         void visit(const Nodecl::SubscriptTriplet& n);
-        void visit(const Nodecl::LabelAssignStatement& n);
+        void visit(const Nodecl::FortranLabelAssignStatement& n);
         void visit(const Nodecl::FortranIoSpec& n);
         void visit(const Nodecl::FieldDesignator& n);
         void visit(const Nodecl::IndexDesignator& n);
         void visit(const Nodecl::FortranEquivalence& n);
         void visit(const Nodecl::FortranData& n);
-        void visit(const Nodecl::ImpliedDo& n);
-        void visit(const Nodecl::Forall& n);    
-        void visit(const Nodecl::ArithmeticIfStatement& n);
-        void visit(const Nodecl::NullifyStatement& n);
-        void visit(const Nodecl::IoStatement& n);  
-        void visit(const Nodecl::OpenStatement& n);
-        void visit(const Nodecl::CloseStatement& n);
-        void visit(const Nodecl::ReadStatement& n);
-        void visit(const Nodecl::WriteStatement& n);
-        void visit(const Nodecl::PrintStatement& n);
-        void visit(const Nodecl::StopStatement& n);
-        void visit(const Nodecl::AllocateStatement& n);
-        void visit(const Nodecl::DeallocateStatement& n);
-        void visit(const Nodecl::CxxRaw& n);
+        void visit(const Nodecl::FortranImpliedDo& n);
+        void visit(const Nodecl::FortranForall& n);    
+        void visit(const Nodecl::FortranArithmeticIfStatement& n);
+        void visit(const Nodecl::FortranNullifyStatement& n);
+        void visit(const Nodecl::FortranIoStatement& n);  
+        void visit(const Nodecl::FortranOpenStatement& n);
+        void visit(const Nodecl::FortranCloseStatement& n);
+        void visit(const Nodecl::FortranReadStatement& n);
+        void visit(const Nodecl::FortranWriteStatement& n);
+        void visit(const Nodecl::FortranPrintStatement& n);
+        void visit(const Nodecl::FortranStopStatement& n);
+        void visit(const Nodecl::FortranAllocateStatement& n);
+        void visit(const Nodecl::FortranDeallocateStatement& n);
         void visit(const Nodecl::Comma& n);
     };
 
-
-    class LIBTL_CLASS LoopNextVisitor : public CfgVisitor
+    
+    //! This visitor traverses Expressions.
+    /*!
+     * The visitor just figures out whether a expression need to be broken into different nodes.
+     * It happens when the expression contains a Function Call or a Conditional Expression.
+     */
+    class LIBTL_CLASS BreakingExpressionVisitor : public CfgVisitor
     {
-    private:
-        ObjectList<Nodecl::NodeclBase> _next_nodecls;
         
     public:
-        LoopNextVisitor(ExtensibleGraph egraph, ScopeLink sl);
+        bool _broken_expression;
+        int _breakage_type;
+        
+        BreakingExpressionVisitor(ScopeLink sl);
+       
+        void visit(const Nodecl::VirtualFunctionCall& n);
+        void visit(const Nodecl::FunctionCall& n);
+        void visit(const Nodecl::ConditionalExpression& n);
         
 //         void visit(const Nodecl::StringLiteral& n);
 //         void visit(const Nodecl::BooleanLiteral& n);
@@ -184,9 +258,8 @@ namespace TL
 //         void visit(const Nodecl::FloatingLiteral& n);
 //         void visit(const Nodecl::StructuredLiteral& n);
 //         void visit(const Nodecl::Symbol& n);
-        void visit(const Nodecl::ExpressionStatement& n);
-        void visit(const Nodecl::VirtualFunctionCall& n);
-        void visit(const Nodecl::FunctionCall& n);
+//         void visit(const Nodecl::VirtualFunctionCall& n);
+//         void visit(const Nodecl::FunctionCall& n);
 //         void visit(const Nodecl::ArraySubscript& n);
 //         void visit(const Nodecl::ClassMemberAccess& n);
 //         void visit(const Nodecl::Plus& n);
@@ -249,6 +322,7 @@ namespace TL
 //         void visit(const Nodecl::BuiltinExpr& n);
 //         void visit(const Nodecl::Text& n);
 //         void visit(const Nodecl::ErrExpr& n);
-    };
+    }; 
 }
 #endif  // TL_CFG_VISITOR_HPP
+

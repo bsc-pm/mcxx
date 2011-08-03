@@ -42,7 +42,7 @@ namespace TL
         {
             set_data(_OUTER_GRAPH, outer_graph);
         }
-        
+
         if (ntype == GRAPH_NODE)
         {
             set_data(_ENTRY_NODE, new Node(id, BASIC_ENTRY_NODE, NULL));

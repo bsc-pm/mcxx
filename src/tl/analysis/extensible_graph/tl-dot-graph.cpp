@@ -105,18 +105,19 @@ namespace TL
         std::string dot_file_name = std::string(buffer) + "/" + _name + ".dot";
         dot_cfg.open(dot_file_name.c_str());
         
+        Node* entry = _graph->get_data<Node*>("entry");
         int subgraph_id = 0;
         dot_cfg << "digraph CFG {\n";
             std::string graph_data = "";
             std::vector<std::string> outer_edges;
             std::vector<Node*> outer_nodes;
-            get_nodes_dot_data(_entry, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
+            get_nodes_dot_data(entry, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
             dot_cfg << graph_data;
         dot_cfg << "}";
         
         dot_cfg.close();
         
-        clear_visits(_entry);
+        clear_visits(entry);
     }
 
     // Preorder traversal 
@@ -128,40 +129,42 @@ namespace TL
         {
             actual_node->set_visited(true);
             Node_type ntype = actual_node->get_data <Node_type> ("type");
-//             if (ntype == GRAPH_NODE)
-//             {
-//                 std::stringstream ssgid; ssgid << subgraph_id;
+            if (ntype == GRAPH_NODE)
+            {
+                std::stringstream ssgid; ssgid << subgraph_id;
 //                 std::string subgraph_label = actual_node->get_data<AST_t>("label").prettyprint();
-//                 std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
-//                                              "LO: " + prettyprint_set(actual_node->get_live_out_vars());
-//                 dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
-//                 
+                std::stringstream ssnode; ssnode << actual_node->get_id();
+                std::string subgraph_label = ssnode.str();
+                std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
+                                             "LO: " + prettyprint_set(actual_node->get_live_out_vars());
+                dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
+                
 //                 makeup_dot_block(subgraph_label);
-//                 dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
-//                 subgraph_id++;
-//                 
-//                 std::vector<std::string> new_outer_edges;
-//                 std::vector<Node*> new_outer_nodes;
-//                 get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
-//                 std::stringstream ss; ss << actual_node->get_id();
-//                 dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + "\", shape=box]\n";
-//                 dot_graph += indent + "}\n";
-//                 
-//                 for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
-//                         it != new_outer_nodes.end();
-//                         ++it)
-//                 {
-//                     std::vector<std::string> new_outer_edges_2;
-//                     std::vector<Node*> new_outer_nodes_2;
-//                     get_nodes_dot_data(*it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id);
-//                 }                
-//                 for(std::vector<std::string>::iterator it = new_outer_edges.begin();
-//                         it != new_outer_edges.end();
-//                         ++it)
-//                 {
-//                     dot_graph += indent + (*it);
-//                 }
-//             }
+                dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
+                subgraph_id++;
+                
+                std::vector<std::string> new_outer_edges;
+                std::vector<Node*> new_outer_nodes;
+                get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
+                std::stringstream ss; ss << actual_node->get_id();
+                dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + "\", shape=box]\n";
+                dot_graph += indent + "}\n";
+                
+                for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
+                        it != new_outer_nodes.end();
+                        ++it)
+                {
+                    std::vector<std::string> new_outer_edges_2;
+                    std::vector<Node*> new_outer_nodes_2;
+                    get_nodes_dot_data(*it, dot_graph, new_outer_edges_2, new_outer_nodes_2, indent, subgraph_id);
+                }                
+                for(std::vector<std::string>::iterator it = new_outer_edges.begin();
+                        it != new_outer_edges.end();
+                        ++it)
+                {
+                    dot_graph += indent + (*it);
+                }
+            }
             
             if (ntype == BASIC_EXIT_NODE)
             {   // Ending the graph traversal, either the master graph or any subgraph
@@ -257,6 +260,7 @@ namespace TL
 
     void ExtensibleGraph::get_node_dot_data(Node* actual_node, std::string& dot_graph, std::string indent)
     {
+        std::cerr << "Printing node " << actual_node->get_id() << std::endl;
         std::string basic_block = "";
         std::stringstream ss; ss << actual_node->get_id();
         std::stringstream ss2; 
@@ -268,23 +272,23 @@ namespace TL
         
         if (nt == BASIC_ENTRY_NODE)
         {
-            dot_graph += indent + ss.str() + "[label=\"{ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
+            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
         }
         else if (nt == BASIC_EXIT_NODE)
         {
-            dot_graph += indent + ss.str() + "[label=\"{EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
+            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
         }
         else if (nt == UNCLASSIFIED_NODE)
         {
-            dot_graph += indent + ss.str() + "[label=\"{UNCLASSIFIED_NODE}\"]\n";
+            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # UNCLASSIFIED_NODE}\"]\n";
         }
         else if (nt == BARRIER_NODE)
         {
-            dot_graph += indent + ss.str() + "[label=\"BARRIER\", shape=diamond]\n";
+            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BARRIER\", shape=diamond]\n";
         }
         else if (nt == FLUSH_NODE)
         {
-            dot_graph += indent + ss.str() + "[label=\"FLUSH\", shape=ellipse]\n";
+            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # FLUSH\", shape=ellipse]\n";
         }        
         else
         {
@@ -295,7 +299,7 @@ namespace TL
                     it != node_block.end();
                     it++)
             {
-                std::cerr << "Adding statement " << c_cxx_codegen_to_str(it->get_internal_nodecl()) << std::endl;
+//                 std::cerr << "Adding statement " << c_cxx_codegen_to_str(it->get_internal_nodecl()) << std::endl;
                 aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
                 makeup_dot_block(aux_str);
                 basic_block += aux_str + "\\n";
@@ -308,7 +312,7 @@ namespace TL
             {
                 special_attrs = actual_node->get_data<std::string>("label") + " |";
             }
-            dot_graph += indent + ss.str() + "[label=\"{" + special_attrs + basic_block /*+
+            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + special_attrs + basic_block /*+
                             " | LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + 
                             " | KILL: " + prettyprint_set(actual_node->get_killed_vars()) +
                             " | UE: "   + prettyprint_set(actual_node->get_ue_vars()) +

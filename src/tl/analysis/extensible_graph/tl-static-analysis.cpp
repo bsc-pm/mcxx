@@ -47,9 +47,9 @@ namespace TL
     
     void ExtensibleGraph::live_variable_analysis()
     {
-        gather_live_initial_information(_entry);
-        clear_visits(_entry);
-        solve_live_equations();
+//         gather_live_initial_information(_entry);
+//         clear_visits(_entry);
+//         solve_live_equations();
     }
     
     void ExtensibleGraph::gather_live_initial_information(Node* actual)
@@ -88,8 +88,8 @@ namespace TL
         while (changed)
         {
             changed = false;
-            solve_live_equations_recursive(_entry, changed);
-            clear_visits(_entry);
+//             solve_live_equations_recursive(_entry, changed);
+//             clear_visits(_entry);
         }
     }
     
@@ -149,7 +149,7 @@ namespace TL
                                     aux_live_in.insert(aux_set.begin(), aux_set.end());
                                 }
                             }
-                            else if (nt == BASIC_EXIT_NODE && *it != _exit)
+                            else if (nt == BASIC_EXIT_NODE /*&& *it != _exit*/)     // Exit ja no existeix així!!
                             {
                                 ObjectList<Node*> outer_children = 
                                     (*it)->get_data<Node*>("outer_graph")->get_children();
