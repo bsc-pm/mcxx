@@ -653,7 +653,8 @@ static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
         AST *argument_expressions, \
-        int num_arguments) \
+        int num_arguments, \
+        const_value_t** const_value UNUSED_PARAMETER) \
 { \
     type_t* reordered_types[MAX_ARGUMENTS]; \
     AST reordered_exprs[MAX_ARGUMENTS]; \
@@ -678,7 +679,8 @@ static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
         AST *argument_expressions, \
-        int num_arguments) \
+        int num_arguments, \
+        const_value_t** const_value UNUSED_PARAMETER) \
 { \
     type_t* reordered_types[MAX_ARGUMENTS]; \
     AST reordered_exprs[MAX_ARGUMENTS]; \
@@ -753,7 +755,8 @@ static scope_entry_t* register_specific_intrinsic_name(
 
     type_t* type_list[7] = { t0, t1, t2, t3, t4, t5, t6 };
 
-    scope_entry_t* specific_entry = fun(generic_entry, type_list, NULL, num_args);
+    const_value_t* const_val;
+    scope_entry_t* specific_entry = fun(generic_entry, type_list, NULL, num_args, &const_val);
 
     ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
             specific_name,
