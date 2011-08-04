@@ -181,7 +181,6 @@ LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector
 LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
 
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
-LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
 LIBMCXX_EXTERN char equivalent_types(type_t* t1, type_t* t2);
