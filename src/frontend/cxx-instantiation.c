@@ -459,7 +459,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     {
                         instantiate_template_class(new_member, context_of_being_instantiated, filename, line);
 
-                        // FIXME
+                        scope_entry_list_t* members = class_type_get_nonstatic_data_members(new_member->type_information);
+                        insert_members_in_enclosing_nonanonymous_class(new_member, members);
+                        entry_list_free(members);
                     }
                 }
                 else

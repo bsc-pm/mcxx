@@ -126,6 +126,10 @@ LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list,
 
 LIBMCXX_EXTERN scope_entry_t* entry_advance_aliases(scope_entry_t* entry);
 
+LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
+        scope_entry_t* class_symbol,
+        scope_entry_list_t* member_list);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

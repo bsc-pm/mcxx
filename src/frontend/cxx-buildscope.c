@@ -1324,6 +1324,26 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             }
         }
     }
+    else if (simple_type_info != NULL)
+    {
+        // Anonymous union special treatment
+        if (is_named_type(simple_type_info))
+        {
+            scope_entry_t* named_type = named_type_get_symbol(simple_type_info);
+            if (named_type->entity_specs.is_anonymous_union)
+            {
+                // Create a new variable to represent this anonymous union
+                scope_entry_t* anonymous_accessor = new_symbol(decl_context, decl_context.current_scope, named_type->symbol_name);
+                anonymous_accessor->kind = SK_VARIABLE;
+                anonymous_accessor->file = ASTFileName(a);
+                anonymous_accessor->line = ASTLine(a);
+                anonymous_accessor->type_information = simple_type_info;
+                anonymous_accessor->defined = 1;
+                
+                // And link it to the anonymous namespace
+            }
+        }
+    }
 }
 
 
@@ -2688,7 +2708,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
 
-        new_entry->entity_specs.is_anonymous = 1;
+        new_entry->entity_specs.is_anonymous_union = 1;
     }
 
     if (decl_context.current_scope->kind == CLASS_SCOPE
@@ -4427,6 +4447,38 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     }
 }
 
+void insert_members_in_enclosing_nonanonymous_class(
+        scope_entry_t* class_symbol,
+        scope_entry_list_t* member_list)
+{
+    ERROR_CONDITION( !class_symbol->entity_specs.is_anonymous_union, "This class is not anonymous", 0);
+
+    scope_entry_t* enclosing = class_symbol->decl_context.current_scope->related_entry;
+
+    while (enclosing != NULL
+            && enclosing->kind == SK_CLASS
+            && enclosing->entity_specs.is_anonymous_union)
+    {
+        enclosing = enclosing->decl_context.current_scope->related_entry;
+    }
+
+    ERROR_CONDITION(enclosing == NULL
+            || enclosing->kind != SK_CLASS,
+            "Invalid nesting for anonymous nested class", 0);
+
+    decl_context_t inner_context = class_type_get_inner_context(enclosing->type_information);
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(member_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        insert_entry(inner_context.current_scope, entry);
+    }
+    entry_list_iterator_free(it);
+}
+
 /*
  * This function is called for class specifiers
  */
@@ -4817,13 +4869,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            class_entry->entity_specs.is_anonymous = (gather_info->no_declarators
+            class_entry->entity_specs.is_anonymous_union = (gather_info->no_declarators
                     // Namespace scope is not allowed in C
                     && decl_context.current_scope->kind != NAMESPACE_SCOPE);
         }
         CXX_LANGUAGE()
         {
-            class_entry->entity_specs.is_anonymous = (class_kind == CK_UNION
+            class_entry->entity_specs.is_anonymous_union = (class_kind == CK_UNION
                     && gather_info->no_declarators);
         }
     }
@@ -4918,34 +4970,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     scope_entry_list_t* declared_symbols = NULL;
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info, nodecl_output, &declared_symbols);
-
-    if (class_entry->entity_specs.is_anonymous)
-    {
-        scope_entry_t* enclosing = decl_context.current_scope->related_entry;
-
-        while (enclosing != NULL
-                && enclosing->kind == SK_CLASS
-                && enclosing->entity_specs.is_anonymous)
-        {
-            enclosing = enclosing->decl_context.current_scope->related_entry;
-        }
-
-        ERROR_CONDITION(enclosing == NULL
-                || enclosing->kind != SK_CLASS,
-                "Invalid nesting for anonymous nested class", 0);
-
-        decl_context_t inner_context = class_type_get_inner_context(enclosing->type_information);
-
-        scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(declared_symbols);
-                !entry_list_iterator_end(it);
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* entry = entry_list_iterator_current(it);
-            insert_entry(inner_context.current_scope, entry);
-        }
-        entry_list_iterator_free(it);
-    }
     entry_list_free(declared_symbols);
 
     class_entry->defined = 1;
