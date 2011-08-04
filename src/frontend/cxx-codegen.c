@@ -3556,7 +3556,11 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
 
-    if (!visitor->mem_init_list)
+    if (visitor->do_not_emit_declarations)
+    {
+        fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+    }
+    else if (!visitor->mem_init_list)
     {
         walk_type_for_symbols(visitor, entry->type_information, 
                 /* needs def */ 1,
@@ -3856,7 +3860,7 @@ static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     decl_context_t dummy;
     AST tree = nodecl_unwrap_cxx_dependent_expr(node, &dummy);
 
-    fprintf(visitor->file, 
+    fprintf(visitor->file, "%s",
             cxx_prettyprint_in_buffer_callback(tree, prettyprint_callback_codegen, visitor));
 }
 
@@ -3874,7 +3878,7 @@ static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, n
     else
     {
         scope_entry_t* entry = entry_advance_aliases(entry_list_head(unresolved_set));
-        fprintf(visitor->file, unmangle_symbol_name(entry));
+        fprintf(visitor->file, "%s", unmangle_symbol_name(entry));
     }
     entry_list_free(unresolved_set);
 }
