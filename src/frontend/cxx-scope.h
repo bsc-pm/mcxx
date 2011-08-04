@@ -112,6 +112,9 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(scop
 LIBMCXX_EXTERN const char* get_class_qualification_of_symbol(scope_entry_t* entry,
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
 
+LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(scope_entry_t* entry,
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
+
 // A simpler version of get_fully_qualified_symbol_name
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 

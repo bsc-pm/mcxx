@@ -41,14 +41,13 @@ LIBMCXX_EXTERN void instantiate_template_class(scope_entry_t* entry, decl_contex
 
 LIBMCXX_EXTERN AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
 
-LIBMCXX_EXTERN void instantiate_template_function_if_needed(scope_entry_t* entry, 
-        const char* filename, int line);
-
-LIBMCXX_EXTERN nodecl_t instantiation_get_instantiated_functions(void);
 LIBMCXX_EXTERN void instantiation_init(void);
 
-LIBMCXX_EXTERN void instantiate_emit_member_function(scope_entry_t* entry, 
-        const char* filename, int line);
+LIBMCXX_EXTERN nodecl_t instantiation_instantiate_pending_functions(void);
+
+LIBMCXX_EXTERN void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
+        const char* filename,
+        int line);
 
 MCXX_END_DECLS
 

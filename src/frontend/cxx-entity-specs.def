@@ -58,7 +58,7 @@ bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
 bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
-bool|all|is_non_emitted|States that this function symbol has not been emitted yet
+bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
 bool|fortran|is_allocatable|This entity has the ALLOCATABLE attribute
 bool|fortran|is_in_common|This entity appears in a COMMON construct
@@ -78,6 +78,7 @@ bool|fortran|is_renamed|States that this symbol has been USEd with a rename
 bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
+symbol|all|emission_template|If this symbol is_non_emitted then this is the original template used to emit it
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist

@@ -718,30 +718,19 @@ char check_expression(AST expression, decl_context_t decl_context)
 #endif
 }
 
-static void instantiate_symbol(scope_entry_t* entry,
+void ensure_function_is_emitted(scope_entry_t* entry,
         const char* filename,
         int line)
 {
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
-        if (is_template_specialized_type(entry->type_information))
+        if (is_template_specialized_type(entry->type_information)
+                || entry->entity_specs.is_non_emitted)
         {
-            instantiate_template_function_if_needed(entry, 
-                    filename, line);
-        }
-        else if (entry->entity_specs.is_non_emitted)
-        {
-            (entry->entity_specs.emission_handler)(entry, filename, line);
+            instantiation_add_symbol_to_instantiate(entry, filename, line);
         }
     }
-}
-
-void ensure_function_is_emitted(scope_entry_t* entry,
-        const char* filename,
-        int line)
-{
-    instantiate_symbol(entry, filename, line);
 }
 
 static char c_check_for_expression(AST expression, decl_context_t decl_context)
@@ -6399,8 +6388,17 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         if (!entry->entity_specs.is_member
                                 || entry->entity_specs.is_static)
                         {
-                            nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                            expression_set_nodecl(expr, nodecl_output);
+                            if (entry->entity_specs.is_template_parameter
+                                    && !nodecl_is_null(entry->value))
+                            {
+                                // Replace a template parameter with its value
+                                expression_set_nodecl(expr, entry->value);
+                            }
+                            else
+                            {
+                                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                                expression_set_nodecl(expr, nodecl_output);
+                            }
                         }
                         else
                         {

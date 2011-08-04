@@ -321,7 +321,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     CXX_LANGUAGE()
     {
-        nodecl_t instantiated_units = instantiation_get_instantiated_functions();
+        nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
         nodecl = nodecl_concat_lists(nodecl, instantiated_units);
     }
 
@@ -354,7 +354,7 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
 
     CXX_LANGUAGE()
     {
-        nodecl_t instantiated_units = instantiation_get_instantiated_functions();
+        nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
         nodecl_output = nodecl_concat_lists(nodecl_output, instantiated_units);
     }
 }
@@ -4477,8 +4477,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     enum class_kind_t class_kind = CK_INVALID;
     const char *class_kind_name = NULL;
 
-    char members_belong_to_enclosing = 0;
-
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
@@ -4812,7 +4810,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->line = ASTLine(a);
         class_entry->file = ASTFileName(a);
 
-        class_entry->entity_specs.is_anonymous = 1;
 
         class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
@@ -4820,13 +4817,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            members_belong_to_enclosing = (gather_info->no_declarators
+            class_entry->entity_specs.is_anonymous = (gather_info->no_declarators
                     // Namespace scope is not allowed in C
                     && decl_context.current_scope->kind != NAMESPACE_SCOPE);
         }
         CXX_LANGUAGE()
         {
-            members_belong_to_enclosing = (class_kind == CK_UNION
+            class_entry->entity_specs.is_anonymous = (class_kind == CK_UNION
                     && gather_info->no_declarators);
         }
     }
@@ -4922,7 +4919,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info, nodecl_output, &declared_symbols);
 
-    if (members_belong_to_enclosing)
+    if (class_entry->entity_specs.is_anonymous)
     {
         scope_entry_t* enclosing = decl_context.current_scope->related_entry;
 
@@ -7124,7 +7121,11 @@ static void build_scope_explicit_template_specialization(AST a,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
 {
+    template_parameter_list_t *tpl_param_list = counted_calloc(1, sizeof(*tpl_param_list), &_bytes_used_buildscope);
+    tpl_param_list->enclosing = decl_context.template_parameters;
+
     decl_context_t template_context = decl_context;
+    template_context.template_parameters = tpl_param_list;
 
     // Note that we do not increment here the template_nesting because complete
     // specializations do not introduce a new template nesting. 
@@ -7222,6 +7223,11 @@ static void build_scope_explicit_template_specialization(AST a,
                 build_scope_explicit_template_specialization(ASTSon0(a), template_context, nodecl_output);
                 break;
             }
+        case AST_TEMPLATE_DECLARATION:
+            {
+                build_scope_template_declaration(ASTSon0(a), a, template_context, nodecl_output);
+                break;
+            }
         default :
             {
                 internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
@@ -7307,7 +7313,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         AST declarator = ASTSon0(init_declarator);
         AST initializer = ASTSon1(init_declarator);
 
-        if (type_specifier == NULL)
+        if (type_specifier != NULL)
         {
             // This is not a constructor
             is_constructor = 0;
@@ -8261,7 +8267,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 );
     }
 
-    if (entry->defined)
+    if (entry->defined
+            && !entry->entity_specs.is_non_emitted)
     {
         const char *funct_name = entry->symbol_name;
         CXX_LANGUAGE()
@@ -8285,6 +8292,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
     entry->defined = 1;
+    if (entry->entity_specs.is_non_emitted)
+    {
+        entry->entity_specs.is_non_emitted = 0;
+        entry->entity_specs.emission_handler = NULL;
+        entry->entity_specs.emission_template = NULL;
+    }
     entry->point_of_definition = get_enclosing_declaration(a);
 
     // Keep parameter names

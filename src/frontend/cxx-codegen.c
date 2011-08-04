@@ -178,14 +178,14 @@ static void walk_type_for_symbols(
     if (t == NULL)
         return;
 
-    // {
-    //     int i;
-    //     for (i = _stack_walked_types_top - 1; i >= 0; i--)
-    //     {
-    //         if (_stack_walked_types[i] == t)
-    //             return;
-    //     }
-    // }
+    {
+        int i;
+        for (i = _stack_walked_types_top - 1; i >= 0; i--)
+        {
+            if (_stack_walked_types[i] == t)
+                return;
+        }
+    }
 
     // This poisons return, do not return from this function
 #define return 1=1;
@@ -848,34 +848,34 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
             char is_dependent = 0;
             int max_qualif_level = 0;
 
-            qualified_name = get_class_qualification_of_symbol(symbol, symbol->decl_context, &is_dependent, &max_qualif_level);
-            
+            qualified_name = get_class_qualification_of_symbol_without_template(symbol, symbol->decl_context, &is_dependent, &max_qualif_level);
+
             // Note that this case will already have template arguments if needed
         }
         else
         {
             qualified_name = symbol->symbol_name;
-
-            if (is_template_specialized
-                    && !is_primary_template)
-            {
-                qualified_name = strappend(qualified_name, 
-                        get_template_arguments_str(symbol, symbol->decl_context));
-            }
-
         }
+        if (is_template_specialized
+                && !is_primary_template)
+        {
+            qualified_name = strappend(qualified_name, 
+                    get_template_arguments_str(symbol, symbol->decl_context));
+        }
+
 
         fprintf(visitor->file, "%s %s", class_key, qualified_name);
 
         // From here we assume its already defined
         symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
 
-        // if (is_primary_template)
-        // {
-        //     // We do not define primary templates
-        //     fprintf(visitor->file, ";\n");
-        //     return;
-        // }
+        if (level == 0
+                && is_primary_template)
+        {
+            // We do not define primary templates on the outermost level
+            fprintf(visitor->file, ";\n");
+            return;
+        }
 
         if (class_type_get_num_bases(symbol->type_information) != 0)
         {
@@ -1089,6 +1089,11 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                                 entry->decl_context, 
                                 &is_dependent, 
                                 &max_qualif_level));
+                }
+                else if (member->kind == SK_ENUM)
+                {
+                    define_symbol(visitor, member);
+                    member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
                 }
                 else 
                 {
@@ -3775,23 +3780,9 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         fclose(str_visitor.file);
     }
 
-    const char* qualified_name = unmangle_symbol_name(symbol);
-
-    if (symbol->entity_specs.is_member)
-    {
-        scope_entry_t* class_symbol = named_type_get_symbol(symbol->entity_specs.class_type);
-
-        const char* class_name = class_symbol->symbol_name;
-
-        if (is_template_specialized_type(class_symbol->type_information)
-                && template_specialized_type_get_template_arguments(class_symbol->type_information)->num_parameters != 0)
-        {
-            class_name = strappend(class_name, 
-                    get_template_arguments_str(class_symbol, class_symbol->decl_context));
-        }
-
-        qualified_name = strappend(strappend(class_name, "::"), qualified_name);
-    }
+    char is_dependent = 0;
+    int max_qualif_level = 0;
+    const char* qualified_name = get_class_qualification_of_symbol_without_template(symbol, symbol->decl_context, &is_dependent, &max_qualif_level);
 
     if (is_template_specialized_type(symbol->type_information)
             // Conversions do not allow templates

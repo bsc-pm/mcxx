@@ -212,6 +212,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     return new_member;
 }
 
+static void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line);
+
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
@@ -300,6 +302,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->entity_specs.is_static ? "static" : "non-static",
                             print_type_str(new_member->type_information, context_of_being_instantiated));
                 }
+
                 break;
             }
         case SK_TYPEDEF:
@@ -401,7 +404,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     decl_context_t new_context_of_being_instantiated = context_of_being_instantiated;
                     new_context_of_being_instantiated.template_parameters = tpl_empty;
 
-
                     scope_entry_t* new_fake_template_symbol = calloc(1, sizeof(*new_fake_template_symbol));
                     new_fake_template_symbol->kind = SK_TEMPLATE;
                     new_fake_template_symbol->symbol_name = member_of_template->symbol_name;
@@ -430,10 +432,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
                     scope_entry_t* new_member = named_type_get_symbol(
-                                template_type_get_specialized_type(template_type,
-                                    tpl_empty,
-                                    new_context_of_being_instantiated,
-                                    member_of_template->line, member_of_template->file));
+                            template_type_get_specialized_type(template_type,
+                                tpl_empty,
+                                new_context_of_being_instantiated,
+                                member_of_template->line, member_of_template->file));
 
                     insert_entry(context_of_being_instantiated.current_scope, new_member);
 
@@ -452,6 +454,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     set_is_complete_type(new_member->type_information, /* is_complete */ 0);
                     set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
+
+                    if (new_member->entity_specs.is_anonymous)
+                    {
+                        instantiate_template_class(new_member, context_of_being_instantiated, filename, line);
+
+                        // FIXME
+                    }
                 }
                 else
                 {
@@ -541,9 +550,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             context_translation_function, translation_data,
                             filename, line);
 
-                    // Remember that this function has not been instantiated (it
-                    // could have been defined though)
+                    // We allow this be specialized later
                     new_member->entity_specs.is_non_emitted = 1;
+                    new_member->entity_specs.emission_template = member_of_template;
                     new_member->entity_specs.emission_handler = instantiate_emit_member_function;
                 }
                 else
@@ -565,7 +574,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             filename, line,
                             template_map, num_items_template_map);
 
-                    new_member->defined = 0;
+                    new_member->defined = 1;
+                    // new_member->entity_specs.is_non_emitted = 1;
 
                     // We work on the primary template
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
@@ -974,15 +984,72 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 }
 
 static nodecl_t nodecl_instantiation_units;
+typedef
+struct instantiation_item_tag
+{
+    scope_entry_t* symbol;
+    const char* filename;
+    int line;
+} instantiation_item_t;
+
+static instantiation_item_t** symbols_to_instantiate;
+static int num_symbols_to_instantiate;
 
 void instantiation_init(void)
 {
     nodecl_instantiation_units = nodecl_null();
+    symbols_to_instantiate = NULL;
 }
 
-nodecl_t instantiation_get_instantiated_functions(void)
+static void instantiate_every_symbol(scope_entry_t* entry,
+        const char* filename,
+        int line);
+
+nodecl_t instantiation_instantiate_pending_functions(void)
 {
+    int i;
+    for (i = 0; i < num_symbols_to_instantiate; i++)
+    {
+        instantiate_every_symbol(
+                symbols_to_instantiate[i]->symbol,
+                symbols_to_instantiate[i]->filename,
+                symbols_to_instantiate[i]->line);
+
+        free(symbols_to_instantiate[i]);
+    }
+    free(symbols_to_instantiate);
+
+    symbols_to_instantiate = NULL;
+
     return nodecl_instantiation_units;
+}
+
+static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)
+{
+    return current_item->symbol == new_item->symbol;
+}
+
+void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
+        const char* filename,
+        int line)
+{
+    instantiation_item_t* item = calloc(1, sizeof(*item));
+    item->symbol = entry;
+    item->filename = filename;
+    item->line = line;
+
+    int old_num = num_symbols_to_instantiate;
+
+    P_LIST_ADD_ONCE_FUN(symbols_to_instantiate, 
+            num_symbols_to_instantiate, 
+            item, 
+            compare_instantiate_items);
+
+    // Crummy way to know if it was added
+    if (old_num == num_symbols_to_instantiate)
+    {
+        free(item);
+    }
 }
 
 static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
@@ -1165,7 +1232,7 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
     }
 }
 
-void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line)
+static void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line)
 {
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
 
@@ -1180,12 +1247,12 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
                 line);
     }
 
-    entry->entity_specs.is_non_emitted = 0;
-    entry->entity_specs.emission_handler = NULL;
-    
     instantiate_default_arguments_of_function(entry);
 
-    if (!entry->defined)
+    scope_entry_t* emission_template = entry->entity_specs.emission_template;
+    ERROR_CONDITION(emission_template == NULL, "Invalid emission template\n", 0);
+
+    if (!emission_template->defined)
     {
         DEBUG_CODE()
         {
@@ -1211,8 +1278,12 @@ void instantiate_emit_member_function(scope_entry_t* entry, const char* filename
     being_instantiated_now[num_being_instantiated_now] = entry;
     num_being_instantiated_now++;
 
+    entry->entity_specs.is_non_emitted = 0;
+    entry->entity_specs.emission_handler = NULL;
+    entry->entity_specs.emission_template = NULL;
+
     // Remove dependent types
-    AST dupl_function_definition = ast_copy_for_instantiation(entry->entity_specs.definition_tree);
+    AST dupl_function_definition = ast_copy_for_instantiation(emission_template->entity_specs.definition_tree);
 
     nodecl_t nodecl_function_code = nodecl_null();
     build_scope_function_definition(dupl_function_definition, 
@@ -1237,3 +1308,23 @@ AST instantiate_tree(AST orig_tree UNUSED_PARAMETER,
 {
     internal_error("Not supported anymore", 0);
 }
+
+static void instantiate_every_symbol(scope_entry_t* entry,
+        const char* filename,
+        int line)
+{
+    if (entry != NULL
+            && entry->kind == SK_FUNCTION)
+    {
+        if (is_template_specialized_type(entry->type_information))
+        {
+            instantiate_template_function_if_needed(entry, 
+                    filename, line);
+        }
+        else if (entry->entity_specs.is_non_emitted)
+        {
+            (entry->entity_specs.emission_handler)(entry, filename, line);
+        }
+    }
+}
+

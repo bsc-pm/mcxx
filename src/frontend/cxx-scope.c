@@ -3787,6 +3787,14 @@ const char* get_class_qualification_of_symbol(scope_entry_t* entry,
             decl_context, is_dependent, max_qualif_level, /* no_templates */ 0, /* only_classes */ 1);
 }
 
+const char* get_class_qualification_of_symbol_without_template(scope_entry_t* entry,
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1, /* only_classes */ 1);
+}
+
+
 const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
 {
     int max_qualif_level = 0;
@@ -4135,10 +4143,7 @@ int get_template_nesting_of_template_parameters(template_parameter_list_t* templ
     int nesting = 0;
     while (template_parameters != NULL)
     {
-        if (template_parameters->parameters != NULL)
-        {
-            nesting++;
-        }
+        nesting++;
         template_parameters = template_parameters->enclosing;
     }
 
