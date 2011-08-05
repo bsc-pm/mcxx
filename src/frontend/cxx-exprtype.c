@@ -2874,7 +2874,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     lhs,
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(lhs), ASTLine(lhs)),
-                        expression_get_nodecl(lhs),
+                        nodecl_make_list_1(expression_get_nodecl(lhs)),
                         actual_type_of_conversor(conversors[0]), ASTFileName(lhs), ASTLine(lhs)));
         }
         if (conversors[1] != NULL)
@@ -2891,7 +2891,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     rhs,
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[1], ASTFileName(rhs), ASTLine(rhs)),
-                        expression_get_nodecl(rhs),
+                        nodecl_make_list_1(expression_get_nodecl(rhs)),
                         actual_type_of_conversor(conversors[1]), ASTFileName(rhs), ASTLine(rhs)));
         }
 
@@ -2903,10 +2903,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
         *selected_operator = overloaded_call;
 
-        overloaded_type = overloaded_call->type_information;
+        overloaded_type = function_type_get_return_type(overloaded_call->type_information);
 
-        expression_set_type(expr, function_type_get_return_type(overloaded_type));
-        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
+        expression_set_type(expr, overloaded_type);
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(overloaded_type));
     }
     else 
     {
@@ -3025,14 +3025,14 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             expression_set_nodecl(op,
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(conversors[0], ASTFileName(op), ASTLine(op)),
-                        nodecl_argument,
+                        nodecl_make_list_1(nodecl_argument),
                         actual_type_of_conversor(conversors[0]), ASTFileName(op), ASTLine(op)));
         }
 
-        overloaded_type = overloaded_call->type_information;
+        overloaded_type = function_type_get_return_type(overloaded_call->type_information);
 
-        expression_set_type(expr, function_type_get_return_type(overloaded_type));
-        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
+        expression_set_type(expr, overloaded_type);
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(overloaded_type));
     }
     else 
     {

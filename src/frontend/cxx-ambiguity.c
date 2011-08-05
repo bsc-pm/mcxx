@@ -235,6 +235,13 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
         {
             current_valid = check_simple_or_member_declaration(declaration, decl_context);
         }
+        else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
+        {
+            enter_test_expression();
+            AST id_expr = ASTSon0(declaration);
+            current_valid = check_expression(id_expr, decl_context);
+            leave_test_expression();
+        }
         else
         {
             internal_error("Unexpected ambiguous node '%s'\n", ast_print_node_type(ASTType(declaration)));

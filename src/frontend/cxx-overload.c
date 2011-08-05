@@ -1962,13 +1962,14 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             while (it != NULL)
             {
                 scope_entry_t* entry = entry_advance_aliases(it->candidate->entry);
-                fprintf(stderr, "OVERLOAD:    %s:%d: %s\n",
+                fprintf(stderr, "OVERLOAD:    %s:%d: %s %s\n",
                         entry->file,
                         entry->line,
                         print_decl_type_str(
                             entry->type_information,
                             entry->decl_context,
-                            entry->symbol_name));
+                            entry->symbol_name),
+                        entry->entity_specs.is_builtin ? "<builtin>" : "");
 
                 it = it->next;
             }

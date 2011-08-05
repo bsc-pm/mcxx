@@ -132,6 +132,16 @@ LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
         scope_entry_t* class_symbol,
         scope_entry_list_t* member_list);
 
+LIBMCXX_EXTERN void introduce_using_entities(scope_entry_list_t* used_entities, 
+        decl_context_t decl_context, 
+        scope_entry_t* current_class,
+        char is_class_scope, 
+        access_specifier_t current_access,
+        const char* filename, int line);
+
+LIBMCXX_EXTERN void introduce_using_entity_id_expr(AST id_expression, 
+        decl_context_t decl_context, access_specifier_t current_access);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

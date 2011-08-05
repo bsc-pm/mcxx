@@ -1111,6 +1111,7 @@ static scope_entry_t* create_new_dependent_entity(AST global_op,
                 ast_copy(nested_name), 
                 ast_copy(unqualified_name),
                 ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
+    dependent_entity->value = nodecl_wrap_cxx_dependent_expr(dependent_entity->language_dependent_value, nested_name_context);
 
     DEBUG_CODE()
     {
@@ -1958,6 +1959,9 @@ static scope_entry_list_t* query_in_namespace_and_associates(
     scope_entry_list_t* grand_result 
         = query_name_in_scope(namespace->related_decl_context.current_scope, name);
 
+    if (grand_result != NULL)
+        return grand_result;
+
     int i;
     for (i = idx_associated_namespaces; 
             i < num_associated_namespaces; 
@@ -2233,17 +2237,22 @@ template_parameter_list_t* update_template_argument_list_in_dependent_typename(
         template_parameter_list_t* dependent_type_template_arguments,
         const char* filename, int line)
 {
-    template_parameter_list_t* result = duplicate_template_argument_list(dependent_type_template_arguments);
+    template_parameter_list_t* result = duplicate_template_argument_list(primary_template_parameters);
     result->enclosing = class_context.template_parameters;
 
-    decl_context_t new_template_context = class_context;
-    class_context.template_parameters = result;
-
     int i;
-    for (i = 0; i < result->num_parameters; i++)
+    for (i = 0; i < dependent_type_template_arguments->num_parameters; i++)
+    {
+        result->arguments[i] = dependent_type_template_arguments->arguments[i];
+    }
+
+    decl_context_t new_template_context = class_context;
+    new_template_context.template_parameters = result;
+
+    for (i = 0; i < dependent_type_template_arguments->num_parameters; i++)
     {
         result->arguments[i] = update_template_parameter_value(
-                dependent_type_template_arguments->arguments[i],
+                result->arguments[i],
                 new_template_context,
                 filename, line);
     }
@@ -2251,14 +2260,10 @@ template_parameter_list_t* update_template_argument_list_in_dependent_typename(
     // Complete with default template arguments
     for (; i < primary_template_parameters->num_parameters; i++)
     {
-        int num_parameters = result->num_parameters;
-        P_LIST_ADD(result->parameters,
-                num_parameters,
-                primary_template_parameters->parameters[i]);
-        template_parameter_value_t* v = update_template_parameter_value(primary_template_parameters->arguments[i],
+        result->arguments[i] = update_template_parameter_value(
+                result->arguments[i],
                 new_template_context,
                 filename, line);
-        P_LIST_ADD(result->arguments, result->num_parameters, v);
     }
 
     return result;
@@ -3754,7 +3759,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     else if (!no_templates
             && entry->type_information != NULL
             && is_template_specialized_type(entry->type_information)
-            && template_specialized_type_get_template_arguments(entry->type_information) != NULL)
+            && template_specialized_type_get_template_arguments(entry->type_information) != NULL
+            && !entry->entity_specs.is_conversion)
     {
         current_has_template_parameters = 1;
         const char *template_parameters = get_template_arguments_str(entry, decl_context);

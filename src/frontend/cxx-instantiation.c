@@ -555,7 +555,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             context_translation_function, translation_data,
                             filename, line);
 
-                    // We allow this be specialized later
                     new_member->entity_specs.is_non_emitted = 1;
                     new_member->entity_specs.emission_template = member_of_template;
                     new_member->entity_specs.emission_handler = instantiate_emit_member_function;
@@ -585,6 +584,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     // We work on the primary template
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
+
+                    new_member->entity_specs.is_inline = named_type_get_symbol(primary_template)->entity_specs.is_inline;
+                    new_member->entity_specs.is_static = named_type_get_symbol(primary_template)->entity_specs.is_static;
                 }
 
                 DEBUG_CODE()
@@ -612,48 +614,74 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
             // This is only possible because of using declarations / or qualified members
             // which refer to dependent entities
-        case SK_DEPENDENT_ENTITY:
+            // case SK_DEPENDENT_ENTITY:
+            //     {
+            //         ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
+            //                 "Invalid expression for dependent entity", 0);
+
+            //         scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->language_dependent_value);
+            //         
+            //         if (entry_list == NULL
+            //                 || !entry_list_head(entry_list)->entity_specs.is_member)
+            //         {
+            //             running_error("%s: invalid using declaration '%s' while instantiating\n", 
+            //                     ast_location(member_of_template->language_dependent_value),
+            //                     prettyprint_in_buffer(member_of_template->language_dependent_value));
+            //         }
+
+            //         scope_entry_t* entry = entry_list_head(entry_list);
+            //         if (!class_type_is_base(entry->entity_specs.class_type, 
+            //                     get_actual_class_type(being_instantiated)))
+            //         {
+            //             running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
+            //                     ast_location(member_of_template->language_dependent_value),
+            //                         get_qualified_symbol_name(entry,
+            //                             context_of_being_instantiated),
+            //                         get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
+            //                             context_of_being_instantiated)
+            //                     );
+            //         }
+
+            //         scope_entry_list_iterator_t* it = NULL;
+            //         for (it = entry_list_iterator_begin(entry_list);
+            //                 !entry_list_iterator_end(it);
+            //                 entry_list_iterator_next(it))
+            //         {
+            //             entry = entry_list_iterator_current(it);
+            //             class_type_add_member(get_actual_class_type(being_instantiated), entry);
+
+            //             // Insert the symbol in the context
+            //             insert_entry(context_of_being_instantiated.current_scope, entry);
+            //         }
+            //         entry_list_iterator_free(it);
+            //         entry_list_free(entry_list);
+
+            //         break;
+            //     }
+        case SK_USING:
             {
-                ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
-                        "Invalid expression for dependent entity", 0);
-
-                scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->language_dependent_value);
-                
-                if (entry_list == NULL
-                        || !entry_list_head(entry_list)->entity_specs.is_member)
-                {
-                    running_error("%s: invalid using declaration '%s' while instantiating\n", 
-                            ast_location(member_of_template->language_dependent_value),
-                            prettyprint_in_buffer(member_of_template->language_dependent_value));
-                }
-
+                // Two cases: a) the entity is actually dependent: it will have only one SK_DEPENDENT_ENTITY 
+                //            b) the entity is not dependent: it may have more than one element
+                scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(member_of_template->type_information);
                 scope_entry_t* entry = entry_list_head(entry_list);
-                if (!class_type_is_base(entry->entity_specs.class_type, 
-                            get_actual_class_type(being_instantiated)))
+
+                if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
-                    running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
-                            ast_location(member_of_template->language_dependent_value),
-                                get_qualified_symbol_name(entry,
-                                    context_of_being_instantiated),
-                                get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
-                                    context_of_being_instantiated)
-                            );
+                    ERROR_CONDITION(entry_list_size(entry_list) != 1, "Invalid list", 0);
+                    introduce_using_entity_id_expr(entry->language_dependent_value, 
+                            context_of_being_instantiated, 
+                            member_of_template->entity_specs.access);
                 }
-
-                scope_entry_list_iterator_t* it = NULL;
-                for (it = entry_list_iterator_begin(entry_list);
-                        !entry_list_iterator_end(it);
-                        entry_list_iterator_next(it))
+                else
                 {
-                    entry = entry_list_iterator_current(it);
-                    class_type_add_member(get_actual_class_type(being_instantiated), entry);
 
-                    // Insert the symbol in the context
-                    insert_entry(context_of_being_instantiated.current_scope, entry);
+                    introduce_using_entities(entry_list, context_of_being_instantiated, 
+                            named_type_get_symbol(being_instantiated),
+                            /* is_class_scope */ 1,
+                            member_of_template->entity_specs.access,
+                            member_of_template->file,
+                            member_of_template->line);
                 }
-                entry_list_iterator_free(it);
-                entry_list_free(entry_list);
-
                 break;
             }
         default:

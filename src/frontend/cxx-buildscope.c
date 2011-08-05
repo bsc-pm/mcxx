@@ -914,28 +914,13 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
             entry);
 }
 
-static void introduce_using_entity(AST id_expression, decl_context_t decl_context, access_specifier_t current_access)
+void introduce_using_entities(scope_entry_list_t* used_entities, 
+        decl_context_t decl_context, 
+        scope_entry_t* current_class,
+        char is_class_scope, 
+        access_specifier_t current_access,
+        const char* filename, int line)
 {
-    scope_entry_list_t* used_entities = query_id_expression_flags(decl_context, 
-            id_expression, 
-            // Do not examine uninstantiated templates
-            DF_DEPENDENT_TYPENAME);
-
-    if (used_entities == NULL)
-    {
-        running_error("%s: error: entity '%s' in using-declaration is unknown",
-                ast_location(id_expression),
-                prettyprint_in_buffer(id_expression));
-    }
-
-    scope_entry_t* current_class = NULL;
-    char is_class_scope = 0;
-    if (decl_context.current_scope->kind == CLASS_SCOPE)
-    {
-        current_class = decl_context.current_scope->related_entry;
-        is_class_scope = 1;
-    }
-
     // Now add all the used entities to the current scope
     scope_entry_list_iterator_t* it = NULL;
     for (it = entry_list_iterator_begin(used_entities);
@@ -953,8 +938,8 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                 if (!entry->entity_specs.is_member
                         || !class_type_is_base(entry->entity_specs.class_type, current_class->type_information))
                 {
-                    running_error("%s: error: '%s' is not a member of a base class\n",
-                            ast_location(id_expression),
+                    running_error("%s:%d: error: '%s' is not a member of a base class\n",
+                            filename, line,
                             get_qualified_symbol_name(entry, 
                                 decl_context));
                 }
@@ -992,8 +977,8 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
 
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
         used_name->kind = SK_USING;
-        used_name->file = ASTFileName(id_expression);
-        used_name->line = ASTLine(id_expression);
+        used_name->file = filename;
+        used_name->line = line;
         used_name->entity_specs.alias_to = entry;
         if (current_class != NULL)
         {
@@ -1004,8 +989,33 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
 
         insert_entry(decl_context.current_scope, used_name);
     }
-
     entry_list_iterator_free(it);
+}
+
+void introduce_using_entity_id_expr(AST id_expression, decl_context_t decl_context, access_specifier_t current_access)
+{
+    scope_entry_list_t* used_entities = query_id_expression_flags(decl_context, 
+            id_expression, 
+            // Do not examine uninstantiated templates
+            DF_DEPENDENT_TYPENAME);
+
+    if (used_entities == NULL)
+    {
+        running_error("%s: error: entity '%s' in using-declaration is unknown",
+                ast_location(id_expression),
+                prettyprint_in_buffer(id_expression));
+    }
+
+    scope_entry_t* current_class = NULL;
+    char is_class_scope = 0;
+    if (decl_context.current_scope->kind == CLASS_SCOPE)
+    {
+        current_class = decl_context.current_scope->related_entry;
+        is_class_scope = 1;
+    }
+
+    introduce_using_entities(used_entities, decl_context, current_class, is_class_scope, current_access,
+            ASTFileName(id_expression), ASTLine(id_expression));
 
     if (current_class != NULL)
     {
@@ -1031,7 +1041,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
                 ast_location(a));
     }
 
-    introduce_using_entity(id_expression, decl_context, current_access);
+    introduce_using_entity_id_expr(id_expression, decl_context, current_access);
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
@@ -1039,7 +1049,7 @@ static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
-    introduce_using_entity(id_expression, decl_context, current_access);
+    introduce_using_entity_id_expr(id_expression, decl_context, current_access);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -10272,6 +10282,10 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                             nodecl_make_list_1(*nodecl_output),
                             function_type_get_return_type(conversor->type_information), ASTFileName(initializer), ASTLine(initializer));
                 }
+            }
+            else
+            {
+                *nodecl_output = nodecl_wrap_cxx_dependent_expr(initializer, decl_context);
             }
         }
 

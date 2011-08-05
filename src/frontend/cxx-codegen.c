@@ -1821,8 +1821,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 const char* decl_spec_seq = "";
-                if (symbol->entity_specs.is_static
-                        && !symbol->entity_specs.is_member)
+                if (symbol->entity_specs.is_static)
                 {
                     decl_spec_seq = strappend(decl_spec_seq, "static ");
                 }

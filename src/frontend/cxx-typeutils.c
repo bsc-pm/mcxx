@@ -1853,7 +1853,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     // Let this be filled later
     specialized_symbol->entity_specs.num_related_symbols = 0;
     specialized_symbol->entity_specs.related_symbols = NULL;
-    
+
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
     //     specialized_symbol->decl_context.template_scope->contained_in;
