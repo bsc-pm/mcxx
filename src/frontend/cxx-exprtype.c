@@ -11931,27 +11931,43 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
     AST upper_bound = ASTSon2(expression);
 
     check_for_expression_impl_(postfix_expression, decl_context);
-    if (lower_bound != NULL)
+		
+		if (lower_bound != NULL)
         check_for_expression_impl_(lower_bound, decl_context);
-    if (upper_bound != NULL)
+
+		if (upper_bound != NULL)
         check_for_expression_impl_(upper_bound, decl_context);
-
-    if (lower_bound == NULL
-            || upper_bound == NULL)
-    {
-        running_error("%s: error: array-sections with undefined bounds not supported yet\n",
-                ast_location(expression));
-    }
-
-    if (expression_is_error(postfix_expression)
+    
+		if (expression_is_error(postfix_expression)
             || (lower_bound != NULL && expression_is_error(lower_bound))
             || (upper_bound != NULL && expression_is_error(upper_bound)))
     {
         expression_set_error(expression);
         return;
     }
+		
+    type_t* indexed_type = no_ref(expression_get_type(postfix_expression));
 
-    char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
+		if (lower_bound == NULL && (is_array_type(indexed_type) || is_pointer_type(indexed_type))) 
+				lower_bound = array_type_get_array_lower_bound(indexed_type);
+
+		if (upper_bound == NULL && (is_array_type(indexed_type))) 
+				upper_bound = array_type_get_array_upper_bound(indexed_type);
+
+#define MAX_NESTING_OF_ARRAY_REGIONS (16)
+
+    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
+    int i = 0;
+    while (is_array_type(indexed_type) && array_type_has_region(indexed_type))
+    {
+        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
+        advanced_types[i] = indexed_type;
+        indexed_type = array_type_get_element_type(indexed_type);
+        i++;
+    }
+    
+
+		char is_array_section = (ASTType(expression) == AST_ARRAY_SECTION_SIZE);
     if (is_array_section)
     {
         AST one_tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, "1");
@@ -11967,19 +11983,6 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
                     ASTLine(upper_bound), NULL);
     }
 
-    type_t* indexed_type = no_ref(expression_get_type(postfix_expression));
-
-#define MAX_NESTING_OF_ARRAY_REGIONS (16)
-    type_t* advanced_types[MAX_NESTING_OF_ARRAY_REGIONS];
-    int i = 0;
-    while (is_array_type(indexed_type)
-            && array_type_has_region(indexed_type))
-    {
-        ERROR_CONDITION(i == MAX_NESTING_OF_ARRAY_REGIONS, "Too many array regions nested %d\n", i);
-        advanced_types[i] = indexed_type;
-        indexed_type = array_type_get_element_type(indexed_type);
-        i++;
-    }
 
     type_t* result_type = NULL;
     if (is_array_type(indexed_type))
@@ -12034,39 +12037,21 @@ static void check_for_array_section_expression(AST expression, decl_context_t de
 
     while (i > 0)
     {
-        type_t* current_array_type = advanced_types[i - 1];
+     	 type_t* current_array_type = advanced_types[i - 1];
+       AST array_lower_bound = array_type_get_array_lower_bound(current_array_type);
+       AST array_upper_bound = array_type_get_array_upper_bound(current_array_type);
+       AST array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
+       AST array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
+       decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
 
-        if (is_array_type(current_array_type)
-                || is_pointer_type(current_array_type))
-        {
-            AST array_lower_bound = array_type_get_array_lower_bound(current_array_type);
-            AST array_upper_bound = array_type_get_array_upper_bound(current_array_type);
-            AST array_region_lower_bound = array_type_get_region_lower_bound(current_array_type);
-            AST array_region_upper_bound = array_type_get_region_upper_bound(current_array_type);
-            decl_context_t array_decl_context = array_type_get_array_size_expr_context(current_array_type);
-
-            result_type = get_array_type_bounds_with_regions(
-                    result_type,
-                    array_lower_bound,
-                    array_upper_bound,
-                    array_decl_context,
-                    array_region_lower_bound,
-                    array_region_upper_bound,
-                    decl_context);
-        }
-        else
-        {
-            if (!checking_ambiguity())
-            {
-                fprintf(stderr, "%s: warning: array section '%s' is invalid since '%s' has type '%s'\n",
-                        ast_location(expression),
-                        prettyprint_in_buffer(expression),
-                        prettyprint_in_buffer(postfix_expression),
-                        print_type_str(indexed_type, decl_context));
-            }
-            expression_set_error(expression);
-            return;
-        }
+       result_type = get_array_type_bounds_with_regions(
+               result_type,
+               array_lower_bound,
+               array_upper_bound,
+               array_decl_context,
+               array_region_lower_bound,
+               array_region_upper_bound,
+               decl_context);
         i--;
     }
 

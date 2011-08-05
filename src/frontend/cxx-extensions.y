@@ -7,7 +7,7 @@
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
-postfix_expression : postfix_expression '[' expression ':' expression ']'
+postfix_expression : postfix_expression '[' expression_opt ':' expression_opt ']'
 {
     $$ = ASTMake3(AST_ARRAY_SECTION, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -49,4 +49,5 @@ shape: '[' expression ']'
     $$ = $2;
 }
 ;
+
 /*!endif*/
