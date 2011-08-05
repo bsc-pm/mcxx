@@ -1327,21 +1327,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     else if (simple_type_info != NULL)
     {
         // Anonymous union special treatment
-        if (is_named_type(simple_type_info))
+        if (is_named_type(simple_type_info)
+                && is_class_type(simple_type_info)
+                && named_type_get_symbol(simple_type_info)->entity_specs.is_anonymous_union)
         {
             scope_entry_t* named_type = named_type_get_symbol(simple_type_info);
-            if (named_type->entity_specs.is_anonymous_union)
-            {
-                // Create a new variable to represent this anonymous union
-                scope_entry_t* anonymous_accessor = new_symbol(decl_context, decl_context.current_scope, named_type->symbol_name);
-                anonymous_accessor->kind = SK_VARIABLE;
-                anonymous_accessor->file = ASTFileName(a);
-                anonymous_accessor->line = ASTLine(a);
-                anonymous_accessor->type_information = simple_type_info;
-                anonymous_accessor->defined = 1;
-                
-                // And link it to the anonymous namespace
-            }
+            finish_anonymous_class(named_type, decl_context);
         }
     }
 }
@@ -2708,7 +2699,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
 
-        new_entry->entity_specs.is_anonymous_union = 1;
+        new_entry->entity_specs.is_unnamed = 1;
     }
 
     if (decl_context.current_scope->kind == CLASS_SCOPE
@@ -3219,6 +3210,28 @@ static void compute_code_for_default_constructor(type_t* class_type, nodecl_t* n
 }
 #endif
 
+static char is_nested_in_class(type_t* class_of_entry, type_t* class_of_constructor)
+{
+    if (equivalent_types(class_of_entry, class_of_constructor))
+    {
+        return 1;
+    }
+    else
+    {
+        scope_entry_t* class_sym_of_entry = named_type_get_symbol(class_of_entry);
+
+        if (class_sym_of_entry->entity_specs.is_member)
+        {
+            return is_nested_in_class(class_sym_of_entry->entity_specs.class_type, 
+                    class_of_constructor);
+        }
+        else
+        {
+            return 0;
+        }
+    }
+}
+
 static void build_scope_ctor_initializer(
         AST ctor_initializer, 
         scope_entry_t* function_entry,
@@ -3318,7 +3331,7 @@ static void build_scope_ctor_initializer(
                             if (!entry_list_contains(nonstatic_data_members, entry))
                             {
                                 if (!entry->entity_specs.is_member
-                                        || !equivalent_types(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
+                                        || !is_nested_in_class(entry->entity_specs.class_type, function_entry->entity_specs.class_type))
                                 {
                                     running_error("%s: symbol '%s' is not a member of class %s\n",
                                             ast_location(id_expression),
@@ -4447,36 +4460,94 @@ void leave_class_specifier(nodecl_t* nodecl_output)
     }
 }
 
-void insert_members_in_enclosing_nonanonymous_class(
+static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context, 
         scope_entry_t* class_symbol,
-        scope_entry_list_t* member_list)
+        scope_entry_t* accessor_symbol)
 {
-    ERROR_CONDITION( !class_symbol->entity_specs.is_anonymous_union, "This class is not anonymous", 0);
-
-    scope_entry_t* enclosing = class_symbol->decl_context.current_scope->related_entry;
-
-    while (enclosing != NULL
-            && enclosing->kind == SK_CLASS
-            && enclosing->entity_specs.is_anonymous_union)
-    {
-        enclosing = enclosing->decl_context.current_scope->related_entry;
-    }
-
-    ERROR_CONDITION(enclosing == NULL
-            || enclosing->kind != SK_CLASS,
-            "Invalid nesting for anonymous nested class", 0);
-
-    decl_context_t inner_context = class_type_get_inner_context(enclosing->type_information);
+    scope_entry_list_t* members = class_type_get_nonstatic_data_members(class_symbol->type_information);
 
     scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(member_list);
+    for (it = entry_list_iterator_begin(members);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        insert_entry(inner_context.current_scope, entry);
+        scope_entry_t* member = entry_list_iterator_current(it);
+        if (!member->entity_specs.is_member_of_anonymous)
+        {
+            member->entity_specs.is_member_of_anonymous = 1;
+            member->entity_specs.anonymous_accessor = 
+                nodecl_get_ast(
+                        nodecl_make_symbol(accessor_symbol,
+                            accessor_symbol->file,
+                            accessor_symbol->line));
+        }
+        else
+        {
+            member->entity_specs.is_member_of_anonymous = 1;
+            nodecl_t nodecl_accessor = 
+                        nodecl_make_class_member_access(
+                            nodecl_make_symbol(accessor_symbol,
+                                accessor_symbol->file,
+                                accessor_symbol->line), 
+                            _nodecl_wrap(member->entity_specs.anonymous_accessor),
+                            lvalue_ref(member->type_information),
+                            accessor_symbol->file,
+                            accessor_symbol->line);
+            nodecl_set_symbol(nodecl_accessor, accessor_symbol);
+            member->entity_specs.anonymous_accessor = nodecl_get_ast(nodecl_accessor);
+        }
+        insert_entry(enclosing_context.current_scope, member);
+
+        // If the members happen to be one of those faked members to access an
+        // anonymous union then recursively add its members to the current scope
+        if (member->kind == SK_VARIABLE
+                && is_named_class_type(member->type_information)
+                && named_type_get_symbol(member->type_information)->entity_specs.is_anonymous_union)
+        {
+            insert_symbols_in_enclosing_context(enclosing_context, 
+                    named_type_get_symbol(member->type_information),
+                    accessor_symbol);
+        }
     }
     entry_list_iterator_free(it);
+    entry_list_free(members);
+}
+
+scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context)
+{
+    ERROR_CONDITION(!class_symbol->entity_specs.is_anonymous_union, "This class is not anonymous", 0);
+
+    // Sign in a fake symbol in the context of the class
+    const char* accessing_name = class_symbol->symbol_name;
+    C_LANGUAGE()
+    {
+        // Transform "union X" or "struct X" -> "X" 
+        const char* c = NULL;
+        if ((c = has_prefix("union ", accessing_name)) != NULL)
+        { }
+        else if ((c = has_prefix("struct ", accessing_name)) != NULL)
+        { }
+
+        ERROR_CONDITION(c == NULL, "Invalid struct/union name in C '%s'\n", accessing_name);
+
+        accessing_name = uniquestr(c);
+    }
+    scope_entry_t* accessor_symbol = new_symbol(class_symbol->decl_context, 
+            class_symbol->decl_context.current_scope, 
+            accessing_name);
+
+    accessor_symbol->kind = SK_VARIABLE;
+    accessor_symbol->file = class_symbol->file;
+    accessor_symbol->line = class_symbol->line;
+    accessor_symbol->type_information = get_user_defined_type(class_symbol);
+
+    class_symbol->entity_specs.anonymous_accessor = 
+        nodecl_get_ast(nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line));
+
+    // Sign in members in the appropiate enclosing scope
+    insert_symbols_in_enclosing_context(decl_context, class_symbol, accessor_symbol);
+
+    return accessor_symbol;
 }
 
 /*
@@ -4506,6 +4577,17 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
      *
      *  Note: build_scope_member_specification must receive *type_info, not class_type
      */
+
+    C_LANGUAGE()
+    {
+        // In C flatten nested structures otherwise it becomes crazy (because
+        // of C irregularities in this point) to handle them
+        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        {
+            decl_context = decl_context.current_scope->related_entry->decl_context;
+        }
+    }
+
 
     if (gather_info->is_friend
             && gather_info->no_declarators)
@@ -4862,6 +4944,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->line = ASTLine(a);
         class_entry->file = ASTFileName(a);
 
+        class_entry->entity_specs.is_unnamed = 1;
 
         class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
@@ -4869,9 +4952,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         C_LANGUAGE()
         {
-            class_entry->entity_specs.is_anonymous_union = (gather_info->no_declarators
-                    // Namespace scope is not allowed in C
-                    && decl_context.current_scope->kind != NAMESPACE_SCOPE);
+            class_entry->entity_specs.is_anonymous_union = gather_info->no_declarators;
         }
         CXX_LANGUAGE()
         {
@@ -9306,16 +9387,23 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
     type_t* member_type = NULL;
 
-    if (ASTSon0(a) != NULL)
+    AST decl_spec_seq = ASTSon0(a);
+    AST member_init_declarator_list = ASTSon1(a);
+
+    AST type_specifier = NULL;
+
+    if (decl_spec_seq != NULL)
     {
         decl_context_t new_decl_context = decl_context;
-        if (ASTSon1(a) == NULL)
+        if (member_init_declarator_list == NULL)
         {
             gather_info.no_declarators = 1;
         }
 
-        build_scope_decl_specifier_seq(ASTSon0(a), &gather_info,
+        build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
                 &member_type, new_decl_context, nodecl_output);
+
+        type_specifier = ASTSon1(decl_spec_seq);
 
         if (gather_info.defined_type != NULL
                 && declared_symbols != NULL)
@@ -9323,86 +9411,86 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             *declared_symbols = entry_list_add(*declared_symbols, gather_info.defined_type);
         }
 
-        AST decl_spec_seq = ASTSon0(a);
-        AST type_specifier = ASTSon1(decl_spec_seq);
-
-        if (member_type != NULL
-                && is_named_type(member_type))
+        CXX_LANGUAGE()
         {
-            // Register the typename properly
-            // FIXME Rewrite this using gather_info
-            if (type_specifier != NULL
-                    && !gather_info.is_friend
-                    && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
-                        // class A; (no declarator)
-                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
-                                // class __attribute__((foo)) A; (no declarator)
-                                || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC) 
-                            && (ASTSon1(a) == NULL))
-                        // enum E { } [x];
-                        || ASTType(type_specifier) == AST_ENUM_SPECIFIER
-                        // enum __attribute__((foo)) E { } [x];
-                        || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
-                        // enum E; (no declarator)
-                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
-                                // enum  __attribute__((foo)) E; (no declarator)
-                                || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC) 
-                            && (ASTSon1(a) == NULL))))
+            if (member_type != NULL
+                    && is_named_type(member_type))
             {
-                scope_entry_t* entry = named_type_get_symbol(member_type);
-                DEBUG_CODE()
+                // Register the typename properly
+                // FIXME Rewrite this using gather_info
+                if (type_specifier != NULL
+                        && !gather_info.is_friend
+                        && (ASTType(type_specifier) == AST_CLASS_SPECIFIER // class A { } [x];
+                            // class A; (no declarator)
+                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC 
+                                    // class __attribute__((foo)) A; (no declarator)
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC) 
+                                && (member_init_declarator_list == NULL))
+                            // enum E { } [x];
+                            || ASTType(type_specifier) == AST_ENUM_SPECIFIER
+                            // enum __attribute__((foo)) E { } [x];
+                            || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
+                            // enum E; (no declarator)
+                            || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC
+                                    // enum  __attribute__((foo)) E; (no declarator)
+                                    || ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC) 
+                                && (member_init_declarator_list == NULL))))
                 {
-                    fprintf(stderr, "Setting type '%s' as member\n", 
-                            entry->symbol_name);
-                }
-
-                char is_elaborated = (ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
-                    || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
-                    || (ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
-                    || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC);
-
-                entry->entity_specs.is_member = 1;
-                entry->entity_specs.access = current_access;
-                entry->entity_specs.is_defined_inside_class_specifier = !is_elaborated;
-                entry->entity_specs.class_type = class_info;
-                class_type_add_member(get_actual_class_type(class_type), entry);
-
-                // Register enumerators as well
-                if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
-                            || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
-                {
-                    ERROR_CONDITION(!is_enum_type(member_type), 
-                            "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
-
-                    int i, num_enums  = enum_type_get_num_enumerators(member_type);
-                    for (i = 0; i < num_enums; i++)
+                    scope_entry_t* entry = named_type_get_symbol(member_type);
+                    DEBUG_CODE()
                     {
-                        scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
-
-                        enumerator->entity_specs.is_member = 1;
-                        enumerator->entity_specs.access = current_access;
-                        enumerator->entity_specs.is_defined_inside_class_specifier = 1;
-                        enumerator->entity_specs.class_type  = class_info;
-                        class_type_add_member(get_actual_class_type(class_type), enumerator);
+                        fprintf(stderr, "Setting type '%s' as member\n", 
+                                entry->symbol_name);
                     }
-                }
 
-                // Update the type specifier to be a dependent typename
-                if (is_dependent_type(class_type))
-                {
-                    member_type = get_dependent_typename_type_from_parts(entry, NULL);
+                    char is_elaborated = (ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC)
+                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_CLASS_SPEC)
+                        || (ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC)
+                        || (ASTType(type_specifier) == AST_GCC_ELABORATED_TYPE_ENUM_SPEC);
+
+                    entry->entity_specs.is_member = 1;
+                    entry->entity_specs.access = current_access;
+                    entry->entity_specs.is_defined_inside_class_specifier = !is_elaborated;
+                    entry->entity_specs.class_type = class_info;
+                    class_type_add_member(get_actual_class_type(class_type), entry);
+
+                    // Register enumerators as well
+                    if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
+                                || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
+                    {
+                        ERROR_CONDITION(!is_enum_type(member_type), 
+                                "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
+
+                        int i, num_enums  = enum_type_get_num_enumerators(member_type);
+                        for (i = 0; i < num_enums; i++)
+                        {
+                            scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
+
+                            enumerator->entity_specs.is_member = 1;
+                            enumerator->entity_specs.access = current_access;
+                            enumerator->entity_specs.is_defined_inside_class_specifier = 1;
+                            enumerator->entity_specs.class_type  = class_info;
+                            class_type_add_member(get_actual_class_type(class_type), enumerator);
+                        }
+                    }
+
+                    // Update the type specifier to be a dependent typename
+                    if (is_dependent_type(class_type))
+                    {
+                        member_type = get_dependent_typename_type_from_parts(entry, NULL);
+                    }
                 }
             }
         }
     }
 
-    if (ASTSon1(a) != NULL)
+    if (member_init_declarator_list != NULL)
     {
         ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-        ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, ASTSon0(a));
-        ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, ASTSon1(a));
+        ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, decl_spec_seq);
+        ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, member_init_declarator_list);
 
-        AST list = ASTSon1(a);
+        AST list = member_init_declarator_list;
         AST iter;
 
         for_each_element(list, iter)
@@ -9433,7 +9521,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (ASTType(declarator) == AST_GCC_BITFIELD_DECLARATOR)
                         {
-                            AST attribute_list = ASTSon0(a);
+                            AST attribute_list = decl_spec_seq;
                             gather_gcc_attribute_list(attribute_list, &gather_info, decl_context);
                         }
 
@@ -9529,14 +9617,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
                         
                         // Change name of constructors
-                        AST decl_spec_seq = ASTSon0(a);
-                        if (decl_spec_seq != NULL 
-                                && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
-                                    || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
-                        {
-                            // It is not a constructor
-                        }
-                        else
+                        if (type_specifier == NULL)
                         {
                             if (is_constructor_declarator(declarator))
                             {
@@ -9686,6 +9767,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             *declared_symbols = entry_list_add(*declared_symbols, entry);
                         }
+
                         break;
                     }
                 default :
@@ -9694,6 +9776,22 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         break;
                     }
             }
+        }
+    }
+    else
+    {
+        if (is_named_type(member_type)
+                && is_class_type(member_type)
+                && named_type_get_symbol(member_type)->entity_specs.is_anonymous_union)
+        {
+            scope_entry_t* named_type = named_type_get_symbol(member_type);
+            scope_entry_t* new_member = finish_anonymous_class(named_type, decl_context);
+
+            // Add this member to the current class
+            new_member->entity_specs.is_member = 1;
+            new_member->entity_specs.class_type = class_info;
+            new_member->entity_specs.access = current_access;
+            class_type_add_member(class_type, new_member);
         }
     }
 }

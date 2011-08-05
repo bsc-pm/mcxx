@@ -280,16 +280,6 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
         return (builtin_operators->entry_list);
 }
 
-static type_t* lvalue_ref(type_t* t)
-{
-    CXX_LANGUAGE()
-    {
-        if (!is_lvalue_reference_type(t)
-                && !is_rvalue_reference_type(t))
-            return get_lvalue_reference_type(t);
-    }
-    return t;
-}
 
 type_t* actual_type_of_conversor(scope_entry_t* conv)
 {
@@ -6284,6 +6274,16 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 }
 
                 nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                if (entry->entity_specs.is_member_of_anonymous)
+                {
+                    nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
+                    nodecl_output = nodecl_make_class_member_access(
+                            accessor,
+                            nodecl_output,
+                            lvalue_ref(entry->type_information),
+                            ASTFileName(expr),
+                            ASTLine(expr));
+                }
                 expression_set_nodecl(expr, nodecl_output);
             }
             else
@@ -6385,73 +6385,88 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     }
                     if (!is_value_dependent)
                     {
-                        if (!entry->entity_specs.is_member
-                                || entry->entity_specs.is_static)
+                        if (entry->entity_specs.is_template_parameter
+                                && !nodecl_is_null(entry->value))
                         {
-                            if (entry->entity_specs.is_template_parameter
-                                    && !nodecl_is_null(entry->value))
-                            {
-                                // Replace a template parameter with its value
-                                expression_set_nodecl(expr, entry->value);
-                            }
-                            else
-                            {
-                                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                                expression_set_nodecl(expr, nodecl_output);
-                            }
+                            // Replace a template parameter with its value
+                            expression_set_nodecl(expr, entry->value);
                         }
                         else
                         {
-                            scope_entry_list_t* this_symbol_list 
-                                = query_unqualified_name_str(decl_context, "this");
-                            if (this_symbol_list != NULL)
+                            nodecl_t nodecl_access_to_symbol = nodecl_null();
+                            nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+
+                            scope_entry_t* accessing_symbol = entry;
+                            if (entry->entity_specs.is_member_of_anonymous)
                             {
-                                scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
-
-                                if (is_dependent_type(this_symbol->type_information))
-                                {
-                                    expression_set_dependent(expr, decl_context);
-                                }
-                                else
-                                {
-                                    // Construct (*this).x
-                                    type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
-                                    cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
-
-                                    nodecl_t nodecl_this_derref = 
-                                        nodecl_make_derreference(
-                                                nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
-                                                get_lvalue_reference_type(this_type),
-                                                ASTFileName(expr), ASTLine(expr));
-
-                                    type_t* qualified_data_member_type = entry->type_information;
-                                    if (!entry->entity_specs.is_mutable)
-                                    {
-                                        qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
-                                    }
-                                    qualified_data_member_type = lvalue_ref(qualified_data_member_type);
-
-                                    nodecl_t nodecl_output =
-                                        nodecl_make_class_member_access(nodecl_this_derref,
-                                                nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr)),
-                                                qualified_data_member_type,
-                                                ASTFileName(expr), ASTLine(expr));
-                                    expression_set_nodecl(expr, nodecl_output);
-                                    expression_set_type(expr, qualified_data_member_type);
-                                }
+                                nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
+                                nodecl_access_to_symbol = nodecl_make_class_member_access(
+                                        accessor,
+                                        nodecl_access_to_symbol,
+                                        lvalue_ref(entry->type_information),
+                                        ASTFileName(expr),
+                                        ASTLine(expr));
+                                accessing_symbol = nodecl_get_symbol(accessor);
+                            }
+                            if (!accessing_symbol->entity_specs.is_member
+                                    || accessing_symbol->entity_specs.is_static)
+                            {
+                                nodecl_t nodecl_output = nodecl_access_to_symbol;
+                                expression_set_nodecl(expr, nodecl_output);
                             }
                             else
                             {
-                                // Invalid access to a nonstatic member from a "this" lacking context
-                                if (!checking_ambiguity())
+                                scope_entry_list_t* this_symbol_list 
+                                    = query_unqualified_name_str(decl_context, "this");
+                                if (this_symbol_list != NULL)
                                 {
-                                    error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
-                                            ast_location(expr),
-                                            get_qualified_symbol_name(entry, entry->decl_context));
+                                    scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
+
+                                    if (is_dependent_type(this_symbol->type_information))
+                                    {
+                                        expression_set_dependent(expr, decl_context);
+                                    }
+                                    else
+                                    {
+                                        // Construct (*this).x
+                                        type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                                        cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
+
+                                        nodecl_t nodecl_this_derref = 
+                                            nodecl_make_derreference(
+                                                    nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
+                                                    get_lvalue_reference_type(this_type),
+                                                    ASTFileName(expr), ASTLine(expr));
+
+                                        type_t* qualified_data_member_type = entry->type_information;
+                                        if (!entry->entity_specs.is_mutable)
+                                        {
+                                            qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
+                                        }
+                                        qualified_data_member_type = lvalue_ref(qualified_data_member_type);
+
+                                        nodecl_t nodecl_output =
+                                            nodecl_make_class_member_access(nodecl_this_derref,
+                                                    nodecl_access_to_symbol,
+                                                    qualified_data_member_type,
+                                                    ASTFileName(expr), ASTLine(expr));
+                                        expression_set_nodecl(expr, nodecl_output);
+                                        expression_set_type(expr, qualified_data_member_type);
+                                    }
                                 }
-                                expression_set_error(expr);
+                                else
+                                {
+                                    // Invalid access to a nonstatic member from a "this" lacking context
+                                    if (!checking_ambiguity())
+                                    {
+                                        error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                                                ast_location(expr),
+                                                get_qualified_symbol_name(entry, entry->decl_context));
+                                    }
+                                    expression_set_error(expr);
+                                }
+                                entry_list_free(this_symbol_list);
                             }
-                            entry_list_free(this_symbol_list);
                         }
                     }
                 }
@@ -10204,6 +10219,33 @@ static void check_templated_member_access(AST templated_member_access, decl_cont
     check_member_access(templated_member_access, decl_context, is_arrow);
 }
 
+static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
+{
+    if (nodecl_get_kind(accessor) == NODECL_CLASS_MEMBER_ACCESS)
+    {
+        nodecl_t accessor_base = nodecl_get_child(accessor, 0);
+        nodecl_t accessor_symbol = nodecl_get_child(accessor, 1);
+
+        nodecl_t integrated_nodecl = integrate_field_accesses(base, accessor_base);
+
+        return nodecl_make_class_member_access(integrated_nodecl,
+                accessor_symbol,
+                lvalue_ref(nodecl_get_symbol(accessor_symbol)->type_information),
+                nodecl_get_filename(integrated_nodecl),
+                nodecl_get_line(integrated_nodecl));
+    }
+    else if (nodecl_get_kind(accessor) == NODECL_SYMBOL)
+    {
+        return nodecl_make_class_member_access(base, accessor, 
+                lvalue_ref(nodecl_get_symbol(accessor)->type_information),
+                nodecl_get_filename(base),
+                nodecl_get_line(base));
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+}
 
 static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow)
 {
@@ -10515,8 +10557,16 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         expression_set_is_lvalue(member_access, 1);
         ok = 1;
 
+        nodecl_t nodecl_field = expression_get_nodecl(class_expr);
+        if (entry->entity_specs.is_member_of_anonymous)
+        {
+            nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
+            nodecl_field = integrate_field_accesses(nodecl_field, 
+                    accessor);
+        }
+
         nodecl_t nodecl_output = nodecl_make_class_member_access(
-                expression_get_nodecl(class_expr),
+                nodecl_field,
                 nodecl_make_symbol(entry, ASTFileName(class_expr), ASTLine(class_expr)),
                 entry->type_information,
                 ASTFileName(class_expr), ASTLine(class_expr));
@@ -10537,8 +10587,16 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                 expression_set_is_lvalue(member_access, 1);
                 ok = 1;
 
+                nodecl_t nodecl_field = expression_get_nodecl(class_expr);
+                if (entry->entity_specs.is_member_of_anonymous)
+                {
+                    nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
+                    nodecl_field = integrate_field_accesses(nodecl_field, 
+                            accessor);
+                }
+
                 nodecl_t nodecl_output = nodecl_make_class_member_access(
-                        expression_get_nodecl(class_expr),
+                        nodecl_field,
                         nodecl_make_symbol(entry, ASTFileName(member_access), ASTLine(member_access)),
                         lvalue_ref(entry->type_information), ASTFileName(member_access), ASTLine(member_access));
                 expression_set_nodecl(member_access, nodecl_output);
@@ -14504,10 +14562,13 @@ char check_default_initialization_and_destruction_declarator(scope_entry_t* entr
         const char* filename,
         int line)
 {
-    check_default_initialization_(entry, decl_context, filename, line, /* constructor */ NULL);
+    scope_entry_t* constructor = NULL;
+    check_default_initialization_(entry, decl_context, filename, line, &constructor);
 
     if (is_class_type(entry->type_information))
     {
+        ensure_function_is_emitted(constructor, filename, line);
+
         scope_entry_t* destructor = class_type_get_destructor(entry->type_information);
         ERROR_CONDITION(destructor == NULL, "Invalid destructor", 0);
         ensure_function_is_emitted(destructor, filename, line);

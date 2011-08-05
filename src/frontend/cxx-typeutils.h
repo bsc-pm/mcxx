@@ -520,7 +520,11 @@ LIBMCXX_EXTERN type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_quali
 
 LIBMCXX_EXTERN type_t* reference_type_get_referenced_type(type_t* t1);
 
+// Remove reference type
 LIBMCXX_EXTERN type_t* no_ref(type_t* t);
+
+// Only returns a reference in C++. In C it does nothing
+LIBMCXX_EXTERN type_t* lvalue_ref(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_actual_class_type(type_t* class_type);
 

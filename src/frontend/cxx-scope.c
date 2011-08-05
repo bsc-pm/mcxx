@@ -1890,7 +1890,7 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
 
         if (hiding_name == NULL
                 && (entry->kind == SK_VARIABLE
@@ -1916,6 +1916,32 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
         }
     }
     entry_list_iterator_free(it);
+}
+
+static scope_entry_list_t* entry_list_merge_aliases(scope_entry_list_t* list1, scope_entry_list_t* list2)
+{
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list1);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+        result = entry_list_add_once(result, entry);
+    }
+    entry_list_iterator_free(it);
+
+    for (it = entry_list_iterator_begin(list2);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+        result = entry_list_add_once(result, entry);
+    }
+    entry_list_iterator_free(it);
+
+    return result;
 }
 
 static scope_entry_list_t* query_in_namespace_and_associates(
@@ -1973,7 +1999,7 @@ static scope_entry_list_t* query_in_namespace_and_associates(
                 );
 
         scope_entry_list_t* old_grand_result = grand_result;
-        grand_result = entry_list_merge(old_grand_result, result);
+        grand_result = entry_list_merge_aliases(old_grand_result, result);
         entry_list_free(old_grand_result);
         entry_list_free(result);
         
@@ -3703,7 +3729,14 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         entry = named_type_get_symbol(entry->entity_specs.class_type);
     }
 
-    const char* result = uniquestr(unmangle_symbol_name(entry));
+    const char* result = ""; 
+    // Do not print anonymous unions or variables of anonymous unions
+    if (!entry->entity_specs.is_anonymous_union
+            && !(is_named_class_type(entry->type_information)
+                && named_type_get_symbol(entry->type_information)->entity_specs.is_anonymous_union))
+    {
+        result = uniquestr(unmangle_symbol_name(entry));
+    }
 
     char current_has_template_parameters = 0;
 
@@ -3744,7 +3777,10 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             get_fully_qualified_symbol_name_ex(class_symbol, decl_context, &prev_is_dependent, max_qualif_level, 
                     /* no_templates */ 0, only_classes);
 
-        class_qualification = strappend(class_qualification, "::");
+        if (!class_symbol->entity_specs.is_anonymous_union)
+        {
+            class_qualification = strappend(class_qualification, "::");
+        }
 
         if (prev_is_dependent
                 && current_has_template_parameters)

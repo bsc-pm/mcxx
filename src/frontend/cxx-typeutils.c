@@ -5634,6 +5634,17 @@ type_t* no_ref(type_t* t)
     return t;
 }
 
+type_t* lvalue_ref(type_t* t)
+{
+    CXX_LANGUAGE()
+    {
+        if (!is_lvalue_reference_type(t)
+                && !is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(t);
+    }
+    return t;
+}
+
 char is_lvalue_reference_type(type_t* t1)
 {
     t1 = advance_over_typedefs(t1);

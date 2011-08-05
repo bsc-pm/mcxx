@@ -455,13 +455,16 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     set_is_complete_type(new_member->type_information, /* is_complete */ 0);
                     set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
 
-                    if (new_member->entity_specs.is_anonymous)
+                    if (new_member->entity_specs.is_anonymous_union)
                     {
                         instantiate_template_class(new_member, context_of_being_instantiated, filename, line);
+                        scope_entry_t* anon_member = finish_anonymous_class(new_member, context_of_being_instantiated);
 
-                        scope_entry_list_t* members = class_type_get_nonstatic_data_members(new_member->type_information);
-                        insert_members_in_enclosing_nonanonymous_class(new_member, members);
-                        entry_list_free(members);
+                        // Add this member to the current class
+                        anon_member->entity_specs.is_member = 1;
+                        anon_member->entity_specs.class_type = being_instantiated;
+                        anon_member->entity_specs.access = new_member->entity_specs.access;
+                        class_type_add_member(being_instantiated, anon_member);
                     }
                 }
                 else
@@ -1001,6 +1004,7 @@ void instantiation_init(void)
 {
     nodecl_instantiation_units = nodecl_null();
     symbols_to_instantiate = NULL;
+    num_symbols_to_instantiate = 0;
 }
 
 static void instantiate_every_symbol(scope_entry_t* entry,
@@ -1009,21 +1013,32 @@ static void instantiate_every_symbol(scope_entry_t* entry,
 
 nodecl_t instantiation_instantiate_pending_functions(void)
 {
-    int i;
-    for (i = 0; i < num_symbols_to_instantiate; i++)
-    {
-        instantiate_every_symbol(
-                symbols_to_instantiate[i]->symbol,
-                symbols_to_instantiate[i]->filename,
-                symbols_to_instantiate[i]->line);
+    int tmp_num_symbols_to_instantiate = num_symbols_to_instantiate;
+    instantiation_item_t** tmp_symbols_to_instantiate = symbols_to_instantiate;
 
-        free(symbols_to_instantiate[i]);
-    }
-    free(symbols_to_instantiate);
-
+    num_symbols_to_instantiate = 0;
     symbols_to_instantiate = NULL;
 
-    return nodecl_instantiation_units;
+    int i;
+    for (i = 0; i < tmp_num_symbols_to_instantiate; i++)
+    {
+        instantiate_every_symbol(
+                tmp_symbols_to_instantiate[i]->symbol,
+                tmp_symbols_to_instantiate[i]->filename,
+                tmp_symbols_to_instantiate[i]->line);
+
+        free(tmp_symbols_to_instantiate[i]);
+    }
+    free(tmp_symbols_to_instantiate);
+
+    if (num_symbols_to_instantiate != 0)
+    {
+        return instantiation_instantiate_pending_functions();
+    }
+    else
+    {
+        return nodecl_instantiation_units;
+    }
 }
 
 static char compare_instantiate_items(instantiation_item_t* current_item, instantiation_item_t* new_item)

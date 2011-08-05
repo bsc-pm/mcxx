@@ -46,7 +46,8 @@ bool|all|is_move_assignment_operator|This is a move assignment opeator (C++1x)
 bool|all|is_destructor|This is a destructor
 bool|all|is_explicit|This constructor has been marked as explicit
 bool|all|is_surrogate_function|This function is a surrogate fake symbol created during overload resolution
-bool|all|is_anonymous_union|This is an anonymous union
+bool|all|is_anonymous_union|This is an anonymous union (or class)
+bool|all|is_member_of_anonymous|This entity is a member of an anonymous entity
 bool|all|is_user_declared|This specialization of template has been user declared
 bool|all|is_template_parameter|This is a template parameter
 bool|all|is_parameter|This symbol is a parameter of a function
@@ -56,7 +57,7 @@ bool|all|is_unnamed_bitfield|This symbol is an unnamed bitfield
 bool|all|is_friend_declared|States that this symbol has been declared as a friend but not formally declared or defined
 bool|all|any_exception|States that this function can throw any exception
 bool|all|is_injected_class_name|This symbol is the injected class name
-bool|all|is_nested_unnamed_struct|This is an unnamed struct inside another struct
+bool|all|is_unnamed|This is an unnamed struct or enum
 bool|all|is_defined_inside_class_specifier|This symbol has been defined inside the class specifier
 bool|all|is_non_emitted|States that this function symbol has not been emitted yet because it is a non-template member function of an instantiated template class
 bool|fortran|is_implicit_basic_type|This entity has got an implicit basic type
@@ -79,6 +80,7 @@ bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|If this symbol is_non_emitted then this is the original template used to emit it
+AST|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist

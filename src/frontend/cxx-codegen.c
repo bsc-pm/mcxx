@@ -755,18 +755,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
     C_LANGUAGE()
     {
         indent(visitor);
-        if (symbol->entity_specs.is_anonymous
-                && symbol->decl_context.current_scope->kind == CLASS_SCOPE)
-        {
-            // If is anonymous and in class scope, this is an anonymously declared class inside a class specifier,
-            // thus, do not print its name, only its class-key
-            fprintf(visitor->file, "%s\n", class_key);
-        }
-        else
-        {
-            // Usual case: the symbol will be already called 'struct/union X' in C
-            fprintf(visitor->file, "%s\n", symbol->symbol_name);
-        }
+        // Usual case: the symbol will be already called 'struct/union X' in C
+        fprintf(visitor->file, "%s\n", symbol->symbol_name);
         indent(visitor);
         fprintf(visitor->file, "{\n");
     }
@@ -864,7 +854,14 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
         }
 
 
-        fprintf(visitor->file, "%s %s", class_key, qualified_name);
+        if (!symbol->entity_specs.is_anonymous_union)
+        {
+            fprintf(visitor->file, "%s %s", class_key, qualified_name);
+        }
+        else
+        {
+            fprintf(visitor->file, "%s", class_key);
+        }
 
         // From here we assume its already defined
         symbol->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
@@ -1501,6 +1498,12 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 const char* decl_specifiers = "";
                 const char* gcc_attributes = "";
                 const char* declarator = "";
+
+                if (is_named_class_type(symbol->type_information)
+                        && named_type_get_symbol(symbol->type_information)->entity_specs.is_anonymous_union)
+                {
+                    break;
+                }
 
                 if (symbol->entity_specs.is_static)
                 {
@@ -2297,7 +2300,7 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
                      }
         }
     }
-    else if (is_wchar_t_type(t))
+    else if (IS_CXX_LANGUAGE && is_wchar_t_type(t))
     {
         unsigned int mb = const_value_cast_to_4(value);
         fprintf(visitor->file, "L'\\x%x'", mb);
@@ -2701,9 +2704,10 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION_ASSIG(bitwise_or_assignment, " |= ") \
     BINARY_EXPRESSION_ASSIG(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION_ASSIG(mod_assignment, " %= ") \
-    BINARY_EXPRESSION(class_member_access, ".") \
     BINARY_EXPRESSION(offset, ".*") \
     BINARY_EXPRESSION(comma, ", ") 
+
+// BINARY_EXPRESSION(class_member_access, ".") 
 
 #define PREFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
@@ -2804,6 +2808,43 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
+
+static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+
+    scope_entry_t* sym = nodecl_get_symbol(rhs);
+
+    char is_anonymous = is_named_class_type(sym->type_information)
+        && named_type_get_symbol(sym->type_information)->entity_specs.is_anonymous_union;
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    // Do not print anonymous symbols
+    if (!is_anonymous)
+    {
+        fprintf(visitor->file, "%s", "."); 
+        needs_parentheses = operand_has_lower_priority(node, rhs); 
+        if (needs_parentheses) 
+        { 
+            fprintf(visitor->file, "("); 
+        } 
+        codegen_walk(visitor, rhs); 
+        if (needs_parentheses) 
+        { 
+            fprintf(visitor->file, ")"); 
+        } 
+    }
+}
 
 static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -3979,6 +4020,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+    NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);

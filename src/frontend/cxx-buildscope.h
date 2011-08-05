@@ -110,6 +110,8 @@ LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const char *filename, int line, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context);
+
 LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info, 
         gather_decl_spec_t *gather_info, decl_context_t dctx, nodecl_t* nodecl_output);
 
