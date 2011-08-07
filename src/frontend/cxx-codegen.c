@@ -577,7 +577,11 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         {
             scope_entry_t* member = entry_list_iterator_current(it);
 
-            if (member->kind != SK_CLASS
+            if (member->kind == SK_USING)
+            {
+                // Do nothing with these
+            }
+            else if (member->kind != SK_CLASS
                     && member->kind != SK_ENUM)
             {
                 if (member->kind == SK_VARIABLE

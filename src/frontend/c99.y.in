@@ -1116,6 +1116,7 @@ functional_declarator_id : functional_final_declarator_id '(' identifier_list ')
 | functional_final_declarator_id '(' ')'
 {
 	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

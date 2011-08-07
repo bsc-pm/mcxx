@@ -2459,8 +2459,8 @@ char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 static 
 char both_operands_are_arithmetic(type_t* lhs_type, type_t* rhs_type)
 {
-    return is_arithmetic_type(lhs_type)
-        && is_arithmetic_type(rhs_type);
+    return (is_arithmetic_type(lhs_type) || is_enum_type(lhs_type))
+        && (is_arithmetic_type(rhs_type) || is_enum_type(rhs_type));
 }
 
 static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)

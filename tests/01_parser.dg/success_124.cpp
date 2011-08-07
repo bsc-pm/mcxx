@@ -27,15 +27,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium
-
-# This test is faulty because the implicit type
-# of member functions of the bases pulled in by
-# using declarations do not have their implicit
-# member assumed to be of the derived class
-# See ticket #337
-test_compile_faulty=yes
-test_compile_fail=yes
+test_generator=config/mercurium-extensions
 </testinfo>
 */
 struct A
