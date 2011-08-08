@@ -416,10 +416,27 @@ namespace TL
         return expression;
     }
 
-    void Type::array_get_bounds(AST_t& lower, AST_t& upper)
+    void Type::array_get_bounds(AST_t& lower, AST_t& upper) const
     {
         lower = AST_t(array_type_get_array_lower_bound(_type_info));
         upper = AST_t(array_type_get_array_upper_bound(_type_info));
+    }
+
+    bool Type::array_is_region() const
+    {
+        return array_type_has_region(_type_info);
+    }
+
+    void Type::array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const
+    {
+        region_lower = AST_t(array_type_get_region_lower_bound(_type_info));
+        region_upper = AST_t(array_type_get_region_upper_bound(_type_info));
+    }
+
+    AST_t Type::array_get_region_size() const
+    {
+        AST expression = array_type_get_region_size_expr(_type_info);
+        return expression;
     }
 
     Type Type::get_void_type(void)

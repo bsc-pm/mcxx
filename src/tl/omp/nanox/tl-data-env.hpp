@@ -289,8 +289,9 @@ namespace TL
                             it != data_env_list.end();
                             it++)
                     {
-                        if (!it->is_private() 
-                                && it->is_vla_type())
+                        if (it->is_firstprivate() 
+                                && it->is_vla_type()
+                                && !it->get_symbol().get_type().is_pointer())
                             return true;
                     }
 
@@ -312,19 +313,21 @@ namespace TL
                             it != data_env_list.end();
                             it++)
                     {
-                        if (!it->is_private() 
-                                && it->is_vla_type())
+                        if (it->is_firstprivate()
+                                && it->is_vla_type()
+                                && !it->get_symbol().get_type().is_pointer())
                         {
                             Type base_type = it->get_symbol().get_type().basic_type();
 
                             if (first)
                             {
-                                result = Source() << "sizeof(" << base_type.get_declaration(sc, "") << ") " 
+                                result = Source() << "(sizeof(" << base_type.get_declaration(sc, "") << ") " 
                                     ;
+                                first = false;
                             }
                             else
                             {
-                                result << "* sizeof(" << base_type.get_declaration(sc, "") << ") " 
+                                result << "+ (sizeof(" << base_type.get_declaration(sc, "") << ") " 
                                     ;
                             }
 
@@ -334,8 +337,9 @@ namespace TL
                                     it != dim_list.end();
                                     it++)
                             {
-                                result << " * " << *it;
+                                result << " * (" << *it << ")";
                             }
+                            result << ")";
                         }
                     }
 

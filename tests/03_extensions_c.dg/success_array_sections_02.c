@@ -28,27 +28,26 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
-test_compile_faulty=yes
-test_compile_fail=yes
 </testinfo>
 */
 
-int a[100];
-int *b;
-
-void f(void)
+int v_1D[2000];
+int v_2D[2000][2000];
+void g() 
 {
-    a[0:49];
-    a[50:99];
+	v_1D[:10];
+	v_1D[1:];
+	v_1D[0:];
+	v_1D[:];
 
-    a[0;49];
-    a[50;99];
+	v_2D[:];
+	v_2D[:][:];
+	v_2D[0:][0:];
+	v_2D[:][:5];
+	v_2D[:][1:3];
+	v_2D[1:1][1:1];
+	v_2D[:][101:100];
 
-    b = a;
-
-    b[0:49];
-    b[50:99];
-
-    b[0;50];
-    b[50;50];
 }
+
+
