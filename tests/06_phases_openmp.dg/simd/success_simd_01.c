@@ -1,7 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-simd
-test_ignore=yes
 </testinfo>
 */
 

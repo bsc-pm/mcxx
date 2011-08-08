@@ -358,6 +358,39 @@ AC_ARG_ENABLE([nanox-regions],
 NANOX_REGIONS=$nanox_regions
 AC_SUBST([NANOX_REGIONS])
 
+dnl SIMD Support
+nanox_sse="no"
+AC_MSG_CHECKING([if SSE 4.1 support is enabled])
+AC_ARG_ENABLE([sse],
+  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        nanox_sse="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            nanox_sse="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
+    then
+       nanox_sse="yes"
+       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
+    else
+       nanox_sse="no"
+       AC_MSG_RESULT([no])
+    fi
+  ]
+)
+NANOX_SSE=$nanox_sse
+AC_SUBST([NANOX_SSE])
+
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
