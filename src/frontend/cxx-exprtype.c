@@ -1608,8 +1608,8 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_GCC_PARENTHESIZED_EXPRESSION :
             {
                 AST compound_statement = ASTSon0(expression);
-                nodecl_t dummy_nodecl_output = nodecl_null();
-                build_scope_statement(compound_statement, decl_context, &dummy_nodecl_output);
+                nodecl_t stmt_nodecl_output = nodecl_null();
+                build_scope_statement(compound_statement, decl_context, &stmt_nodecl_output);
 
                 AST statement_seq = ASTSon0(compound_statement);
                 if (statement_seq == NULL)
@@ -1624,6 +1624,18 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                     {
                         expression_set_type(expression, expression_get_type(last_statement));
                         expression_set_is_lvalue(expression, expression_is_lvalue(last_statement));
+
+                        int num_elements = 0;
+                        nodecl_t* elements = nodecl_unpack_list(stmt_nodecl_output, &num_elements);
+                        ERROR_CONDITION(num_elements != 1, "Expecting one and only one statement", 0);
+
+                        expression_set_nodecl(expression, 
+                                nodecl_make_compound_expression(elements[0], 
+                                    expression_get_type(last_statement),
+                                    ASTFileName(expression),
+                                    ASTLine(expression)));
+
+                        free(elements);
                     }
                     else
                     {
@@ -11781,7 +11793,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
             expression_set_type(initializer, declared_type);
         }
 
-        nodecl_t nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list,
+        nodecl_t nodecl_output = nodecl_make_structured_value(nodecl_initializer_list,
                 expression_get_type(initializer), 
                 ASTFileName(initializer), 
                 ASTLine(initializer));
@@ -12060,7 +12072,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
                 nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
-                        nodecl_make_structured_literal(nodecl_arguments,
+                        nodecl_make_structured_value(nodecl_arguments,
                             specialized_std_initializer,
                             ASTFileName(initializer), ASTLine(initializer)),
                         declared_type,
@@ -13876,8 +13888,11 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
             current_type = member->type_information;
         }
 
-        expression_set_constant(expression, 
-                const_value_get_integer(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0));
+        const_value_t* value = const_value_get_integer(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0);
+        expression_set_constant(expression, value);
+
+        // This is maybe a bit too radical
+        expression_set_nodecl(expression, const_value_to_nodecl(value));
     }
     else
     {
@@ -13962,11 +13977,12 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
     if (!is_dependent_type(first_type)
             && !is_dependent_type(second_type))
     {
-        expression_set_constant(
-                expression,
+        const_value_t* value = 
                 equivalent_types(first_type, second_type) ?  
                 const_value_get_one(/*bytes*/ 1, /*signed*/ 0) 
-                : const_value_get_zero(/*bytes*/ 1,  /*signed*/ 0));
+                : const_value_get_zero(/*bytes*/ 1,  /*signed*/ 0);
+        expression_set_constant(expression, value);
+        expression_set_nodecl(expression, const_value_to_nodecl(value));
     }
     else
     {

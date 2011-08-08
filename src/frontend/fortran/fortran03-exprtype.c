@@ -370,7 +370,7 @@ static void check_array_constructor(AST expr, decl_context_t decl_context, nodec
 
     expression_set_type(expr, expression_get_type(ac_value_list));
 
-    *nodecl_output = nodecl_make_structured_literal(nodecl_ac_value,
+    *nodecl_output = nodecl_make_structured_value(nodecl_ac_value,
             expression_get_type(ac_value_list), 
             ASTFileName(expr), ASTLine(expr));
 }
@@ -1074,7 +1074,7 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
     ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
     ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, component_spec_list);
 
-    *nodecl_output = nodecl_make_structured_literal(nodecl_initializer_list, 
+    *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list, 
             entry->type_information, 
             ASTFileName(expr), ASTLine(expr));
 }

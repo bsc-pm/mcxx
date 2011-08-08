@@ -373,13 +373,13 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
 
     if (result_set != NULL)
     {
-        entry_list_add(result_set, entry);
+        result_set = entry_list_prepend(result_set, entry);
     }
     else
     {
         result_set = entry_list_new(entry);
-        rb_tree_add(sc->hash, symbol_name, result_set);
     }
+    rb_tree_add(sc->hash, symbol_name, result_set);
 }
 
 // Normally we work on decl_context.current_scope but for template parameters
@@ -494,7 +494,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
         if (!do_not_add)
         {
-            entry_list_add(result_set, entry);
+            entry_list_prepend(result_set, entry);
         }
     }
     else
@@ -829,7 +829,7 @@ static scope_entry_list_t* query_unqualified_name(
     return result;
 }
 
-static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace, 
+static scope_entry_list_t* qualified_query_in_namespace(scope_entry_t* namespace, 
         const char* name, decl_flags_t decl_flags,
         const char* filename, int line);
 static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
@@ -849,7 +849,7 @@ static scope_entry_list_t* query_final_template_id(decl_context_t lookup_context
 
     if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
     {
-        result = query_in_namespace(lookup_context.current_scope->related_entry, 
+        result = qualified_query_in_namespace(lookup_context.current_scope->related_entry, 
                 template_name, 
                 lookup_context.decl_flags, filename, line);
     }
@@ -899,7 +899,7 @@ static scope_entry_list_t* query_template_id_in_namespace(decl_context_t lookup_
 
     if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
     {
-        result = query_in_namespace(lookup_context.current_scope->related_entry, 
+        result = qualified_query_in_namespace(lookup_context.current_scope->related_entry, 
                 template_name, 
                 lookup_context.decl_flags,
                 filename,
@@ -936,7 +936,7 @@ static scope_entry_list_t* query_final_part_of_qualified(
 
                 if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
                 {
-                    result = query_in_namespace(lookup_context.current_scope->related_entry, name,
+                    result = qualified_query_in_namespace(lookup_context.current_scope->related_entry, name,
                             lookup_context.decl_flags,
                             ASTFileName(unqualified_name), ASTLine(unqualified_name));
                 }
@@ -1000,7 +1000,7 @@ static scope_entry_list_t* query_final_part_of_qualified(
                 const char *operator_function_name = get_operator_function_name(unqualified_name);
                 if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
                 {
-                    result = query_in_namespace(lookup_context.current_scope->related_entry, 
+                    result = qualified_query_in_namespace(lookup_context.current_scope->related_entry, 
                             operator_function_name,
                             lookup_context.decl_flags,
                             ASTFileName(unqualified_name), ASTLine(unqualified_name));
@@ -1297,7 +1297,7 @@ static decl_context_t lookup_qualification_scope(
         {
             if (ASTType(current_name) != AST_TEMPLATE_ID)
             {
-                current_entry_list = query_in_namespace(current_context.current_scope->related_entry, 
+                current_entry_list = qualified_query_in_namespace(current_context.current_scope->related_entry, 
                         ASTText(current_name),
                         current_context.decl_flags,
                         ASTFileName(current_name),
@@ -1907,8 +1907,8 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
         }
         else if ((entry->kind == SK_CLASS
                     || entry->kind == SK_ENUM)
-                && (hiding_name != NULL
-                    && hiding_name->decl_context.current_scope == entry->decl_context.current_scope))
+                && (hiding_name == NULL
+                    || (hiding_name->decl_context.current_scope == entry->decl_context.current_scope)))
         {
         }
         else
@@ -1945,96 +1945,173 @@ static scope_entry_list_t* entry_list_merge_aliases(scope_entry_list_t* list1, s
     return result;
 }
 
-static scope_entry_list_t* query_in_namespace_and_associates(
+struct associated_namespace_tag
+{
+    scope_t* scope_of_using; // Scope where the using directive was found
+    scope_entry_t* nominated; // Scope of the nominated namespace
+    char visited; 
+};
+
+typedef struct associated_namespace_tag associated_namespace_t;
+
+static char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
+{
+    while (scope != NULL)
+    {
+        if (scope == potential_enclosing)
+        {
+            return 1;
+        }
+        scope = scope->contained_in;
+    }
+    return 0;
+}
+
+static scope_entry_list_t* unqualified_query_in_namespace(
         scope_entry_t* namespace,
-        const char* name, 
-        int idx_associated_namespaces, 
+        const char* name,
         int num_associated_namespaces, 
-        scope_entry_t** associated_namespaces, 
+        associated_namespace_t* associated_namespaces,
+        const char* filename, int line)
+{
+    scope_t* current_scope = namespace->related_decl_context.current_scope;
+    scope_entry_list_t* grand_result 
+        = query_name_in_scope(current_scope, name);
+
+    int i;
+    for (i = 0; i < num_associated_namespaces; i++)
+    {
+        if (associated_namespaces[i].visited)
+            continue;
+
+        scope_t* scope_of_nominated = associated_namespaces[i].nominated->decl_context.current_scope;
+
+        if (scope_is_enclosed_by(scope_of_nominated, current_scope)
+                && scope_is_enclosed_by(associated_namespaces[i].scope_of_using, current_scope))
+        {
+            scope_t* associated_namespace = associated_namespaces[i].nominated->related_decl_context.current_scope;
+
+            scope_entry_list_t* result = query_name_in_scope(associated_namespace, name);
+            associated_namespaces[i].visited = 1;
+
+            scope_entry_list_t* old_grand_result = grand_result;
+            grand_result = entry_list_merge_aliases(old_grand_result, result);
+            entry_list_free(old_grand_result);
+            entry_list_free(result);
+
+            check_for_naming_ambiguity(grand_result, filename, line);
+        }
+    }
+
+    return grand_result;
+}
+
+static scope_entry_list_t* qualified_query_in_namespace_rec(scope_entry_t* namespace, 
+        const char* name, 
         decl_flags_t decl_flags,
-        const char* filename,
-        int line)
+        const char* filename, int line,
+        int num_visited_namespaces,
+        scope_entry_t** visited_namespaces)
 {
     ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
-    scope_entry_list_t* grand_result 
-        = query_name_in_scope(namespace->related_decl_context.current_scope, name);
+    scope_t* namespace_scope = namespace->related_decl_context.current_scope;
+    scope_entry_list_t* grand_result = query_name_in_scope(namespace_scope, name);
 
     if (grand_result != NULL)
         return grand_result;
 
+    ERROR_CONDITION(num_visited_namespaces == MCXX_MAX_ASSOCIATED_NAMESPACES, 
+            "Too many associated namespaces %d", num_visited_namespaces);
+    visited_namespaces[num_visited_namespaces] = namespace;
+    num_visited_namespaces++;
+
     int i;
-    for (i = idx_associated_namespaces; 
-            i < num_associated_namespaces; 
+    for (i = 0; 
+            i < namespace_scope->num_used_namespaces;
             i++)
     {
-        int new_num_associated_namespaces = num_associated_namespaces;
-        scope_entry_t* associated_namespace = associated_namespaces[i];
-        scope_t* current_scope = associated_namespace->related_decl_context.current_scope;
+        scope_entry_t* used_namespace = namespace_scope->use_namespace[i];
 
-        // This namespace may have additional used namespaces which we will add to the list of namespaces 
-        // if and only if they are not already there
-        int k;
-        for (k = 0; k < current_scope->num_used_namespaces; k++)
+        char found = 0;
+        int j;
+        for (j = 0; j < num_visited_namespaces && !found; j++)
         {
-            int j;
-            char found = 0;
-            for (j = 0; j < new_num_associated_namespaces && !found; j++)
+            if (visited_namespaces[i] == used_namespace)
             {
-                found = (associated_namespaces[j] == current_scope->use_namespace[k]);
-            }
-            if (!found)
-            {
-                if ((idx_associated_namespaces + new_num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES)
-                    running_error("Too many associated namespaces > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
-                associated_namespaces[idx_associated_namespaces + new_num_associated_namespaces] = current_scope->use_namespace[k];
-                new_num_associated_namespaces++;
+                found = 1;
             }
         }
 
-        scope_entry_list_t* result = query_in_namespace_and_associates(
-                associated_namespace,
-                name, 
-                num_associated_namespaces, 
-                new_num_associated_namespaces,
-                associated_namespaces,
+        if (found)
+            continue;
+
+        scope_entry_list_t* result = qualified_query_in_namespace_rec(used_namespace, 
+                name,
                 decl_flags,
-                filename, 
-                line
-                );
+                filename, line,
+                num_visited_namespaces,
+                visited_namespaces);
 
         scope_entry_list_t* old_grand_result = grand_result;
         grand_result = entry_list_merge_aliases(old_grand_result, result);
         entry_list_free(old_grand_result);
         entry_list_free(result);
-        
+
         check_for_naming_ambiguity(grand_result, filename, line);
     }
 
     return grand_result;
 }
 
-static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace, 
-        const char* name, decl_flags_t decl_flags,
+static scope_entry_list_t* qualified_query_in_namespace(scope_entry_t* namespace, 
+        const char* name, 
+        decl_flags_t decl_flags,
         const char* filename, int line)
 {
-    ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
+    scope_entry_t* visited_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
 
-    scope_t* current_scope = namespace->related_decl_context.current_scope;
+    return qualified_query_in_namespace_rec(namespace, name, decl_flags, 
+            filename, line, 
+            0, visited_namespaces);
+}
 
-    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
-
+static void transitive_add_using_namespaces(decl_flags_t decl_flags, 
+        scope_t* scope_of_using,
+        scope_t* current_scope,
+        int *num_associated_namespaces,
+        associated_namespace_t associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES])
+{
     int i;
     for (i = 0; i < current_scope->num_used_namespaces; i++)
     {
-        if (i == MCXX_MAX_ASSOCIATED_NAMESPACES)
-            running_error("Too many associated namespaces > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
-        associated_namespaces[i] = current_scope->use_namespace[i];
-    }
+        int j;
+        char found = 0;
 
-    return query_in_namespace_and_associates(namespace, name, 
-            0, current_scope->num_used_namespaces, 
-            associated_namespaces, decl_flags,
-            filename, line); 
+        // Inlines are the only ones considered when doing a "only current
+        // scope" lookup
+        if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE)
+                && !current_scope->use_namespace[i]->entity_specs.is_inline)
+            continue;
+
+        for (j = 0; j < (*num_associated_namespaces) && !found; j++)
+        {
+            found = (associated_namespaces[j].nominated == current_scope->use_namespace[i]);
+        }
+        if (!found)
+        {
+            if ((*num_associated_namespaces) == MCXX_MAX_ASSOCIATED_NAMESPACES)
+                running_error("Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
+            associated_namespaces[(*num_associated_namespaces)].scope_of_using = scope_of_using;
+            associated_namespaces[(*num_associated_namespaces)].nominated = current_scope->use_namespace[i];
+            associated_namespaces[(*num_associated_namespaces)].visited = 0;
+            (*num_associated_namespaces)++;
+
+            transitive_add_using_namespaces(decl_flags, 
+                    scope_of_using,
+                    current_scope->use_namespace[i]->related_decl_context.current_scope, 
+                    num_associated_namespaces, associated_namespaces);
+        }
+    }
 }
 
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
@@ -2078,53 +2155,39 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     scope_entry_list_t* result = NULL;
 
     int num_associated_namespaces = 0;
-    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES] = { 0 };
+    associated_namespace_t associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
+    memset(associated_namespaces, 0, sizeof(associated_namespaces));
 
     scope_t* current_scope = decl_context.current_scope;
 
     while (result == NULL
             && current_scope != NULL)
     {
-        // If this scope has associated ones, add them to the associated scopes
-        int i;
-        for (i = 0; i < current_scope->num_used_namespaces; i++)
+        transitive_add_using_namespaces(decl_context.decl_flags, 
+                current_scope, 
+                current_scope,
+                &num_associated_namespaces, 
+                associated_namespaces);
+
+        if (current_scope->kind == CLASS_SCOPE)
         {
-            int j;
-            char found = 0;
-
-            // Inlines are the only ones considered when doing a "only current
-            // scope" lookup
-            if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE)
-                        && !current_scope->use_namespace[i]->entity_specs.is_inline)
-                continue;
-
-            for (j = 0; j < num_associated_namespaces && !found; j++)
+            if (!BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
             {
-                found = (associated_namespaces[j] == current_scope->use_namespace[i]);
+                result = query_in_class(current_scope, name, decl_context.decl_flags, 
+                        filename, line);
             }
-            if (!found)
+            else
             {
-                if (num_associated_namespaces == MCXX_MAX_ASSOCIATED_NAMESPACES)
-                    running_error("Too many associated scopes > %d", MCXX_MAX_ASSOCIATED_NAMESPACES);
-                associated_namespaces[num_associated_namespaces] = current_scope->use_namespace[i];
-                num_associated_namespaces++;
+                result = query_name_in_scope(current_scope, name);
             }
-        }
-
-        if (current_scope->kind == CLASS_SCOPE
-                && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
-        {
-            result = query_in_class(current_scope, name, decl_context.decl_flags, 
-                    filename, line);
         }
         else if (current_scope->kind == NAMESPACE_SCOPE)
         {
-            result = query_in_namespace_and_associates(
+            result = unqualified_query_in_namespace(
                     current_scope->related_entry,
-                    name, 0, num_associated_namespaces,
-                    associated_namespaces, decl_context.decl_flags,
+                    name, num_associated_namespaces,
+                    associated_namespaces, 
                     filename, line);
-            num_associated_namespaces = 0;
         }
         else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
         {
@@ -3873,7 +3936,8 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
     scope_entry_list_t* result = NULL;
 
     int num_associated_namespaces = 0;
-    scope_entry_t* associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES] = { 0 };
+    associated_namespace_t associated_namespaces[MCXX_MAX_ASSOCIATED_NAMESPACES];
+    memset(associated_namespaces, 0, sizeof(associated_namespaces));
 
     scope_t* current_scope = decl_context.current_scope;
 
@@ -3892,11 +3956,10 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
         else if (current_scope->kind == NAMESPACE_SCOPE)
         {
             scope_entry_list_t* old_result = result;
-            scope_entry_list_t* current_namespace = query_in_namespace_and_associates(
+            scope_entry_list_t* current_namespace = unqualified_query_in_namespace(
                     current_scope->related_entry,
-                    name, 0, num_associated_namespaces,
-                    associated_namespaces, decl_context.decl_flags,
-                    filename, line);
+                    name, num_associated_namespaces,
+                    associated_namespaces, filename, line);
             result = entry_list_merge(old_result, current_namespace);
 
             entry_list_free(old_result);

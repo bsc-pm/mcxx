@@ -1499,6 +1499,9 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
     {
         case SK_VARIABLE:
             {
+                if (symbol->entity_specs.is_builtin)
+                    break;
+
                 const char* decl_specifiers = "";
                 const char* gcc_attributes = "";
                 const char* declarator = "";
@@ -2522,9 +2525,10 @@ static int get_rank_kind(node_t n, const char* text)
         case NODECL_INTEGER_LITERAL:
         case NODECL_FLOATING_LITERAL:
         case NODECL_BOOLEAN_LITERAL:
-        case NODECL_STRUCTURED_LITERAL:
+        case NODECL_STRUCTURED_VALUE:
         case NODECL_PARENTHESIZED_EXPRESSION:
         case NODECL_BUILTIN_EXPR:
+        case NODECL_COMPOUND_EXPRESSION:
             {
                 return -1;
             }
@@ -2849,6 +2853,36 @@ static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodec
     }
 }
 
+static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "{\n");
+    visitor->indent_level++;
+    nodecl_t statement_seq = nodecl_get_child(node, 0);
+
+    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
+    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
+
+    visitor->current_scope = scope_symbol->decl_context.current_scope;
+    define_local_entities_in_trees(visitor, statement_seq);
+    visitor->current_scope = NULL;
+
+    codegen_walk(visitor, statement_seq);
+
+    visitor->indent_level--;
+    indent(visitor);
+    fprintf(visitor->file, "}");
+}
+
+static void codegen_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "(");
+
+    nodecl_t compound = nodecl_get_child(node, 0);
+    codegen_compound_statement_for_compound_expression(visitor, compound);
+
+    fprintf(visitor->file, ")");
+}
+
 static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t nest = nodecl_get_child(node, 0);
@@ -2890,7 +2924,8 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
 static void codegen_sizeof(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    type_t* t = nodecl_get_type(node);
+    nodecl_t type = nodecl_get_child(node, 0);
+    type_t* t = nodecl_get_type(type);
 
     fprintf(visitor->file, "sizeof(%s)", print_type_str(t, CURRENT_COMPILED_FILE->global_decl_context));
 }
@@ -3197,7 +3232,7 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
-static void codegen_structured_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t items = nodecl_get_child(node, 0);
 
@@ -4008,7 +4043,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin);
     NODECL_VISITOR(codegen_visitor)->visit_builtin_expr = codegen_visitor_fun(codegen_builtin);
     NODECL_VISITOR(codegen_visitor)->visit_any_list = codegen_visitor_fun(codegen_any_list);
-    NODECL_VISITOR(codegen_visitor)->visit_structured_literal = codegen_visitor_fun(codegen_structured_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_structured_value = codegen_visitor_fun(codegen_structured_value);
     NODECL_VISITOR(codegen_visitor)->visit_field_designator = codegen_visitor_fun(codegen_field_designator);
     NODECL_VISITOR(codegen_visitor)->visit_index_designator = codegen_visitor_fun(codegen_index_designator);
     NODECL_VISITOR(codegen_visitor)->visit_array_subscript = codegen_visitor_fun(codegen_array_subscript);
@@ -4024,6 +4059,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
+    NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);

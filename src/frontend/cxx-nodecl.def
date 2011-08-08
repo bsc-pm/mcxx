@@ -15,7 +15,7 @@ statement : statement-but-object-init
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
-          | NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
+          | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
           | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) symbol
           | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) symbol
@@ -33,6 +33,8 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | c-cxx-only-statements
           | fortran-only-statements
           | builtin-decl
+
+compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
 
 case-expression : expression
                 | subscript-triplet
@@ -65,7 +67,7 @@ literal : NODECL_INTEGER_LITERAL() type const_value
     | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | NODECL_BOOLEAN_LITERAL() type const_value
     | string-literal
-    | structured-literal
+    | structured-value
 
 string-literal: NODECL_STRING_LITERAL() type const_value
  
@@ -102,13 +104,14 @@ expression : literal
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type
            | NODECL_DERREFERENCE([rhs]expression) type
            | NODECL_CAST([rhs]expression) type text
+           | NODECL_COMPOUND_EXPRESSION([nest]compound-statement) type
            | c-cxx-expressions
            | fortran-expressions
            | object-init
            | builtin-expr
            | NODECL_ERR_EXPR()
 
-structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)

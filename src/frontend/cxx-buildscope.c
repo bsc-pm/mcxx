@@ -2772,10 +2772,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumeration_item->file = ASTFileName(enumeration_name);
             enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
-            C_LANGUAGE()
-            {
-                enumeration_item->type_information = get_signed_int_type();
-            }
 
             if (enumeration_expr != NULL)
             {
@@ -2918,16 +2914,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     print_declarator(underlying_type));
         }
 
-        CXX_LANGUAGE()
+        // Now set the type of all the enumerators to be of the enumerator
+        // type
+        int i;
+        for (i = 0; i < enum_type_get_num_enumerators(enum_type); i++)
         {
-            // Now set the type of all the enumerators to be of the enumerator
-            // type
-            int i;
-            for (i = 0; i < enum_type_get_num_enumerators(enum_type); i++)
-            {
-                scope_entry_t* enumerator = enum_type_get_enumerator_num(enum_type, i);
-                enumerator->type_information = *type_info;
-            }
+            scope_entry_t* enumerator = enum_type_get_enumerator_num(enum_type, i);
+            enumerator->type_information = *type_info;
         }
     }
 
@@ -5522,10 +5515,9 @@ static void set_array_type(type_t** declarator_type,
             {
                 error_printf("%s: error: declaring a variable sized object in a scope not allowing them\n",
                         ast_location(constant_expr));
+                *declarator_type = get_error_type();
+                return;
             }
-
-            *declarator_type = get_error_type();
-            return;
         }
     }
 
@@ -6091,8 +6083,9 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                 {
                     switch (ASTType(ASTSon0(a)))
                     {
-                        case AST_QUALIFIED_ID :
                         case AST_SYMBOL :
+                            return 1;
+                        case AST_QUALIFIED_ID :
                             return 1;
                         default :
                             return 0;
