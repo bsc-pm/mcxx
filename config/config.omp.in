@@ -28,6 +28,7 @@ linker_options = -Xlinker --add-needed
 {openmp,(nanox|openmpt|ompss|simd)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
 {acml} preprocessor_options = -include math.h -include smmintrin.h -include acml_mv_m128.h
 {acml} options = --variable=acml:1
+{interm-simd} options = --variable=interm-simd:1
 {simd} preprocessor_options = -include math.h
 {simd} options = --ompss --hlt -msse4.1
 {openmp,!debug,!(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance

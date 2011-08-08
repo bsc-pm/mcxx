@@ -432,6 +432,12 @@ HLTPragmaPhase::HLTPragmaPhase()
             "Enables ACML library in SIMD regions if set to '1'",
             _enable_hlt_acml_str,
             "0").connect(functor( &HLTPragmaPhase::set_acml_hlt, *this ));
+
+    register_parameter("interm-simd",
+            "Enables Intermediate SIMD code prettyprint if set to '1'",
+            _enable_hlt_intermediate_simd_prettyprint,
+            "0").connect(functor( &HLTPragmaPhase::set_intermediate_simd_prettyprint, *this ));
+
 }
 
 void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
@@ -449,6 +455,15 @@ void HLTPragmaPhase::set_acml_hlt(const std::string &str)
             HLT::enable_acml_library,
             "Option 'acml' is a boolean flag");
 }
+
+void HLTPragmaPhase::set_intermediate_simd_prettyprint(const std::string &str)
+{
+    TL::parse_boolean_option("interm-simd",
+            str,
+            HLT::enable_interm_simd_prettyprint,
+            "Option 'interm-simd' is a boolean flag");
+}
+
 
 //FIXME: Move me to a new phase
 void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
@@ -915,8 +930,8 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     {
         PragmaCustomCompilerPhase::run(dto);
 
-        //Intermediate SIMD code flag is on
-        if (0)
+        //If --interm-simd flag is on
+        if (enable_interm_simd_prettyprint)
         {
             AST_t translation_unit = dto["translation_unit"];
             std::cout << translation_unit.prettyprint();
