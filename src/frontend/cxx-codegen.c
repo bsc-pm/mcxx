@@ -34,7 +34,9 @@ struct nodecl_codegen_visitor_tag
 
     char in_condition;
     nodecl_t condition_top;
-    char in_initializer;
+    char in_copy_initializer;
+    char in_direct_initializer;
+    char inside_structured_value;
     char mem_init_list;
 
     int num_classes_being_defined;
@@ -1583,9 +1585,11 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         if (nodecl_get_kind(symbol->value) == NODECL_FUNCTION_CALL)
                         {
                             scope_entry_t* called_sym = nodecl_get_symbol(nodecl_get_child(symbol->value, 0));
-                            if (called_sym->entity_specs.is_constructor
-                                    && equivalent_types(called_sym->entity_specs.class_type, 
-                                        no_ref(symbol->type_information)))
+                            nodecl_t arguments = nodecl_get_child(symbol->value, 1);
+                            if (!nodecl_is_null(arguments)
+                                    && called_sym->entity_specs.is_constructor
+                                    && equivalent_types(get_unqualified_type(called_sym->entity_specs.class_type), 
+                                        get_unqualified_type(no_ref(symbol->type_information))))
                             {
                                 equal_is_needed = 0;
                             }
@@ -1595,19 +1599,26 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     if (equal_is_needed)
                     {
                         fprintf(visitor->file, "%s", " = ");
+
+                        char old_in_initializer = visitor->in_copy_initializer;
+                        visitor->in_copy_initializer = 1;
+
+                        codegen_walk(visitor, symbol->value);
+
+                        visitor->in_copy_initializer = old_in_initializer;
+                    }
+                    else
+                    {
+                        char old_in_initializer = visitor->in_direct_initializer;
+                        visitor->in_direct_initializer = 1;
+
+                        fprintf(visitor->file, "(");
+                        codegen_walk(visitor, symbol->value);
+                        fprintf(visitor->file, ")");
+
+                        visitor->in_direct_initializer = old_in_initializer;
                     }
 
-                    char in_initializer = visitor->in_initializer;
-                    visitor->in_initializer = 1;
-                    if (!nodecl_is_null(symbol->value))
-                    {
-                        if (!equal_is_needed)
-                            fprintf(visitor->file, "(");
-                        codegen_walk(visitor, symbol->value);
-                        if (!equal_is_needed)
-                            fprintf(visitor->file, ")");
-                    }
-                    visitor->in_initializer = in_initializer;
                 }
 
                 if (!visitor->in_condition)
@@ -2867,6 +2878,14 @@ static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodec
     }
 }
 
+static void codegen_pointer_to_member(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{
+    scope_entry_t* field = nodecl_get_symbol(node);
+
+    fprintf(visitor->file, "&");
+    fprintf(visitor->file, "%s", get_qualified_symbol_name(field, field->decl_context));
+}
+
 static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "{\n");
@@ -2929,10 +2948,14 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     if (!nodecl_is_null(initializer))
     {
-        int old_initializer = visitor->in_initializer;
-        visitor->in_initializer = 1;
+        fprintf(visitor->file, "(");
+
+        int old_initializer = visitor->in_direct_initializer;
+        visitor->in_direct_initializer = 1;
         codegen_walk(visitor, initializer);
-        visitor->in_initializer = old_initializer;
+        visitor->in_direct_initializer = old_initializer;
+
+        fprintf(visitor->file, ")");
     }
 }
 
@@ -3113,17 +3136,17 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
             {
                 // Do not print what is being called
                 // if we are in an initializer
-                if (!visitor->in_initializer)
+                if (!visitor->in_direct_initializer)
                 {
                     scope_entry_t* class_symbol = named_type_get_symbol(called_symbol->entity_specs.class_type);
                     fprintf(visitor->file, "%s", get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
                     fprintf(visitor->file, "(");
                 }
-                char old_initializer = visitor->in_initializer;
-                visitor->in_initializer = 0;
+                char old_initializer = visitor->in_direct_initializer;
+                visitor->in_direct_initializer = 0;
                 walk_expression_list(visitor, arguments);
-                visitor->in_initializer = old_initializer;
-                if (!visitor->in_initializer)
+                visitor->in_direct_initializer = old_initializer;
+                if (!visitor->in_direct_initializer)
                 {
                     fprintf(visitor->file, ")");
                 }
@@ -3251,17 +3274,25 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
     nodecl_t items = nodecl_get_child(node, 0);
     type_t* type = nodecl_get_type(node);
 
-    if (!visitor->in_initializer)
+    if (!visitor->in_copy_initializer
+            && !visitor->in_direct_initializer
+            && !visitor->inside_structured_value)
     {
         // We need a type here
         fprintf(visitor->file, "(%s)", print_type_str(type, visitor->current_sym->decl_context));
     }
-    char old_in_initializer = visitor->in_initializer;
-    visitor->in_initializer = 1;
+    char old_in_direct_initializer = visitor->in_direct_initializer;
+    char old_in_copy_initializer = visitor->in_copy_initializer;
+    visitor->in_copy_initializer = 0;
+    visitor->in_direct_initializer = 0;
+    char inside_structured_value = visitor->inside_structured_value;
+    visitor->inside_structured_value = 1;
     fprintf(visitor->file, "{ ");
     walk_expression_list(visitor, items);
     fprintf(visitor->file, " }");
-    visitor->in_initializer = old_in_initializer;
+    visitor->inside_structured_value = inside_structured_value;
+    visitor->in_copy_initializer = old_in_copy_initializer;
+    visitor->in_direct_initializer = old_in_direct_initializer;
 }
 
 static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -3716,10 +3747,10 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
         nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
         fprintf(visitor->file, "%s(", entry->symbol_name);
-        char in_initializer = visitor->in_initializer;
-        visitor->in_initializer = 1;
+        char in_direct_initializer = visitor->in_direct_initializer;
+        visitor->in_direct_initializer = 1;
         codegen_walk(visitor, nodecl_init_expr);
-        visitor->in_initializer = in_initializer;
+        visitor->in_direct_initializer = in_direct_initializer;
         fprintf(visitor->file, ")");
     }
 }
@@ -4083,6 +4114,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
+    NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
     NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);

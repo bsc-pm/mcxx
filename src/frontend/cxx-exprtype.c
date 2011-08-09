@@ -6048,6 +6048,8 @@ static type_t* compute_operator_reference_type(AST expression,
                 {
                     expression_set_type(expression, get_pointer_to_member_type(entry->type_information,
                                 named_type_get_symbol(entry->entity_specs.class_type)));
+                    expression_set_nodecl(expression,
+                            nodecl_make_pointer_to_member(entry, ASTFileName(expression), ASTLine(expression)));
                 }
 
                 return expression_get_type(expression);
@@ -8020,8 +8022,6 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
             ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
 
-            nodecl_t nodecl_placement_args = nodecl_null();
-
             // Store conversions
             if (new_placement != NULL)
             {
@@ -8056,7 +8056,7 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                                     ASTFileName(current_expr), ASTLine(current_expr));
                         }
 
-                        nodecl_placement = nodecl_append_to_list(nodecl_placement_args,
+                        nodecl_placement = nodecl_append_to_list(nodecl_placement,
                                 nodecl_expr);
 
                         i++;
@@ -8201,7 +8201,9 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                 }
             }
 
-            nodecl_t nodecl_new = nodecl_make_new(nodecl_init, nodecl_placement, declarator_type, ASTFileName(new_expr), ASTLine(new_expr));
+            nodecl_t nodecl_new = nodecl_make_new(nodecl_init, nodecl_placement, 
+                    chosen_operator_new, declarator_type, 
+                    ASTFileName(new_expr), ASTLine(new_expr));
 
             expression_set_type(new_expr, declarator_type);
             expression_set_is_lvalue(new_expr, 0);
@@ -8998,6 +9000,185 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
     return 0;
 }
 
+typedef
+struct check_arg_data_tag
+{
+    decl_context_t decl_context;
+} check_arg_data_t;
+
+
+static char arg_type_is_ok_for_param_type_c(type_t* arg_type, type_t* param_type, 
+        int num_parameter, AST arg UNUSED_PARAMETER, void *data UNUSED_PARAMETER)
+{
+    check_arg_data_t* p = (check_arg_data_t*)data;
+
+    standard_conversion_t result;
+    if (!standard_conversion_between_types(&result, arg_type, param_type))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: argument %d of type '%s' cannot be "
+                    "converted to type '%s' of parameter\n",
+                    ast_location(arg),
+                    num_parameter,
+                    print_type_str(arg_type, p->decl_context),
+                    print_type_str(param_type, p->decl_context));
+        }
+        return 0;
+    }
+    return 1;
+}
+
+static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_type, 
+        int num_parameter, AST arg, void* data)
+{
+    check_arg_data_t* p = (check_arg_data_t*)data;
+
+    char ambiguous_conversion = 0;
+    scope_entry_t* conversor = NULL;
+
+    if (!type_can_be_implicitly_converted_to(arg_type, param_type, p->decl_context, 
+                &ambiguous_conversion, &conversor, ASTFileName(arg), ASTLine(arg)))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: argument %d of type '%s' cannot be "
+                    "converted to type '%s' of parameter\n",
+                    ast_location(arg),
+                    num_parameter,
+                    print_type_str(arg_type, p->decl_context),
+                    print_type_str(param_type, p->decl_context));
+        }
+        return 0;
+    }
+    else
+    {
+        if (conversor != NULL)
+        {
+            if (function_has_been_deleted(p->decl_context, conversor, 
+                        ASTFileName(arg), ASTLine(arg)))
+            {
+                return 0;
+            }
+            expression_set_nodecl(arg, 
+                    cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(conversor, ASTFileName(arg), ASTLine(arg)),
+                        nodecl_make_list_1(expression_get_nodecl(arg)),
+                        actual_type_of_conversor(conversor), ASTFileName(arg), ASTLine(arg)));
+        }
+        else if (is_unresolved_overloaded_type(arg_type))
+        {
+            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
+            scope_entry_t* solved_function = address_of_overloaded_function(
+                    unresolved_set,
+                    unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+                    no_ref(param_type), 
+                    p->decl_context,
+                    ASTFileName(arg),
+                    ASTLine(arg));
+
+            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+            expression_set_nodecl(arg,
+                    nodecl_make_symbol(solved_function, ASTFileName(arg), ASTLine(arg)));
+        }
+    }
+    return 1;
+}
+
+static char check_argument_types_of_call(
+        AST function_call,
+        type_t* function_type,
+        AST argument_list,
+        char (*arg_type_is_ok_for_param_type)(type_t* argument_type, type_t* parameter_type, int num_parameter, AST arg, void*),
+        void *data)
+{
+    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    AST it;
+    int num_explicit_arguments = 0;
+    if (argument_list != NULL)
+    {
+        for_each_element(argument_list, it)
+        {
+            num_explicit_arguments++;
+        }
+    }
+
+    int num_args_to_check = num_explicit_arguments;
+
+    if (!function_type_get_lacking_prototype(function_type))
+    {
+        if (!function_type_get_has_ellipsis(function_type))
+        {
+            if (num_explicit_arguments != function_type_get_num_parameters(function_type))
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: call using %d arguments to a function with %d parameters\n",
+                            ast_location(function_call),
+                            num_explicit_arguments,
+                            function_type_get_num_parameters(function_type));
+                }
+                return 0;
+            }
+        }
+        else
+        {
+            int min_arguments = function_type_get_num_parameters(function_type) - 1;
+            num_args_to_check = min_arguments;
+
+            if (num_explicit_arguments < min_arguments)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: call with %d arguments for a function with at least %d parameters\n",
+                            ast_location(function_call),
+                            num_explicit_arguments,
+                            min_arguments);
+                }
+                return 0;
+            }
+        }
+    }
+
+    char no_arg_is_faulty = 1;
+    int i = 0;
+    if (argument_list != NULL)
+    {
+        AST iter;
+        for_each_element(argument_list, iter)
+        {
+            // Ellipsis is not to be checked
+            if (i >= num_args_to_check)
+                break;
+
+            AST arg = ASTSon1(iter);
+
+            type_t* arg_type = expression_get_type(arg);
+            type_t* param_type = NULL;
+            if (!function_type_get_lacking_prototype(function_type))
+            {
+                param_type = function_type_get_parameter_type_num(function_type, i);
+            }
+            else
+            {
+                param_type = get_signed_int_type();
+            }
+
+            if (!arg_type_is_ok_for_param_type(arg_type, param_type, i, arg, data))
+            {
+                no_arg_is_faulty = 0;
+            }
+
+            i++;
+        }
+    }
+
+
+    return no_arg_is_faulty;
+}
+
 static char any_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
@@ -9212,89 +9393,21 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             proper_function_type = pointer_type_get_pointee_type(proper_function_type);
         }
 
-        int max_args_to_check = num_explicit_arguments;
-        if (!function_type_get_lacking_prototype(proper_function_type))
+        check_arg_data_t data;
+        data.decl_context = decl_context;
+
+        if (!check_argument_types_of_call(
+                    whole_function_call, 
+                    proper_function_type, 
+                    arguments, 
+                    arg_type_is_ok_for_param_type_c, 
+                    &data))
         {
-            if (!function_type_get_has_ellipsis(proper_function_type))
+            DEBUG_CODE()
             {
-                if (num_explicit_arguments != function_type_get_num_parameters(proper_function_type))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: call using %d arguments to a function with %d parameters\n",
-                                ast_location(whole_function_call),
-                                num_explicit_arguments,
-                                function_type_get_num_parameters(proper_function_type));
-                    }
-                    if (CURRENT_CONFIGURATION->strict_typecheck)
-                        return 0;
-
-                    if (function_type_get_num_parameters(proper_function_type) < max_args_to_check)
-                        max_args_to_check = function_type_get_num_parameters(proper_function_type);
-                }
+                fprintf(stderr, "EXPRTYPE: One or more of the arguments where wrong in this call\n");
             }
-            else
-            {
-                int min_arguments = function_type_get_num_parameters(proper_function_type) - 1;
-                max_args_to_check = min_arguments;
-
-                if (num_explicit_arguments < min_arguments)
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: call with %d arguments for a function with at least %d parameters\n",
-                                ast_location(whole_function_call),
-                                num_explicit_arguments,
-                                min_arguments);
-                    }
-                    if (CURRENT_CONFIGURATION->strict_typecheck)
-                        return 0;
-                }
-            }
-        }
-
-        int i = 0;
-
-        if (arguments != NULL)
-        {
-            AST iter;
-            for_each_element(arguments, iter)
-            {
-                // Ellipsis is not to be checked
-                if (i >= max_args_to_check)
-                    break;
-
-                AST arg = ASTSon1(iter);
-
-                type_t* arg_type = expression_get_type(arg);
-                type_t* param_type = NULL;
-                if (!function_type_get_lacking_prototype(proper_function_type))
-                {
-                    param_type = function_type_get_parameter_type_num(proper_function_type, i);
-                }
-                else
-                {
-                    param_type = get_signed_int_type();
-                }
-
-                standard_conversion_t result;
-                if (!standard_conversion_between_types(&result, arg_type, param_type))
-                {
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: argument %d of type '%s' cannot be "
-                                "converted to type '%s' of parameter\n",
-                                ast_location(arg),
-                                i,
-                                print_type_str(arg_type, decl_context),
-                                print_type_str(param_type, decl_context));
-                    }
-                    if (CURRENT_CONFIGURATION->strict_typecheck)
-                        return 0;
-                }
-
-                i++;
-            }
+            return 0;
         }
 
         DEBUG_CODE()
@@ -9382,15 +9495,42 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                     prettyprint_in_buffer(called_expression),
                     ast_location(called_expression));
         }
-        // Fill nodecl
-        if (arguments != NULL)
+
+        check_arg_data_t data;
+        data.decl_context = decl_context;
+
+        type_t* proper_function_type = expression_get_type(called_expression);
+
+        if (!is_dependent_expr_type(proper_function_type))
         {
-            AST iter;
-            for_each_element(arguments, iter)
+            if (is_pointer_to_function_type(no_ref(proper_function_type)))
             {
-                AST argument = ASTSon1(iter);
-                (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
-                        expression_get_nodecl(argument));
+                proper_function_type = pointer_type_get_pointee_type(no_ref(proper_function_type));
+            }
+
+            if (!check_argument_types_of_call(whole_function_call, 
+                        no_ref(proper_function_type), 
+                        arguments, 
+                        arg_type_is_ok_for_param_type_cxx, 
+                        &data))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: But the call had one or more arguments wrong\n");
+                }
+                return 0;
+            }
+
+            // Fill nodecl
+            if (arguments != NULL)
+            {
+                AST iter;
+                for_each_element(arguments, iter)
+                {
+                    AST argument = ASTSon1(iter);
+                    (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
+                            expression_get_nodecl(argument));
+                }
             }
         }
         return 1;
@@ -9818,12 +9958,33 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
         if (arguments != NULL)
         {
+            int i = 0;
             AST iter;
             for_each_element(arguments, iter)
             {
                 AST argument = ASTSon1(iter);
+                type_t* arg_type = expression_get_type(argument);
+                type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, i);
+
+                if (is_unresolved_overloaded_type(arg_type))
+                {
+                    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
+                    scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
+                            unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
+                            no_ref(param_type),
+                            decl_context,
+                            ASTFileName(argument),
+                            ASTLine(argument));
+
+                    ERROR_CONDITION(solved_function == 0, "Code unreachable", 0);
+
+                    expression_set_nodecl(argument, 
+                            nodecl_make_symbol(solved_function, ASTFileName(argument), ASTLine(argument)));
+                }
+
                 (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
                         expression_get_nodecl(argument));
+                i++;
             }
         }
 
@@ -10471,10 +10632,13 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
         // The accessed type is the pointed type
         accessed_type = pointer_type_get_pointee_type(no_ref(expression_get_type(class_expr)));
 
-        nodecl_t nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(selected_operator_arrow, ASTFileName(class_expr), ASTLine(class_expr)),
-                nodecl_make_list_1(expression_get_nodecl(class_expr)),
-                t, ASTFileName(class_expr), ASTLine(class_expr));
+        nodecl_t nodecl_output = 
+            nodecl_make_derreference(
+                    cxx_nodecl_make_function_call(
+                        nodecl_make_symbol(selected_operator_arrow, ASTFileName(class_expr), ASTLine(class_expr)),
+                        nodecl_make_list_1(expression_get_nodecl(class_expr)),
+                        t, ASTFileName(class_expr), ASTLine(class_expr)),
+                    pointer_type_get_pointee_type(t), ASTFileName(class_expr), ASTLine(class_expr));
         expression_set_nodecl(class_expr, nodecl_output);
     }
 
