@@ -638,7 +638,10 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         }
         type_t* function_type = get_new_function_type(result_type, param_info, num_types);
 
-        scope_entry_t* new_entry = new_symbol(decl_context, decl_context.current_scope, name);
+        // We do not want it be signed in the scope
+        scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+        new_entry->symbol_name = name;
+        new_entry->decl_context = decl_context;
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
