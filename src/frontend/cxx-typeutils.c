@@ -8595,15 +8595,19 @@ char class_type_is_standard_layout(type_t* t)
 
 char is_aggregate_type(type_t* t)
 {
+    if (is_array_type(t))
+        return 1;
+
+    // GCC seems to understand vector types as aggregates
+    if (is_vector_type(t))
+        return 1;
+
     /*
        An aggregate is an array or a class (Clause 9) with no user-provided
        constructors (12.1), no brace-or-equal initializers for non-static data
        members (9.2), no private or protected non-static data members (Clause
        11), no base classes (Clause 10), and no virtual functions (10.3).
      */
-    if (is_array_type(t))
-        return 1;
-
     if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
