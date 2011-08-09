@@ -3235,10 +3235,19 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t items = nodecl_get_child(node, 0);
+    type_t* type = nodecl_get_type(node);
 
+    if (!visitor->in_initializer)
+    {
+        // We need a type here
+        fprintf(visitor->file, "(%s)", print_type_str(type, visitor->current_sym->decl_context));
+    }
+    char old_in_initializer = visitor->in_initializer;
+    visitor->in_initializer = 1;
     fprintf(visitor->file, "{ ");
     walk_expression_list(visitor, items);
     fprintf(visitor->file, " }");
+    visitor->in_initializer = old_in_initializer;
 }
 
 static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
