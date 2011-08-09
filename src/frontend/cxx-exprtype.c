@@ -1534,6 +1534,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         {
                             expression_set_type(expression, declarator_type);
                             expression_set_is_lvalue(expression, 0);
+
+                            nodecl_t nodecl_structured_value = nodecl_make_structured_value(
+                                    expression_get_nodecl(ASTSon1(expression)),
+                                    declarator_type,
+                                    ASTFileName(expression),
+                                    ASTLine(expression));
+                            expression_set_nodecl(expression, nodecl_structured_value);
                         }
                         else
                         {
@@ -11779,7 +11786,14 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                         length, decl_context);
                 expression_set_type(initializer, list_array);
             }
-            // FIXME - Vector???
+            else if (is_vector_type(declared_type))
+            {
+                expression_set_type(initializer, declared_type);
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
 
             for_each_element(expression_list, iter)
             {
@@ -12092,7 +12106,6 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
             if (prev != NULL)
             {
-                // FIXME - Vector types arrive here for some unknown reason. See ticket #593
                 error_printf("%s: error: brace initialization with more than one element is not valid here\n",
                         ast_location(initializer));
                 return 0;
@@ -12289,6 +12302,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
 
 static void check_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type)
 {
+    nodecl_t nodecl_list = nodecl_null();
     char faulty = 0;
     if (initializer_list != NULL)
     {
@@ -12298,8 +12312,14 @@ static void check_initializer_list(AST initializer_list, decl_context_t decl_con
         {
             AST initializer_clause = ASTSon1(iter);
 
-            if (!check_initializer_clause(initializer_clause, decl_context, declared_type))
+            if (check_initializer_clause(initializer_clause, decl_context, declared_type))
+            {
+                nodecl_list = nodecl_append_to_list(nodecl_list, expression_get_nodecl(initializer_clause));
+            }
+            else
+            {
                 faulty = 1;
+            }
         }
     }
 
@@ -12310,6 +12330,7 @@ static void check_initializer_list(AST initializer_list, decl_context_t decl_con
     else
     {
         // Set a type that is not an error
+        expression_set_nodecl(initializer_list, nodecl_list);
         expression_set_type(initializer_list, get_void_type());
     }
 }
