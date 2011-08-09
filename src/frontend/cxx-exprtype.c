@@ -585,9 +585,9 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
     }
 }
 
-static type_t* decimal_literal_type(AST expr, const_value_t** val);
+static type_t* decimal_literal_type(AST expr, const_value_t** val, nodecl_t* nodecl_output);
 static type_t* character_literal_type(AST expr, const_value_t** val);
-static type_t *floating_literal_type(AST expr, const_value_t** value);
+static type_t *floating_literal_type(AST expr, const_value_t** value, nodecl_t* nodecl_output);
 static type_t* string_literal_type(AST expr, const_value_t** value);
 
 // Typechecking functions
@@ -771,13 +771,13 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
+                nodecl_t nodecl_output = nodecl_null();
                 const_value_t* val = NULL;
-                type_t* t = decimal_literal_type(expression, &val);
+                type_t* t = decimal_literal_type(expression, &val, &nodecl_output);
                 expression_set_type(expression, t);
                 expression_set_constant(expression, val);
                 expression_set_is_lvalue(expression, 0);
 
-                nodecl_t nodecl_output = nodecl_make_integer_literal(t, val, ASTFileName(expression), ASTLine(expression));
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -787,12 +787,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
                 const_value_t* val = NULL;
-                type_t* t = floating_literal_type(expression, &val);
+                nodecl_t nodecl_output = nodecl_null();
+                type_t* t = floating_literal_type(expression, &val, &nodecl_output);
                 expression_set_type(expression, t);
                 expression_set_constant(expression, val);
                 expression_set_is_lvalue(expression, 0);
 
-                nodecl_t nodecl_output = nodecl_make_floating_literal(t, val, ASTFileName(expression), ASTLine(expression));
                 expression_set_nodecl(expression, nodecl_output);
                 break;
             }
@@ -1480,9 +1480,21 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                 // This is not actually an expression per se, but it appears in
                 // a place where 99% of the time an expression is used instead,
                 // so instead of filling the code with checks for this node
-                // type, accept it in the club of expressions with a type of
-                // signed int and a non constant expression
-                expression_set_type(expression, get_signed_int_type());
+                // type, accept it in the club of expressions as a reference
+                // to a fake symbol called '*'
+                static scope_entry_t* star_symbol = NULL;
+                if (star_symbol == NULL)
+                {
+                    star_symbol = counted_calloc(1, sizeof(*star_symbol), &_bytes_used_expr_check);
+                    star_symbol->symbol_name = "*";
+                    star_symbol->decl_context = CURRENT_COMPILED_FILE->global_decl_context;
+                    star_symbol->do_not_print = 1;
+                    star_symbol->type_information = get_signed_int_type();
+                    star_symbol->entity_specs.is_builtin = 1;
+                }
+                expression_set_type(expression, star_symbol->type_information);
+                expression_set_nodecl(expression,
+                        nodecl_make_symbol(star_symbol, ASTFileName(expression), ASTLine(expression)));
                 break;
             }
         case AST_GCC_POSTFIX_EXPRESSION :
@@ -1860,7 +1872,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
 }
 
 // Given a decimal literal computes the type due to its lexic form
-static type_t* decimal_literal_type(AST expr, const_value_t** val)
+static type_t* decimal_literal_type(AST expr, const_value_t** val, nodecl_t* nodecl_output)
 {
     const char *literal = ASTText(expr);
     const char *last = literal + strlen(literal) - 1;
@@ -1944,18 +1956,29 @@ static type_t* decimal_literal_type(AST expr, const_value_t** val)
             }
     }
 
-    if (is_complex)
-    {
-        result = get_complex_type(result);
-        // Not a constant, at the moment
-        *val = NULL;
-    }
-
     // Zero is a null pointer constant requiring a distinguishable 'int' type
     if (ASTType(expr) == AST_OCTAL_LITERAL
             && (strcmp(ASTText(expr), "0") == 0))
     {
         result = get_zero_type();
+    }
+
+    if (is_complex)
+    {
+        type_t* element_type = result;
+        result = get_complex_type(result);
+        *val = const_value_make_complex(const_value_get_zero(type_get_size(result), !is_unsigned), *val);
+
+        *nodecl_output = nodecl_make_complex_literal(
+                nodecl_make_integer_literal(element_type, const_value_get_zero(type_get_size(result), !is_unsigned), 
+                        ASTFileName(expr), ASTLine(expr)),
+                nodecl_make_integer_literal(element_type, *val, ASTFileName(expr), ASTLine(expr)),
+                result,
+                ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_integer_literal(result, *val, ASTFileName(expr), ASTLine(expr));
     }
 
     return result;
@@ -2064,7 +2087,7 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
 }
 
 // Given a floating literal computes the type due to its lexic form
-static type_t *floating_literal_type(AST expr, const_value_t** value)
+static type_t *floating_literal_type(AST expr, const_value_t** value, nodecl_t* nodecl_output)
 {
     const char *literal = ASTText(expr);
     const char *last = literal + strlen(literal) - 1;
@@ -2097,13 +2120,17 @@ static type_t *floating_literal_type(AST expr, const_value_t** value)
         last--;
     }
 
-    type_t* result = NULL ;
+    type_t* result = NULL;
+    const_value_t* zero = NULL;
     if (is_long_double)
     {
         result = get_long_double_type();
 
         long double ld = strtold(literal, NULL);
         *value = const_value_get_long_double(ld);
+
+        if (is_complex)
+            zero = const_value_get_long_double(0.0L);
     }
     else if (is_float)
     {
@@ -2111,6 +2138,9 @@ static type_t *floating_literal_type(AST expr, const_value_t** value)
 
         float f = strtof(literal, NULL);
         *value = const_value_get_float(f);
+
+        if (is_complex)
+            zero = const_value_get_float(0.0f);
     }
     else
     {
@@ -2118,12 +2148,25 @@ static type_t *floating_literal_type(AST expr, const_value_t** value)
 
         double d = strtod(literal, NULL);
         *value = const_value_get_double(d);
+
+        if (is_complex)
+            zero = const_value_get_double(0.0);
     }
 
     if (is_complex)
     {
-        // FIXME - We are missing a complex literal value!
+        type_t* element_type = result;
         result = get_complex_type(result);
+        *nodecl_output = 
+            nodecl_make_complex_literal(
+                    nodecl_make_floating_literal(element_type, zero, ASTFileName(expr), ASTLine(expr)),
+                    nodecl_make_floating_literal(element_type, *value, ASTFileName(expr), ASTLine(expr)),
+                    result,
+                    ASTFileName(expr), ASTLine(expr));
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_floating_literal(result, *value, ASTFileName(expr), ASTLine(expr));
     }
 
     return result;

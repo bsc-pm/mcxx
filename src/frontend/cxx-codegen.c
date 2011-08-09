@@ -2354,6 +2354,20 @@ static void codegen_integer_literal(nodecl_codegen_visitor_t* visitor, nodecl_t 
     }
 }
 
+static void codegen_complex_literal(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    // This is a GCC extension
+    //
+    // In C this complex literal is created using "2j" so it will always be a
+    // literal integer/float and the real part will be zero
+    
+    // nodecl_t real_part = nodecl_get_child(node, 0); // Zero
+    nodecl_t imag_part = nodecl_get_child(node, 0); 
+
+    codegen_walk(visitor, imag_part);
+    fprintf(visitor->file, "i"); // we could use 'j' too
+}
+
 static void codegen_text(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "%s", nodecl_get_text(node));
@@ -4014,6 +4028,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_add = codegen_visitor_fun(codegen_add);
     NODECL_VISITOR(codegen_visitor)->visit_symbol = codegen_visitor_fun(codegen_symbol);
     NODECL_VISITOR(codegen_visitor)->visit_integer_literal = codegen_visitor_fun(codegen_integer_literal);
+    NODECL_VISITOR(codegen_visitor)->visit_complex_literal = codegen_visitor_fun(codegen_complex_literal);
     NODECL_VISITOR(codegen_visitor)->visit_string_literal = codegen_visitor_fun(codegen_string_literal);
     NODECL_VISITOR(codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
     NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
