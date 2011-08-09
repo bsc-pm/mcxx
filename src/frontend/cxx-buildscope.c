@@ -1214,6 +1214,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     prettyprint_in_buffer(a),
                     ast_location(a));
 
+            // Only variables can be initialized
             if (initializer != NULL)
             {
                 if (current_gather_info.is_extern)
@@ -1223,7 +1224,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     running_error("%s: error: cannot initialize an typedef\n", ast_location(a));
             }
 
-            // Only variables can be initialized
             if (entry->kind == SK_VARIABLE)
             {
                 if (entry->defined
@@ -1285,28 +1285,55 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         || current_gather_info.emit_always)
                 {
                     if (!entry->entity_specs.is_member // Not a member
-                            || ( // Or a static member definition (outside of the class)
+                            || ( // Static member definition (outside of the class)
                                 entry->entity_specs.is_static  
-                                && decl_context.current_scope->kind != CLASS_SCOPE))
+                                && decl_context.current_scope->kind == NAMESPACE_SCOPE))
                     {
                         // Define the symbol
                         entry->defined = 1;
                         entry->point_of_definition = get_enclosing_declaration(init_declarator);
-
-                        if (decl_context.current_scope->kind == NAMESPACE_SCOPE
-                                || (IS_CXX_LANGUAGE
-                                    && decl_context.current_scope->kind == BLOCK_SCOPE
-                                    && is_class_type(entry->type_information)))
-                        {
-                            // Add an explicit initialization of this entity at namespace scope
-                            *nodecl_output = nodecl_concat_lists(
-                                    *nodecl_output,
-                                    nodecl_make_list_1(nodecl_make_object_init(
-                                            nodecl_null(),
-                                            entry, 
-                                            ASTFileName(init_declarator), ASTLine(init_declarator)))); 
-                        }
                     }
+                }
+
+                // We create object-init nodecls for several cases:
+                // - if the initializer is not null
+                if (initializer != NULL
+                        // (some cases only for C++)
+                        // (some cases only for C99)
+                        || (IS_C_LANGUAGE
+                            // - variably modified types must be declared here
+                            && is_variably_modified_type(entry->type_information))
+                        || (IS_CXX_LANGUAGE
+                            // - class variables
+                            && (is_class_type(entry->type_information)
+                                // - array of class type variables
+                                || (is_array_type(entry->type_information) 
+                                    && is_class_type(array_type_get_element_type(entry->type_information)))))
+                        || (decl_context.current_scope->kind == NAMESPACE_SCOPE
+                            // - namespace-scope declarations of non-member
+                            // entities that are non-extern since they are
+                            // definitions (global definitions are here)
+                            && ((!entry->entity_specs.is_member 
+                                    && !entry->entity_specs.is_extern)
+                                // - static member definitions (at
+                                // namespace-scope these are definitions too)
+                                || (entry->entity_specs.is_member 
+                                    && entry->entity_specs.is_static)))
+                        // - __attribute__((used)) 
+                        // (maybe we should elaborate this a bit more)
+                        || current_gather_info.emit_always)
+                {
+                    nodecl_t nodecl_init = nodecl_null();
+                    if (initializer != NULL)
+                    {
+                        nodecl_init = expression_get_nodecl(initializer);
+                    }
+                    *nodecl_output = nodecl_concat_lists(
+                            *nodecl_output,
+                            nodecl_make_list_1(nodecl_make_object_init(
+                                    nodecl_init,
+                                    entry, 
+                                    ASTFileName(init_declarator), ASTLine(init_declarator)))); 
                 }
             }
 
