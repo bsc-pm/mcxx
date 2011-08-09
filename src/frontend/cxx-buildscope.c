@@ -1138,7 +1138,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
+            warn_printf("%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
                     ast_location(a));
 
             simple_type_info = get_signed_int_type();
@@ -1239,7 +1239,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
+                        fprintf(stderr, "BUILDSCOPE: Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                     }
 
                     // This will yield a warning if needed but do not make it an error
@@ -1556,7 +1556,7 @@ void build_scope_decl_specifier_seq(AST a,
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
+            warn_printf("%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
                     ast_location(a));
 
             // Manually add the int tree to make things easier
@@ -2161,7 +2161,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
 
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Type not found, creating a stub in scope %p for '%s' %p\n", 
+                    fprintf(stderr, "BUILDSCOPE: Type not found, creating a stub in scope %p for '%s' %p\n", 
                             decl_context.current_scope,
                             class_name,
                             new_class);
@@ -2255,7 +2255,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Class type found already declared in %s:%d, using it\n", entry->file, entry->line);
+            fprintf(stderr, "BUILDSCOPE: Class type found already declared in %s:%d, using it\n", entry->file, entry->line);
         }
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
 
@@ -2390,7 +2390,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
+                fprintf(stderr, "BUILDSCOPE: Enum type not found, creating a stub for this scope\n");
             }
 
             if (ASTType(id_expression) != AST_SYMBOL)
@@ -2439,7 +2439,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Enum type found in %s:%d, using it\n", entry->file, entry->line);
+            fprintf(stderr, "BUILDSCOPE: Enum type found in %s:%d, using it\n", entry->file, entry->line);
         }
 
         *type_info = get_user_defined_type(entry);
@@ -2633,7 +2633,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "[BUILDSCOPE] Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+            fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
                     prettyprint_in_buffer(const_value_to_tree(min_value)),
                     prettyprint_in_buffer(const_value_to_tree(max_value)),
                     prettyprint_in_buffer(const_value_to_tree(integer_type_get_minimum(*result))),
@@ -2689,7 +2689,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Enum '%s' already declared\n", enum_name_str);
+                fprintf(stderr, "BUILDSCOPE: Enum '%s' already declared\n", enum_name_str);
             }
 
             new_entry = entry_list_head(enum_entry_list);
@@ -2700,7 +2700,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Registering enum '%s' in '%p'\n", enum_name_str, decl_context.current_scope);
+                fprintf(stderr, "BUILDSCOPE: Registering enum '%s' in '%p'\n", enum_name_str, decl_context.current_scope);
             }
 
             new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
@@ -2891,13 +2891,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (expression_is_constant(enumeration_item->language_dependent_value))
                 {
-                    fprintf(stderr, "Registering enumerator '%s' with constant value '%lld' and type '%s'\n", ASTText(enumeration_name),
+                    fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with constant value '%lld' and type '%s'\n", ASTText(enumeration_name),
                             (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->language_dependent_value)),
                             print_declarator(enumeration_item->type_information));
                 }
                 else
                 {
-                    fprintf(stderr, "Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
+                    fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
                             prettyprint_in_buffer(enumeration_item->language_dependent_value),
                             print_declarator(enumeration_item->type_information));
                 }
@@ -2936,7 +2936,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "[BUILDSCOPE] Underlying type for '%s' computed to '%s'\n", 
+            fprintf(stderr, "BUILDSCOPE: Underlying type for '%s' computed to '%s'\n", 
                     print_declarator(enum_type),
                     print_declarator(underlying_type));
         }
@@ -3055,7 +3055,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Base class '%s' IS NOT a dependent type\n", prettyprint_in_buffer(base_specifier));
+                fprintf(stderr, "BUILDSCOPE: Base class '%s' IS NOT a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
             
             scope_entry_t* base_class_symbol = result;
@@ -3083,7 +3083,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
+                fprintf(stderr, "BUILDSCOPE: Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
             is_dependent = 1;
         }
@@ -3176,69 +3176,6 @@ static char class_has_const_copy_constructor(type_t* t)
 }
 
 static char is_virtual_destructor(type_t* class_type);
-
-#if 0
-static void compute_code_for_default_constructor(type_t* class_type, nodecl_t* nodecl_output, 
-        scope_entry_t* entry, const char* filename, int line)
-{
-    scope_entry_list_t* virtual_base_classes = class_type_get_virtual_base_classes(class_type);
-    scope_entry_list_t* direct_base_classes = class_type_get_direct_base_classes(class_type);
-    scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
-
-    nodecl_t nodecl_initializer_list = nodecl_null();
-    scope_entry_list_iterator_t* it = NULL;
-    for (it = entry_list_iterator_begin(virtual_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_member = entry_list_iterator_current(it);
-
-        nodecl_initializer_list = nodecl_append_to_list(
-                nodecl_initializer_list,
-                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
-                
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(direct_base_classes);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_member = entry_list_iterator_current(it);
-
-        nodecl_initializer_list = nodecl_append_to_list(
-                nodecl_initializer_list,
-                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
-    }
-    entry_list_iterator_free(it);
-
-    for (it = entry_list_iterator_begin(nonstatic_data_members);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* current_member = entry_list_iterator_current(it);
-
-        nodecl_initializer_list = nodecl_append_to_list(
-                nodecl_initializer_list,
-                nodecl_make_object_init(nodecl_null(), current_member, filename, line));
-    }
-    entry_list_iterator_free(it);
-
-    entry_list_free(virtual_base_classes);
-    entry_list_free(direct_base_classes);
-    entry_list_free(nonstatic_data_members);
-
-    decl_context_t block_context = new_block_context(entry->decl_context);
-
-    *nodecl_output = nodecl_make_function_code(
-            nodecl_make_list_1(nodecl_make_compound_statement(nodecl_null(), 
-                    /* destructors??? */nodecl_null(), 
-                    new_scope_symbol(block_context),
-                    filename, line)),
-            nodecl_initializer_list,
-            nodecl_null(), entry, filename, line);
-}
-#endif
 
 static char is_nested_in_class(type_t* class_of_entry, type_t* class_of_constructor)
 {
@@ -3388,7 +3325,7 @@ static void build_scope_ctor_initializer(
                             if (!entry_list_contains(direct_base_classes, entry)
                                     && !entry_list_contains(virtual_bases, entry))
                             {
-                                fprintf(stderr, "%s: class '%s' is not a direct base or virtual base of class '%s'\n",
+                                warn_printf("%s: class '%s' is not a direct base or virtual base of class '%s'\n",
                                         ast_location(id_expression),
                                         get_qualified_symbol_name(entry, entry->decl_context),
                                         get_qualified_symbol_name(class_sym, class_sym->decl_context));
@@ -3748,7 +3685,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "Function '%s' of '%s:%d' is inheritedly virtual\n",
+                            fprintf(stderr, "BUILDSCOPE: Function '%s' of '%s:%d' is inheritedly virtual\n",
                                     print_decl_type_str(entry->type_information, decl_context, entry->symbol_name),
                                     entry->file,
                                     entry->line);
@@ -4783,7 +4720,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "Class '%s' already declared as %p in scope %p (%s:%d)\n", 
+                fprintf(stderr, "BUILDSCOPE: Class '%s' already declared as %p in scope %p (%s:%d)\n", 
                         prettyprint_in_buffer(class_id_expression),
                         class_entry, 
                         class_entry->decl_context.current_scope,
@@ -4824,7 +4761,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             // Update the template_scope
             DEBUG_CODE()
             {
-                fprintf(stderr, "Updating template scope\n");
+                fprintf(stderr, "BUILDSCOPE: Updating template scope\n");
             }
             class_entry->decl_context.template_parameters = decl_context.template_parameters;
 
@@ -4870,7 +4807,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "Registering class '%s' (%p) in scope %p\n", 
+                fprintf(stderr, "BUILDSCOPE: Registering class '%s' (%p) in scope %p\n", 
                         prettyprint_in_buffer(class_id_expression), class_entry, decl_context.current_scope);
             }
 
@@ -5036,7 +4973,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Adding the bases of this class\n");
+            fprintf(stderr, "BUILDSCOPE: Adding the bases of this class\n");
         }
 
         build_scope_base_clause(base_clause, 
@@ -5045,7 +4982,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Bases added\n");
+            fprintf(stderr, "BUILDSCOPE: Bases added\n");
         }
     }
 
@@ -5406,7 +5343,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Computed type of '%s' is  '%s'\n", 
+            fprintf(stderr, "BUILDSCOPE: Computed type of '%s' is  '%s'\n", 
                     prettyprint_in_buffer(a),
                     print_declarator(*declarator_type));
         }
@@ -6322,7 +6259,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Registering a conversion function in %s\n", ast_location(declarator_id));
+                    fprintf(stderr, "BUILDSCOPE: Registering a conversion function in %s\n", ast_location(declarator_id));
                 }
                 // Ok, according to the standard, this function returns the
                 // type defined in the conversion function id
@@ -6489,7 +6426,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Registering typedef '%s'\n", ASTText(declarator_id));
+        fprintf(stderr, "BUILDSCOPE: Registering typedef '%s'\n", ASTText(declarator_id));
     }
 
     entry->line = ASTLine(declarator_id);
@@ -6513,8 +6450,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "This is a typedef to function type, saving gathered information\n");
-            fprintf(stderr, "Number of parameters %d\n", gather_info->num_parameters);
+            fprintf(stderr, "BUILDSCOPE: This is a typedef to function type, saving gathered information\n");
+            fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", gather_info->num_parameters);
         }
 
         entry->entity_specs.num_parameters = gather_info->num_parameters;
@@ -6557,8 +6494,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "This is a typedef to typedef of function type, copying gathered information\n");
-                fprintf(stderr, "Number of parameters %d\n", named_type->entity_specs.num_parameters);
+                fprintf(stderr, "BUILDSCOPE: This is a typedef to typedef of function type, copying gathered information\n");
+                fprintf(stderr, "BUILDSCOPE: Number of parameters %d\n", named_type->entity_specs.num_parameters);
             }
 
             // Case 1 above will have copied such information in the symbol
@@ -6639,7 +6576,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Registering variable '%s' in %p\n", ASTText(declarator_id), decl_context.current_scope);
+            fprintf(stderr, "BUILDSCOPE: Registering variable '%s' in %p\n", ASTText(declarator_id), decl_context.current_scope);
         }
 
         scope_entry_t* entry = NULL;
@@ -6759,7 +6696,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Registering new function '%s' at %s. symbol=%p scope=%p is_template=%d\n", 
+            fprintf(stderr, "BUILDSCOPE: Registering new function '%s' at %s. symbol=%p scope=%p is_template=%d\n", 
                     function_name, 
                     ast_location(declarator_id),
                     new_entry,
@@ -6824,8 +6761,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
             DEBUG_CODE()
             {
-                fprintf(stderr , "This function declaration comes from a typedef of function type.\n");
-                fprintf(stderr , "Num parameters %d\n", named_function_type->entity_specs.num_parameters);
+                fprintf(stderr , "BUILDSCOPE: This function declaration comes from a typedef of function type.\n");
+                fprintf(stderr , "BUILDSCOPE: Num parameters %d\n", named_function_type->entity_specs.num_parameters);
             }
 
             // Adjust the parameter info
@@ -6995,7 +6932,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s:%d' (%s)\n",
+            fprintf(stderr, "BUILDSCOPE: Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s:%d' (%s)\n",
                     prettyprint_in_buffer(declarator_id), 
                     ast_location(declarator_id),
                     print_declarator(function_type_being_declared),
@@ -7013,7 +6950,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
             equal_entry = considered_symbol;
             DEBUG_CODE()
             {
-                fprintf(stderr, "Function declarator '%s' at '%s' matches symbol '%s' declared at '%s:%d'\n",
+                fprintf(stderr, "BUILDSCOPE: Function declarator '%s' at '%s' matches symbol '%s' declared at '%s:%d'\n",
                         prettyprint_in_buffer(declarator_id), 
                         ast_location(declarator_id),
                         considered_symbol->symbol_name,
@@ -7611,9 +7548,9 @@ static void build_scope_template_template_parameter(AST a,
     
     DEBUG_CODE()
     {
-        fprintf(stderr, "[%d] Registering template template-parameter '%s'\n",
-                template_parameters->num_parameters,
-                template_parameter_name);
+        fprintf(stderr, "BUILDSCOPE: Registering template template-parameter '%s' at position %d\n",
+                template_parameter_name,
+                template_parameters->num_parameters);
     }
 
     scope_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
@@ -7731,10 +7668,10 @@ static void build_scope_type_template_parameter(AST a,
         // This is a named type parameter. Register it in the symbol table
         DEBUG_CODE()
         {
-            fprintf(stderr, "[%d] Registering type template-parameter '%s' with nesting %d\n",
-                    template_parameters->num_parameters,
+            fprintf(stderr, "BUILDSCOPE: Registering type template-parameter '%s' with nesting %d and position %d\n",
                     ASTText(name), 
-                    nesting);
+                    nesting,
+                    template_parameters->num_parameters);
         }
         // Note that we sign it in the template_scope !
         template_parameter_name = ASTText(name);
@@ -7851,9 +7788,9 @@ static void build_scope_nontype_template_parameter(AST a,
         template_parameter_name = uniquestr(prettyprint_in_buffer(declarator_name));
         DEBUG_CODE()
         {
-            fprintf(stderr, "[%d] Registering '%s' as a non-type template parameter\n", 
-                    template_parameters->num_parameters,
-                    template_parameter_name);
+            fprintf(stderr, "BUILDSCOPE: Registering '%s' as a non-type template parameter at position %d\n", 
+                    template_parameter_name,
+                    template_parameters->num_parameters);
         }
         ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_TEMPLATE_PARAMETER_NAME, declarator_name);
@@ -8287,7 +8224,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Function definition!\n");
+        fprintf(stderr, "BUILDSCOPE: Function definition\n");
     }
     // A function definition has four parts
     //   decl_specifier_seq declarator ctor_initializer function_body
@@ -8342,12 +8279,12 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             {
                 if (decl_spec_seq == NULL)
                 {
-                    fprintf(stderr, "%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
+                    warn_printf("%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
                             ast_location(a));
                 }
                 else
                 {
-                    fprintf(stderr, "%s: warning: function definition does not have type-specifier, assuming 'int'\n",
+                    warn_printf("%s: warning: function definition does not have type-specifier, assuming 'int'\n",
                             ast_location(a));
                 }
 
@@ -8704,8 +8641,8 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
 {
     DEBUG_CODE()
     {
-    fprintf(stderr, "==== Member declaration line: [%s] ====\n",
-            ast_location(a));
+        fprintf(stderr, "==== Member declaration line: [%s] ====\n",
+                ast_location(a));
     }
     switch (ASTType(a))
     {
@@ -9257,7 +9194,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Setting member function definition at '%s' of '%s' as a member\n", 
+        fprintf(stderr, "BUILDSCOPE: Setting member function definition at '%s' of '%s' as a member\n", 
                 ast_location(a),
                 entry->symbol_name); 
     }
@@ -9469,7 +9406,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     scope_entry_t* entry = named_type_get_symbol(member_type);
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Setting type '%s' as member\n", 
+                        fprintf(stderr, "BUILDSCOPE: Setting type '%s' as member\n", 
                                 entry->symbol_name);
                     }
 
@@ -9691,7 +9628,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
+                            fprintf(stderr, "BUILDSCOPE: Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
                                     class_name);
                         }
                         entry->entity_specs.is_member = 1;
@@ -9713,7 +9650,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "Registering a nonstatic data member '%s' of class '%s'\n",
+                                    fprintf(stderr, "BUILDSCOPE: Registering a nonstatic data member '%s' of class '%s'\n",
                                             entry->symbol_name, class_name);
                                 }
                                 // This is a nonstatic data member
@@ -9725,7 +9662,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "Registering a static data member '%s' of class '%s'\n",
+                                    fprintf(stderr, "BUILDSCOPE: Registering a static data member '%s' of class '%s'\n",
                                             entry->symbol_name, class_name);
                                 }
                                 // This is a static data member
@@ -10664,7 +10601,7 @@ static void build_scope_case_statement(AST a,
     AST statement = ASTSon1(a);
     if (!check_expression(constant_expression, decl_context))
     {
-        fprintf(stderr, "%s: could not check case expression '%s'\n",
+        warn_printf("%s: could not check case expression '%s'\n",
                 ast_location(constant_expression),
                 prettyprint_in_buffer(constant_expression));
     }
