@@ -9376,6 +9376,7 @@ void class_type_add_friend_symbol(type_t* t, scope_entry_t* entry)
     class_type->type->class_info->friends = entry_list_add(class_type->type->class_info->friends, entry);
 }
 
+// This is like type_is_runtime_sized but allows pointers too while the former only allows arrays or classes
 char is_variably_modified_type(type_t* t)
 {
     CXX_LANGUAGE()
@@ -9383,36 +9384,14 @@ char is_variably_modified_type(type_t* t)
         return 0;
     }
 
-    if (is_array_type(t))
-    {
-        return array_type_is_vla(t);
-    }
-    else if (is_pointer_type(t))
+    if (is_pointer_type(t))
     {
         return is_variably_modified_type(pointer_type_get_pointee_type(t));
     }
-    else if (is_class_type(t))
+    else 
     {
-        type_t* class_type = get_actual_class_type(t);
-            scope_entry_list_t* nonstatic_data_members = class_type_get_nonstatic_data_members(class_type);
-        scope_entry_list_iterator_t* it = NULL;
-        char result = 0;
-        for (it = entry_list_iterator_begin(nonstatic_data_members);
-                !entry_list_iterator_end(it) && !result;
-                entry_list_iterator_next(it))
-        {
-            scope_entry_t* member = entry_list_iterator_current(it);
-
-            if (type_is_runtime_sized(member->type_information))
-                result = 1;
-        }
-        entry_list_iterator_free(it);
-        entry_list_free(nonstatic_data_members);
-
-        return result;
+        return type_is_runtime_sized(t);
     }
-
-    return 0;
 }
 
 const char* print_type_str(type_t* t, decl_context_t decl_context)
