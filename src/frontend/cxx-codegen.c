@@ -201,6 +201,14 @@ static void walk_type_for_symbols(
         walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
     }
+    else if (is_pointer_to_member_type(t))
+    {
+        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+
+        walk_type_for_symbols(visitor, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+    }
     else if (is_array_type(t))
     {
         define_entities_in_tree(visitor, array_type_get_array_size_expr(t));
@@ -211,13 +219,6 @@ static void walk_type_for_symbols(
             || is_rvalue_reference_type(t))
     {
         walk_type_for_symbols(visitor, reference_type_get_referenced_type(t), needs_def, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
-    }
-    else if (is_pointer_to_class_type(t))
-    {
-        walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
-                define_entities_in_tree);
-        walk_type_for_symbols(visitor, pointer_to_member_type_get_class_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
     }
     else if (is_function_type(t))
