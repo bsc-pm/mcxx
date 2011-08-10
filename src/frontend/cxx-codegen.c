@@ -2710,7 +2710,6 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     PREFIX_UNARY_EXPRESSION(predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(delete_array, "delete[] ") \
-    PREFIX_UNARY_EXPRESSION(throw, "throw ") \
     POSTFIX_UNARY_EXPRESSION(postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(postdecrement, "--") \
     BINARY_EXPRESSION(add, " + ") \
@@ -2891,6 +2890,20 @@ static void codegen_pointer_to_member(nodecl_codegen_visitor_t* visitor, nodecl_
     fprintf(visitor->file, "&");
     fprintf(visitor->file, "%s", get_qualified_symbol_name(field, field->decl_context));
 }
+
+static void codegen_throw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t expr = nodecl_get_child(node, 0);
+
+    fprintf(visitor->file, "throw");
+
+    if (!nodecl_is_null(expr))
+    {
+        fprintf(visitor->file, " ");
+        codegen_walk(visitor, expr);
+    }
+}
+
 
 static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
