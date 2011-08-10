@@ -1298,7 +1298,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
                         /* needs_def */ 1,
                         declare_symbol,
                         define_symbol,
-                        NULL);
+                        define_nonnested_entities_in_trees);
                 break;
             }
         case SK_ENUMERATOR:
