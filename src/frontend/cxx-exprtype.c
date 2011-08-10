@@ -9669,11 +9669,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             else
             {
                 argument_types[0] = class_type;
-                implicit_argument = nodecl_make_derreference(
-                            expression_get_nodecl(ASTSon0(called_expression)), 
-                            class_type,
-                            ASTFileName(ASTSon0(called_expression)), 
-                            ASTLine(ASTSon0(called_expression)));
+                implicit_argument = expression_get_nodecl(ASTSon0(called_expression));
             }
         }
         else if (any_is_member_function(candidates))
