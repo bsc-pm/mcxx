@@ -6871,6 +6871,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
     scope_entry_list_t* entry_list 
         = query_id_expression_flags(decl_context, declarator_id, decl_flags);
 
+
     type_t* function_type_being_declared = declarator_type;
 
     scope_entry_t* equal_entry = NULL;
@@ -6978,18 +6979,11 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         }
     }
     entry_list_iterator_free(it);
-
-    // Second attempt, match a specialization of a template function
-    if (templates_available
-            && gather_info->is_explicit_instantiation)
+    
+    // Preparation for the second attempt
+    template_parameter_list_t *explicit_template_parameters = NULL;
+    char declarator_is_template_id = 0;
     {
-        // Under explicit instantiation we do not allow friends
-        scope_entry_list_t* old_entry_list = entry_list;
-        entry_list = filter_friend_declared(entry_list);
-        entry_list_free(old_entry_list);
-
-        template_parameter_list_t *explicit_template_parameters = NULL;
-
         AST considered_tree = declarator_id;
         if (ASTType(declarator_id) == AST_QUALIFIED_ID
                 || ASTType(declarator_id) == AST_QUALIFIED_TEMPLATE)
@@ -6997,13 +6991,22 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
             considered_tree = ASTSon2(declarator_id);
         }
 
-        if (ASTType(considered_tree) == AST_TEMPLATE_ID
-                || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE
-           )
-        {
-            explicit_template_parameters = 
-                get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
-        }
+        declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
+                || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+        explicit_template_parameters = 
+            get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
+    }
+
+
+    // Second attempt, match a specialization of a template function
+    if (templates_available
+            && (gather_info->is_explicit_instantiation
+                || declarator_is_template_id))
+    {
+        // Under explicit instantiation we do not allow friends
+        scope_entry_list_t* old_entry_list = entry_list;
+        entry_list = filter_friend_declared(entry_list);
+        entry_list_free(old_entry_list);
 
         scope_entry_t* result = solve_template_function(
                 entry_list,
@@ -9314,7 +9317,8 @@ static void build_scope_friend_declarator(decl_context_t decl_context,
                 declarator_type, gather_info,
                 decl_context, &nodecl_output);
 
-    if (entry->kind != SK_FUNCTION)
+    if (entry == NULL
+            || entry->kind != SK_FUNCTION)
     {
         running_error("%s: error: invalid friend declaration, does not name a function\n",
                 declarator);
