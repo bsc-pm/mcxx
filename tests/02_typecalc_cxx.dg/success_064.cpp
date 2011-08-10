@@ -38,3 +38,5 @@ class A
 {
         friend void f<>(int*, char*, int, char);
 };
+
+A a;
