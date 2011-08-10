@@ -139,6 +139,12 @@ LIBMCXX_EXTERN void introduce_using_entities(scope_entry_list_t* used_entities,
         access_specifier_t current_access,
         const char* filename, int line);
 
+void build_scope_friend_declarator(decl_context_t decl_context, 
+        gather_decl_spec_t *gather_info,
+        type_t* class_type,
+        type_t* member_type, 
+        AST declarator);
+
 LIBMCXX_EXTERN void introduce_using_entity_id_expr(AST id_expression, 
         decl_context_t decl_context, access_specifier_t current_access);
 

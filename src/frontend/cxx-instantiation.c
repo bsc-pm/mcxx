@@ -691,6 +691,34 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
     }
 }
 
+static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAMETER,
+        type_t* being_instantiated, 
+        scope_entry_t* friend,
+        decl_context_t context_of_being_instantiated,
+        decl_context_t context_translation_function(decl_context_t, void*),
+        void *translation_data,
+        const char *filename, 
+        int line)
+{
+    decl_context_t orig_decl_context;
+    AST declarator = nodecl_unwrap_cxx_dependent_expr(friend->value, &orig_decl_context);
+    type_t* member_type = update_type_for_instantiation(friend->type_information,
+            context_of_being_instantiated,
+            context_translation_function, translation_data,
+            filename, line);
+
+    // FIXME - We should use the original one!
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+    gather_info.is_friend = 1;
+
+    build_scope_friend_declarator(context_of_being_instantiated,
+            &gather_info,
+            being_instantiated,
+            member_type,
+            declarator);
+}
+
 static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
@@ -825,6 +853,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     int num_items_enum_map = 0;
 
     scope_entry_list_t * members = class_type_get_members(get_actual_class_type(selected_template));
+    scope_entry_list_t * friends = class_type_get_friends(get_actual_class_type(selected_template));
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", entry_list_size(members));
@@ -849,6 +878,36 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     }
     entry_list_iterator_free(it);
     entry_list_free(members);
+
+    // Friends
+    for (it = entry_list_iterator_begin(friends);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* friend = entry_list_iterator_current(it);
+
+        if (friend->kind == SK_DEPENDENT_FRIEND)
+        {
+            instantiate_dependent_friend(selected_template, 
+                    being_instantiated, 
+                    friend,
+                    inner_decl_context,
+                    translation_function,
+                    &translation_info,
+                    filename, line);
+        }
+        else if (friend->kind == SK_FUNCTION
+                || friend->kind == SK_CLASS)
+        {
+            class_type_add_friend_symbol(get_actual_class_type(being_instantiated), friend);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
+    entry_list_iterator_free(it);
+    entry_list_free(friends);
 
     // The symbol is defined after this
     being_instantiated_sym->defined = 1;

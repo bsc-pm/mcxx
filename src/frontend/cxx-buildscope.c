@@ -6129,11 +6129,14 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info)
 {
+    if (function_symbol->kind == SK_DEPENDENT_ENTITY)
+        return;
+
     if (!is_named_type(declarator_type))
     {
         // We should mix here default argument info because the declarator has function-type form
         ERROR_CONDITION(gather_info->num_parameters != function_symbol->entity_specs.num_parameters,
-                "This two should be the same and they are %d != %d", 
+                "These two should be the same and they are %d != %d", 
                 gather_info->num_parameters, 
                 function_symbol->entity_specs.num_parameters);
 
@@ -6871,7 +6874,6 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
     scope_entry_list_t* entry_list 
         = query_id_expression_flags(decl_context, declarator_id, decl_flags);
 
-
     type_t* function_type_being_declared = declarator_type;
 
     scope_entry_t* equal_entry = NULL;
@@ -6889,9 +6891,15 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        // Ignore this case
+        // Ignore this case unless we are in a friend declaration
         if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            if (gather_info->is_friend)
+            {
+                return entry;
+            }
             continue;
+        }
 
         // This is so C90's ;)
         if (entry->kind == SK_CLASS
@@ -9298,30 +9306,58 @@ static void build_scope_default_or_delete_member_function_definition(decl_contex
     }
 }
 
-static void build_scope_friend_declarator(decl_context_t decl_context, 
+void build_scope_friend_declarator(decl_context_t decl_context, 
         gather_decl_spec_t *gather_info,
         type_t* class_type,
-        type_t* member_type, AST declarator)
+        type_t* member_type, 
+        AST declarator)
 {
     nodecl_t nodecl_output = nodecl_null();
 
     decl_context.current_scope = decl_context.namespace_scope;
 
     type_t* declarator_type = NULL;
-    compute_declarator_type(ASTSon0(declarator), gather_info, 
+    compute_declarator_type(declarator, gather_info, 
             member_type, &declarator_type, 
             decl_context, &nodecl_output);
 
     scope_entry_t *entry =
-        build_scope_declarator_name(ASTSon0(declarator),
+        build_scope_declarator_name(declarator,
                 declarator_type, gather_info,
                 decl_context, &nodecl_output);
 
     if (entry == NULL
-            || entry->kind != SK_FUNCTION)
+            || (entry->kind != SK_FUNCTION
+                && entry->kind != SK_DEPENDENT_ENTITY))
     {
         running_error("%s: error: invalid friend declaration, does not name a function\n",
-                declarator);
+                ast_location(declarator));
+    }
+
+    if (entry->kind == SK_FUNCTION
+            && is_dependent_type(entry->type_information))
+    {
+        // Create a dependent friend object since we need to update it later
+        scope_entry_t* new_dependent_friend = counted_calloc(1, sizeof(*new_dependent_friend), &_bytes_used_buildscope);
+        new_dependent_friend->kind = SK_DEPENDENT_FRIEND;
+        new_dependent_friend->decl_context = decl_context;
+        new_dependent_friend->file = entry->file;
+        new_dependent_friend->line = entry->line;
+        // Note that this is not the declarator type but the type-specifier one!
+        new_dependent_friend->type_information = member_type;
+        new_dependent_friend->value = 
+            nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
+
+        entry = new_dependent_friend;
+    }
+    else if (entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        // Fix the dependent entity here to be a dependent friend
+        entry->kind = SK_DEPENDENT_FRIEND;
+        // Keep the original member type here
+        entry->type_information = member_type;
+        entry->value = 
+            nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
     }
 
     class_type_add_friend_symbol(class_type, entry);
@@ -9573,7 +9609,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         // Friend declarations are so special
                         if (gather_info.is_friend)
                         {
-                            build_scope_friend_declarator(decl_context, &gather_info, class_info, member_type, declarator);
+                            build_scope_friend_declarator(decl_context, &gather_info, class_info, member_type, 
+                                    ASTSon0(declarator));
                             break;
                         }
 
