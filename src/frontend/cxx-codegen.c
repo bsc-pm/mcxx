@@ -2904,6 +2904,22 @@ static void codegen_throw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
+static void codegen_typeid(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t expr = nodecl_get_child(node, 0);
+
+    fprintf(visitor->file, "typeid(");
+    codegen_walk(visitor, expr);
+    fprintf(visitor->file, ")");
+
+}
+
+static void codegen_type(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    fprintf(visitor->file, "%s", print_type_str(t, visitor->current_sym->decl_context));
+}
 
 static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
@@ -4135,6 +4151,8 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
     NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
+    NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);
+    NODECL_VISITOR(codegen_visitor)->visit_type = codegen_visitor_fun(codegen_type);
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);

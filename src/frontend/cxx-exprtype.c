@@ -3068,8 +3068,6 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (!overloaded_call->entity_specs.is_builtin)
         {
-            *selected_operator = overloaded_call;
-
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
@@ -3090,6 +3088,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                         nodecl_make_list_1(nodecl_argument),
                         actual_type_of_conversor(conversors[0]), ASTFileName(op), ASTLine(op)));
         }
+
+        *selected_operator = overloaded_call;
 
         overloaded_type = function_type_get_return_type(overloaded_call->type_information);
 
@@ -7013,6 +7013,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             }
 
             nodecl_t subscript_expr_nodecl = expression_get_nodecl(subscript_expr);
+            nodecl_t subscripted_expr_nodecl = expression_get_nodecl(subscripted_expr);
             if (conversors[1] != NULL)
             {
                 if (function_has_been_deleted(decl_context, conversors[1], ASTFileName(expr), ASTLine(expr)))
@@ -7039,7 +7040,7 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
 
             nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                     nodecl_make_symbol(overloaded_call, ASTFileName(expr), ASTLine(expr)),
-                    subscript_expr_nodecl,
+                    nodecl_make_list_2(subscripted_expr_nodecl, subscript_expr_nodecl),
                     function_type_get_return_type(overloaded_call->type_information), ASTFileName(expr), ASTLine(expr));
             expression_set_nodecl(expr, nodecl_output);
             return;
@@ -8909,18 +8910,20 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
                     unresolved_overloaded_type_simplify(argument_type, decl_context, ASTLine(argument_tree), ASTFileName(argument_tree));
                 if (entry != NULL)
                 {
+                    nodecl_t nodecl_argument = nodecl_null();
                     if (!entry->entity_specs.is_member
                             || entry->entity_specs.is_static)
                     {
                         argument_type = get_lvalue_reference_type(entry->type_information);
+                        nodecl_argument = nodecl_make_symbol(entry, ASTFileName(argument_tree), ASTLine(argument_tree));
                     }
                     else
                     {
                         argument_type = get_pointer_to_member_type(entry->type_information,
                                 named_type_get_symbol(entry->entity_specs.class_type));
+                        nodecl_argument = nodecl_make_pointer_to_member(entry, ASTFileName(argument_tree), ASTLine(argument_tree));
                     }
 
-                    nodecl_t nodecl_argument = nodecl_make_symbol(entry, ASTFileName(argument_tree), ASTLine(argument_tree));
                     expression_set_nodecl(argument_tree, nodecl_argument);
                 }
             }
@@ -9079,8 +9082,17 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
 
             ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
 
-            expression_set_nodecl(arg,
-                    nodecl_make_symbol(solved_function, ASTFileName(arg), ASTLine(arg)));
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                expression_set_nodecl(arg,
+                        nodecl_make_symbol(solved_function, ASTFileName(arg), ASTLine(arg)));
+            }
+            else
+            {
+                expression_set_nodecl(arg,
+                        nodecl_make_pointer_to_member(solved_function, ASTFileName(arg), ASTLine(arg)));
+            }
         }
     }
     return 1;
@@ -9974,8 +9986,17 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
                     ERROR_CONDITION(solved_function == 0, "Code unreachable", 0);
 
-                    expression_set_nodecl(argument, 
-                            nodecl_make_symbol(solved_function, ASTFileName(argument), ASTLine(argument)));
+                    if (!solved_function->entity_specs.is_member
+                            || solved_function->entity_specs.is_static)
+                    {
+                        expression_set_nodecl(argument, 
+                                nodecl_make_symbol(solved_function, ASTFileName(argument), ASTLine(argument)));
+                    }
+                    else
+                    {
+                        expression_set_nodecl(argument, 
+                                nodecl_make_pointer_to_member(solved_function, ASTFileName(argument), ASTLine(argument)));
+                    }
                 }
 
                 (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
@@ -11088,7 +11109,9 @@ static void check_postoperator_user_defined(AST expr, AST operator,
                     expr,
                     cxx_nodecl_make_function_call(
                         nodecl_make_symbol(overloaded_call, ASTFileName(postoperated_expr), ASTLine(postoperated_expr)),
-                        nodecl_make_list_1(expression_get_nodecl(postoperated_expr)),
+                        nodecl_make_list_2(/* 0 */ 
+                            expression_get_nodecl(postoperated_expr),
+                            const_value_to_nodecl(const_value_get_zero(type_get_size(get_signed_int_type()), /* signed */ 1))),
                         function_type_get_return_type(overloaded_call->type_information), 
                         ASTFileName(postoperated_expr), ASTLine(postoperated_expr)));
         }
@@ -12289,9 +12312,9 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
                 nodecl_t nodecl_output = cxx_nodecl_make_function_call(
                         nodecl_make_symbol(constructor, ASTFileName(initializer), ASTLine(initializer)),
-                        nodecl_make_structured_value(nodecl_arguments,
+                        nodecl_make_list_1(nodecl_make_structured_value(nodecl_arguments,
                             specialized_std_initializer,
-                            ASTFileName(initializer), ASTLine(initializer)),
+                            ASTFileName(initializer), ASTLine(initializer))),
                         declared_type,
                         ASTFileName(initializer), ASTLine(initializer));
 

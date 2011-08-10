@@ -6467,7 +6467,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 
                 if (declarator_needs_parentheses(type_info))
                 {
-                    (*left) = strappend("(", (*left));
+                    (*left) = strappend((*left), "(");
                 }
 
                 (*left) = strappend((*left), "*");
@@ -6487,10 +6487,9 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 
                 if (declarator_needs_parentheses(type_info))
                 {
-                    (*left) = strappend("(", (*left));
+                    (*left) = strappend((*left), "(");
                 }
 
-                // FIXME - This should be qualified!
                 (*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
 
                 (*left) = strappend((*left), "::");
@@ -6512,7 +6511,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 
                 if (declarator_needs_parentheses(type_info))
                 {
-                    (*left) = strappend("(", (*left));
+                    (*left) = strappend((*left), "(");
                 }
                 if (type_info->kind == TK_LVALUE_REFERENCE)
                 {
