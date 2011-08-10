@@ -621,6 +621,11 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
                     declare_symbol_if_nonnested, 
                     define_symbol_if_nonnested,
                     define_nonnested_entities_in_trees);
+
+            if (!is_friend_declared(friend))
+            {
+                declare_symbol_if_nonnested(visitor, friend);
+            }
         }
         entry_list_iterator_free(it);
         entry_list_free(friends);
