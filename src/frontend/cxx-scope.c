@@ -3813,7 +3813,14 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         // This symbol must be looked up for the proper real name
-        result = entry->symbol_name;
+        scope_entry_t* real_name = lookup_of_template_parameter(
+                decl_context,
+                entry->entity_specs.template_parameter_nesting,
+                entry->entity_specs.template_parameter_position);
+
+        ERROR_CONDITION(real_name == NULL, "Invalid template parameter symbol", 0);
+
+        result = real_name->symbol_name;
 
         // This is dependent
         (*is_dependent) |= 1;

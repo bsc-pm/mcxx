@@ -1691,6 +1691,9 @@ type_t* template_type_get_matching_specialized_type(type_t* t,
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context)
 {
+    // This is needed only by debug routines
+    decl_context.template_parameters = template_parameters;
+
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
     // Search an existing specialization

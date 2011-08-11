@@ -119,15 +119,13 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     // This is the primary template
     template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
 
-    scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
-            context_of_being_instantiated.current_scope,
-            member_of_template->symbol_name);
 
     template_parameter_list_t* updated_template_parameters = duplicate_template_argument_list(template_parameters);
     updated_template_parameters->enclosing = context_of_being_instantiated.template_parameters;
 
     decl_context_t new_context_for_template_parameters = context_of_being_instantiated;
     new_context_for_template_parameters.template_parameters = updated_template_parameters;
+
         
     // Update the template parameters
     int i;
@@ -157,12 +155,16 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 filename, line);
     }
 
+    scope_entry_t* new_member = new_symbol(new_context_for_template_parameters, 
+            new_context_for_template_parameters.current_scope,
+            member_of_template->symbol_name);
+
     new_member->kind = SK_TEMPLATE;
     new_member->type_information = 
         get_new_template_type(updated_template_parameters,
                 base_type,
                 new_member->symbol_name,
-                context_of_being_instantiated,
+                new_context_for_template_parameters,
                 member_of_template->line,
                 member_of_template->file);
 
@@ -187,7 +189,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     type_t* new_primary_template = template_type_get_primary_type(new_member->type_information);
 
-    named_type_get_symbol(new_primary_template)->decl_context = context_of_being_instantiated;
+    named_type_get_symbol(new_primary_template)->decl_context = new_context_for_template_parameters;
 
     named_type_get_symbol(new_primary_template)->entity_specs = 
         named_type_get_symbol(
@@ -593,9 +595,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 {
                     fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
                             print_decl_type_str(new_member->type_information, 
-                                context_of_being_instantiated, 
+                                new_member->decl_context,
                                 get_qualified_symbol_name(new_member, 
-                                    context_of_being_instantiated)));
+                                    new_member->decl_context)));
                 }
 
                 if (member_of_template->entity_specs.is_constructor)
