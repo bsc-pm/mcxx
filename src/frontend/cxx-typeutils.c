@@ -643,7 +643,7 @@ type_t* get_wchar_t_type(void)
         // In C there is no wchar_t type, use 'int'
         C_LANGUAGE()
         {
-            _type = get_signed_int_type();
+            _type = (CURRENT_CONFIGURATION->type_environment->int_type_of_wchar_t)();
         }
     }
 
@@ -5278,8 +5278,8 @@ char is_wchar_t_type(type_t* t)
     t = advance_over_typedefs(t);
     C_LANGUAGE()
     {
-        // In C, there is no wchar_t, at the moment use a plain 'int'
-        return is_signed_int_type(t);
+        // In C, there is no wchar_t but an integral type representing it
+        return equivalent_types(t, get_wchar_t_type());
     }
 
     // C++
