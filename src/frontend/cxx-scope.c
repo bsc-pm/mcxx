@@ -3815,7 +3815,7 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         // This symbol must be looked up for the proper real name
         result = entry->symbol_name;
 
-        // This is obviously dependent
+        // This is dependent
         (*is_dependent) |= 1;
         return result;
     }
@@ -3830,6 +3830,15 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         result = strappend(result, template_parameters);
 
         (*is_dependent) |= is_dependent_type(entry->type_information);
+
+        type_t* template_type = template_specialized_type_get_related_template_type(entry->type_information);
+        scope_entry_t* template_sym = template_type_get_related_symbol(template_type);
+        if (template_sym->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            // This is dependent
+            (*is_dependent) |= 1;
+            return result;
+        }
     }
 
     if (entry->entity_specs.is_member)

@@ -2583,11 +2583,11 @@ static int get_rank_kind(node_t n, const char* text)
         case NODECL_DELETE:
         case NODECL_PREINCREMENT:
         case NODECL_PREDECREMENT:
+        case NODECL_REAL_PART:
+        case NODECL_IMAG_PART:
             // FIXME: Missing GCC nodes 
             // FIXME: Do we want them or we can use builtins?
             // case NODECL_ALIGNOF
-            // case NODECL_REAL
-            // case NODECL_IMAG
             // case NODECL_LABEL_ADDR
             {
                 return -3;
@@ -2710,6 +2710,8 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     PREFIX_UNARY_EXPRESSION(predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(delete_array, "delete[] ") \
+    PREFIX_UNARY_EXPRESSION(real_part, "__real__ ") \
+    PREFIX_UNARY_EXPRESSION(imag_part, "__imag__ ") \
     POSTFIX_UNARY_EXPRESSION(postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(postdecrement, "--") \
     BINARY_EXPRESSION(add, " + ") \

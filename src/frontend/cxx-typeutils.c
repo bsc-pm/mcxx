@@ -2071,6 +2071,9 @@ static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
                 decl_context,
                 array_region);
 
+        // Keep this attribute
+        result->array->is_literal_string = array_type->array->is_literal_string;
+
         return result;
 }
 
@@ -8043,16 +8046,14 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
         return NULL;
     }
 
+    ERROR_CONDITION(entry->kind != SK_TEMPLATE, "This should be a template type\n", 0);
+
+    template_parameter_list_t* template_arguments = duplicate_template_argument_list(template_type_get_template_parameters(entry->type_information));
+    template_arguments->arguments = argument_list->arguments;
+
     // Get a specialization of this template
-    // type_t* specialization_type = template_type_get_primary_type(entry->type_information);
-    // scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
-    // type_t* specialized_function_type = specialization_symbol->type_information;
-
-    // template_parameter_list_t* template_parameters = 
-    //     template_specialized_type_get_template_arguments(specialized_function_type);
-
     type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-            argument_list, decl_context, line, filename);
+            template_arguments, decl_context, line, filename);
 
     if (!is_dependent_type(named_specialization_type))
     {

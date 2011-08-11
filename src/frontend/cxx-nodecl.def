@@ -157,6 +157,8 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_DELETE([rhs]expression) type
                   | NODECL_DELETE_ARRAY([rhs]expression) type
                   | NODECL_POINTER_TO_MEMBER() symbol
+                  | NODECL_REAL_PART([rhs]expression) type
+                  | NODECL_IMAG_PART([rhs]expression) type
                   | cxx-dependent-expr
                   | cxx-unresolved-overload
 

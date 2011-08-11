@@ -6708,6 +6708,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                    );
         }
 
+        new_entry->entity_specs.is_user_declared = 1;
+
         new_entry->entity_specs.is_static = gather_info->is_static;
         new_entry->entity_specs.is_extern = gather_info->is_extern;
         new_entry->entity_specs.is_inline = gather_info->is_inline;

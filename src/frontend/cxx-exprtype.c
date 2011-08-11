@@ -715,6 +715,10 @@ void ensure_function_is_emitted(scope_entry_t* entry,
     if (entry != NULL
             && entry->kind == SK_FUNCTION)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: Ensuring function '%s' will be emitted\n", get_qualified_symbol_name(entry, entry->decl_context));
+        }
         if (is_template_specialized_type(entry->type_information)
                 || entry->entity_specs.is_non_emitted)
         {
@@ -1432,9 +1436,35 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
                         {
                             expression_set_type(expression, real_part_type);
                         }
+
+                        nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const char*, int) = NULL;
+                        if (ASTType(expression) == AST_GCC_REAL_PART)
+                        {
+                            nodecl_fun = nodecl_make_real_part;
+                        }
+                        else if (ASTType(expression) == AST_GCC_IMAG_PART)
+                        {
+                            nodecl_fun = nodecl_make_imag_part;
+                        }
+                        else
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+
+                        nodecl_t nodecl_output = nodecl_fun(expression_get_nodecl(ASTSon0(expression)), 
+                                real_part_type, 
+                                ASTFileName(expression),
+                                ASTLine(expression));
+                        expression_set_nodecl(expression, nodecl_output);
                     }
                     else
                     {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: expression '%s' does not have complex type\n",
+                                    ast_location(expression),
+                                    prettyprint_in_buffer(ASTSon0(expression)));
+                        }
                         expression_set_error(expression);
                     }
                 }
@@ -9778,10 +9808,6 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
             if (is_pointer_to_function_type(no_ref(destination_type)))
             {
-                ERROR_CONDITION(num_surrogate_functions == MCXX_MAX_SURROGATE_FUNCTIONS,
-                        "Too many surrogate functions to be considered in '%s'\n", 
-                        prettyprint_in_buffer(whole_function_call));
-
                 // Create a faked surrogate function with the type described below
                 scope_entry_t* surrogate_symbol =
                     counted_calloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
@@ -9807,6 +9833,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 // This is a surrogate function created here
                 surrogate_symbol->entity_specs.is_surrogate_function = 1;
                 surrogate_symbol->entity_specs.is_builtin = 1;
+
+                surrogate_symbol->entity_specs.alias_to = conversion;
 
                 // Given
                 //
@@ -9908,6 +9936,51 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
     if (overloaded_call != NULL)
     {
+        nodecl_t nodecl_called = nodecl_null();
+        type_t* function_type_of_called = NULL;
+        if (overloaded_call->entity_specs.is_surrogate_function)
+        {
+            ERROR_CONDITION(nodecl_is_null(implicit_argument), "There must be an implicit argument when calling a surrogate!", 0);
+
+            nodecl_called = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(overloaded_call->entity_specs.alias_to, 
+                        nodecl_get_filename(implicit_argument), nodecl_get_line(implicit_argument)),
+                    nodecl_make_list_1(implicit_argument),
+                    function_type_get_return_type(overloaded_call->entity_specs.alias_to->type_information),
+                    nodecl_get_filename(implicit_argument), nodecl_get_line(implicit_argument)
+                    );
+
+
+            overloaded_call = overloaded_call->entity_specs.alias_to;
+
+            function_type_of_called = no_ref(function_type_get_return_type(overloaded_call->type_information));
+
+            if (is_pointer_to_function_type(function_type_of_called))
+            {
+                function_type_of_called = pointer_type_get_pointee_type(function_type_of_called);
+            }
+            ERROR_CONDITION(!is_function_type(function_type_of_called), "Invalid function type!\n", 0);
+        }
+        else
+        {
+            nodecl_called = nodecl_make_symbol(overloaded_call, ASTFileName(called_expression), ASTLine(called_expression));
+
+            function_type_of_called = overloaded_call->type_information;
+
+            // Add this
+            if (!nodecl_is_null(implicit_argument)
+                    && overloaded_call->entity_specs.is_member 
+                    && !overloaded_call->entity_specs.is_static)
+            {
+                (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
+                        implicit_argument);
+            }
+
+            expression_set_symbol(advanced_called_expression, overloaded_call);
+        }
+
+        expression_set_nodecl(called_expression, nodecl_called);
+
         if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(whole_function_call), ASTLine(whole_function_call)))
         {
             return 0;
@@ -9918,12 +9991,13 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         {
             fprintf(stderr, "EXPRTYPE: Overload resolution succeeded\n");
         }
-        expression_set_type(called_expression, overloaded_call->type_information);
-        expression_set_type(advanced_called_expression, overloaded_call->type_information);
-        // Tag the node with symbol information (this is useful to know who is being called)
-        expression_set_symbol(advanced_called_expression, overloaded_call);
 
-        int arg_i = 0;
+        expression_set_type(called_expression, function_type_of_called);
+        expression_set_type(advanced_called_expression, function_type_of_called);
+        // Tag the node with symbol information (this is useful to know who is being called)
+
+        // Starting from 0 would be a conversion of 'this' which does not apply here
+        int arg_i = 1;
         if (arguments != NULL)
         {
             // Set conversors of arguments if needed
@@ -9952,17 +10026,6 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 arg_i++;
             }
         }
-        nodecl_t nodecl_called = nodecl_make_symbol(overloaded_call, ASTFileName(called_expression), ASTLine(called_expression));
-        expression_set_nodecl(called_expression, nodecl_called);
-
-        // Now fill the nodecl
-        if (!nodecl_is_null(implicit_argument)
-                && overloaded_call->entity_specs.is_member 
-                && !overloaded_call->entity_specs.is_static)
-        {
-            (*nodecl_argument_list) = nodecl_append_to_list((*nodecl_argument_list),
-                    implicit_argument);
-        }
 
         if (arguments != NULL)
         {
@@ -9972,7 +10035,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
             {
                 AST argument = ASTSon1(iter);
                 type_t* arg_type = expression_get_type(argument);
-                type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, i);
+                type_t* param_type = function_type_get_parameter_type_num(function_type_of_called, i);
 
                 if (is_unresolved_overloaded_type(arg_type))
                 {
