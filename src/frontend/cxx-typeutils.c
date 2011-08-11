@@ -5960,7 +5960,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         case STK_INDIRECT :
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
-
+                
                 char is_dependent = 0;
                 int max_level = 0;
                 result = get_fully_qualified_symbol_name(entry,
@@ -6440,27 +6440,22 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    {
-        cv_qualifier_t cv = CV_NONE;
-        type_info = advance_over_typedefs_with_cv_qualif(type_info, &cv);
-        type_info = get_cv_qualified_type(type_info, cv);
-    }
-
-    // Every case follows this schema 
-    //
-    //     left = left + text          ; Text of the declarator. Note: no declarator adds
-    //     right = right + text        ; at the same time left and right (except of parentheses)
-    //
-    //     if need-parentheses         ; This part is only needed for pointers and references
-    //          left = "(" + left
-    //          right = right + ")"
-    //
-    //     recursive_call(...)         ; Recursive call to the inner type
-
     switch (type_info->kind)
     {
         case TK_DIRECT :
             {
+                if (is_named_type(type_info)
+                        && named_type_get_symbol(type_info)->kind == SK_TYPEDEF
+                        && named_type_get_symbol(type_info)->entity_specs.is_template_parameter)
+                {
+                    get_type_name_str_internal(decl_context,
+                            named_type_get_symbol(type_info)->type_information,
+                            left,
+                            right,
+                            num_parameter_names,
+                            parameter_names,
+                            is_parameter);
+                }
                 break;
             }
         case TK_POINTER :
@@ -9461,16 +9456,20 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
 // so the type-specifier part of a type-id plus cv-qualifiers, if any
 type_t* get_foundation_type(type_t* t)
 {
-    cv_qualifier_t cv = CV_NONE;
-    t = advance_over_typedefs_with_cv_qualif(t, &cv);
-
     if (t == NULL)
     {
         return NULL;
     }
     else if (is_non_derived_type(t))
     {
-        return get_cv_qualified_type(t, cv);
+        if (is_named_type(t)
+                && named_type_get_symbol(t)->kind == SK_TYPEDEF
+                // These are the only typedefs that we always advance
+                && named_type_get_symbol(t)->entity_specs.is_template_parameter)
+        {
+            return get_foundation_type(named_type_get_symbol(t)->type_information);
+        }
+        return t;
     }
     else if (is_function_type(t))
     {

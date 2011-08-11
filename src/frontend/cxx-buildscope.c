@@ -2483,14 +2483,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
 
     if (entry->kind != SK_DEPENDENT_ENTITY)
     {
-        if (entry->kind != SK_TYPEDEF)
-        {
-            *type_info = get_user_defined_type(entry);
-        }
-        else
-        {
-            *type_info = advance_over_typedefs(entry->type_information);
-        }
+        *type_info = get_user_defined_type(entry);
 
         DEBUG_CODE()
         {

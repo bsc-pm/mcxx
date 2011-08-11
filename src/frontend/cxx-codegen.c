@@ -196,7 +196,17 @@ static void walk_type_for_symbols(
     _stack_walked_types[_stack_walked_types_top] = t;
     _stack_walked_types_top++;
 
-    if (is_pointer_type(t))
+    if (is_named_type(t)
+            && named_type_get_symbol(t)->kind == SK_TYPEDEF)
+    {
+        walk_type_for_symbols(visitor, named_type_get_symbol(t)->type_information, 
+                needs_def, 
+                symbol_to_declare, symbol_to_define,
+                define_entities_in_tree);
+
+        symbol_to_define(visitor, named_type_get_symbol(t));
+    }
+    else if (is_pointer_type(t))
     {
         walk_type_for_symbols(visitor, pointer_type_get_pointee_type(t), /* needs_def */ 0, symbol_to_declare, symbol_to_define,
                 define_entities_in_tree);
@@ -1099,7 +1109,8 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                                 &is_dependent, 
                                 &max_qualif_level));
                 }
-                else if (member->kind == SK_ENUM)
+                else if (member->kind == SK_ENUM
+                        || member->kind == SK_TYPEDEF)
                 {
                     define_symbol(visitor, member);
                     member->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
@@ -1293,12 +1304,16 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_TYPEDEF:
             {
-                walk_type_for_symbols(visitor,
-                        symbol->type_information,
-                        /* needs_def */ 1,
-                        declare_symbol,
-                        define_symbol,
-                        define_nonnested_entities_in_trees);
+                // Template parameters are not to be defined, ever
+                if (symbol->entity_specs.is_template_parameter)
+                    break;
+
+                codegen_move_to_namespace_of_symbol(visitor, symbol);
+                indent(visitor);
+                fprintf(visitor->file, "typedef %s;\n",
+                        print_decl_type_str(symbol->type_information,
+                            symbol->decl_context,
+                            symbol->symbol_name));
                 break;
             }
         case SK_ENUMERATOR:
@@ -1775,13 +1790,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
             }
         case SK_TYPEDEF:
             {
-                // Get a declaration to the aliased type
-                walk_type_for_symbols(visitor,
-                        symbol->type_information,
-                        /* needs_def */ 0,
-                        declare_symbol_if_nonlocal,
-                        define_symbol_if_nonlocal,
-                        define_nonlocal_entities_in_trees);
+                // Typedefs can't be simply declared
+                define_symbol(visitor, symbol);
                 break;
             }
         case SK_FUNCTION:
@@ -3962,7 +3972,8 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
                 get_template_arguments_str(symbol, symbol->decl_context));
     }
 
-    type_t* real_type = symbol->type_information;
+    // Note that we _must_ ignore typedefs for a function type in a definition
+    type_t* real_type = advance_over_typedefs(symbol->type_information);
     if (symbol->entity_specs.is_conversion
             || symbol->entity_specs.is_destructor)
     {

@@ -620,7 +620,7 @@ static void check_comma_operand(AST expression, decl_context_t decl_context);
 static void check_pointer_to_member(AST expression, decl_context_t decl_context);
 static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context);
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context);
-static void check_pseudo_destructor_call(AST expression, decl_context_t decl_context);
+static void check_pseudo_destructor_name(AST expression, decl_context_t decl_context);
 
 static void check_array_section_expression(AST expression, decl_context_t decl_context);
 static void check_shaping_expression(AST expression, decl_context_t decl_context);
@@ -1502,7 +1502,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context)
         case AST_PSEUDO_DESTRUCTOR_CALL :
         case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
             {
-                check_pseudo_destructor_call(expression, decl_context);
+                // This name is misleading, this is not a name but a relaxed concession of using the destructor
+                // name even in non-type classes (by means of typedefs or instantiated templates)
+                check_pseudo_destructor_name(expression, decl_context);
                 break;
             }
         case AST_VLA_EXPRESSION :
@@ -9530,7 +9532,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
     if (!is_unresolved_overloaded_type(expression_get_type(called_expression))
             && !is_class_type(no_ref(expression_get_type(called_expression))))
     {
-        // Nothing else must be done
+        // Nothing else must be done.
+        // Note that pseudo-destructor names will go this way
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: Fortunately we do not have to resolve any overload in the call '%s' at '%s'\n",
@@ -10254,6 +10257,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
     }
 
+
     // 4. If no dependent, computed type should be a functional or pointer
     //    to function type
     if (!is_function_type(no_ref(function_type))
@@ -10266,6 +10270,20 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
         expression_set_error(expr);
         return;
+    }
+
+    // Pseudo destructor calls may have to be simplified when applied to a
+    // non-class-type
+    if (is_pseudo_destructor_call_type(function_type))
+    {
+        // This is a simplified pseudo destructor
+        if (nodecl_get_kind(expression_get_nodecl(called_expression)) != NODECL_CLASS_MEMBER_ACCESS)
+        {
+            // Simplify this case
+            expression_set_type(expr, get_void_type());
+            expression_set_nodecl(expr, expression_get_nodecl(called_expression));
+            return;
+        }
     }
 
     // 5. Jump over pointer if computed type was pointer to function type
@@ -13832,7 +13850,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
     }
 }
 
-static void check_pseudo_destructor_call(AST expression, decl_context_t decl_context)
+static void check_pseudo_destructor_name(AST expression, decl_context_t decl_context)
 {
     char is_arrow = 0;
     if (ASTType(expression) == AST_POINTER_PSEUDO_DESTRUCTOR_CALL)
@@ -14027,8 +14045,35 @@ static void check_pseudo_destructor_call(AST expression, decl_context_t decl_con
         }
     }
 
+    considered_type = no_ref(considered_type);
+    
     // Everything seems right
-    expression_set_type(expression, get_pseudo_destructor_call_type());
+    type_t* t = get_pseudo_destructor_call_type();
+    expression_set_type(expression, t);
+
+    if (is_class_type(considered_type))
+    {
+        nodecl_t nodecl_postfix = expression_get_nodecl(postfix_expression);
+        if (is_arrow)
+        {
+            nodecl_postfix = nodecl_make_derreference(nodecl_postfix,
+                    lvalue_ref(considered_type),
+                    ASTFileName(expression), ASTLine(expression));
+        }
+
+        // A reference to the destructor
+        nodecl_t nodecl_destructor = nodecl_make_class_member_access(
+                nodecl_postfix,
+                nodecl_make_symbol(class_type_get_destructor(considered_type), ASTFileName(expression), ASTLine(expression)),
+                t,
+                ASTFileName(expression), ASTLine(expression));
+        expression_set_nodecl(expression, nodecl_destructor);
+    }
+    else
+    {
+        // Do nothing, it may be a.int::~int because of templates
+        expression_set_nodecl(expression, expression_get_nodecl(postfix_expression));
+    }
 }
 
 static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_context)
