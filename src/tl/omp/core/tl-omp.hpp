@@ -174,6 +174,16 @@ namespace TL
                     return _udr_item_2;
                 }
         };
+		
+		class LIBTL_CLASS RealTimeInfo  
+        {
+            private:
+            
+			public:
+				RealTimeInfo();
+				
+				~RealTimeInfo();
+        };
 
         //! This class represents data sharing environment in a OpenMP construct
         class LIBTL_CLASS DataSharingEnvironment
@@ -195,6 +205,8 @@ namespace TL
                 bool _is_parallel;
 
                 DataSharingAttribute get_internal(Symbol sym);
+				
+				RealTimeInfo _real_time_info;
             public:
                 //! Constructor
                 /*!
@@ -228,7 +240,7 @@ namespace TL
                  * also their attribute and keeps the extra information stored in the ReductionSymbol
                  */
                 void set_reduction(const ReductionSymbol& reduction_symbol);
-
+				
                 //! Gets the data sharing attribute of a symbol
                 /*!
                  * \param sym The symbol requested its data sharing attribute
@@ -245,7 +257,7 @@ namespace TL
 
                 //! Returns the enclosing data sharing
                 DataSharingEnvironment* get_enclosing();
-
+			
                 //! Returns all symbols that match the given data attribute
                 void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
@@ -262,6 +274,9 @@ namespace TL
 
                 void add_device(const std::string& str);
                 void get_all_devices(ObjectList<std::string>& devices);
+				
+				void set_real_time_info(const RealTimeInfo & rt_info);
+				RealTimeInfo get_real_time_info();
         };
 
         class LIBTL_CLASS Info : public Object
@@ -346,12 +361,14 @@ namespace TL
                 implementation_table_t _implementation_table;
 
                 FunctionTaskTargetInfo _target_info;
+				
+				RealTimeInfo _real_time_info;
             public:
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
 
-                ObjectList<FunctionTaskDependency> get_parameter_info() const;
+				ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
 
@@ -367,6 +384,10 @@ namespace TL
                 typedef std::pair<std::string, Symbol> implementation_pair_t;
 
                 ObjectList<implementation_pair_t> get_devices_with_implementation() const;
+				
+				void set_real_time_info(const RealTimeInfo & rt_info);
+
+				RealTimeInfo get_real_time_info();
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object
@@ -432,6 +453,7 @@ namespace TL
                 virtual ~OpenMPPhase() { }
         };
         
+
     // @}
     }
     

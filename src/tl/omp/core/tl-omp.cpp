@@ -162,6 +162,16 @@ namespace TL
             _reduction_symbols.append(reduction_symbol);
         }
 
+		void DataSharingEnvironment::set_real_time_info(const RealTimeInfo & rt_info)
+		{
+			_real_time_info = rt_info;
+		}
+
+		RealTimeInfo DataSharingEnvironment::get_real_time_info() 
+		{
+			return _real_time_info;
+		}
+
         void DataSharingEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
@@ -422,6 +432,13 @@ namespace TL
         {
             return _copy_expr;
         }
-
+		
+		RealTimeInfo::RealTimeInfo()
+		{
+		}
+				
+		RealTimeInfo::~RealTimeInfo()
+		{
+		}
     }
 }

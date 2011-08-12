@@ -189,8 +189,19 @@ namespace TL
 
             return result;
         }
+		
+		void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
+		{
+			_real_time_info = rt_info;
+		}
 
-        FunctionTaskSet::FunctionTaskSet()
+		RealTimeInfo FunctionTaskInfo::get_real_time_info()
+		{
+			return _real_time_info;
+		}
+
+        
+		FunctionTaskSet::FunctionTaskSet()
         {
         }
 
@@ -370,7 +381,9 @@ namespace TL
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
-            PragmaCustomClause input_clause = construct.get_clause("input");
+			RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+            
+			PragmaCustomClause input_clause = construct.get_clause("input");
             ObjectList<std::string> input_arguments;
             if (input_clause.is_defined())
             {
@@ -527,11 +540,126 @@ namespace TL
             }
 
             FunctionTaskInfo task_info(function_sym, parameter_list, target_info);
-
-            std::cerr << construct.get_ast().get_locus()
+			
+			//adding real time information to the task
+			task_info.set_real_time_info(rt_info);
+            
+			std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
-    }
+      	
+		
+		void Core::task_inline_handler_pre(PragmaCustomConstruct construct) 
+		{
+			RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+		
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+			
+			//adding real time information to the task
+			data_sharing.set_real_time_info(rt_info);
 
+            get_data_explicit_attributes(construct, data_sharing);
+
+            get_dependences_info(construct, data_sharing);
+
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            // Target info applies after
+            get_target_info(construct, data_sharing);
+		}
+
+
+		RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
+		{
+			RealTimeInfo rt_info;
+			
+			PragmaCustomClause deadline_clause = construct.get_clause("deadline");
+            if (deadline_clause.is_defined())
+            {
+            	ObjectList<std::string> deadline_args = 
+					deadline_clause.get_arguments(ExpressionTokenizer());
+			
+				if(deadline_args.size() != 1) 
+				{
+					std::cerr << construct.get_ast().get_locus() 
+							  << ": warning: '#pragma omp task deadline' "
+					          << "has a wrong number of arguments, skipping"
+							  << std::endl;	
+				}
+				else 
+				{
+					std::cerr << "warning: '#pragma omp task deadline' "
+						      << "is not implemented yet (tl-omp-tasks.cpp)"
+							  << std::endl;	
+				}
+			}
+			
+			PragmaCustomClause onerror_clause = construct.get_clause("onerror");
+			if (onerror_clause.is_defined())
+            {
+            	ObjectList<std::string> onerror_args = 
+					onerror_clause.get_arguments(ExpressionTokenizer());
+				
+				if(onerror_args.size() != 1) 
+				{
+					std::cerr << construct.get_ast().get_locus() 
+							  << ": warning: '#pragma omp task onerror' "
+					          << "has a wrong number of arguments, skipping"
+							  << std::endl;	
+				}
+				else 
+				{
+					//tokens structure: 'identifier:identifier'				
+					Lexer l = Lexer::get_current_lexer();	
+					
+					ObjectList<int> tokens = l.lex_string(onerror_args[0]);
+
+					if(tokens.size() != 3) 
+					{
+						std::cerr << construct.get_ast().get_locus() 
+							  	  << ": warning: '#pragma omp task onerror' "
+					          	  << "has a wrong number of tokens. "
+								  << "It is expecting 'identifier:identifier', skipping"
+								  << std::endl;
+								
+					}
+					else if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+						 	 (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+	             	{
+						std::cerr << construct.get_ast().get_locus() 
+							  	  << ": warning: '#pragma omp task onerror' "
+								  << "first token must be an identifier, skipping" 
+								  << std::endl;
+					}
+					else if (tokens[1] != (int)':')
+	             	{
+						std::cerr << construct.get_ast().get_locus() 
+							  	  << ": warning: '#pragma omp task onerror' "
+								  << "second token must be a colon, skipping" 
+								  << std::endl;
+					}
+					else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) || 
+							 (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
+	             	{
+						std::cerr << construct.get_ast().get_locus() 
+							  	  << ": warning: '#pragma omp task onerror' "
+								  << "third token must be an identifier, skipping" 
+								  << std::endl;
+					}
+					else 
+					{
+						std::cerr << "warning: '#pragma omp task onerror' "
+								  << "is not implemented yet (tl-omp-tasks.cpp)"
+								  << std::endl;	
+					}
+				}
+			}
+
+			return rt_info;
+		}
+    
+	}
 }
