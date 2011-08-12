@@ -2,7 +2,7 @@
 
 with_regions="no"
 
-if [ x$1 != xregions ];
+if [ x$1 = xregions ];
 then
     with_regions="yes"
 fi
@@ -21,7 +21,7 @@ exit
 fi
 
 # If Nanos++ and superscalar but no regions and regions were requested, exit
-if [ $with_regions = xyes -a "@NANOX_REGIONS@" = "no" ];
+if [ $with_regions = yes -a "@NANOX_REGIONS@" = "no" ];
 then
 
 cat <<EOF
