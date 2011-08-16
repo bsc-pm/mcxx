@@ -5180,7 +5180,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
 }
 
 
-static void compute_symbol_type(AST expr, decl_context_t decl_context, const_value_t** val)
+static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     scope_entry_list_t* result = NULL;
 
@@ -5212,26 +5212,8 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
     if (result == NULL)
     {
-        if (!names_a_builtin)
-        {
-            expression_set_error(expr);
-            return;
-        }
-        else
-        {
-            // Do not know anything about this type so set to something that is
-            // never considered an error (even in C)
-            expression_set_type(expr, get_dependent_expr_type());
-
-            // Create a fake symbol in the global scope
-            scope_entry_t* fake_entry = new_symbol(decl_context, decl_context.global_scope, name);
-
-            expression_set_symbol(expr, fake_entry);
-
-            nodecl_t nodecl_output = nodecl_make_symbol(fake_entry, ASTFileName(expr), ASTLine(expr));
-            expression_set_nodecl(expr, nodecl_output);
-            return;
-        }
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+        return;
     }
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(result));
@@ -5244,8 +5226,6 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             || entry->kind == SK_TEMPLATE
             || entry->kind == SK_TEMPLATE_PARAMETER)
     {
-        expression_set_symbol(expr, entry);
-
         if (entry->kind == SK_TEMPLATE)
         {
             type_t* primary_type = template_type_get_primary_type(entry->type_information);
@@ -5255,7 +5235,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             if (!is_function_type(function_specialization))
             {
                 entry_list_free(result);
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
                 return;
             }
         }
@@ -5264,46 +5244,38 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         {
             if (entry->kind == SK_ENUMERATOR)
             {
-                expression_set_type(expr, entry->type_information);
-                expression_set_is_lvalue(expr, 0);
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
 
-                if (val != NULL
-                        && expression_is_constant(entry->language_dependent_value))
+                if (nodecl_is_constant(entry->value))
                 {
-                    *val = expression_get_constant(entry->language_dependent_value);
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
                 }
-
-                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
             }
             else if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_FUNCTION)
             {
-                expression_set_type(expr, entry->type_information);
-                expression_set_is_lvalue(expr, 1);
-
-                if (val != NULL
-                        && entry->kind == SK_VARIABLE
-                        && !entry->entity_specs.is_parameter
-                        && is_const_qualified_type(entry->type_information)
-                        && entry->language_dependent_value != NULL
-                        && expression_is_constant(entry->language_dependent_value))
-                {
-                    *val = expression_get_constant(entry->language_dependent_value);
-                }
-
-                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
                 if (entry->entity_specs.is_member_of_anonymous)
                 {
-                    nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
-                    nodecl_output = nodecl_make_class_member_access(
+                    nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                    *nodecl_output = nodecl_make_class_member_access(
                             accessor,
-                            nodecl_output,
+                            *nodecl_output,
                             lvalue_ref(entry->type_information),
                             ASTFileName(expr),
                             ASTLine(expr));
                 }
-                expression_set_nodecl(expr, nodecl_output);
+
+                if (entry->kind == SK_VARIABLE
+                        && !entry->entity_specs.is_parameter
+                        && is_const_qualified_type(entry->type_information)
+                        && !nodecl_is_null(entry->value)
+                        && nodecl_is_constant(entry->value))
+                {
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+                }
+                
+                nodecl_expr_set_is_lvalue(*nodecl_output, 1);
             }
             else
             {
@@ -5314,32 +5286,24 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         {
             if (entry->kind == SK_ENUMERATOR)
             {
-                if (is_dependent_type(entry->type_information))
+                if (is_dependent_type(entry->type_information)
+                        || nodecl_is_cxx_dependent_expr(entry->value))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    expression_set_dependent(expr, decl_context);
-                }
-                else if (expression_is_value_dependent(entry->language_dependent_value))
-                {
-                    expression_set_is_value_dependent(expr, 1, decl_context);
+                    *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
                 }
                 else
                 {
-                    expression_set_type(expr, entry->type_information);
-                    expression_set_is_lvalue(expr, 0);
+                    *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
 
-                    if (val != NULL
-                            && expression_is_constant(entry->language_dependent_value))
+                    if (nodecl_is_constant(entry->value))
                     {
-                        *val = expression_get_constant(entry->language_dependent_value);
+                        nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
                     }
-
-                    nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                    expression_set_nodecl(expr, nodecl_output);
                 }
             }
             else if (entry->kind == SK_VARIABLE)
@@ -5351,18 +5315,16 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    expression_set_dependent(expr, decl_context);
+                    *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
                 }
                 else 
                 {
+                    const_value_t* val = NULL;
                     char is_value_dependent = 0;
-                    if (!nodecl_is_null(entry->value)
-                            || entry->language_dependent_value != NULL)
+                    if (!nodecl_is_null(entry->value))
                     {
-                        if ((!nodecl_is_null(entry->value) 
+                        if (!nodecl_is_null(entry->value) 
                                     && nodecl_is_cxx_dependent_expr(entry->value))
-                                || (entry->language_dependent_value != NULL 
-                                    && expression_is_value_dependent(entry->language_dependent_value)))
                         {
                             DEBUG_CODE()
                             {
@@ -5370,7 +5332,6 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                                         prettyprint_in_buffer(expr), ast_location(expr));
                             }
                             is_value_dependent = 1;
-                            expression_set_is_value_dependent(expr, 1, decl_context);
                         }
                         else
                         {
@@ -5381,12 +5342,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                                 if (!nodecl_is_null(entry->value) 
                                         && nodecl_is_constant(entry->value))
                                 {
-                                    *val = nodecl_get_constant(entry->value);
-                                }
-                                else if (entry->language_dependent_value != NULL
-                                        && expression_is_value_dependent(entry->language_dependent_value))
-                                {
-                                    *val = expression_get_constant(entry->language_dependent_value);
+                                    val = nodecl_get_constant(entry->value);
                                 }
                             }
                         }
@@ -5394,13 +5350,12 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
                     if (entry->entity_specs.is_template_parameter)
                     {
-                        expression_set_type(expr, entry->type_information);
-                        expression_set_is_lvalue(expr, 0);
+                        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
                     }
                     else
                     {
-                        expression_set_type(expr, lvalue_ref(entry->type_information));
-                        expression_set_is_lvalue(expr, 1);
+                        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                        nodecl_expr_set_is_lvalue(*nodecl_output, 1);
                     }
                     if (!is_value_dependent)
                     {
@@ -5408,17 +5363,16 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                                 && !nodecl_is_null(entry->value))
                         {
                             // Replace a template parameter with its value
-                            expression_set_nodecl(expr, entry->value);
+                           *nodecl_output = entry->value;
                         }
                         else
                         {
-                            nodecl_t nodecl_access_to_symbol = nodecl_null();
-                            nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                            nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
 
                             scope_entry_t* accessing_symbol = entry;
                             if (entry->entity_specs.is_member_of_anonymous)
                             {
-                                nodecl_t accessor = _nodecl_wrap(entry->entity_specs.anonymous_accessor);
+                                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
                                 nodecl_access_to_symbol = nodecl_make_class_member_access(
                                         accessor,
                                         nodecl_access_to_symbol,
@@ -5430,8 +5384,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                             if (!accessing_symbol->entity_specs.is_member
                                     || accessing_symbol->entity_specs.is_static)
                             {
-                                nodecl_t nodecl_output = nodecl_access_to_symbol;
-                                expression_set_nodecl(expr, nodecl_output);
+                                *nodecl_output = nodecl_access_to_symbol;
                             }
                             else
                             {
@@ -5443,7 +5396,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
                                     if (is_dependent_type(this_symbol->type_information))
                                     {
-                                        expression_set_dependent(expr, decl_context);
+                                        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
                                     }
                                     else
                                     {
@@ -5464,13 +5417,11 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                                         }
                                         qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-                                        nodecl_t nodecl_output =
+                                        *nodecl_output =
                                             nodecl_make_class_member_access(nodecl_this_derref,
                                                     nodecl_access_to_symbol,
                                                     qualified_data_member_type,
                                                     ASTFileName(expr), ASTLine(expr));
-                                        expression_set_nodecl(expr, nodecl_output);
-                                        expression_set_type(expr, qualified_data_member_type);
                                     }
                                 }
                                 else
@@ -5482,29 +5433,24 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                                                 ast_location(expr),
                                                 get_qualified_symbol_name(entry, entry->decl_context));
                                     }
-                                    expression_set_error(expr);
+                                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                                    return;
                                 }
                                 entry_list_free(this_symbol_list);
                             }
                         }
+                        nodecl_set_constant(*nodecl_output, val);
                     }
                 }
             }
             else if (entry->kind == SK_FUNCTION)
             {
                 type_t* t = get_unresolved_overloaded_type(result, /* template_args */ NULL);
-
-                nodecl_t nodecl_output = nodecl_null();
-
-                expression_set_type(expr, t);
-                nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
+                *nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
             {
-                expression_set_is_value_dependent(expr, 1, decl_context);
-                expression_set_dependent(expr, decl_context);
-                expression_set_symbol(expr, entry);
+                *nodecl_output = nodecl_make_cxx_dependent_expr(entry, ASTFileName(expr), ASTLine(expr));
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
@@ -5557,9 +5503,9 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, const_val
     }
 }
 
-static void check_symbol(AST expr, decl_context_t decl_context, const_value_t** val)
+static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    compute_symbol_type(expr, decl_context, val);
+    compute_symbol_type(expr, decl_context, nodecl_output);
 
     if (expression_is_error(expr)
             && !checking_ambiguity())
