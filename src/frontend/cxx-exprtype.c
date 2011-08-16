@@ -4856,12 +4856,12 @@ type_t* operator_unary_not_result(type_t** op_type)
     return *op_type;
 }
 
-static type_t* compute_operator_not_type(AST expression,
-        AST op, decl_context_t decl_context, const_value_t** val)
+static void compute_operator_not_type(nodecl_t* op, 
+        decl_context_t decl_context, 
+        const char* filename, int line, 
+        nodecl_t* nodecl_output)
 {
-    type_t* op_type = expression_get_type(op);
-
-    RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
+    type_t* op_type = nodecl_get_type(*op);
 
     char requires_overload = 0;
     CXX_LANGUAGE()
@@ -4870,7 +4870,7 @@ static type_t* compute_operator_not_type(AST expression,
         if (is_unresolved_overloaded_type(no_ref(op_type)))
         {
             scope_entry_t* function = unresolved_overloaded_type_simplify(no_ref(op_type),
-                    decl_context, ASTLine(op), ASTFileName(op));
+                    decl_context, line, filename);
             if (function != NULL)
             {
                 op_type = get_pointer_type(function->type_information);
@@ -4881,39 +4881,40 @@ static type_t* compute_operator_not_type(AST expression,
             requires_overload = 1;
     }
 
+    const_value_t* val = NULL;
     if (!requires_overload)
     {
         standard_conversion_t to_bool;
 
+        type_t* computed_type = NULL;
         if (standard_conversion_between_types(&to_bool,
                     op_type, get_bool_type()))
         {
             C_LANGUAGE()
             {
-                expression_set_type(expression, get_signed_int_type());
+                computed_type = get_signed_int_type();
             }
             CXX_LANGUAGE()
             {
-                expression_set_type(expression, get_bool_type());
+                computed_type = get_bool_type();
             }
 
-            if (val != NULL
-                    && expression_is_constant(op))
+            if (nodecl_is_constant(*op))
             {
-                *val = const_value_not(expression_get_constant(op));
+                val = const_value_not(nodecl_get_constant(*op));
             }
-
-            expression_set_is_lvalue(expression, 0);
         }
         else 
-            return get_error_type();
+        {
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
 
-        nodecl_t nodecl_output = nodecl_make_logical_not(
-                expression_get_nodecl(op),
-                expression_get_type(expression), ASTFileName(expression), ASTLine(expression));
-        expression_set_nodecl(expression, nodecl_output);
-
-        return expression_get_type(expression);
+        *nodecl_output = nodecl_make_logical_not(
+                *op,
+                computed_type, filename, line);
+        nodecl_set_constant(*nodecl_output, val);
+        return;
     }
 
     static AST operation_tree = NULL;
@@ -4936,18 +4937,18 @@ static type_t* compute_operator_not_type(AST expression,
     scope_entry_t* selected_operator = NULL;
 
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context, &selected_operator);
+            op, builtins, decl_context, 
+            filename, line, &selected_operator);
 
     entry_list_free(builtins);
 
-    if (val != NULL
-            && result != NULL
+    if (result != NULL
             && selected_operator != NULL
             && selected_operator->entity_specs.is_builtin
             && (is_integral_type(no_ref(op_type)) || is_enum_type(no_ref(op_type)))
-            && expression_is_constant(op))
+            && nodecl_is_constant(*op))
     {
-        *val = const_value_not(expression_get_constant(op));
+        val = const_value_not(nodecl_get_constant(*op));
     }
 
     if (result != NULL
@@ -4955,125 +4956,72 @@ static type_t* compute_operator_not_type(AST expression,
     {
         if (selected_operator->entity_specs.is_builtin)
         {
-            nodecl_t nodecl_output = nodecl_make_logical_not(
-                    expression_get_nodecl(op),
-                    expression_get_type(expression), ASTFileName(expression), ASTLine(expression));
-            expression_set_nodecl(expression, nodecl_output);
+            *nodecl_output = nodecl_make_logical_not(
+                    *op, result, filename, line);
+            nodecl_set_constant(*nodecl_output, val);
         }
         else
         {
-            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(selected_operator, ASTFileName(expression), ASTLine(expression)),
-                    nodecl_make_list_1(expression_get_nodecl(op)),
-                    result, ASTFileName(expression), ASTLine(expression));
-            expression_set_nodecl(expression, nodecl_output);
+            *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(selected_operator, filename, line),
+                    nodecl_make_list_1(*op),
+                    result, filename, line);
         }
     }
-
-    return result;
 }
 
-static type_t* compute_operator_reference_type(AST expression, 
-        AST op, decl_context_t decl_context, const_value_t** val)
+static void compute_operator_reference_type(nodecl_t* op, 
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        const char* filename, int line, 
+        nodecl_t* nodecl_output)
 {
     // FIXME - This operator can be overloaded
-    type_t* op_type = expression_get_type(op);
-
-    RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
-
-    *val = NULL;
+    type_t* op_type = nodecl_get_type(*op);
 
     CXX_LANGUAGE()
     {
         // If it is a nested name it might be a pointer to member type
-        if (ASTType(ASTSon0(expression)) == AST_QUALIFIED_ID)
+        if (nodecl_get_kind(*op) == NODECL_SYMBOL)
         {
-            if (is_unresolved_overloaded_type(op_type))
+            scope_entry_t* entry = nodecl_get_symbol(*op);
+
+            if (entry->kind == SK_DEPENDENT_ENTITY)
             {
-                // This is an easy case
-                expression_set_type(expression, op_type);
-                expression_set_nodecl(expression,
-                        nodecl_make_cxx_unresolved_overload(op_type, 
-                            ASTFileName(expression), ASTLine(expression)));
-                return expression_get_type(expression);
+                *nodecl_output = *op;
+                return;
+            }
+
+            if (!entry->entity_specs.is_member
+                    || entry->entity_specs.is_static)
+            {
+                type_t* computed_type = get_pointer_type(entry->type_information);
+                *nodecl_output = nodecl_make_reference(*op, computed_type, filename, line);
             }
             else
             {
-                // This must be a data member
-                scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, ASTSon0(expression), 
-                        DF_DEPENDENT_TYPENAME);
-
-                if (entry_list == NULL)
-                {
-                    return get_error_type();
-                }
-
-                if (entry_list_size(entry_list) > 1)
-                {
-                    // This can't happen with data members
-                    entry_list_free(entry_list);
-                    return get_error_type();
-                }
-
-                scope_entry_t* entry = entry_list_head(entry_list);
-                entry_list_free(entry_list);
-
-                if (entry->kind == SK_DEPENDENT_ENTITY)
-                {
-                    expression_set_dependent(expression, decl_context);
-                    return expression_get_type(expression);
-                }
-
-                if (!entry->entity_specs.is_member
-                        || entry->entity_specs.is_static)
-                {
-                    expression_set_type(expression, get_pointer_type(entry->type_information));
-                }
-                else
-                {
-                    expression_set_type(expression, get_pointer_to_member_type(entry->type_information,
-                                named_type_get_symbol(entry->entity_specs.class_type)));
-                    expression_set_nodecl(expression,
-                            nodecl_make_pointer_to_member(entry, ASTFileName(expression), ASTLine(expression)));
-                }
-
-                return expression_get_type(expression);
+                *nodecl_output = nodecl_make_pointer_to_member(entry, filename, line);
             }
+            return;
         }
-
-        if (is_dependent_expr_type(op_type))
-        {
-            expression_set_dependent(expression, decl_context);
-            return expression_get_type(expression);
-        }
-
-        if (is_unresolved_overloaded_type(op_type))
+        else if (is_unresolved_overloaded_type(op_type))
         {
             // Bypass the type for overload addresses
-            expression_set_type(expression, op_type);
-            expression_set_nodecl(expression,
-                    nodecl_make_cxx_unresolved_overload(op_type, ASTFileName(expression), ASTLine(expression)));
-            return expression_get_type(expression);
+            *nodecl_output = 
+                    nodecl_make_cxx_unresolved_overload(op_type, filename, line);
+            return;
         }
     }
     
     // We only can get the address of lvalues
-    if (!expression_is_lvalue(op))
+    if (!nodecl_expr_is_lvalue(*op))
     {
-        return get_error_type();
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
     }
 
     type_t* ptr_type = get_pointer_type(no_ref(op_type));
 
-    expression_set_type(expression, ptr_type);
-    expression_set_is_lvalue(expression, 0);
-
-    nodecl_t nodecl_output = nodecl_make_reference(
-            expression_get_nodecl(op),
-            ptr_type, ASTFileName(expression), ASTLine(expression));
-    expression_set_nodecl(expression, nodecl_output);
-
-    return ptr_type;
+    *nodecl_output = nodecl_make_reference(*op, ptr_type, filename, line);
 }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
@@ -5122,10 +5070,17 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [AST_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
-static type_t* get_unary_op_type(AST expr, decl_context_t decl_context, const_value_t** val)
+static void check_unary_expression_(node_t node_kind,
+        nodecl_t* op,
+        decl_context_t decl_context,
+        const char* filename, int line,
+        nodecl_t* nodecl_output)
 {
-    return (unary_expression_fun[ASTType(expr)].func)(
-            expr, ASTSon0(expr), decl_context, val);
+    (unary_expression_fun[node_kind].func)(
+            op,
+            decl_context, 
+            filename, line,
+            nodecl_output);
 }
 
 static void check_binary_expression_(node_t node_kind,
@@ -5133,10 +5088,10 @@ static void check_binary_expression_(node_t node_kind,
         nodecl_t* nodecl_rhs,
         decl_context_t decl_context,
         const char* filename, int line,
-        nodecl_t* nodecl_output);
+        nodecl_t* nodecl_output)
 {
     (binary_expression_fun[node_kind].func)(
-            nodecl_lhs, nodecl_rhs.
+            nodecl_lhs, nodecl_rhs,
             decl_context, 
             filename, line,
             nodecl_output);
@@ -5163,59 +5118,63 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
     if (nodecl_is_cxx_dependent_expr(nodecl_lhs)
             || nodecl_is_cxx_dependent_expr(nodecl_rhs))
     {
-        *nodecl_output = nodecl_make_cxx_dependent_expr(expression, decl_context);
+        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expression, decl_context);
         return;
     }
 
     check_binary_expression_(ASTType(expression), 
-            nodecl_lhs,
-            nodecl_rhs,
+            &nodecl_lhs,
+            &nodecl_rhs,
             decl_context,
-            filename, line,
+            ASTFileName(expression), ASTLine(expression),
             nodecl_output);
 
-    if (nodecl_is_err_expr(nodecl_output))
+    if (nodecl_is_err_expr(*nodecl_output))
     {
         if(!checking_ambiguity())
         {
             error_printf("%s: error: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
-                    prettyprint_in_buffer(lhs), print_type_str(expression_get_type(lhs), decl_context),
-                    prettyprint_in_buffer(rhs), print_type_str(expression_get_type(rhs), decl_context));
+                    prettyprint_in_buffer(lhs), print_type_str(nodecl_get_type(nodecl_lhs), decl_context),
+                    prettyprint_in_buffer(rhs), print_type_str(nodecl_get_type(nodecl_rhs), decl_context));
         }
     }
 }
 
-static void check_unary_expression(AST expression, decl_context_t decl_context, const_value_t** val)
+static void check_unary_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST op = ASTSon0(expression);
 
-    check_expression_impl_(op, decl_context);
+    nodecl_t nodecl_op = nodecl_null();
+    check_expression_impl_(op, decl_context, &nodecl_op);
 
-    if (expression_is_error(op))
+    if (nodecl_is_err_expr(nodecl_op))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
         return;
     }
 
-    if (is_dependent_expr_type(expression_get_type(op)))
+    if (nodecl_is_cxx_dependent_expr(nodecl_op))
     {
-        expression_set_dependent(expression, decl_context);
+        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expression, decl_context);
         return;
     }
 
-    type_t* unary_type = get_unary_op_type(expression, decl_context, val);
+    check_unary_expression_(ASTType(expression), 
+            &nodecl_op, 
+            decl_context, 
+            ASTFileName(expression), ASTLine(expression),
+            nodecl_output);
 
-    if (is_error_type(unary_type))
+    if (nodecl_is_err_expr(*nodecl_output))
     {
-        expression_set_error(expression);
         if (!checking_ambiguity())
         {
             error_printf("%s: error: unary %s cannot be applied to operand '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
-                    prettyprint_in_buffer(op), print_type_str(expression_get_type(op), decl_context));
+                    prettyprint_in_buffer(op), print_type_str(nodecl_get_type(nodecl_op), decl_context));
         }
     }
 }
