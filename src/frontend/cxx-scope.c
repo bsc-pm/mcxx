@@ -1105,13 +1105,13 @@ static scope_entry_t* create_new_dependent_entity(AST global_op,
     dependent_entity->decl_context = nested_name_context;
     dependent_entity->kind = SK_DEPENDENT_ENTITY;
     dependent_entity->type_information = dependent_type;
-    dependent_entity->language_dependent_value = 
+    AST qualified_id =
         ASTMake3(AST_QUALIFIED_ID,
                 ast_copy(global_op), 
                 ast_copy(nested_name), 
                 ast_copy(unqualified_name),
                 ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
-    dependent_entity->value = nodecl_wrap_cxx_dependent_expr(dependent_entity->language_dependent_value, nested_name_context);
+    dependent_entity->value = nodecl_wrap_cxx_dependent_expr(qualified_id, nested_name_context);
 
     DEBUG_CODE()
     {
@@ -2214,7 +2214,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
 static nodecl_t update_nodecl_expression(nodecl_t nodecl, 
 		decl_context_t decl_context,
-        char (*checking_function)(AST, decl_context_t),
+        char (*checking_function)(AST, decl_context_t, nodecl_t*),
         decl_context_t context_translation_function(decl_context_t, void*),
         void* translation_data,
         decl_context_t* translated_context)
@@ -2234,16 +2234,7 @@ static nodecl_t update_nodecl_expression(nodecl_t nodecl,
         expr_decl_context.template_parameters = decl_context.template_parameters;
         *translated_context = expr_decl_context;
 
-        checking_function(expr, expr_decl_context);
-
-        // if (expression_is_constant(expr))
-        // {
-        //     nodecl = const_value_to_nodecl(expression_get_constant(expr));
-        // }
-        // else
-        {
-            nodecl = expression_get_nodecl(expr);
-        }
+        checking_function(expr, expr_decl_context, &nodecl);
     }
     return nodecl;
 }
@@ -3246,11 +3237,12 @@ template_parameter_list_t* get_template_parameters_from_syntax(
                 {
                     AST expr = ASTSon0(template_parameter);
 
-                    check_nontype_template_argument_expression(expr, template_parameters_context);
+                    nodecl_t nodecl_expr = nodecl_null();
+                    check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
 
-                    t_argument->value = expression_get_nodecl(expr);
+                    t_argument->value = nodecl_expr;
 
-                    t_argument->type = expression_get_type(expr);
+                    t_argument->type = nodecl_get_type(nodecl_expr);
                     t_argument->kind = TPK_NONTYPE;
                     break;
                 }

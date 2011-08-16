@@ -60,6 +60,7 @@
 #include "cxx-limits.h"
 #include "cxx-diagnostic.h"
 #include "cxx-pragma.h"
+#include "cxx-codegen.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -389,7 +390,6 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword->kind = SK_VARIABLE;
             null_keyword->type_information = get_null_type();
             const_value_t* val = const_value_get_signed_int(0);
-            null_keyword->language_dependent_value = const_value_to_tree(val);
             null_keyword->value = const_value_to_nodecl(val);
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
@@ -757,7 +757,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST identifier = ASTSon0(asm_operand);
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
-                    if (!check_expression(expression, decl_context))
+                    nodecl_t nodecl_dummy = nodecl_null();
+                    if (!check_expression(expression, decl_context, &nodecl_dummy))
                     {
                         error_printf("%s: error: assembler operand '%s' could not be checked\n",
                                 ast_location(expression),
@@ -1057,22 +1058,23 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
     AST constant_expr = ASTSon0(a);
     AST message = ASTSon1(a);
 
-    if (!check_expression(constant_expr, decl_context))
+    nodecl_t nodecl_expr = nodecl_null();
+    if (!check_expression(constant_expr, decl_context, &nodecl_expr))
     {
         error_printf("%s: error: static_assert expression is invalid\n",
                 ast_location(a));
     }
 
-    if (!expression_is_value_dependent(constant_expr))
+    if (!nodecl_is_cxx_dependent_expr(nodecl_expr))
     {
-        if (!expression_is_constant(constant_expr))
+        if (!nodecl_is_constant(nodecl_expr))
         {
             error_printf("%s: error: static_assert expression is not constant\n",
                     ast_location(a));
         }
         else
         {
-            const_value_t * val = expression_get_constant(constant_expr);
+            const_value_t * val = nodecl_get_constant(nodecl_expr);
 
             if (const_value_is_zero(val))
             {
@@ -1243,13 +1245,15 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                     }
 
                     // This will yield a warning if needed but do not make it an error
+                    nodecl_t nodecl_initializer = nodecl_null();
                     char init_check = check_initialization(initializer, entry->decl_context, 
-                            get_unqualified_type(declarator_type));
+                            get_unqualified_type(declarator_type),
+                            &nodecl_initializer);
 
                     // Update unbounded arrays, bounded by their initialization
                     if (init_check)
                     {
-                        type_t* initializer_type = expression_get_type(initializer);
+                        type_t* initializer_type = nodecl_get_type(nodecl_initializer);
 
                         if (is_array_type(declarator_type)
                                 && nodecl_get_ast(array_type_get_array_size_expr(declarator_type)) == NULL
@@ -1260,8 +1264,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         }
                     }
 
-                    entry->language_dependent_value = initializer;
-                    entry->value = expression_get_nodecl(initializer);
+                    entry->value = nodecl_initializer;
 
                     {
                         ast_set_link_to_child(init_declarator, LANG_INITIALIZER, initializer);
@@ -1352,7 +1355,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         "gcc-asm-spec",
                         ASTFileName(asm_specification), 
                         ASTLine(asm_specification));
-                entry->entity_specs.asm_specification = nodecl_get_ast(asm_spec);
+                entry->entity_specs.asm_specification = asm_spec;
             }
 
             if (declared_symbols != NULL)
@@ -1661,7 +1664,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                         if (layout_qualif_kind != NULL
                                 && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
                         {
-                            check_expression(layout_qualif_kind, decl_context);
+                            // We should be doing something useful with this
+                            nodecl_t nodecl_dummy = nodecl_null();
+                            check_expression(layout_qualif_kind, decl_context, &nodecl_dummy);
                         }
                     }
                 }
@@ -1781,12 +1786,13 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
 
                 // Compute the expression type and use it for the whole type
-                if (check_expression(expression, decl_context)
-                        && (expression_get_type(expression) != NULL))
+                nodecl_t nodecl_expr = nodecl_null();
+                if (check_expression(expression, decl_context, &nodecl_expr)
+                        && (nodecl_get_type(nodecl_expr) != NULL))
                 {
                     // Do not remove the reference here, we will do this later
                     // if mandated
-                    type_t* computed_type = expression_get_type(expression);
+                    type_t* computed_type = nodecl_get_type(nodecl_expr);
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
@@ -1903,10 +1909,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_GCC_TYPEOF_EXPR :
             {
                 // Compute the expression type and use it for the whole type
-                if (check_expression(ASTSon0(a), decl_context)
-                        && (expression_get_type(ASTSon0(a)) != NULL))
+                nodecl_t nodecl_expr = nodecl_null();
+                if (check_expression(ASTSon0(a), decl_context, &nodecl_expr)
+                        && (nodecl_get_type(nodecl_expr) != NULL))
                 {
-                    type_t* computed_type = expression_get_type(ASTSon0(a));
+                    type_t* computed_type = nodecl_get_type(nodecl_expr);
 
                     CXX_LANGUAGE()
                     {
@@ -2774,7 +2781,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         // Delta respect the previous to latest
         int delta = 0;
         // Latest known base enumerator
-        AST base_enumerator = NULL;
+        nodecl_t base_enumerator = nodecl_null();
 
         const_value_t* min_value = NULL;
         const_value_t* max_value = NULL;
@@ -2795,7 +2802,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             if (enumeration_expr != NULL)
             {
-                if (!check_expression(enumeration_expr, enumerators_context))
+                nodecl_t nodecl_expr = nodecl_null();
+                if (!check_expression(enumeration_expr, enumerators_context, &nodecl_expr))
                 {
                     running_error("%s: error: invalid enumerator initializer '%s'\n",
                             ast_location(enumeration_expr),
@@ -2803,7 +2811,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
                 else
                 {
-                    if (!expression_is_constant(enumeration_expr))
+                    if (!nodecl_is_constant(nodecl_expr))
                     {
                         C_LANGUAGE()
                         {
@@ -2818,56 +2826,51 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     }
                     CXX_LANGUAGE()
                     {
-                        enumeration_item->type_information = expression_get_type(enumeration_expr);
+                        enumeration_item->type_information = nodecl_get_type(nodecl_expr);
                     }
                 }
 
-                enumeration_item->language_dependent_value = enumeration_expr;
                 enumeration_item->value = expression_get_nodecl(enumeration_expr);
 
                 delta = 1;
-                base_enumerator = enumeration_expr;
+                base_enumerator = nodecl_expr;
             }
             else
             {
                 if (num_enumerator == 0)
                 {
                     // FIXME - We should be using the size in bytes of signed int
-                    const_value_t* zero = const_value_get_signed_int(0);
-                    AST zero_tree = const_value_to_tree(zero);
+                    const_value_t* zero_val = const_value_get_signed_int(0);
+                    nodecl_t zero = const_value_to_nodecl(zero_val);
 
                     CXX_LANGUAGE()
                     {
                         enumeration_item->type_information = get_signed_int_type();
                     }
-                    enumeration_item->language_dependent_value = zero_tree;
-                    enumeration_item->value = const_value_to_nodecl(zero);
-                    base_enumerator = zero_tree;
+                    enumeration_item->value = zero;
+                    base_enumerator = zero;
                     delta = 1;
                 }
                 else
                 {
-                    if (expression_is_constant(base_enumerator))
+                    if (nodecl_is_constant(base_enumerator))
                     {
                         const_value_t* val_plus_one = 
                             const_value_add(
-                                    expression_get_constant(base_enumerator),
+                                    nodecl_get_constant(base_enumerator),
                                     const_value_get_signed_int(delta));
 
-                        enumeration_item->language_dependent_value = const_value_to_tree(val_plus_one);
                         enumeration_item->value = const_value_to_nodecl(val_plus_one);
-                        enumeration_item->type_information = expression_get_type(enumeration_item->language_dependent_value);
+                        enumeration_item->type_information = nodecl_get_type(enumeration_item->value);
                     }
                     else
                     {
-                        char c[64];
-                        snprintf(c, 63, "%d", delta);
-                        c[63] = '\0';
-
-                        const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
-                        AST add_one = internal_expression_parse(source, decl_context);
-                        enumeration_item->language_dependent_value = add_one;
-                        enumeration_item->value = expression_get_nodecl(add_one);
+                        nodecl_t add_one = nodecl_make_add(base_enumerator,
+                                const_value_to_nodecl(const_value_get_signed_int(delta)),
+                                get_dependent_expr_type(),
+                                nodecl_get_filename(base_enumerator),
+                                nodecl_get_line(base_enumerator));
+                        enumeration_item->value = add_one;
 
                         CXX_LANGUAGE()
                         {
@@ -2882,16 +2885,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             DEBUG_CODE()
             {
-                if (expression_is_constant(enumeration_item->language_dependent_value))
+                if (nodecl_is_constant(enumeration_item->value))
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with constant value '%lld' and type '%s'\n", ASTText(enumeration_name),
-                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->language_dependent_value)),
+                            (long long int)const_value_cast_to_8(nodecl_get_constant(enumeration_item->value)),
                             print_declarator(enumeration_item->type_information));
                 }
                 else
                 {
                     fprintf(stderr, "BUILDSCOPE: Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
-                            prettyprint_in_buffer(enumeration_item->language_dependent_value),
+                            c_cxx_codegen_to_str(enumeration_item->value),
                             print_declarator(enumeration_item->type_information));
                 }
             }
@@ -2900,10 +2903,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             num_enumerator++;
 
 #define B_(x) const_value_is_nonzero(x)
-            if (expression_is_constant(enumeration_item->language_dependent_value)
+            if (nodecl_is_constant(enumeration_item->value)
                     && !is_dependent_expr_type(underlying_type))
             {
-                const_value_t* current_value = expression_get_constant(enumeration_item->language_dependent_value);
+                const_value_t* current_value = nodecl_get_constant(enumeration_item->value);
 
                 if (min_value == NULL
                         || B_(const_value_lt(current_value, min_value)))
@@ -3250,7 +3253,8 @@ static void build_scope_ctor_initializer(
                         // querying, but nothing else)
                         if (dependent_context)
                         {
-                            check_initialization(initializer, decl_context, get_user_defined_type(class_sym));
+                            nodecl_t nodecl_dummy = nodecl_null();
+                            check_initialization(initializer, decl_context, get_user_defined_type(class_sym), &nodecl_dummy);
                             break;
                         }
                         if (result_list == NULL)
@@ -3307,9 +3311,11 @@ static void build_scope_ctor_initializer(
                                 }
                             }
 
+                            nodecl_t nodecl_init = nodecl_null();
                             check_initialization(initializer,
                                     decl_context,
-                                    get_unqualified_type(entry->type_information));
+                                    get_unqualified_type(entry->type_information),
+                                    &nodecl_init);
 
                             already_initialized = entry_list_add(already_initialized, entry);
                         }
@@ -3324,9 +3330,11 @@ static void build_scope_ctor_initializer(
                                         get_qualified_symbol_name(class_sym, class_sym->decl_context));
                             }
 
+                            nodecl_t nodecl_init = nodecl_null();
                             check_initialization(initializer,
                                     decl_context,
-                                    get_user_defined_type(entry));
+                                    get_user_defined_type(entry),
+                                    &nodecl_init);
 
                             already_initialized = entry_list_add(already_initialized, entry);
                         }
@@ -4436,10 +4444,9 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
         {
             member->entity_specs.is_member_of_anonymous = 1;
             member->entity_specs.anonymous_accessor = 
-                nodecl_get_ast(
                         nodecl_make_symbol(accessor_symbol,
                             accessor_symbol->file,
-                            accessor_symbol->line));
+                            accessor_symbol->line);
         }
         else
         {
@@ -4449,12 +4456,12 @@ static void insert_symbols_in_enclosing_context(decl_context_t enclosing_context
                             nodecl_make_symbol(accessor_symbol,
                                 accessor_symbol->file,
                                 accessor_symbol->line), 
-                            _nodecl_wrap(member->entity_specs.anonymous_accessor),
+                            member->entity_specs.anonymous_accessor,
                             lvalue_ref(member->type_information),
                             accessor_symbol->file,
                             accessor_symbol->line);
             nodecl_set_symbol(nodecl_accessor, accessor_symbol);
-            member->entity_specs.anonymous_accessor = nodecl_get_ast(nodecl_accessor);
+            member->entity_specs.anonymous_accessor = nodecl_accessor;
         }
         insert_entry(enclosing_context.current_scope, member);
 
@@ -4502,7 +4509,7 @@ scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_
     accessor_symbol->type_information = get_user_defined_type(class_symbol);
 
     class_symbol->entity_specs.anonymous_accessor = 
-        nodecl_get_ast(nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line));
+        nodecl_make_symbol(accessor_symbol, class_symbol->file, class_symbol->line);
 
     // Sign in members in the appropiate enclosing scope
     insert_symbols_in_enclosing_context(decl_context, class_symbol, accessor_symbol);
@@ -5452,9 +5459,10 @@ static void set_array_type(type_t** declarator_type,
 {
     type_t* element_type = *declarator_type;
 
+    nodecl_t nodecl_expr = nodecl_null();
     if (constant_expr != NULL)
     {
-        if (!check_expression(constant_expr, decl_context))
+        if (!check_expression(constant_expr, decl_context, &nodecl_expr))
         {
             error_printf("%s: error: could not check array size expression '%s'\n",
                     ast_location(constant_expr),
@@ -5464,8 +5472,8 @@ static void set_array_type(type_t** declarator_type,
             return;
         }
 
-        if (!expression_is_value_dependent(constant_expr)
-                && !expression_is_constant(constant_expr))
+        if (!nodecl_is_cxx_dependent_expr(nodecl_expr)
+                && !nodecl_is_constant(nodecl_expr))
         {
             if (decl_context.current_scope->kind == NAMESPACE_SCOPE
                     || decl_context.current_scope->kind == CLASS_SCOPE)
@@ -5478,7 +5486,7 @@ static void set_array_type(type_t** declarator_type,
         }
     }
 
-    *declarator_type = get_array_type(element_type, expression_get_nodecl(constant_expr), decl_context);
+    *declarator_type = get_array_type(element_type, nodecl_expr, decl_context);
 }
 
 /*
@@ -5588,11 +5596,11 @@ static void set_function_parameter_clause(type_t** function_type,
         // The scope of this parameter declaration should be "st" and not parameters_scope
         AST default_argument = ASTSon2(parameter_declaration);
 
-        // Only check the expression if we are not in the middle
-        // of an instantiation
+        // Check the default argument
         if (default_argument != NULL)
         {
-            if (!check_expression(default_argument, decl_context))
+            nodecl_t nodecl_expr = nodecl_null();
+            if (!check_expression(default_argument, decl_context, &nodecl_expr))
             {
                 error_printf("%s: error: could not check default argument expression '%s'\n",
                         ast_location(default_argument),
@@ -7435,11 +7443,12 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 decl_context_t initializer_context = entry->decl_context;
                 initializer_context.template_parameters = new_decl_context.template_parameters;
 
+                nodecl_t nodecl_expr = nodecl_null();
                 check_initialization(initializer, 
                         initializer_context, 
-                        get_unqualified_type(declarator_type));
-                entry->language_dependent_value = initializer;
-                entry->value = expression_get_nodecl(initializer);
+                        get_unqualified_type(declarator_type),
+                        &nodecl_expr);
+                entry->value = nodecl_expr;
             }
         }
         else if (is_function_type(declarator_type))
@@ -7829,7 +7838,8 @@ static void build_scope_nontype_template_parameter(AST a,
     template_parameter_value_t* default_argument = NULL;
     if (default_expression != NULL)
     {
-        if (!check_nontype_template_argument_expression(default_expression, template_context))
+        nodecl_t nodecl_expr;
+        if (!check_nontype_template_argument_expression(default_expression, template_context, &nodecl_expr))
         {
             error_printf("%s: error: could not check default argument of template parameter '%s'\n",
                     ast_location(default_expression),
@@ -7837,7 +7847,7 @@ static void build_scope_nontype_template_parameter(AST a,
         }
 
         default_argument = counted_calloc(1, sizeof(*default_argument), &_bytes_used_buildscope);
-        default_argument->value = expression_get_nodecl(default_expression);
+        default_argument->value = nodecl_expr;
         default_argument->type = declarator_type;
         default_argument->is_default = 1;
         default_argument->kind = TPK_NONTYPE;
@@ -8554,7 +8564,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         char c[256] = { 0 };
         snprintf(c, 255, "\"%s\"", entry->symbol_name);
         c[255] = '\0';
-        AST function_name_tree = internal_expression_parse(c, block_context);
+        nodecl_t nodecl_expr = internal_expression_parse(c, block_context);
 
         const char* func_names[] = 
         {
@@ -8569,8 +8579,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
             scope_entry_t* func_var = new_symbol(block_context, block_context.current_scope, func_names[j]);
             func_var->kind = SK_VARIABLE;
             func_var->type_information = const_char_ptr_const_type;
-            func_var->language_dependent_value = function_name_tree;
-            func_var->value = expression_get_nodecl(function_name_tree);
+            func_var->value = nodecl_expr;
             func_var->entity_specs.is_builtin = 1;
         }
     }
@@ -9568,7 +9577,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
 
                         AST expression = ASTSon1(declarator);
-                        if (!check_expression(expression, decl_context))
+                        nodecl_t nodecl_bit_size = nodecl_null();
+                        if (!check_expression(expression, decl_context, &nodecl_bit_size))
                         {
                             error_printf("%s: error: could not check bitfield size expression '%s'\n",
                                     ast_location(expression),
@@ -9576,8 +9586,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
 
                         bitfield_symbol->entity_specs.is_bitfield = 1;
-                        bitfield_symbol->entity_specs.bitfield_expr = expression;
-                        bitfield_symbol->entity_specs.bitfield_expr_context = decl_context;
+                        bitfield_symbol->entity_specs.bitfield_size = nodecl_bit_size;
+                        bitfield_symbol->entity_specs.bitfield_size_context = decl_context;
 
                         bitfield_symbol->defined = 1;
                         bitfield_symbol->point_of_declaration = get_enclosing_declaration(declarator);
@@ -9721,12 +9731,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                             if (entry->kind == SK_VARIABLE)
                             {
+                                nodecl_t nodecl_expr = nodecl_null();
                                 check_initialization(initializer,
                                         entry->decl_context,
-                                        get_unqualified_type(entry->type_information));
+                                        get_unqualified_type(entry->type_information), 
+                                        &nodecl_expr);
 
-                                entry->language_dependent_value = initializer;
-                                entry->value = expression_get_nodecl(initializer);
+                                entry->value = nodecl_expr;
                             }
                             // Special initializer for functions
                             else if (entry->kind == SK_FUNCTION)
@@ -10229,15 +10240,15 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
         AST initializer = ASTSon2(a);
 
-        if (!check_initialization(initializer, decl_context, entry->type_information))
+        nodecl_t nodecl_expr = nodecl_null();
+        if (!check_initialization(initializer, decl_context, entry->type_information, &nodecl_expr))
         {
             error_printf("%s: error: initializer '%s' could not be checked\n",
                     ast_location(initializer),
                     prettyprint_in_buffer(initializer));
         }
 
-        entry->language_dependent_value = initializer;
-        entry->value = expression_get_nodecl(initializer);
+        entry->value = nodecl_expr;
 
         C_LANGUAGE()
         {
@@ -10253,7 +10264,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         }
         CXX_LANGUAGE()
         {
-            if (!is_dependent_expr_type(expression_get_type(initializer))
+            if (!is_dependent_expr_type(nodecl_get_type(nodecl_expr))
                     && !is_dependent_type(declarator_type))
             {
                 char ambiguous_conversion = 0;
@@ -10292,7 +10303,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
     }
     else
     {
-        if (!check_expression(ASTSon2(a), decl_context))
+        if (!check_expression(ASTSon2(a), decl_context, nodecl_output))
         {
             error_printf("%s: error: condition '%s' could not be checked\n",
                     ast_location(ASTSon2(a)),
@@ -10302,8 +10313,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         ASTAttrSetValueType(a, LANG_IS_CONDITION_EXPRESSION, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
         ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, ASTSon2(a));
-
-        *nodecl_output = expression_get_nodecl(ASTSon2(a));
     }
 }
 
@@ -10363,7 +10372,8 @@ static void build_scope_expression_statement(AST a,
         nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
-    if (!check_expression(expr, decl_context))
+    nodecl_t nodecl_expr = nodecl_null();
+    if (!check_expression(expr, decl_context, &nodecl_expr))
     {
         if (CURRENT_CONFIGURATION->strict_typecheck)
         {
@@ -10374,17 +10384,14 @@ static void build_scope_expression_statement(AST a,
         return;
     }
 
-    if (expression_get_type(expr) != NULL)
+    if (nodecl_get_type(nodecl_expr) != NULL)
     {
-        expression_set_type(a, expression_get_type(expr));
-        expression_set_is_lvalue(a, expression_is_lvalue(a));
-
-        if (is_unresolved_overloaded_type(expression_get_type(expr)))
+        if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_expr)))
         {
             error_printf("%s: error: invalid unresolved overloaded expression '%s'\n", 
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
-            scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(expr));
+            scope_entry_list_t* candidates = unresolved_overloaded_type_get_overload_set(nodecl_get_type(nodecl_expr));
 
             diagnostic_candidates(candidates, ASTFileName(expr), ASTLine(expr));
 
@@ -10398,7 +10405,7 @@ static void build_scope_expression_statement(AST a,
     ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);        
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_expression_statement(expression_get_nodecl(expr), ASTFileName(expr), ASTLine(expr)));
+            nodecl_make_expression_statement(nodecl_expr, ASTFileName(expr), ASTLine(expr)));
 }
 
 static void build_scope_if_else_statement(AST a, 
@@ -10496,14 +10503,12 @@ static void build_scope_for_statement(AST a,
     nodecl_t nodecl_loop_iter = nodecl_null();
     if (expression != NULL)
     {
-        if (!check_expression(expression, block_context))
+        if (!check_expression(expression, block_context, &nodecl_loop_iter))
         {
             error_printf("%s: error: could not check iterating expression '%s'\n",
                     ast_location(expression),
                     prettyprint_in_buffer(expression));
         }
-
-        nodecl_loop_iter = expression_get_nodecl(expression);
 
         scope_link_set(CURRENT_COMPILED_FILE->scope_link, expression, block_context);
     }
@@ -10635,7 +10640,8 @@ static void build_scope_case_statement(AST a,
 {
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
-    if (!check_expression(constant_expression, decl_context))
+    nodecl_t nodecl_expr = nodecl_null();
+    if (!check_expression(constant_expression, decl_context, &nodecl_expr))
     {
         warn_printf("%s: could not check case expression '%s'\n",
                 ast_location(constant_expression),
@@ -10652,7 +10658,7 @@ static void build_scope_case_statement(AST a,
     // FIXME - We can try to coalesce several cases alla Fortran
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_case_statement(
-                nodecl_make_list_1(expression_get_nodecl(constant_expression)), 
+                nodecl_make_list_1(nodecl_expr), 
                 nodecl_statement, 
                 ASTFileName(a), 
                 ASTLine(a)));
@@ -10679,20 +10685,21 @@ static void build_scope_return_statement(AST a,
 
         char valid_expr = 0;
         ast_set_link_to_child(a, LANG_RETURN_EXPRESSION, expression);
+        nodecl_t nodecl_expr = nodecl_null();
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
-            valid_expr = check_initializer_clause(expression, decl_context, return_type);
+            valid_expr = check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
         }
         else 
         {
-            valid_expr = check_expression(expression, decl_context);
+            valid_expr = check_expression(expression, decl_context, &nodecl_expr);
         }
 
         if (is_void_type(return_type))
         {
             if (!IS_CXX_LANGUAGE
-                    || (!is_dependent_expr_type(expression_get_type(expression))
-                        && !is_void_type(expression_get_type(expression))))
+                    || (!is_dependent_expr_type(nodecl_get_type(nodecl_expr))
+                        && !is_void_type(nodecl_get_type(nodecl_expr))))
             {
                 error_printf("%s: error: return with non-void expression in a void function\n", ast_location(a));
             }
@@ -10700,22 +10707,22 @@ static void build_scope_return_statement(AST a,
 
         if (valid_expr)
         {
-            nodecl_return = expression_get_nodecl(expression);
+            nodecl_return = nodecl_expr;
 
             if (!is_dependent_type(return_type)
-                    && !is_dependent_expr_type(expression_get_type(expression)))
+                    && !is_dependent_expr_type(nodecl_get_type(nodecl_expr)))
             {
                 CXX_LANGUAGE()
                 {
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
-                    if (!type_can_be_implicitly_converted_to(expression_get_type(expression),
+                    if (!type_can_be_implicitly_converted_to(nodecl_get_type(nodecl_expr),
                                 return_type, decl_context, &ambiguous_conversion, &conversor, 
                                 ASTFileName(expression), ASTLine(expression)))
                     {
                         error_printf("%s: error: cannot convert type '%s' to '%s'\n",
                                 ast_location(expression),
-                                print_type_str(expression_get_type(expression), decl_context),
+                                print_type_str(nodecl_get_type(nodecl_expr), decl_context),
                                 print_type_str(return_type, decl_context));
                     }
 
@@ -10731,11 +10738,11 @@ static void build_scope_return_statement(AST a,
                 C_LANGUAGE()
                 {
                     standard_conversion_t scs;
-                    if (!standard_conversion_between_types(&scs, expression_get_type(expression), return_type))
+                    if (!standard_conversion_between_types(&scs, nodecl_get_type(nodecl_expr), return_type))
                     {
                         error_printf("%s: error: invalid returned value of type '%s' in a function returning '%s'\n",
                                 ast_location(expression),
-                                print_type_str(expression_get_type(expression), decl_context),
+                                print_type_str(nodecl_get_type(nodecl_expr), decl_context),
                                 print_type_str(return_type, decl_context));
                     }
                 }
@@ -10864,7 +10871,8 @@ static void build_scope_do_statement(AST a,
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, decl_context, &nodecl_statement);
-    if (!check_expression(expression, decl_context))
+    nodecl_t nodecl_expr = nodecl_null();
+    if (!check_expression(expression, decl_context, &nodecl_expr))
     {
         error_printf("%s: error: could not check do expression '%s'\n",
                 ast_location(expression),
@@ -10876,7 +10884,7 @@ static void build_scope_do_statement(AST a,
     ast_set_link_to_child(a, LANG_DO_STATEMENT_EXPRESSION, expression);
 
     *nodecl_output = nodecl_make_list_1(nodecl_make_do_statement(nodecl_statement, 
-                expression_get_nodecl(expression), ASTFileName(a), ASTLine(a)));
+                nodecl_expr, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_empty_statement(AST a, 
@@ -10972,7 +10980,7 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_get_ast(nodecl_pragma_line));
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line);
 
         entry_list_iterator_next(it);
     }
@@ -11016,7 +11024,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_get_ast(nodecl_pragma_line));
+        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line);
 
         entry_list_iterator_next(it);
     }
@@ -11035,10 +11043,9 @@ static void build_scope_upc_synch_statement(AST a,
     nodecl_t nodecl_expression = nodecl_null();
     if (ASTSon0(a) != NULL)
     {
-        check_expression(ASTSon0(a), decl_context);
+        nodecl_t nodecl_expr = nodecl_null();
+        check_expression(ASTSon0(a), decl_context, &nodecl_expr);
         ast_set_link_to_child(a, UPC_SYNC_STMT_ARGUMENT, ASTSon0(a));
-
-        nodecl_expression = expression_get_nodecl(ASTSon0(a));
     }
     else
     {
@@ -11087,8 +11094,7 @@ static void build_scope_upc_forall_statement(AST a,
     nodecl_t nodecl_condition = nodecl_null();
     if (condition != NULL)
     {
-        check_expression(condition, block_context);
-        nodecl_condition = expression_get_nodecl(condition);
+        check_expression(condition, block_context, &nodecl_condition);
     }
     else
     {
@@ -11099,8 +11105,7 @@ static void build_scope_upc_forall_statement(AST a,
     nodecl_t nodecl_iter = nodecl_null();
     if (expression != NULL)
     {
-        check_expression(expression, block_context);
-        nodecl_iter = expression_get_nodecl(expression);
+        check_expression(expression, block_context, &nodecl_iter);
     }
     else
     {
@@ -11111,9 +11116,7 @@ static void build_scope_upc_forall_statement(AST a,
     nodecl_t nodecl_affinity = nodecl_null();
     if (affinity != NULL)
     {
-        check_expression(affinity, block_context);
-        nodecl_affinity = nodecl_make_integer_literal(get_signed_int_type(), 
-                const_value_get_signed_int(0), ASTFileName(a), ASTLine(a));
+        check_expression(affinity, block_context, &nodecl_affinity);
     }
     else
     {
@@ -11542,7 +11545,7 @@ static AST get_enclosing_declaration(AST point_of_declarator)
     return point;
 }
 
-AST internal_expression_parse(const char *source, decl_context_t decl_context)
+nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context)
 {
     const char *mangled_text = strappend("@EXPRESSION@ ", source);
 
@@ -11572,8 +11575,9 @@ AST internal_expression_parse(const char *source, decl_context_t decl_context)
         internal_error("Could not parse the expression '%s'", source);
     }
 
+    nodecl_t nodecl_expr = nodecl_null();
     enter_test_expression();
-    char c = check_expression(a, decl_context);
+    char c = check_expression(a, decl_context, &nodecl_expr);
     leave_test_expression();
 
     if (!c)
@@ -11584,7 +11588,9 @@ AST internal_expression_parse(const char *source, decl_context_t decl_context)
 
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, decl_context);
 
-    return a;
+    ast_free(a);
+
+    return nodecl_expr;
 }
 
 scope_entry_t* entry_advance_aliases(scope_entry_t* entry)

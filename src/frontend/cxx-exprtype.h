@@ -49,14 +49,14 @@ LIBMCXX_EXTERN AST advance_expression_nest_flags(AST expr, char advance_parenthe
 
 LIBMCXX_EXTERN char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments);
 
-LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t decl_context);
 
-LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
+LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
 
 // Used in some TL phases, do not remove
-LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
+LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const char* filename, int line,
@@ -91,34 +91,6 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         template_parameter_list_t *explicit_template_parameters
         );
 
-LIBMCXX_EXTERN type_t* expression_get_type(AST expr);
-LIBMCXX_EXTERN void expression_set_type(AST expr, type_t* t);
-
-
-
-LIBMCXX_EXTERN void expression_set_error(AST expr);
-LIBMCXX_EXTERN char expression_is_error(AST expr);
-
-LIBMCXX_EXTERN char expression_is_constant(AST expr);
-LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
-LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);
-LIBMCXX_EXTERN const_value_t* expression_get_constant(AST expr);
-
-LIBMCXX_EXTERN void expression_set_is_lvalue(AST expr, char is_lvalue);
-LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
-
-LIBMCXX_EXTERN char expression_is_value_dependent(AST expr);
-LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, 
-        char value_dependent, decl_context_t decl_context);
-
-LIBMCXX_EXTERN char expression_has_symbol(AST expr);
-LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
-LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
-
-LIBMCXX_EXTERN void expression_clear_computed_info(AST expr);
-
-LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);
-
 LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
 
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
@@ -134,7 +106,7 @@ LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
         const char* filename,
         int line);
 
-LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context);
+LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t*);
 
 // Like nodecl_make_function_call but takes care of virtual function calls
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);

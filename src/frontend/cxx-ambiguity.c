@@ -237,9 +237,10 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
         }
         else if (ASTType(declaration) == AST_MEMBER_DECLARATION_QUALIF)
         {
+            nodecl_t nodecl_expr = nodecl_null();
             enter_test_expression();
             AST id_expr = ASTSon0(declaration);
-            current_valid = check_expression(id_expr, decl_context);
+            current_valid = check_expression(id_expr, decl_context, &nodecl_expr);
             leave_test_expression();
         }
         else
@@ -490,11 +491,8 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
             {
                 case AST_EXPRESSION_STATEMENT :
                     {
-                        AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                         // This will output some informational messages that might
                         // help solving this ambiguity
-                        expression_clear_computed_info(ambiguous_tree_as_expr);
-                        check_expression_statement(ambiguous_tree_as_expr, decl_context);
                         // Best effort
                         choose_option(a, i);
                         return;
@@ -935,7 +933,8 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
 {
     AST expression = ASTSon0(a);
 
-    char result = check_expression(expression, decl_context);
+    nodecl_t nodecl_expr = nodecl_null();
+    char result = check_expression(expression, decl_context, &nodecl_expr);
 
     return result;
 }
@@ -965,8 +964,9 @@ char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_conte
                 {
                     AST expression_arg = ASTSon0(current_template_parameter);
 
+                    nodecl_t nodecl_dummy = nodecl_null();
                     enter_test_expression();
-                    current_option = check_expression(expression_arg, decl_context);
+                    current_option = check_expression(expression_arg, decl_context, &nodecl_dummy);
                     leave_test_expression();
 
                     break;
@@ -1091,8 +1091,9 @@ static char check_template_parameter_list(AST argument_list, decl_context_t decl
 
             if (ASTType(template_parameter) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
             {
+                nodecl_t nodecl_dummy = nodecl_null();
                 enter_test_expression();
-                char valid_template_parameter = check_expression(ASTSon0(template_parameter), decl_context);
+                char valid_template_parameter = check_expression(ASTSon0(template_parameter), decl_context, &nodecl_dummy);
                 leave_test_expression();
                 if (!valid_template_parameter)
                     return 0;
@@ -1256,8 +1257,9 @@ char check_type_specifier(AST type_id, decl_context_t decl_context)
             // GCC Extension
         case AST_GCC_TYPEOF_EXPR :
             {
+                nodecl_t nodecl_dummy = nodecl_null();
                 enter_test_expression();
-                char result = check_expression(ASTSon0(type_id), decl_context);
+                char result = check_expression(ASTSon0(type_id), decl_context, &nodecl_dummy);
                 leave_test_expression();
                 return result;
             }
@@ -1381,8 +1383,9 @@ static char check_init_declarator(AST init_declarator, decl_context_t decl_conte
             // Plain expression
             default:
                 {
+                    nodecl_t nodecl_dummy = nodecl_null();
                     enter_test_expression();
-                    result = check_expression(initializer, decl_context);
+                    result = check_expression(initializer, decl_context, &nodecl_dummy);
                     leave_test_expression();
                     break;
                 }
@@ -1413,8 +1416,9 @@ static char check_declarator_rec(AST declarator, decl_context_t decl_context, ch
             {
                 if (ASTSon1(declarator) != NULL)
                 {
+                    nodecl_t nodecl_dummy = nodecl_null();
                     enter_test_expression();
-                    char result = check_expression(ASTSon1(declarator), decl_context);
+                    char result = check_expression(ASTSon1(declarator), decl_context, &nodecl_dummy);
                     leave_test_expression();
 
                     if (!result)
@@ -1622,7 +1626,8 @@ static char check_function_declarator_parameters(AST parameter_declaration_claus
 
         if (default_arg != NULL)
         {
-            check_expression(default_arg, decl_context);
+            nodecl_t nodecl_dummy = nodecl_null();
+            check_expression(default_arg, decl_context, &nodecl_dummy);
         }
     }
 
@@ -1739,8 +1744,9 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                 break;
             case AST_EXPRESSION_STATEMENT :
                 {
+                    nodecl_t nodecl_dummy = nodecl_null();
                     enter_test_expression();
-                    if (check_expression(ASTSon0(for_init_statement), decl_context))
+                    if (check_expression(ASTSon0(for_init_statement), decl_context, &nodecl_dummy))
                     {
                         current = 1;
                     }
@@ -1776,11 +1782,8 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
             {
                 case AST_EXPRESSION_STATEMENT :
                     {
-                        AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
                         // This will output some informational messages that might
                         // help solving this ambiguity
-                        expression_clear_computed_info(ambiguous_tree_as_expr);
-                        check_expression_statement(ambiguous_tree_as_expr, decl_context);
                         // Best effort
                         choose_option(a, i);
                         return;
@@ -1836,8 +1839,9 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
         }
         else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
         {
+            nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
-            current_typeof = check_expression(typeof_argument, decl_context);
+            current_typeof = check_expression(typeof_argument, decl_context, &nodecl_dummy);
             leave_test_expression();
         }
         else
@@ -1882,8 +1886,9 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
         {
             AST current_expression = ASTSon1(iter);
 
+            nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
-            result = result && check_expression(current_expression, decl_context);
+            result = result && check_expression(current_expression, decl_context, &nodecl_dummy);
             leave_test_expression();
         }
 
@@ -2039,9 +2044,10 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     int i;
     for (i = 0; i < ast_get_num_ambiguities(ambig_expression); i++)
     {
+        nodecl_t nodecl_dummy = nodecl_null();
         enter_test_expression();
         char current_check = 
-            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
+            check_expression(ast_get_ambiguity(ambig_expression, i), decl_context, &nodecl_dummy);
         leave_test_expression();
 
         if (current_check)
@@ -2204,8 +2210,6 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             {
                 if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
                 {
-                    expression_clear_computed_info(ast_get_ambiguity(ambig_expression, i));
-                    check_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
                     // Choose this one just to avoid spurious errors later
                     choose_option(ambig_expression, i);
                     diagnosed = 1;
@@ -2215,9 +2219,6 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             // Use the first one if the ambiguity was not a function call problem
             if (!diagnosed)
             {
-                AST ambig0 = ast_get_ambiguity(ambig_expression, 0);
-                expression_clear_computed_info(ambig0);
-                check_expression(ambig0, decl_context);
                 choose_option(ambig_expression, 0);
             }
         }
@@ -2250,8 +2251,9 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
         AST current_condition = ast_get_ambiguity(a, i);
         if (ASTSon0(current_condition) == NULL) // Expression
         {
+            nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
-            current_check = check_expression(ASTSon2(current_condition), decl_context);
+            current_check = check_expression(ASTSon2(current_condition), decl_context, &nodecl_dummy);
             leave_test_expression();
         }
         else
@@ -2267,9 +2269,10 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             current_check = check_type_specifier(type_specifier, decl_context)
                 && check_declarator(declarator, decl_context);
 
+            nodecl_t nodecl_dummy = nodecl_null();
             enter_test_expression();
             AST expr = ASTSon0(equal_initializer);
-            current_check = current_check && check_expression(expr, decl_context);
+            current_check = current_check && check_expression(expr, decl_context, &nodecl_dummy);
             leave_test_expression();
         }
 
@@ -2298,8 +2301,6 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
             AST current_condition = ast_get_ambiguity(a, i);
             if (ASTSon0(current_condition) == NULL)
             {
-                expression_clear_computed_info(ASTSon2(current_condition));
-                check_expression(ASTSon2(current_condition), decl_context);
                 // Best effort
                 choose_option(a, i);
                 return;

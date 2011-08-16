@@ -263,38 +263,38 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (new_member->entity_specs.is_bitfield)
                 {
                     // Evaluate the bitfield expression
-                    if (expression_is_constant(new_member->entity_specs.bitfield_expr))
+                    if (nodecl_is_constant(new_member->entity_specs.bitfield_size))
                     {
                         if (const_value_is_zero(
                                     const_value_gt(
-                                        expression_get_constant(new_member->entity_specs.bitfield_expr),
+                                        nodecl_get_constant(new_member->entity_specs.bitfield_size),
                                         const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
                             running_error("%s:%d: error: invalid bitfield of size '%d'",
                                     new_member->file, new_member->line, 
                                     const_value_cast_to_4(
-                                        expression_get_constant(new_member->entity_specs.bitfield_expr)));
+                                        nodecl_get_constant(new_member->entity_specs.bitfield_size)));
                         }
 
-                        new_member->entity_specs.bitfield_expr = const_value_to_tree(
-                                expression_get_constant(new_member->entity_specs.bitfield_expr));
-                        new_member->entity_specs.bitfield_expr_context =
+                        new_member->entity_specs.bitfield_size_context =
                             context_of_being_instantiated;
                     }
                     else
                     {
+                        // ???? FIXME - What about sizes that depend on a nontype template argument?
                         running_error("%s:%d: error: bitfield specification is not a constant expression", 
                                 new_member->file, new_member->line);
                     }
                 }
 
-                if (member_of_template->language_dependent_value != NULL)
+                if (!nodecl_is_null(member_of_template->value))
                 {
-                    new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
+                    internal_error("Not yet implemented", 0);
+                    // new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
 
-                    check_initialization(new_member->language_dependent_value, context_of_being_instantiated, 
-                            new_member->type_information);
-                    new_member->value = expression_get_nodecl(new_member->language_dependent_value);
+                    // check_initialization(new_member->language_dependent_value, context_of_being_instantiated, 
+                    //         new_member->type_information);
+                    // new_member->value = expression_get_nodecl(new_member->language_dependent_value);
                 }
 
                 DEBUG_CODE()
@@ -384,13 +384,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 new_member->type_information = new_type;
 
-                ERROR_CONDITION(member_of_template->language_dependent_value == NULL,
+                ERROR_CONDITION(nodecl_is_null(member_of_template->value),
                         "An enumerator always has a related expression", 0);
 
-                new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
-                check_expression(new_member->language_dependent_value, context_of_being_instantiated);
+                internal_error("Not yet implemented", 0);
+                // new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
+                // check_expression(new_member->language_dependent_value, context_of_being_instantiated);
 
-                new_member->value = expression_get_nodecl(new_member->language_dependent_value);
+                // new_member->value = expression_get_nodecl(new_member->language_dependent_value);
 
                 enum_type_add_enumerator(new_type, new_member);
 
@@ -667,12 +668,15 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(member_of_template->type_information);
                 scope_entry_t* entry = entry_list_head(entry_list);
 
+                internal_error("Not yet implemented", 0);
                 if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
+#if 0
                     ERROR_CONDITION(entry_list_size(entry_list) != 1, "Invalid list", 0);
                     introduce_using_entity_id_expr(entry->language_dependent_value, 
                             context_of_being_instantiated, 
                             member_of_template->entity_specs.access);
+#endif
                 }
                 else
                 {
@@ -1321,13 +1325,13 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
                 decl_context_t dummy;
                 AST expr = nodecl_unwrap_cxx_dependent_expr(argument_info->argument, &dummy);
                 expr = ast_copy_for_instantiation(expr);
-                char c = check_expression(expr, instantiation_context);
+
+                nodecl_t new_nodecl = nodecl_null();
+                char c = check_expression(expr, instantiation_context, &new_nodecl);
 
                 // Do not update anything on error
                 if (!c)
                     continue;
-
-                nodecl_t new_nodecl = expression_get_nodecl(expr);
 
                 ERROR_CONDITION(nodecl_is_cxx_dependent_expr(new_nodecl), "Invalid dependent nodecl when updating default argument %d", i);
 

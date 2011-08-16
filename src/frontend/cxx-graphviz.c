@@ -201,7 +201,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int positi
             }
         }
 
-        scope_entry_t* entry = expression_get_symbol(a);
+        scope_entry_t* entry = nodecl_get_symbol(_nodecl_wrap(a));
 
         if (entry != NULL)
         {

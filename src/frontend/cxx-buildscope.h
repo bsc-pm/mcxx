@@ -120,7 +120,7 @@ LIBMCXX_EXTERN void leave_class_specifier(nodecl_t*);
 
 LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
 
-LIBMCXX_EXTERN AST internal_expression_parse(const char *source, decl_context_t decl_context);
+LIBMCXX_EXTERN nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list, 
         decl_context_t decl_context, decl_context_t *template_context,

@@ -80,7 +80,7 @@ bool|fortran|bind_c|This symbol has a BIND(C) attribute
 bool|fortran|is_cray_pointee|This symbol is a Cray pointee
 symbol|all|alias_to|If this symbol is_renamed (Fortran) or is a SK_USING (in C/C++)
 symbol|all|emission_template|If this symbol is_non_emitted then this is the original template used to emit it
-AST|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl
+nodecl|all|anonymous_accessor|Is this symbol is_member_of_anonymous it must be accessed using this nodecl
 typeof(intent_kind_t)|fortran|intent_kind|The INTENT attribute of this dummy argument
 symbol|fortran|in_common|The COMMON where this entity belongs. See is_in_common
 symbol|fortran|namelist|The NAMELIST where this entity belongs. See is_in_namelist
@@ -97,13 +97,13 @@ symbol|fortran|cray_pointer|If this symbol is_cray_pointee then this is its Cray
 string|all|linkage_spec|The linkage specifier (C, C++). Currently unused
 array(type)|all|exceptions|Exception specifier for functions. Can be empty. See any_exception
 array(typeof(default_argument_info_t*))|all|num_parameters,default_argument_info|Default arguments for functions
-AST|all|bitfield_expr|Expression of the bitfield
-scope|all|bitfield_expr_context|Context for the bitfield expression
+nodecl|all|bitfield_size|Expression of the bitfield
+scope|all|bitfield_size_context|Context for the bitfield expression
 typeof(_size_t)|all|field_offset|Offsetof of a field/nonstatic data-member
 static_array(typeof(gather_gcc_attribute_t), MCXX_MAX_GCC_ATTRIBUTES_PER_SYMBOL)|all|gcc_attributes|GCC attributes synthesized for the symbol from the syntax
 AST|all|definition_tree|The tree where this function or class has been defined
 typeof(codegen_status_t)|all|*codegen_status|Status during codegen
 typeof(simplify_function_t)|all|*simplify_function|Function used to simplify expressions
 typeof(emission_handler_t)|all|*emission_handler|When is_non_emitted is true, this function can emit it
-array(AST)|all|pragmas|Pragmas related to this symbol (in nodecl representation)
-AST|all|asm_specification|__asm specification of GCC (in nodecl representation)
+array(nodecl)|all|pragmas|Pragmas related to this symbol 
+nodecl|all|asm_specification|__asm specification of GCC 

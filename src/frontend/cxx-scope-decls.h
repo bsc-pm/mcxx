@@ -315,7 +315,6 @@ struct scope_entry_tag
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
-    struct AST_tag* language_dependent_value;
     nodecl_t value;
 
     // File and line where this simbol was signed up

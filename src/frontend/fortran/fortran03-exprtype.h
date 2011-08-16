@@ -38,7 +38,7 @@
 
 MCXX_BEGIN_DECLS
 
-LIBMF03_EXTERN char fortran_check_expression(AST a, decl_context_t decl_context);
+LIBMF03_EXTERN char fortran_check_expression(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 LIBMF03_EXTERN type_t* common_type_of_binary_operation(type_t* t1, type_t* t2);
 LIBMF03_EXTERN type_t* common_type_of_equality_operation(type_t* t1, type_t* t2);

@@ -67,6 +67,12 @@ nodecl_t _nodecl_wrap(AST);
 // Free a temporally allocated nodecl
 void nodecl_free(nodecl_t);
 
+// Expression specific stuff
+char nodecl_expr_is_lvalue(nodecl_t);
+void nodecl_expr_set_is_lvalue(nodecl_t, char);
+
+char nodecl_is_err_expr(nodecl_t);
+
 // C++ specific stuff
 char nodecl_is_cxx_dependent_expr(nodecl_t n);
 nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t);

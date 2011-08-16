@@ -898,11 +898,12 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                         ast_print_node_type(ASTType(left_expr)));
             }
 
-            if (expression_has_symbol(left_expr))
-            {
-                scope_entry_t* sym = expression_get_symbol(left_expr);
-                return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
-            }
+            internal_error("Not yet implemented", 0);
+            // if (expression_has_symbol(left_expr))
+            // {
+            //     scope_entry_t* sym = expression_get_symbol(left_expr);
+            //     return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
+            // }
         }
         if (nodecl_is_cxx_dependent_expr(right_tree))
         {
@@ -915,11 +916,12 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                         ast_print_node_type(ASTType(right_expr)));
             }
 
-            if (expression_has_symbol(right_expr))
-            {
-                scope_entry_t* sym = expression_get_symbol(right_expr);
-                return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
-            }
+            internal_error("Not yet implemented", 0);
+            // if (expression_has_symbol(right_expr))
+            // {
+            //     scope_entry_t* sym = expression_get_symbol(right_expr);
+            //     return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
+            // }
         }
 
         DEBUG_CODE()
@@ -973,6 +975,9 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
         case AST_SYMBOL :
         case AST_QUALIFIED_ID :
             {
+                internal_error("Not yet implemented", 0);
+
+#if 0
                 scope_entry_t* left_symbol = expression_get_symbol(left_tree);
                 scope_entry_t* right_symbol = expression_get_symbol(right_tree);
 
@@ -990,6 +995,7 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
                     fprintf(stderr, "TYPEUNIF: One of the symbolic trees lacks a symbol, they can't be equivalent\n");
                 }
                 return 0;
+#endif
                 break;
             }
         case AST_LOGICAL_OR :
@@ -1083,12 +1089,15 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
             }
         case AST_SIZEOF_TYPEID :
             {
+                internal_error("Not yet implemented", 0);
+#if 0
                 type_t* sizeof_left_type = expression_get_type(ASTSon0(left_tree));
                 type_t* sizeof_right_type = expression_get_type(ASTSon0(right_tree));
 
                 // We do not unificate sizeofs (though we could), just assert
                 // if the sizeof'd type is the same
                 return equivalent_types(sizeof_left_type, sizeof_right_type);
+#endif
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {

@@ -1438,7 +1438,6 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                             param->entry->line,
                             param->entry->symbol_name);
 
-                    expression_set_symbol(symbol, param->entry);
                     set_as_template_parameter_name(symbol, param->entry);
 
                     new_value->value = nodecl_wrap_cxx_dependent_expr(symbol, param->entry->decl_context);
@@ -3249,7 +3248,7 @@ char class_type_is_empty(type_t* t)
         scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
+                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
         {
             num_of_non_empty_nonstatics_data_members++;
         }
@@ -3413,7 +3412,7 @@ char class_type_is_nearly_empty(type_t* t)
         scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (!entry->entity_specs.is_bitfield
-                || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
+                || const_value_is_nonzero(nodecl_get_constant(entry->entity_specs.bitfield_size)))
         {
             // If we are not empty, we are not nearly empty either
             empty = 0;
@@ -8856,7 +8855,7 @@ char is_aggregate_type(type_t* t)
             CXX1X_LANGUAGE()
             {
                 // No initializer for nonstatic data member
-                if (entry->language_dependent_value != NULL)
+                if (nodecl_is_null(entry->value))
                 {
                     entry_list_iterator_free(it);
                     entry_list_free(nonstatic_data_members);
