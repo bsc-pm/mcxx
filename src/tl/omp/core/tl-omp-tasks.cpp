@@ -189,19 +189,19 @@ namespace TL
 
             return result;
         }
-		
-		void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
-		{
-			_real_time_info = rt_info;
-		}
 
-		RealTimeInfo FunctionTaskInfo::get_real_time_info()
-		{
-			return _real_time_info;
-		}
+        void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
+        {
+            _real_time_info = rt_info;
+        }
 
-        
-		FunctionTaskSet::FunctionTaskSet()
+        RealTimeInfo FunctionTaskInfo::get_real_time_info()
+        {
+            return _real_time_info;
+        }
+
+
+        FunctionTaskSet::FunctionTaskSet()
         {
         }
 
@@ -381,9 +381,9 @@ namespace TL
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
-			RealTimeInfo rt_info = task_real_time_handler_pre(construct);
-            
-			PragmaCustomClause input_clause = construct.get_clause("input");
+            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+
+            PragmaCustomClause input_clause = construct.get_clause("input");
             ObjectList<std::string> input_arguments;
             if (input_clause.is_defined())
             {
@@ -465,100 +465,83 @@ namespace TL
                 return;
             }
 
-            ObjectList<FunctionTaskDependency> parameter_list;
+            ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
+            AST_t param_ref_tree = function_sym.get_point_of_declaration();
             if (parameter_decl.empty()
                     || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
             {
-                std::cerr << construct.get_ast().get_locus()
-                    << ": warning: '#pragma omp task' applied to a function with no parameters" << std::endl;
-
-                // Now gather task information
-                if (!_target_context.empty())
+                if(!function_sym.is_member() || function_sym.is_static())
                 {
-                    TargetContext& target_context = _target_context.top();
-                    target_info.set_device_list(target_context.device_list);
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task' "
+                              << "applied to a function with no parameters"
+                              << std::endl;
                 }
             }
             else
             {
                 // Use the first parameter as a reference tree so we can parse the specifications
-                AST_t param_ref_tree = parameter_decl[0].get_ast();
-
-                parameter_list.append(input_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(output_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(inout_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(reduction_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_REDUCTION,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                dependence_list_check(parameter_list);
-
-                // Now gather task information
-                if (!_target_context.empty())
-                {
-                    TargetContext& target_context = _target_context.top();
-
-                    ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                                COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_in(copy_in);
-
-                    ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                                COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_out(copy_out);
-
-                    ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                                COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_inout(copy_inout);
-
-                    target_info.set_device_list(target_context.device_list);
-
-                    target_info.set_copy_deps(target_context.copy_deps);
-                }
+                param_ref_tree = parameter_decl[0].get_ast();
             }
+             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
+                             param_ref_tree,construct.get_scope_link())));
 
-            FunctionTaskInfo task_info(function_sym, parameter_list, target_info);
-			
-			//adding real time information to the task
-			task_info.set_real_time_info(rt_info);
-            
-			std::cerr << construct.get_ast().get_locus()
+             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_REDUCTION,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list_check(dependence_list);
+
+             // Now gather task information
+             if (!_target_context.empty())
+             {
+                 TargetContext& target_context = _target_context.top();
+
+                 ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
+                             COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_in(copy_in);
+
+                 ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
+                             COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_out(copy_out);
+
+                 ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
+                             COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_inout(copy_inout);
+
+                 target_info.set_device_list(target_context.device_list);
+
+                 target_info.set_copy_deps(target_context.copy_deps);
+             }
+
+
+            FunctionTaskInfo task_info(function_sym, dependence_list, target_info);
+
+            //adding real time information to the task
+            task_info.set_real_time_info(rt_info);
+
+            std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
-      	
-		
-		void Core::task_inline_handler_pre(PragmaCustomConstruct construct) 
-		{
-			RealTimeInfo rt_info = task_real_time_handler_pre(construct);
-		
+
+
+        void Core::task_inline_handler_pre(PragmaCustomConstruct construct)
+        {
+            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
-			
-			//adding real time information to the task
-			data_sharing.set_real_time_info(rt_info);
+
+            //adding real time information to the task
+            data_sharing.set_real_time_info(rt_info);
 
             get_data_explicit_attributes(construct, data_sharing);
 
@@ -569,97 +552,97 @@ namespace TL
 
             // Target info applies after
             get_target_info(construct, data_sharing);
-		}
+        }
 
 
-		RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
-		{
-			RealTimeInfo rt_info;
-			
-			PragmaCustomClause deadline_clause = construct.get_clause("deadline");
+        RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
+        {
+            RealTimeInfo rt_info;
+
+            PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
             {
-            	ObjectList<std::string> deadline_args = 
-					deadline_clause.get_arguments(ExpressionTokenizer());
-			
-				if(deadline_args.size() != 1) 
-				{
-					std::cerr << construct.get_ast().get_locus() 
-							  << ": warning: '#pragma omp task deadline' "
-					          << "has a wrong number of arguments, skipping"
-							  << std::endl;	
-				}
-				else 
-				{
-					std::cerr << "warning: '#pragma omp task deadline' "
-						      << "is not implemented yet (tl-omp-tasks.cpp)"
-							  << std::endl;	
-				}
-			}
-			
-			PragmaCustomClause onerror_clause = construct.get_clause("onerror");
-			if (onerror_clause.is_defined())
+                ObjectList<std::string> deadline_args =
+                    deadline_clause.get_arguments(ExpressionTokenizer());
+
+                if(deadline_args.size() != 1)
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task deadline' "
+                              << "has a wrong number of arguments, skipping"
+                              << std::endl;
+                }
+                else
+                {
+                    std::cerr << "warning: '#pragma omp task deadline' "
+                              << "is not implemented yet (tl-omp-tasks.cpp)"
+                              << std::endl;
+                }
+            }
+
+            PragmaCustomClause onerror_clause = construct.get_clause("onerror");
+            if (onerror_clause.is_defined())
             {
-            	ObjectList<std::string> onerror_args = 
-					onerror_clause.get_arguments(ExpressionTokenizer());
-				
-				if(onerror_args.size() != 1) 
-				{
-					std::cerr << construct.get_ast().get_locus() 
-							  << ": warning: '#pragma omp task onerror' "
-					          << "has a wrong number of arguments, skipping"
-							  << std::endl;	
-				}
-				else 
-				{
-					//tokens structure: 'identifier:identifier'				
-					Lexer l = Lexer::get_current_lexer();	
-					
-					ObjectList<int> tokens = l.lex_string(onerror_args[0]);
+                ObjectList<std::string> onerror_args =
+                    onerror_clause.get_arguments(ExpressionTokenizer());
 
-					if(tokens.size() != 3) 
-					{
-						std::cerr << construct.get_ast().get_locus() 
-							  	  << ": warning: '#pragma omp task onerror' "
-					          	  << "has a wrong number of tokens. "
-								  << "It is expecting 'identifier:identifier', skipping"
-								  << std::endl;
-								
-					}
-					else if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
-						 	 (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
-	             	{
-						std::cerr << construct.get_ast().get_locus() 
-							  	  << ": warning: '#pragma omp task onerror' "
-								  << "first token must be an identifier, skipping" 
-								  << std::endl;
-					}
-					else if (tokens[1] != (int)':')
-	             	{
-						std::cerr << construct.get_ast().get_locus() 
-							  	  << ": warning: '#pragma omp task onerror' "
-								  << "second token must be a colon, skipping" 
-								  << std::endl;
-					}
-					else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) || 
-							 (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
-	             	{
-						std::cerr << construct.get_ast().get_locus() 
-							  	  << ": warning: '#pragma omp task onerror' "
-								  << "third token must be an identifier, skipping" 
-								  << std::endl;
-					}
-					else 
-					{
-						std::cerr << "warning: '#pragma omp task onerror' "
-								  << "is not implemented yet (tl-omp-tasks.cpp)"
-								  << std::endl;	
-					}
-				}
-			}
+                if(onerror_args.size() != 1)
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task onerror' "
+                              << "has a wrong number of arguments, skipping"
+                              << std::endl;
+                }
+                else
+                {
+                    //tokens structure: 'identifier:identifier'
+                    Lexer l = Lexer::get_current_lexer();
 
-			return rt_info;
-		}
-    
-	}
+                    ObjectList<int> tokens = l.lex_string(onerror_args[0]);
+
+                    if(tokens.size() != 3)
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task onerror' "
+                                  << "has a wrong number of tokens. "
+                                  << "It is expecting 'identifier:identifier', skipping"
+                                  << std::endl;
+
+                    }
+                    else if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                             (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task onerror' "
+                                  << "first token must be an identifier, skipping"
+                                  << std::endl;
+                    }
+                    else if (tokens[1] != (int)':')
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task onerror' "
+                                  << "second token must be a colon, skipping"
+                                  << std::endl;
+                    }
+                    else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
+                             (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task onerror' "
+                                  << "third token must be an identifier, skipping"
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        std::cerr << "warning: '#pragma omp task onerror' "
+                                  << "is not implemented yet (tl-omp-tasks.cpp)"
+                                  << std::endl;
+                    }
+                }
+            }
+
+            return rt_info;
+        }
+
+    }
 }
