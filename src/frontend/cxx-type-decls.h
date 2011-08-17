@@ -37,12 +37,13 @@
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-cexpr-decls.h"
+#include "cxx-nodecl-decls.h"
 
 MCXX_BEGIN_DECLS
 
 typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
         type_t** argument_types, 
-        AST *argument_expressions,
+        nodecl_t *argument_expressions,
         int num_arguments,
         const_value_t** const_value);
 

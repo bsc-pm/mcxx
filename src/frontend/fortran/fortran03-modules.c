@@ -47,6 +47,7 @@ static sqlite3_int64 insert_type(sqlite3* handle, type_t* t);
 static type_t* load_type(sqlite3* handle, sqlite3_int64 oid);
 static scope_entry_t* load_symbol(sqlite3* handle, sqlite3_int64 oid);
 static AST load_ast(sqlite3* handle, sqlite3_int64 oid);
+static nodecl_t load_nodecl(sqlite3* handle, sqlite3_int64 oid);
 
 typedef
 struct module_info_tag module_info_t;
@@ -59,6 +60,7 @@ static sqlite3_int64 insert_const_value(sqlite3* handle, const_value_t* value);
 static sqlite3_int64 insert_nodecl(sqlite3* handle, nodecl_t n);
 static void insert_extra_attr_int(sqlite3* handle, scope_entry_t* symbol, const char* name, sqlite3_int64 value);
 static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name, AST ast);
+static void insert_extra_attr_nodecl(sqlite3* handle, scope_entry_t* symbol, const char* name, nodecl_t ast);
 static void insert_extra_attr_symbol(sqlite3* handle, scope_entry_t* symbol, const char* name, scope_entry_t* ref);
 static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const char* name, type_t* ref);
 static void insert_extra_gcc_attr(sqlite3* handle, scope_entry_t* symbol, const char *name, gather_gcc_attribute_t* gcc_attr);
@@ -117,6 +119,14 @@ struct extra_trees_tag
 } extra_trees_t;
 
 typedef
+struct extra_nodecls_tag
+{
+    sqlite3* handle;
+    int num_nodecls;
+    nodecl_t* nodecls;
+} extra_nodecls_t;
+
+typedef
 struct 
 {
     sqlite3* handle;
@@ -138,6 +148,11 @@ static int get_extra_types(void *datum,
         char **names UNUSED_PARAMETER);
 
 static int get_extra_trees(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER);
+
+static int get_extra_nodecls(void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER);
@@ -653,26 +668,27 @@ static sqlite3_int64 insert_ast(sqlite3* handle, AST a)
         text = sqlite3_mprintf("" Q "", ast_get_text(a));
     }
 
-    type_t* type = expression_get_type(a);
+    // FIXME!
+    type_t* type = nodecl_get_type(_nodecl_wrap(a));
     if (type != NULL)
     {
         insert_type(handle, type);
     }
-    scope_entry_t* sym = expression_get_symbol(a);
+    scope_entry_t* sym = nodecl_get_symbol(_nodecl_wrap(a));
     if (sym != NULL)
     {
         insert_symbol(handle, sym);
     }
 
-    char is_lvalue = expression_is_lvalue(a);
-    char is_const_val = expression_is_constant(a);
+    char is_lvalue = nodecl_expr_is_lvalue(_nodecl_wrap(a));
+    char is_const_val = nodecl_is_constant(_nodecl_wrap(a));
     sqlite3_int64 const_val = 0;
     if (is_const_val)
     {
-        const_val = insert_const_value(handle, expression_get_constant(a));
+        const_val = insert_const_value(handle, nodecl_get_constant(_nodecl_wrap(a)));
     }
 
-    char is_value_dependent = expression_is_value_dependent(a);
+    char is_value_dependent = nodecl_expr_is_value_dependent(_nodecl_wrap(a));
     char *insert_node = sqlite3_mprintf("INSERT INTO ast (oid, kind, file, line, text, ast0, ast1, ast2, ast3, "
             "type, symbol, is_lvalue, is_const_val, const_val, is_value_dependent) "
             "VALUES ("
@@ -887,6 +903,13 @@ static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const 
             (sqlite3_int64(*)(sqlite3*, void*))(insert_ast));
 }
 
+static void insert_extra_attr_nodecl(sqlite3* handle, scope_entry_t* symbol, const char* name,
+        nodecl_t ref)
+{
+    insert_extra_attr_data(handle, symbol, name, nodecl_get_ast(ref), 
+            (sqlite3_int64(*)(sqlite3*, void*))(insert_ast));
+}
+
 static sqlite3_int64 insert_default_argument_info_ptr(sqlite3* handle, void* p)
 {
     // We cannot currently store the decl_context_t
@@ -949,6 +972,20 @@ static int get_extra_trees(void *datum,
     char *attr_value = values[0];
 
     P_LIST_ADD(p->trees, p->num_trees, load_ast(p->handle, safe_atoll(attr_value)));
+
+    return 0;
+}
+
+static int get_extra_nodecls(void *datum, 
+        int ncols UNUSED_PARAMETER,
+        char **values, 
+        char **names UNUSED_PARAMETER)
+{
+    extra_nodecls_t* p = (extra_nodecls_t*)datum;
+
+    char *attr_value = values[0];
+
+    P_LIST_ADD(p->nodecls, p->num_nodecls, load_nodecl(p->handle, safe_atoll(attr_value)));
 
     return 0;
 }
@@ -1142,7 +1179,6 @@ static int get_symbol(void *datum,
 
     (*result)->decl_context = load_decl_context(handle, oid);
 
-    (*result)->language_dependent_value = load_ast(handle, language_dependent_value_oid);
     (*result)->value = load_nodecl(handle, value_oid);
 
     // Add it to its scope
@@ -1356,22 +1392,23 @@ static int get_ast(void *datum,
         ast_set_child(a, i, child_tree);
     }
 
+    // FIXME _nodecl_wrap
     if (type_oid != 0)
     {
-        expression_set_type(a, load_type(handle, type_oid));
+        nodecl_set_type(_nodecl_wrap(a), load_type(handle, type_oid));
     }
 
     if (sym_oid != 0)
     {
-        expression_set_symbol(a, load_symbol(handle, sym_oid));
+        nodecl_set_symbol(_nodecl_wrap(a), load_symbol(handle, sym_oid));
     }
 
-    expression_set_is_lvalue(a, is_lvalue != 0);
+    nodecl_expr_set_is_lvalue(_nodecl_wrap(a), is_lvalue != 0);
     if (is_const_val)
     {
         // Fortran is always signed
         const_value_t* v = load_const_value(handle, const_val);
-        expression_set_constant(a, v);
+        nodecl_set_constant(_nodecl_wrap(a), v);
     }
 
     // expression_set_is_value_dependent(a, is_value_dependent != 0);
@@ -1437,24 +1474,26 @@ static int get_type(void *datum,
     const char* types = values[6];
     const char* symbols = values[7];
 
+    nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
+
     if (strcmp(kind, "INTEGER") == 0)
     {
-        *pt = choose_int_type_from_kind(NULL, kind_size);
+        *pt = choose_int_type_from_kind(nodecl_fake, kind_size);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "REAL") == 0)
     {
-        *pt = choose_float_type_from_kind(NULL, kind_size);
+        *pt = choose_float_type_from_kind(nodecl_fake, kind_size);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "LOGICAL") == 0)
     {
-        *pt = choose_logical_type_from_kind(NULL, kind_size);
+        *pt = choose_logical_type_from_kind(nodecl_fake, kind_size);
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "COMPLEX") == 0)
     {
-        *pt = get_complex_type(choose_float_type_from_kind(NULL, kind_size));
+        *pt = get_complex_type(choose_float_type_from_kind(nodecl_fake, kind_size));
         insert_map_ptr(handle, current_oid, *pt);
     }
     else if (strcmp(kind, "POINTER") == 0)

@@ -142,16 +142,17 @@ static void gather_one_gcc_attribute(const char* attribute_name,
 
         // Evaluate the expression
         AST argument = ASTSon1(expression_list);
-        if (check_expression(argument, decl_context))
+        nodecl_t nodecl_expr = nodecl_null();
+        if (check_expression(argument, decl_context, &nodecl_expr))
         {
-            if (expression_is_constant(argument))
+            if (nodecl_is_constant(nodecl_expr))
             {
-                int vector_size = const_value_cast_to_4(expression_get_constant(argument));
+                int vector_size = const_value_cast_to_4(nodecl_get_constant(nodecl_expr));
 
                 gather_info->vector_size = vector_size;
                 gather_info->is_vector = 1;
 
-                nodecl_expression_list = nodecl_make_list_1(expression_get_nodecl(argument));
+                nodecl_expression_list = nodecl_make_list_1(nodecl_expr);
             }
             else
             {
@@ -1037,8 +1038,10 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
-char check_gxx_type_traits(AST expression, decl_context_t decl_context)
+char check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST first_type_id = ASTSon0(expression);
 
     if (!check_type_id_tree(first_type_id, decl_context))
@@ -1117,5 +1120,6 @@ char check_gxx_type_traits(AST expression, decl_context_t decl_context)
     }
 
     return 1;
+#endif
 }
 

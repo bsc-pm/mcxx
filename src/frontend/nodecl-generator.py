@@ -108,13 +108,13 @@ class NodeclStructure(Variable):
         print "case %s :" % (self.tree_kind)
         print "{"
         if (self.needs_symbol):
-           print "   ERROR_CONDITION(expression_get_symbol(%s) == NULL, \"Tree lacks a symbol\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_symbol(%s) == NULL, \"Tree lacks a symbol\", 0);" % (tree_expr)
         if (self.needs_type):
-           print "   ERROR_CONDITION(expression_get_type(%s) == NULL, \"Tree lacks a type\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_type(%s) == NULL, \"Tree lacks a type\", 0);" % (tree_expr)
         if (self.needs_text):
-           print "   ERROR_CONDITION(ASTText(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_text(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
         if (self.needs_cval):
-           print "   ERROR_CONDITION(expression_get_constant(%s) == NULL, \"Tree lacks a constant value\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_constant(%s) == NULL, \"Tree lacks a constant value\", 0);" % (tree_expr)
         i = 0
         for subtree in self.subtrees:
            (rule_label, rule_ref) = subtree
@@ -122,28 +122,28 @@ class NodeclStructure(Variable):
            current_rule = RuleRef(rule_ref)
 
            if current_rule.is_nullable():
-               print "if (ASTSon%d(%s) != NULL)" % (i,tree_expr) 
+               print "if (!nodecl_is_null(nodecl_get_child(%s, %d)))" % (tree_expr, i) 
                print "{"
            else:
-               print "ERROR_CONDITION(ASTSon%d(%s) == NULL, \"Tree cannot be NULL!\", 0);" % (i, tree_expr)
+               print "ERROR_CONDITION(nodecl_is_null(nodecl_get_child(%s, %d)), \"Tree cannot be NULL!\", 0);" % (tree_expr, i)
 
            if current_rule.is_seq():
-               print "ERROR_CONDITION(ASTType(ASTSon%d(%s)) != AST_NODE_LIST, \"List node required here but got %%s\", ast_print_node_type(ASTType(ASTSon%d(%s))));" % (i, tree_expr, i, tree_expr)
-               current_rule.check_code("ASTSon%d(%s)" % (i, tree_expr))
+               print "ERROR_CONDITION(!nodecl_is_list(nodecl_get_child(%s, %d)), \"List node required here but got %%s\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" % (tree_expr, i, tree_expr, i)
+               current_rule.check_code("nodecl_get_child(%s, %d)" % (tree_expr, i))
            else:
-               print "   switch (ASTType(ASTSon%d(%s)))" % (i,tree_expr)
+               print "   switch (nodecl_get_kind(nodecl_get_child(%s, %d)))" % (tree_expr, i)
                print "   {"
                print "        // rule -> %s" % (rule_ref)
-               current_rule.check_code("ASTSon%d(%s)" % (i, tree_expr))
+               current_rule.check_code("nodecl_get_child(%s, %d)" % (tree_expr, i))
                print "       default:"
                print "       {"
                first_set = current_rule.first()
                if current_rule.is_seq():
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(ASTType(ASTSon%d(%s))));" \
-                                      % (i, tree_expr)
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" \
+                                      % (tree_expr, i)
                else:
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(ASTSon%d(%s))));" \
-                      % (string.join(first_set, " or "), i, tree_expr)
+                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" \
+                      % (string.join(first_set, " or "), tree_expr, i)
                print "          break;"
                print "       }"
                print "   }"
@@ -201,11 +201,13 @@ class RuleRef(Variable):
             raise Exception("First set can't be empty!")
         if is_seq:
            print "{"
-           print "AST it, list = %s;" % (tree_expr)
-           print "for_each_element(list, it)" 
+           print "nodecl_t list = %s;" % (tree_expr)
+           print "int i, num_items = 0;"
+           print "nodecl_t* list_items = nodecl_unpack_list(list, &num_items);"
+           print "for (i = 0; i < num_items; i++)"
            print "{"
-           print "   AST e = ASTSon1(it);"
-           print "   switch (ASTType(e))"
+           print "   nodecl_t e = list_items[i];"
+           print "   switch (nodecl_get_kind(e))"
            print "   {"
            for first_item in first_set:
                  print "        case %s : " % (first_item) 
@@ -215,12 +217,13 @@ class RuleRef(Variable):
            print "        }"
            print "        default:"
            print "        {"
-           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(e)));" \
+           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(e)));" \
                % (string.join(first_set, " or "))
            print "           break;"
            print "        }"
            print "   }"
            print "}"
+           print "free(list_items);"
            print "}"
         else:
            for first_item in first_set:
@@ -233,18 +236,18 @@ class RuleRef(Variable):
 def generate_check_routines_rec(rule_map, rule_name):
     rule_info = rule_map[rule_name]
     rule_name_c = rule_name.replace("-", "_");
-    print "static void nodecl_check_tree_%s(AST a)" % (rule_name_c)
+    print "static void nodecl_check_tree_%s(nodecl_t n)" % (rule_name_c)
     print "{"
-    print "   ERROR_CONDITION(a == NULL, \"Invalid null tree\", 0);"
-    print "   switch (ASTType(a))"
+    print "   ERROR_CONDITION(nodecl_is_null(n), \"Invalid null tree\", 0);"
+    print "   switch (nodecl_get_kind(n))"
     print "   {"
     first_set = set([])
     for rhs in rule_info:
-        rhs.check_code("a")
+        rhs.check_code("n")
         first_set = first_set.union(rhs.first())
     print "     default:"
     print "     {"
-    print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(ASTType(a)));" \
+    print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(n)));" \
         % (string.join(first_set, " or "))
     print "        break;"
     print "     }"
@@ -256,20 +259,19 @@ def generate_check_routines(rule_map):
     print "/* Autogenerated file. DO NOT MODIFY. */"
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
     print ""
-    print "#include \"cxx-ast-fwd.h\""
-    print "#include \"cxx-asttype.h\""
+    print "#include \"cxx-nodecl-decls.h\""
     print "#include \"cxx-utils.h\""
     print "#include \"cxx-exprtype.h\""
     print ""
     for rule_name in rule_map:
         rule_name_c = rule_name.replace("-", "_");
-        print "static void nodecl_check_tree_%s(AST);" % (rule_name_c)
+        print "static void nodecl_check_tree_%s(nodecl_t);" % (rule_name_c)
     print ""
     for rule_name in rule_map:
         generate_check_routines_rec(rule_map, rule_name)
-    print "void nodecl_check_tree(AST a)"
+    print "void nodecl_check_tree(nodecl_t n)"
     print "{"
-    print "   nodecl_check_tree_nodecl(a);"
+    print "   nodecl_check_tree_nodecl(n);"
     print "}"
 
 def from_underscore_to_camel_case(x):
@@ -557,31 +559,33 @@ def generate_routines_impl(rule_map):
           first_set = subrule_ref.first();
 
           print "{"
-          print "AST checked_tree = %s.tree;" % (param_name_list[i])
+          print "nodecl_t checked_tree = %s;" % (param_name_list[i])
           if not subrule_ref.is_nullable():
-              print "if (checked_tree == NULL)"
+              print "if (nodecl_is_null(checked_tree))"
               print "{"
               print "  internal_error(\"Null node not allowed in node %d nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
               print "}"
           if subrule_ref.is_nullable():
-             print "if (checked_tree != NULL)"
+             print "if (!nodecl_is_null(checked_tree))"
              print "{"
           if subrule_ref.is_seq():
-             print " if (ASTType(checked_tree) != AST_NODE_LIST)"
+             print " if (!nodecl_is_list(checked_tree))"
              print " {"
              print "  internal_error(\"Node must be a list in node %d of nodecl_make_%s. Location: %%s:%%d\\n\", filename, line);" % (i, key)
              print " }"
-             print "AST it, list = checked_tree;"
-             print "for_each_element(list, it)"
+             print "int i, num_items = 0;"
+             print "nodecl_t* list_items = nodecl_unpack_list(checked_tree, &num_items);"
+             print "for (i = 0; i < num_items; i++)"
              print "{"
-             print     "checked_tree = ASTSon1(it);"
-          checks = map(lambda x : "(ASTType(checked_tree) != %s)" % (x), first_set)
+             print     "checked_tree = list_items[i];"
+          checks = map(lambda x : "(nodecl_get_kind(checked_tree) != %s)" % (x), first_set)
           print "if (%s)" % (string.join(checks, "\n&& "))
           print "{"
-          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s:%%d\\n\", ast_print_node_type(ASTType(checked_tree)), filename, line);" % (i, key)
+          print "  internal_error(\"Invalid node %d of type %%s in nodecl_make_%s. Location: %%s:%%d\\n\", ast_print_node_type(nodecl_get_kind(checked_tree)), filename, line);" % (i, key)
           print "}"
           if subrule_ref.is_seq():
              print "}"
+             print "free(list_items);"
           if subrule_ref.is_nullable():
              print "}"
           i = i + 1
@@ -598,16 +602,16 @@ def generate_routines_impl(rule_map):
 
        if rhs_rule.needs_symbol:
            print "  if (symbol == NULL) internal_error(\"Node requires a symbol. Location: %s:%d\", filename, line);"
-           print "  expression_set_symbol(result.tree, symbol);"
+           print "  nodecl_set_symbol(result, symbol);"
        if rhs_rule.needs_type:
            print "  if (type == NULL) internal_error(\"This node requires a type. Location: %s:%d\", filename, line);"
-           print "  expression_set_type(result.tree, type);"
+           print "  nodecl_set_type(result, type);"
        if rhs_rule.needs_text:
            print "  if (text == NULL) internal_error(\"This node requires a text. Location: %s:%d\", filename, line);"
-           print "  ast_set_text(result.tree, text);"
+           print "  nodecl_set_text(result, text);"
        if rhs_rule.needs_cval:
            print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s:%d\", filename, line);"
-           print "  expression_set_constant(result.tree, cval);"
+           print "  nodecl_set_constant(result, cval);"
 
        print "  return result;"
        print "}"

@@ -637,8 +637,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 c_cxx_codegen_to_str(left_tree),
                 c_cxx_codegen_to_str(right_tree));
     }
-    if (nodecl_is_cxx_dependent_expr(left_tree)
-            || nodecl_is_cxx_dependent_expr(right_tree))
+    if (nodecl_expr_is_value_dependent(left_tree)
+            || nodecl_expr_is_value_dependent(right_tree))
     {
         DEBUG_CODE()
         {
@@ -670,8 +670,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
         }
     }
 
-    if (!nodecl_is_cxx_dependent_expr(left_tree)
-            && !nodecl_is_cxx_dependent_expr(right_tree))
+    if (!nodecl_expr_is_value_dependent(left_tree)
+            && !nodecl_expr_is_value_dependent(right_tree))
     {
         scope_entry_t* left_symbol = nodecl_get_symbol(left_tree);
         scope_entry_t* right_symbol = nodecl_get_symbol(right_tree);
@@ -875,59 +875,62 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
         return 0;
     }
-    else if (nodecl_is_cxx_dependent_expr(left_tree)
-            && nodecl_is_cxx_dependent_expr(right_tree))
+    else if (nodecl_expr_is_value_dependent(left_tree)
+            && nodecl_expr_is_value_dependent(right_tree))
     {
         decl_context_t dummy;
-        return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy),
-                nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy),
-                unif_set,
-                flags);
+        internal_error("Not yet implemented", 0);
+        // return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy),
+        //         nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy),
+        //         unif_set,
+        //         flags);
     }
     else
     {
-        // These are special cases we allow
-        if (nodecl_is_cxx_dependent_expr(left_tree))
-        {
-            decl_context_t dummy;
-            AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy);
+        internal_error("Not yet implemented", 0);
 
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Left is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(left_expr), 
-                        ast_print_node_type(ASTType(left_expr)));
-            }
+        // // These are special cases we allow
+        // if (nodecl_expr_is_value_dependent(left_tree))
+        // {
+        //     decl_context_t dummy;
+        //     AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy);
 
-            internal_error("Not yet implemented", 0);
-            // if (expression_has_symbol(left_expr))
-            // {
-            //     scope_entry_t* sym = expression_get_symbol(left_expr);
-            //     return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
-            // }
-        }
-        if (nodecl_is_cxx_dependent_expr(right_tree))
-        {
-            decl_context_t dummy;
-            AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy);
+        //     DEBUG_CODE()
+        //     {
+        //         fprintf(stderr, "TYPEUNIF: Left is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(left_expr), 
+        //                 ast_print_node_type(ASTType(left_expr)));
+        //     }
 
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Right is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(right_expr), 
-                        ast_print_node_type(ASTType(right_expr)));
-            }
+        //     internal_error("Not yet implemented", 0);
+        //     // if (expression_has_symbol(left_expr))
+        //     // {
+        //     //     scope_entry_t* sym = expression_get_symbol(left_expr);
+        //     //     return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
+        //     // }
+        // }
+        // if (nodecl_expr_is_value_dependent(right_tree))
+        // {
+        //     decl_context_t dummy;
+        //     AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy);
 
-            internal_error("Not yet implemented", 0);
-            // if (expression_has_symbol(right_expr))
-            // {
-            //     scope_entry_t* sym = expression_get_symbol(right_expr);
-            //     return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
-            // }
-        }
+        //     DEBUG_CODE()
+        //     {
+        //         fprintf(stderr, "TYPEUNIF: Right is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(right_expr), 
+        //                 ast_print_node_type(ASTType(right_expr)));
+        //     }
 
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUNIF: One is C++ raw and other is nodecl, this can't be equivalent\n");
-        }
+        //     internal_error("Not yet implemented", 0);
+        //     // if (expression_has_symbol(right_expr))
+        //     // {
+        //     //     scope_entry_t* sym = expression_get_symbol(right_expr);
+        //     //     return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
+        //     // }
+        // }
+
+        // DEBUG_CODE()
+        // {
+        //     fprintf(stderr, "TYPEUNIF: One is C++ raw and other is nodecl, this can't be equivalent\n");
+        // }
         return 0;
     }
 
@@ -950,14 +953,14 @@ static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, A
 
     nodecl_t nodecl_left = expression_get_nodecl(left_tree);
     if (!nodecl_is_null(nodecl_left)
-            && nodecl_is_cxx_dependent_expr(nodecl_left))
+            && nodecl_expr_is_value_dependent(nodecl_left))
     {
         nodecl_left = nodecl_null();
     }
 
     nodecl_t nodecl_right = expression_get_nodecl(right_tree);
     if (!nodecl_is_null(nodecl_right)
-            && nodecl_is_cxx_dependent_expr(nodecl_right))
+            && nodecl_expr_is_value_dependent(nodecl_right))
     {
         nodecl_right = nodecl_null();
     }

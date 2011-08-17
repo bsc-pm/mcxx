@@ -1437,11 +1437,6 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                             param->entry->file,
                             param->entry->line,
                             param->entry->symbol_name);
-
-                    set_as_template_parameter_name(symbol, param->entry);
-
-                    new_value->value = nodecl_wrap_cxx_dependent_expr(symbol, param->entry->decl_context);
-
                     break;
                 }
             default :
@@ -1677,7 +1672,7 @@ char has_dependent_template_parameters(template_parameter_list_t* template_param
         }
         else if (curr_argument->kind == TPK_NONTYPE)
         {
-            if (nodecl_is_cxx_dependent_expr(curr_argument->value))
+            if (nodecl_expr_is_value_dependent(curr_argument->value))
             {
                 return 1;
             }
@@ -2673,7 +2668,7 @@ static type_t* _get_array_type(type_t* element_type,
 
             if (expression_sizes_ok
                     && !result->info->is_dependent
-                    && nodecl_is_cxx_dependent_expr(whole_size))
+                    && nodecl_expr_is_value_dependent(whole_size))
             {
                 result->info->is_dependent = 1;
             }
@@ -2706,34 +2701,18 @@ type_t* get_array_type(type_t* element_type, nodecl_t whole_size, decl_context_t
     if (!nodecl_is_null(whole_size))
     {
         lower_bound = get_zero_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        if (!nodecl_is_cxx_dependent_expr(whole_size))
-        {
-            nodecl_t t = nodecl_copy(whole_size);
 
-            upper_bound = nodecl_make_minus(
-                    nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
-                        nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                    get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
-                    get_signed_int_type(),
-                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
-        }
-        else
-        {
-#ifdef FORTRAN_LANGUAGE
-            FORTRAN_LANGUAGE()
-            {
-                internal_error("This should not happen in FORTRAN", 0);
-            }
-#endif
-            AST orig_tree = nodecl_get_ast(nodecl_get_child(whole_size, 0));
-            AST minus_one = 
-                ASTMake2(AST_MINUS, 
-                        ast_copy(orig_tree),
-                        ASTLeaf(AST_DECIMAL_LITERAL, nodecl_get_filename(whole_size), nodecl_get_line(whole_size), "1"),
-                        nodecl_get_filename(whole_size), nodecl_get_line(whole_size), NULL);
+        nodecl_t t = nodecl_copy(whole_size);
 
-            upper_bound = nodecl_wrap_cxx_dependent_expr(minus_one, decl_context);
-        }
+        upper_bound = nodecl_make_minus(
+                nodecl_make_parenthesized_expression(t, nodecl_get_type(whole_size), 
+                    nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                get_one_tree(nodecl_get_filename(whole_size), nodecl_get_line(whole_size)),
+                get_signed_int_type(),
+                nodecl_get_filename(whole_size), nodecl_get_line(whole_size));
+
+        nodecl_expr_set_is_value_dependent(upper_bound,
+                nodecl_expr_is_value_dependent(whole_size));
     }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
@@ -6991,6 +6970,24 @@ static const char* get_builtin_type_name(type_t* type_info)
     return result;
 }
 
+static type_t* _dependent_type = NULL;
+
+type_t* get_unknown_dependent_type(void)
+{
+    if (_dependent_type == NULL)
+    {
+        _dependent_type = get_simple_type();
+    }
+    return _dependent_type;
+}
+
+static char is_unknown_dependent_type(type_t* t)
+{
+    return (_dependent_type != NULL
+            && t != NULL
+            && (t->unqualified_type == _dependent_type));
+}
+
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
@@ -7011,7 +7008,7 @@ const char* print_declarator(type_t* printed_declarator)
         tmp_result = "< ellipsis type >";
         return tmp_result;
     }
-    else if (is_dependent_expr_type(printed_declarator))
+    else if (is_unknown_dependent_type(printed_declarator))
     {
         tmp_result = "< dependent expression type >";
         return tmp_result;
@@ -8060,27 +8057,6 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
     {
         return NULL;
     }
-}
-
-static type_t* _dependent_type = NULL;
-
-type_t* get_dependent_expr_type(void)
-{
-    if (_dependent_type == NULL)
-    {
-        _dependent_type = get_simple_type();
-    }
-    return _dependent_type;
-}
-
-char is_dependent_expr_type(type_t* t)
-{
-    return (_dependent_type != NULL
-            && t != NULL
-            && (t->unqualified_type == _dependent_type
-                || (is_named_type(t) 
-                    && (named_type_get_symbol(t)->kind == SK_TEMPLATE_PARAMETER)))
-           );
 }
 
 static type_t* _zero_type = NULL;
@@ -9508,3 +9484,4 @@ type_t* get_foundation_type(type_t* t)
     }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }
+

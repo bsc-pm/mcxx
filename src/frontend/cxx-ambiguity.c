@@ -1394,9 +1394,14 @@ static char check_init_declarator(AST init_declarator, decl_context_t decl_conte
                     // '(e1, e2, .., eN)'
                     AST initializer_list = ASTSon0(initializer);
 
+                    nodecl_t nodecl_dummy = nodecl_null();
+
                     enter_test_expression();
-                    result = check_expression_list(initializer_list, decl_context);
+                    result = check_expression_list(initializer_list, decl_context, &nodecl_dummy);
                     leave_test_expression();
+
+                    nodecl_free(nodecl_dummy);
+
                     break;
                 }
         }

@@ -10,6 +10,7 @@ struct nodecl_expr_info_tag
 {
     char is_lvalue:1;
     char is_value_dependent:1;
+    char is_type_dependent_expression:1;
     int _reserved0;
 
     type_t* type_info;
@@ -51,12 +52,6 @@ static const_value_t* nodecl_expr_get_constant(AST expr)
 {
     nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
     return expr_info == NULL ? NULL : expr_info->const_val;
-}
-
-static char nodecl_expr_is_value_dependent(AST expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
-    return expr_info == NULL ? 0 : expr_info->is_value_dependent;
 }
 
 
@@ -136,16 +131,7 @@ const char* nodecl_get_text(nodecl_t t)
 
 type_t* nodecl_get_type(nodecl_t t)
 {
-    type_t* type = nodecl_expr_get_type(t.tree);
-
-    // Very usual case
-    if (type == NULL
-            && nodecl_get_kind(t) == NODECL_SYMBOL)
-    {
-        type = nodecl_get_symbol(t)->type_information;
-    }
-
-    return type;
+    return nodecl_expr_get_type(t.tree);
 }
 
 void nodecl_set_type(nodecl_t t, type_t* type)
@@ -328,38 +314,6 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
-char nodecl_is_cxx_dependent_expr(nodecl_t n)
-{
-    return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_DEPENDENT_EXPR);
-}
-
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t decl_context)
-{
-    // Create a raw tree
-    nodecl_t nodecl_raw = nodecl_make_cxx_dependent_expr(
-            new_scope_symbol(decl_context),
-            ASTFileName(expression), ASTLine(expression));
-    // Note that we do not want this nodecl_raw to become the parent of expression
-    // FIXME - This may create lots of copies
-    ast_set_child(nodecl_get_ast(nodecl_raw), 0, ast_copy(expression));
-
-    return nodecl_raw;
-}
-
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t* decl_context)
-{
-    ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_DEPENDENT_EXPR, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
-
-    nodecl_t wrap = nodecl_get_child(n, 0);
-    AST tree = nodecl_get_ast(wrap);
-
-    scope_entry_t* entry = nodecl_get_symbol(n);
-    ERROR_CONDITION(entry == NULL, "Invalid cxx dependent expr", 0);
-    *decl_context = entry->decl_context;
-
-    return tree;
-}
-
 void nodecl_free(nodecl_t n)
 {
     ast_free(nodecl_get_ast(n));
@@ -373,8 +327,65 @@ char nodecl_expr_is_lvalue(nodecl_t expr)
 
 void nodecl_expr_set_is_lvalue(nodecl_t node, char is_lvalue)
 {
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(node.tree);
-    expr_info->is_lvalue = is_lvalue;
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_lvalue)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_lvalue = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_lvalue = is_lvalue;
+    }
+}
+
+char nodecl_expr_is_value_dependent(nodecl_t node)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    return expr_info == NULL ? 0 : expr_info->is_value_dependent;
+}
+
+void nodecl_expr_set_is_value_dependent(nodecl_t node, char is_value_dependent)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_value_dependent)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_value_dependent = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_value_dependent = is_value_dependent;
+    }
+}
+
+char nodecl_expr_is_type_dependent(nodecl_t node)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    return expr_info == NULL ? 0 : expr_info->is_type_dependent_expression;
+}
+
+void nodecl_expr_set_is_type_dependent(nodecl_t node, char is_type_dependent_expression)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_type_dependent_expression)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_type_dependent_expression = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_type_dependent_expression = is_type_dependent_expression;
+    }
 }
 
 char nodecl_is_err_expr(nodecl_t n)

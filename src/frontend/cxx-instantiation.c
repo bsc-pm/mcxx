@@ -706,6 +706,9 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         const char *filename, 
         int line)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     decl_context_t orig_decl_context;
     AST declarator = nodecl_unwrap_cxx_dependent_expr(friend->value, &orig_decl_context);
     type_t* member_type = update_type_for_instantiation(friend->type_information,
@@ -723,6 +726,7 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
             being_instantiated,
             member_type,
             declarator);
+#endif
 }
 
 static void instantiate_bases(
@@ -1318,6 +1322,10 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
         for (i = 0; i < entry->entity_specs.num_parameters; i++)
         {
             default_argument_info_t* argument_info = entry->entity_specs.default_argument_info[i];
+
+
+            internal_error("Not yet implemented", 0);
+#if 0
             if (argument_info != NULL
                     && !nodecl_is_null(argument_info->argument)
                     && nodecl_is_cxx_dependent_expr(argument_info->argument))
@@ -1338,6 +1346,7 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
                 argument_info->argument = new_nodecl;
                 argument_info->context = instantiation_context;
             }
+#endif
         }
     }
 }

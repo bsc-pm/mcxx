@@ -266,7 +266,7 @@ static type_t* main_variant(type_t* t)
 
 static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function, 
         type_t** types, 
-        AST *arguments UNUSED_PARAMETER, 
+        nodecl_t *arguments UNUSED_PARAMETER, 
         int num_arguments,
         const_value_t** const_value UNUSED_PARAMETER)
 {

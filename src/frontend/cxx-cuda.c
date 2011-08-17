@@ -201,8 +201,10 @@ void cuda_kernel_symbols_for_function_body(
     }
 }
 
-void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
+void cuda_kernel_call_check(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST postfix_expr = ASTSon0(expression);
     AST cuda_kernel_args = ASTSon1(expression);
     AST call_args = ASTSon2(expression);
@@ -326,6 +328,7 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
     ast_set_link_to_child(expression, LANG_KERNEL_CONFIGURATION, cuda_kernel_args);
     ast_set_link_to_child(expression, LANG_CALLED_EXPRESSION, postfix_expr);
     ast_set_link_to_child(expression, LANG_FUNCTION_ARGUMENTS, call_args);
+#endif
 }
 
 void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)

@@ -140,7 +140,7 @@ LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 
 // Templates 
-LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym);
+LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym) DEPRECATED;
 LIBMCXX_EXTERN char is_template_parameter_name(AST a);
 LIBMCXX_EXTERN scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a);
 

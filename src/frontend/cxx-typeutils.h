@@ -77,6 +77,8 @@ LIBMCXX_EXTERN type_t* get_void_type(void);
 LIBMCXX_EXTERN type_t* get_double_type(void);
 LIBMCXX_EXTERN type_t* get_long_double_type(void);
 
+LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
+
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 
@@ -109,8 +111,6 @@ LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explici
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
         decl_context_t decl_context, int line, const char* filename);
-
-LIBMCXX_EXTERN type_t* get_dependent_expr_type(void);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -315,7 +315,6 @@ LIBMCXX_EXTERN char is_dependent_typename_type(type_t* t);
 LIBMCXX_EXTERN char is_complex_type(type_t* t);
 
 LIBMCXX_EXTERN char is_unresolved_overloaded_type(type_t* t);
-LIBMCXX_EXTERN char is_dependent_expr_type(type_t* t);
 
 LIBMCXX_EXTERN char is_zero_type(type_t* t);
 

@@ -770,19 +770,6 @@ static scope_entry_list_t* query_unqualified_name(
                 }
                 result = name_lookup(decl_context, name, 
                         ASTFileName(unqualified_name), ASTLine(unqualified_name));
-
-                if (result != NULL
-                        && entry_list_size(result) == 1)
-                {
-                    scope_entry_t* entry = entry_list_head(result);
-                    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                            || entry->kind == SK_TEMPLATE_PARAMETER)
-                    {
-                        // This is a template parameter, label it 
-                        set_as_template_parameter_name(unqualified_name, entry);
-                    }
-                }
             }
             break;
         case AST_TEMPLATE_ID:
@@ -1105,13 +1092,6 @@ static scope_entry_t* create_new_dependent_entity(AST global_op,
     dependent_entity->decl_context = nested_name_context;
     dependent_entity->kind = SK_DEPENDENT_ENTITY;
     dependent_entity->type_information = dependent_type;
-    AST qualified_id =
-        ASTMake3(AST_QUALIFIED_ID,
-                ast_copy(global_op), 
-                ast_copy(nested_name), 
-                ast_copy(unqualified_name),
-                ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
-    dependent_entity->value = nodecl_wrap_cxx_dependent_expr(qualified_id, nested_name_context);
 
     DEBUG_CODE()
     {
@@ -2219,6 +2199,7 @@ static nodecl_t update_nodecl_expression(nodecl_t nodecl,
         void* translation_data,
         decl_context_t* translated_context)
 {
+#if 0
     *translated_context = decl_context;
     if (nodecl_is_cxx_dependent_expr(nodecl))
     {
@@ -2236,6 +2217,8 @@ static nodecl_t update_nodecl_expression(nodecl_t nodecl,
 
         checking_function(expr, expr_decl_context, &nodecl);
     }
+#endif
+    internal_error("Not yet implemented", 0);
     return nodecl;
 }
 
@@ -3013,7 +2996,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                         nodecl_get_locus(array_size));
             }
 
-            if (nodecl_is_cxx_dependent_expr(array_size))
+            if (nodecl_expr_is_value_dependent(array_size))
             {
                 internal_error("%s: After being updated, a dependent expression did not become non-dependent", 
                         nodecl_get_locus(array_size));
@@ -3425,7 +3408,7 @@ static template_parameter_list_t *get_template_parameters_of_template_id(
 
             type_t* dest_type = template_parameters->arguments[i]->type;
 
-            if (!nodecl_is_cxx_dependent_expr(template_parameters->arguments[i]->value))
+            if (!nodecl_expr_is_value_dependent(template_parameters->arguments[i]->value))
             {
                 type_t* arg_type = nodecl_get_type(template_parameters->arguments[i]->value);
                 if (is_unresolved_overloaded_type(arg_type))
@@ -3586,12 +3569,6 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
 
         if (specialized_type != NULL)
         {
-
-            if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-            {
-                set_as_template_parameter_name(template_id, template_symbol);
-            }
-
             ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
 
             // Crappy

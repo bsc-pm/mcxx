@@ -665,13 +665,10 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
 
                     if (is_pointer_to_class_type(entry->type_information))
                     {
+                        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expression), ASTLine(expression));
                         if (!is_dependent_type(entry->type_information))
                         {
-                            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expression), ASTLine(expression));
-                        }
-                        else
-                        {
-                            *nodecl_output = nodecl_wrap_cxx_dependent_expr(expression, decl_context);
+                            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
                         }
                     }
                 }
@@ -916,7 +913,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 }
                 else
                 {
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                 }
                 expression_set_nodecl(expression,
                         nodecl_make_throw(expression_get_nodecl(ASTSon0(expression)), 
@@ -1029,7 +1026,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 //                     ast_location(type_specifier_seq),
                 //                     prettyprint_in_buffer(type_specifier_seq));
                 //         }
-                //         expression_set_error(expression);
+                //         *nodecl_output = nodecl_make_err_expr(filename, line);
                 //     }
                 //     else
                 //     {
@@ -1061,7 +1058,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 //         }
                 //         else
                 //         {
-                //             expression_set_error(expression);
+                //             *nodecl_output = nodecl_make_err_expr(filename, line);
                 //         }
                 //     }
                 // }
@@ -1076,7 +1073,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 // if (expression_is_error(ASTSon0(expression))
                 //         || !check_type_id_tree(ASTSon1(expression), decl_context))
                 // {
-                //     expression_set_error(expression);
+                //     *nodecl_output = nodecl_make_err_expr(filename, line);
                 // }
                 // else
                 // {
@@ -1103,7 +1100,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 //                     ast_location(type_specifier_seq),
                 //                     prettyprint_in_buffer(type_specifier_seq));
                 //         }
-                //         expression_set_error(expression);
+                //         *nodecl_output = nodecl_make_err_expr(filename, line);
                 //     }
                 //     else
                 //     {
@@ -1165,7 +1162,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 //     }
                 //     else
                 //     {
-                //         expression_set_error(expression);
+                //         *nodecl_output = nodecl_make_err_expr(filename, line);
                 //     }
                 // }
 
@@ -1286,7 +1283,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                 }
             }
 
-            if (nodecl_is_cxx_dependent_expr(*nodecl_output))
+            if (nodecl_expr_is_value_dependent(*nodecl_output))
             {
                 fprintf(stderr, " [VALUE DEPENDENT]");
             }
@@ -1309,11 +1306,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
     if (is_error_type(t1) \
         || is_error_type(t2)) \
     { \
-       expression_set_error(e); \
+       *nodecl_output = nodecl_make_err_expr(filename, line); \
        return get_error_type(); \
     }\
-    if (is_dependent_expr_type(t1) \
-            || is_dependent_expr_type(t2)) \
+    if (is_type_dependent_expression_type(t1) \
+            || is_type_dependent_expression_type(t2)) \
     { \
       expression_set_dependent(e, decl_context); \
       DEBUG_CODE() \
@@ -1329,11 +1326,11 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
 { \
     if (is_error_type(t1)) \
     { \
-       expression_set_error(e); \
+       *nodecl_output = nodecl_make_err_expr(filename, line); \
        expression_set_nodecl(e, nodecl_make_err_expr(ASTFileName(e), ASTLine(e))); \
        return get_error_type(); \
     } \
-    if (is_dependent_expr_type(t1)) \
+    if (is_type_dependent_expression_type(t1)) \
     { \
       expression_set_dependent(e, decl_context); \
       DEBUG_CODE() \
@@ -2780,6 +2777,16 @@ void compute_bin_operator_generic(
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
 
+    if (nodecl_expr_is_type_dependent(*lhs)
+            || nodecl_expr_is_type_dependent(*rhs))
+    {
+        *nodecl_output = nodecl_bin_fun(*lhs, *rhs,  
+                get_unknown_dependent_type(),
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
     const_value_t* val = NULL;
 
     char requires_overload = 0;
@@ -2830,6 +2837,12 @@ void compute_bin_operator_generic(
         }
 
         nodecl_set_constant(*nodecl_output, val);
+
+        if (nodecl_expr_is_value_dependent(*lhs)
+                || nodecl_expr_is_value_dependent(*rhs))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
         return;
     }
 
@@ -2871,6 +2884,12 @@ void compute_bin_operator_generic(
                         *lhs,
                         *rhs,
                         result, filename, line);
+
+            if (nodecl_expr_is_value_dependent(*lhs)
+                    || nodecl_expr_is_value_dependent(*rhs))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
 
             nodecl_set_constant(*nodecl_output, val);
         }
@@ -3342,6 +3361,8 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
 static
 type_t* compute_type_no_overload_relational_operator(nodecl_t lhs, nodecl_t rhs)
 {
+    internal_error("Not implemented yet", 0)
+#if 0
     type_t* lhs_type = nodecl_get_type(lhs);
     type_t* rhs_type = nodecl_get_type(rhs);
 
@@ -3414,6 +3435,7 @@ type_t* compute_type_no_overload_relational_operator(nodecl_t lhs, nodecl_t rhs)
     {
         return get_error_type();
     }
+#endif
 }
 
 static void compute_bin_operator_relational(nodecl_t* lhs, nodecl_t* rhs, AST operator, decl_context_t decl_context,
@@ -5115,13 +5137,6 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
         return;
     }
 
-    if (nodecl_is_cxx_dependent_expr(nodecl_lhs)
-            || nodecl_is_cxx_dependent_expr(nodecl_rhs))
-    {
-        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expression, decl_context);
-        return;
-    }
-
     check_binary_expression_(ASTType(expression), 
             &nodecl_lhs,
             &nodecl_rhs,
@@ -5155,12 +5170,6 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
         return;
     }
 
-    if (nodecl_is_cxx_dependent_expr(nodecl_op))
-    {
-        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expression, decl_context);
-        return;
-    }
-
     check_unary_expression_(ASTType(expression), 
             &nodecl_op, 
             decl_context, 
@@ -5179,6 +5188,10 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
     }
 }
 
+static void check_throw_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
 
 static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -5275,6 +5288,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
                     nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
                 }
                 
+                nodecl_set_type(*nodecl_output, entry->type_information);
                 nodecl_expr_set_is_lvalue(*nodecl_output, 1);
             }
             else
@@ -5284,163 +5298,119 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
         }
         CXX_LANGUAGE()
         {
-            if (entry->kind == SK_ENUMERATOR)
+            if (entry->kind == SK_VARIABLE)
             {
+                nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                if (!entry->entity_specs.is_template_parameter)
+                {
+                    nodecl_set_type(nodecl_access_to_symbol, lvalue_ref(entry->type_information));
+                    nodecl_expr_set_is_lvalue(nodecl_access_to_symbol, 1);
+                }
+                else
+                {
+                    // Template type parameters are not lvalues
+                    nodecl_set_type(nodecl_access_to_symbol, entry->type_information);
+                }
+
+                scope_entry_t* accessing_symbol = entry;
+                if (entry->entity_specs.is_member_of_anonymous)
+                {
+                    nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                    nodecl_access_to_symbol = nodecl_make_class_member_access(
+                            accessor,
+                            nodecl_access_to_symbol,
+                            lvalue_ref(entry->type_information),
+                            ASTFileName(expr),
+                            ASTLine(expr));
+                    accessing_symbol = nodecl_get_symbol(accessor);
+                }
+
+                if (!accessing_symbol->entity_specs.is_member
+                        || accessing_symbol->entity_specs.is_static)
+                {
+                    *nodecl_output = nodecl_access_to_symbol;
+                }
+                else
+                {
+                    scope_entry_list_t* this_symbol_list 
+                        = query_unqualified_name_str(decl_context, "this");
+                    if (this_symbol_list != NULL)
+                    {
+                        scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
+
+                        // Construct (*this).x
+                        type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                        cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
+
+                        nodecl_t nodecl_this_derref = 
+                            nodecl_make_derreference(
+                                    nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
+                                    get_lvalue_reference_type(this_type),
+                                    ASTFileName(expr), ASTLine(expr));
+
+                        type_t* qualified_data_member_type = entry->type_information;
+                        if (!entry->entity_specs.is_mutable)
+                        {
+                            qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
+                        }
+                        qualified_data_member_type = lvalue_ref(qualified_data_member_type);
+
+                        *nodecl_output =
+                            nodecl_make_class_member_access(nodecl_this_derref,
+                                    nodecl_access_to_symbol,
+                                    qualified_data_member_type,
+                                    ASTFileName(expr), ASTLine(expr));
+                    }
+                    else
+                    {
+                        // Invalid access to a nonstatic member from a "this" lacking context
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                                    ast_location(expr),
+                                    get_qualified_symbol_name(entry, entry->decl_context));
+                        }
+                        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                        return;
+                    }
+                    entry_list_free(this_symbol_list);
+                }
+
+                if (!entry->entity_specs.is_parameter
+                        && is_const_qualified_type(no_ref(entry->type_information))
+                        && !nodecl_is_null(entry->value)
+                        && nodecl_is_constant(entry->value))
+                {
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+                    if (nodecl_expr_is_value_dependent(entry->value))
+                    {
+                        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                    }
+                }
+
+                if (is_dependent_type(entry->type_information))
+                {
+                    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                }
+            }
+            else if (entry->kind == SK_ENUMERATOR)
+            {
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
                 if (is_dependent_type(entry->type_information)
-                        || nodecl_is_cxx_dependent_expr(entry->value))
+                        || nodecl_expr_is_value_dependent(entry->value))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
+                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
                 }
                 else
                 {
-                    *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-
-                    if (nodecl_is_constant(entry->value))
-                    {
-                        nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-                    }
-                }
-            }
-            else if (entry->kind == SK_VARIABLE)
-            {
-                if (is_dependent_type(entry->type_information))
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
-                                prettyprint_in_buffer(expr), ast_location(expr));
-                    }
-                    *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
-                }
-                else 
-                {
-                    const_value_t* val = NULL;
-                    char is_value_dependent = 0;
-                    if (!nodecl_is_null(entry->value))
-                    {
-                        if (!nodecl_is_null(entry->value) 
-                                    && nodecl_is_cxx_dependent_expr(entry->value))
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
-                                        prettyprint_in_buffer(expr), ast_location(expr));
-                            }
-                            is_value_dependent = 1;
-                        }
-                        else
-                        {
-                            if (!entry->entity_specs.is_parameter
-                                    && (is_const_qualified_type(entry->type_information)
-                                        || entry->entity_specs.is_template_parameter))
-                            {
-                                if (!nodecl_is_null(entry->value) 
-                                        && nodecl_is_constant(entry->value))
-                                {
-                                    val = nodecl_get_constant(entry->value);
-                                }
-                            }
-                        }
-                    }
-
-                    if (entry->entity_specs.is_template_parameter)
-                    {
-                        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                    }
-                    else
-                    {
-                        *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                        nodecl_expr_set_is_lvalue(*nodecl_output, 1);
-                    }
-                    if (!is_value_dependent)
-                    {
-                        if (entry->entity_specs.is_template_parameter
-                                && !nodecl_is_null(entry->value))
-                        {
-                            // Replace a template parameter with its value
-                           *nodecl_output = entry->value;
-                        }
-                        else
-                        {
-                            nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-
-                            scope_entry_t* accessing_symbol = entry;
-                            if (entry->entity_specs.is_member_of_anonymous)
-                            {
-                                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                                nodecl_access_to_symbol = nodecl_make_class_member_access(
-                                        accessor,
-                                        nodecl_access_to_symbol,
-                                        lvalue_ref(entry->type_information),
-                                        ASTFileName(expr),
-                                        ASTLine(expr));
-                                accessing_symbol = nodecl_get_symbol(accessor);
-                            }
-                            if (!accessing_symbol->entity_specs.is_member
-                                    || accessing_symbol->entity_specs.is_static)
-                            {
-                                *nodecl_output = nodecl_access_to_symbol;
-                            }
-                            else
-                            {
-                                scope_entry_list_t* this_symbol_list 
-                                    = query_unqualified_name_str(decl_context, "this");
-                                if (this_symbol_list != NULL)
-                                {
-                                    scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
-
-                                    if (is_dependent_type(this_symbol->type_information))
-                                    {
-                                        *nodecl_output = nodecl_wrap_cxx_dependent_expr(expr, decl_context);
-                                    }
-                                    else
-                                    {
-                                        // Construct (*this).x
-                                        type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
-                                        cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
-
-                                        nodecl_t nodecl_this_derref = 
-                                            nodecl_make_derreference(
-                                                    nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
-                                                    get_lvalue_reference_type(this_type),
-                                                    ASTFileName(expr), ASTLine(expr));
-
-                                        type_t* qualified_data_member_type = entry->type_information;
-                                        if (!entry->entity_specs.is_mutable)
-                                        {
-                                            qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
-                                        }
-                                        qualified_data_member_type = lvalue_ref(qualified_data_member_type);
-
-                                        *nodecl_output =
-                                            nodecl_make_class_member_access(nodecl_this_derref,
-                                                    nodecl_access_to_symbol,
-                                                    qualified_data_member_type,
-                                                    ASTFileName(expr), ASTLine(expr));
-                                    }
-                                }
-                                else
-                                {
-                                    // Invalid access to a nonstatic member from a "this" lacking context
-                                    if (!checking_ambiguity())
-                                    {
-                                        error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
-                                                ast_location(expr),
-                                                get_qualified_symbol_name(entry, entry->decl_context));
-                                    }
-                                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-                                    return;
-                                }
-                                entry_list_free(this_symbol_list);
-                            }
-                        }
-                        nodecl_set_constant(*nodecl_output, val);
-                    }
+                    ERROR_CONDITION(nodecl_is_constant(entry->value), "This should be constant", 0);
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
                 }
             }
             else if (entry->kind == SK_FUNCTION)
@@ -5450,36 +5420,46 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
             }
             else if (entry->kind == SK_DEPENDENT_ENTITY)
             {
-                *nodecl_output = nodecl_make_cxx_dependent_expr(entry, ASTFileName(expr), ASTLine(expr));
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
-                // Mark this in the tree for further queries
-                set_as_template_parameter_name(expr, entry);
-
-                // Nontype template parameter
-                // Mark it as value dependent
-                expression_set_is_value_dependent(expr, 1, decl_context);
-
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                
                 // Template parameters may have a dependent type
-
                 if (!is_dependent_type(entry->type_information))
                 {
-                    expression_set_type(expr, entry->type_information);
+                    nodecl_set_type(*nodecl_output, entry->type_information);
                 }
                 else
                 {
-                    expression_set_dependent(expr, decl_context);
+                    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
                 }
-
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
             else if (entry->kind == SK_TEMPLATE)
             {
-                type_t* t =  get_unresolved_overloaded_type(result, /* template_args*/ NULL);
-                expression_set_type(expr, t);
+                type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+                scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
 
-                nodecl_t nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
+                if (named_type->kind != SK_FUNCTION)
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid class template-id '%s' named in an expression\n", 
+                                ast_location(expr),
+                                prettyprint_in_buffer(expr));
+                    }
+                    entry_list_free(result);
+                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                    return;
+                }
+
+                type_t* t =  get_unresolved_overloaded_type(result, /* template_args*/ NULL);
+                *nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
             }
             else
             {
@@ -5491,7 +5471,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
         {
             fprintf(stderr, "EXPRTYPE: Symbol '%s' at '%s' has type '%s'\n",
                     prettyprint_in_buffer(expr), ast_location(expr),
-                    print_declarator(expression_get_type(expr)));
+                    print_declarator(nodecl_get_type(*nodecl_output)));
         }
 
         entry_list_free(result);
@@ -5499,7 +5479,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
     else
     {
         entry_list_free(result);
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
     }
 }
 
@@ -5507,7 +5487,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
 {
     compute_symbol_type(expr, decl_context, nodecl_output);
 
-    if (expression_is_error(expr)
+    if (nodecl_is_err_expr(*nodecl_output)
             && !checking_ambiguity())
     {
         error_printf("%s: error: symbol '%s' not found in current scope\n",
@@ -5515,7 +5495,7 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     }
 }
 
-static void compute_qualified_id_type(AST expr, decl_context_t decl_context, const_value_t** val)
+static void compute_qualified_id_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // This function only can be called in C++ world
     AST global_scope = ASTSon0(expr);
@@ -5531,8 +5511,10 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         scope_entry_t* entry = entry_list_head(result_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            expression_set_dependent(expr, decl_context);
-            expression_set_symbol(expr, entry);
+            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+            nodecl_set_type(*nodecl_output, entry->type_information);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+
             entry_list_free(result_list);
             return;
         }
@@ -5551,6 +5533,8 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
     {
         if (result_list != NULL)
         {
+            // This function returns an unresolved overload type
+            // if solved != NULL
             type_t* solved = check_template_function(result_list, 
                     unqualified_object, decl_context, 
                     &dependent_template_parameters);
@@ -5558,26 +5542,23 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
 
             if (solved != NULL)
             {
-                expression_set_type(expr, solved);
-                // This is arguable since this is unlikely to go at the left of any
-                // expression, but ok, lvalueness is such a mystic thing throughout the
-                // standard.
-                expression_set_is_lvalue(expr, 1);
-                expression_set_nodecl(expr, 
-                        nodecl_make_cxx_unresolved_overload(solved, ASTFileName(expr), ASTLine(expr)));
-            }
-            else if (dependent_template_parameters)
-            {
-                expression_set_dependent(expr, decl_context);
+                *nodecl_output = nodecl_make_cxx_unresolved_overload(solved, ASTFileName(expr), ASTLine(expr));
+                if (dependent_template_parameters)
+                {
+                    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                }
             }
             else
             {
-                expression_set_error(expr);
+                entry_list_free(result_list);
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                return;
             }
         }
         else
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            return;
         }
         return;
     }
@@ -5585,7 +5566,7 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
     {
         if (result_list == NULL)
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             return;
         }
 
@@ -5597,108 +5578,123 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                 && entry->kind != SK_TEMPLATE)
         {
             entry_list_free(result_list);
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
             return;
         }
 
-        expression_set_symbol(expr, entry);
-
         if (entry->kind == SK_VARIABLE)
         {
+            nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+
+            nodecl_set_type(nodecl_access_to_symbol, lvalue_ref(entry->type_information));
+            nodecl_expr_set_is_lvalue(nodecl_access_to_symbol, 1);
+
+            scope_entry_t* accessing_symbol = entry;
+            if (entry->entity_specs.is_member_of_anonymous)
+            {
+                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+                nodecl_access_to_symbol = nodecl_make_class_member_access(
+                        accessor,
+                        nodecl_access_to_symbol,
+                        lvalue_ref(entry->type_information),
+                        ASTFileName(expr),
+                        ASTLine(expr));
+                accessing_symbol = nodecl_get_symbol(accessor);
+            }
+
+            if (!accessing_symbol->entity_specs.is_member
+                    || accessing_symbol->entity_specs.is_static)
+            {
+                *nodecl_output = nodecl_access_to_symbol;
+            }
+            else
+            {
+                scope_entry_list_t* this_symbol_list 
+                    = query_unqualified_name_str(decl_context, "this");
+                if (this_symbol_list != NULL)
+                {
+                    scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
+
+                    // Construct (*this).x
+                    type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                    cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
+
+                    nodecl_t nodecl_this_derref = 
+                        nodecl_make_derreference(
+                                nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
+                                get_lvalue_reference_type(this_type),
+                                ASTFileName(expr), ASTLine(expr));
+
+                    type_t* qualified_data_member_type = entry->type_information;
+                    if (!entry->entity_specs.is_mutable)
+                    {
+                        qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
+                    }
+                    qualified_data_member_type = lvalue_ref(qualified_data_member_type);
+
+                    *nodecl_output =
+                        nodecl_make_class_member_access(nodecl_this_derref,
+                                nodecl_access_to_symbol,
+                                qualified_data_member_type,
+                                ASTFileName(expr), ASTLine(expr));
+                }
+                else
+                {
+                    // Invalid access to a nonstatic member from a "this" lacking context
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                                ast_location(expr),
+                                get_qualified_symbol_name(entry, entry->decl_context));
+                    }
+                    entry_list_free(result_list);
+                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                    return;
+                }
+                entry_list_free(this_symbol_list);
+            }
+
+            if (!entry->entity_specs.is_parameter
+                    && is_const_qualified_type(no_ref(entry->type_information))
+                    && !nodecl_is_null(entry->value)
+                    && nodecl_is_constant(entry->value))
+            {
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+                if (nodecl_expr_is_value_dependent(entry->value))
+                {
+                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                }
+            }
+
             if (is_dependent_type(entry->type_information))
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be type dependent\n",
-                            prettyprint_in_buffer(expr), ast_location(expr));
-                }
-                expression_set_dependent(expr, decl_context);
-            }
-            else 
-            {
-                char is_value_dependent = 0;
-                if (!nodecl_is_null(entry->value)
-                        || entry->language_dependent_value != NULL)
-                {
-                    if ((!nodecl_is_null(entry->value) 
-                                && nodecl_is_cxx_dependent_expr(entry->value))
-                            || (entry->language_dependent_value != NULL 
-                                && expression_is_value_dependent(entry->language_dependent_value)))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be value dependent\n",
-                                    prettyprint_in_buffer(expr), ast_location(expr));
-                        }
-                        is_value_dependent = 1;
-                        expression_set_is_value_dependent(expr, 1, decl_context);
-                    }
-                    else
-                    {
-                        if (!entry->entity_specs.is_parameter
-                                && is_const_qualified_type(entry->type_information))
-                        {
-                            if (!nodecl_is_null(entry->value) 
-                                    && nodecl_is_constant(entry->value))
-                            {
-                                *val = nodecl_get_constant(entry->value);
-                            }
-                            else if (entry->language_dependent_value != NULL
-                                    && expression_is_value_dependent(entry->language_dependent_value))
-                            {
-                                *val = expression_get_constant(entry->language_dependent_value);
-                            }
-                        }
-                    }
-                }
-
-                expression_set_type(expr, lvalue_ref(entry->type_information));
-                expression_set_is_lvalue(expr, 1);
-                if (!is_value_dependent)
-                {
-                    nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                    expression_set_nodecl(expr, nodecl_output);
-                }
+                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
         }
         else if (entry->kind == SK_ENUMERATOR)
         {
-            if (is_dependent_type(entry->type_information))
+            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+            if (is_dependent_type(entry->type_information)
+                    || nodecl_expr_is_value_dependent(entry->value))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                             prettyprint_in_buffer(expr), ast_location(expr));
                 }
-                expression_set_dependent(expr, decl_context);
-            }
-            else if (expression_is_value_dependent(entry->language_dependent_value))
-            {
-                expression_set_is_value_dependent(expr, 1, decl_context);
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
             else
             {
-                expression_set_type(expr, entry->type_information);
-                expression_set_is_lvalue(expr, 0);
-
-                if (val != NULL
-                        && expression_is_constant(entry->language_dependent_value))
-                {
-                    *val = expression_get_constant(entry->language_dependent_value);
-                }
-
-                nodecl_t nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-                expression_set_nodecl(expr, nodecl_output);
+                ERROR_CONDITION(nodecl_is_constant(entry->value), "This should be constant", 0);
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
             }
         }
         else if (entry->kind == SK_FUNCTION)
         {
             type_t* t = get_unresolved_overloaded_type(result_list, /* template_args */ NULL);
-
-            nodecl_t nodecl_output = nodecl_null();
-            expression_set_type(expr, t);
-            nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-            expression_set_nodecl(expr, nodecl_output);
+            *nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
         }
         else if (entry->kind == SK_TEMPLATE)
         {
@@ -5714,52 +5710,47 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                             prettyprint_in_buffer(expr));
                 }
                 entry_list_free(result_list);
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
                 return;
             }
 
             type_t* t =  get_unresolved_overloaded_type(result_list, /* template_args*/ NULL);
-            expression_set_type(expr, t);
-
-            nodecl_t nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
-            expression_set_nodecl(expr, nodecl_output);
+            *nodecl_output = nodecl_make_cxx_unresolved_overload(t, ASTFileName(expr), ASTLine(expr));
         }
 
         entry_list_free(result_list);
     }
 }
 
-static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
+static void check_array_subscript_expr_nodecl(
+        nodecl_t nodecl_subscripted, 
+        nodecl_t nodecl_subscript, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output)
 {
-    check_expression_impl_(ASTSon0(expr), decl_context);
+    const char* filename = nodecl_get_filename(nodecl_subscripted);
+    int line = nodecl_get_line(nodecl_subscripted);
 
-    if (!expression_is_error(ASTSon0(expr)))
+    if (nodecl_is_err_expr(nodecl_subscripted)
+            || nodecl_is_err_expr(nodecl_subscript))
     {
-        check_expression_impl_(ASTSon1(expr), decl_context);
-    }
-
-    if (expression_is_error(ASTSon0(expr))
-            || expression_is_error(ASTSon1(expr)))
-    {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    AST subscripted_expr = ASTSon0(expr);
-    AST subscript_expr = ASTSon1(expr);
-
-    type_t* subscripted_type = expression_get_type(subscripted_expr);
-    type_t* subscript_type = expression_get_type(subscript_expr);
-
-    if (is_dependent_expr_type(subscripted_type))
+    if (nodecl_expr_is_type_dependent(nodecl_subscripted)
+            || nodecl_expr_is_type_dependent(nodecl_subscript))
     {
-        expression_set_type(expr, get_dependent_expr_type());
-        CXX_LANGUAGE()
-        {
-            expression_set_is_value_dependent(expr, 1, decl_context);
-        }
+        *nodecl_output = nodecl_make_array_subscript(nodecl_subscripted, 
+                nodecl_make_list_1(nodecl_subscript),
+                get_unknown_dependent_type(), 
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
+
+    type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
+    type_t* subscript_type = nodecl_get_type(nodecl_subscript);
 
     if (!is_array_type(no_ref(subscripted_type))
             && !is_pointer_type(no_ref(subscripted_type))
@@ -5770,34 +5761,26 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         // valid *(E2 + E1), then E2[E1] is valid too
         // Swap everything E1[E2] can be E2[E1] if one is a pointer and the other an integral type
         {
-            AST t = subscripted_expr;
-            subscripted_expr = subscript_expr;
-            subscript_expr = t;
+            nodecl_t t = nodecl_subscripted;
+            nodecl_subscripted = nodecl_subscript;
+            nodecl_subscript = t;
         }
-        {
-            type_t* t = subscripted_type;
-            subscripted_type = subscript_type;
-            subscript_type = t;
-        }
+
+        subscripted_type = nodecl_get_type(nodecl_subscripted);
+        subscript_type = nodecl_get_type(nodecl_subscript);
     }
 
     // Builtin cases
     if (is_array_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(array_type_get_element_type(no_ref(subscripted_type)));
-        expression_set_type(expr, t);
-        expression_set_is_lvalue(expr, 1);
 
-        // Special case for multidimensional array accesses (to match that of Fortran)
-        nodecl_t nodecl_subscripted = expression_get_nodecl(subscripted_expr);
-
-        nodecl_t nodecl_output = nodecl_null();
         if (nodecl_get_kind(nodecl_subscripted) != NODECL_ARRAY_SUBSCRIPT)
         {
-            nodecl_output = nodecl_make_array_subscript(
-                    expression_get_nodecl(subscripted_expr), 
-                    nodecl_make_list_1(expression_get_nodecl(subscript_expr)),
-                    t, ASTFileName(expr), ASTLine(expr));
+            *nodecl_output = nodecl_make_array_subscript(
+                    nodecl_subscripted,
+                    nodecl_make_list_1(nodecl_subscript),
+                    t, filename, line);
         }
         else
         {
@@ -5805,27 +5788,26 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
             nodecl_t nodecl_subscript_list = nodecl_get_child(nodecl_subscripted, 1);
 
             nodecl_subscript_list = nodecl_append_to_list(nodecl_subscript_list, 
-                    expression_get_nodecl(subscript_expr));
+                    nodecl_subscript);
 
-            nodecl_output = nodecl_make_array_subscript(
+            *nodecl_output = nodecl_make_array_subscript(
                     nodecl_indexed,
                     nodecl_subscript_list,
-                    t, ASTFileName(expr), ASTLine(expr));
+                    t, filename, line);
         }
-        expression_set_nodecl(expr, nodecl_output);
+        nodecl_expr_set_is_lvalue(*nodecl_output, 1);
         return;
     }
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
         type_t* t = lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type)));
-        expression_set_type(expr, t);
-        expression_set_is_lvalue(expr, 1);
 
-        nodecl_t nodecl_output = nodecl_make_array_subscript(
-                expression_get_nodecl(subscripted_expr), 
-                nodecl_make_list_1(expression_get_nodecl(subscript_expr)),
-                t, ASTFileName(expr), ASTLine(expr));
-        expression_set_nodecl(expr, nodecl_output);
+        *nodecl_output = nodecl_make_array_subscript(
+                nodecl_subscripted,
+                nodecl_subscript,
+                t, filename, line);
+
+        nodecl_expr_set_is_lvalue(*nodecl_output, 1);
         return;
     }
     else
@@ -5834,13 +5816,14 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: expression '%s' is invalid since '%s' has type '%s'\n",
-                        ast_location(expr),
-                        prettyprint_in_buffer(expr),
-                        prettyprint_in_buffer(subscripted_expr),
+                error_printf("%s: error: expression '%s[%s]' is invalid since '%s' has type '%s' which is neither an array-type or pointer-type\n",
+                        nodecl_get_locus(nodecl_subscripted),
+                        c_cxx_codegen_to_str(nodecl_subscripted),
+                        c_cxx_codegen_to_str(nodecl_subscript),
+                        c_cxx_codegen_to_str(nodecl_subscripted),
                         print_type_str(subscripted_type, decl_context));
             }
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -5855,117 +5838,114 @@ static void check_array_subscript_expr(AST expr, decl_context_t decl_context)
                     ASTLeaf(AST_SUBSCRIPT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
-        if (is_dependent_expr_type(subscript_type))
+        scope_entry_list_t* operator_subscript_list = get_member_function_of_class_type(
+                no_ref(subscripted_type),
+                operator_subscript_tree,
+                decl_context);
+
+        // Solve operator[]. It is always a member operator
+        int num_arguments = 2;
+        type_t* argument_types[2] = { subscripted_type, subscript_type };
+
+        scope_entry_t* conversors[2] = {NULL, NULL};
+
+        scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
+                /* builtins */ NULL, argument_types + 1, num_arguments - 1,
+                decl_context,
+                filename, line,
+                /* explicit_template_parameters */ NULL);
+        entry_list_free(operator_subscript_list);
+
+        candidate_t* candidate_set = NULL;
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(overload_set);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            expression_set_type(expr, subscript_type);
+            candidate_set = add_to_candidate_set(candidate_set,
+                    entry_list_iterator_current(it),
+                    num_arguments,
+                    argument_types);
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(overload_set);
+
+        scope_entry_t *overloaded_call = solve_overload(candidate_set,
+                decl_context, 
+                filename, line,
+                conversors);
+
+        if (overloaded_call == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_message_overload_failed(candidate_set, filename, line);
+            }
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
-        else
+
+        if (function_has_been_deleted(decl_context, overloaded_call, filename, line))
         {
-            scope_entry_list_t* operator_subscript_list = get_member_function_of_class_type(
-                    no_ref(subscripted_type),
-                    operator_subscript_tree,
-                    decl_context);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
 
-            // Solve operator[]. It is always a member operator
-            int num_arguments = 2;
-            type_t* argument_types[2] = { subscripted_type, subscript_type };
-
-            scope_entry_t* conversors[2] = {NULL, NULL};
-
-            scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
-                    /* builtins */ NULL, argument_types + 1, num_arguments - 1,
-                    decl_context,
-                    ASTFileName(expr), ASTLine(expr),
-                    /* explicit_template_parameters */ NULL);
-            entry_list_free(operator_subscript_list);
-
-            candidate_t* candidate_set = NULL;
-            scope_entry_list_iterator_t* it = NULL;
-            for (it = entry_list_iterator_begin(overload_set);
-                    !entry_list_iterator_end(it);
-                    entry_list_iterator_next(it))
+        if (conversors[1] != NULL)
+        {
+            if (function_has_been_deleted(decl_context, conversors[1], filename, line))
             {
-                candidate_set = add_to_candidate_set(candidate_set,
-                        entry_list_iterator_current(it),
-                        num_arguments,
-                        argument_types);
-            }
-            entry_list_iterator_free(it);
-            entry_list_free(overload_set);
-
-            scope_entry_t *overloaded_call = solve_overload(candidate_set,
-                    decl_context, ASTFileName(expr), ASTLine(expr), conversors);
-
-            if (overloaded_call == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_message_overload_failed(candidate_set, ASTFileName(expr), ASTLine(expr));
-                }
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
-            {
-                expression_set_error(expr);
-                return;
-            }
+            nodecl_subscript = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(conversors[1], filename, line),
+                    nodecl_make_list_1(nodecl_subscript),
+                    actual_type_of_conversor(conversors[1]), filename, line);
 
-            nodecl_t subscript_expr_nodecl = expression_get_nodecl(subscript_expr);
-            nodecl_t subscripted_expr_nodecl = expression_get_nodecl(subscripted_expr);
-            if (conversors[1] != NULL)
-            {
-                if (function_has_been_deleted(decl_context, conversors[1], ASTFileName(expr), ASTLine(expr)))
-                {
-                    expression_set_error(expr);
-                    return;
-                }
-
-                ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
-
-                subscript_expr_nodecl = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(conversors[1], ASTFileName(subscript_expr), ASTLine(subscript_expr)),
-                        nodecl_make_list_1(subscript_expr_nodecl),
-                        actual_type_of_conversor(conversors[1]), ASTFileName(subscript_expr), ASTLine(subscript_expr));
-
-            }
-
-            ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
-
-            expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
-            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
-
-            nodecl_t nodecl_output = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(overloaded_call, ASTFileName(expr), ASTLine(expr)),
-                    nodecl_make_list_2(subscripted_expr_nodecl, subscript_expr_nodecl),
-                    function_type_get_return_type(overloaded_call->type_information), ASTFileName(expr), ASTLine(expr));
-            expression_set_nodecl(expr, nodecl_output);
-            return;
         }
+
+        type_t* t = function_type_get_return_type(overloaded_call->type_information);
+
+        *nodecl_output = cxx_nodecl_make_function_call(
+                nodecl_make_symbol(overloaded_call, filename, line),
+                nodecl_make_list_2(nodecl_subscripted, nodecl_subscript),
+                t, filename, line);
+
+        nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue_reference_type(t));
+        return;
     }
 
     if (!checking_ambiguity())
     {
-        error_printf("%s: error: in '%s' operator[] cannot be applied to '%s' of type '%s'\n",
-                ast_location(expr),
-                prettyprint_in_buffer(expr),
-                prettyprint_in_buffer(subscripted_expr),
+        error_printf("%s: error: in '%s[%s]' no matching operator[] for types '%s'\n",
+                nodecl_get_locus(nodecl_subscripted),
+                c_cxx_codegen_to_str(nodecl_subscripted),
+                c_cxx_codegen_to_str(nodecl_subscript),
                 print_type_str(subscripted_type, decl_context));
     }
-    expression_set_error(expr);
+    *nodecl_output = nodecl_make_err_expr(filename, line);
 }
 
-static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context)
+static void check_array_subscript_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_subscripted = nodecl_null();
+    check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_subscripted);
+
+    nodecl_t nodecl_subscript = nodecl_null();
+    check_expression_impl_(ASTSon1(expr), decl_context, &nodecl_subscript);
+
+    check_array_subscript_expr_nodecl(nodecl_subscripted, nodecl_subscript, decl_context, nodecl_output);
+}
+
+static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     scope_entry_list_t* entry_list = query_id_expression(decl_context, expression);
 
     if (entry_list == NULL)
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
         return;
     }
 
@@ -5979,7 +5959,7 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     if (is_dependent_type(conversion_type))
     {
-        expression_set_dependent(expression, decl_context);
+        internal_error("Not yet implemented", 0);
         return;
     }
 
@@ -6006,15 +5986,11 @@ static void check_conversion_function_id_expression(AST expression, decl_context
 
     if (!found)
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
         return;
     }
 
-    expression_set_type(expression, found_entry->type_information);
-    expression_set_is_lvalue(expression, is_lvalue_reference_type(found_entry->type_information));
-
-    nodecl_t nodecl_output = nodecl_make_symbol(found_entry, ASTFileName(expression), ASTLine(expression));
-    expression_set_nodecl(expression, nodecl_output);
+    *nodecl_output = nodecl_make_symbol(found_entry, ASTFileName(expression), ASTLine(expression));
 }
 
 static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2, 
@@ -6205,51 +6181,50 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     return result;
 }
 
-static void check_conditional_expression_impl(AST expression, 
-        AST first_op, AST second_op, AST third_op, decl_context_t decl_context)
+static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op, 
+        nodecl_t second_op, 
+        nodecl_t third_op, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
 {
-    /*
-     * This is more complex that it might seem at first ...
-     */
+    const char* filename = nodecl_get_filename(first_op);
+    int line = nodecl_get_line(first_op);
 
-    check_expression_impl_(first_op, decl_context);
-    if (!expression_is_error(first_op))
+    if (nodecl_is_err_expr(first_op)
+            || nodecl_is_err_expr(second_op)
+            || nodecl_is_err_expr(third_op))
     {
-        check_expression_impl_(second_op, decl_context);
-        if (!expression_is_error(second_op))
-        {
-            check_expression_impl_(third_op, decl_context);
-        }
-    }
-
-    if (expression_is_error(first_op)
-            || expression_is_error(second_op)
-            || expression_is_error(third_op))
-    {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    type_t* first_type = expression_get_type(first_op);
-
-    type_t* second_type = expression_get_type(second_op);
-    char second_is_lvalue = expression_is_lvalue(second_op);
-
-    type_t* third_type = expression_get_type(third_op);
-    char third_is_lvalue = expression_is_lvalue(third_op);
-
-    if (is_dependent_expr_type(first_type)
-            || is_dependent_expr_type(second_type)
-            || is_dependent_expr_type(third_type))
+    if (nodecl_expr_is_type_dependent(first_op)
+            || nodecl_expr_is_type_dependent(second_op)
+            || nodecl_expr_is_type_dependent(third_op))
     {
-        expression_set_dependent(expression, decl_context);
+        *nodecl_output = nodecl_make_conditional_expression(
+                first_op,
+                second_op,
+                third_op,
+                get_unknown_dependent_type(), 
+                filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         return;
     }
+
+    type_t* first_type = nodecl_get_type(first_op);
+
+    type_t* second_type = nodecl_get_type(second_op);
+    char second_is_lvalue = nodecl_expr_is_lvalue(second_op);
+
+    type_t* third_type = nodecl_get_type(third_op);
+    char third_is_lvalue = nodecl_expr_is_lvalue(third_op);
+
 
     nodecl_t nodecl_conditional[3] = { 
-        expression_get_nodecl(first_op), 
-        expression_get_nodecl(second_op), 
-        expression_get_nodecl(third_op) 
+        first_op, 
+        second_op, 
+        third_op 
     };
 
     type_t* converted_type = NULL;
@@ -6267,13 +6242,12 @@ static void check_conditional_expression_impl(AST expression,
         standard_conversion_t sc;
         if (!standard_conversion_between_types(&sc, first_type, converted_type))
         {
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
 
-    // In C++ this might be an lvalue, but it is not in C
-    expression_set_is_lvalue(expression, 0);
+    char is_lvalue = 0;
 
     CXX_LANGUAGE()
     {
@@ -6336,14 +6310,12 @@ static void check_conditional_expression_impl(AST expression,
                  */
                 final_type = get_void_type();
             }
-            expression_set_type(expression, final_type);
 
-            nodecl_t nodecl_output = nodecl_make_conditional_expression(
+            *nodecl_output = nodecl_make_conditional_expression(
                     nodecl_conditional[0],
                     nodecl_conditional[1],
                     nodecl_conditional[2],
-                    final_type, ASTFileName(expression), ASTLine(expression));
-            expression_set_nodecl(expression, nodecl_output);
+                    final_type, filename, line);
             
             // Nothing else has to be done for 'void' types
             return;
@@ -6363,8 +6335,8 @@ static void check_conditional_expression_impl(AST expression,
                         third_type, 
                         &second_to_third_is_ambig,
                         decl_context,
-                        ASTFileName(expression),
-                        ASTLine(expression));
+                        filename,
+                        line);
 
             char third_to_second_is_ambig = 0;
             char third_to_second = 
@@ -6372,13 +6344,13 @@ static void check_conditional_expression_impl(AST expression,
                         second_type, 
                         &third_to_second_is_ambig,
                         decl_context,
-                        ASTFileName(expression),
-                        ASTLine(expression));
+                        filename,
+                        line);
 
             if (second_to_third 
                     && third_to_second)
             {
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -6386,7 +6358,7 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (second_to_third_is_ambig)
                 {
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
 
@@ -6397,7 +6369,7 @@ static void check_conditional_expression_impl(AST expression,
             {
                 if (third_to_second_is_ambig)
                 {
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
 
@@ -6461,49 +6433,42 @@ static void check_conditional_expression_impl(AST expression,
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
             scope_entry_t *overloaded_call = solve_overload(candidate_set,
-                    decl_context, ASTFileName(expression), ASTLine(expression), 
-                    conversors);
+                    decl_context, filename, line, conversors);
 
             if (overloaded_call == NULL)
             {
                 if (!checking_ambiguity())
                 {
-                    error_message_overload_failed(candidate_set, ASTFileName(expression), ASTLine(expression));
+                    error_message_overload_failed(candidate_set, filename, line);
                 }
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
-            if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expression), ASTLine(expression)))
+            if (function_has_been_deleted(decl_context, overloaded_call, filename, line))
             {
+                *nodecl_output = nodecl_make_err_expr(filename, line);
+                return;
             }
 
-            // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
-            // but writing it twice in the loop should be harmless
-            AST ops[] = { first_op, second_op, third_op };
+            nodecl_t ops[] = { first_op, second_op, third_op };
 
             int k;
             for (k = 0; k < 3; k++)
             {
                 if (conversors[k] != NULL)
                 {
-                    if (function_has_been_deleted(decl_context, conversors[k], ASTFileName(expression), ASTLine(expression)))
+                    if (function_has_been_deleted(decl_context, conversors[k], filename, line))
                     {
-                        expression_set_error(expression);
+                        *nodecl_output = nodecl_make_err_expr(filename, line);
                         return;
                     }
 
-                    ASTAttrSetValueType(ops[k], 
-                            LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(ops[k],
-                            LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
-
                     nodecl_conditional[k] = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(conversors[k], ASTFileName(expression), ASTLine(expression)),
+                            nodecl_make_symbol(conversors[k], filename, line),
                             nodecl_make_list_1(nodecl_conditional[k]),
                             actual_type_of_conversor(conversors[k]),
-                            ASTFileName(expression), ASTLine(expression)
-                            );
+                            filename, line);
                 }
             }
 
@@ -6519,7 +6484,7 @@ static void check_conditional_expression_impl(AST expression,
                 && third_is_lvalue
                 && equivalent_types(no_ref(second_type), no_ref(third_type)))
         {
-            expression_set_is_lvalue(expression, 1);
+            is_lvalue = 1;
         }
     }
 
@@ -6581,7 +6546,7 @@ static void check_conditional_expression_impl(AST expression,
     }
     else
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -6590,26 +6555,87 @@ static void check_conditional_expression_impl(AST expression,
         // It could be that the final type is a reference
         // or the whole expression was already a lvalue. 
         // Keep in synch lvalueness with reference types
-        if (expression_is_lvalue(expression) ||
+        if (is_lvalue ||
                 is_lvalue_reference_type(final_type))
         {
             final_type = lvalue_ref(final_type);
-            expression_set_is_lvalue(expression, 1);
+            is_lvalue = 1;
         }
     }
 
-    expression_set_type(expression, final_type);
-
-    nodecl_t nodecl_output = nodecl_make_conditional_expression(
+    *nodecl_output = nodecl_make_conditional_expression(
             nodecl_conditional[0],
             nodecl_conditional[1],
             nodecl_conditional[2],
-            final_type, ASTFileName(expression), ASTLine(expression));
-    expression_set_nodecl(expression, nodecl_output);
+            final_type, filename, line);
+
+    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
+}
+
+static void check_conditional_expression_impl_nodecl(nodecl_t first_op, 
+        nodecl_t second_op, 
+        nodecl_t third_op, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    check_conditional_expression_impl_nodecl_aux(first_op, 
+            second_op,
+            third_op,
+            decl_context,
+            nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
+                    "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
+                    nodecl_get_locus(first_op),
+                    c_cxx_codegen_to_str(first_op), print_type_str(nodecl_get_type(first_op), decl_context),
+                    c_cxx_codegen_to_str(second_op), print_type_str(nodecl_get_type(second_op), decl_context),
+                    c_cxx_codegen_to_str(third_op), print_type_str(nodecl_get_type(third_op), decl_context));
+        }
+    }
+    else
+    {
+        if (nodecl_is_constant(first_op)
+                && nodecl_is_constant(second_op)
+                && nodecl_is_constant(third_op))
+        {
+            if (const_value_is_nonzero(nodecl_get_constant(first_op)))
+            {
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(second_op));
+            }
+            else
+            {
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(third_op));
+            }
+        }
+    }
+}
+
+static void check_conditional_expression_impl(AST expression, 
+        AST first_op, AST second_op, AST third_op, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    /*
+     * This is more complex that it might seem at first ...
+     */
+
+    nodecl_t nodecl_first_op = nodecl_null();
+    check_expression_impl_(first_op, decl_context, &nodecl_first_op);
+    nodecl_t nodecl_second_op = nodecl_null();
+    check_expression_impl_(second_op, decl_context, &nodecl_second_op);
+    nodecl_t nodecl_third_op = nodecl_null();
+    check_expression_impl_(third_op, decl_context, &nodecl_third_op);
+
+    check_conditional_expression_impl_nodecl(nodecl_first_op, nodecl_second_op, nodecl_third_op, 
+            decl_context, nodecl_output);
 }
 
 
-static void check_conditional_expression(AST expression, decl_context_t decl_context)
+static void check_conditional_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST first_op = ASTSon0(expression);
     AST second_op = NULL, third_op = NULL;
@@ -6630,66 +6656,434 @@ static void check_conditional_expression(AST expression, decl_context_t decl_con
     }
 
     check_conditional_expression_impl(expression, 
-            first_op, second_op, third_op, decl_context);
-
-    if (expression_is_error(expression))
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
-                    "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
-                    ast_location(expression),
-                    prettyprint_in_buffer(first_op), print_type_str(expression_get_type(first_op), decl_context),
-                    prettyprint_in_buffer(second_op), print_type_str(expression_get_type(second_op), decl_context),
-                    prettyprint_in_buffer(third_op), print_type_str(expression_get_type(third_op), decl_context));
-        }
-    }
-    else
-    {
-        if (expression_is_constant(first_op)
-                && expression_is_constant(second_op)
-                && expression_is_constant(third_op))
-        {
-            if (const_value_is_nonzero(expression_get_constant(first_op)))
-            {
-                expression_set_constant(expression, expression_get_constant(second_op));
-            }
-            else
-            {
-                expression_set_constant(expression, expression_get_constant(third_op));
-            }
-        }
-    }
+            first_op, second_op, third_op, decl_context, nodecl_output);
 }
 
-static void check_new_expression(AST new_expr, decl_context_t decl_context)
+char check_initializer_clause_nodecl(nodecl_t nodecl_init_list, 
+        decl_context_t decl_context, type_t* initializer_type, 
+        nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_new_expression_impl(
+        nodecl_t nodecl_placement_list, 
+        nodecl_t nodecl_init_list, 
+        type_t* new_type, 
+        decl_context_t decl_context,
+        const char *filename,
+        int line,
+        nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+
+    // // Solve 'operator new' being invoked
+    // if (!is_dependent_type(new_type))
+    // {
+    //     scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    //     memset(conversors, 0, sizeof(conversors));
+
+    //     type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
+    //     memset(arguments, 0, sizeof(arguments));
+
+
+    //     char has_dependent_placement_args = 0;
+
+    //     int num_placement_items = 0;
+    //     if (!nodecl_is_null(nodecl_placement_list))
+    //     {
+    //         nodecl_t* nodecl_list = nodecl_unpack_list(nodecl_placement_list, &num_placement_items);
+
+    //         for (i = 0; i < num_items; i++)
+    //         {
+    //             if (nodecl_expr_is_type_dependent(nodecl_list[i]))
+    //             {
+    //                 has_dependent_placement_args = 1;
+    //             }
+
+    //             i++;
+    //         }
+
+    //         free(nodecl_list);
+    //     }
+    //     
+    //     if (!has_dependent_placement_args)
+    //     {
+    //         // At least the size_t parameter (+1 because we may need an implicit)
+    //         int num_arguments = 2;
+    //         // Note: arguments[0] will be left as NULL since 'operator new' is
+    //         // always static if it is a member function
+    //         arguments[1] = get_size_t_type();
+    //         num_arguments += num_placement_items;
+
+    //         decl_context_t op_new_context = decl_context;
+
+    //         if (is_pointer_to_class_type(declarator_type)
+    //                 && global_op == NULL)
+    //         {
+    //             type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+    //             // Instantiate the class if needed
+    //             if (is_named_class_type(class_type)
+    //                     && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+    //             {
+    //                 scope_entry_t* symbol = named_type_get_symbol(class_type);
+    //                 instantiate_template_class(symbol, decl_context, ASTFileName(new_expr), ASTLine(new_expr));
+    //             }
+
+    //             op_new_context = class_type_get_inner_context(
+    //                     get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
+    //         }
+    //         else 
+    //         {
+    //             // Use the global scope
+    //             op_new_context.current_scope = op_new_context.global_scope;
+    //         }
+
+    //         static AST operation_new_tree = NULL;
+    //         if (operation_new_tree == NULL)
+    //         {
+    //             operation_new_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+    //                     ASTLeaf(AST_NEW_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    //         }
+
+    //         static AST operation_new_array_tree = NULL;
+    //         if (operation_new_array_tree == NULL)
+    //         {
+    //             operation_new_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+    //                     ASTLeaf(AST_NEW_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    //         }
+
+    //         AST called_operation_new_tree = operation_new_tree;
+
+    //         if (new_array)
+    //         {
+    //             called_operation_new_tree = operation_new_array_tree;
+    //         }
+
+    //         scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
+
+    //         if (operator_new_list == NULL)
+    //         {
+    //             if (!checking_ambiguity())
+    //             {
+    //                 error_printf("%s: error: no suitable '%s' has been found in the scope\n",
+    //                         ast_location(new_expr),
+    //                         prettyprint_in_buffer(called_operation_new_tree));
+    //             }
+    //             *nodecl_output = nodecl_make_err_expr(filename, line);
+    //             return;
+    //         }
+
+    //         candidate_t* candidate_set = NULL;
+    //         scope_entry_list_iterator_t *it = NULL;
+    //         for (it = entry_list_iterator_begin(operator_new_list);
+    //                 !entry_list_iterator_end(it);
+    //                 entry_list_iterator_next(it))
+    //         {
+    //             scope_entry_t* orig_entry = entry_list_iterator_current(it);
+    //             scope_entry_t* entry = entry_advance_aliases(orig_entry);
+    //             if (entry->entity_specs.is_member)
+    //             {
+    //                 candidate_set = add_to_candidate_set(candidate_set,
+    //                         orig_entry,
+    //                         num_arguments,
+    //                         arguments);
+    //             }
+    //             else
+    //             {
+    //                 candidate_set = add_to_candidate_set(candidate_set,
+    //                         orig_entry,
+    //                         num_arguments - 1,
+    //                         arguments + 1);
+    //             }
+    //         }
+    //         entry_list_iterator_free(it);
+
+    //         scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
+    //                 decl_context, ASTFileName(new_expr), ASTLine(new_expr), 
+    //                 conversors);
+
+    //         if (chosen_operator_new == NULL)
+    //         {
+    //             if (!checking_ambiguity())
+    //             {
+    //                 const char* argument_call = uniquestr("");
+
+    //                 argument_call = strappend(argument_call, "operator new");
+    //                 if (new_array)
+    //                 {
+    //                     argument_call = strappend(argument_call, "[]");
+    //                 }
+    //                 argument_call = strappend(argument_call, "(");
+
+    //                 for (i = 1; i < num_arguments; i++)
+    //                 {
+    //                     argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
+    //                     if ((i + 1) < num_arguments)
+    //                     {
+    //                         argument_call = strappend(argument_call, ", ");
+    //                     }
+    //                 }
+    //                 argument_call = strappend(argument_call, ")");
+
+    //                 error_printf("%s: error: no suitable '%s' found for new-expression '%s'\n",
+    //                         ast_location(new_expr),
+    //                         argument_call,
+    //                         prettyprint_in_buffer(new_expr));
+
+    //                 diagnostic_candidates(operator_new_list, ASTFileName(new_expr), ASTLine(new_expr));
+    //                 entry_list_free(operator_new_list);
+    //             }
+    //             *nodecl_output = nodecl_make_err_expr(filename, line);
+    //             return;
+    //         }
+
+    //         if (function_has_been_deleted(decl_context, chosen_operator_new, ASTFileName(new_expr), ASTLine(new_expr)))
+    //         {
+    //             *nodecl_output = nodecl_make_err_expr(filename, line);
+    //             return;
+    //         }
+
+    //         ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+    //         ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
+
+    //         // Store conversions
+    //         if (new_placement != NULL)
+    //         {
+    //             AST expression_list = ASTSon0(new_placement);
+    //             AST iter;
+
+    //             // Ignore the size_t (and the implicit too)
+    //             i = 2;
+    //             if (expression_list != NULL)
+    //             {
+    //                 for_each_element(expression_list, iter)
+    //                 {
+    //                     AST current_expr = ASTSon1(iter);
+
+    //                     nodecl_t nodecl_expr = expression_get_nodecl(current_expr);
+
+    //                     if (conversors[i] != NULL)
+    //                     {
+    //                         if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
+    //                         {
+    //                             *nodecl_output = nodecl_make_err_expr(filename, line);
+    //                             return;
+    //                         }
+
+    //                         ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+    //                         ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+
+    //                         nodecl_expr = cxx_nodecl_make_function_call(
+    //                                 nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
+    //                                 nodecl_make_list_1(nodecl_expr),
+    //                                 actual_type_of_conversor(conversors[i]),
+    //                                 ASTFileName(current_expr), ASTLine(current_expr));
+    //                     }
+
+    //                     nodecl_placement = nodecl_append_to_list(nodecl_placement,
+    //                             nodecl_expr);
+
+    //                     i++;
+    //                 }
+    //             }
+    //         }
+
+    //         nodecl_t nodecl_init = nodecl_null();
+
+    //         if (is_pointer_to_class_type(declarator_type))
+    //         {
+    //             type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+    //             memset(conversors, 0, sizeof(conversors));
+    //             memset(arguments, 0, sizeof(arguments));
+
+    //             num_arguments = 0;
+    //             char has_constructor_dep_args = 0;
+
+    //             if (new_initializer != NULL)
+    //             {
+    //                 AST expression_list = ASTSon0(new_initializer);
+
+    //                 if (expression_list != NULL)
+    //                 {
+    //                     AST iter;
+    //                     for_each_element(expression_list, iter)
+    //                     {
+    //                         AST expr = ASTSon1(iter);
+
+    //                         arguments[num_arguments] = expression_get_type(expr);
+
+    //                         if (is_type_dependent_expression_type(arguments[num_arguments]))
+    //                         {
+    //                             has_constructor_dep_args = 1;
+    //                         }
+
+    //                         num_arguments++;
+    //                     }
+    //                 }
+    //             }
+
+    //             if (!has_constructor_dep_args)
+    //             {
+    //                 scope_entry_list_t* candidates = NULL;
+    //                 scope_entry_t* chosen_constructor = solve_constructor(class_type,
+    //                         arguments, num_arguments,
+    //                         /* is_explicit */ 1,
+    //                         decl_context,
+    //                         ASTFileName(new_expr), ASTLine(new_expr),
+    //                         conversors,
+    //                         &candidates);
+    //                 entry_list_free(candidates);
+
+    //                 if (chosen_constructor == NULL)
+    //                 {
+    //                     if (!checking_ambiguity())
+    //                     {
+    //                         error_printf("%s: error: no suitable constructor of type '%s' "
+    //                                 "found for new-initializer '%s'\n",
+    //                                 ast_location(new_expr),
+    //                                 print_decl_type_str(class_type, decl_context, ""),
+    //                                 prettyprint_in_buffer(new_initializer));
+    //                     }
+
+    //                     *nodecl_output = nodecl_make_err_expr(filename, line);
+    //                     return;
+    //                 }
+
+    //                 if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)))
+    //                 {
+    //                     *nodecl_output = nodecl_make_err_expr(filename, line);
+    //                     return;
+    //                 }
+
+    //                 // FIXME - This does not belong to the expression!
+    //                 ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+    //                 ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+
+    //                 nodecl_t nodecl_argument_list = nodecl_null();
+
+    //                 // Store conversions
+    //                 if (new_initializer != NULL)
+    //                 {
+    //                     AST expression_list = ASTSon0(new_initializer);
+    //                     AST iter;
+
+    //                     i = 0;
+    //                     if (expression_list != NULL)
+    //                     {
+    //                         for_each_element(expression_list, iter)
+    //                         {
+    //                             AST current_expr = ASTSon1(iter);
+
+    //                             nodecl_t nodecl_current_argument = expression_get_nodecl(current_expr);
+
+    //                             if (conversors[i] != NULL)
+    //                             {
+    //                                 if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
+    //                                 {
+    //                                     *nodecl_output = nodecl_make_err_expr(filename, line);
+    //                                     return;
+    //                                 }
+
+    //                                 ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+    //                                 ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+
+    //                                 nodecl_current_argument = cxx_nodecl_make_function_call(
+    //                                         nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
+    //                                         nodecl_make_list_1(nodecl_current_argument),
+    //                                         actual_type_of_conversor(conversors[i]),
+    //                                         ASTFileName(current_expr), ASTLine(current_expr));
+    //                             }
+
+    //                             nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, 
+    //                                     nodecl_current_argument);
+    //                             i++;
+    //                         }
+    //                     }
+
+    //                 }
+
+    //                 nodecl_init = cxx_nodecl_make_function_call(
+    //                         nodecl_make_symbol(chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)),
+    //                         nodecl_argument_list,
+    //                         get_void_type(), // Constructors return void
+    //                         ASTFileName(new_expr), ASTLine(new_expr));
+    //             }
+    //             else 
+    //             {
+    //                 // Constructor args are dependent
+    //                 expression_set_dependent(new_expr, decl_context);
+    //                 expression_set_is_lvalue(new_expr, 0);
+    //                 return;
+    //             }
+    //         }
+    //         else
+    //         {
+    //             if (new_initializer != NULL)
+    //             {
+    //                 nodecl_init = expression_get_nodecl(new_initializer);
+    //             }
+    //         }
+
+    //         nodecl_t nodecl_new = nodecl_make_new(nodecl_init, nodecl_placement, 
+    //                 chosen_operator_new, declarator_type, 
+    //                 ASTFileName(new_expr), ASTLine(new_expr));
+
+    //         expression_set_type(new_expr, declarator_type);
+    //         expression_set_is_lvalue(new_expr, 0);
+    //         expression_set_nodecl(new_expr, nodecl_new);
+
+    //         return;
+    //     }
+    //     else 
+    //     {
+    //         // Placement expression is dependent
+    //         expression_set_dependent(new_expr, decl_context);
+    //         expression_set_is_lvalue(new_expr, 0);
+    //         return;
+    //     }
+
+    // }
+    // else
+    // {
+    //     // The new type is dependent
+    //     expression_set_dependent(new_expr, decl_context);
+    //     expression_set_is_lvalue(new_expr, 0);
+    //     return;
+    // }
+
+    // *nodecl_output = nodecl_make_err_expr(filename, line);
+}
+
+static void check_new_expression(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    const char* filename = ASTFileName(new_expr);
+    int line = ASTLine(new_expr);
+
     AST global_op = ASTSon0(new_expr);
     AST new_placement = ASTSon1(new_expr);
     AST new_type_id = ASTSon2(new_expr);
     AST new_initializer = ASTSon3(new_expr);
 
-    ASTAttrSetValueType(new_expr, LANG_IS_NEW_EXPRESSION, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(new_expr, LANG_NEW_TYPEID, new_type_id);
-
-    if (new_initializer != NULL)
-    {
-        ast_set_link_to_child(new_expr, LANG_NEW_INITIALIZER, ASTSon0(new_initializer));
-    }
-
     if (!check_type_id_tree(new_type_id, decl_context))
     {
-        expression_set_error(new_expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
+
+    nodecl_t nodecl_placement = nodecl_null();
 
     if (new_placement != NULL)
     {
         AST expression_list = ASTSon0(new_placement);
 
-        if (!check_expression_list(expression_list, decl_context))
+        if (!check_expression_list(expression_list, decl_context, &nodecl_placement))
         {
-            expression_set_error(new_expr);
+            nodecl_free(nodecl_placement);
+
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -6715,427 +7109,39 @@ static void check_new_expression(AST new_expr, decl_context_t decl_context)
                     ast_location(type_specifier_seq),
                     prettyprint_in_buffer(type_specifier_seq));
         }
-        expression_set_error(new_expr);
+        nodecl_free(nodecl_placement);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* declarator_type = NULL;
     compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context, &dummy_nodecl_output);
 
+    nodecl_t nodecl_init_list = nodecl_null();
     if (new_initializer != NULL)
     {
         AST expression_list = ASTSon0(new_initializer);
 
         if (expression_list != NULL)
         {
-            if (!check_expression_list(expression_list, decl_context))
+            if (!check_expression_list(expression_list, decl_context, &nodecl_init_list))
             {
-                expression_set_error(new_expr);
+                nodecl_free(nodecl_init_list);
+                nodecl_free(nodecl_placement);
+
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
     }
 
-    char new_array = 0;
-
-    if (is_array_type(declarator_type))
-    {
-        new_array = 1;
-        declarator_type = get_pointer_type(array_type_get_element_type(declarator_type));
-    }
-    else
-    {
-        declarator_type = get_pointer_type(declarator_type);
-    }
-
-    // Solve 'operator new' being invoked
-    if (!is_dependent_type(declarator_type))
-    {
-        scope_entry_t* conversors[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-        memset(conversors, 0, sizeof(conversors));
-
-        type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
-        memset(arguments, 0, sizeof(arguments));
-
-        // At least the size_t parameter (+1 because we may need an implicit)
-        int num_arguments = 2;
-
-        // Note: arguments[0] will be left as NULL since 'operator new' is
-        // always static if it is a member function
-        arguments[1] = get_size_t_type();
-
-        char has_dependent_placement_args = 0;
-
-        nodecl_t nodecl_placement = nodecl_null();
-
-        int i = 2; 
-        if (new_placement != NULL)
-        {
-            AST expression_list = ASTSon0(new_placement);
-            AST iter;
-
-            for_each_element(expression_list, iter)
-            {
-                AST expr = ASTSon1(iter);
-
-                arguments[i] = expression_get_type(expr);
-
-                if (is_dependent_expr_type(arguments[i]))
-                {
-                    has_dependent_placement_args = 1;
-                }
-
-                i++;
-                num_arguments++;
-            }
-        }
-
-        if (!has_dependent_placement_args)
-        {
-            decl_context_t op_new_context = decl_context;
-
-            if (is_pointer_to_class_type(declarator_type)
-                    && global_op == NULL)
-            {
-                type_t* class_type = pointer_type_get_pointee_type(declarator_type);
-
-                // Instantiate the class if needed
-                if (is_named_class_type(class_type)
-                        && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
-                {
-                    scope_entry_t* symbol = named_type_get_symbol(class_type);
-                    instantiate_template_class(symbol, decl_context, ASTFileName(new_expr), ASTLine(new_expr));
-                }
-
-                op_new_context = class_type_get_inner_context(
-                        get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
-            }
-            else 
-            {
-                // Use the global scope
-                op_new_context.current_scope = op_new_context.global_scope;
-            }
-
-            static AST operation_new_tree = NULL;
-            if (operation_new_tree == NULL)
-            {
-                operation_new_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                        ASTLeaf(AST_NEW_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
-            }
-
-            static AST operation_new_array_tree = NULL;
-            if (operation_new_array_tree == NULL)
-            {
-                operation_new_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                        ASTLeaf(AST_NEW_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
-            }
-
-            AST called_operation_new_tree = operation_new_tree;
-
-            if (new_array)
-            {
-                called_operation_new_tree = operation_new_array_tree;
-            }
-
-            scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
-
-            if (operator_new_list == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: no suitable '%s' has been found in the scope\n",
-                            ast_location(new_expr),
-                            prettyprint_in_buffer(called_operation_new_tree));
-                }
-                expression_set_error(new_expr);
-                return;
-            }
-
-            candidate_t* candidate_set = NULL;
-            scope_entry_list_iterator_t *it = NULL;
-            for (it = entry_list_iterator_begin(operator_new_list);
-                    !entry_list_iterator_end(it);
-                    entry_list_iterator_next(it))
-            {
-                scope_entry_t* orig_entry = entry_list_iterator_current(it);
-                scope_entry_t* entry = entry_advance_aliases(orig_entry);
-                if (entry->entity_specs.is_member)
-                {
-                    candidate_set = add_to_candidate_set(candidate_set,
-                            orig_entry,
-                            num_arguments,
-                            arguments);
-                }
-                else
-                {
-                    candidate_set = add_to_candidate_set(candidate_set,
-                            orig_entry,
-                            num_arguments - 1,
-                            arguments + 1);
-                }
-            }
-            entry_list_iterator_free(it);
-
-            scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
-                    decl_context, ASTFileName(new_expr), ASTLine(new_expr), 
-                    conversors);
-
-            if (chosen_operator_new == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    const char* argument_call = uniquestr("");
-
-                    argument_call = strappend(argument_call, "operator new");
-                    if (new_array)
-                    {
-                        argument_call = strappend(argument_call, "[]");
-                    }
-                    argument_call = strappend(argument_call, "(");
-
-                    for (i = 1; i < num_arguments; i++)
-                    {
-                        argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
-                        if ((i + 1) < num_arguments)
-                        {
-                            argument_call = strappend(argument_call, ", ");
-                        }
-                    }
-                    argument_call = strappend(argument_call, ")");
-
-                    error_printf("%s: error: no suitable '%s' found for new-expression '%s'\n",
-                            ast_location(new_expr),
-                            argument_call,
-                            prettyprint_in_buffer(new_expr));
-
-                    diagnostic_candidates(operator_new_list, ASTFileName(new_expr), ASTLine(new_expr));
-                    entry_list_free(operator_new_list);
-                }
-                expression_set_error(new_expr);
-                return;
-            }
-
-            if (function_has_been_deleted(decl_context, chosen_operator_new, ASTFileName(new_expr), ASTLine(new_expr)))
-            {
-                expression_set_error(new_expr);
-                return;
-            }
-
-            ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
-
-            // Store conversions
-            if (new_placement != NULL)
-            {
-                AST expression_list = ASTSon0(new_placement);
-                AST iter;
-
-                // Ignore the size_t (and the implicit too)
-                i = 2;
-                if (expression_list != NULL)
-                {
-                    for_each_element(expression_list, iter)
-                    {
-                        AST current_expr = ASTSon1(iter);
-
-                        nodecl_t nodecl_expr = expression_get_nodecl(current_expr);
-
-                        if (conversors[i] != NULL)
-                        {
-                            if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
-                            {
-                                expression_set_error(new_expr);
-                                return;
-                            }
-
-                            ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
-
-                            nodecl_expr = cxx_nodecl_make_function_call(
-                                    nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
-                                    nodecl_make_list_1(nodecl_expr),
-                                    actual_type_of_conversor(conversors[i]),
-                                    ASTFileName(current_expr), ASTLine(current_expr));
-                        }
-
-                        nodecl_placement = nodecl_append_to_list(nodecl_placement,
-                                nodecl_expr);
-
-                        i++;
-                    }
-                }
-            }
-
-            nodecl_t nodecl_init = nodecl_null();
-
-            if (is_pointer_to_class_type(declarator_type))
-            {
-                type_t* class_type = pointer_type_get_pointee_type(declarator_type);
-
-                memset(conversors, 0, sizeof(conversors));
-                memset(arguments, 0, sizeof(arguments));
-
-                num_arguments = 0;
-                char has_constructor_dep_args = 0;
-
-                if (new_initializer != NULL)
-                {
-                    AST expression_list = ASTSon0(new_initializer);
-
-                    if (expression_list != NULL)
-                    {
-                        AST iter;
-                        for_each_element(expression_list, iter)
-                        {
-                            AST expr = ASTSon1(iter);
-
-                            arguments[num_arguments] = expression_get_type(expr);
-
-                            if (is_dependent_expr_type(arguments[num_arguments]))
-                            {
-                                has_constructor_dep_args = 1;
-                            }
-
-                            num_arguments++;
-                        }
-                    }
-                }
-
-                if (!has_constructor_dep_args)
-                {
-                    scope_entry_list_t* candidates = NULL;
-                    scope_entry_t* chosen_constructor = solve_constructor(class_type,
-                            arguments, num_arguments,
-                            /* is_explicit */ 1,
-                            decl_context,
-                            ASTFileName(new_expr), ASTLine(new_expr),
-                            conversors,
-                            &candidates);
-                    entry_list_free(candidates);
-
-                    if (chosen_constructor == NULL)
-                    {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: no suitable constructor of type '%s' "
-                                    "found for new-initializer '%s'\n",
-                                    ast_location(new_expr),
-                                    print_decl_type_str(class_type, decl_context, ""),
-                                    prettyprint_in_buffer(new_initializer));
-                        }
-
-                        expression_set_error(new_expr);
-                        return;
-                    }
-
-                    if (function_has_been_deleted(decl_context, chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)))
-                    {
-                        expression_set_error(new_expr);
-                        return;
-                    }
-
-                    // FIXME - This does not belong to the expression!
-                    ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
-
-                    nodecl_t nodecl_argument_list = nodecl_null();
-
-                    // Store conversions
-                    if (new_initializer != NULL)
-                    {
-                        AST expression_list = ASTSon0(new_initializer);
-                        AST iter;
-
-                        i = 0;
-                        if (expression_list != NULL)
-                        {
-                            for_each_element(expression_list, iter)
-                            {
-                                AST current_expr = ASTSon1(iter);
-
-                                nodecl_t nodecl_current_argument = expression_get_nodecl(current_expr);
-
-                                if (conversors[i] != NULL)
-                                {
-                                    if (function_has_been_deleted(decl_context, conversors[i], ASTFileName(new_expr), ASTLine(new_expr)))
-                                    {
-                                        expression_set_error(new_expr);
-                                        return;
-                                    }
-
-                                    ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                                    ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
-
-                                    nodecl_current_argument = cxx_nodecl_make_function_call(
-                                            nodecl_make_symbol(conversors[i], ASTFileName(current_expr), ASTLine(current_expr)),
-                                            nodecl_make_list_1(nodecl_current_argument),
-                                            actual_type_of_conversor(conversors[i]),
-                                            ASTFileName(current_expr), ASTLine(current_expr));
-                                }
-
-                                nodecl_argument_list = nodecl_append_to_list(nodecl_argument_list, 
-                                        nodecl_current_argument);
-                                i++;
-                            }
-                        }
-
-                    }
-
-                    nodecl_init = cxx_nodecl_make_function_call(
-                            nodecl_make_symbol(chosen_constructor, ASTFileName(new_expr), ASTLine(new_expr)),
-                            nodecl_argument_list,
-                            get_void_type(), // Constructors return void
-                            ASTFileName(new_expr), ASTLine(new_expr));
-                }
-                else 
-                {
-                    // Constructor args are dependent
-                    expression_set_dependent(new_expr, decl_context);
-                    expression_set_is_lvalue(new_expr, 0);
-                    return;
-                }
-            }
-            else
-            {
-                if (new_initializer != NULL)
-                {
-                    nodecl_init = expression_get_nodecl(new_initializer);
-                }
-            }
-
-            nodecl_t nodecl_new = nodecl_make_new(nodecl_init, nodecl_placement, 
-                    chosen_operator_new, declarator_type, 
-                    ASTFileName(new_expr), ASTLine(new_expr));
-
-            expression_set_type(new_expr, declarator_type);
-            expression_set_is_lvalue(new_expr, 0);
-            expression_set_nodecl(new_expr, nodecl_new);
-
-            return;
-        }
-        else 
-        {
-            // Placement expression is dependent
-            expression_set_dependent(new_expr, decl_context);
-            expression_set_is_lvalue(new_expr, 0);
-            return;
-        }
-
-    }
-    else
-    {
-        // The new type is dependent
-        expression_set_dependent(new_expr, decl_context);
-        expression_set_is_lvalue(new_expr, 0);
-        return;
-    }
-
-    expression_set_error(new_expr);
+    check_new_expression_impl(nodecl_placement, nodecl_init_list, declarator_type, 
+            decl_context, filename, line, nodecl_output);
 }
 
-static void check_new_type_id_expr(AST new_expr, decl_context_t decl_context)
+static void check_new_type_id_expr(AST new_expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    check_new_expression(new_expr, decl_context );
+    check_new_expression(new_expr, decl_context, nodecl_output);
 }
 
 static char is_deallocation_function(scope_entry_t* entry)
@@ -7172,8 +7178,11 @@ static char is_deallocation_function(scope_entry_t* entry)
     return 1;
 }
 
-static void check_delete_expression(AST expression, decl_context_t decl_context)
+static void check_delete_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     char is_array_delete = 0;
     if (ASTType(expression) == AST_DELETE_ARRAY_EXPR)
     {
@@ -7190,13 +7199,13 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
 
     if (expression_is_error(deleted_expression))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* deleted_expr_type = no_ref(expression_get_type(deleted_expression));
 
-    if (!is_dependent_expr_type(deleted_expr_type)
+    if (!is_type_dependent_expression_type(deleted_expr_type)
             && (!is_pointer_type(deleted_expr_type)
                 || is_pointer_to_function_type(deleted_expr_type)))
     {
@@ -7207,11 +7216,11 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
                     prettyprint_in_buffer(deleted_expression),
                     print_decl_type_str(deleted_expr_type, decl_context, ""));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    if (!is_dependent_expr_type(deleted_expr_type))
+    if (!is_type_dependent_expression_type(deleted_expr_type))
     {
         // Lookup the destructor if this is a class
         if (is_pointer_to_class_type(deleted_expr_type))
@@ -7274,7 +7283,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
             {
                 error_printf("%s: error: cannot delete an incomplete class type\n",
                         ast_location(expression));
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
@@ -7295,7 +7304,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
                         ast_location(expression),
                         prettyprint_in_buffer(operation_delete_name));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -7329,7 +7338,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
                     prettyprint_in_buffer(operation_delete_name),
                     print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
                         decl_context, ""));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
         else
@@ -7340,7 +7349,7 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
     }
 
     nodecl_t nodecl_delete = nodecl_null();
-    if (!is_dependent_expr_type(deleted_expr_type))
+    if (!is_type_dependent_expression_type(deleted_expr_type))
     {
         if (!is_array_delete)
         {
@@ -7362,12 +7371,14 @@ static void check_delete_expression(AST expression, decl_context_t decl_context)
 
     expression_set_type(expression, get_void_type());
     expression_set_is_lvalue(expression, 0);
-
+#endif
 }
 
 static void check_explicit_type_conversion_common(type_t* type_info, 
         AST expr, AST expression_list, decl_context_t decl_context)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* argument_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS];
     memset(argument_types, 0, sizeof(argument_types));
     int num_arguments = 0;
@@ -7391,7 +7402,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
     {
         if (!check_expression_list(expression_list, decl_context))
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -7405,7 +7416,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             {
                 argument_types[num_arguments] = expression_get_type(current_expression);
 
-                if (is_dependent_expr_type(argument_types[num_arguments]))
+                if (is_type_dependent_expression_type(argument_types[num_arguments]))
                 {
                     has_dependent_arguments = 1;
                 }
@@ -7417,7 +7428,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
             }
             else
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -7454,7 +7465,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                             print_decl_type_str(type_info, decl_context, ""));
                     diagnostic_candidates(candidates, ASTFileName(expr), ASTLine(expr));
                 }
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 entry_list_free(candidates);
                 return;
             }
@@ -7462,7 +7473,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 
             if (function_has_been_deleted(decl_context, constructor, ASTFileName(expr), ASTLine(expr)))
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -7480,7 +7491,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                     {
                         if (function_has_been_deleted(decl_context, conversors[k], ASTFileName(current_expression), ASTLine(current_expression)))
                         {
-                            expression_set_error(expr);
+                            *nodecl_output = nodecl_make_err_expr(filename, line);
                             return;
                         }
 
@@ -7519,7 +7530,7 @@ static void check_explicit_type_conversion_common(type_t* type_info,
                         ast_location(expr),
                         print_decl_type_str(type_info, decl_context, ""));
             }
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
         else 
@@ -7584,17 +7595,20 @@ static void check_explicit_type_conversion_common(type_t* type_info,
         // dependent value
         expression_set_is_value_dependent(expr, has_value_dependent_arguments, decl_context);
     }
+#endif
 }
 
-static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context)
+static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST id_expression = ASTSon0(expr);
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
     if (entry_list == NULL)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -7607,17 +7621,19 @@ static void check_explicit_typename_type_conversion(AST expr, decl_context_t dec
             && entry->kind != SK_DEPENDENT_ENTITY
             && entry->kind != SK_TEMPLATE_TYPE_PARAMETER)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     AST expr_list = ASTSon1(expr);
 
     check_explicit_type_conversion_common(get_user_defined_type(entry), expr, expr_list, decl_context);
+#endif
 }
 
-static void check_explicit_type_conversion(AST expr, decl_context_t decl_context)
+static void check_explicit_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+#if 0
     // An explicit type conversion is of the form
     //
     //   T ( e );
@@ -7641,12 +7657,16 @@ static void check_explicit_type_conversion(AST expr, decl_context_t decl_context
     }
     else
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
+#endif
 }
 
 static char check_function_arguments(AST arguments, decl_context_t decl_context, int *num_arguments)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     *num_arguments = 0;
     if (arguments != NULL)
     {
@@ -7678,7 +7698,7 @@ static char check_function_arguments(AST arguments, decl_context_t decl_context,
                     fprintf(stderr, "EXPRTYPE: When checking function call, argument %d '%s' could not be checked\n",
                             (*num_arguments), prettyprint_in_buffer(parameter_expr));
                 }
-                expression_set_error(parameter_expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return 0;
             }
             (*num_arguments)++;
@@ -7687,10 +7707,13 @@ static char check_function_arguments(AST arguments, decl_context_t decl_context,
         ASTAttrSetValueType(arguments, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     }
     return 1;
+#endif
 }
 
 static char check_koenig_expression(AST called_expression, AST arguments, decl_context_t decl_context)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     // First try to do a normal lookup
     scope_entry_list_t* entry_list = query_id_expression(decl_context, called_expression);
 
@@ -7798,7 +7821,7 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
 
             type_t* argument_type = expression_get_type(argument_tree);
 
-            if (is_dependent_expr_type(argument_type))
+            if (is_type_dependent_expression_type(argument_type))
             {
                 // Everything turned out to be dependent
                 expression_set_dependent(called_expression, decl_context);
@@ -7902,6 +7925,7 @@ static char check_koenig_expression(AST called_expression, AST arguments, decl_c
     }
 
     return 0;
+#endif
 }
 
 typedef
@@ -8006,6 +8030,8 @@ static char check_argument_types_of_call(
         char (*arg_type_is_ok_for_param_type)(type_t* argument_type, type_t* parameter_type, int num_parameter, AST arg, void*),
         void *data)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
 
     AST it;
@@ -8090,6 +8116,7 @@ static char check_argument_types_of_call(
 
 
     return no_arg_is_faulty;
+#endif
 }
 
 static char any_is_member_function(scope_entry_list_t* candidates)
@@ -8116,6 +8143,8 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
         AST arguments, decl_context_t decl_context, char might_require_koenig,
         nodecl_t* nodecl_argument_list)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     // 1. If function arguments did not yield a valid expression ignore them
     int num_explicit_arguments = 0;
     if (!check_function_arguments(arguments, decl_context, &num_explicit_arguments))
@@ -8244,7 +8273,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
                 return 0;
             }
         }
-        else if (is_dependent_expr_type(expression_get_type(called_expression)))
+        else if (is_type_dependent_expression_type(expression_get_type(called_expression)))
         {
             // A word on this: C does not have dependent expressions. But when
             // calling a __builtin_XXX which is unknown it turns that we need
@@ -8415,7 +8444,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
         type_t* proper_function_type = expression_get_type(called_expression);
 
-        if (!is_dependent_expr_type(proper_function_type))
+        if (!is_type_dependent_expression_type(proper_function_type))
         {
             if (is_pointer_to_function_type(no_ref(proper_function_type)))
             {
@@ -8469,7 +8498,7 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
 
             type_t* argument_type = expression_get_type(argument_tree);
 
-            if (is_dependent_expr_type(argument_type))
+            if (is_type_dependent_expression_type(argument_type))
             {
                 expression_set_dependent(called_expression, decl_context);
                 return 1;
@@ -8958,10 +8987,13 @@ char _check_functional_expression(AST whole_function_call, AST called_expression
     }
 
     return 0;
+#endif
 }
 
 char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* function_type = entry->type_information;
 
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
@@ -9056,12 +9088,15 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     }
 
     return 0;
+#endif
 }
 
 // A function call is of the form
 //   e1 ( e2 )
 static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t *nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Checking for function call '%s' at '%s'\n", 
@@ -9110,7 +9145,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             fprintf(stderr, "EXPRTYPE: Functional expression '%s' at '%s' could not be checked\n",
                     prettyprint_in_buffer(expr), ast_location(expr));
         }
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -9119,7 +9154,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
     {
         // 3. If is a dependent expression nothing else has to be computed
         //    tag all the expression as dependent
-        if (is_dependent_expr_type(function_type))
+        if (is_type_dependent_expression_type(function_type))
         {
             expression_set_dependent(expr, decl_context);
             return;
@@ -9137,7 +9172,7 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             fprintf(stderr, "EXPRTYPE: Solved expression at '%s' is neither a function nor a pointer to function\n", 
                     ast_location(expr));
         }
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -9192,17 +9227,21 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t 
             return_type,
             ASTFileName(expr), ASTLine(expr));
     expression_set_nodecl(expr, nodecl_output);
+#endif
 }
 
 static char check_parenthesized_initializer(AST context_tree, AST initializer_list, decl_context_t decl_context, 
         type_t* declared_type, nodecl_t* output);
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
-        const char* cast_kind)
+        const char* cast_kind,
+        nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     if (!check_type_id_tree(type_id, decl_context))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
     
@@ -9233,7 +9272,7 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
                         ast_location(type_specifier),
                         prettyprint_in_buffer(type_specifier));
             }
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -9309,13 +9348,16 @@ static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, d
     }
     else
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
+#endif
 }
 
-static void check_comma_operand(AST expression, decl_context_t decl_context)
+static void check_comma_operand(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     static AST operation_comma_tree = NULL;
     if (operation_comma_tree == NULL)
     {
@@ -9333,15 +9375,15 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
     if (expression_is_error(lhs)
             || expression_is_error(rhs))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
 
-    if (is_dependent_expr_type(lhs_type)
-            || is_dependent_expr_type(rhs_type))
+    if (is_type_dependent_expression_type(lhs_type)
+            || is_type_dependent_expression_type(rhs_type))
     {
         expression_set_dependent(expression, decl_context);
         return;
@@ -9401,13 +9443,17 @@ static void check_comma_operand(AST expression, decl_context_t decl_context)
                 expression_get_nodecl(rhs),
                 expression_get_type(rhs),
                 ASTFileName(expression), ASTLine(expression)));
+#endif
 }
 
 
 static void check_templated_member_access(AST templated_member_access, decl_context_t decl_context, 
         char is_arrow, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     check_member_access(templated_member_access, decl_context, is_arrow);
+#endif
 }
 
 static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
@@ -9438,8 +9484,10 @@ static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
     }
 }
 
-static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow)
+static void check_member_access(AST member_access, decl_context_t decl_context, char is_arrow, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     char operator_arrow = 0;
 
     AST class_expr = ASTSon0(member_access);
@@ -9455,7 +9503,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
     if (expression_is_error(class_expr))
     {
-        expression_set_error(member_access);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -9463,7 +9511,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
     CXX_LANGUAGE()
     {
-        if (is_dependent_expr_type(accessed_type))
+        if (is_type_dependent_expression_type(accessed_type))
         {
             expression_set_dependent(member_access, decl_context);
             // Best effort to remove ambiguities
@@ -9512,7 +9560,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                         prettyprint_in_buffer(class_expr),
                         print_type_str(no_ref(accessed_type), decl_context));
             }
-            expression_set_error(member_access);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -9540,7 +9588,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
         if (operator_arrow_list == NULL)
         {
-            expression_set_error(member_access);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -9576,19 +9624,19 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             {
                 error_message_overload_failed(candidate_set, ASTFileName(member_access), ASTLine(member_access));
             }
-            expression_set_error(member_access);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
         if (function_has_been_deleted(decl_context, selected_operator_arrow, ASTFileName(member_access), ASTLine(member_access)))
         {
-            expression_set_error(member_access);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
-            expression_set_error(member_access);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -9620,7 +9668,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                     prettyprint_in_buffer(class_expr),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
-        expression_set_error(member_access);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
     
@@ -9660,7 +9708,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                     prettyprint_in_buffer(id_expression),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
-        expression_set_error(member_access);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -9705,7 +9753,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
                             prettyprint_in_buffer(id_expression),
                             print_type_str(no_ref(accessed_type), decl_context));
                 }
-                expression_set_error(member_access);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
@@ -9733,7 +9781,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             else
             {
                 // solved == NULL && !dependent_template_parameters 
-                expression_set_error(member_access);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
@@ -9775,7 +9823,7 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
             expression_set_symbol(id_expression, entry);
 
             // This is a reference to the type
-            if (!is_dependent_expr_type(entry->type_information))
+            if (!is_type_dependent_expression_type(entry->type_information))
             {
                 expression_set_type(member_access, lvalue_ref(entry->type_information));
                 expression_set_is_lvalue(member_access, 1);
@@ -9819,13 +9867,16 @@ static void check_member_access(AST member_access, decl_context_t decl_context, 
 
     if (!ok)
     {
-        expression_set_error(member_access);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
+#endif
 }
 
-static void check_qualified_id(AST expr, decl_context_t decl_context, const_value_t** val)
+static void check_qualified_id(AST expr, decl_context_t decl_context, nodecl_t *nodecl_output)
 {
-    compute_qualified_id_type(expr, decl_context, val);
+    internal_error("Not yet implemented", 0);
+#if 0
+    compute_qualified_id_type(expr, decl_context, nodecl_output);
 
     if (expression_is_error(expr)
             && !checking_ambiguity())
@@ -9833,12 +9884,15 @@ static void check_qualified_id(AST expr, decl_context_t decl_context, const_valu
         error_printf("%s: error: symbol '%s' not found in current scope\n",
                 ast_location(expr), prettyprint_in_buffer(expr));
     }
+#endif
 }
 
 static type_t* check_template_function(scope_entry_list_t* entry_list,
         AST template_id, decl_context_t decl_context, 
         char *dependent_template_parameters)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     *dependent_template_parameters = 0;
     ERROR_CONDITION(entry_list == NULL,
             "This list cannot be NULL", 0);
@@ -9887,12 +9941,12 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
     scope_entry_t* primary_symbol = 
         named_type_get_symbol(template_type_get_primary_type(entry->type_information));
 
+    type_t* return_type = get_unresolved_overloaded_type(entry_list, template_parameters);
 
     if (primary_symbol->entity_specs.is_member
             && is_dependent_type(primary_symbol->entity_specs.class_type))
     {
         *dependent_template_parameters = 1;
-        return NULL;
     }
 
     // Now we have to solve the template function
@@ -9902,14 +9956,16 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
     if (has_dependent_template_parameters(template_parameters))
     {
         *dependent_template_parameters = 1;
-        return NULL;
     }
 
-    return get_unresolved_overloaded_type(entry_list, template_parameters);
+    return return_type;
+#endif
 }
 
-static void check_template_id_expr(AST expr, decl_context_t decl_context)
+static void check_template_id_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION(ASTType(expr) != AST_TEMPLATE_ID
             && ASTType(expr) != AST_OPERATOR_FUNCTION_ID, "Invalid template-id", 0);
 
@@ -9917,7 +9973,7 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
 
     if (entry_list == NULL)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -9948,9 +10004,10 @@ static void check_template_id_expr(AST expr, decl_context_t decl_context)
 
     if (!ok)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
+#endif
 }
 
 static void check_postoperator_user_defined(AST expr, AST operator, 
@@ -9959,6 +10016,8 @@ static void check_postoperator_user_defined(AST expr, AST operator,
         scope_entry_list_t* builtins,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const char*, int))
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* incremented_type = expression_get_type(postoperated_expr);
 
     type_t* argument_types[2] = {
@@ -10021,7 +10080,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
     {
         if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -10032,7 +10091,7 @@ static void check_postoperator_user_defined(AST expr, AST operator,
         {
             if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
@@ -10076,7 +10135,8 @@ static void check_postoperator_user_defined(AST expr, AST operator,
         }
     }
 
-    expression_set_error(expr);
+    *nodecl_output = nodecl_make_err_expr(filename, line);
+#endif
 }
 
 static void check_preoperator_user_defined(AST expr, AST operator, 
@@ -10085,6 +10145,8 @@ static void check_preoperator_user_defined(AST expr, AST operator,
         scope_entry_list_t* builtins,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const char*, int))
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     type_t* incremented_type = expression_get_type(preoperated_expr);
 
     type_t* argument_types[1] = {
@@ -10148,7 +10210,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
     {
         if (function_has_been_deleted(decl_context, overloaded_call, ASTFileName(expr), ASTLine(expr)))
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -10159,7 +10221,7 @@ static void check_preoperator_user_defined(AST expr, AST operator,
         {
             if (function_has_been_deleted(decl_context, conversors[0], ASTFileName(expr), ASTLine(expr)))
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
@@ -10200,7 +10262,8 @@ static void check_preoperator_user_defined(AST expr, AST operator,
         }
     }
 
-    expression_set_error(expr);
+    *nodecl_output = nodecl_make_err_expr(filename, line);
+#endif
 }
 
 static char postoperator_incr_pred(type_t* lhs, type_t* rhs)
@@ -10235,17 +10298,19 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
         decl_context_t decl_context, char is_decrement,
         nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const char*, int))
 {
+    internal_error("Not implemented yet", 0);
+#if 0
     check_expression_impl_(postoperated_expr, decl_context);
     if (expression_is_error(postoperated_expr))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* operated_type = expression_get_type(postoperated_expr);
     char is_lvalue = expression_is_lvalue(postoperated_expr);
 
-    if (is_dependent_expr_type(operated_type))
+    if (is_type_dependent_expression_type(operated_type))
     {
         expression_set_dependent(expr, decl_context);
         return;
@@ -10269,7 +10334,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
             {
                 if (!is_lvalue)
                 {
-                    expression_set_error(expr);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
             }
@@ -10277,7 +10342,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
             {
                 if (!is_lvalue_reference_type(operated_type))
                 {
-                    expression_set_error(expr);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
 
@@ -10295,7 +10360,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
         }
         else
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -10330,6 +10395,7 @@ static void check_postoperator(AST expr, AST operator, AST postoperated_expr,
     entry_list_free(builtins);
 
     return;
+#endif
 }
 
 static char preoperator_incr_pred(type_t* lhs)
@@ -10358,17 +10424,19 @@ static void check_preoperator(AST expr, AST operator,
         AST preoperated_expr, decl_context_t decl_context,
         char is_decrement, nodecl_t (*nodecl_fun)(nodecl_t, type_t*, const char*, int))
 {
+    internal_error("Not implemented yet", 0);
+#if 0
     check_expression_impl_(preoperated_expr, decl_context);
     if (expression_is_error(preoperated_expr))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* operated_type = expression_get_type(preoperated_expr);
     char is_lvalue = expression_is_lvalue(preoperated_expr);
 
-    if (is_dependent_expr_type(operated_type))
+    if (is_type_dependent_expression_type(operated_type))
     {
         expression_set_dependent(expr, decl_context);
         return;
@@ -10382,7 +10450,7 @@ static void check_preoperator(AST expr, AST operator,
             // Must be an lvalue
             if (!is_lvalue)
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
@@ -10391,7 +10459,7 @@ static void check_preoperator(AST expr, AST operator,
         {
             if (!is_lvalue_reference_type(operated_type))
             {
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
         }
@@ -10409,7 +10477,7 @@ static void check_preoperator(AST expr, AST operator,
     {
         C_LANGUAGE()
         {
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -10442,9 +10510,10 @@ static void check_preoperator(AST expr, AST operator,
     entry_list_free(builtins);
 
     return;
+#endif
 }
 
-static void check_postincrement(AST expr, decl_context_t decl_context)
+static void check_postincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -10464,7 +10533,7 @@ static void check_postincrement(AST expr, decl_context_t decl_context)
             nodecl_make_postincrement);
 }
 
-static void check_postdecrement(AST expr, decl_context_t decl_context)
+static void check_postdecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -10484,7 +10553,7 @@ static void check_postdecrement(AST expr, decl_context_t decl_context)
             nodecl_make_postdecrement);
 }
 
-static void check_preincrement(AST expr, decl_context_t decl_context)
+static void check_preincrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -10503,7 +10572,7 @@ static void check_preincrement(AST expr, decl_context_t decl_context)
             decl_context, /* is_decr */ 0, nodecl_make_preincrement);
 }
 
-static void check_predecrement(AST expr, decl_context_t decl_context)
+static void check_predecrement(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // In C++
     //
@@ -10628,13 +10697,15 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
     return initializer_list_sym;
 }
 
-static void check_typeid_type(AST expr, decl_context_t decl_context)
+static void check_typeid_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     char result = check_type_id_tree(ASTSon0(expr), decl_context);
 
     if (!result)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -10647,7 +10718,7 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
     scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
     if (typeid_type_class == NULL)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
     type_t* typeid_type = lvalue_ref(get_const_qualified_type(get_user_defined_type(typeid_type_class)));
@@ -10658,19 +10729,22 @@ static void check_typeid_type(AST expr, decl_context_t decl_context)
             nodecl_make_typeid(
                 nodecl_make_type(type, NULL, 0),
                 typeid_type, ASTFileName(expr), ASTLine(expr)));
+#endif
 }
 
-static void check_typeid_expr(AST expr, decl_context_t decl_context)
+static void check_typeid_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     check_expression_impl_(ASTSon0(expr), decl_context);
 
     if (expression_is_error(ASTSon0(expr)))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    if (is_dependent_expr_type(expression_get_type(ASTSon0(expr)))
+    if (is_type_dependent_expression_type(expression_get_type(ASTSon0(expr)))
             || expression_is_value_dependent(ASTSon0(expr)))
     {
         expression_set_is_value_dependent(expr, 1, decl_context);
@@ -10679,7 +10753,7 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
     scope_entry_t* typeid_type_class = get_typeid_symbol(decl_context, expr);
     if (typeid_type_class == NULL)
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -10691,10 +10765,13 @@ static void check_typeid_expr(AST expr, decl_context_t decl_context)
             nodecl_make_typeid(
                 expression_get_nodecl(ASTSon0(expr)),
                 typeid_type, ASTFileName(expr), ASTLine(expr)));
+#endif
 }
 
 static char check_designation(AST designation, decl_context_t decl_context)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST designator_list = ASTSon0(designation);
     AST iter;
 
@@ -10714,6 +10791,7 @@ static char check_designation(AST designation, decl_context_t decl_context)
     }
 
     return 1;
+#endif
 }
 
 type_t* get_designated_type(AST designation, decl_context_t decl_context, 
@@ -10811,6 +10889,8 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context,
 
 static char check_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
 
     AST expression_list = ASTSon0(initializer);
@@ -10853,7 +10933,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
                 if (result)
                 {
                     type_t* t = expression_get_type(ASTSon1(expression_list));
-                    if (!is_dependent_expr_type(t))
+                    if (!is_type_dependent_expression_type(t))
                     {
                         expression_set_type(initializer, expression_get_type(ASTSon1(expression_list)));
 
@@ -11022,7 +11102,7 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
 
             arg_list[num_args] = expression_get_type(expr);
 
-            if (is_dependent_expr_type(arg_list[num_args]))
+            if (is_type_dependent_expression_type(arg_list[num_args]))
                 any_is_dependent = 1;
             num_args++;
         }
@@ -11308,10 +11388,13 @@ static char check_braced_initializer_list(AST initializer, decl_context_t decl_c
     }
 
     return 0;
+#endif
 }
 
-char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
+char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     switch (ASTType(initializer))
     {
         // Default is an expression
@@ -11330,7 +11413,7 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
                     scope_entry_t* conversor = NULL;
                     standard_conversion_t standard_conversion_sequence;
                     if (!is_dependent_type(declared_type_no_cv)
-                            && !is_dependent_expr_type(initializer_expr_type)
+                            && !is_type_dependent_expression_type(initializer_expr_type)
                             && !(IS_C_LANGUAGE
                                 && standard_conversion_between_types(
                                     &standard_conversion_sequence,
@@ -11475,10 +11558,13 @@ char check_initializer_clause(AST initializer, decl_context_t decl_context, type
 
     internal_error("Code unreachable", 0);
     return 0;
+#endif
 }
 
 static void check_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     nodecl_t nodecl_list = nodecl_null();
     char faulty = 0;
     if (initializer_list != NULL)
@@ -11502,7 +11588,7 @@ static void check_initializer_list(AST initializer_list, decl_context_t decl_con
 
     if (faulty)
     {
-        expression_set_error(initializer_list);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
     else
     {
@@ -11510,6 +11596,7 @@ static void check_initializer_list(AST initializer_list, decl_context_t decl_con
         expression_set_nodecl(initializer_list, nodecl_list);
         expression_set_type(initializer_list, get_void_type());
     }
+#endif
 }
 
 static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs)
@@ -11537,8 +11624,10 @@ static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs)
     return get_lvalue_reference_type(get_cv_qualified_type(t, result_cv));
 }
 
-static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context)
+static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
 
@@ -11548,15 +11637,15 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
     if (expression_is_error(lhs) 
             || expression_is_error(rhs))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
 
-    if (is_dependent_expr_type(lhs_type)
-            || is_dependent_expr_type(rhs_type))
+    if (is_type_dependent_expression_type(lhs_type)
+            || is_type_dependent_expression_type(rhs_type))
     {
         expression_set_dependent(expression, decl_context);
         return;
@@ -11581,7 +11670,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                 fprintf(stderr, "%s: '%s' does not have pointer to class type\n",
                         ast_location(lhs), prettyprint_in_buffer(lhs));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -11592,7 +11681,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                 fprintf(stderr, "%s: '%s' is does not have pointer to member type\n",
                         ast_location(rhs), prettyprint_in_buffer(rhs));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -11615,7 +11704,7 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
                         ast_location(expression),
                         print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(pointed_lhs_type), decl_context));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -11696,11 +11785,15 @@ static void check_pointer_to_pointer_to_member(AST expression, decl_context_t de
         return;
     }
 
-    expression_set_error(expression);
+    *nodecl_output = nodecl_make_err_expr(filename, line);
+#endif
 }
 
-static void check_pointer_to_member(AST expression, decl_context_t decl_context)
+static void check_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
 
@@ -11710,15 +11803,15 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
     if (expression_is_error(lhs)
             || expression_is_error(rhs))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
 
-    if (is_dependent_expr_type(lhs_type)
-            || is_dependent_expr_type(rhs_type))
+    if (is_type_dependent_expression_type(lhs_type)
+            || is_type_dependent_expression_type(rhs_type))
     {
         expression_set_dependent(expression, decl_context);
         return;
@@ -11731,7 +11824,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
             error_printf("%s: error: '%s' does not have class type\n",
                     ast_location(lhs), prettyprint_in_buffer(lhs));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
     if (!is_pointer_to_member_type(no_ref(rhs_type)))
@@ -11741,7 +11834,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
             error_printf("%s: error: '%s' is not a pointer to member\n",
                     ast_location(rhs), prettyprint_in_buffer(rhs));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -11760,7 +11853,7 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
                     ast_location(expression),
                     print_type_str(no_ref(rhs_type), decl_context), print_type_str(no_ref(lhs_type), decl_context));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -11780,11 +11873,15 @@ static void check_pointer_to_member(AST expression, decl_context_t decl_context)
                 expression_get_nodecl(rhs),
                 expression_get_type(expression),
                 ASTFileName(expression), ASTLine(expression)));
+#endif
 }
 
 static char check_parenthesized_initializer(AST context_tree, AST initializer_list, decl_context_t decl_context, type_t* declared_type,
         nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     if (initializer_list != NULL && ASTType(initializer_list) == AST_AMBIGUITY)
     {
         solve_ambiguous_expression_list(initializer_list, decl_context);
@@ -11832,7 +11929,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
 
             argument_types[initializer_num] = expression_get_type(initializer);
 
-            if (is_dependent_expr_type(argument_types[initializer_num]))
+            if (is_type_dependent_expression_type(argument_types[initializer_num]))
             {
                 has_dependent_arguments = 1;
             }
@@ -11860,7 +11957,7 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
         char ambiguous_conversion = 0;
         scope_entry_t* conversor = NULL;
         if (!is_dependent_type(declared_type)
-                && !is_dependent_expr_type(argument_types[0])
+                && !is_type_dependent_expression_type(argument_types[0])
                 && !type_can_be_implicitly_converted_to(argument_types[0], declared_type, decl_context, 
                     &ambiguous_conversion, &conversor,
                     ASTFileName(context_tree), ASTLine(context_tree)))
@@ -11964,10 +12061,14 @@ static char check_parenthesized_initializer(AST context_tree, AST initializer_li
     }
 
     return 1;
+#endif
 }
 
-char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type)
+char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "EXPRTYPE: Checking initializer '%s'\n",
@@ -12071,6 +12172,7 @@ char check_initialization(AST initializer, decl_context_t decl_context, type_t* 
     }
 
     return result;
+#endif
 }
 
 AST advance_expression_nest(AST expr)
@@ -12483,14 +12585,16 @@ void build_ternary_builtin_operators(type_t* t1,
     }
 }
 
-static void check_sizeof_expr(AST expr, decl_context_t decl_context)
+static void check_sizeof_expr(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST sizeof_expression = ASTSon0(expr);
     check_expression_impl_(sizeof_expression, decl_context);
 
     if (expression_is_error(sizeof_expression))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -12498,7 +12602,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
 
     if (!CURRENT_CONFIGURATION->disable_sizeof)
     {
-        if (!is_dependent_expr_type(t)
+        if (!is_type_dependent_expression_type(t)
                 && !type_is_runtime_sized(t))
         {
             CXX_LANGUAGE()
@@ -12517,7 +12621,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
                 error_printf("%s: error: sizeof of incomplete type '%s'\n", 
                         ast_location(sizeof_expression),
                         print_type_str(t, decl_context));
-                expression_set_error(expr);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -12557,7 +12661,7 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
                         type_size);
             }
         }
-        else if (is_dependent_expr_type(t))
+        else if (is_type_dependent_expression_type(t))
         {
             expression_set_is_value_dependent(expr, 1, decl_context);
         }
@@ -12592,15 +12696,18 @@ static void check_sizeof_expr(AST expr, decl_context_t decl_context)
             internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(expr)));
         }
     }
+#endif
 }
 
-static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
+static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST type_id = ASTSon0(expr);
 
     if (!check_type_id_tree(type_id, decl_context))
     {
-        expression_set_error(expr);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -12638,7 +12745,7 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             error_printf("%s: error: sizeof of incomplete type '%s'\n", 
                     ast_location(type_id),
                     print_type_str(declarator_type, decl_context));
-            expression_set_error(expr);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -12718,10 +12825,13 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context)
             internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(expr)));
         }
     }
+#endif
 }
 
-static void check_pseudo_destructor_name(AST expression, decl_context_t decl_context)
+static void check_pseudo_destructor_name(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     char is_arrow = 0;
     if (ASTType(expression) == AST_POINTER_PSEUDO_DESTRUCTOR_CALL)
     {
@@ -12738,13 +12848,13 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             fprintf(stderr, "EXPRTYPE: postfix expression '%s' of pseudo-destructor call does not seem valid\n",
                     prettyprint_in_buffer(postfix_expression));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     type_t* considered_type = expression_get_type(postfix_expression);
 
-    if (is_dependent_expr_type(no_ref(considered_type)))
+    if (is_type_dependent_expression_type(no_ref(considered_type)))
     {
         expression_set_dependent(expression, decl_context);
         return;
@@ -12754,7 +12864,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
     {
         if (!is_pointer_type(no_ref(expression_get_type(postfix_expression))))
         {
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -12763,7 +12873,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
 
     if (!is_scalar_type(no_ref(considered_type)))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -12779,7 +12889,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
         error_printf("%s: error: pseudo-destructor '%s' not found", 
                 ast_location(pseudo_destructor_name),
                 prettyprint_in_buffer(pseudo_destructor_name));
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -12800,7 +12910,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor '%s' does not name a type", 
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -12858,7 +12968,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor '%s' does not refer to any type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -12871,7 +12981,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -12883,7 +12993,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor '%s' does not refer to a class",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -12897,7 +13007,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor template-id '%s' does not refer to any type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -12910,7 +13020,7 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
             error_printf("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
     }
@@ -12944,10 +13054,18 @@ static void check_pseudo_destructor_name(AST expression, decl_context_t decl_con
         // Do nothing, it may be a.int::~int because of templates
         expression_set_nodecl(expression, expression_get_nodecl(postfix_expression));
     }
+#endif
 }
 
-static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_context)
+static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+#if 0
     // We are not checking that the designated member is correct
     AST type_id = ASTSon0(expression);
     AST member_designator = ASTSon1(expression);
@@ -12956,7 +13074,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
 
     if (!result)
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -12975,7 +13093,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                 check_expression_impl_(constant_expr, decl_context);
                 if (expression_is_error(constant_expr))
                 {
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
             }
@@ -13046,7 +13164,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                             ast_location(expression),
                             prettyprint_in_buffer(name),
                             print_type_str(current_type, decl_context));
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
 
@@ -13063,7 +13181,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                     error_printf("%s: error: expression '%s' should be constant\n",
                             ast_location(const_expr),
                             prettyprint_in_buffer(const_expr));
-                    expression_set_error(expression);
+                    *nodecl_output = nodecl_make_err_expr(filename, line);
                     return;
                 }
 
@@ -13081,7 +13199,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                 error_printf("%s: error: __builtin_offsetof applied to '%s' which is not struct/class/union\n",
                         ast_location(expression),
                         print_type_str(current_type, decl_context));
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -13092,7 +13210,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                         ast_location(expression),
                         prettyprint_in_buffer(name),
                         print_type_str(current_type, decl_context));
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -13103,7 +13221,7 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
                 error_printf("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 
                         ast_location(expression),
                         prettyprint_in_buffer(name));
-                expression_set_error(expression);
+                *nodecl_output = nodecl_make_err_expr(filename, line);
                 return;
             }
 
@@ -13127,10 +13245,13 @@ static void check_gcc_builtin_offsetof(AST expression, decl_context_t decl_conte
     }
 
     expression_set_type(expression, get_size_t_type());
+#endif
 }
 
-static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context)
+static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     AST selector_expr = ASTSon0(expression);
     AST first_expr = ASTSon1(expression);
     AST second_expr = ASTSon2(expression);
@@ -13144,13 +13265,13 @@ static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_co
     check_expression_impl_(selector_expr, decl_context);
     if (expression_is_error(selector_expr))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
     if (!expression_is_constant(selector_expr))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -13160,7 +13281,7 @@ static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_co
         check_expression_impl_(first_expr, decl_context);
         if (expression_is_error(first_expr))
         {
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -13171,7 +13292,7 @@ static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_co
         check_expression_impl_(second_expr, decl_context);
         if (expression_is_error(second_expr))
         {
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
 
@@ -13181,10 +13302,13 @@ static void check_gcc_builtin_choose_expr(AST expression, decl_context_t decl_co
     expression_set_type(expression, expression_get_type(selected_expr));
     expression_set_is_lvalue(expression, expression_is_lvalue(selected_expr));
     expression_set_constant(expression, expression_get_constant(selected_expr));
+#endif
 }
 
-static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context)
+static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     // This builtin always returns an integer type
     AST first_type_tree = ASTSon0(expression);
     AST second_type_tree = ASTSon1(expression);
@@ -13192,7 +13316,7 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
     if (!check_type_id_tree(first_type_tree, decl_context)
             || !check_type_id_tree(second_type_tree, decl_context))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -13216,10 +13340,48 @@ static void check_gcc_builtin_types_compatible_p(AST expression, decl_context_t 
 
     expression_set_type(expression, get_signed_int_type());
     expression_set_is_lvalue(expression, 0);
+#endif
 }
 
-static void check_array_section_expression(AST expression, decl_context_t decl_context)
+static void check_gcc_label_addr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_real_or_imag_part(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_alignof_expr(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_alignof_typeid(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_postfix_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_gcc_builtin_va_arg(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+}
+
+static void check_array_section_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    internal_error("Not yet implemented", 0);
+#if 0
     AST postfix_expression = ASTSon0(expression);
     AST lower_bound = ASTSon1(expression);
     AST upper_bound = ASTSon2(expression);
@@ -13241,7 +13403,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
             || (lower_bound != NULL && expression_is_error(lower_bound))
             || (upper_bound != NULL && expression_is_error(upper_bound)))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -13310,7 +13472,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
                 fprintf(stderr, "%s: warning: pointer types only allow one-level array sections\n",
                         ast_location(expression));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
         result_type = get_array_type_bounds_with_regions(
@@ -13332,7 +13494,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
                     prettyprint_in_buffer(postfix_expression),
                     print_type_str(indexed_type, decl_context));
         }
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
@@ -13368,7 +13530,7 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
                         prettyprint_in_buffer(postfix_expression),
                         print_type_str(indexed_type, decl_context));
             }
-            expression_set_error(expression);
+            *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
         i--;
@@ -13377,10 +13539,13 @@ static void check_array_section_expression(AST expression, decl_context_t decl_c
     // This should be deemed always as a lvalue
     expression_set_is_lvalue(expression, 1);
     expression_set_type(expression, result_type);
+#endif
 }
 
-static void check_shaping_expression(AST expression, decl_context_t decl_context)
+static void check_shaping_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     char result = 1;
     AST shaped_expr = ASTSon1(expression);
     AST shape_list = ASTSon0(expression);
@@ -13466,13 +13631,17 @@ static void check_shaping_expression(AST expression, decl_context_t decl_context
     }
     else
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
     }
+#endif
 }
 
 
-char check_expression_list(AST expression_list, decl_context_t decl_context)
+char check_expression_list(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     if (expression_list == NULL)
     {
         // An empty list is right
@@ -13527,6 +13696,7 @@ char check_expression_list(AST expression_list, decl_context_t decl_context)
             return 0;
         }
     }
+#endif
 }
 
 static char check_default_initialization_(scope_entry_t* entry,
@@ -13931,6 +14101,8 @@ nodecl_t cxx_nodecl_make_function_call(nodecl_t called, nodecl_t arg_list, type_
 
 char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     if (!check_expression(expression, decl_context))
         return 0;
 
@@ -14020,4 +14192,5 @@ char check_nontype_template_argument_expression(AST expression, decl_context_t d
     }
 
     return 1;
+#endif
 }

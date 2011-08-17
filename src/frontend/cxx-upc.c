@@ -48,8 +48,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_THREADS->entity_specs.is_builtin = 1;
     if (CURRENT_CONFIGURATION->upc_threads != NULL)
     {
-        upc_THREADS->language_dependent_value = internal_expression_parse(CURRENT_CONFIGURATION->upc_threads, decl_context);
-        upc_THREADS->value = expression_get_nodecl(upc_THREADS->language_dependent_value);
+        upc_THREADS->value = internal_expression_parse(CURRENT_CONFIGURATION->upc_threads, decl_context);
     }
 
     // MYTHREAD

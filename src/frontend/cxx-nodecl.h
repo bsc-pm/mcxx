@@ -71,12 +71,13 @@ void nodecl_free(nodecl_t);
 char nodecl_expr_is_lvalue(nodecl_t);
 void nodecl_expr_set_is_lvalue(nodecl_t, char);
 
-char nodecl_is_err_expr(nodecl_t);
+char nodecl_expr_is_value_dependent(nodecl_t);
+void nodecl_expr_set_is_value_dependent(nodecl_t, char);
 
-// C++ specific stuff
-char nodecl_is_cxx_dependent_expr(nodecl_t n);
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t);
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t*);
+char nodecl_expr_is_type_dependent(nodecl_t);
+void nodecl_expr_set_is_type_dependent(nodecl_t, char);
+
+char nodecl_is_err_expr(nodecl_t);
 
 MCXX_END_DECLS
 

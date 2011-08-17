@@ -1915,7 +1915,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 }
 
                 char* asm_specification = "";
-                if (symbol->entity_specs.asm_specification != NULL)
+                if (!nodecl_is_null(symbol->entity_specs.asm_specification))
                 {
                     nodecl_codegen_visitor_t str_visitor = *visitor;
 
@@ -1923,7 +1923,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     FILE* temporal_stream = open_memstream(&asm_specification, &size);
 
                     str_visitor.file = temporal_stream;
-                    codegen_walk(&str_visitor, _nodecl_wrap(symbol->entity_specs.asm_specification));
+                    codegen_walk(&str_visitor, symbol->entity_specs.asm_specification);
                     fclose(str_visitor.file);
                 }
 
@@ -3948,7 +3948,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     }
 
     char* asm_specification = "";
-    if (symbol->entity_specs.asm_specification != NULL)
+    if (!nodecl_is_null(symbol->entity_specs.asm_specification))
     {
         nodecl_codegen_visitor_t str_visitor = *visitor;
 
@@ -3956,7 +3956,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         FILE* temporal_stream = open_memstream(&asm_specification, &size);
 
         str_visitor.file = temporal_stream;
-        codegen_walk(&str_visitor, _nodecl_wrap(symbol->entity_specs.asm_specification));
+        codegen_walk(&str_visitor, symbol->entity_specs.asm_specification);
         fclose(str_visitor.file);
     }
 
@@ -4041,32 +4041,10 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     codegen_walk(visitor, statement);
 }
 
-static const char* prettyprint_callback_codegen(AST a, void *data UNUSED_PARAMETER)
-{
-    // nodecl_codegen_visitor_t* visitor = (nodecl_codegen_visitor_t*)data;
-
-    scope_entry_t* entry = expression_get_symbol(a);
-    if (entry != NULL)
-    {
-        nodecl_t nodecl_sym = nodecl_make_symbol(entry, ASTFileName(a), ASTLine(a));
-        const char* result = c_cxx_codegen_to_str(nodecl_sym);
-        nodecl_free(nodecl_sym);
-        return result;
-    }
-    else
-    {
-        return NULL;
-    }
-}
-
 // This should never happen
 static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    decl_context_t dummy;
-    AST tree = nodecl_unwrap_cxx_dependent_expr(node, &dummy);
-
-    fprintf(visitor->file, 
-            cxx_prettyprint_in_buffer_callback(tree, prettyprint_callback_codegen, visitor));
+    internal_error("Not yet implemented", 0);
 }
 
 static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -4167,7 +4145,6 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);
     NODECL_VISITOR(codegen_visitor)->visit_type = codegen_visitor_fun(codegen_type);
 
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_dependent_expr = codegen_visitor_fun(codegen_cxx_raw);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);
 }
 

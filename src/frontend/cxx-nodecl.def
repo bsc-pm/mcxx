@@ -122,9 +122,11 @@ fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]subscript-tri
 
 argument : named-pair
          | expression
+         | alt-return
 
 named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
+alt-return: NODECL_FORTRAN_ALT_RETURN()
 
 subscript : expression
           | subscript-triplet
@@ -159,14 +161,17 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POINTER_TO_MEMBER() symbol
                   | NODECL_REAL_PART([rhs]expression) type
                   | NODECL_IMAG_PART([rhs]expression) type
-                  | cxx-dependent-expr
                   | cxx-unresolved-overload
-
-# Special node used only to hold a C++ tree found to be value or type dependent
-cxx-dependent-expr: NODECL_CXX_DEPENDENT_EXPR() symbol
 
 # Special node used only to hold cases where we have an unresolved overload
 cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
+
+cxx-dependent-name : NODECL_DEP_NAME([name_seq] cxx-atom-dependent-name-seq)
+
+cxx-atom-dependent-name : NODECL_DEP_SIMPLE([template_args]template-arg-seq-opt) string
+                   | NODECL_DEP_CONVERSION([conversion_type]type)
+
+template-arg : type-or-expr
 
 type-or-expr : type
              | expression

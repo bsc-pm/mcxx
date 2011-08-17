@@ -71,6 +71,16 @@ libmcxx_la_SOURCES = \
   cxx-ast.h \
   cxx-ast-fwd.h \
   cxx-ast-decls.h \
+  cxx-nodecl.h \
+  cxx-nodecl.c \
+  cxx-nodecl-fwd.h \
+  cxx-nodecl-decls.h \
+  cxx-nodecl-checker.h \
+  cxx-nodecl-checker.c \
+  cxx-nodecl-output.h \
+  cxx-nodecl-output.c \
+  cxx-nodecl-visitor.h \
+  cxx-nodecl-visitor.c \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser-internal.h \
@@ -157,16 +167,6 @@ libmcxx_la_SOURCES = \
   cxx-overload.c \
   cxx-overload-decls.h \
   cxx-overload.h \
-  cxx-nodecl.h \
-  cxx-nodecl.c \
-  cxx-nodecl-fwd.h \
-  cxx-nodecl-decls.h \
-  cxx-nodecl-checker.h \
-  cxx-nodecl-checker.c \
-  cxx-nodecl-output.h \
-  cxx-nodecl-output.c \
-  cxx-nodecl-visitor.h \
-  cxx-nodecl-visitor.c \
   cxx-codegen.c \
   cxx-codegen.h \
   cxx-diagnostic.c \

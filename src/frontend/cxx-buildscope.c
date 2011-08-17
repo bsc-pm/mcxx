@@ -1065,7 +1065,7 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context)
                 ast_location(a));
     }
 
-    if (!nodecl_is_cxx_dependent_expr(nodecl_expr))
+    if (!nodecl_expr_is_value_dependent(nodecl_expr))
     {
         if (!nodecl_is_constant(nodecl_expr))
         {
@@ -1822,7 +1822,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         }
                     }
 
-                    if (is_dependent_expr_type(computed_type))
+                    if (is_dependent_type(computed_type))
                     {
                         // The expression type is dependent, wrap it in a typeof
                         computed_type = get_gcc_typeof_expr_type(expression, decl_context);
@@ -1947,7 +1947,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                         entry);
                             }
                         }
-                        else if (is_dependent_expr_type(computed_type))
+                        else if (is_dependent_type(computed_type))
                         {
                             // The expression type is dependent, so we will wrap in an typeof expression
                             computed_type = get_gcc_typeof_expr_type(ASTSon0(a), decl_context);
@@ -2577,7 +2577,7 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         type_t* underlying_type,
         char short_enums)
 {
-    if (is_dependent_expr_type(underlying_type))
+    if (is_dependent_type(underlying_type))
         return underlying_type;
 
 
@@ -2634,10 +2634,10 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         DEBUG_CODE()
         {
             fprintf(stderr, "BUILDSCOPE: Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
-                    prettyprint_in_buffer(const_value_to_tree(min_value)),
-                    prettyprint_in_buffer(const_value_to_tree(max_value)),
-                    prettyprint_in_buffer(const_value_to_tree(integer_type_get_minimum(*result))),
-                    prettyprint_in_buffer(const_value_to_tree(integer_type_get_maximum(*result))),
+                    c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
+                    c_cxx_codegen_to_str(const_value_to_nodecl(max_value)),
+                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_minimum(*result))),
+                    c_cxx_codegen_to_str(const_value_to_nodecl(integer_type_get_maximum(*result))),
                     print_declarator(*result));
         }
 
@@ -2650,8 +2650,8 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
     }
 #undef B_
     internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
-            prettyprint_in_buffer(const_value_to_tree(min_value)),
-            prettyprint_in_buffer(const_value_to_tree(max_value)));
+            c_cxx_codegen_to_str(const_value_to_nodecl(min_value)),
+            c_cxx_codegen_to_str(const_value_to_nodecl(max_value)));
 }
 
 /*
@@ -2821,7 +2821,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         }
                         CXX_LANGUAGE()
                         {
-                            underlying_type = get_dependent_expr_type();
+                            internal_error("Not yet implemented", 0);
+                            // underlying_type = get_type_dependent_expression_type();
                         }
                     }
                     CXX_LANGUAGE()
@@ -2867,16 +2868,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         nodecl_t add_one = nodecl_make_add(base_enumerator,
                                 const_value_to_nodecl(const_value_get_signed_int(delta)),
-                                get_dependent_expr_type(),
+                                get_unknown_dependent_type(),
                                 nodecl_get_filename(base_enumerator),
                                 nodecl_get_line(base_enumerator));
                         enumeration_item->value = add_one;
 
                         CXX_LANGUAGE()
                         {
-                            enumeration_item->type_information = get_dependent_expr_type();
+                            enumeration_item->type_information = get_unknown_dependent_type();
                         }
-                        underlying_type = get_dependent_expr_type();
+                        underlying_type = get_unknown_dependent_type();
                     }
 
                     delta++;
@@ -2904,7 +2905,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
 #define B_(x) const_value_is_nonzero(x)
             if (nodecl_is_constant(enumeration_item->value)
-                    && !is_dependent_expr_type(underlying_type))
+                    && !is_dependent_type(underlying_type))
             {
                 const_value_t* current_value = nodecl_get_constant(enumeration_item->value);
 
@@ -5472,7 +5473,7 @@ static void set_array_type(type_t** declarator_type,
             return;
         }
 
-        if (!nodecl_is_cxx_dependent_expr(nodecl_expr)
+        if (!nodecl_expr_is_value_dependent(nodecl_expr)
                 && !nodecl_is_constant(nodecl_expr))
         {
             if (decl_context.current_scope->kind == NAMESPACE_SCOPE
@@ -9349,8 +9350,9 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         new_dependent_friend->line = entry->line;
         // Note that this is not the declarator type but the type-specifier one!
         new_dependent_friend->type_information = member_type;
-        new_dependent_friend->value = 
-            nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
+        internal_error("Not yet implemented", 0);
+        // new_dependent_friend->value = 
+        //     nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
 
         entry = new_dependent_friend;
     }
@@ -9360,8 +9362,10 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         entry->kind = SK_DEPENDENT_FRIEND;
         // Keep the original member type here
         entry->type_information = member_type;
-        entry->value = 
-            nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
+        
+        internal_error("Not yet implemented", 0);
+        // entry->value = 
+        //     nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
     }
 
     class_type_add_friend_symbol(class_type, entry);
@@ -10264,8 +10268,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
         }
         CXX_LANGUAGE()
         {
-            if (!is_dependent_expr_type(nodecl_get_type(nodecl_expr))
-                    && !is_dependent_type(declarator_type))
+            if (!nodecl_expr_is_type_dependent(nodecl_expr))
             {
                 char ambiguous_conversion = 0;
                 scope_entry_t* conversor = NULL;
@@ -10289,7 +10292,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             }
             else
             {
-                *nodecl_output = nodecl_wrap_cxx_dependent_expr(initializer, decl_context);
+                *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
             }
         }
 
@@ -10698,7 +10701,7 @@ static void build_scope_return_statement(AST a,
         if (is_void_type(return_type))
         {
             if (!IS_CXX_LANGUAGE
-                    || (!is_dependent_expr_type(nodecl_get_type(nodecl_expr))
+                    || (!nodecl_expr_is_type_dependent(nodecl_expr)
                         && !is_void_type(nodecl_get_type(nodecl_expr))))
             {
                 error_printf("%s: error: return with non-void expression in a void function\n", ast_location(a));
@@ -10710,7 +10713,7 @@ static void build_scope_return_statement(AST a,
             nodecl_return = nodecl_expr;
 
             if (!is_dependent_type(return_type)
-                    && !is_dependent_expr_type(nodecl_get_type(nodecl_expr)))
+                    && !nodecl_expr_is_type_dependent(nodecl_expr))
             {
                 CXX_LANGUAGE()
                 {
