@@ -559,24 +559,71 @@ namespace TL
         {
             RealTimeInfo rt_info;
 
+             
+
+
             PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
-            {
-                ObjectList<std::string> deadline_args =
-                    deadline_clause.get_arguments(ExpressionTokenizer());
-
-                if(deadline_args.size() != 1)
+            {   
+                // two cases: release deadline and deadline 
+                ObjectList<std::string> clause_names = construct.get_clause_names();
+                bool release = false;
+                ObjectList<std::string>::iterator it = clause_names.begin();
+                while (it != clause_names.end() && !release)
                 {
-                    std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task deadline' "
-                              << "has a wrong number of arguments, skipping"
-                              << std::endl;
+                    if( *it == "release") release = true;
+                    it++;
                 }
-                else
+
+                if (release) 
                 {
-                    std::cerr << "warning: '#pragma omp task deadline' "
-                              << "is not implemented yet (tl-omp-tasks.cpp)"
-                              << std::endl;
+                    // if (*it) != "deadline" then error
+                    if (it == clause_names.end() || *it != "deadline")
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": error: the next clause of 'release' must be 'deadline', skipping "
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        ObjectList<std::string> release_deadline_args =
+                            deadline_clause.get_arguments(ExpressionTokenizer());
+                        if(release_deadline_args.size() != 2)
+                        {
+                            std::cerr << construct.get_ast().get_locus()
+                                      << ": warning: '#pragma omp task release deadline' "
+                                      << "has a wrong number of arguments, skipping"
+                                      << std::endl;
+
+                        }
+                        else
+                        {
+                            std::cerr << "warning: '#pragma omp task release deadline' "
+                                      << "is not implemented yet (tl-omp-tasks.cpp)"
+                                      << std::endl;
+
+                            rt_info.set_is_release_deadline(true);
+                        }
+                    }
+                }    
+                else // not release deadline
+                {
+                    ObjectList<std::string> deadline_args =
+                        deadline_clause.get_arguments(ExpressionTokenizer());
+
+                    if(deadline_args.size() != 1)
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task deadline' "
+                                  << "has a wrong number of arguments, skipping"
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        std::cerr << "warning: '#pragma omp task deadline' "
+                                  << "is not implemented yet (tl-omp-tasks.cpp)"
+                                  << std::endl;
+                    }
                 }
             }
 
@@ -595,54 +642,78 @@ namespace TL
                 }
                 else
                 {
-                    //tokens structure: 'identifier:identifier'
+
                     Lexer l = Lexer::get_current_lexer();
 
                     ObjectList<int> tokens = l.lex_string(onerror_args[0]);
-
-                    if(tokens.size() != 3)
+                    switch (tokens.size())
                     {
-                        std::cerr << construct.get_ast().get_locus()
+                        case 1:
+                        {// tokens structure: 'indentifier'
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            {
+                                  std::cerr << construct.get_ast().get_locus()
+                                            << ": warning: '#pragma omp task onerror' "
+                                            << "first token must be an identifier, skipping"
+                                            << std::endl;
+                            }
+                            else
+                            {
+                                std::cerr << "warning: '#pragma omp task onerror' "
+                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                          << std::endl;
+                            }
+                            break;
+                        }
+                        case 3:
+                        {//tokens structure: 'identifier:identifier'
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            {
+                                  std::cerr << construct.get_ast().get_locus()
+                                            << ": warning: '#pragma omp task onerror' "
+                                            << "first token must be an identifier, skipping"
+                                            << std::endl;
+                            }
+                            else if (tokens[1] != (int)':')
+                            {
+                                std::cerr << construct.get_ast().get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
+                                          << "second token must be a colon, skipping"
+                                          << std::endl;
+                            }
+                            else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
+                                     (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
+                            {
+                                std::cerr << construct.get_ast().get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
+                                          << "third token must be an identifier, skipping"
+                                          << std::endl;
+                            }
+                            else
+                            {
+                                std::cerr << "warning: '#pragma omp task onerror' "
+                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                          << std::endl;
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            std::cerr 
+                                  << construct.get_ast().get_locus()
                                   << ": warning: '#pragma omp task onerror' "
                                   << "has a wrong number of tokens. "
-                                  << "It is expecting 'identifier:identifier', skipping"
+                                  << "It is expecting 'identifier:identifier' "
+                                  << "or 'indentifier', skipping"
                                   << std::endl;
-
+                        }
                     }
-                    else if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
-                             (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
-                    {
-                        std::cerr << construct.get_ast().get_locus()
-                                  << ": warning: '#pragma omp task onerror' "
-                                  << "first token must be an identifier, skipping"
-                                  << std::endl;
-                    }
-                    else if (tokens[1] != (int)':')
-                    {
-                        std::cerr << construct.get_ast().get_locus()
-                                  << ": warning: '#pragma omp task onerror' "
-                                  << "second token must be a colon, skipping"
-                                  << std::endl;
-                    }
-                    else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
-                             (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
-                    {
-                        std::cerr << construct.get_ast().get_locus()
-                                  << ": warning: '#pragma omp task onerror' "
-                                  << "third token must be an identifier, skipping"
-                                  << std::endl;
-                    }
-                    else
-                    {
-                        std::cerr << "warning: '#pragma omp task onerror' "
-                                  << "is not implemented yet (tl-omp-tasks.cpp)"
-                                  << std::endl;
-                    }
+                                    
                 }
             }
-
             return rt_info;
         }
-
     }
 }

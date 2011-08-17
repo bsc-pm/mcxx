@@ -31,10 +31,14 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#pragma omp task deadline(1)
-void f(int e) {}      
 
-int b,c;
-#pragma omp task onerror(b:c)
-void i(int e) {}
-int main() {}
+#pragma omp task release deadline(a,b)
+void success_release_deadline(int f) {}
+
+#pragma omp task onerror(a:b)
+void success_on_error(int f) {}
+
+#pragma omp task onerror(b)
+void success_on_error1(int f) {}
+
+int main(){}

@@ -175,14 +175,35 @@ namespace TL
                 }
         };
         
+
+
         class LIBTL_CLASS RealTimeInfo  
         {
-            private:
-            
             public:
+                
+                enum RealTimeErrorBehavior 
+                {
+                    OMP_ABORT = 0
+                };
+                
                 RealTimeInfo();
                 
                 ~RealTimeInfo();
+
+                void set_is_release_deadline(bool value);
+                
+                bool get_is_release_deadline();
+
+                void set_error_behavior(RealTimeErrorBehavior err);
+
+                RealTimeErrorBehavior get_error_behavior();
+            
+            private:
+                
+                bool _is_release_deadline;
+
+                RealTimeErrorBehavior _error_behavior;
+
         };
 
         //! This class represents data sharing environment in a OpenMP construct
