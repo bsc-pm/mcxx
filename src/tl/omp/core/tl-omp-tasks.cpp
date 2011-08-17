@@ -99,13 +99,13 @@ namespace TL
             return _device_list;
         }
 
-        FunctionTaskDependency::FunctionTaskDependency(Expression expr,
+        FunctionTaskDependency::FunctionTaskDependency(DataReference expr,
                 DependencyDirection direction)
             : _direction(direction), _expr(expr)
         {
         }
 
-        Expression FunctionTaskDependency::get_expression() const
+        DataReference FunctionTaskDependency::get_expression() const
         {
             return _expr;
         }
@@ -118,8 +118,8 @@ namespace TL
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info,
                 FunctionTaskTargetInfo target_info)
-            : _sym(sym), 
-            _parameters(parameter_info), 
+            : _sym(sym),
+            _parameters(parameter_info),
             _implementation_table(),
             _target_info(target_info)
         {
@@ -284,7 +284,7 @@ namespace TL
                         << str;
 
                     AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
-                    Expression expr(expr_tree, _sl);
+                    DataReference expr(expr_tree, _sl);
 
                     return FunctionTaskDependency(expr, _direction);
                 }
@@ -339,7 +339,7 @@ namespace TL
             ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
                     function_task_param_list.end(),
                     is_useless_dependence);
-            
+
             for (ObjectList<FunctionTaskDependency>::iterator it = begin_remove;
                     it != function_task_param_list.end();
                     it++)
@@ -368,7 +368,7 @@ namespace TL
                         {
                             std::cerr << expr.get_ast().get_locus() << ": warning: "
                                 "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                "is always copied and cannot define an input dependence" 
+                                "is always copied and cannot define an input dependence"
                                 << std::endl;
                         }
                     }
@@ -420,7 +420,7 @@ namespace TL
 
                 if (declared_entities.size() != 1)
                 {
-                    std::cerr << construct.get_ast().get_locus() 
+                    std::cerr << construct.get_ast().get_locus()
                         << ": warning: '#pragma omp task' construct applied to non suitable declaration, skipping" << std::endl;
                     return;
                 }
@@ -434,14 +434,14 @@ namespace TL
             }
             else
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: invalid use of '#pragma omp task', skipping" << std::endl;
                 return;
             }
 
             if (!decl_entity.is_functional_declaration())
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;
             }
@@ -452,7 +452,7 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
                 return;
             }

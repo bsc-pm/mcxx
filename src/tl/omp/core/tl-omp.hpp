@@ -313,11 +313,11 @@ namespace TL
         {
             private:
                 DependencyDirection _direction;
-                Expression _expr;
+                DataReference _expr;
             public:
-                FunctionTaskDependency(Expression expr, DependencyDirection direction);
+                FunctionTaskDependency(DataReference expr, DependencyDirection direction);
                 DependencyDirection get_direction() const; 
-                Expression get_expression() const;
+                DataReference get_expression() const;
         };
 
         class LIBTL_CLASS FunctionTaskTargetInfo
