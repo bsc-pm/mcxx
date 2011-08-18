@@ -103,11 +103,13 @@ namespace TL
 
             Scope global_scope = scope_link.get_scope(translation_unit);
 
-            AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
-            AST_t real_zero(internal_expression_parse("0.0", global_scope.get_decl_context()));
-            AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            AST_t real_one(internal_expression_parse("1.0", global_scope.get_decl_context()));
-            AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
+            // AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
+            // AST_t real_zero(internal_expression_parse("0.0", global_scope.get_decl_context()));
+            // AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
+            // AST_t real_one(internal_expression_parse("1.0", global_scope.get_decl_context()));
+            // AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
+
+            AST zero, real_zero, one, real_one, neg_zero;
 
             const std::string complex_types = "float _Complex, double _Complex, long double _Complex ";
             const std::string real_types = "float, double, long double, " + complex_types;
@@ -371,7 +373,8 @@ namespace TL
 	    		in_symbol->line = ASTLine(expression);
 	    		in_symbol->type_information = get_const_qualified_type(declarator_type);
 
-	    	    bool res = check_expression(expression, new_context);
+	    	    // bool res = check_expression(expression, new_context);
+                bool res = false;
 	    		if (!res)
                 {
                     running_error("%s: error: invalid expression '%s' for OpenMP UDR reduction\n", 
@@ -449,7 +452,7 @@ namespace TL
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
                 is_constructor = false;
-                check_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                // check_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
@@ -459,7 +462,7 @@ namespace TL
 
                 if (expr_list != NULL)
                 {
-                    check_expression_list(expr_list, decl_context);
+                    // check_expression_list(expr_list, decl_context);
                 }
             }
 

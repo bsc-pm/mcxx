@@ -124,9 +124,14 @@ AST nodecl_get_ast(nodecl_t t)
     return t.tree;
 }
 
-const char* nodecl_get_text(nodecl_t t)
+const char* nodecl_get_text(nodecl_t n)
 {
-    return ASTText(t.tree);
+    return ASTText(n.tree);
+}
+
+void nodecl_set_text(nodecl_t n, const char *c)
+{
+    ast_set_text(n.tree, c);
 }
 
 type_t* nodecl_get_type(nodecl_t t)

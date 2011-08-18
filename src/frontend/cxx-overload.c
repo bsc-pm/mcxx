@@ -279,8 +279,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             print_declarator(dest));
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-            NULL, 
-            /* mandatory */ 0);
+            NULL, 0, /* mandatory */ 0);
 
     *result = invalid_ics;
 
@@ -2515,7 +2514,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         // Filter init constructors only
         if (init_constructors_only)
         {
-            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
 
             int num_parameters = function_type_get_num_parameters(constructor->type_information);
             // Number of real parameters, ellipsis are counted as parameters
@@ -2629,7 +2628,7 @@ scope_entry_t* solve_init_list_constructor(
     ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
             "This function expects a single argument of type braced initializer list", 0);
 
-    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
 
     char has_initializer_list_ctor = 0;
     if (std_initializer_list_template != NULL)

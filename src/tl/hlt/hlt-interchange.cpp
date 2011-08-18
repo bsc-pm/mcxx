@@ -59,14 +59,14 @@ LoopInterchange::LoopInterchange(ForStatement for_stmt, ObjectList<int> permutat
 
     int nest_size = _for_nest.get_nest_list().size();
     if (!is_valid_permutation(_permutation, _is_identity)
-            || (nest_size < _permutation.size()))
+            || (nest_size < (int)_permutation.size()))
     {
         _ostream << for_stmt.get_ast().get_locus() << ": warning: invalid permutation specification" << std::endl;
         set_identity(for_stmt.get_ast());
     }
 
     // Complete the permutation list if needed
-    if (_permutation.size() < nest_size)
+    if ((int)_permutation.size() < nest_size)
     {
         // Get the maximum
         int next = 1; 

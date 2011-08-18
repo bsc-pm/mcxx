@@ -56,7 +56,7 @@ LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t de
 LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
 
 // Used in some TL phases, do not remove
-LIBMCXX_EXTERN char check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN char check_default_initialization(scope_entry_t* entry, decl_context_t decl_context, 
         const char* filename, int line,
@@ -93,7 +93,10 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
 
 LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
 
-LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
+LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, 
+        const char* filename,
+        int line, 
+        char mandatory);
 
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 

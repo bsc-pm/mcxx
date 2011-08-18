@@ -384,7 +384,8 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_expression(a, decl_context);
+            nodecl_t nodecl_dummy = nodecl_null();
+            char c = check_expression(a, decl_context, &nodecl_dummy);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -418,7 +419,8 @@ namespace TL
             scope_link_t* scope_link,
             AST a)
     {
-        fortran_check_expression(a, decl_context);
+        nodecl_t nodecl_dummy = nodecl_null();
+        fortran_check_expression(a, decl_context, &nodecl_dummy);
         scope_link_set(scope_link, a, decl_context);
 
         return AST_t(a);
@@ -464,7 +466,8 @@ namespace TL
         if (a != NULL)
         {
             enter_test_expression();
-            char c = check_expression_list(a, decl_context);
+            nodecl_t nodecl_dummy = nodecl_null();
+            char c = check_expression_list(a, decl_context, &nodecl_dummy);
             leave_test_expression();
 
             if (!c && !do_not_check_expression)
@@ -666,7 +669,8 @@ namespace TL
         decl_context_t decl_context = scope.get_decl_context();
 
         enter_test_expression();
-        check_expression(a, decl_context);
+        nodecl_t nodecl_dummy = nodecl_null();
+        check_expression(a, decl_context, &nodecl_dummy);
         leave_test_expression();
 
         // Set properly the context of the reference tree

@@ -474,8 +474,7 @@ namespace TL
 
     Symbol IdExpression::get_computed_symbol() const
     {
-        TL::Symbol result = ::expression_get_symbol(this->_ref.get_internal_ast());
-        return result;
+        return Symbol(NULL);
     }
 
     void ReplaceIdExpression::add_this_replacement(const std::string& str)
@@ -938,15 +937,7 @@ namespace TL
 
     Type Expression::get_type(bool &is_lvalue) const
     {
-        // We need access to the inner representation of the tree
-        AST_t expr = this->_ref;
-        AST expr_tree = expr._ast;
-
-        type_t* expression_type = expression_get_type(expr_tree);
-        is_lvalue = expression_is_lvalue(expr_tree);
-
-        Type result(expression_type);
-        return result;
+        return Type(NULL);
     }
     
     bool Expression::is_array_section()
@@ -1077,35 +1068,24 @@ namespace TL
 
     bool Expression::is_constant()
     {
-        AST a = this->get_ast().get_internal_ast();
-        return ::expression_is_constant(a);
+        return false;
     }
 
     int Expression::evaluate_constant_int_expression(bool &valid)
     {
-        if (!this->is_constant())
-        {
-            valid = false;
-            return 0;
-        }
-
-        valid = true;
-
-        AST a = this->get_ast().get_internal_ast();
-        return ::const_value_cast_to_4(
-                ::expression_get_constant(a));
+        return 0;
     }
 
     //! States if the frontend tagged this expression with a related symbol
     bool Expression::has_symbol()
     {
-        return ::expression_has_symbol(this->get_ast().get_internal_ast());
+        return false;
     }
 
     //! Returns the symbol with which the frontend tagged this expression
     Symbol Expression::get_symbol()
     {
-        return ::expression_get_symbol(this->get_ast().get_internal_ast());
+        return Symbol(NULL);
     }
 
     bool Expression::is_sizeof()

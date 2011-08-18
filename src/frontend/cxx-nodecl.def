@@ -155,7 +155,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_SIZEOF([size_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
-                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt) type symbol
+                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt, [constructor]name-opt) type text
                   | NODECL_DELETE([rhs]expression) type
                   | NODECL_DELETE_ARRAY([rhs]expression) type
                   | NODECL_POINTER_TO_MEMBER() symbol
@@ -166,11 +166,16 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 # Special node used only to hold cases where we have an unresolved overload
 cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
 
+# Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_NAME_NESTED([name_seq] cxx-atom-dependent-name-seq)
                    | cxx-atom-dependent-name
-
 cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE([template_args]template-arg-seq-opt) text
                    | NODECL_CXX_DEP_NAME_CONVERSION() type
+
+cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
+    | NODECL_CXX_EQUAL_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
+    | NODECL_CXX_DIRECT_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
+    | expression
 
 template-arg : type-or-expr
 

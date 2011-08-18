@@ -5595,12 +5595,12 @@ static void set_function_parameter_clause(type_t** function_type,
         // Default value can be null
         // The scope of this parameter declaration should be "st" and not parameters_scope
         AST default_argument = ASTSon2(parameter_declaration);
+        nodecl_t nodecl_default_argument = nodecl_null();
 
         // Check the default argument
         if (default_argument != NULL)
         {
-            nodecl_t nodecl_expr = nodecl_null();
-            if (!check_expression(default_argument, decl_context, &nodecl_expr))
+            if (!check_expression(default_argument, decl_context, &nodecl_default_argument))
             {
                 error_printf("%s: error: could not check default argument expression '%s'\n",
                         ast_location(default_argument),
@@ -5721,8 +5721,7 @@ static void set_function_parameter_clause(type_t** function_type,
                 "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
 
         gather_info->arguments_info[num_parameters].entry = entry;
-        internal_error("Not yet implemented", 0);
-        // gather_info->arguments_info[num_parameters].argument = expression_get_nodecl(default_argument);
+        gather_info->arguments_info[num_parameters].argument = nodecl_default_argument;
         gather_info->arguments_info[num_parameters].context = decl_context;
 
         num_parameters++;
@@ -10683,17 +10682,18 @@ static void build_scope_return_statement(AST a,
     if (expression != NULL)
     {
 
-        char valid_expr = 0;
         ast_set_link_to_child(a, LANG_RETURN_EXPRESSION, expression);
         nodecl_t nodecl_expr = nodecl_null();
         if (ASTType(expression) == AST_INITIALIZER_BRACES)
         {
-            valid_expr = check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
+            check_initializer_clause(expression, decl_context, return_type, &nodecl_expr);
         }
         else 
         {
-            valid_expr = check_expression(expression, decl_context, &nodecl_expr);
+            check_expression(expression, decl_context, &nodecl_expr);
         }
+
+        char valid_expr = !nodecl_is_err_expr(nodecl_expr);
 
         if (is_void_type(return_type))
         {

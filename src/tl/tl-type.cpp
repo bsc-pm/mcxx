@@ -259,7 +259,7 @@ namespace TL
 
     bool Type::is_expression_dependent() const
     {
-        return ::is_dependent_expr_type(_type_info);
+        return false;
     }
 
     Type Type::returns() const

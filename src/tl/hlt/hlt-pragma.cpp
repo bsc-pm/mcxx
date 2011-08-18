@@ -89,13 +89,13 @@ static scope_entry_t* solve_induction_variable_overload_name(scope_entry_t* over
                         overloaded_function->symbol_name);
     }
 
-    if (expression_is_constant(arguments[0]))
-    {
-        if (const_value != NULL )
-        {
-            *const_value = expression_get_constant(arguments[0]);
-        }
-    }
+    // if (expression_is_constant(arguments[0]))
+    // {
+    //     if (const_value != NULL )
+    //     {
+    //         *const_value = expression_get_constant(arguments[0]);
+    //     }
+    // }
 
     for(i=1; i<builtin_iv_list.size(); i++) 
     {
@@ -469,7 +469,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //BUILTIN + MUTABLE = LTYPE
     builtin_iv_se->entity_specs.is_builtin = 1;
     builtin_iv_se->entity_specs.is_mutable = 1;
-    builtin_iv_se->type_information = get_computed_function_type(solve_induction_variable_overload_name);
+    // builtin_iv_se->type_information = get_computed_function_type(solve_induction_variable_overload_name);
     //Artificial Symbol in list[0]
     builtin_iv_list.append(builtin_iv_sym);
 
@@ -480,7 +480,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     //BUILTIN + MUTABLE = LTYPE
     builtin_vr_se->entity_specs.is_builtin = 1;
     builtin_vr_se->entity_specs.is_mutable = 1;
-    builtin_vr_se->type_information = get_computed_function_type(solve_vector_ref_overload_name);
+    // builtin_vr_se->type_information = get_computed_function_type(solve_vector_ref_overload_name);
     //Artificial Symbol in list[0]
     builtin_vr_list.append(builtin_vr_sym);
 
@@ -489,7 +489,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     scope_entry_t* builtin_ve_se = builtin_ve_sym.get_internal_symbol();
     builtin_ve_se->kind = SK_FUNCTION;
     builtin_ve_se->entity_specs.is_builtin = 1;
-    builtin_ve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
+    // builtin_ve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
     //artificial symbol in list[0]
     builtin_ve_list.append(builtin_ve_sym);
 
@@ -498,7 +498,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     scope_entry_t* builtin_ivve_se = builtin_ivve_sym.get_internal_symbol();
     builtin_ivve_se->kind = SK_FUNCTION;
     builtin_ivve_se->entity_specs.is_builtin = 1;
-    builtin_ivve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
+    // builtin_ivve_se->type_information = get_computed_function_type(solve_vector_exp_overload_name);
     //artificial symbol in list[0]
     builtin_ivve_list.append(builtin_ivve_sym);
 
@@ -507,7 +507,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     scope_entry_t* builtin_gf_se = builtin_gf_sym.get_internal_symbol();
     builtin_gf_se->kind = SK_FUNCTION;
     builtin_gf_se->entity_specs.is_builtin = 1;
-    builtin_gf_se->type_information = get_computed_function_type(solve_generic_func_overload_name);
+    // builtin_gf_se->type_information = get_computed_function_type(solve_generic_func_overload_name);
     //artificial symbol in list[0]
     builtin_gf_list.append(builtin_gf_sym);
 
@@ -516,7 +516,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     scope_entry_t* builtin_vc_se = builtin_vc_sym.get_internal_symbol();
     builtin_vc_se->kind = SK_FUNCTION;
     builtin_vc_se->entity_specs.is_builtin = 1;
-    builtin_vc_se->type_information = get_computed_function_type(solve_vector_conv_overload_name);
+    // builtin_vc_se->type_information = get_computed_function_type(solve_vector_conv_overload_name);
     //artificial symbol in list[0]
     builtin_vc_list.append(builtin_vc_sym);
 
@@ -525,7 +525,7 @@ void HLTPragmaPhase::simd_pre_run(AST_t translation_unit,
     scope_entry_t* builtin_vi_se = builtin_vi_sym.get_internal_symbol();
     builtin_vi_se->kind = SK_FUNCTION;
     builtin_vi_se->entity_specs.is_builtin = 1;
-    builtin_vi_se->type_information = get_computed_function_type(solve_vector_index_overload_name);
+    // builtin_vi_se->type_information = get_computed_function_type(solve_vector_index_overload_name);
     //artificial symbol in list[0]
     builtin_vi_list.append(builtin_vi_sym);
 
