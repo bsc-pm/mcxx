@@ -74,6 +74,11 @@ LIBMCXX_EXTERN scope_entry_list_t* query_unqualified_name_str_flags(decl_context
 #define query_unqualified_name_str(_decl_context, _unqualified_name) \
     query_unqualified_name_str_flags(_decl_context, _unqualified_name, DF_NONE)
 
+LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
+        nodecl_t nodecl_name, decl_flags_t decl_flags);
+#define query_nodecl_name(_decl_context, _nodecl_simple_name) \
+    query_nodecl_name_flags(_decl_context, _nodecl_simple_name, DF_NONE)
+
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
 LIBMCXX_EXTERN scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 

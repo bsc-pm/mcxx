@@ -166,10 +166,11 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 # Special node used only to hold cases where we have an unresolved overload
 cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
 
-cxx-dependent-name : NODECL_DEP_NAME([name_seq] cxx-atom-dependent-name-seq)
+cxx-dependent-name : NODECL_CXX_DEP_NAME_NESTED([name_seq] cxx-atom-dependent-name-seq)
+                   | cxx-atom-dependent-name
 
-cxx-atom-dependent-name : NODECL_DEP_SIMPLE([template_args]template-arg-seq-opt) string
-                   | NODECL_DEP_CONVERSION([conversion_type]type)
+cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE([template_args]template-arg-seq-opt) text
+                   | NODECL_CXX_DEP_NAME_CONVERSION() type
 
 template-arg : type-or-expr
 

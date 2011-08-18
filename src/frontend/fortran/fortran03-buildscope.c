@@ -5494,13 +5494,12 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_
     }
 }
 
-static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
-    nodecl_t nodecl_value = nodecl_null();
-    fortran_check_expression(value, decl_context, &nodecl_value);
-    if (!is_integer_type(no_ref(nodecl_get_type(nodecl_value)))
-            && !(is_pointer_type(no_ref(nodecl_get_type(nodecl_value)))
-                && is_integer_type(pointer_type_get_pointee_type(no_ref(nodecl_get_type(nodecl_value))))))
+    fortran_check_expression(value, decl_context, nodecl_value);
+    if (!is_integer_type(no_ref(nodecl_get_type(*nodecl_value)))
+            && !(is_pointer_type(no_ref(nodecl_get_type(*nodecl_value)))
+                && is_integer_type(pointer_type_get_pointee_type(no_ref(nodecl_get_type(*nodecl_value))))))
     {
         error_printf("%s: error: specifier %s requires a character expression\n",
                 ast_location(value),
@@ -5510,12 +5509,11 @@ static char opt_common_int_expr(AST value, decl_context_t decl_context, const ch
     return 1;
 }
 
-static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
-    nodecl_t nodecl_value = nodecl_null();
-    fortran_check_expression(value, decl_context, &nodecl_value);
-    if (!is_fortran_character_type(no_ref(nodecl_get_type(nodecl_value)))
-            && !is_pointer_to_fortran_character_type(no_ref(nodecl_get_type(nodecl_value))))
+    fortran_check_expression(value, decl_context, nodecl_value);
+    if (!is_fortran_character_type(no_ref(nodecl_get_type(*nodecl_value)))
+            && !is_pointer_to_fortran_character_type(no_ref(nodecl_get_type(*nodecl_value))))
     {
         error_printf("%s: error: specifier %s requires a character expression\n",
                 ast_location(value),
@@ -5525,18 +5523,17 @@ static char opt_common_character_expr(AST value, decl_context_t decl_context, co
     return 1;
 }
 
-static char opt_common_const_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_const_character_expr(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
-    return opt_common_character_expr(value, decl_context, opt_name);
+    return opt_common_character_expr(value, decl_context, opt_name, nodecl_value);
 }
 
-static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
-    nodecl_t nodecl_value = nodecl_null();
-    fortran_check_expression(value, decl_context, &nodecl_value);
-    if (nodecl_get_symbol(nodecl_value) == NULL)
+    fortran_check_expression(value, decl_context, nodecl_value);
+    if (nodecl_get_symbol(*nodecl_value) == NULL)
     { 
-        scope_entry_t* sym = nodecl_get_symbol(nodecl_value);
+        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
         if (sym == NULL
                 || (!is_integer_type(no_ref(sym->type_information))
                     && !(is_pointer_type(no_ref(sym->type_information))
@@ -5551,13 +5548,12 @@ static char opt_common_int_variable(AST value, decl_context_t decl_context, cons
     return 1;
 }
 
-static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name)
+static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name, nodecl_t* nodecl_value)
 {
-    nodecl_t nodecl_value = nodecl_null();
-    fortran_check_expression(value, decl_context, &nodecl_value);
-    if (nodecl_get_symbol(nodecl_value) == NULL)
+    fortran_check_expression(value, decl_context, nodecl_value);
+    if (nodecl_get_symbol(*nodecl_value) == NULL)
     { 
-        scope_entry_t* sym = nodecl_get_symbol(nodecl_value);
+        scope_entry_t* sym = nodecl_get_symbol(*nodecl_value);
         if (sym == NULL
                 || (!is_bool_type(no_ref(sym->type_information))
                     && !(is_pointer_type(no_ref(sym->type_information))
@@ -5575,9 +5571,10 @@ static char opt_common_logical_variable(AST value, decl_context_t decl_context, 
 static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ACCESS");
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ACCESS", &nodecl_value);
 
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACCESS", ASTFileName(opt_value), ASTLine(opt_value));
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ACCESS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5597,50 +5594,57 @@ static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, de
 static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ACTION");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ACTION", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ACTION", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ACTION", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
+    nodecl_t nodecl_value = nodecl_null();
     AST value = ASTSon0(opt_value);
-    opt_common_const_character_expr(value, decl_context, "ADVANCE");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ADVANCE", ASTFileName(opt_value), ASTLine(opt_value));
+    opt_common_const_character_expr(value, decl_context, "ADVANCE", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ADVANCE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ASYNCHRONOUS");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ASYNCHRONOUS", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ASYNCHRONOUS", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ASYNCHRONOUS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "BLANK");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "BLANK", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "BLANK", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "BLANK", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "DECIMAL");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "DECIMAL", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "DECIMAL", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DECIMAL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "DELIM");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "DELIM", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "DELIM", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "DELIM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ENCODING");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ENCODING", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ENCODING", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ENCODING", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER, 
@@ -5683,28 +5687,31 @@ static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl
         nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ERRMSG");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ERRMSG", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ERRMSG", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ERRMSG", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_logical_variable(value, decl_context, "EXIST");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "EXIST", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_logical_variable(value, decl_context, "EXIST", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "EXIST", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "FILE");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FILE", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "FILE", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FILE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     if (!(ASTType(value) == AST_SYMBOL
-            && strcmp(ASTText(value), "*") == 0))
+                && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
         fortran_check_expression(value, decl_context, &nodecl_value);
@@ -5728,14 +5735,14 @@ static void opt_fmt_value(AST value, decl_context_t decl_context, nodecl_t* node
             }
             else
             {
-                expression_set_nodecl(value, nodecl_make_symbol(entry, ASTFileName(value), ASTLine(value)));
+                nodecl_value = nodecl_make_symbol(entry, ASTFileName(value), ASTLine(value));
             }
         }
 
         if (!valid)
         {
-                error_printf("%s: error: specifier FMT requires a character expression or a label of a FORMAT statement\n",
-                        ast_location(value));
+            error_printf("%s: error: specifier FMT requires a character expression or a label of a FORMAT statement\n",
+                    ast_location(value));
         }
         *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FMT", ASTFileName(value), ASTLine(value));
     }
@@ -5756,36 +5763,41 @@ static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
 static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "FORM");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FORM", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "FORM", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FORM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "FORMATTED");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "FORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "FORMATTED", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "FORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "ID");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ID", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "ID", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ID", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "IOMSG");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "IOMSG", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "IOMSG", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "IOMSG", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "IOSTAT");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "IOSTAT", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "IOSTAT", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "IOSTAT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5793,28 +5805,31 @@ static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     AST value = ASTSon0(opt_value);
     nodecl_t nodecl_value = nodecl_null();
     fortran_check_expression(value, decl_context, &nodecl_value);
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "MOLD", ASTFileName(opt_value), ASTLine(opt_value));
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "MOLD", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_logical_variable(value, decl_context, "NAMED");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NAMED", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_logical_variable(value, decl_context, "NAMED", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "NAMED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_variable(value, decl_context, "NEWUNIT");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NEWUNIT", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_variable(value, decl_context, "NEWUNIT", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "NEWUNIT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_variable(value, decl_context, "NEXTREC");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NEXTREC", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_variable(value, decl_context, "NEXTREC", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "NEXTREC", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5836,99 +5851,113 @@ static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_co
 static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_variable(value, decl_context, "NUMBER");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "NUMBER", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_variable(value, decl_context, "NUMBER", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "NUMBER", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_logical_variable(value, decl_context, "OPENED");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "OPENED", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_logical_variable(value, decl_context, "OPENED", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "OPENED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "PAD");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "PAD", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "PAD", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "PAD", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_logical_variable(value, decl_context, "PENDING");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "PENDING", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_logical_variable(value, decl_context, "PENDING", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "PENDING", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "POS");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "POS", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "POS", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "POS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "POSITION");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "POSITION", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "POSITION", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "POSITION", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "READ");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "READ", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "READ", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "READ", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "READWRITE");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "READWRITE", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "READWRITE", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "READWRITE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "REC");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "REC", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "REC", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "REC", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "RECL");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "RECL", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "RECL", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "RECL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "ROUND");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "ROUND", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "ROUND", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "ROUND", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "SEQUENTIAL");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SEQUENTIAL", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "SEQUENTIAL", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "SEQUENTIAL", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "SIGN");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SIGN", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "SIGN", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "SIGN", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_expr(value, decl_context, "SIZE");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SIZE", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_expr(value, decl_context, "SIZE", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "SIZE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5936,35 +5965,39 @@ static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl
     AST value = ASTSon0(opt_value);
     nodecl_t nodecl_value = nodecl_null();
     fortran_check_expression(value, decl_context, &nodecl_value);
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "SOURCE", ASTFileName(opt_value), ASTLine(opt_value));
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "SOURCE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_int_variable(value, decl_context, "STAT");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STAT", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_int_variable(value, decl_context, "STAT", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "STAT", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "STATUS");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STATUS", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "STATUS", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "STATUS", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "STREAM");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "STREAM", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "STREAM", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "STREAM", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "UNFORMATTED");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "UNFORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "UNFORMATTED", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "UNFORMATTED", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -5972,7 +6005,7 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
     AST value = ASTSon0(opt_value);
     // If it is not 'UNIT = *'
     if (!(ASTType(value) == AST_SYMBOL
-            && strcmp(ASTText(value), "*") == 0))
+                && strcmp(ASTText(value), "*") == 0))
     {
         nodecl_t nodecl_value = nodecl_null();
         fortran_check_expression(value, decl_context, &nodecl_value);
@@ -5998,8 +6031,9 @@ static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_c
 static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST opt_value, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST value = ASTSon0(opt_value);
-    opt_common_character_expr(value, decl_context, "WRITE");
-    *nodecl_output = nodecl_make_fortran_io_spec(expression_get_nodecl(value), "WRITE", ASTFileName(opt_value), ASTLine(opt_value));
+    nodecl_t nodecl_value = nodecl_null();
+    opt_common_character_expr(value, decl_context, "WRITE", &nodecl_value);
+    *nodecl_output = nodecl_make_fortran_io_spec(nodecl_value, "WRITE", ASTFileName(opt_value), ASTLine(opt_value));
 }
 
 static int get_position_in_io_spec_list(AST value)

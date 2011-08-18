@@ -777,18 +777,19 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                         nodecl_constraint = nodecl_make_text(ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
-                    nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
-                            nodecl_make_any_list(
-                                nodecl_make_list_3(
-                                    nodecl_constraint,
-                                    expression_get_nodecl(expression),
-                                    nodecl_identifier), 
-                                ASTFileName(asm_operand), ASTLine(asm_operand)),
-                            "gcc-asm-operand", 
-                            ASTFileName(asm_operand), ASTLine(asm_operand));
-
-                    nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
-                            nodecl_asm_param);
+                    internal_error("Not yet implemented", 0);
+                    // nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
+                    //         nodecl_make_any_list(
+                    //             nodecl_make_list_3(
+                    //                 nodecl_constraint,
+                    //                 expression_get_nodecl(expression),
+                    //                 nodecl_identifier), 
+                    //             ASTFileName(asm_operand), ASTLine(asm_operand)),
+                    //         "gcc-asm-operand", 
+                    //         ASTFileName(asm_operand), ASTLine(asm_operand));
+                    //
+                    // nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
+                    //         nodecl_asm_param);
                 }
                 else
                 {
@@ -1326,17 +1327,19 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (maybe we should elaborate this a bit more)
                         || current_gather_info.emit_always)
                 {
-                    nodecl_t nodecl_init = nodecl_null();
-                    if (initializer != NULL)
-                    {
-                        nodecl_init = expression_get_nodecl(initializer);
-                    }
-                    *nodecl_output = nodecl_concat_lists(
-                            *nodecl_output,
-                            nodecl_make_list_1(nodecl_make_object_init(
-                                    nodecl_init,
-                                    entry, 
-                                    ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                    internal_error("Not yet implemented", 0);
+
+                    // nodecl_t nodecl_init = nodecl_null();
+                    // if (initializer != NULL)
+                    // {
+                    //     nodecl_init = expression_get_nodecl(initializer);
+                    // }
+                    // *nodecl_output = nodecl_concat_lists(
+                    //         *nodecl_output,
+                    //         nodecl_make_list_1(nodecl_make_object_init(
+                    //                 nodecl_init,
+                    //                 entry, 
+                    //                 ASTFileName(init_declarator), ASTLine(init_declarator)))); 
                 }
             }
 
@@ -2831,7 +2834,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     }
                 }
 
-                enumeration_item->value = expression_get_nodecl(enumeration_expr);
+                enumeration_item->value = nodecl_expr;
 
                 delta = 1;
                 base_enumerator = nodecl_expr;
@@ -3291,6 +3294,7 @@ static void build_scope_ctor_initializer(
                                     get_qualified_symbol_name(entry, entry->decl_context));
                         }
 
+                        nodecl_t nodecl_init = nodecl_null();
                         if (entry->kind == SK_VARIABLE)
                         {
                             if (!entry_list_contains(nonstatic_data_members, entry))
@@ -3312,7 +3316,6 @@ static void build_scope_ctor_initializer(
                                 }
                             }
 
-                            nodecl_t nodecl_init = nodecl_null();
                             check_initialization(initializer,
                                     decl_context,
                                     get_unqualified_type(entry->type_information),
@@ -3331,7 +3334,6 @@ static void build_scope_ctor_initializer(
                                         get_qualified_symbol_name(class_sym, class_sym->decl_context));
                             }
 
-                            nodecl_t nodecl_init = nodecl_null();
                             check_initialization(initializer,
                                     decl_context,
                                     get_user_defined_type(entry),
@@ -3347,7 +3349,7 @@ static void build_scope_ctor_initializer(
                         }
 
                         nodecl_t nodecl_object_init = nodecl_make_object_init(
-                                expression_get_nodecl(initializer),
+                                nodecl_init,
                                 entry,
                                 ASTFileName(id_expression),
                                 ASTLine(id_expression));
@@ -5054,9 +5056,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // };
     //
 
-    // Keep the definition tree
-    class_entry->entity_specs.definition_tree = a;
-    
     // Save the template parameters
     if (is_template_specialized_type(class_type))
     {
@@ -5722,7 +5721,8 @@ static void set_function_parameter_clause(type_t** function_type,
                 "Too many function parameters %d\n", MCXX_MAX_FUNCTION_PARAMETERS);
 
         gather_info->arguments_info[num_parameters].entry = entry;
-        gather_info->arguments_info[num_parameters].argument = expression_get_nodecl(default_argument);
+        internal_error("Not yet implemented", 0);
+        // gather_info->arguments_info[num_parameters].argument = expression_get_nodecl(default_argument);
         gather_info->arguments_info[num_parameters].context = decl_context;
 
         num_parameters++;
@@ -8464,9 +8464,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ast_set_link_to_child(a, LANG_DECLARATION_SPECIFIERS, decl_spec_seq);
     ast_set_link_to_child(a, LANG_DECLARATION_DECLARATORS, function_declarator);
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
-
-    // Keep the function definition, it may be needed later
-    entry->entity_specs.definition_tree = a;
 
     // Function_body
     AST function_body = ASTSon2(a);

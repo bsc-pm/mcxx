@@ -438,7 +438,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             template_type_get_specialized_type(template_type,
                                 tpl_empty,
                                 new_context_of_being_instantiated,
-                                member_of_template->line, member_of_template->file));
+                                member_of_template->file, member_of_template->line));
 
                     insert_entry(context_of_being_instantiated.current_scope, new_member);
 
@@ -525,8 +525,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 new_template_args,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,
-                                member_of_template->line, 
-                                member_of_template->file);
+                                member_of_template->file, 
+                                member_of_template->line);
 
                         named_type_get_symbol(new_template_specialized_type)->entity_specs.is_user_declared = 1;
 
@@ -1168,6 +1168,9 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
 
 static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
@@ -1224,6 +1227,7 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
         fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
                 print_declarator(template_specialized_type));
     }
+#endif
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
@@ -1353,6 +1357,8 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
 
 static void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
 
     ERROR_CONDITION(!entry->entity_specs.is_non_emitted, "Invalid function is not yet nonemitted", 0);
@@ -1420,6 +1426,7 @@ static void instantiate_emit_member_function(scope_entry_t* entry, const char* f
 
     num_being_instantiated_now--;
     being_instantiated_now[num_being_instantiated_now] = NULL;
+#endif
 }
 
 AST instantiate_tree(AST orig_tree UNUSED_PARAMETER, 

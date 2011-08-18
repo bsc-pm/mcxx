@@ -583,7 +583,7 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
             template_type,
             template_parameters, 
             primary_template->decl_context, 
-            line, filename);
+            filename, line);
 
     return named_type_get_symbol(result_specialized);
 }

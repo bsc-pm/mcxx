@@ -692,7 +692,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_parameters,
-                        decl_context, line, filename);
+                        decl_context, filename, line);
 
                 if (named_specialization_type == NULL)
                 {
@@ -869,7 +869,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_parameters,
-                        decl_context, line, filename); 
+                        decl_context, filename, line); 
 
                 if (named_specialization_type == NULL)
                 {
@@ -2339,7 +2339,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters,
                             deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            argument_list, decl_context, line, filename);
+                            argument_list, decl_context, filename, line);
 
                     if (named_specialization_type != NULL)
                     {

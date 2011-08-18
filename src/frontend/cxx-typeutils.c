@@ -1738,7 +1738,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         template_parameter_list_t *template_arguments, 
         type_t* after_type,
         decl_context_t decl_context, 
-        int line, const char* filename)
+        const char* filename, int line)
 {
     type_t* existing_spec = template_type_get_matching_specialized_type(t, 
             template_arguments, 
@@ -1873,13 +1873,13 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t* template_parameters,
         decl_context_t decl_context, 
-        int line, const char* filename)
+        const char* filename, int line)
 {
     return template_type_get_specialized_type_after_type(t,
             template_parameters,
             /* after_type */ NULL /* It will create an empty one */,
             decl_context,
-            line, filename);
+            filename, line);
 }
 
 template_parameter_list_t* template_type_get_template_parameters(type_t* t)
@@ -4665,7 +4665,7 @@ static type_t* advance_dependent_typename_aux(
                     template_parameters,
                     class_context, 
                     // They should not be needed
-                    0, NULL);
+                    NULL, 0);
 
             current_member = named_type_get_symbol(specialized_type);
 
@@ -4800,7 +4800,7 @@ static type_t* advance_dependent_typename_aux(
                 dependent_parts->template_arguments,
                 class_context, 
                 // They should not be needed
-                /*line*/0, /*filename*/NULL);
+                /*filename*/NULL, /*line*/ 0);
 
         current_member = named_type_get_symbol(specialized_type);
 
@@ -8021,7 +8021,7 @@ template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_argu
     return t->template_arguments;
 }
 
-scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, int line, const char* filename)
+scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t decl_context, const char* filename, int line)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
@@ -8047,7 +8047,7 @@ scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, decl_context_t dec
 
     // Get a specialization of this template
     type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-            template_arguments, decl_context, line, filename);
+            template_arguments, decl_context, filename, line);
 
     if (!is_dependent_type(named_specialization_type))
     {

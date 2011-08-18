@@ -2473,7 +2473,7 @@ static type_t* update_dependent_typename(
             type_t* specialized_type = template_type_get_specialized_type(
                     template_type,
                     updated_template_parameters,
-                    new_template_context, line, filename);
+                    new_template_context, filename, line);
 
             current_member = named_type_get_symbol(specialized_type);
         }
@@ -2610,7 +2610,7 @@ static type_t* update_dependent_typename(
         type_t* specialized_type = template_type_get_specialized_type(
                 template_type,
                 updated_template_parameters,
-                new_template_context, line, filename);
+                new_template_context, filename, line);
 
         current_member = named_type_get_symbol(specialized_type);
 
@@ -2798,7 +2798,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 template_type_get_specialized_type(template_type, 
                         updated_template_parameters, 
                         decl_context,
-                        line, filename);
+                        filename, line);
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: END OF Reasking for specialization\n");
@@ -3564,8 +3564,8 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
         specialized_type = template_type_get_specialized_type(generic_type, 
                 template_parameters,
                 template_name_context,
-                ASTLine(template_id), 
-                ASTFileName(template_id));
+                ASTFileName(template_id),
+                ASTLine(template_id));
 
         if (specialized_type != NULL)
         {
@@ -4311,4 +4311,34 @@ void print_template_parameter_list(template_parameter_list_t* template_parameter
     }
     int n = 0;
     print_template_parameter_list_aux(template_parameters, &n);
+}
+
+// Adaptor function. Eventually all scope routines will be able to work with any sort
+// of nodecl-name
+scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
+        nodecl_t nodecl_name, decl_flags_t decl_flags)
+{
+    switch (nodecl_get_kind(nodecl_name))
+    {
+        case NODECL_CXX_DEP_NAME_SIMPLE:
+            {
+                return query_unqualified_name_str_flags(decl_context, nodecl_get_text(nodecl_name), decl_flags);
+                break;
+            }
+        case NODECL_CXX_DEP_NAME_CONVERSION:
+            {
+                internal_error("Not yet implemented", 0);
+                break;
+            }
+        case NODECL_CXX_DEP_NAME_NESTED:
+            {
+                internal_error("Not yet implemented", 0);
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid nodecl kind '%s'\n", ast_print_node_type(nodecl_get_kind(nodecl_name)));
+            }
+    }
+    return NULL;
 }

@@ -95,9 +95,6 @@ LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t
 
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
 
-LIBMCXX_EXTERN nodecl_t expression_get_nodecl(AST expr);
-LIBMCXX_EXTERN void expression_set_nodecl(AST expr, nodecl_t nodecl_output);
-
 LIBMCXX_EXTERN type_t* actual_type_of_conversor(scope_entry_t* conv);
 
 LIBMCXX_EXTERN void diagnostic_candidates(scope_entry_list_t* entry_list, const char* filename, int line);

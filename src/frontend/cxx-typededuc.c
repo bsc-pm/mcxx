@@ -845,7 +845,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 {
                     // Simplify an unresolved overload of singleton, if possible
                     scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
-                            decl_context, line, filename);
+                            decl_context, filename, line);
 
                     if (solved_function == NULL)
                     {
