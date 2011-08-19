@@ -553,6 +553,7 @@ type_t* const_value_get_minimal_integer_type(const_value_t* val)
 }
 
 
+#if 0
 static void get_proper_suffix_integer(char is_signed, uint64_t value, const char** suffix, type_t** t)
 {
     *t = get_minimal_integer_for_value(is_signed, value);
@@ -590,6 +591,7 @@ static void get_proper_suffix_integer(char is_signed, uint64_t value, const char
         internal_error("Invalid type", 0);
     }
 }
+#endif
 
 nodecl_t const_value_to_nodecl(const_value_t* v)
 {

@@ -1433,10 +1433,6 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                     new_value->kind = TPK_NONTYPE;
                     new_value->type = param->entry->type_information;
 
-                    AST symbol = ASTLeaf(AST_SYMBOL,
-                            param->entry->file,
-                            param->entry->line,
-                            param->entry->symbol_name);
                     break;
                 }
             default :

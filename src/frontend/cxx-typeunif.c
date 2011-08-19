@@ -878,7 +878,6 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     else if (nodecl_expr_is_value_dependent(left_tree)
             && nodecl_expr_is_value_dependent(right_tree))
     {
-        decl_context_t dummy;
         internal_error("Not yet implemented", 0);
         // return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy),
         //         nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy),

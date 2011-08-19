@@ -111,12 +111,6 @@ LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, d
 // Like nodecl_make_function_call but takes care of virtual function calls
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);
 
-// Internal function for the frontend only
-char _check_functional_expression(AST whole_function_call, AST called_expression, 
-        AST arguments, decl_context_t decl_context, char might_require_koenig,
-        nodecl_t *nodecl_argument_list);
-
-
 MCXX_END_DECLS
 
 #endif

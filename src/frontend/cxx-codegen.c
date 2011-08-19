@@ -4047,24 +4047,24 @@ static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     internal_error("Not yet implemented", 0);
 }
 
-static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    type_t* t = nodecl_get_type(node);
-
-    scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(t);
-
-    if (entry_list_size(unresolved_set) == 1)
-    {
-        scope_entry_t* function = entry_list_head(unresolved_set);
-        codegen_walk(visitor, nodecl_make_symbol(function, nodecl_get_filename(node), nodecl_get_line(node)));
-    }
-    else
-    {
-        scope_entry_t* entry = entry_advance_aliases(entry_list_head(unresolved_set));
-        fprintf(visitor->file, unmangle_symbol_name(entry));
-    }
-    entry_list_free(unresolved_set);
-}
+// static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+// {
+//     type_t* t = nodecl_get_type(node);
+// 
+//     scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(t);
+// 
+//     if (entry_list_size(unresolved_set) == 1)
+//     {
+//         scope_entry_t* function = entry_list_head(unresolved_set);
+//         codegen_walk(visitor, nodecl_make_symbol(function, nodecl_get_filename(node), nodecl_get_line(node)));
+//     }
+//     else
+//     {
+//         scope_entry_t* entry = entry_advance_aliases(entry_list_head(unresolved_set));
+//         fprintf(visitor->file, unmangle_symbol_name(entry));
+//     }
+//     entry_list_free(unresolved_set);
+// }
 
 // Top level
 static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -4145,7 +4145,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);
     NODECL_VISITOR(codegen_visitor)->visit_type = codegen_visitor_fun(codegen_type);
 
-    NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);
+    // NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);
 }
 
 // External interface

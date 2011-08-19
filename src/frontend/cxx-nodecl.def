@@ -155,27 +155,31 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_SIZEOF([size_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
-                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt, [constructor]name-opt) type text
+                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text
                   | NODECL_DELETE([rhs]expression) type
                   | NODECL_DELETE_ARRAY([rhs]expression) type
                   | NODECL_POINTER_TO_MEMBER() symbol
                   | NODECL_REAL_PART([rhs]expression) type
                   | NODECL_IMAG_PART([rhs]expression) type
-                  | cxx-unresolved-overload
+                  | cxx-dependent-nodecls
 
-# Special node used only to hold cases where we have an unresolved overload
-cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
+# This is only for dependent parts of C++. These nodecls exist because
+# usual nodecls may not retain enough semantic information for a successful
+# instantiation. These nodecls should never appear in the code (but may be accessible
+# through symbols for instantiation purposes)
+cxx-dependent-nodecls: cxx-dependent-name
+   | cxx-dependent-initializer
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_NAME_NESTED([name_seq] cxx-atom-dependent-name-seq)
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
+                   | NODECL_CXX_DEP_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
                    | cxx-atom-dependent-name
 cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE([template_args]template-arg-seq-opt) text
                    | NODECL_CXX_DEP_NAME_CONVERSION() type
 
-cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
-    | NODECL_CXX_EQUAL_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
-    | NODECL_CXX_DIRECT_INITIALIZER([init]cxx-dependent-initializer-seq-opt)
-    | expression
+cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_EQUAL_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
 
 template-arg : type-or-expr
 

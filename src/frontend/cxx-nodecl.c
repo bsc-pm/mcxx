@@ -78,11 +78,13 @@ static void nodecl_expr_set_type(AST expr, type_t* t)
     expr_info->type_info = t;
 }
 
+#if 0
 static void nodecl_expr_set_non_constant(AST expr)
 {
     nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr);
     expr_info->const_val = NULL;
 }
+#endif
 
 static void nodecl_expr_set_constant(AST expr, const_value_t* const_val)
 {
@@ -90,6 +92,7 @@ static void nodecl_expr_set_constant(AST expr, const_value_t* const_val)
     expr_info->const_val = const_val;
 }
 
+#if 0
 static void nodecl_expr_clear_computed_info(AST t)
 {
     if (t == NULL)
@@ -106,6 +109,7 @@ static void nodecl_expr_clear_computed_info(AST t)
         nodecl_expr_clear_computed_info(ASTChild(t, i));
     }
 }
+#endif
 
 // Public routines
 nodecl_t nodecl_null(void)

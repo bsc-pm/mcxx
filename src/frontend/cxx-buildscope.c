@@ -757,8 +757,8 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     AST identifier = ASTSon0(asm_operand);
                     AST constraint = ASTSon1(asm_operand);
                     AST expression = ASTSon2(asm_operand);
-                    nodecl_t nodecl_dummy = nodecl_null();
-                    if (!check_expression(expression, decl_context, &nodecl_dummy))
+                    nodecl_t nodecl_expr = nodecl_null();
+                    if (!check_expression(expression, decl_context, &nodecl_expr))
                     {
                         error_printf("%s: error: assembler operand '%s' could not be checked\n",
                                 ast_location(expression),
@@ -778,18 +778,18 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                     }
 
                     internal_error("Not yet implemented", 0);
-                    // nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
-                    //         nodecl_make_any_list(
-                    //             nodecl_make_list_3(
-                    //                 nodecl_constraint,
-                    //                 expression_get_nodecl(expression),
-                    //                 nodecl_identifier), 
-                    //             ASTFileName(asm_operand), ASTLine(asm_operand)),
-                    //         "gcc-asm-operand", 
-                    //         ASTFileName(asm_operand), ASTLine(asm_operand));
-                    //
-                    // nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
-                    //         nodecl_asm_param);
+                    nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
+                            nodecl_make_any_list(
+                                nodecl_make_list_3(
+                                    nodecl_constraint,
+                                    nodecl_expr,
+                                    nodecl_identifier), 
+                                ASTFileName(asm_operand), ASTLine(asm_operand)),
+                            "gcc-asm-operand", 
+                            ASTFileName(asm_operand), ASTLine(asm_operand));
+                    
+                    nodecl_asm_params[i-1] = nodecl_append_to_list(nodecl_asm_params[i-1], 
+                            nodecl_asm_param);
                 }
                 else
                 {
