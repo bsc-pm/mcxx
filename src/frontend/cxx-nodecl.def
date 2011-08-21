@@ -169,6 +169,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
 # through symbols for instantiation purposes)
 cxx-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-initializer
+   | cxx-dependent-expressions
 
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
@@ -181,6 +182,19 @@ cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE() text
 cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
+    | NODECL_C99_FIELD_DESIGNATOR([name]expression)
+    | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
+
+cxx-dependent-expressions: NODECL_CXX_EXPLICIT_TYPE_CONVERSION([args]expression-seq-opt) type
+# a->b
+    | NODECL_CXX_ARROW([lhs]expression, [member]name) type
+# a.*b
+    | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type
+# a->*b
+    | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type
+# sizeof(expr)
+    | NODECL_CXX_SIZEOF([expr] expression) type
 
 template-arg : type-or-expr
 
