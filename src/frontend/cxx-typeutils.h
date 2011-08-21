@@ -95,7 +95,7 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type(scope_entry_t* dependent_enti
         AST nested_name, AST unqualified_part);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
-        dependent_name_part_t* dependent_parts);
+        nodecl_t dependent_parts);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
@@ -482,7 +482,7 @@ LIBMCXX_EXTERN void template_specialized_type_update_template_parameters(type_t*
 
 LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t, 
         scope_entry_t** dependent_entry, 
-        dependent_name_part_t** dependent_parts);
+        nodecl_t* dependent_parts);
 
 LIBMCXX_EXTERN int vector_type_get_vector_size(type_t*);
 LIBMCXX_EXTERN type_t* vector_type_get_element_type(type_t*);
@@ -570,11 +570,8 @@ LIBMCXX_EXTERN char is_braced_list_type(type_t* t);
 LIBMCXX_EXTERN char has_dependent_template_parameters(template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
-        dependent_name_part_t* dependent_parts_1,
-        dependent_name_part_t* dependent_parts_2);
-
-LIBMCXX_EXTERN dependent_name_part_t* copy_dependent_parts(
-        dependent_name_part_t* dependent_part);
+        nodecl_t dependent_parts_1,
+        nodecl_t dependent_parts_2);
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);

@@ -1386,20 +1386,21 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_DEPENDENT_ENTITY:
             {
-                scope_entry_t* entry = NULL;
-                dependent_name_part_t* dependent_parts = NULL;
-                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+                internal_error("Not yet implemented", 0);
+                // scope_entry_t* entry = NULL;
+                // dependent_name_part_t* dependent_parts = NULL;
+                // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
 
-                define_symbol(visitor, entry);
+                // define_symbol(visitor, entry);
 
-                while (dependent_parts != NULL)
-                {
-                    if (dependent_parts->template_arguments != NULL)
-                    {
-                        declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
-                    }
-                    dependent_parts = dependent_parts->next;
-                }
+                // while (dependent_parts != NULL)
+                // {
+                //     if (dependent_parts->template_arguments != NULL)
+                //     {
+                //         declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
+                //     }
+                //     dependent_parts = dependent_parts->next;
+                // }
                 break;
             }
         default:
@@ -2023,20 +2024,21 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
             }
         case SK_DEPENDENT_ENTITY:
             {
-                scope_entry_t* entry = NULL;
-                dependent_name_part_t* dependent_parts = NULL;
-                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+                internal_error("Not yet implemented", 0);
+                // scope_entry_t* entry = NULL;
+                // dependent_name_part_t* dependent_parts = NULL;
+                // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
 
-                declare_symbol(visitor, entry);
+                // declare_symbol(visitor, entry);
 
-                while (dependent_parts != NULL)
-                {
-                    if (dependent_parts->template_arguments != NULL)
-                    {
-                        declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
-                    }
-                    dependent_parts = dependent_parts->next;
-                }
+                // while (dependent_parts != NULL)
+                // {
+                //     if (dependent_parts->template_arguments != NULL)
+                //     {
+                //         declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
+                //     }
+                //     dependent_parts = dependent_parts->next;
+                // }
                 break;
             }
         default:
@@ -2245,21 +2247,22 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     CXX_LANGUAGE()
     {
-        dependent_name_part_t* dependent_parts = NULL;
-        if (entry->kind == SK_DEPENDENT_ENTITY)
-        {
-            dependent_typename_get_components(entry->type_information, &entry, &dependent_parts);
-            dependent_name_part_t* it_dependent_parts = dependent_parts;
+        // dependent_name_part_t* dependent_parts = NULL;
+        // if (entry->kind == SK_DEPENDENT_ENTITY)
+        // {
+        //     dependent_typename_get_components(entry->type_information, &entry, &dependent_parts);
+        //     dependent_name_part_t* it_dependent_parts = dependent_parts;
 
-            while (it_dependent_parts != NULL)
-            {
-                if (it_dependent_parts->template_arguments != NULL)
-                {
-                    declare_all_in_template_arguments(visitor, it_dependent_parts->template_arguments);
-                }
-                it_dependent_parts = it_dependent_parts->next;
-            }
-        }
+        //     while (it_dependent_parts != NULL)
+        //     {
+        //         if (it_dependent_parts->template_arguments != NULL)
+        //         {
+        //             declare_all_in_template_arguments(visitor, it_dependent_parts->template_arguments);
+        //         }
+        //         it_dependent_parts = it_dependent_parts->next;
+        //     }
+        // }
+        
         if (!entry->entity_specs.is_template_parameter
                 && !entry->entity_specs.is_builtin)
         {
@@ -2270,19 +2273,19 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
             fprintf(visitor->file, "%s", entry->symbol_name);
         }
 
-        while (dependent_parts != NULL)
-        {
-            if (dependent_parts->template_arguments != NULL)
-            {
-                fprintf(visitor->file, "::template %s<%s>", dependent_parts->name, 
-                        template_arguments_to_str(dependent_parts->template_arguments, entry->decl_context));
-            }
-            else
-            {
-                fprintf(visitor->file, "::%s", dependent_parts->name);
-            }
-            dependent_parts = dependent_parts->next;
-        }
+        // while (dependent_parts != NULL)
+        // {
+        //     if (dependent_parts->template_arguments != NULL)
+        //     {
+        //         fprintf(visitor->file, "::template %s<%s>", dependent_parts->name, 
+        //                 template_arguments_to_str(dependent_parts->template_arguments, entry->decl_context));
+        //     }
+        //     else
+        //     {
+        //         fprintf(visitor->file, "::%s", dependent_parts->name);
+        //     }
+        //     dependent_parts = dependent_parts->next;
+        // }
     }
     C_LANGUAGE()
     {

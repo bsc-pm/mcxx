@@ -100,15 +100,6 @@ struct standard_conversion_tag
     standard_conversion_item_t conv[3];
 };
 
-// Dependent typenames
-struct dependent_name_part_tag
-{
-    const char* name;
-    template_parameter_list_t* template_arguments;
-    struct type_tag* related_type;
-    struct dependent_name_part_tag* next;
-};
-
 
 LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 

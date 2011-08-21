@@ -988,7 +988,8 @@ static void instantiate_bases(
             }
             else
             {
-                base_class_named_type = get_dependent_typename_type_from_parts(base_class_sym, NULL);
+                internal_error("Not yet implemented", 0);
+                // base_class_named_type = get_dependent_typename_type_from_parts(base_class_sym, NULL);
             }
         }
 

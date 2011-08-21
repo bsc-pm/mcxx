@@ -174,11 +174,12 @@ cxx-dependent-nodecls: cxx-dependent-name
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
                    | NODECL_CXX_DEP_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
                    | cxx-atom-dependent-name
-cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE([template_args]template-arg-seq-opt) text
+cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE() text
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name, [template_arguments]template-arg-seq)
                    | NODECL_CXX_DEP_NAME_CONVERSION() type
 
 cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
-    | NODECL_CXX_EQUAL_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
 
 template-arg : type-or-expr

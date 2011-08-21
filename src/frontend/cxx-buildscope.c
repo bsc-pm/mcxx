@@ -777,7 +777,6 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, n
                         nodecl_constraint = nodecl_make_text(ASTText(constraint), ASTFileName(constraint), ASTLine(constraint));
                     }
 
-                    internal_error("Not yet implemented", 0);
                     nodecl_t nodecl_asm_param = nodecl_make_builtin_decl(
                             nodecl_make_any_list(
                                 nodecl_make_list_3(
@@ -1238,6 +1237,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             entry->file,
                             entry->line);
                 }
+
+                nodecl_t nodecl_initializer = nodecl_null();
                 if (initializer != NULL)
                 {
                     DEBUG_CODE()
@@ -1245,8 +1246,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         fprintf(stderr, "BUILDSCOPE: Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                     }
 
-                    // This will yield a warning if needed but do not make it an error
-                    nodecl_t nodecl_initializer = nodecl_null();
                     char init_check = check_initialization(initializer, entry->decl_context, 
                             get_unqualified_type(declarator_type),
                             &nodecl_initializer);
@@ -1301,7 +1300,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
 
                 // We create object-init nodecls for several cases:
                 // - if the initializer is not null
-                if (initializer != NULL
+                if (!nodecl_is_null(nodecl_initializer)
                         // (some cases only for C++)
                         // (some cases only for C99)
                         || (IS_C_LANGUAGE
@@ -1327,19 +1326,12 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                         // (maybe we should elaborate this a bit more)
                         || current_gather_info.emit_always)
                 {
-                    internal_error("Not yet implemented", 0);
-
-                    // nodecl_t nodecl_init = nodecl_null();
-                    // if (initializer != NULL)
-                    // {
-                    //     nodecl_init = expression_get_nodecl(initializer);
-                    // }
-                    // *nodecl_output = nodecl_concat_lists(
-                    //         *nodecl_output,
-                    //         nodecl_make_list_1(nodecl_make_object_init(
-                    //                 nodecl_init,
-                    //                 entry, 
-                    //                 ASTFileName(init_declarator), ASTLine(init_declarator)))); 
+                    *nodecl_output = nodecl_concat_lists(
+                            *nodecl_output,
+                            nodecl_make_list_1(nodecl_make_object_init(
+                                    nodecl_initializer,
+                                    entry, 
+                                    ASTFileName(init_declarator), ASTLine(init_declarator)))); 
                 }
             }
 
@@ -2567,7 +2559,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     if (is_dependent_type(entry->type_information))
     {
-        (*type_info) = get_dependent_typename_type_from_parts(entry, NULL);
+        (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
     }
     else
     {
@@ -7004,6 +6996,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
 
         declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
                 || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+
+        nodecl_t nodecl_template_arguments = nodecl_null();
         explicit_template_parameters = 
             get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
     }
@@ -9488,7 +9482,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     // Update the type specifier to be a dependent typename
                     if (is_dependent_type(class_type))
                     {
-                        member_type = get_dependent_typename_type_from_parts(entry, NULL);
+                        member_type = get_dependent_typename_type_from_parts(entry, nodecl_null());
                     }
                 }
             }

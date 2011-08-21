@@ -199,6 +199,8 @@ LIBMCXX_EXTERN const char* unmangle_symbol_name(scope_entry_t* entry);
 // Debug
 LIBMCXX_EXTERN void print_template_parameter_list(template_parameter_list_t* template_parameters);
 
+void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
