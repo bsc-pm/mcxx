@@ -41,6 +41,7 @@ preprocessor_uses_stdout, config_set_preprocessor_uses_stdout
 compiler_name, config_set_compiler_name
 compiler_options, config_set_compiler_options
 linker_name, config_set_linker_name
+linker_options_pre, config_set_linker_options_pre
 linker_options, config_set_linker_options
 compiler_phase, config_add_compiler_phase
 pragma_prefix, config_add_preprocessor_prefix

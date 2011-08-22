@@ -432,6 +432,8 @@ static void list_environments(void);
 static char do_not_unload_phases = 0;
 static char show_help_message = 0;
 
+void add_to_linker_command(const char *str, translation_unit_t* tr_unit);
+
 int main(int argc, char* argv[])
 {
     timing_t timing_global;
@@ -665,6 +667,10 @@ int parse_arguments(int argc, const char* argv[],
     char linker_files_seen = 0;
 
     struct command_line_parameter_t parameter_info;
+    
+    // we need all translation units because the ouput value might be wrong
+    int num_translation_units = 0;
+    translation_unit_t ** list_translation_units = NULL;
 
     while (command_line_get_next_parameter(&parameter_index, 
                 &parameter_info,
@@ -675,6 +681,7 @@ int parse_arguments(int argc, const char* argv[],
         // An invalid option 
         // It might be -fXXX -mXXX options that we freely
         // allow for better compatibility with gcc
+
         if (parameter_info.flag == CLP_INVALID)
         {
             // This function should advance parameter_index if needed
@@ -729,16 +736,26 @@ int parse_arguments(int argc, const char* argv[],
                 const char* extension = get_extension_filename(parameter_info.argument);
                 if (extension == NULL 
                         || (fileextensions_lookup(extension, strlen(extension))) == NULL)
-        {
-            fprintf(stderr, "%s: file '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
-                    compilation_process.exec_basename,
-                    parameter_info.argument);
-            add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
-            linker_files_seen = 1;
-        }
+                {
+                    fprintf(stderr, "%s: file '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                        compilation_process.exec_basename, parameter_info.argument);
+                    //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, 
+                       // parameter_info.argument);
+                    linker_files_seen = 1;
+                    
+                    add_to_linker_command(uniquestr(parameter_info.argument), NULL);
+                }
                 else
                 {
                     P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
+                    
+                    // create a new translation unit 
+                    translation_unit_t * ptr_tr = add_new_file_to_compilation_process(
+                        /* add to the global file process */ NULL, parameter_info.argument,
+                        output_file, CURRENT_CONFIGURATION);
+                    P_LIST_ADD(list_translation_units, num_translation_units,ptr_tr);
+
+                    add_to_linker_command(uniquestr(parameter_info.argument), ptr_tr);
                 }
             }
         }
@@ -910,6 +927,8 @@ int parse_arguments(int argc, const char* argv[],
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
+                            add_to_linker_command(uniquestr("-o"),NULL);
+                            add_to_linker_command(uniquestr(parameter_info.argument),NULL);
                         }
                         break;
                     }
@@ -943,14 +962,16 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-L%s", parameter_info.argument);
-                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, temp);
+                        //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, temp);
+                        add_to_linker_command(uniquestr(temp), NULL);
                         break;
                     }
                 case 'l' : 
                     {
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-l%s", parameter_info.argument);
-                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, temp);
+                        //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, temp);
+                        add_to_linker_command(uniquestr(temp), NULL);
                         break;
                     }
                 case 'D' :
@@ -1327,14 +1348,12 @@ int parse_arguments(int argc, const char* argv[],
         num_input_files = 0;
         output_file = NULL;
     }
-
-    // This is the right place to sign in input files, never before of complete
-    // command parsing
+   
+    //put the right output file in all translation units
     int i;
-    for (i = 0; i < num_input_files; i++)
+    for (i = 0; i < num_translation_units; ++i) 
     {
-        add_new_file_to_compilation_process(/* add to the global file process */ NULL,
-                input_files[i], output_file, CURRENT_CONFIGURATION);
+        list_translation_units[i]->output_filename = output_file;
     }
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
@@ -1356,7 +1375,8 @@ int parse_arguments(int argc, const char* argv[],
         }
         else
         {
-            add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, minus_v);
+            //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, minus_v);
+            add_to_linker_command(uniquestr(minus_v), NULL);
         }
     }
 
@@ -1369,7 +1389,8 @@ static void add_parameter_all_toolchain(const char *argument, char dry_run)
     {
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
-        add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, argument);
+        //add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, argument);
+        add_to_linker_command(uniquestr(argument), NULL);
     }
 }
 
@@ -1839,6 +1860,17 @@ static void enable_debug_flag(const char* flags)
     }
 }
 
+void add_to_linker_command(const char *str, translation_unit_t* tr_unit)
+{
+    parameter_linker_command_t * ptr_param =
+        (parameter_linker_command_t *) calloc(1, sizeof(parameter_linker_command_t));
+    
+     ptr_param->argument = str; 
+    
+    ptr_param->translation_unit = tr_unit;
+    P_LIST_ADD(CURRENT_CONFIGURATION->linker_command, CURRENT_CONFIGURATION->num_args_linker_command, ptr_param);
+}
+
 static void add_to_parameter_list_str(const char*** existing_options, const char* str)
 {
     const char* d_str = uniquestr(str);
@@ -1976,9 +2008,16 @@ static void parse_subcommand_arguments(const char* arguments)
                 &configuration->native_compiler_options,
                 parameters, num_parameters);
     if (linker_flag)
-        add_to_parameter_list(
+    {
+        /*add_to_parameter_list(
                 &configuration->linker_options,
-                parameters, num_parameters);
+                parameters, num_parameters);*/
+        int i;
+        for(i = 0; i < num_parameters; ++i)
+        {
+            add_to_linker_command(uniquestr(parameters[i]),NULL);
+         }
+    }
 #ifdef FORTRAN_SUPPORT
     if (prescanner_flag)
         add_to_parameter_list(
@@ -2050,6 +2089,10 @@ static void initialize_default_values(void)
     P_LIST_ADD(compilation_process.parameter_flags, 
             compilation_process.num_parameter_flags,
             new_parameter_flag);
+
+    //num args linker command  = 0
+    CURRENT_CONFIGURATION->num_args_linker_command = 0;
+    CURRENT_CONFIGURATION->linker_command = NULL;
 }
 
 static void print_version(void)
@@ -3514,10 +3557,13 @@ static void link_files(const char** file_list, int num_files,
         compilation_configuration_t* compilation_configuration)
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
-
-    int num_arguments = num_args_linker + num_files + num_additional_files;
+    int num_args_linker_options_pre = count_null_ended_array((void**)compilation_configuration->linker_options_pre);
+    int num_args_linker_command = compilation_configuration->num_args_linker_command;
+    
+    int num_arguments = num_args_linker_options_pre + num_args_linker_command + num_args_linker + num_additional_files;
     // -o output
-    num_arguments += 2;
+    //num_arguments += 2;
+    
     // NULL
     num_arguments += 1;
 
@@ -3527,32 +3573,84 @@ static void link_files(const char** file_list, int num_files,
     int i = 0;
     int j = 0;
 
-    if (compilation_configuration->linked_output_filename != NULL)
+    //if (compilation_configuration->linked_output_filename != NULL)
+    //{
+    //    linker_args[i] = uniquestr("-o");
+    //    i++;
+    //    linker_args[i] = compilation_configuration->linked_output_filename;
+    //    i++;
+    //}
+
+    //for (j = 0; j < num_additional_files; j++)
+    //{
+    //    linker_args[i] = additional_files[j];
+    //    i++;
+    //}
+
+    //for (j = 0; j < num_files; j++)
+    //{
+    //    linker_args[i] = file_list[j];
+    //    i++;
+    //}
+
+    //for (j = 0; j < num_args_linker; j++)
+    //{
+    //    linker_args[i] = compilation_configuration->linker_options[j];
+    //    i++;
+    //}
+
+    //adding linker options pre
+    for(j = 0; j < num_args_linker_options_pre; j++) 
     {
-        linker_args[i] = uniquestr("-o");
-        i++;
-        linker_args[i] = compilation_configuration->linked_output_filename;
-        i++;
+        linker_args[i] = compilation_configuration->linker_options[j];
+        ++j;
     }
 
+    //adding linker command arguments
+    for(j = 0; j < num_args_linker_command; j++)
+    {
+        // This is a file
+        if (compilation_configuration->linker_command[j]->translation_unit != NULL)
+        {
+            translation_unit_t* current_translation_unit = 
+                compilation_configuration->linker_command[j]->translation_unit;
+            const char* extension =
+                get_extension_filename(current_translation_unit->input_filename);
+            struct extensions_table_t* current_extension = 
+                fileextensions_lookup(extension, strlen(extension));
+            if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+            {
+                linker_args[j] = current_translation_unit->input_filename;
+            }
+            else
+            {
+                linker_args[j] = current_translation_unit->output_filename;
+            }
+        }
+        // This is another sort of command-line parameter
+        else
+        {
+            linker_args[j] = compilation_configuration->linker_command[j]->argument;    
+        }
+        i++;
+    }
+    
+    //adding additional files 
     for (j = 0; j < num_additional_files; j++)
     {
         linker_args[i] = additional_files[j];
         i++;
     }
 
-    for (j = 0; j < num_files; j++)
-    {
-        linker_args[i] = file_list[j];
-        i++;
-    }
-
+    //adding linker options arguments 
     for (j = 0; j < num_args_linker; j++)
     {
         linker_args[i] = compilation_configuration->linker_options[j];
         i++;
     }
+    
 
+      
     timing_t timing_link;
     timing_start(&timing_link);
     if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
@@ -3692,7 +3790,6 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             multifile_extract_extended_info(file_list[i]);
         }
     }
-
     if (no_multifile_info)
         return;
 

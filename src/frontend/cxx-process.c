@@ -37,7 +37,7 @@
 // Compilation options
 compilation_process_t compilation_process = { 0 };
 
-void add_new_file_to_compilation_process(
+translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration)
@@ -75,6 +75,7 @@ void add_new_file_to_compilation_process(
                 current_file_process->num_secondary_translation_units,
                 new_compiled_file);
     }
+    return translation_unit;
 }
 
 unsigned long long int _bytes_dynamic_lists = 0;
