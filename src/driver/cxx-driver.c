@@ -2141,10 +2141,12 @@ static void load_configuration(void)
     }
     else
     {
+        //Array of configuration filenames
+        char ** list_config_files = NULL;
+        int num_config_files = 0;
+        
         struct dirent *dir_entry;
         dir_entry = readdir(config_dir);
-        int num_config_files = 0;
-        char ** list_config_files = NULL;
         while (dir_entry != NULL)
         {
             struct stat buf;
@@ -2163,7 +2165,7 @@ static void load_configuration(void)
                 stat(full_path, &buf);
                 if (S_ISREG(buf.st_mode))
                 {
-                    //allocating config file
+                    //Allocating configuration filename
                     char * config_file = (char *)calloc(strlen(dir_entry->d_name), sizeof(char));
                     strncpy(config_file, dir_entry->d_name, strlen(dir_entry->d_name));
                     P_LIST_ADD(list_config_files, num_config_files, config_file);
@@ -2174,7 +2176,7 @@ static void load_configuration(void)
         }
 
         
-        //loading the configuration files in order 
+        //Loading the configuration files in order 
         int i, j;
         char loaded_config_file[num_config_files];
         memset(loaded_config_file, 0, num_config_files);
@@ -2206,7 +2208,7 @@ static void load_configuration(void)
             load_configuration_file(full_path);
          }
        
-       //deallocating the config files
+       //Deallocating the configuration filenames
        for(i = 0; i < num_config_files; ++i) 
        {
             free(list_config_files[i]);
