@@ -239,6 +239,7 @@
 "  -Xpreprocessor OPTION\n" \
 "  -Xlinker OPTION\n" \
 "  -Xassembler OPTION\n" \
+"  --include FILE\n" \
 "  -S\n" \
 "  -dA\n" \
 "  -dD\n" \
@@ -300,7 +301,8 @@ typedef enum
     OPTION_DISABLE_INTRINSICS,
     OPTION_NODECL,
     OPTION_FORTRAN_PRESCANNER,
-    OPTION_VERBOSE
+    OPTION_VERBOSE,
+    OPTION_INCLUDE
 } COMMAND_LINE_OPTIONS;
 
 
@@ -358,6 +360,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
+    {"include", CLP_REQUIRED_ARGUMENT, OPTION_INCLUDE},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1238,6 +1241,13 @@ int parse_arguments(int argc, const char* argv[],
 #else
                         running_error("Option --fpc is only valid when Fortran is enabled\n", 0);
 #endif
+                        break;
+                    }
+                case OPTION_INCLUDE:
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-include%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
                         break;
                     }
                 default:
