@@ -2157,10 +2157,7 @@ static void load_configuration(void)
                     && (dir_entry->d_name[strlen(dir_entry->d_name)-1] != '~'))
             {
                 const char * full_path =
-                    strappend(
-                        strappend(
-                                compilation_process.config_dir, DIR_SEPARATOR),
-                            dir_entry->d_name);
+                    strappend(strappend(compilation_process.config_dir, DIR_SEPARATOR),dir_entry->d_name);
 
                 stat(full_path, &buf);
                 if (S_ISREG(buf.st_mode))
@@ -2171,49 +2168,22 @@ static void load_configuration(void)
                     P_LIST_ADD(list_config_files, num_config_files, config_file);
                 }
             }
-
             dir_entry = readdir(config_dir);
         }
-
         
-        //Loading the configuration files in order 
-        int i, j;
-        char loaded_config_file[num_config_files];
-        memset(loaded_config_file, 0, num_config_files);
-        for (i = 0; i < num_config_files; ++i) 
+        //Sort all configuration filenames using merge sort algorithm
+        merge_sort_list_str(list_config_files, num_config_files,/*ascending*/ 1);
+        
+        int i;
+        for(i = 0; i < num_config_files; ++i)
         {
-            int ind_min_str = -1;
-            int size_min_str = 0;
-            for ( j = 0; j < num_config_files; ++j) 
-            {
-                if (!loaded_config_file[j])  
-                {
-                    int min, res;
-                    if (strlen(list_config_files[j]) < size_min_str) min = strlen(list_config_files[j]);
-                    else min = size_min_str;
-                    
-                    if (ind_min_str == -1 
-                        || (res = strncmp(list_config_files[ind_min_str], list_config_files[j], min)) > 0
-                        || (res == 0 && (strlen(list_config_files[j]) < strlen(list_config_files[ind_min_str]))))
-                    {
-                       size_min_str = strlen(list_config_files[j]); 
-                       ind_min_str  = j;
-                    }
-
-                }
-            }
-            loaded_config_file[ind_min_str] = 1;
             const char * full_path = 
-                strappend(strappend(compilation_process.config_dir, DIR_SEPARATOR),list_config_files[ind_min_str]);
+                strappend(strappend(compilation_process.config_dir, DIR_SEPARATOR),list_config_files[i]);
+            
             load_configuration_file(full_path);
-         }
-       
-       //Deallocating the configuration filenames
-       for(i = 0; i < num_config_files; ++i) 
-       {
+            //Deallocating configuration filename 
             free(list_config_files[i]);
-       }
-
+        }
         closedir(config_dir);
     }
     

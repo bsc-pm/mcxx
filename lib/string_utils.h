@@ -51,6 +51,8 @@ LIBUTILS_EXTERN const char* get_unique_name(void);
 LIBUTILS_EXTERN const char* strtoupper(const char*);
 LIBUTILS_EXTERN const char* strtolower(const char*);
 
+LIBUTILS_EXTERN void  merge_sort_list_str(char** list, int size,unsigned char ascending_order);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int
