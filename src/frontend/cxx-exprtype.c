@@ -8052,6 +8052,17 @@ static void check_function_call_nodecl(nodecl_t nodecl_called,
             argument_types[0] = called_type;
         }
     }
+    else
+    {
+        // Expand the candidate set
+        scope_entry_list_t* first_set_candidates = candidates;
+        candidates = unfold_and_mix_candidate_functions(first_set_candidates,
+                /* builtins */ NULL, argument_types + 1, num_arguments - 1,
+                decl_context,
+                filename, line,
+                /* explicit_template_parameters */ NULL);
+        entry_list_free(first_set_candidates);
+    }
 
     nodecl_t nodecl_implicit_argument = nodecl_null();
     // Now fill the implicit argument type if not done yet
@@ -8244,7 +8255,7 @@ static void check_function_call_nodecl(nodecl_t nodecl_called,
     type_t* return_type = function_type_get_return_type(overloaded_call->type_information);
 
     // Everything seems fine here
-    *nodecl_output = nodecl_make_function_call(nodecl_called, 
+    *nodecl_output = cxx_nodecl_make_function_call(nodecl_called, 
             nodecl_argument_list_output, 
             return_type,
             filename, line);
