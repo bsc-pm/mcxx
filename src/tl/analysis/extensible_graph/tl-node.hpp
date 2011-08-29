@@ -31,6 +31,7 @@ Cambridge, MA 02139, USA.
 
 #include "tl-ast.hpp"
 #include "tl-builtin.hpp"
+#include "tl-nodecl.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-statement.hpp"
 
@@ -107,6 +108,17 @@ namespace TL
                                 node, then this parameter must be NULL.
              */
             Node(int& id, Node_type type, Node* outer_graph);
+            
+            //! Node Constructor for Basic Normal Nodes.
+            /*!
+             * The entry and exit edges lists are empty.
+             * A node may contain other nodes, depending on its type.
+             * \param id Last identifier used to built a node (the method increments it by 1).
+             * \param outer_node Pointer to the wrapper node. If the node does not belong to other
+             *                   node, then this parameter must be NULL.
+             * \param nodecl Nodecl containing the Statement to be included in the new node
+             */
+            Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
 
             
             // *** Modifiers *** //

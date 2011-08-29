@@ -144,13 +144,13 @@ namespace TL
 //         std::cerr << "Creating Graph node " << _nid+1 << std::endl;
         Node* result = new Node(_nid, GRAPH_NODE, outer_graph);
         
-        Node* entry_node = result->get_data<Node*>("entry");
-        entry_node->set_data("outer_graph", result);
-        Node* exit_node = result->get_data<Node*>("exit");
-        exit_node->set_data("outer_graph", result);
+        Node* entry_node = result->get_data<Node*>(_ENTRY_NODE);
+        entry_node->set_data(_OUTER_GRAPH, result);
+        Node* exit_node = result->get_data<Node*>(_EXIT_NODE);
+        exit_node->set_data(_OUTER_GRAPH, result);
     
-        result->set_data("label", label);
-        result->set_data("graph_type", graph_type);
+        result->set_data(_NODE_LABEL, label);
+        result->set_data(_GRAPH_TYPE, graph_type);
         
         _outer_node.push(result);
         
@@ -160,7 +160,7 @@ namespace TL
     Node* ExtensibleGraph::create_unconnected_node(Nodecl::NodeclBase nodecl)
     {
         Node* result = new Node(_nid, BASIC_NORMAL_NODE, _outer_node.top());
-        result->set_data("statements", ObjectList<Nodecl::NodeclBase>(1, nodecl));
+        result->set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1, nodecl));
         
         return result;
     }

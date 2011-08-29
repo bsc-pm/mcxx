@@ -260,7 +260,6 @@ namespace TL
 
     void ExtensibleGraph::get_node_dot_data(Node* actual_node, std::string& dot_graph, std::string indent)
     {
-        std::cerr << "Printing node " << actual_node->get_id() << std::endl;
         std::string basic_block = "";
         std::stringstream ss; ss << actual_node->get_id();
         std::stringstream ss2; 

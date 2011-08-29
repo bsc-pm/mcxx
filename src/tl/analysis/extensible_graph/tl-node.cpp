@@ -30,12 +30,14 @@ namespace TL
     Node::Node()
         : _id(-1), _entry_edges(), _exit_edges(), _visited(false)
     {
+        std::cerr << "Created new empty node" << std::endl;
         set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
     }
     
     Node::Node(int& id, Node_type ntype, Node* outer_graph)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
+        std::cerr << "Created new node wo stmts " << _id << std::endl;
         set_data(_NODE_TYPE, ntype);
         
         if (outer_graph != NULL)
@@ -46,8 +48,22 @@ namespace TL
         if (ntype == GRAPH_NODE)
         {
             set_data(_ENTRY_NODE, new Node(id, BASIC_ENTRY_NODE, NULL));
-            int a = -1; set_data(_EXIT_NODE, new Node(a, BASIC_EXIT_NODE, NULL));
+            int a = -2; set_data(_EXIT_NODE, new Node(a, BASIC_EXIT_NODE, NULL));
         }
+    }
+    
+    Node::Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl)
+        : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
+    {
+        std::cerr << "Created new node W stmts" << _id << std::endl;
+        
+        set_data(_NODE_TYPE, type);
+        if (outer_graph != NULL)
+        {    
+            set_data(_OUTER_GRAPH, outer_graph);
+        }
+        
+        set_data(_NODE_STMTS, nodecl);
     }
     
     void Node::erase_entry_edge(Node* source)
@@ -102,6 +118,7 @@ namespace TL
     
     void Node::set_id(int id)
     {
+        std::cerr << "Setting id " << id << " to some node" << std::endl;
         _id = id;
     }
     

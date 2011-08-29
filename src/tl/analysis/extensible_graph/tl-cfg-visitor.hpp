@@ -26,7 +26,6 @@ Cambridge, MA 02139, USA.
 #define TL_CFG_VISITOR_HPP
 
 #include "tl-extensible-graph.hpp"
-#include "tl-nodecl.hpp"
 #include "tl-nodecl-visitor.hpp"
 
 namespace TL
@@ -63,21 +62,23 @@ namespace TL
     };
     
     struct try_block_nodes {
-        ObjectList<Node*> catch_parents;
+        ObjectList<Node*> handler_parents;
+        ObjectList<Node*> handler_exits;
         int nhandlers;
         
         try_block_nodes()
-            : catch_parents(), nhandlers(-1)
+            : handler_parents(), handler_exits(), nhandlers(-1)
         {}
         
         void clear()
         {
-            catch_parents.clear();
+            handler_parents.clear();
+            handler_exits.clear();
             nhandlers = -1;
         }
     };
     
-    class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor
+    class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
     protected:
         ExtensibleGraph* _actual_cfg;
@@ -97,232 +98,236 @@ namespace TL
          *                     created in the graph
          * \return The new node created
          */
-        Node* get_expression_node(const Nodecl::NodeclBase& n, bool connect_node = true);
+//         Node* get_expression_node(const Nodecl::NodeclBase& n, bool connect_node = true);
         
         //! This method creates a list with the nodes in an specific subgraph
         /*!
          * \param node First node to be traversed. The method will visit all nodes from here.
          */
-        void compute_catch_parents(Node* node);
+//         void compute_catch_parents(Node* node);
+        
+        //! This method merges two nodes containing an Expression into one
+        /*!
+         * The way the method merges the nodes depends on the kind of the nodes to be merged:
+         * The nodes that are not a GRAPH NODE are deleted. The rest, remains there to be the parents of the new node.
+         * \param n Nodecl containing a Expression which will be wrapped in the new node
+         * \param first Pointer to the node containing one part of the new node
+         * \param second Pointer to the node containing other part of the new node
+         * \return The new node created
+         */
+        Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
+        
+        //! This method finds the parent node in a sequence of connected nodes
+        /*!
+         * The method fails when the sub-graph has more than one entry node.
+         * Since this method is used specifically to collapse the nodes created while building the node of an expression
+         * we expect to find only one entry node. 
+         * (We don't refer a node of BASIC_ENTRY_NODE type, but the first node in the sub-graph)
+         * \param actual_node Node we are computing in this moment
+         * \return The entry node of a sub-graph
+         */
+        Node* get_first_node(Node* actual_node);
         
     public:
         CfgVisitor(ScopeLink sl);
         CfgVisitor(const CfgVisitor& visitor);
         
-        void unhandled_node(const Nodecl::NodeclBase& n);
-        void visit(const Nodecl::TopLevel& n);
-        void visit(const Nodecl::FunctionCode& n);
-        void visit(const Nodecl::TryBlock& n);
-        void visit(const Nodecl::CatchHandler& n);
-        void visit(const Nodecl::Throw& n);
-        void visit(const Nodecl::CompoundStatement& n);
-        void visit(const Nodecl::AnyList& n);
-        void visit(const Nodecl::Symbol& n);
-        void visit(const Nodecl::ExpressionStatement& n);
-        void visit(const Nodecl::ParenthesizedExpression& n);
-        void visit(const Nodecl::ErrExpr& n);
-        void visit(const Nodecl::ObjectInit& n);
-        void visit(const Nodecl::ArraySubscript& n);
-        void visit(const Nodecl::ClassMemberAccess& n);
-        void visit(const Nodecl::FortranNamedPairSpec& n);
-        void visit(const Nodecl::Concat& n);
-        void visit(const Nodecl::New& n);
-        void visit(const Nodecl::Delete& n);
-        void visit(const Nodecl::DeleteArray& n);
-        void visit(const Nodecl::Sizeof& n);
-        void visit(const Nodecl::Type& n);
-        void visit(const Nodecl::Typeid& n);
-        void visit(const Nodecl::Cast& n);
-        void visit(const Nodecl::Offset& n);
-        void visit(const Nodecl::VirtualFunctionCall& n);
-        void visit(const Nodecl::FunctionCall& n);
-        void visit(const Nodecl::StringLiteral& n);
-        void visit(const Nodecl::BooleanLiteral& n);
-        void visit(const Nodecl::IntegerLiteral& n);
-        void visit(const Nodecl::ComplexLiteral& n);
-        void visit(const Nodecl::FloatingLiteral& n);
-        void visit(const Nodecl::StructuredLiteral& n);
-        void visit(const Nodecl::EmptyStatement& n);
-        void visit(const Nodecl::ReturnStatement& n);
-        void visit(const Nodecl::BuiltinExpr& n);
-        void visit(const Nodecl::BuiltinDecl& n);
-        void visit(const Nodecl::PragmaCustomDirective& n);
-        void visit(const Nodecl::PragmaCustomConstruct& n);
-        void visit(const Nodecl::PragmaCustomClause& n);
-        void visit(const Nodecl::PragmaCustomLine& n);
-        void visit(const Nodecl::PragmaClauseArg& n);
-        void visit(const Nodecl::ForStatement& n);
-        void visit(const Nodecl::WhileStatement& n);
-        void visit(const Nodecl::IfElseStatement& n);
-        void visit(const Nodecl::SwitchStatement& n);
-        void visit(const Nodecl::CaseStatement& n);
-        void visit(const Nodecl::DefaultStatement& n);
-        void visit(const Nodecl::ConditionalExpression& n);
-        void visit(const Nodecl::FortranComputedGotoStatement& n);
-        void visit(const Nodecl::FortranAssignedGotoStatement& n);
-        void visit(const Nodecl::GotoStatement& n);
-        void visit(const Nodecl::LabeledStatement& n);
-        void visit(const Nodecl::LoopControl& n);
-        void visit(const Nodecl::ContinueStatement& n);
-        void visit(const Nodecl::BreakStatement& n);
-        void visit(const Nodecl::DoStatement& n);
-        void visit(const Nodecl::Assignment& n);
-        void visit(const Nodecl::AddAssignment& n);
-        void visit(const Nodecl::SubAssignment& n);
-        void visit(const Nodecl::DivAssignment& n);
-        void visit(const Nodecl::MulAssignment& n);
-        void visit(const Nodecl::ModAssignment& n);
-        void visit(const Nodecl::BitwiseAndAssignment& n);
-        void visit(const Nodecl::BitwiseOrAssignment& n);
-        void visit(const Nodecl::BitwiseXorAssignment& n);
-        void visit(const Nodecl::ShrAssignment& n);
-        void visit(const Nodecl::ShlAssignment& n);
-        void visit(const Nodecl::Add& n);
-        void visit(const Nodecl::Minus& n);
-        void visit(const Nodecl::Mul& n);
-        void visit(const Nodecl::Div& n);
-        void visit(const Nodecl::Mod& n);
-        void visit(const Nodecl::Power& n);
-        void visit(const Nodecl::LogicalAnd& n);
-        void visit(const Nodecl::LogicalOr& n);
-        void visit(const Nodecl::BitwiseAnd& n);
-        void visit(const Nodecl::BitwiseOr& n);
-        void visit(const Nodecl::BitwiseXor& n);
-        void visit(const Nodecl::Equal& n);
-        void visit(const Nodecl::Different& n);
-        void visit(const Nodecl::LowerThan& n);
-        void visit(const Nodecl::GreaterThan& n);
-        void visit(const Nodecl::LowerOrEqualThan& n);
-        void visit(const Nodecl::GreaterOrEqualThan& n);
-        void visit(const Nodecl::Shr& n);
-        void visit(const Nodecl::Shl& n);
-        void visit(const Nodecl::Predecrement& n);
-        void visit(const Nodecl::Postdecrement& n);
-        void visit(const Nodecl::Preincrement& n);
-        void visit(const Nodecl::Postincrement& n);
-        void visit(const Nodecl::Plus& n);
-        void visit(const Nodecl::Neg& n);     
-        void visit(const Nodecl::BitwiseNot& n);
-        void visit(const Nodecl::LogicalNot& n);
-        void visit(const Nodecl::Derreference& n);
-        void visit(const Nodecl::Reference& n);
-        void visit(const Nodecl::Text& n);
-        void visit(const Nodecl::FortranWhere& n);
-        void visit(const Nodecl::FortranWherePair& n);
-        void visit(const Nodecl::SubscriptTriplet& n);
-        void visit(const Nodecl::FortranLabelAssignStatement& n);
-        void visit(const Nodecl::FortranIoSpec& n);
-        void visit(const Nodecl::FieldDesignator& n);
-        void visit(const Nodecl::IndexDesignator& n);
-        void visit(const Nodecl::FortranEquivalence& n);
-        void visit(const Nodecl::FortranData& n);
-        void visit(const Nodecl::FortranImpliedDo& n);
-        void visit(const Nodecl::FortranForall& n);    
-        void visit(const Nodecl::FortranArithmeticIfStatement& n);
-        void visit(const Nodecl::FortranNullifyStatement& n);
-        void visit(const Nodecl::FortranIoStatement& n);  
-        void visit(const Nodecl::FortranOpenStatement& n);
-        void visit(const Nodecl::FortranCloseStatement& n);
-        void visit(const Nodecl::FortranReadStatement& n);
-        void visit(const Nodecl::FortranWriteStatement& n);
-        void visit(const Nodecl::FortranPrintStatement& n);
-        void visit(const Nodecl::FortranStopStatement& n);
-        void visit(const Nodecl::FortranAllocateStatement& n);
-        void visit(const Nodecl::FortranDeallocateStatement& n);
-        void visit(const Nodecl::Comma& n);
+        Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret visit(const Nodecl::TopLevel& n);
+        Ret visit(const Nodecl::FunctionCode& n);
+        Ret visit(const Nodecl::TryBlock& n);
+        Ret visit(const Nodecl::CatchHandler& n);
+        Ret visit(const Nodecl::Throw& n);
+        Ret visit(const Nodecl::CompoundStatement& n);
+        Ret visit(const Nodecl::Symbol& n);
+        Ret visit(const Nodecl::ExpressionStatement& n);
+        Ret visit(const Nodecl::ParenthesizedExpression& n);
+        Ret visit(const Nodecl::ErrExpr& n);
+        Ret visit(const Nodecl::ObjectInit& n);
+        Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::ClassMemberAccess& n);
+        Ret visit(const Nodecl::FortranNamedPairSpec& n);
+        Ret visit(const Nodecl::Concat& n);
+        Ret visit(const Nodecl::New& n);
+        Ret visit(const Nodecl::Delete& n);
+        Ret visit(const Nodecl::DeleteArray& n);
+        Ret visit(const Nodecl::Sizeof& n);
+        Ret visit(const Nodecl::Type& n);
+        Ret visit(const Nodecl::Typeid& n);
+        Ret visit(const Nodecl::Cast& n);
+        Ret visit(const Nodecl::Offset& n);
+        Ret visit(const Nodecl::VirtualFunctionCall& n);
+        Ret visit(const Nodecl::FunctionCall& n);
+        Ret visit(const Nodecl::StringLiteral& n);
+        Ret visit(const Nodecl::BooleanLiteral& n);
+        Ret visit(const Nodecl::IntegerLiteral& n);
+        Ret visit(const Nodecl::ComplexLiteral& n);
+        Ret visit(const Nodecl::FloatingLiteral& n);
+        Ret visit(const Nodecl::StructuredLiteral& n);
+        Ret visit(const Nodecl::EmptyStatement& n);
+        Ret visit(const Nodecl::ReturnStatement& n);
+        Ret visit(const Nodecl::BuiltinExpr& n);
+        Ret visit(const Nodecl::BuiltinDecl& n);
+        Ret visit(const Nodecl::PragmaCustomDirective& n);
+        Ret visit(const Nodecl::PragmaCustomConstruct& n);
+        Ret visit(const Nodecl::PragmaCustomClause& n);
+        Ret visit(const Nodecl::PragmaCustomLine& n);
+        Ret visit(const Nodecl::PragmaClauseArg& n);
+        Ret visit(const Nodecl::ForStatement& n);
+        Ret visit(const Nodecl::WhileStatement& n);
+        Ret visit(const Nodecl::IfElseStatement& n);
+        Ret visit(const Nodecl::SwitchStatement& n);
+        Ret visit(const Nodecl::CaseStatement& n);
+        Ret visit(const Nodecl::DefaultStatement& n);
+        Ret visit(const Nodecl::ConditionalExpression& n);
+        Ret visit(const Nodecl::FortranComputedGotoStatement& n);
+        Ret visit(const Nodecl::FortranAssignedGotoStatement& n);
+        Ret visit(const Nodecl::GotoStatement& n);
+        Ret visit(const Nodecl::LabeledStatement& n);
+        Ret visit(const Nodecl::LoopControl& n);
+        Ret visit(const Nodecl::ContinueStatement& n);
+        Ret visit(const Nodecl::BreakStatement& n);
+        Ret visit(const Nodecl::DoStatement& n);
+        Ret visit(const Nodecl::Assignment& n);
+        Ret visit(const Nodecl::AddAssignment& n);
+        Ret visit(const Nodecl::SubAssignment& n);
+        Ret visit(const Nodecl::DivAssignment& n);
+        Ret visit(const Nodecl::MulAssignment& n);
+        Ret visit(const Nodecl::ModAssignment& n);
+        Ret visit(const Nodecl::BitwiseAndAssignment& n);
+        Ret visit(const Nodecl::BitwiseOrAssignment& n);
+        Ret visit(const Nodecl::BitwiseXorAssignment& n);
+        Ret visit(const Nodecl::ShrAssignment& n);
+        Ret visit(const Nodecl::ShlAssignment& n);
+        Ret visit(const Nodecl::Add& n);
+        Ret visit(const Nodecl::Minus& n);
+        Ret visit(const Nodecl::Mul& n);
+        Ret visit(const Nodecl::Div& n);
+        Ret visit(const Nodecl::Mod& n);
+        Ret visit(const Nodecl::Power& n);
+        Ret visit(const Nodecl::LogicalAnd& n);
+        Ret visit(const Nodecl::LogicalOr& n);
+        Ret visit(const Nodecl::BitwiseAnd& n);
+        Ret visit(const Nodecl::BitwiseOr& n);
+        Ret visit(const Nodecl::BitwiseXor& n);
+        Ret visit(const Nodecl::Equal& n);
+        Ret visit(const Nodecl::Different& n);
+        Ret visit(const Nodecl::LowerThan& n);
+        Ret visit(const Nodecl::GreaterThan& n);
+        Ret visit(const Nodecl::LowerOrEqualThan& n);
+        Ret visit(const Nodecl::GreaterOrEqualThan& n);
+        Ret visit(const Nodecl::Shr& n);
+        Ret visit(const Nodecl::Shl& n);
+        Ret visit(const Nodecl::Predecrement& n);
+        Ret visit(const Nodecl::Postdecrement& n);
+        Ret visit(const Nodecl::Preincrement& n);
+        Ret visit(const Nodecl::Postincrement& n);
+        Ret visit(const Nodecl::Plus& n);
+        Ret visit(const Nodecl::Neg& n);     
+        Ret visit(const Nodecl::BitwiseNot& n);
+        Ret visit(const Nodecl::LogicalNot& n);
+        Ret visit(const Nodecl::Derreference& n);
+        Ret visit(const Nodecl::Reference& n);
+        Ret visit(const Nodecl::Text& n);
+        Ret visit(const Nodecl::FortranWhere& n);
+        Ret visit(const Nodecl::FortranWherePair& n);
+        Ret visit(const Nodecl::SubscriptTriplet& n);
+        Ret visit(const Nodecl::FortranLabelAssignStatement& n);
+        Ret visit(const Nodecl::FortranIoSpec& n);
+        Ret visit(const Nodecl::FieldDesignator& n);
+        Ret visit(const Nodecl::IndexDesignator& n);
+        Ret visit(const Nodecl::FortranEquivalence& n);
+        Ret visit(const Nodecl::FortranData& n);
+        Ret visit(const Nodecl::FortranImpliedDo& n);
+        Ret visit(const Nodecl::FortranForall& n);    
+        Ret visit(const Nodecl::FortranArithmeticIfStatement& n);
+        Ret visit(const Nodecl::FortranNullifyStatement& n);
+        Ret visit(const Nodecl::FortranIoStatement& n);  
+        Ret visit(const Nodecl::FortranOpenStatement& n);
+        Ret visit(const Nodecl::FortranCloseStatement& n);
+        Ret visit(const Nodecl::FortranReadStatement& n);
+        Ret visit(const Nodecl::FortranWriteStatement& n);
+        Ret visit(const Nodecl::FortranPrintStatement& n);
+        Ret visit(const Nodecl::FortranStopStatement& n);
+        Ret visit(const Nodecl::FortranAllocateStatement& n);
+        Ret visit(const Nodecl::FortranDeallocateStatement& n);
+        Ret visit(const Nodecl::Comma& n);
     };
-
-    
-    //! This visitor traverses Expressions.
-    /*!
-     * The visitor just figures out whether a expression need to be broken into different nodes.
-     * It happens when the expression contains a Function Call or a Conditional Expression.
-     */
-    class LIBTL_CLASS BreakingExpressionVisitor : public CfgVisitor
-    {
-        
-    public:
-        bool _broken_expression;
-        int _breakage_type;
-        
-        BreakingExpressionVisitor(ScopeLink sl);
-       
-        void visit(const Nodecl::VirtualFunctionCall& n);
-        void visit(const Nodecl::FunctionCall& n);
-        void visit(const Nodecl::ConditionalExpression& n);
-        
-//         void visit(const Nodecl::StringLiteral& n);
-//         void visit(const Nodecl::BooleanLiteral& n);
-//         void visit(const Nodecl::IntegerLiteral& n);
-//         void visit(const Nodecl::ComplexLiteral& n);
-//         void visit(const Nodecl::FloatingLiteral& n);
-//         void visit(const Nodecl::StructuredLiteral& n);
-//         void visit(const Nodecl::Symbol& n);
-//         void visit(const Nodecl::VirtualFunctionCall& n);
-//         void visit(const Nodecl::FunctionCall& n);
-//         void visit(const Nodecl::ArraySubscript& n);
-//         void visit(const Nodecl::ClassMemberAccess& n);
-//         void visit(const Nodecl::Plus& n);
-//         void visit(const Nodecl::Neg& n);
-//         void visit(const Nodecl::Add& n);
-//         void visit(const Nodecl::Minus& n);
-//         void visit(const Nodecl::Mul& n);
-//         void visit(const Nodecl::Div& n);
-//         void visit(const Nodecl::Mod& n);
-//         void visit(const Nodecl::Power& n);
-//         void visit(const Nodecl::Concat& n);
-//         void visit(const Nodecl::Equal& n);
-//         void visit(const Nodecl::Different& n);
-//         void visit(const Nodecl::LowerThan& n);
-//         void visit(const Nodecl::GreaterThan& n);
-//         void visit(const Nodecl::LowerOrEqualThan& n);
-//         void visit(const Nodecl::GreaterOrEqualThan& n);
-//         void visit(const Nodecl::LogicalAnd& n);
-//         void visit(const Nodecl::LogicalOr& n);
-//         void visit(const Nodecl::LogicalNot& n);
-//         void visit(const Nodecl::BitwiseAnd& n);
-//         void visit(const Nodecl::BitwiseOr& n);
-//         void visit(const Nodecl::BitwiseXor& n);
-//         void visit(const Nodecl::BitwiseNot& n);
-//         void visit(const Nodecl::Shr& n);
-//         void visit(const Nodecl::Shl& n);
-//         void visit(const Nodecl::Assignment& n);
-//         void visit(const Nodecl::AddAssignment& n);
-//         void visit(const Nodecl::SubAssignment& n);
-//         void visit(const Nodecl::DivAssignment& n);
-//         void visit(const Nodecl::MulAssignment& n);
-//         void visit(const Nodecl::ModAssignment& n);        
-//         void visit(const Nodecl::BitwiseAndAssignment& n);
-//         void visit(const Nodecl::BitwiseOrAssignment& n);
-//         void visit(const Nodecl::BitwiseXorAssignment& n);
-//         void visit(const Nodecl::ShrAssignment& n);
-//         void visit(const Nodecl::ShlAssignment& n);        
-//         void visit(const Nodecl::ParenthesizedExpression& n);
-//         void visit(const Nodecl::Reference& n);
-//         void visit(const Nodecl::Derreference& n);
-//         void visit(const Nodecl::Cast& n);
-//         void visit(const Nodecl::ConditionalExpression& n);
-//         void visit(const Nodecl::Comma& n);
-//         void visit(const Nodecl::Throw& n);
-//         void visit(const Nodecl::Predecrement& n);
-//         void visit(const Nodecl::Postdecrement& n);
-//         void visit(const Nodecl::Preincrement& n);
-//         void visit(const Nodecl::Postincrement& n);
-//         void visit(const Nodecl::Sizeof& n);    
-//         void visit(const Nodecl::Typeid& n);
-//         void visit(const Nodecl::Offset& n); 
-//         void visit(const Nodecl::New& n);
-//         void visit(const Nodecl::Delete& n);
-//         void visit(const Nodecl::DeleteArray& n);
-//         void visit(const Nodecl::CxxRaw& n);
-//         void visit(const Nodecl::FortranData& n);
-//         void visit(const Nodecl::FortranEquivalence& n);
-//         void visit(const Nodecl::ImpliedDo& n);
-//         void visit(const Nodecl::ObjectInit& n);
-//         void visit(const Nodecl::BuiltinExpr& n);
-//         void visit(const Nodecl::Text& n);
-//         void visit(const Nodecl::ErrExpr& n);
-    }; 
 }
 #endif  // TL_CFG_VISITOR_HPP
 
+
+//         Ret visit(const Nodecl::VirtualFunctionCall& n);
+//         Ret visit(const Nodecl::FunctionCall& n);
+//         Ret visit(const Nodecl::ConditionalExpression& n);
+//         Ret visit(const Nodecl::StringLiteral& n);
+//         Ret visit(const Nodecl::BooleanLiteral& n);
+//         Ret visit(const Nodecl::IntegerLiteral& n);
+//         Ret visit(const Nodecl::ComplexLiteral& n);
+//         Ret visit(const Nodecl::FloatingLiteral& n);
+//         Ret visit(const Nodecl::StructuredLiteral& n);
+//         Ret visit(const Nodecl::Symbol& n);
+//         Ret visit(const Nodecl::VirtualFunctionCall& n);
+//         Ret visit(const Nodecl::FunctionCall& n);
+//         Ret visit(const Nodecl::ArraySubscript& n);
+//         Ret visit(const Nodecl::ClassMemberAccess& n);
+//         Ret visit(const Nodecl::Plus& n);
+//         Ret visit(const Nodecl::Neg& n);
+//         Ret visit(const Nodecl::Add& n);
+//         Ret visit(const Nodecl::Minus& n);
+//         Ret visit(const Nodecl::Mul& n);
+//         Ret visit(const Nodecl::Div& n);
+//         Ret visit(const Nodecl::Mod& n);
+//         Ret visit(const Nodecl::Power& n);
+//         Ret visit(const Nodecl::Concat& n);
+//         Ret visit(const Nodecl::Equal& n);
+//         Ret visit(const Nodecl::Different& n);
+//         Ret visit(const Nodecl::LowerThan& n);
+//         Ret visit(const Nodecl::GreaterThan& n);
+//         Ret visit(const Nodecl::LowerOrEqualThan& n);
+//         Ret visit(const Nodecl::GreaterOrEqualThan& n);
+//         Ret visit(const Nodecl::LogicalAnd& n);
+//         Ret visit(const Nodecl::LogicalOr& n);
+//         Ret visit(const Nodecl::LogicalNot& n);
+//         Ret visit(const Nodecl::BitwiseAnd& n);
+//         Ret visit(const Nodecl::BitwiseOr& n);
+//         Ret visit(const Nodecl::BitwiseXor& n);
+//         Ret visit(const Nodecl::BitwiseNot& n);
+//         Ret visit(const Nodecl::Shr& n);
+//         Ret visit(const Nodecl::Shl& n);
+//         Ret visit(const Nodecl::Assignment& n);
+//         Ret visit(const Nodecl::AddAssignment& n);
+//         Ret visit(const Nodecl::SubAssignment& n);
+//         Ret visit(const Nodecl::DivAssignment& n);
+//         Ret visit(const Nodecl::MulAssignment& n);
+//         Ret visit(const Nodecl::ModAssignment& n);        
+//         Ret visit(const Nodecl::BitwiseAndAssignment& n);
+//         Ret visit(const Nodecl::BitwiseOrAssignment& n);
+//         Ret visit(const Nodecl::BitwiseXorAssignment& n);
+//         Ret visit(const Nodecl::ShrAssignment& n);
+//         Ret visit(const Nodecl::ShlAssignment& n);        
+//         Ret visit(const Nodecl::ParenthesizedExpression& n);
+//         Ret visit(const Nodecl::Reference& n);
+//         Ret visit(const Nodecl::Derreference& n);
+//         Ret visit(const Nodecl::Cast& n);
+//         Ret visit(const Nodecl::ConditionalExpression& n);
+//         Ret visit(const Nodecl::Comma& n);
+//         Ret visit(const Nodecl::Throw& n);
+//         Ret visit(const Nodecl::Predecrement& n);
+//         Ret visit(const Nodecl::Postdecrement& n);
+//         Ret visit(const Nodecl::Preincrement& n);
+//         Ret visit(const Nodecl::Postincrement& n);
+//         Ret visit(const Nodecl::Sizeof& n);    
+//         Ret visit(const Nodecl::Typeid& n);
+//         Ret visit(const Nodecl::Offset& n); 
+//         Ret visit(const Nodecl::New& n);
+//         Ret visit(const Nodecl::Delete& n);
+//         Ret visit(const Nodecl::DeleteArray& n);
+//         Ret visit(const Nodecl::CxxRaw& n);
+//         Ret visit(const Nodecl::FortranData& n);
+//         Ret visit(const Nodecl::FortranEquivalence& n);
+//         Ret visit(const Nodecl::ImpliedDo& n);
+//         Ret visit(const Nodecl::ObjectInit& n);
+//         Ret visit(const Nodecl::BuiltinExpr& n);
+//         Ret visit(const Nodecl::Text& n);
+//         Ret visit(const Nodecl::ErrExpr& n);
