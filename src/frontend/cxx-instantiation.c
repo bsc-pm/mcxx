@@ -1169,14 +1169,11 @@ void instantiation_add_symbol_to_instantiate(scope_entry_t* entry,
 
 static void instantiate_template_function(scope_entry_t* entry, const char* filename, int line)
 {
-    internal_error("Not yet implemented", 0);
-
-#if 0
-    DEBUG_CODE()
+    // DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
                 entry->symbol_name,
-                print_declarator(entry->type_information),
+                print_type_str(entry->type_information, entry->decl_context),
                 entry->file,
                 entry->line);
     }
@@ -1195,40 +1192,39 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
     // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
 
-    AST orig_function_definition = primary_specialization_function->entity_specs.definition_tree;
-    
-    // Remove dependent types
-    AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
+    // AST orig_function_definition = primary_specialization_function->entity_specs.definition_tree;
+    // 
+    // // Remove dependent types
+    // AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
 
-    // Why do we do this?
-    // Temporarily disable ambiguity testing
-    char old_test_status = get_test_expression_status();
-    set_test_expression_status(0);
+    // // Why do we do this?
+    // // Temporarily disable ambiguity testing
+    // char old_test_status = get_test_expression_status();
+    // set_test_expression_status(0);
 
-    decl_context_t instantiation_context = entry->decl_context;
+    // decl_context_t instantiation_context = entry->decl_context;
 
-    nodecl_t nodecl_function_code = nodecl_null();
-    build_scope_function_definition(dupl_function_definition, 
-            entry, 
-            instantiation_context, 
-            // This is not entirely true
-            /* is_template */ 1,
-            /* is_explicit_instantiation */ 1,
-            &nodecl_function_code);
+    // nodecl_t nodecl_function_code = nodecl_null();
+    // build_scope_function_definition(dupl_function_definition, 
+    //         entry, 
+    //         instantiation_context, 
+    //         // This is not entirely true
+    //         /* is_template */ 1,
+    //         /* is_explicit_instantiation */ 1,
+    //         &nodecl_function_code);
 
-    entry->entity_specs.definition_tree = dupl_function_definition;
+    // entry->entity_specs.definition_tree = dupl_function_definition;
 
-    nodecl_instantiation_units = nodecl_concat_lists(nodecl_instantiation_units,
-            nodecl_function_code);
+    // nodecl_instantiation_units = nodecl_concat_lists(nodecl_instantiation_units,
+    //         nodecl_function_code);
 
-    set_test_expression_status(old_test_status);
+    // set_test_expression_status(old_test_status);
 
     DEBUG_CODE()
     {
         fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
                 print_declarator(template_specialized_type));
     }
-#endif
 }
 
 static scope_entry_t* being_instantiated_now[MCXX_MAX_TEMPLATE_NESTING_LEVELS];
