@@ -557,56 +557,6 @@ static void check_gcc_postfix_expression(AST expression, decl_context_t decl_con
 static void check_gcc_builtin_va_arg(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_gcc_parenthesized_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-static char* assig_op_attr[] =
-{
-    [AST_ASSIGNMENT]     = LANG_IS_ASSIGNMENT,
-    [AST_MUL_ASSIGNMENT] = LANG_IS_MUL_ASSIGNMENT,
-    [AST_DIV_ASSIGNMENT] = LANG_IS_DIV_ASSIGNMENT,
-    [AST_ADD_ASSIGNMENT] = LANG_IS_ADD_ASSIGNMENT,
-    [AST_SUB_ASSIGNMENT] = LANG_IS_SUB_ASSIGNMENT,
-    [AST_SHL_ASSIGNMENT] = LANG_IS_SHL_ASSIGNMENT,
-    [AST_SHR_ASSIGNMENT] = LANG_IS_SHR_ASSIGNMENT,
-    [AST_BITWISE_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
-    [AST_BITWISE_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
-    [AST_BITWISE_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
-    [AST_MOD_ASSIGNMENT] = LANG_IS_MOD_ASSIGNMENT,
-};
-
-static char* unary_expression_attr[] =
-{
-    [AST_DERREFERENCE]  = LANG_IS_DERREFERENCE_OP,
-    [AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
-    [AST_PLUS]       = LANG_IS_PLUS_OP,
-    [AST_NEG]        = LANG_IS_NEGATE_OP,
-    [AST_LOGICAL_NOT]        = LANG_IS_NOT_OP,
-    [AST_BITWISE_NOT] = LANG_IS_COMPLEMENT_OP
-};
-
-static char* binary_expression_attr[] =
-{
-    [AST_MUL] = LANG_IS_MULT_OP,
-    [AST_DIV] = LANG_IS_DIVISION_OP,
-    [AST_MOD] = LANG_IS_MODULUS_OP,
-    [AST_ADD] = LANG_IS_ADDITION_OP,
-    [AST_MINUS] = LANG_IS_SUBSTRACTION_OP,
-    [AST_SHL] = LANG_IS_SHIFT_LEFT_OP,
-    [AST_SHR] = LANG_IS_SHIFT_RIGHT_OP,
-    [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
-    [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
-    [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
-    [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
-    [AST_EQUAL] = LANG_IS_EQUAL_OP,
-    [AST_DIFFERENT] = LANG_IS_DIFFERENT_OP,
-    [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
-    [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
-    [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
-    [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
-    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
-#ifdef FORTRAN_SUPPORT
-    [AST_POWER] = LANG_IS_POWER_OP,
-#endif
-};
-
 // Returns if the function is ok
 //
 // Do not return within this function, set result to 0 or 1 and let it
