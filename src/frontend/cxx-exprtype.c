@@ -2743,13 +2743,13 @@ void compute_bin_operator_generic(
                         *rhs,
                         result, filename, line);
 
+            nodecl_set_constant(*nodecl_output, val);
+
             if (nodecl_expr_is_value_dependent(*lhs)
                     || nodecl_expr_is_value_dependent(*rhs))
             {
                 nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
-
-            nodecl_set_constant(*nodecl_output, val);
         }
         else
         {
