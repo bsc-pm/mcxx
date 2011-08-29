@@ -2567,121 +2567,32 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
 }
 
 static
-void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
-        const char* filename, int line, nodecl_t* nodecl_output)
+type_t* compute_type_no_overload_add_operation(nodecl_t lhs, nodecl_t rhs)
 {
-    type_t* lhs_type = nodecl_get_type(*lhs);
-    type_t* rhs_type = nodecl_get_type(*rhs);
+    type_t* lhs_type = nodecl_get_type(lhs);
+    type_t* rhs_type = nodecl_get_type(rhs);
 
-    char requires_overload = 0;
-    CXX_LANGUAGE()
+    if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        requires_overload = any_operand_is_class_or_enum(no_ref(lhs_type), no_ref(rhs_type));
+        return compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
     }
-
-    const_value_t* val = NULL;
-
-    if (!requires_overload)
+    else if (is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        type_t* computed_type = NULL;
-
-        if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
-
-            if (computed_type != NULL
-                    && both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
-                    && nodecl_is_constant(*lhs)
-                    && nodecl_is_constant(*rhs))
-            {
-                val = const_value_add(nodecl_get_constant(*lhs),
-                        nodecl_get_constant(*rhs));
-            }
-        }
-        else if (is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
-        }
-        // Vector case
-        else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = lhs_type;
-        }
-        else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
-        {
-            computed_type = compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
-
-        *nodecl_output = nodecl_make_add(
-                *lhs,
-                *rhs,
-                computed_type, filename, line);
-        nodecl_set_constant(*nodecl_output, val);
-        return;
+        return compute_pointer_arithmetic_type(no_ref(lhs_type), no_ref(rhs_type));
     }
-
-    // Now in C++ we have to rely on overloading for operators
-    static AST operation_add_tree = NULL;
-    if (operation_add_tree == NULL)
+    // Vector case
+    else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        operation_add_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+        return lhs_type;
     }
-
-    builtin_operators_set_t builtin_set; 
-    build_binary_builtin_operators(
-            no_ref(lhs_type), no_ref(rhs_type), 
-            &builtin_set,
-            decl_context, operation_add_tree, 
-            operator_bin_plus_builtin_pred,
-            operator_bin_plus_builtin_result);
-
-    scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
-
-    scope_entry_t* selected_operator = NULL;
-
-    type_t* result = compute_user_defined_bin_operator_type(operation_add_tree, 
-            lhs, rhs, builtins, decl_context, 
-            filename, line,
-            &selected_operator);
-
-    entry_list_free(builtins);
-
-    if (result != NULL
-            && selected_operator != NULL
-            && selected_operator->entity_specs.is_builtin
-            && both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
-            && nodecl_is_constant(*lhs)
-            && nodecl_is_constant(*rhs))
+    else if (one_scalar_operand_and_one_vector_operand(no_ref(lhs_type), no_ref(rhs_type)))
     {
-        val = const_value_add(nodecl_get_constant(*lhs),
-                nodecl_get_constant(*rhs));
+        return compute_scalar_vector_type(no_ref(lhs_type), no_ref(rhs_type));
     }
-
-    if (result != NULL
-            && selected_operator != NULL)
+    else
     {
-        if (selected_operator->entity_specs.is_builtin)
-        {
-            *nodecl_output = nodecl_make_add(
-                    *lhs, *rhs,
-                    result, filename, line);
-        }
-        else
-        {
-            *nodecl_output = cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(selected_operator, filename, line),
-                        nodecl_make_list_2(*lhs, *rhs),
-                        result, filename, line);
-        }
+        return get_error_type();
     }
-
-    nodecl_set_constant(*nodecl_output, val);
 }
 
 static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs)
@@ -2878,6 +2789,32 @@ type_t* compute_type_no_overload_bin_arithmetic(nodecl_t lhs, nodecl_t rhs)
     {
         return get_error_type();
     }
+}
+
+static
+void compute_bin_operator_add_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t decl_context, 
+        const char* filename, int line, nodecl_t* nodecl_output)
+{
+    // Now in C++ we have to rely on overloading for operators
+    static AST operation_add_tree = NULL;
+    if (operation_add_tree == NULL)
+    {
+        operation_add_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    }
+
+    compute_bin_operator_generic(lhs, rhs, 
+            operation_add_tree, 
+            decl_context,
+            any_operand_is_class_or_enum,
+            nodecl_make_add,
+            const_value_add,
+            compute_type_no_overload_add_operation,
+            both_operands_are_arithmetic_noref,
+            operator_bin_plus_builtin_pred,
+            operator_bin_plus_builtin_result,
+            filename, line,
+            nodecl_output);
 }
 
 static
