@@ -4435,6 +4435,11 @@ static void compute_operator_plus_type(nodecl_t* op,
                 filename, line);
         nodecl_expr_set_is_lvalue(*nodecl_output, 0);
         nodecl_set_constant(*nodecl_output, val);
+
+        if (nodecl_expr_is_value_dependent(*op))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
         return;
     }
 
@@ -4481,6 +4486,10 @@ static void compute_operator_plus_type(nodecl_t* op,
                     line);
 
             nodecl_set_constant(*nodecl_output, val);
+            if (nodecl_expr_is_value_dependent(*op))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -4562,6 +4571,10 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
                 filename, line);
 
         nodecl_set_constant(*nodecl_output, val);
+        if (nodecl_expr_is_value_dependent(*op))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
         return;
     }
 
@@ -4607,6 +4620,10 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
                     *op,
                     result, filename, line);
             nodecl_set_constant(*nodecl_output, val);
+            if (nodecl_expr_is_value_dependent(*op))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -4683,6 +4700,10 @@ static void compute_operator_complement_type(nodecl_t* op,
                 computed_type, 
                 filename, line);
         nodecl_set_constant(*nodecl_output, val);
+        if (nodecl_expr_is_value_dependent(*op))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
         return;
     }
 
@@ -4731,6 +4752,10 @@ static void compute_operator_complement_type(nodecl_t* op,
                     result, filename, line);
 
             nodecl_set_constant(*nodecl_output, val);
+            if (nodecl_expr_is_value_dependent(*op))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -4821,6 +4846,10 @@ static void compute_operator_not_type(nodecl_t* op,
                 *op,
                 computed_type, filename, line);
         nodecl_set_constant(*nodecl_output, val);
+        if (nodecl_expr_is_value_dependent(*op))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
         return;
     }
 
@@ -4866,6 +4895,10 @@ static void compute_operator_not_type(nodecl_t* op,
             *nodecl_output = nodecl_make_logical_not(
                     *op, result, filename, line);
             nodecl_set_constant(*nodecl_output, val);
+            if (nodecl_expr_is_value_dependent(*op))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+            }
         }
         else
         {
@@ -5560,10 +5593,12 @@ static void compute_qualified_id_type(AST expr, decl_context_t decl_context, nod
                     && nodecl_is_constant(entry->value))
             {
                 nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-                if (nodecl_expr_is_value_dependent(entry->value))
-                {
-                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-                }
+            }
+
+            if (!nodecl_is_null(entry->value)
+                    && nodecl_expr_is_value_dependent(entry->value))
+            {
+                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
 
             if (is_dependent_type(entry->type_information))
@@ -6512,6 +6547,13 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
                 nodecl_set_constant(*nodecl_output, nodecl_get_constant(third_op));
             }
         }
+
+        if (nodecl_expr_is_value_dependent(first_op)
+                && nodecl_expr_is_value_dependent(second_op)
+                && nodecl_expr_is_value_dependent(third_op))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
     }
 }
 
@@ -7098,6 +7140,11 @@ static void check_explicit_type_conversion_common(type_t* type_info,
 
     nodecl_expr_list = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, ASTFileName(expr), ASTLine(expr));
     check_nodecl_parenthesized_initializer(nodecl_expr_list, decl_context, type_info, nodecl_output);
+
+    if (is_dependent_type(type_info))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
 }
 
 static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8436,6 +8483,11 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             declarator_type,
             cast_kind,
             filename, line);
+
+    if (nodecl_expr_is_value_dependent(nodecl_casted_expr))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
 }
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
@@ -8584,6 +8636,11 @@ static void check_nodecl_comma_operand(nodecl_t nodecl_lhs,
     if (nodecl_is_constant(nodecl_rhs))
     {
         nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_rhs));
+    }
+
+    if (nodecl_expr_is_value_dependent(nodecl_rhs))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
 }
 
@@ -10560,6 +10617,20 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             nodecl_t expr = nodecl_list_head(nodecl_list);
 
             check_nodecl_expr_initializer(expr, decl_context, declared_type, nodecl_output);
+
+            if (!nodecl_is_err_expr(*nodecl_output))
+            {
+                if (nodecl_is_constant(expr)
+                        && is_integral_type(declared_type))
+                {
+                    nodecl_set_constant(*nodecl_output, nodecl_get_constant(expr));
+                }
+
+                if (nodecl_expr_is_value_dependent(expr))
+                {
+                    nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                }
+            }
         }
         else
         {
