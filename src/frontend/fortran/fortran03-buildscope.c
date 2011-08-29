@@ -1530,7 +1530,7 @@ static type_t* gather_type_from_declaration_type_spec_(AST a,
                     nodecl_t lower_bound = nodecl_make_integer_literal(
                             get_signed_int_type(),
                             const_value_get_one(type_get_size(get_signed_int_type()), 1),
-                            ASTFileName(len), ASTLine(len));
+                            nodecl_get_filename(nodecl_len), nodecl_get_line(nodecl_len));
                     result = get_array_type_bounds(result, lower_bound, nodecl_len, decl_context);
                 }
                 else
@@ -6290,12 +6290,10 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
     if (result < 0)
     {
         // Default to an expression since 99% of times is what people meant
-        AST expr = ast_get_ambiguity(ambig_stmt, index_expr);
         ast_replace_with_ambiguity(ambig_stmt, index_expr);
     }
     else
     {
-        AST tree = ast_get_ambiguity(ambig_stmt, result);
         ast_replace_with_ambiguity(ambig_stmt, result);
     }
 }

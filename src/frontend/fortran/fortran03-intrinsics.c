@@ -459,10 +459,8 @@ static char generic_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
-        nodecl_t argument = argument_expressions[i];
-
         const char* keyword = actual_keywords[i];
-        nodecl_t expr = nodecl_get_child(argument, 1);
+        nodecl_t expr = argument_expressions[i];
 
         if (keyword != NULL)
         {
@@ -512,19 +510,22 @@ static char generic_keyword_check(
         }
         if (nodecl_is_null(reordered_exprs[position]))
         {
-            if (nodecl_is_err_expr(expr))
+            if (!nodecl_is_null(expr))
             {
-                DEBUG_CODE()
+                if (nodecl_is_err_expr(expr))
                 {
-                    fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
-                            current_variant.keyword_names[position],
-                            symbol->symbol_name);
-                }
-                ok = 0;
-                break;
-            };
-            reordered_exprs[position] = expr;
-            reordered_types[position] = nodecl_get_type(expr);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
+                                current_variant.keyword_names[position],
+                                symbol->symbol_name);
+                    }
+                    ok = 0;
+                    break;
+                };
+                reordered_exprs[position] = expr;
+                reordered_types[position] = nodecl_get_type(expr);
+            }
         }
         else
         {
@@ -939,7 +940,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", get_float_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("atan2", "atan2", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", get_float_type(), get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(get_float_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(get_float_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
@@ -955,7 +956,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("datan2", "atan2", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2", "atan2", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", get_double_type(), get_double_type());
@@ -4815,8 +4816,10 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                     *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
                 }
             }
+
+            return entry;
         }
     }
 
-    return entry;
+    return NULL;
 }
