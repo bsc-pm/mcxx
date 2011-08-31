@@ -148,6 +148,8 @@ void build_scope_friend_declarator(decl_context_t decl_context,
 LIBMCXX_EXTERN void introduce_using_entity_id_expr(AST id_expression, 
         decl_context_t decl_context, access_specifier_t current_access);
 
+LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

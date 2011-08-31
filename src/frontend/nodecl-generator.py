@@ -67,6 +67,7 @@ def parse_rules(f):
                 needs_type = "type" in remaining_flags
                 needs_text = "text" in remaining_flags
                 needs_cval = "const_value" in remaining_flags
+                needs_template_parameters = "template-parameters" in remaining_flags
                 if ast_args :
                     ast_args_2 = map(lambda x : x.strip(), ast_args.split(","))
                     ast_args_3 = []
@@ -81,9 +82,11 @@ def parse_rules(f):
                         ast_args_3.append((r_label, r_ref))
                         i = i + 1
                         
-                    rule_map[rule_name].append( NodeclStructure(tree_ast, ast_args_3, needs_symbol, needs_type, needs_text, needs_cval) )
+                    rule_map[rule_name].append( NodeclStructure(tree_ast, ast_args_3, needs_symbol, needs_type, \
+                                needs_text, needs_cval, needs_template_parameters) )
                 else:
-                    rule_map[rule_name].append( NodeclStructure(tree_ast, [], needs_symbol, needs_type, needs_text, needs_cval) )
+                    rule_map[rule_name].append( NodeclStructure(tree_ast, [], needs_symbol, needs_type, \
+                                needs_text, needs_cval, needs_template_parameters) )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
     return rule_map
@@ -93,13 +96,14 @@ class Variable:
     pass
 
 class NodeclStructure(Variable):
-    def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval):
+    def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval, needs_template_parameters):
         self.tree_kind = tree_kind
         self.subtrees = subtrees
         self.needs_symbol = needs_symbol
         self.needs_type = needs_type
         self.needs_text = needs_text
         self.needs_cval = needs_cval
+        self.needs_template_parameters = needs_template_parameters
     def is_nullable(self, already_seen = []):
         return False
     def first(self, already_seen = []) :
@@ -115,6 +119,7 @@ class NodeclStructure(Variable):
            print "   ERROR_CONDITION(nodecl_get_text(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
         if (self.needs_cval):
            print "   ERROR_CONDITION(nodecl_get_constant(%s) == NULL, \"Tree lacks a constant value\", 0);" % (tree_expr)
+        # We do not check template parameters
         i = 0
         for subtree in self.subtrees:
            (rule_label, rule_ref) = subtree
@@ -493,6 +498,8 @@ def generate_routines_header(rule_map):
            param_list_nodecl.append("const char*");
        if rhs_rule.needs_cval:
            param_list_nodecl.append("const_value_t*");
+       if rhs_rule.needs_template_parameters:
+           param_list_nodecl.append("template_parameter_list_t*");
        param_list_nodecl.append("const char* filename");
        param_list_nodecl.append("int line");
 
@@ -545,6 +552,8 @@ def generate_routines_impl(rule_map):
            param_list_nodecl.append("const char* text");
        if rhs_rule.needs_cval:
            param_list_nodecl.append("const_value_t* cval");
+       if rhs_rule.needs_template_parameters:
+           param_list_nodecl.append("template_parameter_list_t* template_parameters");
        param_list_nodecl.append("const char* filename");
        param_list_nodecl.append("int line");
        if not param_list_nodecl:
@@ -612,6 +621,8 @@ def generate_routines_impl(rule_map):
        if rhs_rule.needs_cval:
            print "  if (cval == NULL) internal_error(\"This node requires a constant value. Location: %s:%d\", filename, line);"
            print "  nodecl_set_constant(result, cval);"
+       if rhs_rule.needs_template_parameters:
+           print "  nodecl_set_template_parameters(result, template_parameters);"
 
        print "  return result;"
        print "}"

@@ -110,6 +110,10 @@ LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, d
 
 // Like nodecl_make_function_call but takes care of virtual function calls
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);
+ 
+// Not meant to be LIBMCXX_EXTERN (used by cxx-cuda.c)
+void check_function_arguments(AST arguments, decl_context_t decl_context, nodecl_t* nodecl_output);
+void check_nodecl_function_call(nodecl_t nodecl_called, nodecl_t nodecl_argument_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 MCXX_END_DECLS
 

@@ -75,7 +75,7 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        scope_entry_list_t* entry_list = query_unqualified_name_str(_decl_context, const_cast<char*>(str.c_str()));
+        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()));
 
         convert_to_vector(entry_list, result);
 
@@ -225,7 +225,7 @@ namespace TL
 
     ObjectList<Symbol> Scope::cascade_lookup(const std::string& str, const std::string& filename, int line)
     {
-        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), filename.c_str(), line);
+        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), DF_NONE, filename.c_str(), line);
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
         entry_list_free(entry_list);

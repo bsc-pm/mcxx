@@ -2678,7 +2678,16 @@ static int get_rank_kind(node_t n, const char* text)
 
 static int get_rank(nodecl_t n)
 {
-    return get_rank_kind(nodecl_get_kind(n), nodecl_get_text(n));
+    switch (nodecl_get_kind(n))
+    {
+        // Special cases
+        case NODECL_CONVERSION:
+            {
+                return get_rank(nodecl_get_child(n, 0));
+            }
+        default:
+            return get_rank_kind(nodecl_get_kind(n), nodecl_get_text(n));
+    }
 }
 
 static char is_bitwise_bin_operator(node_t n)
@@ -4044,10 +4053,10 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     codegen_walk(visitor, statement);
 }
 
-// This should never happen
-static void codegen_cxx_raw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    internal_error("Not yet implemented", 0);
+    // Do nothing
+    codegen_walk(visitor, nodecl_get_child(node, 0));
 }
 
 // static void codegen_cxx_unresolved_overload(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -4147,6 +4156,8 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
     NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);
     NODECL_VISITOR(codegen_visitor)->visit_type = codegen_visitor_fun(codegen_type);
+
+    NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 
     // NODECL_VISITOR(codegen_visitor)->visit_cxx_unresolved_overload = codegen_visitor_fun(codegen_cxx_unresolved_overload);
 }

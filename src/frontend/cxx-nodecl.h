@@ -35,6 +35,10 @@ void nodecl_set_type(nodecl_t, type_t*);
 scope_entry_t* nodecl_get_symbol(nodecl_t);
 void nodecl_set_symbol(nodecl_t, scope_entry_t*);
 
+// Template parameters (C++ only)
+void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* template_parameters);
+template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n);
+
 // Location
 const char* nodecl_get_filename(nodecl_t);
 int nodecl_get_line(nodecl_t);

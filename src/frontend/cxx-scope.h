@@ -66,18 +66,24 @@ LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* en
 LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
 LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
-LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*));
+LIBMCXX_EXTERN scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*, void*), void* p);
 
 // Query functions
-LIBMCXX_EXTERN scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
+LIBMCXX_EXTERN scope_entry_list_t* query_name_str_flags(decl_context_t decl_context,
         const char* unqualified_name, decl_flags_t decl_flags);
-#define query_unqualified_name_str(_decl_context, _unqualified_name) \
-    query_unqualified_name_str_flags(_decl_context, _unqualified_name, DF_NONE)
+#define query_name_str(_decl_context, _unqualified_name) \
+    query_name_str_flags(_decl_context, _unqualified_name, DF_NONE)
 
 LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
         nodecl_t nodecl_name, decl_flags_t decl_flags);
 #define query_nodecl_name(_decl_context, _nodecl_simple_name) \
     query_nodecl_name_flags(_decl_context, _nodecl_simple_name, DF_NONE)
+
+LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(decl_context_t decl_context,
+        nodecl_t nodecl_name, decl_flags_t decl_flags);
+
+#define query_nodecl_name_in_class(_decl_context, _nodecl_simple_name) \
+    query_nodecl_name_in_class_flags(_decl_context, _nodecl_simple_name, DF_NONE)
 
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
@@ -124,7 +130,7 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 
 // Class scopes
-LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, const char* name);
+LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, decl_flags_t decl_flags, const char* name);
 
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
@@ -138,7 +144,9 @@ LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         const char* filename, int line);
 
 // Other stuff
-LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
+LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, 
+        const char* name, 
+        decl_flags_t decl_flags,
         const char* filename, int line);
 
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
@@ -199,7 +207,18 @@ LIBMCXX_EXTERN const char* unmangle_symbol_name(scope_entry_t* entry);
 // Debug
 LIBMCXX_EXTERN void print_template_parameter_list(template_parameter_list_t* template_parameters);
 
-void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context, nodecl_t* nodecl_output);
+// Dependent names
+LIBMCXX_EXTERN void compute_nodecl_name_from_nested_name(AST nested_part, 
+        AST unqualified_part, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output);
+
+LIBMCXX_EXTERN void compute_nodecl_name_from_id_expression(AST id_expression, decl_context_t decl_context,
+        nodecl_t* nodecl_output);
+LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op, 
+        AST nested_name_spec, AST unqualified_id, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output);
 
 MCXX_END_DECLS
 

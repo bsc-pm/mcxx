@@ -232,6 +232,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t templa
         char is_explicit_instantiation, nodecl_t* nodecl_output);
 
 static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
@@ -649,7 +650,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             }
         case AST_ASM_DEFINITION :
             {
-                internal_error("Not yet implemented in nodecl", 0);
+                build_scope_asm_definition(a, decl_context, nodecl_output);
                 break;
             }
         case AST_UNKNOWN_PRAGMA :
@@ -732,7 +733,31 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
     }
 }
 
-// It simply disambiguates
+static void build_scope_asm_definition(AST a, 
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        nodecl_t* nodecl_output)
+{
+    AST string_literal = ASTSon0(a);
+    AST volatile_optional = ASTSon1(a);
+
+    nodecl_t any_list = nodecl_null();
+
+    if (string_literal != NULL)
+    {
+        any_list = nodecl_append_to_list(any_list, 
+                nodecl_make_text("volatile", ASTFileName(volatile_optional), ASTLine(volatile_optional)));
+    }
+
+    any_list = nodecl_append_to_list(any_list, 
+            nodecl_make_text(ASTText(string_literal), ASTFileName(string_literal), ASTLine(string_literal)));
+
+    nodecl_t nodecl_gcc_asm = nodecl_make_builtin_decl(
+            nodecl_make_any_list(any_list, ASTFileName(a), ASTLine(a)),
+            "asm-definition", ASTFileName(a), ASTLine(a));
+
+    *nodecl_output = nodecl_make_list_1(nodecl_gcc_asm);
+}
+
 static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     AST asm_parms = ASTSon1(a);
@@ -2062,7 +2087,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-        result_list = query_unqualified_name_str(decl_context, class_name);
+        result_list = query_name_str(decl_context, class_name);
     }
 
     // Now look for a type
@@ -2358,7 +2383,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a,
         const char* enum_name = ASTText(id_expression);
 
         enum_name = strappend("enum ", enum_name);
-        result_list = query_unqualified_name_str(decl_context, enum_name);
+        result_list = query_name_str(decl_context, enum_name);
     }
 
     // Look for an enum name
@@ -2572,7 +2597,8 @@ static type_t* compute_underlying_type_enum(const_value_t* min_value,
         type_t* underlying_type,
         char short_enums)
 {
-    if (is_dependent_type(underlying_type))
+    if (is_dependent_type(underlying_type)
+            || is_error_type(underlying_type))
         return underlying_type;
 
 
@@ -2800,29 +2826,35 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 nodecl_t nodecl_expr = nodecl_null();
                 if (!check_expression(enumeration_expr, enumerators_context, &nodecl_expr))
                 {
-                    running_error("%s: error: invalid enumerator initializer '%s'\n",
-                            ast_location(enumeration_expr),
-                            prettyprint_in_buffer(enumeration_expr));
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid enumerator initializer '%s'\n",
+                                ast_location(enumeration_expr),
+                                prettyprint_in_buffer(enumeration_expr));
+                    }
+                    underlying_type = get_error_type();
                 }
                 else
                 {
-                    if (!nodecl_is_constant(nodecl_expr))
+                    if (nodecl_is_constant(nodecl_expr))
                     {
-                        C_LANGUAGE()
+                        enumeration_item->type_information = nodecl_get_type(nodecl_expr);
+                    }
+                    else if (IS_CXX_LANGUAGE
+                            && nodecl_expr_is_value_dependent(nodecl_expr))
+                    {
+                        underlying_type = get_unknown_dependent_type();
+                        enumeration_item->type_information = nodecl_get_type(nodecl_expr);
+                    }
+                    else
+                    {
+                        if (!checking_ambiguity())
                         {
-                            running_error("%s: error: expression '%s' is not constant\n",
+                            error_printf("%s: error: expression '%s' is not constant\n",
                                     ast_location(enumeration_expr),
                                     prettyprint_in_buffer(enumeration_expr));
                         }
-                        CXX_LANGUAGE()
-                        {
-                            internal_error("Not yet implemented", 0);
-                            // underlying_type = get_type_dependent_expression_type();
-                        }
-                    }
-                    CXX_LANGUAGE()
-                    {
-                        enumeration_item->type_information = nodecl_get_type(nodecl_expr);
+                        underlying_type = get_error_type();
                     }
                 }
 
@@ -2859,20 +2891,27 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         enumeration_item->value = const_value_to_nodecl(val_plus_one);
                         enumeration_item->type_information = nodecl_get_type(enumeration_item->value);
                     }
-                    else
+                    else if (IS_CXX_LANGUAGE
+                            && nodecl_expr_is_value_dependent(base_enumerator))
                     {
-                        nodecl_t add_one = nodecl_make_add(base_enumerator,
+                        nodecl_t add_one = nodecl_make_add(
+                                nodecl_copy(base_enumerator),
                                 const_value_to_nodecl(const_value_get_signed_int(delta)),
                                 get_unknown_dependent_type(),
                                 nodecl_get_filename(base_enumerator),
                                 nodecl_get_line(base_enumerator));
+                        nodecl_expr_set_is_value_dependent(add_one, 1);
+
                         enumeration_item->value = add_one;
 
-                        CXX_LANGUAGE()
-                        {
-                            enumeration_item->type_information = get_unknown_dependent_type();
-                        }
+                        enumeration_item->type_information = get_unknown_dependent_type();
                         underlying_type = get_unknown_dependent_type();
+                    }
+                    else
+                    {
+                        // If the base was not constant it means there was an
+                        // error, use the erroneous tree
+                        enumeration_item->value = base_enumerator;
                     }
 
                     delta++;
@@ -4631,7 +4670,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             const char* class_name = ASTText(class_id_expression);
             class_name = strappend(class_kind_name, strappend(" ", class_name));
 
-            class_entry_list = query_unqualified_name_str(decl_context, class_name);
+            class_entry_list = query_name_str(decl_context, class_name);
         }
 
         enum cxx_symbol_kind filter_classes[] = 
@@ -6997,7 +7036,6 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
         declarator_is_template_id = (ASTType(considered_tree) == AST_TEMPLATE_ID 
                 || ASTType(considered_tree) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
 
-        nodecl_t nodecl_template_arguments = nodecl_null();
         explicit_template_parameters = 
             get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
     }
@@ -8623,17 +8661,22 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     ast_set_link_to_child(a, LANG_FUNCTION_BODY, statement);
 
     // Create nodecl (only if not dependent)
+    nodecl_t nodecl_function_def = nodecl_make_function_code(
+            nodecl_make_list_1(body_nodecl), 
+            nodecl_initializers,
+            /* internal_functions */ nodecl_null(),
+            entry,
+            ASTFileName(a), ASTLine(a));
+
     if (!is_dependent_type(entry->type_information)
             && !(entry->entity_specs.is_member
                 && is_dependent_type(entry->entity_specs.class_type)))
     {
-        nodecl_t nodecl_function_def = nodecl_make_function_code(
-                nodecl_make_list_1(body_nodecl), 
-                nodecl_initializers,
-                /* internal_functions */ nodecl_null(),
-                entry,
-                ASTFileName(a), ASTLine(a));
         *nodecl_output = nodecl_make_list_1(nodecl_function_def);
+    }
+    else
+    {
+        entry->entity_specs.template_code = nodecl_function_def;
     }
 
     return entry;
@@ -10551,10 +10594,10 @@ static void build_scope_switch_statement(AST a,
             nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a)));
 }
 
-static scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
+scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
 {
     const char* label_text = ASTText(label);
-    scope_entry_list_t* entry_list = query_unqualified_name_str_flags(decl_context, label_text, DF_LABEL);
+    scope_entry_list_t* entry_list = query_name_str_flags(decl_context, label_text, DF_LABEL);
 
     scope_entry_t* sym_label = NULL;
     if (entry_list == NULL)

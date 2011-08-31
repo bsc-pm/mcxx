@@ -653,7 +653,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_builtin = 1;
         new_entry->entity_specs.is_builtin_subroutine = (result_type == NULL);
 
-        rb_tree_add(intrinsic_map, p, new_entry);
+        rb_tree_insert(intrinsic_map, p, new_entry);
 
         DEBUG_CODE()
         {

@@ -1829,6 +1829,12 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     codegen_walk(visitor, nodecl_get_child(node, 0));
 }
 
+static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    // Do nothing
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
 static void codegen_expression_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     indent(visitor);
@@ -1907,6 +1913,8 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_fortran_forall = codegen_visitor_fun(codegen_forall);
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
+
+    NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 }
 
 void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, nodecl_t node, scope_link_t* sl UNUSED_PARAMETER)

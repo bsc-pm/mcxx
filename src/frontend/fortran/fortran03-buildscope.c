@@ -1424,15 +1424,11 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
 
     type_t* result = NULL;
 
-    scope_entry_t* entry = NULL;
-    scope_entry_list_t* entry_list = query_in_scope_str(decl_context, strtolower(ASTText(name)));
-    if (entry_list != NULL)
+    scope_entry_t* entry = query_name_no_implicit_or_builtin(decl_context, strtolower(ASTText(name)));
+    if (entry != NULL
+            && entry->kind == SK_CLASS)
     {
-        entry = entry_list_head(entry_list);
-        if (entry->kind == SK_CLASS)
-        {
-            result = get_user_defined_type(entry);
-        }
+        result = get_user_defined_type(entry);
     }
 
     return result;
@@ -2771,7 +2767,7 @@ static scope_entry_t* query_label(AST label,
     global_context.current_scope = global_context.function_scope;
 
     const char* label_text = strappend(".label_", ASTText(label));
-    scope_entry_list_t* entry_list = query_unqualified_name_str(global_context, label_text);
+    scope_entry_list_t* entry_list = query_name_str(global_context, label_text);
 
     scope_entry_t* new_label = NULL;
     if (entry_list == NULL)

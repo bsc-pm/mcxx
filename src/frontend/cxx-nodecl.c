@@ -17,6 +17,8 @@ struct nodecl_expr_info_tag
 
     const_value_t* const_val;
     scope_entry_t* symbol;
+
+    template_parameter_list_t* template_parameters;
 } nodecl_expr_info_t;
 
 // Nodecl expression routines. 
@@ -30,30 +32,30 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info_noalloc(AST expr)
     return p;
 }
 
-static type_t* nodecl_expr_get_type(AST expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
-    return expr_info == NULL ? NULL : expr_info->type_info;
+#define NODECL_EXPR_GET_PTR(return_type, what, field_name) \
+static return_type* nodecl_expr_get_##what(AST expr) \
+{ \
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr); \
+    return expr_info == NULL ? NULL : expr_info->field_name; \
 }
 
-static scope_entry_t* nodecl_expr_get_symbol(AST expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
-    return expr_info == NULL ? NULL : expr_info->symbol;
-}
+// static type_t* nodecl_expr_get_type(AST expr)
+NODECL_EXPR_GET_PTR(type_t, type, type_info)
+
+// static scope_entry_t* nodecl_expr_get_symbol(AST expr)
+NODECL_EXPR_GET_PTR(scope_entry_t, symbol, symbol)
+
+// static const_value_t* nodecl_expr_get_constant(AST expr)
+NODECL_EXPR_GET_PTR(const_value_t, constant, const_val)
+
+// static template_parameter_list_t* nodecl_expr_get_template_parameters(AST expr)
+NODECL_EXPR_GET_PTR(template_parameter_list_t, template_parameters, template_parameters)
 
 char nodecl_expr_is_constant(AST expr)
 {
     nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
     return expr_info == NULL ? 0 : (expr_info->const_val != NULL);
 }
-
-static const_value_t* nodecl_expr_get_constant(AST expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
-    return expr_info == NULL ? NULL : expr_info->const_val;
-}
-
 
 static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
 {
@@ -66,50 +68,24 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
     return p;
 }
 
-static void nodecl_expr_set_symbol(AST expr, scope_entry_t* entry)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr);
-    expr_info->symbol = entry;
+#define NODECL_EXPR_SET_PTR(type, what, field_name) \
+static void nodecl_expr_set_##what(AST expr, type * datum) \
+{ \
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr); \
+    expr_info->field_name = datum; \
 }
 
-static void nodecl_expr_set_type(AST expr, type_t* t)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr);
-    expr_info->type_info = t;
-}
+// static void nodecl_expr_set_symbol(AST expr, scope_entry_t* entry)
+NODECL_EXPR_SET_PTR(scope_entry_t, symbol, symbol)
 
-#if 0
-static void nodecl_expr_set_non_constant(AST expr)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr);
-    expr_info->const_val = NULL;
-}
-#endif
+// static void nodecl_expr_set_type(AST expr, type_t* t)
+NODECL_EXPR_SET_PTR(type_t, type, type_info)
 
-static void nodecl_expr_set_constant(AST expr, const_value_t* const_val)
-{
-    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr);
-    expr_info->const_val = const_val;
-}
-
-#if 0
-static void nodecl_expr_clear_computed_info(AST t)
-{
-    if (t == NULL)
-        return;
-
-    nodecl_expr_info_t* info = nodecl_expr_get_expression_info_noalloc(t);
-    if (info != NULL)
-    {
-        memset(info, 0, sizeof(*info));
-    }
-    int i;
-    for (i = 0; i < ASTNumChildren(t); i++)
-    {
-        nodecl_expr_clear_computed_info(ASTChild(t, i));
-    }
-}
-#endif
+// static void nodecl_expr_set_constant(AST expr, const_value_t* const_val)
+NODECL_EXPR_SET_PTR(const_value_t, constant, const_val)
+    
+// static void nodecl_expr_set_template_parameters(AST expr, template_parameter_list_t* template_params)
+NODECL_EXPR_SET_PTR(template_parameter_list_t, template_parameters, template_parameters)
 
 // Public routines
 nodecl_t nodecl_null(void)
@@ -167,6 +143,16 @@ const_value_t* nodecl_get_constant(nodecl_t t)
 void nodecl_set_constant(nodecl_t t, const_value_t* cval)
 {
     nodecl_expr_set_constant(t.tree, cval);
+}
+
+template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n)
+{
+    return nodecl_expr_get_template_parameters(n.tree);
+}
+
+void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* template_parameters)
+{
+    nodecl_expr_set_template_parameters(n.tree, template_parameters);
 }
 
 const char* nodecl_get_filename(nodecl_t t)

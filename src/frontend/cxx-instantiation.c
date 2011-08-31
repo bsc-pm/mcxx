@@ -40,6 +40,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
+#include "cxx-graphviz.h"
 
 #include "cxx-printscope.h"
 
@@ -707,7 +708,6 @@ static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAME
         int line)
 {
     internal_error("Not yet implemented", 0);
-
 #if 0
     decl_context_t orig_decl_context;
     AST declarator = nodecl_unwrap_cxx_dependent_expr(friend->value, &orig_decl_context);
@@ -1192,7 +1192,10 @@ static void instantiate_template_function(scope_entry_t* entry, const char* file
     scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
     // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
 
-    // AST orig_function_definition = primary_specialization_function->entity_specs.definition_tree;
+    nodecl_t orig_function_definition = primary_specialization_function->entity_specs.template_code;
+
+    ast_dump_graphviz(nodecl_get_ast(orig_function_definition), stderr);
+
     // 
     // // Remove dependent types
     // AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);

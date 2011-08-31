@@ -1080,7 +1080,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
             type_info->info->is_dependent = is_dependent_type(entry->type_information);
         }
 
-        rb_tree_add(_user_defined_types, entry, type_info);
+        rb_tree_insert(_user_defined_types, entry, type_info);
     }
 
     return type_info;
@@ -1096,218 +1096,18 @@ type_t* get_indirect_type(scope_entry_t* entry)
     return get_indirect_type_(entry, /* indirect */ 1);
 }
 
-// static dependent_name_part_t* get_dependent_nested_part(
-//         decl_context_t decl_context,
-//         AST nested_part,
-//         int *nesting_level)
-// {
-//     ERROR_CONDITION(nested_part == NULL, "This tree cannot be NULL", 0);
-// 
-//     dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-// 
-//     if (ASTType(nested_part) == AST_SYMBOL)
-//     {
-//         result->name = ASTText(nested_part);
-//     }
-//     else if (ASTType(nested_part) == AST_TEMPLATE_ID)
-//     {
-//         AST sym = ASTSon0(nested_part);
-// 
-//         result->name = ASTText(sym);
-// 
-//         result->template_arguments = get_template_parameters_from_syntax(
-//                 ASTSon1(nested_part),
-//                 decl_context,
-//                 NULL);
-//         result->template_arguments->enclosing = decl_context.template_parameters;
-//         (*nesting_level)++;
-//     }
-//     else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
-//             || ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-//     {
-//         result->name = get_operator_function_name(nested_part);
-// 
-//         if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-//         {
-//             result->template_arguments = get_template_parameters_from_syntax(
-//                     ASTSon1(nested_part),
-//                     decl_context, 
-//                     NULL);
-//             result->template_arguments->enclosing = decl_context.template_parameters;
-//             (*nesting_level)++;
-//         }
-//     }
-//     else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
-//     {
-//         nodecl_t dummy_nodecl_output;
-//         result->name = get_conversion_function_name(decl_context, nested_part, 
-//                 &result->related_type, &dummy_nodecl_output);
-//     }
-//     else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
-//     {
-//         return get_dependent_nested_part(decl_context, 
-//                 ASTSon0(nested_part), 
-//                 nesting_level);
-//     }
-//     else
-//     {
-//         internal_error("Invalid tree of kind '%s'\n", ast_print_node_type(ASTType(nested_part)));
-//     }
-// 
-//     return result;
-// }
-
-// static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
-//         scope_entry_t* entry, 
-//         scope_entry_t** enclosing_dependent_entity,
-//         int *nesting_level)
-// {
-//     dependent_name_part_t* result = NULL;
-//     dependent_name_part_t* enclosing = NULL;
-//     if (entry->decl_context.current_scope->kind == CLASS_SCOPE
-//             && entry->decl_context.current_scope->related_entry->kind == SK_CLASS)
-//     {
-//         enclosing = compute_dependent_parts_of_dependent_symbol(
-//                 entry->decl_context.current_scope->related_entry,
-//                 enclosing_dependent_entity,
-//                 nesting_level);
-//     }
-// 
-//     if (is_template_specialized_type(entry->type_information))
-//     {
-//         (*nesting_level)++;
-//     }
-// 
-//     if (is_dependent_type(entry->type_information))
-//     {
-//         if (*enclosing_dependent_entity == NULL)
-//         {
-//             *enclosing_dependent_entity = entry;
-//         }
-//         else
-//         {
-//             result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-//             result->name = entry->symbol_name;
-// 
-//             if (is_template_specialized_type(entry->type_information))
-//             {
-//                 result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-//             }
-// 
-//             if (enclosing != NULL)
-//             {
-//                 dependent_name_part_t* tmp = enclosing;
-// 
-//                 while (tmp->next != NULL) 
-//                     tmp = tmp->next;
-//                 tmp->next = result;
-// 
-//                 result = enclosing;
-//             }
-//         }
-//     }
-// 
-//     return result;
-// }
-
-// static dependent_name_part_t* compute_dependent_parts(
-//         decl_context_t decl_context,
-//         AST nested_name,
-//         AST unqualified_part,
-//         int *nesting_level)
-// {
-//     if (nested_name == NULL)
-//     {
-//         return get_dependent_nested_part(decl_context, 
-//                 unqualified_part,
-//                 nesting_level);
-//     }
-//     else
-//     {
-//         AST next_part = ASTSon1(nested_name);
-// 
-//         dependent_name_part_t* next = compute_dependent_parts(
-//                 decl_context,
-//                 next_part,
-//                 unqualified_part, 
-//                 nesting_level);
-// 
-//         dependent_name_part_t* current = get_dependent_nested_part(
-//                 decl_context, ASTSon0(nested_name), 
-//                 nesting_level);
-// 
-//         current->next = next;
-// 
-//         return current;
-//     }
-// }
-
-// dependent_name_part_t* copy_dependent_parts(
-//         dependent_name_part_t* dependent_part)
-// {
-//     if (dependent_part == NULL)
-//     {
-//         return NULL;
-//     }
-//     else
-//     {
-//         dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-// 
-//         // Plain copy
-//         *result = *dependent_part;
-// 
-//         result->next = copy_dependent_parts(dependent_part->next);
-//         return result;
-//     }
-// }
-
-type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
+type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry, 
         nodecl_t dependent_parts)
 {
-     internal_error("Not yet implemented", 0);
-// 
-//     scope_entry_t* most_enclosing_dependent_entity = NULL;
-// 
-//     int nesting_level = 1;
-// 
-//     dependent_name_part_t* dependent_parts_enclosing =
-//         compute_dependent_parts_of_dependent_symbol(dependent_entity,
-//                 &most_enclosing_dependent_entity,
-//                 &nesting_level);
-// 
-//     if (most_enclosing_dependent_entity != NULL)
-//         dependent_entity = most_enclosing_dependent_entity;
-// 
-//     if (dependent_parts_enclosing == NULL
-//             && dependent_parts == NULL)
-//         return get_user_defined_type(dependent_entity);
-// 
-//     type_t* type_info = get_simple_type();
-// 
-//     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-//     type_info->type->dependent_entry = dependent_entity;
-// 
-//     ERROR_CONDITION(dependent_entity->kind != SK_TEMPLATE_TYPE_PARAMETER
-//             && dependent_entity->kind != SK_CLASS
-//             && dependent_entity->kind != SK_TYPEDEF, 
-//             "Invalid dependent entity of kind '%d'", dependent_entity->kind);
-// 
-//     if (dependent_parts_enclosing != NULL)
-//     {
-//         dependent_name_part_t* tmp = dependent_parts_enclosing;
-// 
-//         while (tmp->next != NULL)
-//             tmp = tmp->next;
-//         tmp->next = dependent_parts;
-// 
-//         dependent_parts = dependent_parts_enclosing;
-//     }
-// 
-//     type_info->type->dependent_parts = dependent_parts;
-// 
-//     type_info->info->is_dependent = 1;
-// 
-//     return type_info;
+    type_t* result = get_simple_type();
+    result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+    result->type->dependent_entry = dependent_entry;
+    result->type->dependent_parts = dependent_parts;
+
+    // This is always dependent
+    result->info->is_dependent = 1;
+
+    return result;
 }
 
 type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
@@ -1315,41 +1115,10 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
         AST nested_name, 
         AST unqualified_part)
 {
-    internal_error("Not yet implemented", 0);
-//     // Sometimes we need to add more dependent types because the referenced
-//     // dependent entity is actually nested inside dependent parts
-// 
-//     scope_entry_t* most_enclosing_dependent_entity = NULL;
-// 
-//     int nesting_level = 1;
-// 
-//     dependent_name_part_t* dependent_parts_enclosing =
-//         compute_dependent_parts_of_dependent_symbol(dependent_entity,
-//                 &most_enclosing_dependent_entity,
-//                 &nesting_level);
-// 
-//     if (most_enclosing_dependent_entity != NULL)
-//         dependent_entity = most_enclosing_dependent_entity;
-// 
-//     dependent_name_part_t* dependent_parts = compute_dependent_parts(
-//             decl_context,
-//             nested_name,
-//             unqualified_part,
-//             &nesting_level);
-// 
-//     if (dependent_parts_enclosing != NULL)
-//     {
-//         dependent_name_part_t* tmp = dependent_parts_enclosing;
-// 
-//         while (tmp->next != NULL)
-//             tmp = tmp->next;
-//         tmp->next = dependent_parts;
-// 
-//         dependent_parts = dependent_parts_enclosing;
-//     }
-// 
-//     return get_dependent_typename_type_from_parts(dependent_entity, 
-//             dependent_parts);
+    nodecl_t nodecl_dependent_parts = nodecl_null();
+    compute_nodecl_name_from_nested_name(nested_name, unqualified_part, decl_context, &nodecl_dependent_parts);
+
+    return get_dependent_typename_type_from_parts(dependent_entity, nodecl_dependent_parts);
 }
 
 void dependent_typename_get_components(type_t* t, 
@@ -2006,7 +1775,7 @@ type_t* get_complex_type(type_t* t)
         result->info->alignment = t->info->alignment;
         result->info->valid_size = 1;
 
-        rb_tree_add(_complex_hash, t, result);
+        rb_tree_insert(_complex_hash, t, result);
     }
 
     return result;
@@ -2135,7 +1904,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
-        rb_tree_add(_qualification[(int)(cv_qualification)], 
+        rb_tree_insert(_qualification[(int)(cv_qualification)], 
                 original->unqualified_type, 
                 qualified_type);
     }
@@ -2200,7 +1969,7 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_add(_pointer_types, t, pointed_type);
+        rb_tree_insert(_pointer_types, t, pointed_type);
     }
 
     return pointed_type;
@@ -2262,7 +2031,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_add((*reference_types), t, referenced_type);
+        rb_tree_insert((*reference_types), t, referenced_type);
     }
 
     return referenced_type;
@@ -2301,7 +2070,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
     {
         class_type_hash = rb_tree_create(intptr_t_comp, null_dtor, null_dtor);
 
-        rb_tree_add(_class_types, class_entry, class_type_hash);
+        rb_tree_insert(_class_types, class_entry, class_type_hash);
     }
 
     type_t* pointer_to_member = rb_tree_query_type(class_type_hash, t);
@@ -2337,7 +2106,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
             || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
             || is_dependent_type(class_entry->type_information);
 
-        rb_tree_add(class_type_hash, t, pointer_to_member);
+        rb_tree_insert(class_type_hash, t, pointer_to_member);
     }
 
     return pointer_to_member;
@@ -2596,7 +2365,7 @@ static type_t* _get_array_type(type_t* element_type,
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            rb_tree_add(_undefined_array_types, element_type, result);
+            rb_tree_insert(_undefined_array_types, element_type, result);
         }
         else
         {
@@ -2629,7 +2398,7 @@ static type_t* _get_array_type(type_t* element_type,
                 result->array->upper_bound = upper_bound;
 
                 result->array->array_expr_decl_context = decl_context;
-                rb_tree_add(array_sized_hash, element_type, result);
+                rb_tree_insert(array_sized_hash, element_type, result);
 
                 result->info->is_dependent = is_dependent_type(element_type);
             }
@@ -4519,550 +4288,645 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 
 static const char* get_template_parameters_list_str(template_parameter_list_t* template_parameters);
 
+static type_t* rebuild_advanced_dependent_type(
+        type_t* original_type,
+        scope_entry_t* advanced_member,
+        int nested_name_index,
+        int nested_name_size,
+        nodecl_t* nodecl_nested_name)
+{
+    // We can reuse the original type because nothing was advanced actually
+    if (nested_name_index == 0)
+        return original_type;
+
+    nodecl_t nodecl_list = nodecl_null();
+
+    int i;
+    for (i = nested_name_index; i < nested_name_size; i++)
+    {
+        nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_nested_name[i]);
+    }
+
+    nodecl_t nodecl_parts = nodecl_make_cxx_dep_name_nested(nodecl_list, NULL, 0);
+
+    return get_dependent_typename_type_from_parts(advanced_member, nodecl_parts);
+}
+
+
 // FIXME - This function looks rather similar to update_dependent_typename, can
 // we abstract them away?
-// static type_t* advance_dependent_typename_aux(
-//         type_t* original_type,
-//         type_t* dependent_entry_type,
-//         dependent_name_part_t* dependent_parts)
-// {
-//     if (!is_named_type(dependent_entry_type))
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Not a named type, returning it unchanged\n");
-//         }
-//         return original_type;
-//     }
-// 
-//     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
-// 
-//     if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-//             || dependent_entry->kind == SK_TYPEDEF)
-//     {
-//         // No way if this is an involved dependent typename
-//         return original_type;
-//     }
-// 
-//     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
-//     ERROR_CONDITION(dependent_parts == NULL, "Dependent parts cannot be empty", 0);
-// 
-//     scope_entry_t* current_member = dependent_entry;
-// 
-//     decl_context_t class_context;
-// 
-//     while (dependent_parts->next != NULL)
-//     {
-//         ERROR_CONDITION(dependent_parts->related_type != NULL, "Dependent part has a related type", 0);
-// 
-//         class_context = class_type_get_inner_context(current_member->type_information);
-// 
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Looking for dependent-part '%s'\n", dependent_parts->name);
-//         }
-// 
-//         scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
-// 
-//         if (member_list == NULL)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
-//             }
-// 
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-// 
-//         if (entry_list_size(member_list) > 1)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
-//             }
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-// 
-//         scope_entry_t* member = entry_list_head(member_list);
-// 
-//         if (member->kind == SK_TYPEDEF)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
-//             }
-//             type_t* advanced_type = advance_over_typedefs(member->type_information);
-// 
-//             if (is_named_class_type(advanced_type))
-//             {
-//                 member = named_type_get_symbol(advanced_type);
-//             }
-//         }
-// 
-//         if (member->kind == SK_CLASS)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
-//             }
-//             if (dependent_parts->template_arguments != NULL)
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
-//                 }
-//                 return get_dependent_typename_type_from_parts(current_member, 
-//                         copy_dependent_parts(dependent_parts));
-//             }
-// 
-//             current_member = member;
-//         }
-//         else if (member->kind == SK_TEMPLATE)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
-//                         dependent_parts->name);
-//             }
-// 
-//             if (dependent_parts->template_arguments == NULL)
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
-//                 }
-//                 return get_dependent_typename_type_from_parts(current_member, 
-//                         copy_dependent_parts(dependent_parts));
-//             }
-// 
-//             // TEMPLATE RESOLUTION
-//             type_t* template_type = member->type_information;
-// 
-//             // Only template classes
-//             if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
-//                 }
-//                 return get_dependent_typename_type_from_parts(current_member, 
-//                         copy_dependent_parts(dependent_parts));
-//             }
-// 
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Requesting specialization '%s'\n", 
-//                         dependent_parts->name);
-//             }
-// 
-//             template_parameter_list_t* template_parameters = dependent_parts->template_arguments;
-// 
-//             type_t* specialized_type = template_type_get_specialized_type(
-//                     template_type,
-//                     template_parameters,
-//                     class_context, 
-//                     // They should not be needed
-//                     NULL, 0);
-// 
-//             current_member = named_type_get_symbol(specialized_type);
-// 
-//             if (current_member == NULL)
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: Somehow when requesting a specialization nothing was returned");
-//                 }
-//                 return get_dependent_typename_type_from_parts(current_member, 
-//                         copy_dependent_parts(dependent_parts));
-//             }
-//         }
-//         else 
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
-//             }
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-// 
-//         dependent_parts = dependent_parts->next;
-//     }
-// 
-//     // Last part
-//     class_context = class_type_get_inner_context(current_member->type_information);
-// 
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", dependent_parts->name);
-//     }
-// 
-//     scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
-// 
-//     if (member_list == NULL)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
-//         }
-//         return get_dependent_typename_type_from_parts(current_member, 
-//                 copy_dependent_parts(dependent_parts));
-//     }
-// 
-//     if (entry_list_size(member_list) > 1)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
-//         }
-//         return get_dependent_typename_type_from_parts(current_member, 
-//                 copy_dependent_parts(dependent_parts));
-//     }
-// 
-//     scope_entry_t* member = entry_list_head(member_list);
-// 
-//     if (member->kind == SK_CLASS
-//             || member->kind == SK_TYPEDEF)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
-//         }
-//         if (dependent_parts->template_arguments != NULL)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
-//             }
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-//         
-//         if (member->kind == SK_TYPEDEF)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
-//             }
-//             type_t* advanced_type = advance_over_typedefs(member->type_information);
-// 
-//             if (is_named_class_type(advanced_type))
-//             {
-//                 member = named_type_get_symbol(advanced_type);
-//             }
-//         }
-// 
-//         current_member = member;
-//     }
-//     else if (member->kind == SK_TEMPLATE)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
-//                     dependent_parts->name);
-//         }
-// 
-//         if (dependent_parts->template_arguments == NULL)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
-//             }
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-// 
-//         // TEMPLATE RESOLUTION
-//         type_t* template_type = member->type_information;
-// 
-//         // Only template classes
-//         if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
-//             }
-//             return get_dependent_typename_type_from_parts(current_member, 
-//                     copy_dependent_parts(dependent_parts));
-//         }
-// 
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: requesting specialization '%s'\n", 
-//                     dependent_parts->name);
-//         }
-// 
-//         type_t* specialized_type = template_type_get_specialized_type(
-//                 template_type,
-//                 dependent_parts->template_arguments,
-//                 class_context, 
-//                 // They should not be needed
-//                 /*filename*/NULL, /*line*/ 0);
-// 
-//         current_member = named_type_get_symbol(specialized_type);
-// 
-//     }
-//     else
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
-//         }
-//         return get_dependent_typename_type_from_parts(current_member, 
-//                 copy_dependent_parts(dependent_parts));
-//     }
-// 
-//     // This looks a bit twisted
-//     type_t* result_type = 
-//         advance_over_typedefs(get_user_defined_type(current_member));
-// 
-//     return result_type;
-// }
+static type_t* advance_dependent_typename_aux(
+        type_t* original_type,
+        type_t* dependent_entry_type,
+        nodecl_t dependent_parts)
+{
+    if (!is_named_type(dependent_entry_type))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Not a named type, returning it unchanged\n");
+        }
+        return original_type;
+    }
+
+    scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
+
+    if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || dependent_entry->kind == SK_TYPEDEF)
+    {
+        // No way if this is an involved dependent typename
+        return original_type;
+    }
+
+    ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
+    ERROR_CONDITION(nodecl_is_null(dependent_parts), "Dependent parts cannot be empty", 0);
+    ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nested parts", 0);
+
+    scope_entry_t* current_member = dependent_entry;
+
+    decl_context_t class_context;
+
+    nodecl_t nodecl_nested_parts = nodecl_get_child(dependent_parts, 0);
+
+    int num_items = 0;
+    nodecl_t* dep_parts = nodecl_unpack_list(nodecl_nested_parts, &num_items);
+
+    int i;
+    for (i = 0; i < num_items - 1; i++)
+    {
+        nodecl_t current_item = dep_parts[i];
+
+        ERROR_CONDITION(nodecl_get_kind(current_item) != NODECL_CXX_DEP_NAME_SIMPLE
+                && nodecl_get_kind(current_item) != NODECL_CXX_DEP_TEMPLATE_ID,
+                "Invalid nested part", 0);
+
+        nodecl_t nodecl_simple_name = current_item;
+        template_parameter_list_t* template_parameters = NULL;
+        if (nodecl_get_kind(current_item) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            nodecl_simple_name = nodecl_get_child(current_item, 0);
+            template_parameters = nodecl_get_template_parameters(current_item);
+        }
+        ERROR_CONDITION(nodecl_get_kind(nodecl_simple_name) != NODECL_CXX_DEP_NAME_SIMPLE,
+                "Invalid nested part", 0);
+        const char* name = nodecl_get_text(nodecl_simple_name);
+
+        class_context = class_type_get_inner_context(current_member->type_information);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Looking for dependent-part '%s'\n", name);
+        }
+
+        scope_entry_list_t* member_list = query_in_scope_str(class_context, name);
+
+        if (member_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
+            }
+
+            type_t* result = rebuild_advanced_dependent_type(original_type, 
+                    current_member, 
+                    i, num_items,
+                    dep_parts);
+            free(dep_parts);
+            return result;
+        }
+
+        if (entry_list_size(member_list) > 1)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
+            }
+
+            type_t* result = rebuild_advanced_dependent_type(original_type, 
+                    current_member, 
+                    i, num_items,
+                    dep_parts);
+            free(dep_parts);
+            return result;
+        }
+
+        scope_entry_t* member = entry_list_head(member_list);
+
+        if (member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
+            }
+            type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_named_class_type(advanced_type))
+            {
+                member = named_type_get_symbol(advanced_type);
+            }
+        }
+
+        if (member->kind == SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a class when looking up dependent-part '%s'\n", name);
+            }
+            if (template_parameters != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
+                }
+                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                        current_member, 
+                        i, num_items,
+                        dep_parts);
+                free(dep_parts);
+                return result;
+            }
+
+            current_member = member;
+        }
+        else if (member->kind == SK_TEMPLATE)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
+                        name);
+            }
+
+            if (template_parameters == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
+                }
+
+                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                        current_member, 
+                        i, num_items,
+                        dep_parts);
+                free(dep_parts);
+                return result;
+            }
+
+            // TEMPLATE RESOLUTION
+            type_t* template_type = member->type_information;
+
+            // Only template classes
+            if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
+                }
+
+                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                        current_member, 
+                        i, num_items,
+                        dep_parts);
+                free(dep_parts);
+                return result;
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Requesting specialization '%s'\n", 
+                        name);
+            }
+
+            type_t* specialized_type = template_type_get_specialized_type(
+                    template_type,
+                    template_parameters,
+                    class_context, 
+                    // They should not be needed
+                    NULL, 0);
+
+            current_member = named_type_get_symbol(specialized_type);
+
+            if (current_member == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUTILS: Somehow when requesting a specialization nothing was returned");
+                }
+
+                type_t* result = rebuild_advanced_dependent_type(original_type, 
+                        current_member, 
+                        i, num_items,
+                        dep_parts);
+                free(dep_parts);
+                return result;
+            }
+        }
+        else 
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+            }
+
+            type_t* result = rebuild_advanced_dependent_type(original_type, 
+                    current_member, 
+                    i, num_items,
+                    dep_parts);
+            free(dep_parts);
+            return result;
+        }
+    }
+
+    nodecl_t nodecl_unqualified_name = dep_parts[num_items - 1];
+
+    // Last part
+    ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE
+            && nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_TEMPLATE_ID,
+            "Invalid unqualified name", 0);
+
+    nodecl_t nodecl_simple_name = nodecl_unqualified_name;
+    template_parameter_list_t* template_parameters = NULL;
+    if (nodecl_get_kind(nodecl_unqualified_name) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        nodecl_simple_name = nodecl_get_child(nodecl_unqualified_name, 0);
+        template_parameters = nodecl_get_template_parameters(nodecl_unqualified_name);
+    }
+    ERROR_CONDITION(nodecl_get_kind(nodecl_simple_name) != NODECL_CXX_DEP_NAME_SIMPLE,
+            "Invalid nested part", 0);
+    const char* name = nodecl_get_text(nodecl_simple_name);
+
+    class_context = class_type_get_inner_context(current_member->type_information);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", name);
+    }
+
+    scope_entry_list_t* member_list = query_in_scope_str(class_context, name);
+
+    if (member_list == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
+        }
+        return get_dependent_typename_type_from_parts(current_member, 
+                nodecl_unqualified_name);
+    }
+
+    if (entry_list_size(member_list) > 1)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
+        }
+        return get_dependent_typename_type_from_parts(current_member, 
+                nodecl_unqualified_name);
+    }
+
+    scope_entry_t* member = entry_list_head(member_list);
+
+    if (member->kind == SK_CLASS
+            || member->kind == SK_TYPEDEF)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", name);
+        }
+        if (template_parameters != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
+            }
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_unqualified_name);
+        }
+        
+        if (member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", name);
+            }
+            type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_named_class_type(advanced_type))
+            {
+                member = named_type_get_symbol(advanced_type);
+            }
+        }
+
+        current_member = member;
+    }
+    else if (member->kind == SK_TEMPLATE)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
+                    name);
+        }
+
+        if (template_parameters == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
+            }
+            return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+        }
+
+        // TEMPLATE RESOLUTION
+        type_t* template_type = member->type_information;
+
+        // Only template classes
+        if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
+            }
+            return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: requesting specialization '%s'\n", 
+                    name);
+        }
+
+        type_t* specialized_type = template_type_get_specialized_type(
+                template_type,
+                template_parameters, // Should this be properly nested?
+                class_context, 
+                // They should not be needed
+                /*filename*/NULL, /*line*/ 0);
+
+        current_member = named_type_get_symbol(specialized_type);
+
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
+        }
+        return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+    }
+
+    // This looks a bit twisted
+    type_t* result_type = 
+        advance_over_typedefs(get_user_defined_type(current_member));
+
+    return result_type;
+}
 
 static type_t* advance_dependent_typename(type_t* t)
 {
-    internal_error("Not yet implemented", 0);
-//     // A dependent typename is a dependent entity followed by a sequence of
-//     // syntactic bits Advancing them means examining uninstantiated types,
-//     // which is always a dangerous thing to do
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
-//     }
-// 
-//     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
-// 
-//     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
-// 
-//     scope_entry_t* dependent_entry = NULL;
-//     dependent_name_part_t* dependent_parts = NULL;
-// 
-//     dependent_typename_get_components(t, &dependent_entry, &dependent_parts);
-// 
-//     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
-// 
-//     type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
-//     result = get_qualified_type(result, cv_qualif);
-// 
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
-//                 print_declarator(result));
-//     }
-// 
-//     if (is_dependent_typename_type(result))
-//     {
-//         scope_entry_t* new_dependent_entry = NULL;
-//         dependent_typename_get_components(result, &new_dependent_entry, &dependent_parts);
-// 
-//         if (new_dependent_entry != dependent_entry)
-//         {
-//             return advance_dependent_typename(result);
-//         }
-//     }
-// 
-//     return result;
+     // A dependent typename is a dependent entity followed by a sequence of
+     // syntactic bits Advancing them means examining uninstantiated types,
+     // which is always a dangerous thing to do
+     DEBUG_CODE()
+     {
+         fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
+     }
+ 
+     cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+ 
+     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+ 
+     scope_entry_t* dependent_entry = NULL;
+     nodecl_t nodecl_dependent_parts = nodecl_null();
+ 
+     dependent_typename_get_components(t, &dependent_entry, &nodecl_dependent_parts);
+ 
+     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
+ 
+     type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, nodecl_dependent_parts);
+     result = get_qualified_type(result, cv_qualif);
+ 
+     DEBUG_CODE()
+     {
+         fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
+                 print_declarator(result));
+     }
+ 
+     if (is_dependent_typename_type(result))
+     {
+         scope_entry_t* new_dependent_entry = NULL;
+         dependent_typename_get_components(result, &new_dependent_entry, &nodecl_dependent_parts);
+ 
+         if (new_dependent_entry != dependent_entry)
+         {
+             return advance_dependent_typename(result);
+         }
+     }
+ 
+     return result;
 }
 
-// static char syntactic_comparison_of_dependent_parts(
-//         dependent_name_part_t* dependent_parts_1,
-//         dependent_name_part_t* dependent_parts_2)
-// {
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr, "TYPEUTILS: Comparing (syntactically) nested-name parts '");
-//         dependent_name_part_t* part = dependent_parts_1;
-//         while (part != NULL)
-//         {
-//             fprintf(stderr, "%s%s%s",
-//                     part->name,
-//                     part->template_arguments == NULL ? "" : get_template_parameters_list_str(part->template_arguments),
-//                     part->next == NULL ? "" : "::");
-//             part = part->next;
-//         }
-//         fprintf(stderr, "' vs '");
-//         part = dependent_parts_2;
-//         while (part != NULL)
-//         {
-//             fprintf(stderr, "%s%s%s",
-//                     part->name,
-//                     part->template_arguments == NULL ? "" : get_template_parameters_list_str(part->template_arguments),
-//                     part->next == NULL ? "" : "::");
-//             part = part->next;
-//         }
-//         fprintf(stderr, "'\n");
-//     }
-// 
-//     while (dependent_parts_1 != NULL
-//             && dependent_parts_2 != NULL)
-//     {
-//         if (strcmp(dependent_parts_1->name, dependent_parts_2->name) != 0)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Mismatch of component name '%s' != '%s'\n",
-//                         dependent_parts_1->name,
-//                         dependent_parts_2->name);
-//             }
-//             return 0;
-//         }
-// 
-//         if ((dependent_parts_1->template_arguments == NULL
-//                     && dependent_parts_2->template_arguments != NULL)
-//                 || (dependent_parts_1->template_arguments != NULL
-//                     && dependent_parts_2->template_arguments == NULL))
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has template arguments while %s does not\n",
-//                         dependent_parts_1->template_arguments != NULL ? "first" : "second",
-//                         dependent_parts_1->template_arguments == NULL ? "first" : "second");
-//             }
-//             return 0;
-//         }
-//         
-//         if ((dependent_parts_1->related_type == NULL
-//                     && dependent_parts_2->related_type != NULL)
-//                 || (dependent_parts_1->related_type != NULL
-//                     && dependent_parts_2->related_type == NULL))
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has a related type while %s does not\n",
-//                         dependent_parts_1->related_type != NULL ? "first" : "second",
-//                         dependent_parts_1->related_type == NULL ? "first" : "second");
-//             }
-//         }
-// 
-//         if (dependent_parts_1->related_type != NULL
-//                 && dependent_parts_2->related_type != NULL)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Need to compare related types\n");
-//             }
-// 
-//             if (!equivalent_types(dependent_parts_1->related_type,
-//                         dependent_parts_2->related_type))
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: Related types do not match\n");
-//                 }
-//                 return 0;
-//             }
-//         }
-// 
-//         if (dependent_parts_1->template_arguments != NULL
-//                     && dependent_parts_2->template_arguments != NULL)
-//         {
-//             DEBUG_CODE()
-//             {
-//                 fprintf(stderr, "TYPEUTILS: Need to compare template arguments\n");
-//             }
-// 
-//             if (!same_template_parameter_list(dependent_parts_1->template_arguments,
-//                         dependent_parts_2->template_arguments))
-//             {
-//                 DEBUG_CODE()
-//                 {
-//                     fprintf(stderr, "TYPEUTILS: Template arguments do not match\n");
-//                 }
-//                 return 0;
-//             }
-//         }
-// 
-//         dependent_parts_1 = dependent_parts_1->next;
-//         dependent_parts_2 = dependent_parts_2->next;
-//     }
-// 
-//     if (dependent_parts_1 != NULL
-//             || dependent_parts_2 != NULL)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: One of the nested names is longer than the other\n");
-//         }
-//         return 0;
-//     }
-// 
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr, "TYPEUTILS: Both dependent typenames seem the same\n");
-//     }
-//     return 1;
-// }
+static char syntactic_comparison_of_one_dependent_part(
+        nodecl_t dependent_part_1,
+        nodecl_t dependent_part_2)
+{
+    if (nodecl_get_kind(dependent_part_1) != 
+            nodecl_get_kind(dependent_part_2))
+        return 0;
+
+    nodecl_t nodecl_simple_name_1 = dependent_part_1;
+    nodecl_t nodecl_simple_name_2 = dependent_part_2;
+
+    template_parameter_list_t* template_parameter_list_1 = NULL;
+    template_parameter_list_t* template_parameter_list_2 = NULL;
+
+    if (nodecl_get_kind(dependent_part_1) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        nodecl_simple_name_1 = nodecl_get_child(dependent_part_1, 0);
+        nodecl_simple_name_2 = nodecl_get_child(dependent_part_2, 0);
+
+        template_parameter_list_1 = nodecl_get_template_parameters(dependent_part_1);
+        template_parameter_list_2 = nodecl_get_template_parameters(dependent_part_2);
+    }
+
+    const char* name_1 = nodecl_get_text(nodecl_simple_name_1);
+    const char* name_2 = nodecl_get_text(nodecl_simple_name_2);
+
+    if (strcmp(name_1,name_2) != 0)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Mismatch of component name '%s' != '%s'\n",
+                    name_1,
+                    name_2);
+        }
+        return 0;
+    }
+
+    if ((template_parameter_list_1 == NULL
+            || template_parameter_list_2 == NULL)
+            && (template_parameter_list_1 != template_parameter_list_2))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has template arguments while %s does not\n",
+                    template_parameter_list_1 != NULL ? "first" : "second",
+                    template_parameter_list_1 == NULL ? "first" : "second");
+        }
+        return 0;
+    }
+
+    if (template_parameter_list_1 != NULL)
+    {
+        if (!same_template_parameter_list(template_parameter_list_1,
+                    template_parameter_list_2))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUTILS: Template arguments do not match\n");
+            }
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static char syntactic_comparison_of_dependent_parts(
+        nodecl_t dependent_parts_1,
+        nodecl_t dependent_parts_2)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Comparing (syntactically) nested-name parts '");
+        // dependent_name_part_t* part = dependent_parts_1;
+        // while (part != NULL)
+        // {
+        //     fprintf(stderr, "%s%s%s",
+        //             part->name,
+        //             part->template_arguments == NULL ? "" : get_template_parameters_list_str(part->template_arguments),
+        //             part->next == NULL ? "" : "::");
+        //     part = part->next;
+        // }
+        // fprintf(stderr, "' vs '");
+        // part = dependent_parts_2;
+        // while (part != NULL)
+        // {
+        //     fprintf(stderr, "%s%s%s",
+        //             part->name,
+        //             part->template_arguments == NULL ? "" : get_template_parameters_list_str(part->template_arguments),
+        //             part->next == NULL ? "" : "::");
+        //     part = part->next;
+        // }
+        fprintf(stderr, "'\n");
+    }
+
+    int num_items1 = 0;
+    nodecl_t* list1 = nodecl_unpack_list(nodecl_get_child(dependent_parts_1, 0), &num_items1);
+
+    int num_items2 = 0;
+    nodecl_t* list2 = nodecl_unpack_list(nodecl_get_child(dependent_parts_2, 0), &num_items2);
+
+    if (num_items1 != num_items2)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: One of the nested names is longer than the other\n");
+        }
+        free(list1);
+        free(list2);
+        return 0;
+    }
+
+    int i;
+    for (i = 0; i < num_items1; i++)
+    {
+        nodecl_t item1 = list1[i];
+        nodecl_t item2 = list2[i];
+
+        if (!syntactic_comparison_of_one_dependent_part(item1, item2))
+        {
+            free(list1);
+            free(list2);
+            return 0;
+        }
+    }
+    free(list1);
+    free(list2);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Both dependent typenames seem the same\n");
+    }
+    return 1;
+}
 
 static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
-    internal_error("Not yet implemented", 0);
-//     // It is likely that in these contrived cases users will use a typedef
-//     // to help themselves so most of the time this fast path will be fired
-//     if (p_t1 == p_t2)
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr , "TYPEUTILS: Dependent typenames are trivially the same\n");
-//         }
-//         return 1;
-//     }
-// 
-// 
-//     DEBUG_CODE()
-//     {
-//         fprintf(stderr , "TYPEUTILS: Comparing template dependent typenames '%s' and '%s'\n",
-//                 print_declarator(p_t1),
-//                 print_declarator(p_t2));
-//     }
-// 
-//     scope_entry_t* dependent_entry_1 = NULL;
-//     dependent_name_part_t* dependent_parts_1 = NULL;
-// 
-//     dependent_typename_get_components(p_t1, 
-//             &dependent_entry_1,
-//             &dependent_parts_1);
-// 
-//     type_t* type_to_compare_1 = NULL;
-//     if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
-//     {
-//         type_to_compare_1 = get_user_defined_type(dependent_entry_1);
-//     }
-//     else
-//     {
-//         type_to_compare_1 = dependent_entry_1->type_information;
-//     }
-// 
-//     scope_entry_t* dependent_entry_2 = NULL;
-//     dependent_name_part_t* dependent_parts_2 = NULL;
-// 
-//     dependent_typename_get_components(p_t2, 
-//             &dependent_entry_2,
-//             &dependent_parts_2);
-// 
-//     type_t* type_to_compare_2 = NULL;
-//     if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
-//     {
-//         type_to_compare_2 = get_user_defined_type(dependent_entry_2);
-//     }
-//     else
-//     {
-//         type_to_compare_2 = dependent_entry_2->type_information;
-//     }
-// 
-//     if (equivalent_types(type_to_compare_1, type_to_compare_2))
-//     {
-//         return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
-//     }
-//     else
-//     {
-//         DEBUG_CODE()
-//         {
-//             fprintf(stderr, "TYPEUTILS: Dependent entry is different\n");
-//         }
-//         return 0;
-//     }
+    // It is likely that in these contrived cases users will use a typedef
+    // to help themselves so most of the time this fast path will be fired
+    if (p_t1 == p_t2)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr , "TYPEUTILS: Dependent typenames are trivially the same\n");
+        }
+        return 1;
+    }
+
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr , "TYPEUTILS: Comparing template dependent typenames '%s' and '%s'\n",
+                print_declarator(p_t1),
+                print_declarator(p_t2));
+    }
+
+    scope_entry_t* dependent_entry_1 = NULL;
+    nodecl_t dependent_parts_1 = nodecl_null();
+
+    dependent_typename_get_components(p_t1, 
+            &dependent_entry_1,
+            &dependent_parts_1);
+
+    type_t* type_to_compare_1 = NULL;
+    if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
+    {
+        // T::x where T is a type template parameter
+        type_to_compare_1 = get_user_defined_type(dependent_entry_1);
+    }
+    else
+    {
+        type_to_compare_1 = dependent_entry_1->type_information;
+    }
+
+    scope_entry_t* dependent_entry_2 = NULL;
+    nodecl_t dependent_parts_2 = nodecl_null();
+
+    dependent_typename_get_components(p_t2, 
+            &dependent_entry_2,
+            &dependent_parts_2);
+
+    type_t* type_to_compare_2 = NULL;
+    if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
+    {
+        type_to_compare_2 = get_user_defined_type(dependent_entry_2);
+    }
+    else
+    {
+        type_to_compare_2 = dependent_entry_2->type_information;
+    }
+
+    if (equivalent_types(type_to_compare_1, type_to_compare_2))
+    {
+        return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Dependent entry is different\n");
+        }
+        return 0;
+    }
 }
 
 char is_builtin_type(type_t* t)
@@ -6094,69 +5958,83 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                     result = strappend("typename ", result);
                 }
 
-                internal_error("Not yet implemented", 0);
+                nodecl_t  nodecl_parts = simple_type->dependent_parts;
 
-                // dependent_name_part_t* parts = simple_type->dependent_parts;
-                // while (parts != NULL)
-                // {
-                //     result = strappend(result, "::");
-                //     if (parts->template_arguments != NULL && is_dependent)
-                //     {
-                //         result = strappend(result, "template ");
-                //     }
-                //     result = strappend(result, parts->name);
+                int num_parts = 0;
+                nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
 
-                //     if (parts->template_arguments != NULL)
-                //     {
-                //         result = strappend(result, "< ");
-                //         int i;
-                //         for (i = 0; i < parts->template_arguments->num_parameters; i++)
-                //         {
-                //             template_parameter_value_t * template_arg = parts->template_arguments->arguments[i];
+                int i;
+                for (i = 0; i < num_parts; i++)
+                {
+                    nodecl_t current_part = list[i];
 
-                //             switch (template_arg->kind)
-                //             {
-                //                 case TPK_TYPE:
-                //                     {
-                //                         result = strappend(result, 
-                //                                 print_type_str(template_arg->type, decl_context));
-                //                         break;
-                //                     }
-                //                 case TPK_NONTYPE:
-                //                     {
-                //                         result = strappend(result, 
-                //                                 c_cxx_codegen_to_str(template_arg->value));
-                //                         break;
-                //                     }
-                //                 case TPK_TEMPLATE:
-                //                     {
-                //                         result = strappend(result,
-                //                                 get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
-                //                                     decl_context));
-                //                         break;
-                //                     }
-                //                 default:
-                //                     {
-                //                         internal_error("Invalid template argument kind", 0);
-                //                     }
-                //             }
+                    nodecl_t simple_current_part = current_part;
+                    template_parameter_list_t* template_parameters = NULL;
 
-                //             if ((i + 1) < parts->template_arguments->num_parameters)
-                //             {
-                //                 result = strappend(result, ", ");
-                //             }
-                //         }
+                    if (nodecl_get_kind(current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                    {
+                        template_parameters = nodecl_get_template_parameters(current_part);
+                        simple_current_part = nodecl_get_child(current_part, 0);
+                    }
 
-                //         if (result[strlen(result) - 1] == '>')
-                //         {
-                //             result = strappend(result, " ");
-                //         }
+                    const char* name = nodecl_get_text(simple_current_part);
 
-                //         result = strappend(result, ">");
-                //     }
+                    result = strappend(result, "::");
+                    if (template_parameters != NULL && is_dependent)
+                    {
+                        result = strappend(result, "template ");
+                    }
+                    result = strappend(result, name);
 
-                //     parts = parts->next;
-                // }
+                    if (template_parameters != NULL)
+                    {
+                        result = strappend(result, "< ");
+                        int j;
+                        for (j = 0; j < template_parameters->num_parameters; j++)
+                        {
+                            template_parameter_value_t * template_arg = template_parameters->arguments[j];
+
+                            switch (template_arg->kind)
+                            {
+                                case TPK_TYPE:
+                                    {
+                                        result = strappend(result, 
+                                                print_type_str(template_arg->type, decl_context));
+                                        break;
+                                    }
+                                case TPK_NONTYPE:
+                                    {
+                                        result = strappend(result, 
+                                                c_cxx_codegen_to_str(template_arg->value));
+                                        break;
+                                    }
+                                case TPK_TEMPLATE:
+                                    {
+                                        result = strappend(result,
+                                                get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
+                                                    decl_context));
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        internal_error("Invalid template argument kind", 0);
+                                    }
+                            }
+
+                            if ((j + 1) < template_parameters->num_parameters)
+                            {
+                                result = strappend(result, ", ");
+                            }
+                        }
+
+                        if (result[strlen(result) - 1] == '>')
+                        {
+                            result = strappend(result, " ");
+                        }
+
+                        result = strappend(result, ">");
+                    }
+                }
 
                 break;
             }
@@ -6934,24 +6812,36 @@ static const char* get_builtin_type_name(type_t* type_info)
                         get_named_simple_type_name(simple_type_info->dependent_entry));
                 result = strappend(result, "]");
 
-                internal_error("Not yet implemented", 0);
+                nodecl_t nodecl_parts = simple_type_info->dependent_parts;
+                int num_items = 0;
+                nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_items);
 
-                // dependent_name_part_t* parts = simple_type_info->dependent_parts;
-                // while (parts != NULL)
-                // {
-                //     result = strappend(result, "::");
-                //     result = strappend(result, parts->name);
+                int i;
+                for (i = 0; i < num_items; i++)
+                {
+                    nodecl_t part = list[i];
+                    nodecl_t simple_part = part;
+                    template_parameter_list_t* template_parameters = NULL;
 
-                //     if (parts->template_arguments != NULL)
-                //     {
-                //         result = strappend(result, 
-                //                 get_template_parameters_list_str(parts->template_arguments));
-                //     }
+                    if (nodecl_get_kind(part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                    {
+                        simple_part = nodecl_get_child(part, 0);
+                        template_parameters = nodecl_get_template_parameters(part);
+                    }
 
-                //     parts = parts->next;
-                // }
+                    const char* name = nodecl_get_text(simple_part);
 
-                // result = strappend(result, ">");
+                    result = strappend(result, "::");
+                    result = strappend(result, name);
+
+                    if (template_parameters != NULL)
+                    {
+                        result = strappend(result, get_template_parameters_list_str(template_parameters));
+                    }
+                }
+                free(list);
+
+                result = strappend(result, ">");
             }
             break;
         case STK_TEMPLATE_TYPE :

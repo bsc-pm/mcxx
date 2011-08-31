@@ -2615,9 +2615,7 @@ static void gcc_postfix_expression(FILE* f, AST a, prettyprint_context_t* pt_ctx
     token_fprintf(f, a, pt_ctx, "(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
-    token_fprintf(f, a, pt_ctx, "{");
-    list_handler(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, "}");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void gcc_alignof_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

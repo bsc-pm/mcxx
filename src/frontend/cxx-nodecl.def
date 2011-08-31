@@ -1,3 +1,31 @@
+# Syntax
+#
+#   rule : another-rule
+#        | NODECL_TREE_CONSTRUCTOR([child_name] rule-name, ...) options
+#
+#
+# Up to 4 children, [child_name] is mandatory and must be a valid C/C++/Fortran name
+#
+# options is a blank-separated sequence of the following. Each option-name declares extra
+# information that is mandatory to the tree (i.e. it cannot be NULL). 
+#
+#    option-name               frontend type
+#        symbol                    scope_entry_t*
+#        type                      type_t*
+#        text                      const char*
+#        const_value               const_value_t*
+#        template-parameters       template_parameter_list_t*
+#
+# The order that appears here is the order in which this extra information is
+# passed (regardless of the precise syntax of the rule, i.e. 'symbol' is always
+# considered before 'type')
+#
+# There is a special rule 'nodecl' which is the root of the whole hierarchy,
+# while not enforced every rule should be referenced in another rule. The
+# structure must be nonambiguous (i.e. there must be a single way of
+# constructing a given hierarchy)
+#
+
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
@@ -75,6 +103,7 @@ expression : literal
            | name
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
+           | NODECL_ARRAY_SECTION([subscripted] expression, [lower] expression, [upper] expression) type
            | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
@@ -109,6 +138,8 @@ expression : literal
            | fortran-expressions
            | object-init
            | builtin-expr
+# This one is intended to represent implicit conversions allowed by the base language
+           | NODECL_CONVERSION([nest] expression) type
            | NODECL_ERR_EXPR()
 
 structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
@@ -153,6 +184,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PREDECREMENT([rhs]expression) type
                   | NODECL_POSTDECREMENT([rhs]expression) type
                   | NODECL_SIZEOF([size_type]type) type
+                  | NODECL_ALIGNOF([size_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
                   | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text
@@ -161,7 +193,10 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POINTER_TO_MEMBER() symbol
                   | NODECL_REAL_PART([rhs]expression) type
                   | NODECL_IMAG_PART([rhs]expression) type
+                  | NODECL_OFFSETOF([designator]cxx-dependent-initializer-seq) type
+                  | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
                   | cxx-dependent-nodecls
+                  | cuda-expressions
 
 # This is only for dependent parts of C++. These nodecls exist because
 # usual nodecls may not retain enough semantic information for a successful
@@ -172,12 +207,11 @@ cxx-dependent-nodecls: cxx-dependent-name
    | cxx-dependent-expressions
 
 # Special nodes for dependent names
-cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
-                   | NODECL_CXX_DEP_NAME_NESTED([nested] cxx-atom-dependent-name-seq, [unqualif]cxx-atom-dependent-name)
-                   | cxx-atom-dependent-name
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq)
 cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE() text
-                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name, [template_arguments]template-arg-seq)
-                   | NODECL_CXX_DEP_NAME_CONVERSION() type
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) template-parameters
+                   | NODECL_CXX_DEP_NAME_CONVERSION() 
 
 cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
@@ -195,8 +229,20 @@ cxx-dependent-expressions: NODECL_CXX_EXPLICIT_TYPE_CONVERSION([args]expression-
     | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type
 # sizeof(expr)
     | NODECL_CXX_SIZEOF([expr] expression) type
+# alignof(expr)
+    | NODECL_CXX_ALIGNOF([expr] expression) type
+# a.T::~T
+    | NODECL_CXX_DOT_PSEUDO_DESTRUCTOR([postfix]expression) type
+# a->T::~T
+    | NODECL_CXX_ARROW_PSEUDO_DESTRUCTOR([postfix]expression) type
+# (type) { ... }
+    | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type
+# a[e:e]
+    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt]) type
+# a[e;e]
+    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt]) type
 
-template-arg : type-or-expr
+cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type
 
 type-or-expr : type
              | expression

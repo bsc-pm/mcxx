@@ -2672,6 +2672,12 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
 
     if (!is_defined_assig)
     {
+        if (!equivalent_types(no_ref(lvalue_type), no_ref(rvalue_type)))
+        {
+            nodecl_rvalue = nodecl_make_conversion(nodecl_rvalue, 
+                    lvalue_type,
+                    nodecl_get_filename(nodecl_rvalue), nodecl_get_line(nodecl_rvalue));
+        }
         *nodecl_output = nodecl_make_assignment(nodecl_lvalue, nodecl_rvalue, get_void_type(), ASTFileName(expr), ASTLine(expr));
     }
     else
@@ -2689,7 +2695,6 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
                         ASTFileName(rvalue), ASTLine(rvalue))),
                 get_void_type(),
                 ASTFileName(expr), ASTLine(expr));
-
     }
 
     if (nodecl_is_constant(nodecl_rvalue))
@@ -3157,7 +3162,6 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         // Perform a resolution by means of a call check
         if (call_sym != NULL)
         {
-
             int num_actual_arguments = 0;
             const char* keywords[2] = { NULL, NULL };
             nodecl_t nodecl_arguments[2] = { nodecl_null(), nodecl_null() };
@@ -3191,6 +3195,36 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                     &nodecl_simplify);
 
             ast_free(operator_designation);
+
+            // Restore the rank of the common type
+            if (!is_error_type(result))
+            {
+                result = rerank_type(result, lhs_type, rhs_type);
+
+                if (nodecl_is_null(nodecl_simplify))
+                {
+                    nodecl_t nodecl_argument_list = nodecl_null();
+
+                    if (nodecl_is_null(nodecl_lhs))
+                    {
+                        nodecl_argument_list = nodecl_make_list_1(nodecl_rhs);
+                    }
+                    else
+                    {
+                        nodecl_argument_list = nodecl_make_list_2(nodecl_rhs, nodecl_lhs);
+                    }
+
+                    *nodecl_output = nodecl_make_function_call(
+                            nodecl_make_symbol(call_sym, ast_get_filename(expr), ast_get_line(expr)),
+                            nodecl_argument_list,
+                            result,
+                            ASTFileName(expr), ASTLine(expr));
+                }
+                else
+                {
+                    *nodecl_output = nodecl_simplify;
+                }
+            }
         }
 
         if (is_error_type(result))
@@ -3219,9 +3253,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 return get_error_type();
             }
         }
-
-        // Restore the rank of the common type
-        result = rerank_type(result, lhs_type, rhs_type);
+        
     }
     else
     {
@@ -3240,7 +3272,19 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
             {
                 val = value->compute_const(nodecl_null(), nodecl_rhs);
             }
+        }
 
+        // Keep the conversions
+        if (lhs_type != NULL
+                && !equivalent_types(no_ref(result), no_ref(lhs_type)))
+        {
+            nodecl_lhs = nodecl_make_conversion(nodecl_lhs, result, 
+                    nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs));
+        }
+        if (!equivalent_types(no_ref(result), no_ref(rhs_type)))
+        {
+            nodecl_rhs = nodecl_make_conversion(nodecl_rhs, result, 
+                    nodecl_get_filename(nodecl_rhs), nodecl_get_line(nodecl_rhs));
         }
 
         *nodecl_output = value->compute_nodecl(nodecl_lhs, nodecl_rhs, result, ASTFileName(expr), ASTLine(expr));

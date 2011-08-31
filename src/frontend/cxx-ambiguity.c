@@ -290,7 +290,7 @@ static char check_kr_parameter_list(AST parameters_kr, decl_context_t decl_conte
     {
         AST identifier = ASTSon1(iter);
 
-        scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ASTText(identifier));
+        scope_entry_list_t* entry_list = query_name_str(decl_context, ASTText(identifier));
 
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(entry_list);

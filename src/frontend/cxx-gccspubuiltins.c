@@ -297,7 +297,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
     {
         snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, i);
         name[255] = '\0';
-        scope_entry_list_t *entry_list = query_unqualified_name_str(overloaded_function->decl_context, name);
+        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
 
         // Let's assume no more overloads have been defined
         if (entry_list == NULL)

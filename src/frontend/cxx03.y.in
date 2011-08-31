@@ -3926,13 +3926,9 @@ postfix_expression : primary_expression
 	$$ = ASTMake1(AST_TYPEID_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 // GNU Extensions
-| '(' type_id ')' '{' initializer_list '}'
+| '(' type_id ')' braced_init_list
 {
-	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
-}
-| '(' type_id ')' '{' initializer_list ',' '}'
-{
-	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
 }
 ;
 
