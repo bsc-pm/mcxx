@@ -265,7 +265,7 @@ namespace OpenMP
                     it2++)
             {
                 Source *args = NULL;
-                DataReference data_ref = it2->get_expression();
+                DataReference data_ref = it2->get_data_reference();
                 Symbol base_sym = data_ref.get_base_symbol();
                 switch (it2->get_direction())
                 {
@@ -608,7 +608,7 @@ namespace OpenMP
                                 }
                         }
 
-                        Expression expr = it2->get_expression();
+                        Expression expr = it2->get_data_reference();
 
                         DataReference data_ref(expr);
 
@@ -635,7 +635,7 @@ namespace OpenMP
                             replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
 
                             (*clause_args).append_with_separator(
-                                    replace_copies.replace(it2->get_expression()), 
+                                    replace_copies.replace(it2->get_data_reference()), 
                                     ",");
 
                         }

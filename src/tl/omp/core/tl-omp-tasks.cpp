@@ -105,7 +105,7 @@ namespace TL
         {
         }
 
-        DataReference FunctionTaskDependency::get_expression() const
+        DataReference FunctionTaskDependency::get_data_reference() const
         {
             return _expr;
         }
@@ -133,7 +133,7 @@ namespace TL
                     it != _parameters.end();
                     it++)
             {
-                Expression expr(it->get_expression());
+                Expression expr(it->get_data_reference());
 
                 ObjectList<Symbol> current_syms = expr.all_symbol_occurrences().map(functor(&IdExpression::get_symbol));
                 result.insert(current_syms);
@@ -321,7 +321,7 @@ namespace TL
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            Expression expr(function_dep.get_expression());
+            Expression expr(function_dep.get_data_reference());
             if (expr.is_id_expression())
             {
                 Symbol sym = expr.get_id_expression().get_computed_symbol();
@@ -345,7 +345,7 @@ namespace TL
                     it++)
             {
                 DependencyDirection direction(it->get_direction());
-                Expression expr(it->get_expression());
+                Expression expr(it->get_data_reference());
 
                 if (expr.is_id_expression())
                 {

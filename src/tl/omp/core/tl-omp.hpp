@@ -338,7 +338,7 @@ namespace TL
             public:
                 FunctionTaskDependency(DataReference expr, DependencyDirection direction);
                 DependencyDirection get_direction() const; 
-                DataReference get_expression() const;
+                DataReference get_data_reference() const;
         };
 
         class LIBTL_CLASS FunctionTaskTargetInfo
