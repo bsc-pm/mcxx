@@ -2932,26 +2932,29 @@ struct operand_types_tag
     char (*lhs_type)(type_t*);
     char (*rhs_type)(type_t*);
     type_t* (*common_type)(type_t*, type_t*);
+    char convert_to_common;
 } operand_types_t;
+
+enum { DO_CONVERT_TO_RESULT = 1, DO_NOT_CONVERT_TO_RESULT = 0};
 
 static operand_types_t arithmetic_unary[] = 
 {
-    { NULL, is_integer_type, second_type },
-    { NULL, is_floating_type, second_type },
-    { NULL, is_complex_type, second_type },
+    { NULL, is_integer_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { NULL, is_floating_type, second_type, DO_NOT_CONVERT_TO_RESULT },
+    { NULL, is_complex_type, second_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t arithmetic_binary[] =
 {
-    { is_integer_type, is_integer_type, common_kind },
-    { is_integer_type, is_floating_type,  second_type },
-    { is_integer_type, is_complex_type, second_type },
-    { is_floating_type, is_integer_type, first_type },
-    { is_floating_type, is_floating_type, common_kind },
-    { is_floating_type, is_complex_type, second_type },
-    { is_complex_type, is_integer_type, first_type },
-    { is_complex_type, is_floating_type, first_type },
-    { is_complex_type, is_complex_type, common_kind },
+    { is_integer_type, is_integer_type, common_kind, DO_CONVERT_TO_RESULT },
+    { is_integer_type, is_floating_type,  second_type, DO_CONVERT_TO_RESULT },
+    { is_integer_type, is_complex_type, second_type, DO_CONVERT_TO_RESULT },
+    { is_floating_type, is_integer_type, first_type, DO_CONVERT_TO_RESULT },
+    { is_floating_type, is_floating_type, common_kind, DO_CONVERT_TO_RESULT },
+    { is_floating_type, is_complex_type, second_type, DO_CONVERT_TO_RESULT },
+    { is_complex_type, is_integer_type, first_type, DO_CONVERT_TO_RESULT },
+    { is_complex_type, is_floating_type, first_type, DO_CONVERT_TO_RESULT },
+    { is_complex_type, is_complex_type, common_kind, DO_CONVERT_TO_RESULT },
 };
 
 static char is_fortran_character_type_or_pointer_to(type_t* t)
@@ -2963,40 +2966,40 @@ static char is_fortran_character_type_or_pointer_to(type_t* t)
 
 static operand_types_t concat_op[] = 
 {
-    { is_fortran_character_type_or_pointer_to, is_fortran_character_type_or_pointer_to, combine_character_array },
+    { is_fortran_character_type_or_pointer_to, is_fortran_character_type_or_pointer_to, combine_character_array, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t relational_equality[] =
 {
-    { is_integer_type, is_integer_type, logical_type },
-    { is_integer_type, is_floating_type,  logical_type },
-    { is_integer_type, is_complex_type, logical_type },
-    { is_floating_type, is_integer_type, logical_type },
-    { is_floating_type, is_floating_type, logical_type },
-    { is_floating_type, is_complex_type, logical_type },
-    { is_complex_type, is_integer_type, logical_type },
-    { is_complex_type, is_floating_type, logical_type },
-    { is_complex_type, is_complex_type, logical_type },
-    { is_fortran_character_type, is_fortran_character_type, logical_type },
+    { is_integer_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_floating_type,  logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_complex_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_floating_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_complex_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_floating_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_complex_type, is_complex_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_fortran_character_type, is_fortran_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t relational_weak[] =
 {
-    { is_integer_type, is_integer_type, logical_type },
-    { is_integer_type, is_floating_type,  logical_type },
-    { is_floating_type, is_integer_type, logical_type },
-    { is_floating_type, is_floating_type, logical_type },
-    { is_fortran_character_type, is_fortran_character_type, logical_type },
+    { is_integer_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_integer_type, is_floating_type,  logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_integer_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_floating_type, is_floating_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
+    { is_fortran_character_type, is_fortran_character_type, logical_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t logical_unary[] =
 {
-    { NULL, is_logical_type, second_type },
+    { NULL, is_logical_type, second_type, DO_NOT_CONVERT_TO_RESULT },
 };
 
 static operand_types_t logical_binary[] =
 {
-    { is_logical_type, is_logical_type, common_kind }
+    { is_logical_type, is_logical_type, common_kind, DO_NOT_CONVERT_TO_RESULT }
 };
 
 typedef struct operand_map_tag
@@ -3138,6 +3141,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
     }
 
     type_t* result = NULL;
+    char convert_to_common = 0;
 
     operand_types_t* operand_types = value->operand_types;
     int i;
@@ -3149,6 +3153,7 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
                 && ((operand_types[i].rhs_type)(conf_rhs_type)))
         {
             result = (operand_types[i].common_type)(conf_lhs_type, conf_rhs_type);
+            convert_to_common = (operand_types[i].convert_to_common == DO_CONVERT_TO_RESULT);
             break;
         }
     }
@@ -3275,16 +3280,19 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, decl_context_t dec
         }
 
         // Keep the conversions
-        if (lhs_type != NULL
-                && !equivalent_types(no_ref(result), no_ref(lhs_type)))
+        if (convert_to_common)
         {
-            nodecl_lhs = nodecl_make_conversion(nodecl_lhs, result, 
-                    nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs));
-        }
-        if (!equivalent_types(no_ref(result), no_ref(rhs_type)))
-        {
-            nodecl_rhs = nodecl_make_conversion(nodecl_rhs, result, 
-                    nodecl_get_filename(nodecl_rhs), nodecl_get_line(nodecl_rhs));
+            if (lhs_type != NULL
+                    && !equivalent_types(no_ref(result), no_ref(lhs_type)))
+            {
+                nodecl_lhs = nodecl_make_conversion(nodecl_lhs, result, 
+                        nodecl_get_filename(nodecl_lhs), nodecl_get_line(nodecl_lhs));
+            }
+            if (!equivalent_types(no_ref(result), no_ref(rhs_type)))
+            {
+                nodecl_rhs = nodecl_make_conversion(nodecl_rhs, result, 
+                        nodecl_get_filename(nodecl_rhs), nodecl_get_line(nodecl_rhs));
+            }
         }
 
         *nodecl_output = value->compute_nodecl(nodecl_lhs, nodecl_rhs, result, ASTFileName(expr), ASTLine(expr));

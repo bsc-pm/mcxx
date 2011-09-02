@@ -99,13 +99,13 @@ namespace TL
             return _device_list;
         }
 
-        FunctionTaskDependency::FunctionTaskDependency(Expression expr,
+        FunctionTaskDependency::FunctionTaskDependency(DataReference expr,
                 DependencyDirection direction)
             : _direction(direction), _expr(expr)
         {
         }
 
-        Expression FunctionTaskDependency::get_expression() const
+        DataReference FunctionTaskDependency::get_expression() const
         {
             return _expr;
         }
@@ -118,8 +118,8 @@ namespace TL
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
                 ObjectList<FunctionTaskDependency> parameter_info,
                 FunctionTaskTargetInfo target_info)
-            : _sym(sym), 
-            _parameters(parameter_info), 
+            : _sym(sym),
+            _parameters(parameter_info),
             _implementation_table(),
             _target_info(target_info)
         {
@@ -189,6 +189,17 @@ namespace TL
 
             return result;
         }
+
+        void FunctionTaskInfo::set_real_time_info(const RealTimeInfo & rt_info)
+        {
+            _real_time_info = rt_info;
+        }
+
+        RealTimeInfo FunctionTaskInfo::get_real_time_info()
+        {
+            return _real_time_info;
+        }
+
 
         FunctionTaskSet::FunctionTaskSet()
         {
@@ -273,7 +284,7 @@ namespace TL
                         << str;
 
                     AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
-                    Expression expr(expr_tree, _sl);
+                    DataReference expr(expr_tree, _sl);
 
                     return FunctionTaskDependency(expr, _direction);
                 }
@@ -328,7 +339,7 @@ namespace TL
             ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
                     function_task_param_list.end(),
                     is_useless_dependence);
-            
+
             for (ObjectList<FunctionTaskDependency>::iterator it = begin_remove;
                     it != function_task_param_list.end();
                     it++)
@@ -357,7 +368,7 @@ namespace TL
                         {
                             std::cerr << expr.get_ast().get_locus() << ": warning: "
                                 "skipping useless dependence '"<< expr.prettyprint() << "'. The value of a parameter "
-                                "is always copied and cannot define an input dependence" 
+                                "is always copied and cannot define an input dependence"
                                 << std::endl;
                         }
                     }
@@ -370,6 +381,8 @@ namespace TL
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
+            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+
             PragmaCustomClause input_clause = construct.get_clause("input");
             ObjectList<std::string> input_arguments;
             if (input_clause.is_defined())
@@ -407,7 +420,7 @@ namespace TL
 
                 if (declared_entities.size() != 1)
                 {
-                    std::cerr << construct.get_ast().get_locus() 
+                    std::cerr << construct.get_ast().get_locus()
                         << ": warning: '#pragma omp task' construct applied to non suitable declaration, skipping" << std::endl;
                     return;
                 }
@@ -421,14 +434,14 @@ namespace TL
             }
             else
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: invalid use of '#pragma omp task', skipping" << std::endl;
                 return;
             }
 
             if (!decl_entity.is_functional_declaration())
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: '#pragma omp task' must precede a single function declaration or a function definition, skipping" << std::endl;
                 return;
             }
@@ -439,7 +452,7 @@ namespace TL
 
             if (has_ellipsis)
             {
-                std::cerr << construct.get_ast().get_locus() 
+                std::cerr << construct.get_ast().get_locus()
                     << ": warning: '#pragma omp task' cannot be applied to functions declarations with ellipsis, skipping" << std::endl;
                 return;
             }
@@ -452,86 +465,255 @@ namespace TL
                 return;
             }
 
-            ObjectList<FunctionTaskDependency> parameter_list;
+            ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
+            AST_t param_ref_tree = function_sym.get_point_of_declaration();
             if (parameter_decl.empty()
                     || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
             {
-                std::cerr << construct.get_ast().get_locus()
-                    << ": warning: '#pragma omp task' applied to a function with no parameters" << std::endl;
-
-                // Now gather task information
-                if (!_target_context.empty())
+                if(!function_sym.is_member() || function_sym.is_static())
                 {
-                    TargetContext& target_context = _target_context.top();
-                    target_info.set_device_list(target_context.device_list);
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task' "
+                              << "applied to a function with no parameters"
+                              << std::endl;
                 }
             }
             else
             {
                 // Use the first parameter as a reference tree so we can parse the specifications
-                AST_t param_ref_tree = parameter_decl[0].get_ast();
-
-                parameter_list.append(input_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(output_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(inout_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                parameter_list.append(reduction_arguments.map(
-                            FunctionTaskDependencyGenerator(DEP_REDUCTION,
-                                param_ref_tree,
-                                construct.get_scope_link())
-                            )
-                        );
-
-                dependence_list_check(parameter_list);
-
-                // Now gather task information
-                if (!_target_context.empty())
-                {
-                    TargetContext& target_context = _target_context.top();
-
-                    ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
-                                COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_in(copy_in);
-
-                    ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
-                                COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_out(copy_out);
-
-                    ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
-                                COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
-                    target_info.set_copy_inout(copy_inout);
-
-                    target_info.set_device_list(target_context.device_list);
-
-                    target_info.set_copy_deps(target_context.copy_deps);
-                }
+                param_ref_tree = parameter_decl[0].get_ast();
             }
+             dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
+                             param_ref_tree,construct.get_scope_link())));
 
-            FunctionTaskInfo task_info(function_sym, parameter_list, target_info);
+             dependence_list.append(output_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_OUTPUT,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list.append(inout_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list.append(reduction_arguments.map(FunctionTaskDependencyGenerator(DEP_REDUCTION,
+                             param_ref_tree,construct.get_scope_link())));
+
+             dependence_list_check(dependence_list);
+
+             // Now gather task information
+             if (!_target_context.empty())
+             {
+                 TargetContext& target_context = _target_context.top();
+
+                 ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
+                             COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_in(copy_in);
+
+                 ObjectList<CopyItem> copy_out = target_context.copy_out.map(FunctionCopyItemGenerator(
+                             COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_out(copy_out);
+
+                 ObjectList<CopyItem> copy_inout = target_context.copy_inout.map(FunctionCopyItemGenerator(
+                             COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+                 target_info.set_copy_inout(copy_inout);
+
+                 target_info.set_device_list(target_context.device_list);
+
+                 target_info.set_copy_deps(target_context.copy_deps);
+             }
+
+
+            FunctionTaskInfo task_info(function_sym, dependence_list, target_info);
+
+            //adding real time information to the task
+            task_info.set_real_time_info(rt_info);
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
-    }
 
+
+        void Core::task_inline_handler_pre(PragmaCustomConstruct construct)
+        {
+            RealTimeInfo rt_info = task_real_time_handler_pre(construct);
+
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+
+            //adding real time information to the task
+            data_sharing.set_real_time_info(rt_info);
+
+            get_data_explicit_attributes(construct, data_sharing);
+
+            get_dependences_info(construct, data_sharing);
+
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            // Target info applies after
+            get_target_info(construct, data_sharing);
+        }
+
+
+        RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
+        {
+            RealTimeInfo rt_info;
+
+             
+
+
+            PragmaCustomClause deadline_clause = construct.get_clause("deadline");
+            if (deadline_clause.is_defined())
+            {   
+                // two cases: release deadline and deadline 
+                ObjectList<std::string> clause_names = construct.get_clause_names();
+                bool release = false;
+                ObjectList<std::string>::iterator it = clause_names.begin();
+                while (it != clause_names.end() && !release)
+                {
+                    if( *it == "release") release = true;
+                    it++;
+                }
+
+                if (release) 
+                {
+                    // if (*it) != "deadline" then error
+                    if (it == clause_names.end() || *it != "deadline")
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": error: the next clause of 'release' must be 'deadline', skipping "
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        ObjectList<std::string> release_deadline_args =
+                            deadline_clause.get_arguments(ExpressionTokenizer());
+                        if(release_deadline_args.size() != 2)
+                        {
+                            std::cerr << construct.get_ast().get_locus()
+                                      << ": warning: '#pragma omp task release deadline' "
+                                      << "has a wrong number of arguments, skipping"
+                                      << std::endl;
+
+                        }
+                        else
+                        {
+                            std::cerr << "warning: '#pragma omp task release deadline' "
+                                      << "is not implemented yet (tl-omp-tasks.cpp)"
+                                      << std::endl;
+
+                            rt_info.set_is_release_deadline(true);
+                        }
+                    }
+                }    
+                else // not release deadline
+                {
+                    ObjectList<std::string> deadline_args =
+                        deadline_clause.get_arguments(ExpressionTokenizer());
+
+                    if(deadline_args.size() != 1)
+                    {
+                        std::cerr << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task deadline' "
+                                  << "has a wrong number of arguments, skipping"
+                                  << std::endl;
+                    }
+                    else
+                    {
+                        std::cerr << "warning: '#pragma omp task deadline' "
+                                  << "is not implemented yet (tl-omp-tasks.cpp)"
+                                  << std::endl;
+                    }
+                }
+            }
+
+            PragmaCustomClause onerror_clause = construct.get_clause("onerror");
+            if (onerror_clause.is_defined())
+            {
+                ObjectList<std::string> onerror_args =
+                    onerror_clause.get_arguments(ExpressionTokenizer());
+
+                if(onerror_args.size() != 1)
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task onerror' "
+                              << "has a wrong number of arguments, skipping"
+                              << std::endl;
+                }
+                else
+                {
+
+                    Lexer l = Lexer::get_current_lexer();
+
+                    ObjectList<int> tokens = l.lex_string(onerror_args[0]);
+                    switch (tokens.size())
+                    {
+                        case 1:
+                        {// tokens structure: 'indentifier'
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            {
+                                  std::cerr << construct.get_ast().get_locus()
+                                            << ": warning: '#pragma omp task onerror' "
+                                            << "first token must be an identifier, skipping"
+                                            << std::endl;
+                            }
+                            else
+                            {
+                                std::cerr << "warning: '#pragma omp task onerror' "
+                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                          << std::endl;
+                            }
+                            break;
+                        }
+                        case 3:
+                        {//tokens structure: 'identifier:identifier'
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
+                            {
+                                  std::cerr << construct.get_ast().get_locus()
+                                            << ": warning: '#pragma omp task onerror' "
+                                            << "first token must be an identifier, skipping"
+                                            << std::endl;
+                            }
+                            else if (tokens[1] != (int)':')
+                            {
+                                std::cerr << construct.get_ast().get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
+                                          << "second token must be a colon, skipping"
+                                          << std::endl;
+                            }
+                            else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
+                                     (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
+                            {
+                                std::cerr << construct.get_ast().get_locus()
+                                          << ": warning: '#pragma omp task onerror' "
+                                          << "third token must be an identifier, skipping"
+                                          << std::endl;
+                            }
+                            else
+                            {
+                                std::cerr << "warning: '#pragma omp task onerror' "
+                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                          << std::endl;
+                            }
+                            break;
+                        }
+                        default:
+                        {
+                            std::cerr 
+                                  << construct.get_ast().get_locus()
+                                  << ": warning: '#pragma omp task onerror' "
+                                  << "has a wrong number of tokens. "
+                                  << "It is expecting 'identifier:identifier' "
+                                  << "or 'indentifier', skipping"
+                                  << std::endl;
+                        }
+                    }
+                                    
+                }
+            }
+            return rt_info;
+        }
+    }
 }

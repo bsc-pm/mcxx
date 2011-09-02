@@ -325,6 +325,73 @@ AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
 AC_SUBST([NANOX_INSTRUMENTATION])
 
+
+dnl Region support
+nanox_regions="no"
+AC_MSG_CHECKING([if Nanos++ regions support is enabled])
+AC_ARG_ENABLE([nanox-regions],
+  AS_HELP_STRING([--enable-nanox-regions], [Enables support of regions in Nanos++]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        nanox_regions="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            nanox_regions="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    if test x$is_enabled_openmpt = xyes;
+    then
+        nanox_regions="yes"
+        AC_MSG_RESULT([yes (ENCORE)])
+    else
+        nanox_regions="no"
+        AC_MSG_RESULT([no])
+    fi
+  ]
+)
+NANOX_REGIONS=$nanox_regions
+AC_SUBST([NANOX_REGIONS])
+
+dnl SIMD Support
+nanox_sse="no"
+AC_MSG_CHECKING([if SSE 4.1 support is enabled])
+AC_ARG_ENABLE([sse],
+  AS_HELP_STRING([--enable-sse], [Enables SSE 4.1 support for tests]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        nanox_sse="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            nanox_sse="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+    if (grep "flags.*sse4_1" /proc/cpuinfo > /dev/null);
+    then
+       nanox_sse="yes"
+       AC_MSG_RESULT([yes (CPU supports SSE 4.1)])
+    else
+       nanox_sse="no"
+       AC_MSG_RESULT([no])
+    fi
+  ]
+)
+NANOX_SSE=$nanox_sse
+AC_SUBST([NANOX_SSE])
+
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
 dnl --------------------- Support for GPU tests in Nanox --------------------------------
@@ -1391,6 +1458,8 @@ then
   then
      AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
   fi
+
+	echo "   Nanos++ regions support:" $nanox_regions
 fi
 
 echo "   GPU testing enabled:" $gpu_valid

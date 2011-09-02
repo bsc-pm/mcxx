@@ -639,6 +639,9 @@ scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
 
+    if (nodecl_is_err_expr(nodecl_name))
+        return NULL;
+
     scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
 
     nodecl_free(nodecl_name);
@@ -658,6 +661,9 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_qualified_name(global_op, nested_name, unqualified_name, decl_context, &nodecl_name);
 
+    if (nodecl_is_err_expr(nodecl_name))
+        return NULL;
+
     scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
 
     nodecl_free(nodecl_name);
@@ -672,6 +678,9 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
 
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_unqualified_id(unqualified_name, decl_context, &nodecl_name);
+
+    if (nodecl_is_err_expr(nodecl_name))
+        return NULL;
 
     scope_entry_list_t* result = query_nodecl_name_flags(decl_context, nodecl_name, decl_flags);
 
@@ -2268,6 +2277,116 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     return result;
 }
 
+static template_parameter_value_t* get_single_template_argument_from_syntax(AST template_parameter, 
+        decl_context_t template_parameters_context, int position)
+{
+
+    switch (ASTType(template_parameter))
+    {
+        case AST_TEMPLATE_EXPRESSION_ARGUMENT :
+            {
+                template_parameter_value_t* t_argument = 
+                    counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+
+                AST expr = ASTSon0(template_parameter);
+
+                nodecl_t nodecl_expr = nodecl_null();
+                check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
+
+                if (nodecl_is_err_expr(nodecl_expr))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid template-argument number %d\n",
+                                ast_location(template_parameter),
+                                position);
+                    }
+                    return NULL;
+                }
+
+                t_argument->value = nodecl_expr;
+
+                t_argument->type = nodecl_get_type(nodecl_expr);
+                t_argument->kind = TPK_NONTYPE;
+
+                return t_argument;
+                break;
+            }
+        case AST_TEMPLATE_TYPE_ARGUMENT :
+            {
+                template_parameter_value_t* t_argument = 
+                    counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+
+                AST type_template_parameter = ASTSon0(template_parameter);
+                AST type_specifier_seq = ASTSon0(type_template_parameter);
+                AST abstract_decl = ASTSon1(type_template_parameter);
+
+                // A type_specifier_seq is essentially a subset of a
+                // declarator_specifier_seq so we can reuse existing functions
+                type_t* type_info;
+                gather_decl_spec_t gather_info;
+                memset(&gather_info, 0, sizeof(gather_info));
+                // gather_info.allow_class_template_names = 1;
+
+                nodecl_t dummy_nodecl_output = nodecl_null();
+                build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
+                        template_parameters_context, 
+                        &dummy_nodecl_output);
+
+                if (is_error_type(type_info))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s: error: invalid template-argument number %d\n",
+                                ast_location(template_parameter),
+                                position);
+                    }
+                    return NULL;
+                }
+
+                type_t* declarator_type;
+                compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
+                        template_parameters_context, &dummy_nodecl_output);
+
+                if (is_named_type(declarator_type)
+                        && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE
+                            || named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+                {
+                    if (abstract_decl != NULL)
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: invalid template-argument number %d\n",
+                                    ast_location(template_parameter),
+                                    position);
+                        }
+                    }
+                    t_argument->kind = TPK_TEMPLATE;
+                }
+                else
+                {
+                    t_argument->kind = TPK_TYPE;
+                }
+                t_argument->type = declarator_type;
+
+                return t_argument;
+                break;
+            }
+        case AST_AMBIGUITY :
+            {
+                solve_ambiguous_template_argument(template_parameter, template_parameters_context);
+
+                return get_single_template_argument_from_syntax(template_parameter, template_parameters_context, position);
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid node %s", ast_print_node_type(ASTType(template_parameter)));
+            }
+    }
+    return NULL;
+}
+
 template_parameter_list_t* get_template_parameters_from_syntax(
         AST template_parameters_list_tree,
         decl_context_t template_parameters_context)
@@ -2279,73 +2398,17 @@ template_parameter_list_t* get_template_parameters_from_syntax(
         return result;
     }
 
+    int position = 0;
     AST iter;
     for_each_element(template_parameters_list_tree, iter)
     {
         AST template_parameter = ASTSon1(iter);
 
-        template_parameter_value_t* t_argument = counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
+        template_parameter_value_t* t_argument = get_single_template_argument_from_syntax(template_parameter,
+                template_parameters_context, position);
 
-        switch (ASTType(template_parameter))
-        {
-            case AST_TEMPLATE_EXPRESSION_ARGUMENT :
-                {
-                    AST expr = ASTSon0(template_parameter);
-
-                    nodecl_t nodecl_expr = nodecl_null();
-                    check_nontype_template_argument_expression(expr, template_parameters_context, &nodecl_expr);
-
-                    t_argument->value = nodecl_expr;
-
-                    t_argument->type = nodecl_get_type(nodecl_expr);
-                    t_argument->kind = TPK_NONTYPE;
-
-                    break;
-                }
-            case AST_TEMPLATE_TYPE_ARGUMENT :
-                {
-                    AST type_template_parameter = ASTSon0(template_parameter);
-                    AST type_specifier_seq = ASTSon0(type_template_parameter);
-                    AST abstract_decl = ASTSon1(type_template_parameter);
-
-                    // A type_specifier_seq is essentially a subset of a
-                    // declarator_specifier_seq so we can reuse existing functions
-                    type_t* type_info;
-                    gather_decl_spec_t gather_info;
-                    memset(&gather_info, 0, sizeof(gather_info));
-
-                    nodecl_t dummy_nodecl_output = nodecl_null();
-                    build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                            template_parameters_context, 
-                            &dummy_nodecl_output);
-
-                    type_t* declarator_type;
-                    compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                            template_parameters_context, &dummy_nodecl_output);
-
-                    if (is_named_type(declarator_type)
-                            && (named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE
-                                || named_type_get_symbol(declarator_type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
-                    {
-                        t_argument->kind = TPK_TEMPLATE;
-                    }
-                    else
-                    {
-                        t_argument->kind = TPK_TYPE;
-                    }
-                    t_argument->type = declarator_type;
-
-                    break;
-                }
-            case AST_AMBIGUITY :
-                {
-                    internal_error("Ambiguous node", 0);
-                }
-            default:
-                {
-                    internal_error("Invalid node %s", ast_print_node_type(ASTType(template_parameter)));
-                }
-        }
+        if (t_argument == NULL)
+            return NULL;
         
         int num_parameters = result->num_parameters;
         // Empty parameter, it will be filled at a later moment
@@ -2355,6 +2418,8 @@ template_parameter_list_t* get_template_parameters_from_syntax(
         P_LIST_ADD(result->arguments, 
                 result->num_parameters,
                 t_argument);
+
+        position++;
     }
 
     return result;
@@ -3311,6 +3376,9 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
 
     template_parameter_list_t* template_parameters = nodecl_get_template_parameters(nodecl_name);
 
+    if (template_parameters == NULL)
+        return NULL;
+
     // Filter template-names
     enum cxx_symbol_kind template_name_filter[] = {
         SK_TEMPLATE_TEMPLATE_PARAMETER,
@@ -3828,6 +3896,14 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 template_parameter_list_t* template_parameters = 
                     get_template_parameters_from_syntax(template_arguments, decl_context);
 
+                if (template_parameters == NULL)
+                {
+                    *nodecl_output = nodecl_make_err_expr(
+                            ASTFileName(unqualified_id), 
+                            ASTLine(unqualified_id));
+                    return;
+                }
+
                 *nodecl_output = nodecl_make_cxx_dep_template_id(
                         nodecl_make_cxx_dep_name_simple(
                             name,
@@ -3856,6 +3932,14 @@ static void compute_nodecl_name_from_unqualified_id(AST unqualified_id, decl_con
                 AST template_arguments = ASTSon1(unqualified_id);
                 template_parameter_list_t* template_parameters = 
                     get_template_parameters_from_syntax(template_arguments, decl_context);
+
+                if (template_parameters == NULL)
+                {
+                    *nodecl_output = nodecl_make_err_expr(
+                            ASTFileName(unqualified_id), 
+                            ASTLine(unqualified_id));
+                    return;
+                }
 
                 *nodecl_output = nodecl_make_cxx_dep_template_id(
                         nodecl_make_cxx_dep_name_simple(
@@ -3920,6 +4004,12 @@ void compute_nodecl_name_from_nested_part(AST nested_part,
                 decl_context,
                 &current);
 
+        if (nodecl_is_err_expr(current))
+        {
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(nested_part), ASTLine(nested_part));
+            return;
+        }
+
         nodecl_nested = nodecl_append_to_list(nodecl_nested, current);
         nested_it = ASTSon1(nested_it);
     }
@@ -3934,8 +4024,20 @@ void compute_nodecl_name_from_nested_name(AST nested_part,
     nodecl_t nodecl_nested = nodecl_null();
     compute_nodecl_name_from_nested_part(nested_part, decl_context, &nodecl_nested);
 
+    if (nodecl_is_err_expr(nodecl_nested))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(nested_part), ASTLine(nested_part));
+        return;
+    }
+
     nodecl_t nodecl_unqualified = nodecl_null();
     compute_nodecl_name_from_unqualified_id(unqualified_part, decl_context, &nodecl_unqualified);
+
+    if (nodecl_is_err_expr(nodecl_unqualified))
+    {
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(unqualified_part), ASTLine(unqualified_part));
+        return;
+    }
 
     nodecl_nested = nodecl_append_to_list(nodecl_nested, nodecl_unqualified);
 
@@ -3953,8 +4055,20 @@ void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec
         nodecl_t nodecl_nested = nodecl_null();
         compute_nodecl_name_from_nested_part(nested_name_spec, decl_context, &nodecl_nested);
 
+        if (nodecl_is_err_expr(nodecl_nested))
+        {
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(nested_name_spec), ASTLine(nested_name_spec));
+            return;
+        }
+
         nodecl_t nodecl_unqualified = nodecl_null();
         compute_nodecl_name_from_unqualified_id(unqualified_id, decl_context, &nodecl_unqualified);
+
+        if (nodecl_is_err_expr(nodecl_unqualified))
+        {
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(unqualified_id), ASTLine(unqualified_id));
+            return;
+        }
 
         nodecl_nested = nodecl_append_to_list(nodecl_nested, nodecl_unqualified);
 

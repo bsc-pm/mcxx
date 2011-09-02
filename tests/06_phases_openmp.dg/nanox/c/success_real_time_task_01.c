@@ -27,20 +27,14 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-int a[100];
-int *b;
+#pragma omp task deadline(1)
+void f(int e) {}      
 
-void f(void)
-{
-    a[0:49];
-    a[50:99];
-
-    b = a;
-
-    b[0:49];
-    b[50:99];
-}
+int b,c;
+#pragma omp task onerror(b:c)
+void i(int e) {}
+int main() {}

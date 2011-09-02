@@ -27,20 +27,18 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-extensions
+test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-int a[100];
-int *b;
 
-void f(void)
-{
-    a[0:49];
-    a[50:99];
+#pragma omp task release deadline(a,b)
+void success_release_deadline(int f) {}
 
-    b = a;
+#pragma omp task onerror(a:b)
+void success_on_error(int f) {}
 
-    b[0:49];
-    b[50:99];
-}
+#pragma omp task onerror(b)
+void success_on_error1(int f) {}
+
+int main(){}

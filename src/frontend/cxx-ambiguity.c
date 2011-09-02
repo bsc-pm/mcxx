@@ -406,7 +406,9 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
         {
             case AST_DECLARATION_STATEMENT :
                 {
+                    enter_test_expression();
                     current_check = check_declaration_statement(ast_get_ambiguity(a, i), decl_context);
+                    leave_test_expression();
                     break;
                 }
             case AST_EXPRESSION_STATEMENT :
@@ -510,6 +512,211 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     }
 }
 
+// This function is used in cxx-exprtype.c in explicit type conversions
+// Maybe we should refactor somehow with gather_type_spec_information
+static char check_simple_type_spec(AST type_spec, decl_context_t decl_context, 
+        type_t** computed_type,
+        char allow_class_templates)
+{
+    if (computed_type != NULL)
+    {
+        *computed_type = NULL;
+    }
+
+    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
+    {
+        switch (ASTType(type_spec))
+        {
+            case AST_CHAR_TYPE :
+            case AST_INT_TYPE:
+            case AST_FLOAT_TYPE :
+            case AST_DOUBLE_TYPE :
+            case AST_LONG_TYPE :
+            case AST_SHORT_TYPE :
+            case AST_SIGNED_TYPE :
+            case AST_UNSIGNED_TYPE :
+            case AST_WCHAR_TYPE :
+            case AST_VOID_TYPE :
+            case AST_BOOL_TYPE :
+                {
+                    if (computed_type != NULL)
+                    {
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        nodecl_t dummy_nodecl_output = nodecl_null();
+                        gather_type_spec_information(type_spec, computed_type, &gather_info, decl_context, &dummy_nodecl_output);
+                    }
+                    return 1;
+                }
+                break;
+            default :
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_spec)));
+        }
+    }
+
+    AST type_id_expr = ASTSon0(type_spec);
+
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
+
+    if (entry_list == NULL)
+    {
+        return 0;
+    }
+
+    scope_entry_list_iterator_t* it = NULL;
+
+    char ok = 1;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && ok;
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        entry = entry_advance_aliases(entry);
+        if (entry->kind != SK_TYPEDEF
+                && entry->kind != SK_ENUM
+                && entry->kind != SK_CLASS
+                // We allow this because templates are like types
+                && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            ok = 0;
+        }
+        if (entry->kind == SK_TEMPLATE)
+        {
+            // Check that the template-name is actually a template class name
+            // and not a template function name
+            type_t* primary = template_type_get_primary_type(entry->type_information);
+            if (!is_named_class_type(primary))
+            {
+                ok = 0;
+            }
+        }
+        if (!allow_class_templates
+                && ASTType(type_id_expr) == AST_SYMBOL
+                && (entry->kind == SK_TEMPLATE
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+        {
+            ok = 0;
+        }
+    }
+    entry_list_iterator_free(it);
+
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
+    entry_list_free(entry_list);
+
+    if (ok && computed_type != NULL)
+    {
+        *computed_type = get_user_defined_type(entry);
+    }
+
+    return ok;
+}
+
+static char check_type_specifier_aux(AST type_id, decl_context_t decl_context, char allow_class_templates)
+{
+    C_LANGUAGE()
+    {
+        if (type_id == NULL)
+            return 1;
+    }
+    CXX_LANGUAGE()
+    {
+        ERROR_CONDITION(type_id == NULL,
+                "type-id cannot be null", 0);
+    }
+
+    switch (ASTType(type_id))
+    {
+        case AST_SIMPLE_TYPE_SPEC :
+            return check_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL, allow_class_templates);
+            break;
+        case AST_CLASS_SPECIFIER :
+        case AST_ENUM_SPECIFIER :
+        case AST_ELABORATED_TYPENAME_SPEC :
+        case AST_ELABORATED_TYPE_ENUM_SPEC :
+        case AST_ELABORATED_TYPE_CLASS_SPEC :
+        case AST_CHAR_TYPE :
+        case AST_WCHAR_TYPE :
+        case AST_BOOL_TYPE :
+        case AST_INT_TYPE :
+        case AST_SHORT_TYPE :
+        case AST_LONG_TYPE :
+        case AST_SIGNED_TYPE :
+        case AST_UNSIGNED_TYPE :
+        case AST_DOUBLE_TYPE :
+        case AST_FLOAT_TYPE :
+        case AST_VOID_TYPE :
+        case AST_GCC_COMPLEX_TYPE: 
+        case AST_GCC_IMAGINARY_TYPE: 
+            {
+                return 1;
+            }
+            // GCC Extension
+        case AST_GCC_TYPEOF_EXPR :
+            {
+                nodecl_t nodecl_dummy = nodecl_null();
+                enter_test_expression();
+                char result = check_expression(ASTSon0(type_id), decl_context, &nodecl_dummy);
+                leave_test_expression();
+                return result;
+            }
+        case AST_GCC_TYPEOF :
+            {
+                return check_type_id_tree(ASTSon0(type_id), decl_context);
+            }
+            // There is an ambiguity between AST_GCC_TYPEOF_EXPR and AST_GCC_TYPEOF
+        case AST_AMBIGUITY :
+            {
+                int valid = -1;
+                int i;
+                for (i = 0; i < ast_get_num_ambiguities(type_id); i++)
+                {
+                    if (check_type_specifier_aux(ast_get_ambiguity(type_id, i), decl_context, allow_class_templates))
+                    {
+                        if (valid < 0)
+                        {
+                            valid = i;
+                        }
+                        else
+                        {
+                            internal_error("Two or more valid type-id trees '%s' in %s\n", 
+                                    prettyprint_in_buffer(type_id),
+                                    ast_location(type_id));
+                        }
+                    }
+                }
+
+                if (valid < 0)
+                {
+                    internal_error("Cannot solve ambiguity of type-id '%s' in '%s'\n", 
+                            prettyprint_in_buffer(type_id),
+                            ast_location(type_id));
+                }
+
+                choose_option(type_id, valid);
+
+                // This is always a valid type
+                return 1;
+                break;
+            }
+        default :
+            {
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
+            }
+    }
+}
+
+static char check_type_specifier(AST type_id, decl_context_t decl_context)
+{
+    return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 0);
+}
+
+static char check_type_specifier_or_class_template_name(AST type_id, decl_context_t decl_context)
+{
+    return check_type_specifier_aux(type_id, decl_context, /* allow_class_templates */ 1);
+}
 
 
 static char check_simple_or_member_declaration(AST a, decl_context_t decl_context)
@@ -941,11 +1148,12 @@ static char check_expression_statement(AST a, decl_context_t decl_context)
 
 // Returns if the template_parameter could be disambiguated.
 // If it can be disambiguated, it is disambiguated here
-char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_context_t decl_context)
+void solve_ambiguous_template_argument(AST ambig_template_parameter, decl_context_t decl_context)
 {
     int i;
 
     int selected_option = -1;
+    int expression_option = -1;
     for (i = 0; i < ast_get_num_ambiguities(ambig_template_parameter); i++)
     {
         char current_option = 0;
@@ -957,11 +1165,12 @@ char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_conte
                 {
                     AST type_id = ASTSon0(current_template_parameter);
 
-                    current_option = check_type_id_tree(type_id, decl_context);
+                    current_option = check_type_id_tree_or_class_template_name(type_id, decl_context);
                     break;
                 }
             case AST_TEMPLATE_EXPRESSION_ARGUMENT :
                 {
+                    expression_option = i;
                     AST expression_arg = ASTSon0(current_template_parameter);
 
                     nodecl_t nodecl_dummy = nodecl_null();
@@ -1006,308 +1215,17 @@ char solve_ambiguous_template_parameter(AST ambig_template_parameter, decl_conte
 
     if (selected_option < 0)
     {
-        return 0;
+        if (expression_option < 0)
+            expression_option = 0;
+        choose_option(ambig_template_parameter, expression_option);
     }
     else
     {
         // Can be disambiguated, so we do it
         choose_option(ambig_template_parameter, selected_option);
-        return 1;
     }
 }
 
-static char check_template_parameter_list(AST argument_list, decl_context_t decl_context);
-
-// Returns false if expression arguments do not pass the check_expression test,
-// otherwise returns true.
-char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_context)
-{
-    char result = 1;
-    ERROR_CONDITION((ASTType(type_name) != AST_TEMPLATE_ID
-                && ASTType(type_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE), 
-            "Unexpected node '%s' only AST_TEMPLATE_ID or AST_OPERATOR_FUNCTION_ID_TEMPLATE allowed", 
-            ast_print_node_type(ASTType(type_name)));
-
-    // For every argument solve its possible ambiguities
-    AST argument_list = ASTSon1(type_name);
-
-    if (argument_list != NULL)
-    {
-        if (ASTType(argument_list) == AST_AMBIGUITY)
-        {
-            // If this is ambiguous, check for the argument_list that is feasible, and choose it,
-            // if no feasible found, this is not a valid template_id
-            int i;
-            int feasible_list = -1;
-            for (i = 0; i < ast_get_num_ambiguities(argument_list); i++)
-            {
-                if (check_template_parameter_list(ast_get_ambiguity(argument_list, i), decl_context))
-                {
-                    if (feasible_list < 0)
-                    {
-                        feasible_list = i;
-                    }
-                    else
-                    {
-                        internal_error("Two feasible_list template argument lists!\n", 0);
-                    }
-                }
-            }
-            if (feasible_list < 0)
-            {
-                result = 0;
-            }
-            else
-            {
-                choose_option(argument_list, feasible_list);
-            }
-        }
-        else
-        {
-            result = check_template_parameter_list(argument_list, decl_context);
-        }
-    }
-    
-    return result;
-}
-
-static char check_template_parameter_list(AST argument_list, decl_context_t decl_context)
-{
-    ERROR_CONDITION(ASTType(argument_list) != AST_NODE_LIST, "Invalid node kind", 0);
-
-    if (argument_list != NULL)
-    {
-        AST iter;
-        for_each_element(argument_list, iter)
-        {
-            AST template_parameter = ASTSon1(iter);
-
-            if (ASTType(template_parameter) == AST_AMBIGUITY)
-            {
-                char valid_template_parameter = solve_ambiguous_template_parameter(template_parameter, decl_context);
-                if (!valid_template_parameter)
-                    return 0;
-            }
-
-            if (ASTType(template_parameter) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
-            {
-                nodecl_t nodecl_dummy = nodecl_null();
-                enter_test_expression();
-                char valid_template_parameter = check_expression(ASTSon0(template_parameter), decl_context, &nodecl_dummy);
-                leave_test_expression();
-                if (!valid_template_parameter)
-                    return 0;
-            }
-            else if (ASTType(template_parameter) == AST_TEMPLATE_TYPE_ARGUMENT)
-            {
-                AST type_id = ASTSon0(template_parameter);
-
-                AST type_specifier = ASTSon0(type_id);
-                AST abstract_declarator = ASTSon1(type_id);
-
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                type_t* simple_type_info = NULL;
-                nodecl_t dummy_nodecl_output = nodecl_null();
-                build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                        decl_context, &dummy_nodecl_output);
-
-                type_t* declarator_type = NULL;
-                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                        &declarator_type, decl_context, &dummy_nodecl_output);
-            }
-        }
-    }
-    return 1;
-}
-
-// This function is used in cxx-exprtype.c in explicit type conversions
-// Maybe we should refactor somehow with gather_type_spec_information
-static char check_simple_type_spec(AST type_spec, decl_context_t decl_context, type_t** computed_type)
-{
-    if (computed_type != NULL)
-    {
-        *computed_type = NULL;
-    }
-
-    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
-    {
-        switch (ASTType(type_spec))
-        {
-            case AST_CHAR_TYPE :
-            case AST_INT_TYPE:
-            case AST_FLOAT_TYPE :
-            case AST_DOUBLE_TYPE :
-            case AST_LONG_TYPE :
-            case AST_SHORT_TYPE :
-            case AST_SIGNED_TYPE :
-            case AST_UNSIGNED_TYPE :
-            case AST_WCHAR_TYPE :
-            case AST_VOID_TYPE :
-            case AST_BOOL_TYPE :
-                {
-                    if (computed_type != NULL)
-                    {
-                        gather_decl_spec_t gather_info;
-                        memset(&gather_info, 0, sizeof(gather_info));
-
-                        nodecl_t dummy_nodecl_output = nodecl_null();
-                        gather_type_spec_information(type_spec, computed_type, &gather_info, decl_context, &dummy_nodecl_output);
-                    }
-                    return 1;
-                }
-                break;
-            default :
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_spec)));
-        }
-    }
-
-    AST type_id_expr = ASTSon0(type_spec);
-
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
-
-    if (entry_list == NULL)
-    {
-        return 0;
-    }
-
-    scope_entry_list_iterator_t* it = NULL;
-
-    char ok = 1;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it) && ok;
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        entry = entry_advance_aliases(entry);
-        if (entry->kind != SK_TYPEDEF
-                && entry->kind != SK_ENUM
-                && entry->kind != SK_CLASS
-                // We allow this because templates are like types
-                && entry->kind != SK_TEMPLATE
-                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
-        {
-            ok = 0;
-        }
-        if (entry->kind == SK_TEMPLATE)
-        {
-            // Check that the template-name is actually a template class name
-            // and not a template function name
-            type_t* primary = template_type_get_primary_type(entry->type_information);
-            if (!is_named_class_type(primary))
-            {
-                ok = 0;
-            }
-        }
-    }
-    entry_list_iterator_free(it);
-
-    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
-    entry_list_free(entry_list);
-
-    if (ok && computed_type != NULL)
-    {
-        *computed_type = get_user_defined_type(entry);
-    }
-
-    return ok;
-}
-
-char check_type_specifier(AST type_id, decl_context_t decl_context)
-{
-    C_LANGUAGE()
-    {
-        if (type_id == NULL)
-            return 1;
-    }
-    CXX_LANGUAGE()
-    {
-        ERROR_CONDITION(type_id == NULL,
-                "type-id cannot be null", 0);
-    }
-
-    switch (ASTType(type_id))
-    {
-        case AST_SIMPLE_TYPE_SPEC :
-            return check_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL);
-            break;
-        case AST_CLASS_SPECIFIER :
-        case AST_ENUM_SPECIFIER :
-        case AST_ELABORATED_TYPENAME_SPEC :
-        case AST_ELABORATED_TYPE_ENUM_SPEC :
-        case AST_ELABORATED_TYPE_CLASS_SPEC :
-        case AST_CHAR_TYPE :
-        case AST_WCHAR_TYPE :
-        case AST_BOOL_TYPE :
-        case AST_INT_TYPE :
-        case AST_SHORT_TYPE :
-        case AST_LONG_TYPE :
-        case AST_SIGNED_TYPE :
-        case AST_UNSIGNED_TYPE :
-        case AST_DOUBLE_TYPE :
-        case AST_FLOAT_TYPE :
-        case AST_VOID_TYPE :
-        case AST_GCC_COMPLEX_TYPE: 
-        case AST_GCC_IMAGINARY_TYPE: 
-            {
-                return 1;
-            }
-            // GCC Extension
-        case AST_GCC_TYPEOF_EXPR :
-            {
-                nodecl_t nodecl_dummy = nodecl_null();
-                enter_test_expression();
-                char result = check_expression(ASTSon0(type_id), decl_context, &nodecl_dummy);
-                leave_test_expression();
-                return result;
-            }
-        case AST_GCC_TYPEOF :
-            {
-                return check_type_id_tree(ASTSon0(type_id), decl_context);
-            }
-            // There is an ambiguity between AST_GCC_TYPEOF_EXPR and AST_GCC_TYPEOF
-        case AST_AMBIGUITY :
-            {
-                int valid = -1;
-                int i;
-                for (i = 0; i < ast_get_num_ambiguities(type_id); i++)
-                {
-                    if (check_type_specifier(ast_get_ambiguity(type_id, i), decl_context))
-                    {
-                        if (valid < 0)
-                        {
-                            valid = i;
-                        }
-                        else
-                        {
-                            internal_error("Two or more valid type-id trees '%s' in %s\n", 
-                                    prettyprint_in_buffer(type_id),
-                                    ast_location(type_id));
-                        }
-                    }
-                }
-
-                if (valid < 0)
-                {
-                    internal_error("Cannot solve ambiguity of type-id '%s' in '%s'\n", 
-                            prettyprint_in_buffer(type_id),
-                            ast_location(type_id));
-                }
-
-                choose_option(type_id, valid);
-
-                // This is always a valid type
-                return 1;
-                break;
-            }
-        default :
-            {
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
-            }
-    }
-}
 
 void solve_ambiguous_init_declarator(AST a, decl_context_t decl_context)
 {
@@ -1995,29 +1913,6 @@ void solve_ambiguous_exception_decl(AST exception_decl, decl_context_t decl_cont
     solve_ambiguous_parameter_decl(exception_decl, decl_context);
 }
 
-char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
-{
-    char result = 1;
-    while (nested_name_spec != NULL)
-    {
-        if (ASTType(nested_name_spec) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_nested_name_specifier(nested_name_spec, decl_context);
-        }
-
-        AST current_name = ASTSon0(nested_name_spec);
-
-        if (ASTType(current_name) == AST_TEMPLATE_ID)
-        {
-            result = result && solve_possibly_ambiguous_template_id(current_name, decl_context);
-        }
-
-        nested_name_spec = ASTSon1(nested_name_spec);
-    }
-
-    return result;
-}
-
 
 char check_type_id_tree(AST type_id, decl_context_t decl_context)
 {
@@ -2030,7 +1925,19 @@ char check_type_id_tree(AST type_id, decl_context_t decl_context)
     return check_type_specifier(type_specifier, decl_context)
         && ((abstract_declarator == NULL)
                 || (check_declarator(abstract_declarator, decl_context)));
+}
 
+char check_type_id_tree_or_class_template_name(AST type_id, decl_context_t decl_context)
+{
+    AST type_specifier_seq = ASTSon0(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
+    
+    // This is never NULL
+    AST type_specifier = ASTSon1(type_specifier_seq);
+
+    return check_type_specifier_or_class_template_name(type_specifier, decl_context)
+        && ((abstract_declarator == NULL)
+                || (check_declarator(abstract_declarator, decl_context)));
 }
 
 
@@ -2315,72 +2222,5 @@ void solve_condition_ambiguity(AST a, decl_context_t decl_context)
     else
     {
         choose_option(a, correct_choice);
-    }
-}
-
-static char solve_ambiguous_nested_name_specifier_rec(AST a, decl_context_t decl_context)
-{
-    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
-            "Must be ambiguous node", 0);
-
-    int correct_choice = -1;
-
-    int i;
-    for (i = 0; i < ast_get_num_ambiguities(a); i++)
-    {
-        char current_check = 1;
-        AST current = ast_get_ambiguity(a, i);
-
-        AST qualif_part = ASTSon0(current);
-        AST nested_name_part = ASTSon0(current);
-
-        if (ASTType(qualif_part) == AST_TEMPLATE_ID)
-        {
-            current_check = solve_possibly_ambiguous_template_id(qualif_part, decl_context);
-        }
-
-        if (current_check)
-        {
-            if (nested_name_part != NULL
-                    && ASTType(nested_name_part) == AST_AMBIGUITY)
-            {
-                current_check = solve_ambiguous_nested_name_specifier_rec(nested_name_part, decl_context);
-            }
-        }
-
-        if (current_check)
-        {
-            if (correct_choice < 0)
-            {
-                correct_choice = i;
-            }
-            else
-            {
-                AST first_option = ast_get_ambiguity(a, correct_choice);
-                AST second_option = current;
-                internal_error("More than one valid choice! '%s' vs '%s' %s", 
-                        ast_print_node_type(ASTType(first_option)),
-                        ast_print_node_type(ASTType(second_option)),
-                        ast_location(second_option));
-            }
-        }
-    }
-
-    if (correct_choice < 0)
-    {
-        return 0;
-    }
-    else
-    {
-        choose_option(a, correct_choice);
-        return 1;
-    }
-}
-
-void solve_ambiguous_nested_name_specifier(AST a, decl_context_t decl_context)
-{
-    if (!solve_ambiguous_nested_name_specifier_rec(a, decl_context))
-    {
-        internal_error("Ambiguity not solved '%s'", ast_location(a));
     }
 }
