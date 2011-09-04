@@ -124,29 +124,6 @@ type_t* actual_type_of_conversor(scope_entry_t* conv)
     }
 }
 
-scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a)
-{
-    ERROR_CONDITION(!is_template_parameter_name(a),
-            "'%s' should be a template parameter name!", prettyprint_in_buffer(a));
-
-    tl_type_t* symbol = ASTAttrValue(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL);
-
-    ERROR_CONDITION(symbol == NULL,
-            "Template parameter related symbol is wrong", 0);
-
-    scope_entry_t* result = lookup_of_template_parameter(decl_context, 
-            symbol->data._entry->entity_specs.template_parameter_nesting,
-            symbol->data._entry->entity_specs.template_parameter_position);
-
-    if (result == NULL)
-    {
-        // Return the stored symbol
-        result = symbol->data._entry;
-    }
-
-    return result;
-}
-
 static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         type_t** argument_types, int num_arguments, decl_context_t decl_context,
@@ -4826,14 +4803,7 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
 {
     scope_entry_list_t* result = NULL;
 
-    if (is_template_parameter_name(expr))
-    {
-        result = entry_list_new(lookup_template_parameter_name(decl_context, expr));
-    }
-    else
-    {
-        result = query_nested_name(decl_context, NULL, NULL, expr); 
-    }
+    result = query_nested_name(decl_context, NULL, NULL, expr); 
 
     CXX_LANGUAGE()
     {

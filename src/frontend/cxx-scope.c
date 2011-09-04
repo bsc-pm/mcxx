@@ -3089,22 +3089,6 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     return parameter_entry;
 }
 
-void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)
-{
-    ERROR_CONDITION(template_param_sym == NULL, "template parameter symbol cannot be NULL", 0);
-
-    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, tl_symbol(template_param_sym));
-}
-
-char is_template_parameter_name(AST a)
-{
-    tl_type_t* t = (tl_type_t*)(ASTAttrValue(a, LANG_IS_TEMPLATE_PARAMETER_NAME));
-    if (t == NULL)
-        return 0;
-    return t->data._boolean;
-}
-
 char is_unqualified_id_expression(AST a)
 {
     return a != NULL

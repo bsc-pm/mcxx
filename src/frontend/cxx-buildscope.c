@@ -8437,7 +8437,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     if (entry == NULL)
     {
-        error_printf("%s: error: function '%s' was not found in the scope\n", 
+        error_printf("%s: error: function '%s' was not found in the current scope\n", 
                 ast_location(function_header), 
                 print_decl_type_str(declarator_type, new_decl_context, 
                     prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));

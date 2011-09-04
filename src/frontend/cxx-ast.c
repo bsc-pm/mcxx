@@ -664,15 +664,6 @@ AST ast_copy_for_instantiation(const_AST a)
 
     ast_fix_extended_data(result, a);
 
-    // Copy template parameter info (it is vital for proper resolution)
-    if (is_template_parameter_name((AST)a))
-    {
-         tl_type_t* tl_data = ASTAttrValue((AST)a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL);
-
-         ASTAttrSetValueType(result, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
-         ASTAttrSetValueType(result, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, *tl_data);
-    }
-
     return result;
 }
 

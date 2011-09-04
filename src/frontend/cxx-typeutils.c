@@ -1204,6 +1204,7 @@ static template_parameter_list_t* compute_template_parameter_values_of_primary(t
                 {
                     new_value->kind = TPK_NONTYPE;
                     new_value->type = param->entry->type_information;
+                    new_value->value = nodecl_make_symbol(param->entry, param->entry->file, param->entry->line);
 
                     break;
                 }
