@@ -4628,7 +4628,7 @@ static void compute_operator_reference_type(nodecl_t* op,
     compute_unary_operator_generic(op, 
             operation_tree, decl_context,
             operand_is_class_or_enum,
-            nodecl_make_logical_not,
+            nodecl_make_reference,
             // No constants
             NULL,
             compute_type_no_overload_reference,
