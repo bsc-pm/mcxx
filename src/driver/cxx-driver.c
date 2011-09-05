@@ -2162,10 +2162,19 @@ static void load_configuration(void)
                 stat(full_path, &buf);
                 if (S_ISREG(buf.st_mode))
                 {
-                    //Allocating configuration filename
-                    char * config_file = (char *)calloc(strlen(dir_entry->d_name), sizeof(char));
-                    strncpy(config_file, dir_entry->d_name, strlen(dir_entry->d_name));
-                    P_LIST_ADD(list_config_files, num_config_files, config_file);
+
+                    if(contain_prefix_number(dir_entry->d_name))
+                    {
+                        //Allocating configuration filename
+                        char * config_file = (char *)calloc(strlen(dir_entry->d_name), sizeof(char));
+                        strncpy(config_file, dir_entry->d_name, strlen(dir_entry->d_name));
+                        P_LIST_ADD(list_config_files, num_config_files, config_file);
+                    }
+                    else
+                    {
+                        fprintf(stderr, "warning: '%s' is not a valid configuration filename "
+                                "since it does not start with a digit. Maybe you need to update it.\n", dir_entry->d_name);
+                    }
                 }
             }
             dir_entry = readdir(config_dir);

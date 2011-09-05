@@ -106,7 +106,7 @@ dnl --------------------- end check of old gcc ---
 
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
-INSTALL_CONFIG_FILES="config.plain"
+INSTALL_CONFIG_FILES="00.config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
 
@@ -299,10 +299,11 @@ then
 
    if test x$is_enabled_fortran = xyes;
    then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.fortran"
       COMPILER_NAMES="${COMPILER_NAMES} mf95"
    fi
    
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda config.ocl config.gpu"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.cuda 50.config.ocl 50.config.gpu"
 fi
 
 NANOX_INSTRUMENTATION=""
@@ -462,6 +463,7 @@ AC_SUBST([CUDA_LIBS])
 
 if test x$gpu_valid = xyes;
 then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
 fi
 
@@ -578,20 +580,21 @@ AC_ARG_ENABLE([tl-openmp-profile],
   ]
 )
 
-if test x$is_enabled_tl_omp_profile = xyes ;
-then
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
-   COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
-fi
-
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes \
       -o x$is_enabled_tl_omp_nanox = xyes \
       -o x$is_enabled_tl_omp_profile = xyes \
       -o x$is_enabled_fortran = xyes ;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
+
+   if x$is_enabled_tl_omp_profile = xyes;
+   then
+       TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
+       COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
+       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.profiling"
+   fi
 
    dnl Check Intel Compiler C
    AC_PATH_PROG([ICC], [icc], [])
@@ -607,6 +610,11 @@ then
       COMPILER_NAMES="${COMPILER_NAMES} imcxx"
    fi
 
+   if test x$ICC != x -o test x$ICPC != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.intel"
+   fi
+
    dnl XL (gcc driver)
    AC_PATH_PROG([GXLC], [gxlc], [])
    if test x$GXLC != x;
@@ -619,6 +627,12 @@ then
    if test x$GXLCXX != x;
    then
       COMPILER_NAMES="${COMPILER_NAMES} xlmcxx"
+   fi
+
+
+   if test x$GXLC != x -o test x$GXLCXX != x;
+   then
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ibm"
    fi
 
 fi
@@ -769,7 +783,7 @@ then
    TL_EXTENSIONS="${TL_EXTENSIONS} stm_func"
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.stm_nebelung"
 fi
 
 AC_SUBST([NEBELUNG_INCLUDES])
@@ -874,7 +888,7 @@ then
    )
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.superscalar 50.config.ss_valgrind"
    COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
 fi
      
@@ -930,7 +944,7 @@ if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.sscc-common 50.config.sscc 50.config.sscxx"
    COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------

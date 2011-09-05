@@ -35,17 +35,25 @@ CONFIG_MCXX=\
 # We need a dist hook to keep these files in sync with their .in
 # see below
 CONFIG_FILES =  \
-       config.acotes \
-       config.acotes-msf \
-       config.cuda \
-       config.gpu \
-       config.ocl \
-       config.omp \
-       config.sscc \
-       config.plain \
-       config.stm_nebelung \
-       config.superscalar \
-       config.ss_valgrind \
+       50.config.acotes \
+       50.config.acotes-msf \
+       50.config.cuda \
+       50.config.gpu \
+       50.config.ocl \
+       10.config.omp-base \
+       50.config.omp.mercurium \
+       50.config.omp.intel \
+       50.config.omp.ibm \
+       50.config.omp.nvidia \
+       50.config.omp.profiling \
+       50.config.omp.fortran \
+       10.config.sscc-common \
+       50.config.sscc \
+       50.config.sscxx \
+       00.config.plain \
+       50.config.stm_nebelung \
+       50.config.superscalar \
+       50.config.ss_valgrind \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
@@ -61,10 +69,13 @@ CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 # Replacements are defined in this file
 include ./Makefile.replace
 
-BUILT_SOURCES=$(CONFIG_MCXX) $(CONFIG_FILES)
+BUILT_SOURCES=$(CONFIG_MCXX) $(INSTALL_CONFIG_FILES)
 
 # This is valid in parallel make since we are generating one goal file at a time
-config.% : config.%.in Makefile
+# config.% : config.%.in Makefile
+# 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
+
+$(INSTALL_CONFIG_FILES) $(CONFIG_MCXX): % : %.in
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install

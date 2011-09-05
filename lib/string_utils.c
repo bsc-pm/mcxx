@@ -162,6 +162,14 @@ const char* strtolower(const char* c)
     }
     return NULL;
 }
+
+
+unsigned char contain_prefix_number(const char* c) 
+{
+    if (strlen(c) == 0) return 0; 
+    return ('0' <= c[0] &&  c[0] <= '9');
+}
+
 // merge sort functions 
 void private_fusion(char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
