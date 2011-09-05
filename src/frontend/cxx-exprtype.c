@@ -4613,86 +4613,62 @@ static void parse_reference(AST op,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
-    C_LANGUAGE()
+    CXX_LANGUAGE()
     {
-        check_expression_impl_(op, decl_context, nodecl_output);
-        return;
-    }
-
-    // C++ from now
-    // We need this function because this operator is so silly in C++
-    if (ASTType(op) == AST_QUALIFIED_ID
-            || ASTType(op) == AST_QUALIFIED_TEMPLATE)
-    {
-        nodecl_t op_name = nodecl_null();
-        compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
-
-        if (nodecl_is_err_expr(op_name))
+        // C++ from now
+        // We need this function because this operator is so silly in C++
+        if (ASTType(op) == AST_QUALIFIED_ID
+                || ASTType(op) == AST_QUALIFIED_TEMPLATE)
         {
-            if (!checking_ambiguity())
+            nodecl_t op_name = nodecl_null();
+            compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
+
+            if (nodecl_is_err_expr(op_name))
             {
-                error_printf("%s: error: invalid qualified name '%s'\n",
-                        ast_location(op), prettyprint_in_buffer(op));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
-            return;
-        }
-
-        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, op_name);
-
-        if (entry_list == NULL)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: invalid qualified name '%s'\n",
-                        ast_location(op), prettyprint_in_buffer(op));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
-            return;
-        }
-
-        scope_entry_t* entry = entry_list_head(entry_list);
-
-        if (entry->kind == SK_TEMPLATE
-                && is_function_type(template_type_get_primary_type(entry->type_information)))
-        {
-            entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
-        }
-
-        if ((entry->kind == SK_VARIABLE
-                    || entry->kind == SK_FUNCTION)
-                && entry->entity_specs.is_member
-                && !entry->entity_specs.is_static)
-        {
-            // This is a pointer to a member
-            if (entry->kind == SK_FUNCTION)
-            {
-                // FIXME - We are not keeping the template arguments!
-                if (ASTType(op) == AST_QUALIFIED_TEMPLATE)
+                if (!checking_ambiguity())
                 {
-                    internal_error("Not yet implemented", 0);
+                    error_printf("%s: error: invalid qualified name '%s'\n",
+                            ast_location(op), prettyprint_in_buffer(op));
                 }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
+                return;
+            }
 
-                type_t* t = get_unresolved_overloaded_type(entry_list, /* template_args */ NULL);
-                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(op), ASTLine(op));
-                nodecl_set_type(*nodecl_output, t);
-            }
-            else // SK_VARIABLE
+            scope_entry_list_t* entry_list = query_nodecl_name(decl_context, op_name);
+
+            if (entry_list == NULL)
             {
-                *nodecl_output = nodecl_make_pointer_to_member(entry, ASTFileName(op), ASTLine(op));
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: invalid qualified name '%s'\n",
+                            ast_location(op), prettyprint_in_buffer(op));
+                }
+                *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
+                return;
+            }
+
+            scope_entry_t* entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
+
+            if (entry->kind == SK_TEMPLATE
+                    && is_function_type(template_type_get_primary_type(entry->type_information)))
+            {
+                entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+            }
+
+            if ((entry->kind == SK_VARIABLE
+                        || entry->kind == SK_FUNCTION)
+                    && entry->entity_specs.is_member
+                    && !entry->entity_specs.is_static)
+            {
+                // This is a pointer to a member
+                *nodecl_output = op_name;
+                return;
             }
         }
-        else if (entry->kind == SK_DEPENDENT_ENTITY)
-        {
-            internal_error("Not yet implemented", 0);
-        }
-        else
-        {
-            // Give up and perform a normal check
-            check_expression_impl_(op, decl_context, nodecl_output);
-        }
-        entry_list_free(entry_list);
     }
+
+    check_expression_impl_(op, decl_context, nodecl_output);
 }
 
 static void compute_operator_reference_type(nodecl_t* op, 
@@ -4707,19 +4683,29 @@ static void compute_operator_reference_type(nodecl_t* op,
                 ASTLeaf(AST_REFERENCE, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    compute_unary_operator_generic(op, 
-            operation_tree, decl_context,
-            operand_is_class_or_enum,
-            nodecl_make_reference,
-            // No constants
-            NULL,
-            compute_type_no_overload_reference,
-            NULL,
-            operator_unary_reference_pred,
-            operator_unary_reference_result,
-            /* save_conversions */ 0,
-            filename, line,
-            nodecl_output);
+    // If parse_reference passes us a qualified name we now this is a pointer
+    // to member reference
+    if (nodecl_get_kind(*op) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+            || nodecl_get_kind(*op) == NODECL_CXX_DEP_NAME_NESTED)
+    {
+        internal_error("Not yet implemented", 0);
+    }
+    else
+    {
+        compute_unary_operator_generic(op, 
+                operation_tree, decl_context,
+                operand_is_class_or_enum,
+                nodecl_make_reference,
+                // No constants
+                NULL,
+                compute_type_no_overload_reference,
+                NULL,
+                operator_unary_reference_pred,
+                operator_unary_reference_result,
+                /* save_conversions */ 0,
+                filename, line,
+                nodecl_output);
+    }
 }
 
 struct bin_operator_funct_type_t
