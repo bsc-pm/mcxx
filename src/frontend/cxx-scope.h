@@ -139,8 +139,6 @@ LIBMCXX_EXTERN type_t* update_type(type_t* orig_type,
 
 LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void* translation_data,
         const char* filename, int line);
 
 // Other stuff

@@ -1560,17 +1560,6 @@ static void string_literal_type(AST expr, nodecl_t* nodecl_output)
     *nodecl_output = nodecl_make_string_literal(result, value, ASTFileName(expr), ASTLine(expr));
 }
 
-struct bin_operator_funct_type_t
-{
-    void (*func)(nodecl_t* lhs, nodecl_t* rhs, decl_context_t, const char*, int, nodecl_t*);
-};
-
-struct unary_operator_funct_type_t
-{
-    void (*func)(nodecl_t* operand, decl_context_t, const char*, int, nodecl_t*);
-};
-
-#define OPERATOR_FUNCT_INIT(_x) { .func = _x }
 
 static 
 char operand_is_class_or_enum(type_t* op_type)
@@ -4092,7 +4081,6 @@ static void compute_unary_operator_generic(
         return;
     }
 
-    const_value_t* val = NULL;
 
     char requires_overload = 0;
     CXX_LANGUAGE()
@@ -4124,6 +4112,8 @@ static void compute_unary_operator_generic(
             return;
         }
 
+        const_value_t* val = NULL;
+
         if (const_value_unary_fun != NULL
                 && types_allow_constant_evaluation(op_type)
                 && nodecl_is_constant(*op))
@@ -4152,6 +4142,8 @@ static void compute_unary_operator_generic(
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
 
+        nodecl_set_constant(*nodecl_output, val);
+
         return;
     }
 
@@ -4179,6 +4171,8 @@ static void compute_unary_operator_generic(
     {
         if (selected_operator->entity_specs.is_builtin)
         {
+            const_value_t* val = NULL;
+
             if (const_value_unary_fun != NULL
                     && types_allow_constant_evaluation(op_type)
                     && nodecl_is_constant(*op))
@@ -4202,6 +4196,8 @@ static void compute_unary_operator_generic(
             {
                 nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
             }
+
+            nodecl_set_constant(*nodecl_output, val);
         }
         else
         {
@@ -4613,6 +4609,92 @@ static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
     return get_error_type();
 }
 
+static void parse_reference(AST op,
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    C_LANGUAGE()
+    {
+        check_expression_impl_(op, decl_context, nodecl_output);
+        return;
+    }
+
+    // C++ from now
+    // We need this function because this operator is so silly in C++
+    if (ASTType(op) == AST_QUALIFIED_ID
+            || ASTType(op) == AST_QUALIFIED_TEMPLATE)
+    {
+        nodecl_t op_name = nodecl_null();
+        compute_nodecl_name_from_id_expression(op, decl_context, &op_name);
+
+        if (nodecl_is_err_expr(op_name))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid qualified name '%s'\n",
+                        ast_location(op), prettyprint_in_buffer(op));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
+            return;
+        }
+
+        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, op_name);
+
+        if (entry_list == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: invalid qualified name '%s'\n",
+                        ast_location(op), prettyprint_in_buffer(op));
+            }
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(op), ASTLine(op));
+            return;
+        }
+
+        scope_entry_t* entry = entry_list_head(entry_list);
+
+        if (entry->kind == SK_TEMPLATE
+                && is_function_type(template_type_get_primary_type(entry->type_information)))
+        {
+            entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+        }
+
+        if ((entry->kind == SK_VARIABLE
+                    || entry->kind == SK_FUNCTION)
+                && entry->entity_specs.is_member
+                && !entry->entity_specs.is_static)
+        {
+            // This is a pointer to a member
+            if (entry->kind == SK_FUNCTION)
+            {
+                // FIXME - We are not keeping the template arguments!
+                if (ASTType(op) == AST_QUALIFIED_TEMPLATE)
+                {
+                    internal_error("Not yet implemented", 0);
+                }
+
+                type_t* t = get_unresolved_overloaded_type(entry_list, /* template_args */ NULL);
+                *nodecl_output = nodecl_make_symbol(entry, ASTFileName(op), ASTLine(op));
+                nodecl_set_type(*nodecl_output, t);
+            }
+            else // SK_VARIABLE
+            {
+                *nodecl_output = nodecl_make_pointer_to_member(entry, ASTFileName(op), ASTLine(op));
+            }
+        }
+        else if (entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            internal_error("Not yet implemented", 0);
+        }
+        else
+        {
+            // Give up and perform a normal check
+            check_expression_impl_(op, decl_context, nodecl_output);
+        }
+        entry_list_free(entry_list);
+    }
+}
+
 static void compute_operator_reference_type(nodecl_t* op, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         const char* filename, int line, 
@@ -4639,6 +4721,21 @@ static void compute_operator_reference_type(nodecl_t* op,
             filename, line,
             nodecl_output);
 }
+
+struct bin_operator_funct_type_t
+{
+    void (*pre)(AST op, decl_context_t, nodecl_t*);
+    void (*func)(nodecl_t* lhs, nodecl_t* rhs, decl_context_t, const char*, int, nodecl_t*);
+};
+
+struct unary_operator_funct_type_t
+{
+    void (*pre)(AST op, decl_context_t, nodecl_t*);
+    void (*func)(nodecl_t* operand, decl_context_t, const char*, int, nodecl_t*);
+};
+
+#define OPERATOR_FUNCT_INIT(_x) { .pre = check_expression_impl_, .func = _x }
+#define OPERATOR_FUNCT_INIT_PRE(_pre, _x) { .pre = _pre, .func = _x }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
 {
@@ -4674,16 +4771,58 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
     [AST_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
     [AST_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
+
+    // Same as above for nodecl
+    [NODECL_ADD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_add_type),
+    [NODECL_MUL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_type),
+    [NODECL_DIV]                = OPERATOR_FUNCT_INIT(compute_bin_operator_div_type),
+    [NODECL_MOD]                = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_type),
+    [NODECL_MINUS]              = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_type),
+    [NODECL_SHL]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_type),
+    [NODECL_SHR]                = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_type),
+    [NODECL_LOWER_THAN]            = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_than_type),
+    [NODECL_GREATER_THAN]          = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_than_type),
+    [NODECL_GREATER_OR_EQUAL_THAN] = OPERATOR_FUNCT_INIT(compute_bin_operator_greater_equal_type),
+    [NODECL_LOWER_OR_EQUAL_THAN]   = OPERATOR_FUNCT_INIT(compute_bin_operator_lower_equal_type),
+    [NODECL_EQUAL]              = OPERATOR_FUNCT_INIT(compute_bin_operator_equal_type),
+    [NODECL_DIFFERENT]          = OPERATOR_FUNCT_INIT(compute_bin_operator_different_type),
+    [NODECL_BITWISE_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_type),
+    [NODECL_BITWISE_XOR]           = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_type),
+    [NODECL_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
+    [NODECL_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
+    [NODECL_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
+#ifdef FORTRAN_SUPPORT
+    [NODECL_POWER]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
+#endif
+    [NODECL_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
+    [NODECL_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
+    [NODECL_DIV_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_div_assig_type),
+    [NODECL_ADD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_add_assig_type),
+    [NODECL_SUB_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_sub_assig_type),
+    [NODECL_SHL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shl_assig_type),
+    [NODECL_SHR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_shr_assig_type),
+    [NODECL_BITWISE_AND_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_and_assig_type),
+    [NODECL_BITWISE_OR_ASSIGNMENT ]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_assig_type),
+    [NODECL_BITWISE_XOR_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_xor_assig_type),
+    [NODECL_MOD_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mod_assig_type),
 };
 
 static struct unary_operator_funct_type_t unary_expression_fun[] =
 {
     [AST_DERREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
-    [AST_REFERENCE]             = OPERATOR_FUNCT_INIT(compute_operator_reference_type),
+    [AST_REFERENCE]             = OPERATOR_FUNCT_INIT_PRE(parse_reference, compute_operator_reference_type),
     [AST_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
     [AST_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
     [AST_LOGICAL_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
     [AST_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
+
+    // Same as above for nodecl
+    [NODECL_DERREFERENCE]          = OPERATOR_FUNCT_INIT(compute_operator_derreference_type),
+    [NODECL_REFERENCE]             = OPERATOR_FUNCT_INIT(compute_operator_reference_type),
+    [NODECL_PLUS]               = OPERATOR_FUNCT_INIT(compute_operator_plus_type),
+    [NODECL_NEG]                = OPERATOR_FUNCT_INIT(compute_operator_minus_type),
+    [NODECL_LOGICAL_NOT]                = OPERATOR_FUNCT_INIT(compute_operator_not_type),
+    [NODECL_BITWISE_NOT]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
 static void check_unary_expression_(node_t node_kind,
@@ -4721,8 +4860,9 @@ static void check_binary_expression(AST expression, decl_context_t decl_context,
     nodecl_t nodecl_lhs = nodecl_null();
     nodecl_t nodecl_rhs = nodecl_null();
 
-    check_expression_impl_(lhs, decl_context, &nodecl_lhs);
-    check_expression_impl_(rhs, decl_context, &nodecl_rhs);
+    node_t node_kind = ASTType(expression);
+    (binary_expression_fun[node_kind].pre)(lhs, decl_context, &nodecl_lhs);
+    (binary_expression_fun[node_kind].pre)(rhs, decl_context, &nodecl_rhs);
 
     if (nodecl_is_err_expr(nodecl_lhs)
             || nodecl_is_err_expr(nodecl_rhs))
@@ -4756,7 +4896,9 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
     AST op = ASTSon0(expression);
 
     nodecl_t nodecl_op = nodecl_null();
-    check_expression_impl_(op, decl_context, &nodecl_op);
+
+    node_t node_kind = ASTType(op);
+    (unary_expression_fun[node_kind].pre)(op, decl_context, &nodecl_op);
 
     if (nodecl_is_err_expr(nodecl_op))
     {
@@ -4813,14 +4955,14 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
         entry_list_free(old_result);
     }
 
-    char names_a_builtin = 0;
-    const char *name = ASTText(expr);
+    // char names_a_builtin = 0;
+    // const char *name = ASTText(expr);
 
-    if (name != NULL
-            && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
-    {
-        names_a_builtin = 1;
-    }
+    // if (name != NULL
+    //         && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
+    // {
+    //     names_a_builtin = 1;
+    // }
 
     if (result == NULL)
     {
@@ -7114,6 +7256,8 @@ static scope_entry_list_t* do_koenig_lookup(nodecl_t nodecl_simple_name,
                                 named_type_get_symbol(entry->entity_specs.class_type));
                         nodecl_argument = nodecl_make_pointer_to_member(entry, nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
                     }
+
+                    nodecl_arg = nodecl_argument;
                 }
 
                 argument_type = nodecl_get_type(nodecl_arg);
@@ -7534,7 +7678,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     // Let's check the called entity
     //  - If it is a NODECL_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
-    template_parameter_list_t* explicit_template_arguments = NULL;
+    // template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
@@ -7562,7 +7706,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         type_t* unresolved_type = nodecl_get_type(nodecl_called);
         candidates = unresolved_overloaded_type_get_overload_set(unresolved_type);
-        explicit_template_arguments = unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type);
+        // explicit_template_arguments = unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type);
     }
     else
     {
@@ -8196,6 +8340,8 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
     {
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
     }
+
+    nodecl_expr_set_is_lvalue(*nodecl_output, is_lvalue);
 }
 
 static void check_cast_expr(AST expr, AST type_id, AST casted_expression_list, decl_context_t decl_context,
@@ -13306,3 +13452,322 @@ char check_nontype_template_argument_expression(AST expression,
             decl_context,
             nodecl_output);
 }
+
+// Instantiation of expressions
+#include "cxx-nodecl-visitor.h"
+
+typedef
+struct nodecl_instantiate_expr_visitor_tag
+{
+    nodecl_external_visitor_t _base_visitor;
+
+    // Context info
+    decl_context_t decl_context;
+
+    // Keep the resulting expression here
+    nodecl_t nodecl_result;
+} nodecl_instantiate_expr_visitor_t;
+
+typedef void (*nodecl_instantiate_expr_visitor_fun_t)(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node);
+typedef void (*nodecl_visitor_fun_t)(nodecl_external_visitor_t* visitor, nodecl_t node);
+
+static inline nodecl_visitor_fun_t instantiate_expr_visitor_fun(nodecl_instantiate_expr_visitor_fun_t p)
+{
+    return NODECL_VISITOR_FUN(p);
+}
+
+static nodecl_t instantiate_expr_walk(nodecl_instantiate_expr_visitor_t* visitor, nodecl_t node)
+{
+    visitor->nodecl_result = nodecl_null();
+    NODECL_WALK(visitor, node);
+    return visitor->nodecl_result;
+}
+
+static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t*, decl_context_t);
+
+nodecl_t instantiate_expression(nodecl_t nodecl_expr, decl_context_t decl_context)
+{
+    nodecl_instantiate_expr_visitor_t v;
+    memset(&v, 0, sizeof(v));
+
+    instantiate_expr_init_visitor(&v, decl_context);
+
+    return instantiate_expr_walk(&v, nodecl_expr);
+}
+
+static void instantiate_expr_not_implemented_yet(nodecl_instantiate_expr_visitor_t* v UNUSED_PARAMETER,
+        nodecl_t nodecl_expr)
+{
+    internal_error("Expression '%s' not yet implemented\n", nodecl_get_kind(nodecl_expr));
+}
+
+static void instantiate_expr_literal(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t result = nodecl_generic_make(nodecl_get_kind(node), nodecl_get_filename(node), nodecl_get_line(node));
+
+    nodecl_set_type(result, nodecl_get_type(node));
+    nodecl_set_constant(result, nodecl_get_constant(node));
+    nodecl_set_text(result, nodecl_get_text(node));
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    scope_entry_t* sym = nodecl_get_symbol(node);
+
+    nodecl_t result = nodecl_null();
+
+    if (sym->kind == SK_TEMPLATE_PARAMETER)
+    {
+        scope_entry_t* argument = lookup_of_template_parameter(
+                v->decl_context,
+                sym->entity_specs.template_parameter_nesting,
+                sym->entity_specs.template_parameter_position);
+
+        if (argument->kind == SK_VARIABLE)
+        {
+            result = argument->value;
+        }
+        else
+        {
+            result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+        }
+    }
+    else if (sym->kind == SK_DEPENDENT_ENTITY)
+    {
+        scope_entry_t* dependent_entry = NULL;
+        nodecl_t dependent_part = nodecl_null();
+
+        dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_part);
+
+        switch (dependent_entry->kind)
+        {
+            case SK_CLASS:
+            case SK_TYPEDEF:
+            case SK_TEMPLATE_PARAMETER:
+                {
+                    ERROR_CONDITION(!is_template_specialized_type(dependent_entry->type_information),
+                            "Invalid class-type", 0);
+
+                    type_t* new_class_type = update_type_for_instantiation(get_user_defined_type(dependent_entry),
+                            v->decl_context,
+                            nodecl_get_filename(node),
+                            nodecl_get_line(node));
+
+                    if (!is_class_type(new_class_type))
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            error_printf("%s: error: '%s' does not name a class type\n",
+                                    c_cxx_codegen_to_str(node),
+                                    nodecl_get_locus(node));
+                        }
+                        v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+                        return;
+                    }
+                    else
+                    {
+                        internal_error("Not yet implemented", 0);
+                    }
+
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid symbol kind\n", 0);
+                }
+        }
+    }
+    else
+    {
+        result = nodecl_make_symbol(nodecl_get_symbol(node), nodecl_get_filename(node), nodecl_get_line(node));
+        nodecl_set_type(result, nodecl_get_type(result));
+        nodecl_expr_set_is_value_dependent(result, nodecl_expr_is_value_dependent(node));
+    }
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_binary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_lhs = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    nodecl_t nodecl_rhs = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+
+    nodecl_t result = nodecl_null();
+
+    if (nodecl_is_err_expr(nodecl_lhs)
+            || nodecl_is_err_expr(nodecl_rhs))
+    {
+        result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+    }
+    else
+    {
+        check_binary_expression_(nodecl_get_kind(node), 
+                &nodecl_lhs,
+                &nodecl_rhs,
+                v->decl_context,
+                nodecl_get_filename(node), nodecl_get_line(node),
+                &result);
+    }
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    nodecl_t result = nodecl_null();
+
+    if (nodecl_is_err_expr(nodecl_op))
+    {
+        result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+    }
+    else
+    {
+        check_unary_expression_(nodecl_get_kind(node),
+                &nodecl_op,
+                v->decl_context,
+                nodecl_get_filename(nodecl_op), nodecl_get_line(nodecl_op),
+                &result);
+    }
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t dep_expr = nodecl_get_child(node, 0);
+
+    nodecl_t expr = instantiate_expr_walk(v, dep_expr);
+
+    nodecl_t result = nodecl_null();
+
+    if (nodecl_is_err_expr(expr))
+    {
+        result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+    }
+    else
+    {
+        type_t* t = nodecl_get_type(expr);
+
+        check_sizeof_type(t, v->decl_context, 
+                nodecl_get_filename(node), 
+                nodecl_get_line(node), 
+                &result);
+    }
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_type = nodecl_get_child(node, 0);
+
+    type_t* t = nodecl_get_type(nodecl_type);
+
+    t = update_type_for_instantiation(t, 
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    nodecl_t result = nodecl_null();
+
+    check_sizeof_type(t, v->decl_context, 
+            nodecl_get_filename(node),
+            nodecl_get_line(node),
+            &result);
+
+    v->nodecl_result = result;
+}
+
+static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_casted_expr = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    type_t* declarator_type = update_type_for_instantiation(nodecl_get_type(node),
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    const char* cast_kind = nodecl_get_text(node);
+
+    nodecl_t result = nodecl_null();
+
+    check_nodecl_cast_expr(nodecl_casted_expr, 
+            v->decl_context, 
+            declarator_type, cast_kind,
+            nodecl_get_filename(node),
+            nodecl_get_line(node),
+            &result);
+
+    v->nodecl_result = result;
+}
+
+// Initialization
+static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, decl_context_t decl_context)
+{
+    nodecl_init_walker((nodecl_external_visitor_t*)v, instantiate_expr_visitor_fun(instantiate_expr_not_implemented_yet));
+
+    v->decl_context = decl_context;
+
+    // Literals
+    NODECL_VISITOR(v)->visit_integer_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
+    NODECL_VISITOR(v)->visit_floating_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
+    NODECL_VISITOR(v)->visit_string_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
+    NODECL_VISITOR(v)->visit_boolean_literal = instantiate_expr_visitor_fun(instantiate_expr_literal);
+
+    // Symbol
+    NODECL_VISITOR(v)->visit_symbol = instantiate_expr_visitor_fun(instantiate_symbol);
+
+    // Binary operations
+    NODECL_VISITOR(v)->visit_add = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_mul = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_div = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_mod = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_minus = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_shl = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_shr = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_lower_than = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_greater_than = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_greater_or_equal_than = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_lower_or_equal_than = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_equal = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_different = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_and = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_xor = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_or = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_logical_and = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_logical_or = instantiate_expr_visitor_fun(instantiate_binary_op);
+#ifdef FORTRAN_SUPPORT
+    NODECL_VISITOR(v)->visit_power = instantiate_expr_visitor_fun(instantiate_binary_op);
+#endif
+    NODECL_VISITOR(v)->visit_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_mul_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_div_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_add_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_sub_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_shl_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_shr_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_and_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_or_assignment  = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_bitwise_xor_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    NODECL_VISITOR(v)->visit_mod_assignment = instantiate_expr_visitor_fun(instantiate_binary_op);
+    
+    // Unary
+    NODECL_VISITOR(v)->visit_derreference = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_reference = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_plus = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_neg = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_logical_not = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_bitwise_not = instantiate_expr_visitor_fun(instantiate_unary_op);
+
+    // Sizeof
+    NODECL_VISITOR(v)->visit_sizeof = instantiate_expr_visitor_fun(instantiate_nondep_sizeof);
+    NODECL_VISITOR(v)->visit_cxx_sizeof = instantiate_expr_visitor_fun(instantiate_dep_sizeof_expr);
+
+    // Casts
+    NODECL_VISITOR(v)->visit_cast = instantiate_expr_visitor_fun(instantiate_cast);
+}
+

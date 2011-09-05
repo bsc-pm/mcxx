@@ -440,8 +440,8 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
             uint64_t mask;
         } type_mask[] =
         {
-            { get_unsigned_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_char_type())         ) },
-            { get_unsigned_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_short_int_type())    ) },
+            // { get_unsigned_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_char_type())         ) },
+            // { get_unsigned_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_short_int_type())    ) },
             { get_unsigned_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_int_type())          ) },
             { get_unsigned_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_long_int_type())     ) },
             { get_unsigned_long_long_int_type(), 0 },
@@ -474,8 +474,8 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
             } type_mask[] =
             {
                 // Like above but one bit less now
-                { get_signed_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())          - 1) },
-                { get_signed_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type())     - 1) },
+                // { get_signed_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())          - 1) },
+                // { get_signed_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type())     - 1) },
                 { get_signed_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())           - 1) },
                 { get_signed_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type())      - 1) },
                 { get_signed_long_long_int_type(), bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_long_int_type()) - 1) },
@@ -504,8 +504,8 @@ static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
                 uint64_t mask;
             } type_mask[] =
             {
-                { get_signed_char_type(),          remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())     )) },
-                { get_signed_short_int_type(),     remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type()))) },
+                // { get_signed_char_type(),          remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())     )) },
+                // { get_signed_short_int_type(),     remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type()))) },
                 { get_signed_int_type(),           remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())      )) },
                 { get_signed_long_int_type(),      remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type()) )) },
                 { get_signed_long_long_int_type(), 0 },

@@ -1102,7 +1102,7 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     type_t* result = get_simple_type();
     result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     result->type->dependent_entry = dependent_entry;
-    result->type->dependent_parts = dependent_parts;
+    result->type->dependent_parts = nodecl_copy(dependent_parts);
 
     // This is always dependent
     result->info->is_dependent = 1;

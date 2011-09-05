@@ -68,6 +68,10 @@ int nodecl_list_length(nodecl_t list);
 // Wrap (use sparingly)
 nodecl_t _nodecl_wrap(AST);
 
+// Generic routines (meant for generic processing)
+nodecl_t nodecl_generic_make(node_t, const char* filename, int line);
+void nodecl_set_child(nodecl_t, int, nodecl_t);
+
 // Free a temporally allocated nodecl
 void nodecl_free(nodecl_t);
 

@@ -387,3 +387,13 @@ char nodecl_is_err_expr(nodecl_t n)
 {
     return nodecl_get_kind(n) == NODECL_ERR_EXPR;
 }
+
+nodecl_t nodecl_generic_make(node_t kind, const char* filename, int line)
+{
+    return _nodecl_wrap(ASTLeaf(kind, filename, line, NULL));
+}
+
+void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
+{
+    ast_set_child(nodecl_get_ast(n), nc, nodecl_get_ast(c));
+}

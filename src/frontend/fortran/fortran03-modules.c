@@ -896,7 +896,7 @@ static void insert_extra_attr_type(sqlite3* handle, scope_entry_t* symbol, const
             (sqlite3_int64(*)(sqlite3*, void*))(insert_type));
 }
 
-static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name,
+UNUSED_PARAMETER static void insert_extra_attr_ast(sqlite3* handle, scope_entry_t* symbol, const char* name,
         AST ref)
 {
     insert_extra_attr_data(handle, symbol, name, ref, 
@@ -962,7 +962,7 @@ static int get_extra_types(void *datum,
     return 0;
 }
 
-static int get_extra_trees(void *datum, 
+UNUSED_PARAMETER static int get_extra_trees(void *datum, 
         int ncols UNUSED_PARAMETER,
         char **values, 
         char **names UNUSED_PARAMETER)
@@ -1165,7 +1165,7 @@ static int get_symbol(void *datum,
     sqlite3_int64 type_oid = safe_atoll(values[3]);
     const char* filename = uniquestr(values[4]);
     int line = safe_atoi(values[5]);
-    sqlite3_int64 language_dependent_value_oid = safe_atoll(values[6]);
+    UNUSED_PARAMETER sqlite3_int64 language_dependent_value_oid = safe_atoll(values[6]);
     sqlite3_int64 value_oid = safe_atoll(values[7]);
 
     (*result) = calloc(1, sizeof(**result));

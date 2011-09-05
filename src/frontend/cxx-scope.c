@@ -725,7 +725,7 @@ static scope_entry_t* create_new_dependent_entity(
     nodecl_t nodecl_list = nodecl_null();
 
     int i;
-    for (i = nested_name_index; i < nested_name_size; i++)
+    for (i = nested_name_index + 1; i < nested_name_size; i++)
     {
         nodecl_list = nodecl_append_to_list(nodecl_list, parts[i]);
     }
@@ -1526,39 +1526,52 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
     return result;
 }
 
-static nodecl_t update_nodecl_expression(nodecl_t nodecl, 
-		decl_context_t decl_context UNUSED_PARAMETER,
-        char (*checking_function)(AST, decl_context_t, nodecl_t*) UNUSED_PARAMETER,
-        decl_context_t context_translation_function(decl_context_t, void*) UNUSED_PARAMETER,
-        void* translation_data UNUSED_PARAMETER,
-        decl_context_t* translated_context UNUSED_PARAMETER)
+static nodecl_t update_nodecl_template_argument_expression(nodecl_t nodecl, 
+		decl_context_t decl_context)
 {
-    *translated_context = decl_context;
-    if (nodecl_expr_is_value_dependent(nodecl))
+    DEBUG_CODE()
     {
-        internal_error("Not yet implemented", 0);
-        // decl_context_t expr_decl_context;
-        // AST expr = nodecl_unwrap_cxx_dependent_expr(nodecl, &expr_decl_context);
-        // expr = ast_copy_for_instantiation(expr);
-
-        // if (context_translation_function != NULL)
-        // {
-        //     expr_decl_context = context_translation_function(expr_decl_context, translation_data);
-        // }
-
-        // expr_decl_context.template_parameters = decl_context.template_parameters;
-        // *translated_context = expr_decl_context;
-
-        // checking_function(expr, expr_decl_context, &nodecl);
+        fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
+                c_cxx_codegen_to_str(nodecl));
     }
+
+    nodecl_t nodecl_output = nodecl_null();
+
+    nodecl_t nodecl_inst = instantiate_expression(nodecl, decl_context);
+    check_nodecl_nontype_template_argument_expression(nodecl_inst, 
+            decl_context, 
+            &nodecl_output);
+
+    return nodecl_output;
+}
+
+static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl, 
+		decl_context_t decl_context)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Updating expression '%s'\n", 
+                c_cxx_codegen_to_str(nodecl));
+    }
+    nodecl = instantiate_expression(nodecl, decl_context);
+
+    if (!nodecl_is_constant(nodecl)
+            && !nodecl_expr_is_value_dependent(nodecl))
+    {
+        if (!checking_ambiguity())
+        {
+            error_printf("%s: error: expression '%s' is not constant\n",
+                    nodecl_get_locus(nodecl),
+                    c_cxx_codegen_to_str(nodecl));
+        }
+    }
+
     return nodecl;
 }
 
 static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
         decl_context_t decl_context,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void* translation_data,
         const char* filename, int line)
 {
     template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
@@ -1572,18 +1585,22 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     {
         if (!nodecl_is_null(result->value))
         {
-            decl_context_t translated_context;
             nodecl_t orig = result->value;
-            result->value = update_nodecl_expression(result->value, decl_context, 
-                    check_nontype_template_argument_expression,
-                    context_translation_function, translation_data,
-                    &translated_context);
+            result->value = update_nodecl_template_argument_expression(result->value, decl_context);
 
             if (nodecl_get_kind(result->value) == NODECL_ERR_EXPR)
             {
                 internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                         c_cxx_codegen_to_str(orig));
             }
+
+            // Fold it now
+            if (nodecl_is_constant(result->value))
+            {
+                // FIXME - We should be more careful about the exact type of the literal
+                result->value = const_value_to_nodecl(nodecl_get_constant(result->value));
+            }
+
             // Force the type of the expression
             nodecl_set_type(result->value, result->type);
         }
@@ -1597,7 +1614,7 @@ template_parameter_value_t* update_template_parameter_value(
         decl_context_t decl_context,
         const char* filename, int line)
 {
-    return update_template_parameter_value_aux(v, decl_context, NULL, NULL, filename, line);
+    return update_template_parameter_value_aux(v, decl_context, filename, line);
 }
 
 template_parameter_list_t* update_template_argument_list_in_dependent_typename(
@@ -1703,8 +1720,6 @@ static type_t* update_dependent_typename(
 
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void* translation_data,
         const char* filename, int line)
 {
     ERROR_CONDITION(orig_type == NULL, "Error, type is null", 0);
@@ -1854,7 +1869,6 @@ static type_t* update_type_aux_(type_t* orig_type,
                 template_parameter_value_t* updated_argument = update_template_parameter_value_aux(
                         template_parameters->arguments[i],
                         decl_context, 
-                        context_translation_function, translation_data,
                         filename, line);
 
                 updated_template_parameters->arguments[i] = updated_argument;
@@ -1894,7 +1908,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             return get_cv_qualified_type(
                     update_type_aux_(entry->type_information, 
                         decl_context, 
-                        context_translation_function, translation_data,
                         filename, line),
                     cv_qualif);
         }
@@ -1913,7 +1926,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
         type_t* updated_referenced = update_type_aux_(referenced, decl_context, 
-                context_translation_function, translation_data,
                 filename, line);
 
         if (updated_referenced == NULL)
@@ -1930,7 +1942,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
         type_t* updated_pointee = update_type_aux_(pointee, decl_context, 
-                context_translation_function, translation_data,
                 filename, line);
 
         if (updated_pointee == NULL)
@@ -1948,7 +1959,6 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
         type_t* updated_pointee = update_type_aux_(pointee, decl_context, 
-                context_translation_function, translation_data,
                 filename, line);
 
         if (updated_pointee == NULL)
@@ -1956,7 +1966,6 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
         pointee_class = update_type_aux_(pointee_class, decl_context, 
-                context_translation_function, translation_data,
                 filename, line);
 
         // If it is not a named class type _and_ it is not a template type
@@ -1984,7 +1993,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         if (return_type != NULL)
         {
             return_type = update_type_aux_(return_type, decl_context, 
-                    context_translation_function, translation_data,
                     filename, line);
             // Something went wrong here for the return type
             if (return_type == NULL)
@@ -2007,7 +2015,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
             param_orig_type = update_type_aux_(param_orig_type, decl_context, 
-                    context_translation_function, translation_data,
                     filename, line);
 
             if (param_orig_type == NULL)
@@ -2057,10 +2064,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (!nodecl_is_null(array_size))
         {
-            array_size = update_nodecl_expression(array_size, decl_context,
-                    check_expression,
-                    context_translation_function, translation_data,
-                    &array_size_context);
+            array_size = update_nodecl_constant_expression(array_size, decl_context);
 
             if (nodecl_get_kind(array_size) == NODECL_ERR_EXPR)
             {
@@ -2082,7 +2086,6 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* element_type = array_type_get_element_type(orig_type);
         element_type = update_type_aux_(element_type, decl_context, 
-                context_translation_function, translation_data,
                 filename, line);
 
         if (element_type == NULL)
@@ -2115,7 +2118,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
                 decl_context,
-                context_translation_function, translation_data,
                 filename, line);
 
         if (fixed_type == NULL)
@@ -2230,7 +2232,6 @@ type_t* update_type(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, decl_context,
-            NULL, NULL,
             filename, line);
 
     DEBUG_CODE()
@@ -2250,8 +2251,6 @@ type_t* update_type(type_t* orig_type,
 
 type_t* update_type_for_instantiation(type_t* orig_type,
         decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void* data,
         const char* filename, int line)
 {
     DEBUG_CODE()
@@ -2260,7 +2259,6 @@ type_t* update_type_for_instantiation(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
-            context_translation_function, data,
             filename, line);
 
     if (result == NULL)
@@ -2431,6 +2429,11 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
         template_parameter_list_t* template_parameters,
         const char* filename, int line)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Completing template arguments for class template type\n");
+    }
+
     template_parameter_list_t* primary_template_parameters =
         template_type_get_template_parameters(template_type);
 
@@ -2570,8 +2573,8 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 else
                 {
                     // We can't allow a user defined conversion here since it
-                    // would mean running code at compile time, which is not
-                    // possible, so we check for a SCS.
+                    // would mean executing user code at compile time, which is
+                    // not possible, so we check for a SCS.
                     //
                     standard_conversion_t scs_conv;
                     if (!standard_conversion_between_types(&scs_conv, arg_type, dest_type))
@@ -2594,6 +2597,11 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 }
             }
         }
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Finished completing template arguments\n");
     }
 
     return result;
@@ -2733,6 +2741,100 @@ const char* unmangle_symbol_name(scope_entry_t* entry)
     return name;
 }
 
+static const char* get_fully_qualified_symbol_name_of_dependent_typename(
+        scope_entry_t* entry,
+        decl_context_t decl_context,
+        char *is_dependent, int *max_qualif_level)
+{
+    scope_entry_t* dependent_entry = NULL;
+    nodecl_t nodecl_parts = nodecl_null();
+
+    dependent_typename_get_components(entry->type_information, 
+            &dependent_entry, &nodecl_parts);
+
+    const char* result = get_fully_qualified_symbol_name(dependent_entry,
+            dependent_entry->decl_context,
+            is_dependent, max_qualif_level);
+
+    int num_parts = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
+
+    int i;
+    for (i = 0; i < num_parts; i++)
+    {
+        nodecl_t current_part = list[i];
+
+        nodecl_t simple_current_part = current_part;
+        template_parameter_list_t* template_parameters = NULL;
+
+        if (nodecl_get_kind(current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            template_parameters = nodecl_get_template_parameters(current_part);
+            simple_current_part = nodecl_get_child(current_part, 0);
+        }
+
+        const char* name = nodecl_get_text(simple_current_part);
+
+        result = strappend(result, "::");
+        if (template_parameters != NULL && is_dependent)
+        {
+            result = strappend(result, "template ");
+        }
+        result = strappend(result, name);
+
+        if (template_parameters != NULL)
+        {
+            result = strappend(result, "< ");
+            int j;
+            for (j = 0; j < template_parameters->num_parameters; j++)
+            {
+                template_parameter_value_t * template_arg = template_parameters->arguments[j];
+
+                switch (template_arg->kind)
+                {
+                    case TPK_TYPE:
+                        {
+                            result = strappend(result, 
+                                    print_type_str(template_arg->type, decl_context));
+                            break;
+                        }
+                    case TPK_NONTYPE:
+                        {
+                            result = strappend(result, 
+                                    c_cxx_codegen_to_str(template_arg->value));
+                            break;
+                        }
+                    case TPK_TEMPLATE:
+                        {
+                            result = strappend(result,
+                                    get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
+                                        decl_context));
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Invalid template argument kind", 0);
+                        }
+                }
+
+                if ((j + 1) < template_parameters->num_parameters)
+                {
+                    result = strappend(result, ", ");
+                }
+            }
+
+            if (result[strlen(result) - 1] == '>')
+            {
+                result = strappend(result, " ");
+            }
+
+            result = strappend(result, ">");
+        }
+    }
+
+    return result;
+}
+
 // Get the fully qualified symbol name in the scope of the ocurrence
 static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
         decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
@@ -2778,6 +2880,11 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         // This is dependent
         (*is_dependent) |= 1;
         return result;
+    }
+    else if (entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        return get_fully_qualified_symbol_name_of_dependent_typename(entry, decl_context,
+                is_dependent, max_qualif_level);
     }
     else if (!no_templates
             && entry->type_information != NULL

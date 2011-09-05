@@ -110,8 +110,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         scope_entry_t *member_of_template,
         type_t* being_instantiated, 
         char is_class,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void *translation_data,
         const char* filename, 
         int line,
         type_map_t** template_map, 
@@ -152,7 +150,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         base_type = update_type_for_instantiation(
                 member_of_template->type_information,
                 new_context_for_template_parameters,
-                context_translation_function, translation_data,
                 filename, line);
     }
 
@@ -221,8 +218,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         type_t* being_instantiated, 
         scope_entry_t* member_of_template, 
         decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void *translation_data,
         const char* filename, int line,
         type_map_t** template_map, 
         int *num_items_template_map,
@@ -249,7 +244,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        context_translation_function, translation_data,
                         filename, line);
 
                 if (is_named_class_type(new_member->type_information))
@@ -317,7 +311,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        context_translation_function, translation_data,
                         filename, line);
 
                 DEBUG_CODE()
@@ -483,7 +476,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template,
                                 being_instantiated, 
                                 /* is_class */ 1,
-                                context_translation_function, translation_data,
                                 filename, line,
                                 template_map, num_items_template_map);
                     }
@@ -556,7 +548,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
-                            context_translation_function, translation_data,
                             filename, line);
 
                     new_member->entity_specs.is_non_emitted = 1;
@@ -578,7 +569,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             member_of_template,
                             being_instantiated, 
                             /* is_class */ 0,
-                            context_translation_function, translation_data,
                             filename, line,
                             template_map, num_items_template_map);
 
@@ -699,13 +689,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 }
 
 static void instantiate_dependent_friend(type_t* selected_template UNUSED_PARAMETER,
-        type_t* being_instantiated, 
-        scope_entry_t* friend,
-        decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void *translation_data,
-        const char *filename, 
-        int line)
+        type_t* being_instantiated UNUSED_PARAMETER, 
+        scope_entry_t* friend UNUSED_PARAMETER,
+        decl_context_t context_of_being_instantiated UNUSED_PARAMETER,
+        decl_context_t context_translation_function(decl_context_t UNUSED_PARAMETER, void* UNUSED_PARAMETER) UNUSED_PARAMETER,
+        void *translation_data UNUSED_PARAMETER,
+        const char *filename UNUSED_PARAMETER, 
+        int line UNUSED_PARAMETER)
 {
     internal_error("Not yet implemented", 0);
 #if 0
@@ -733,8 +723,6 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void *translation_data,
         const char* filename, int line);
 
 static void instantiate_specialized_template_class(type_t* selected_template,
@@ -797,8 +785,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 get_actual_class_type(selected_template),
                 get_actual_class_type(being_instantiated),
                 inner_decl_context,
-                translation_function,
-                &translation_info,
                 filename, line
                 );
     }
@@ -880,8 +866,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 being_instantiated, 
                 member, 
                 inner_decl_context,
-                translation_function,
-                &translation_info,
                 filename, line,
                 &template_map, &num_items_template_map,
                 &enum_map, &num_items_enum_map);
@@ -955,8 +939,6 @@ static void instantiate_bases(
         type_t* selected_class_type,
         type_t* instantiated_class_type,
         decl_context_t context_of_being_instantiated,
-        decl_context_t context_translation_function(decl_context_t, void*),
-        void *translation_data,
         const char* filename, int line)
 {
     int i, num_bases = class_type_get_num_bases(selected_class_type);
@@ -1001,7 +983,6 @@ static void instantiate_bases(
 
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
-                context_translation_function, translation_data,
                 filename, line);
 
         ERROR_CONDITION( is_dependent_type(upd_base_class_named_type), "Invalid base class update %s", 
@@ -1316,20 +1297,19 @@ void instantiate_template_function_if_needed(scope_entry_t* entry, const char* f
     being_instantiated_now[num_being_instantiated_now] = NULL;
 }
 
-static void instantiate_default_arguments_of_function(scope_entry_t* entry)
+UNUSED_PARAMETER static void instantiate_default_arguments_of_function(scope_entry_t* entry UNUSED_PARAMETER)
 {
-    decl_context_t instantiation_context = entry->decl_context;
+    internal_error("Not yet implemented", 0);
+#if 0
+    // decl_context_t instantiation_context = entry->decl_context;
     // Update the default arguments if any
     if (entry->entity_specs.default_argument_info != NULL)
     {
         int i;
         for (i = 0; i < entry->entity_specs.num_parameters; i++)
         {
-            default_argument_info_t* argument_info = entry->entity_specs.default_argument_info[i];
+            // default_argument_info_t* argument_info = entry->entity_specs.default_argument_info[i];
 
-
-            internal_error("Not yet implemented", 0);
-#if 0
             if (argument_info != NULL
                     && !nodecl_is_null(argument_info->argument)
                     && nodecl_is_cxx_dependent_expr(argument_info->argument))
@@ -1350,12 +1330,12 @@ static void instantiate_default_arguments_of_function(scope_entry_t* entry)
                 argument_info->argument = new_nodecl;
                 argument_info->context = instantiation_context;
             }
-#endif
         }
     }
+#endif
 }
 
-static void instantiate_emit_member_function(scope_entry_t* entry, const char* filename, int line)
+static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
 {
     internal_error("Not yet implemented", 0);
 #if 0
