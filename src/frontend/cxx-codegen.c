@@ -4053,6 +4053,89 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
     codegen_walk(visitor, statement);
 }
 
+static void codegen_c99_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, ".");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
+static void codegen_c99_index_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "[");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, "]");
+}
+
+static void codegen_c99_designated_initializer(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+    fprintf(visitor->file, " = ");
+    codegen_walk(visitor, nodecl_get_child(node, 1));
+}
+
+static void codegen_cxx_equal_initializer(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, " = ");
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
+static void codegen_cxx_dep_name_simple(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
+}
+
+static void codegen_cxx_parenthesized_initializer(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "(");
+    if (!nodecl_is_null(nodecl_get_child(node, 0)))
+    {
+        codegen_walk(visitor, nodecl_get_child(node, 0));
+    }
+    fprintf(visitor->file, ")");
+}
+
+static void codegen_cxx_braced_initializer(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "{");
+    if (!nodecl_is_null(nodecl_get_child(node, 0)))
+    {
+        codegen_walk(visitor, nodecl_get_child(node, 0));
+    }
+    fprintf(visitor->file, "}");
+}
+
+static void codegen_offsetof(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "__builtin_offsetof(");
+
+    type_t* t = nodecl_get_type(node);
+
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+
+    fprintf(visitor->file, ", ");
+
+    // Except for the first, the remaining must be printed as usual
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 1), &num_items);
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        if (i == 0)
+        {
+            ERROR_CONDITION((nodecl_get_kind(list[i]) != NODECL_C99_FIELD_DESIGNATOR), "Invalid node", 0);
+
+            fprintf(visitor->file, "%s", nodecl_get_text(nodecl_get_child(list[0], 0)));
+        }
+        else
+        {
+            codegen_walk(visitor, list[i]);
+        }
+    }
+
+    fprintf(visitor->file, ")");
+}
+
 static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     // Do nothing
@@ -4146,6 +4229,17 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
 
     NODECL_VISITOR(codegen_visitor)->visit_err_expr = codegen_visitor_fun(codegen_err_expr);
+
+    NODECL_VISITOR(codegen_visitor)->visit_c99_field_designator = codegen_visitor_fun(codegen_c99_field_designator);
+    NODECL_VISITOR(codegen_visitor)->visit_c99_index_designator = codegen_visitor_fun(codegen_c99_index_designator);
+    NODECL_VISITOR(codegen_visitor)->visit_c99_designated_initializer = codegen_visitor_fun(codegen_c99_designated_initializer);
+    NODECL_VISITOR(codegen_visitor)->visit_offsetof = codegen_visitor_fun(codegen_offsetof);
+
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_parenthesized_initializer = codegen_visitor_fun(codegen_cxx_parenthesized_initializer);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_braced_initializer = codegen_visitor_fun(codegen_cxx_braced_initializer);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_equal_initializer = codegen_visitor_fun(codegen_cxx_equal_initializer);
+
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_simple = codegen_visitor_fun(codegen_cxx_dep_name_simple);
 }
 
 // External interface

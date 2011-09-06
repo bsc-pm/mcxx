@@ -193,7 +193,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_POINTER_TO_MEMBER() symbol
                   | NODECL_REAL_PART([rhs]expression) type
                   | NODECL_IMAG_PART([rhs]expression) type
-                  | NODECL_OFFSETOF([designator]cxx-dependent-initializer-seq) type
+                  | NODECL_OFFSETOF([type]type, [designator]cxx-dependent-initializer-seq) type
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
                   | cxx-dependent-nodecls
                   | cuda-expressions
@@ -209,15 +209,17 @@ cxx-dependent-nodecls: cxx-dependent-name
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
                    | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq)
-cxx-atom-dependent-name : NODECL_CXX_DEP_NAME_SIMPLE() text
+cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) template-parameters
                    | NODECL_CXX_DEP_NAME_CONVERSION() 
+
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
 
 cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
     | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
     | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
     | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
-    | NODECL_C99_FIELD_DESIGNATOR([name]expression)
+    | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
     | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
 
 cxx-dependent-expressions: NODECL_CXX_EXPLICIT_TYPE_CONVERSION([args]expression-seq-opt) type

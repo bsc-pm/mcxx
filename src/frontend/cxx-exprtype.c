@@ -9759,9 +9759,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             // The expression list has only one element of kind expression
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
-                    // FIXME - We are still missing these two cases
-                    // && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != AST_DESIGNATED_INITIALIZER
-                    // && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != AST_GCC_INITIALIZER_CLAUSE
+                    && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
                     )
             {
                 // Attempt an interpretation like char a[] = "hello";
@@ -9781,7 +9779,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
 
                 type_t* type_in_context = declared_type;
 
-                // FIXME - Designated declarators
+                if (nodecl_get_kind(nodecl_initializer_clause) != NODECL_C99_DESIGNATED_INITIALIZER)
                 {
                     if (is_class_type(declared_type))
                     {
@@ -10227,8 +10225,9 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
                     {
                         if (!checking_ambiguity())
                         {
-                            error_printf("%s: in designated initializer, field designator not valid for type '%s'\n",
+                            error_printf("%s: in designated initializer '%s', field designator not valid for type '%s'\n",
                                     nodecl_get_locus(nodecl_current_designator),
+                                    c_cxx_codegen_to_str(nodecl_current_designator),
                                     print_type_str(designated_type, decl_context));
                         }
                         ok = 0;
@@ -10265,8 +10264,9 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
                     {
                         if (!checking_ambiguity())
                         {
-                            error_printf("%s: in designated initializer, subscript designator not valid for type '%s'\n",
+                            error_printf("%s: in designated initializer '%s', subscript designator not valid for type '%s'\n",
                                     nodecl_get_locus(nodecl_current_designator),
+                                    c_cxx_codegen_to_str(nodecl_current_designator),
                                     print_type_str(designated_type, decl_context));
                         }
                         ok = 0;
@@ -10297,7 +10297,7 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
 
     nodecl_t nodecl_initializer_clause = nodecl_get_child(designated_initializer, 1);
 
-    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, designated_type, &nodecl_initializer_clause);
+    check_nodecl_initializer_clause(nodecl_initializer_clause, decl_context, designated_type, nodecl_output);
 }
 
 static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer, 
@@ -12018,13 +12018,15 @@ static void compute_nodecl_gcc_offset_designation(AST gcc_offset_designator,
 
 static void check_gcc_offset_designation(nodecl_t nodecl_designator, 
         decl_context_t decl_context UNUSED_PARAMETER,
-        type_t* accessed_type UNUSED_PARAMETER, 
+        type_t* accessed_type, 
         nodecl_t* nodecl_output,
         const char* filename,
         int line)
 {
     // FIXME - We are not (yet) checking the designation
-    *nodecl_output = nodecl_make_offsetof(nodecl_designator, 
+    *nodecl_output = nodecl_make_offsetof(
+            nodecl_make_type(accessed_type, filename, line),
+            nodecl_designator, 
             get_signed_int_type(), 
             filename, line);
 }
@@ -12052,7 +12054,10 @@ static void check_gcc_builtin_offsetof(AST expression,
 
     if (is_dependent_type(accessed_type))
     {
-        *nodecl_output = nodecl_make_offsetof(nodecl_designator, accessed_type, 
+        *nodecl_output = nodecl_make_offsetof(
+                nodecl_make_type(accessed_type, filename, line),
+                nodecl_designator, 
+                get_signed_int_type(), 
                 filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
         nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
