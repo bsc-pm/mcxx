@@ -239,7 +239,7 @@
 "  -Xpreprocessor OPTION\n" \
 "  -Xlinker OPTION\n" \
 "  -Xassembler OPTION\n" \
-"  --include FILE\n" \
+"  -include FILE\n" \
 "  -S\n" \
 "  -dA\n" \
 "  -dD\n" \
@@ -302,7 +302,6 @@ typedef enum
     OPTION_NODECL,
     OPTION_FORTRAN_PRESCANNER,
     OPTION_VERBOSE,
-    OPTION_INCLUDE
 } COMMAND_LINE_OPTIONS;
 
 
@@ -360,7 +359,6 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-intrinsics", CLP_NO_ARGUMENT, OPTION_DISABLE_INTRINSICS},
     {"fpc", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_PRESCANNER },
     {"nodecl", CLP_NO_ARGUMENT, OPTION_NODECL },
-    {"include", CLP_REQUIRED_ARGUMENT, OPTION_INCLUDE},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1264,13 +1262,6 @@ int parse_arguments(int argc, const char* argv[],
 #endif
                         break;
                     }
-                case OPTION_INCLUDE:
-                    {
-                        char temp[256] = { 0 };
-                        snprintf(temp, 255, "-include%s", parameter_info.argument);
-                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
-                        break;
-                    }
                 default:
                     {
                         internal_error("Unhandled known option\n", 0);
@@ -1797,6 +1788,25 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     (*should_advance)++;
                 }
 
+                break;
+            }
+        case 'i':
+         {
+                if (strcmp(argument, "-include") == 0)
+                {
+                    if(!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                        (*should_advance)++;
+                        argument = argv[parameter_index + 1];
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                        (*should_advance)++;
+                    }
+                }
+                else 
+                {
+                    failure = 1;
+                }
                 break;
             }
         case '-' :
