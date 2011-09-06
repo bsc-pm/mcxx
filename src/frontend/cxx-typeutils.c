@@ -4343,7 +4343,12 @@ static type_t* advance_dependent_typename_aux(
     }
 
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
-    ERROR_CONDITION(nodecl_is_null(dependent_parts), "Dependent parts cannot be empty", 0);
+
+    if (nodecl_is_null(dependent_parts))
+    {
+        return original_type;
+    }
+
     ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nested parts", 0);
 
     scope_entry_t* current_member = dependent_entry;
@@ -4821,6 +4826,15 @@ static char syntactic_comparison_of_dependent_parts(
         //     part = part->next;
         // }
         fprintf(stderr, "'\n");
+    }
+
+    if (nodecl_is_null(dependent_parts_1) != nodecl_is_null(dependent_parts_2))
+    {
+        return 0;
+    } 
+    else if (nodecl_is_null(dependent_parts_1))
+    {
+        return 1;
     }
 
     int num_items1 = 0;
@@ -6817,33 +6831,36 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, "]");
 
                 nodecl_t nodecl_parts = simple_type_info->dependent_parts;
-                int num_items = 0;
-                nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_items);
-
-                int i;
-                for (i = 0; i < num_items; i++)
+                if (!nodecl_is_null(nodecl_parts))
                 {
-                    nodecl_t part = list[i];
-                    nodecl_t simple_part = part;
-                    template_parameter_list_t* template_parameters = NULL;
+                    int num_items = 0;
+                    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_items);
 
-                    if (nodecl_get_kind(part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                    int i;
+                    for (i = 0; i < num_items; i++)
                     {
-                        simple_part = nodecl_get_child(part, 0);
-                        template_parameters = nodecl_get_template_parameters(part);
+                        nodecl_t part = list[i];
+                        nodecl_t simple_part = part;
+                        template_parameter_list_t* template_parameters = NULL;
+
+                        if (nodecl_get_kind(part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                        {
+                            simple_part = nodecl_get_child(part, 0);
+                            template_parameters = nodecl_get_template_parameters(part);
+                        }
+
+                        const char* name = nodecl_get_text(simple_part);
+
+                        result = strappend(result, "::");
+                        result = strappend(result, name);
+
+                        if (template_parameters != NULL)
+                        {
+                            result = strappend(result, get_template_parameters_list_str(template_parameters));
+                        }
                     }
-
-                    const char* name = nodecl_get_text(simple_part);
-
-                    result = strappend(result, "::");
-                    result = strappend(result, name);
-
-                    if (template_parameters != NULL)
-                    {
-                        result = strappend(result, get_template_parameters_list_str(template_parameters));
-                    }
+                    free(list);
                 }
-                free(list);
 
                 result = strappend(result, ">");
             }

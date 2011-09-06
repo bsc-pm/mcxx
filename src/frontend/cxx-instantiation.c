@@ -963,16 +963,7 @@ static void instantiate_bases(
         }
         else
         {
-            if (!is_dependent_base)
-            {
-                // Maybe we do not need to update anything...
-                base_class_named_type = get_user_defined_type(base_class_sym);
-            }
-            else
-            {
-                internal_error("Not yet implemented", 0);
-                // base_class_named_type = get_dependent_typename_type_from_parts(base_class_sym, NULL);
-            }
+            base_class_named_type = get_user_defined_type(base_class_sym);
         }
 
         DEBUG_CODE()
@@ -1337,7 +1328,7 @@ UNUSED_PARAMETER static void instantiate_default_arguments_of_function(scope_ent
 
 static void instantiate_emit_member_function(scope_entry_t* entry UNUSED_PARAMETER, const char* filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
 {
-    internal_error("Not yet implemented", 0);
+    // Do nothing
 #if 0
     ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid function", 0);
 

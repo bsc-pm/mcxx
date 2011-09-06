@@ -1588,7 +1588,7 @@ static template_parameter_value_t* update_template_parameter_value_aux(
             nodecl_t orig = result->value;
             result->value = update_nodecl_template_argument_expression(result->value, decl_context);
 
-            if (nodecl_get_kind(result->value) == NODECL_ERR_EXPR)
+            if (nodecl_is_err_expr(result->value))
             {
                 internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                         c_cxx_codegen_to_str(orig));
@@ -1618,38 +1618,19 @@ template_parameter_value_t* update_template_parameter_value(
 }
 
 template_parameter_list_t* update_template_argument_list_in_dependent_typename(
-        decl_context_t class_context,
-        template_parameter_list_t* primary_template_parameters,
+        decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
         const char* filename, 
         int line)
 {
-    template_parameter_list_t* result = duplicate_template_argument_list(primary_template_parameters);
-    result->enclosing = class_context.template_parameters;
+    template_parameter_list_t* result = duplicate_template_argument_list(dependent_type_template_arguments);
 
     int i;
-    for (i = 0; i < dependent_type_template_arguments->num_parameters; i++)
-    {
-        result->arguments[i] = dependent_type_template_arguments->arguments[i];
-    }
-
-    decl_context_t new_template_context = class_context;
-    new_template_context.template_parameters = result;
-
-    for (i = 0; i < dependent_type_template_arguments->num_parameters; i++)
+    for (i = 0; i < result->num_parameters; i++)
     {
         result->arguments[i] = update_template_parameter_value(
                 result->arguments[i],
-                new_template_context,
-                filename, line);
-    }
-
-    // Complete with default template arguments
-    for (; i < primary_template_parameters->num_parameters; i++)
-    {
-        result->arguments[i] = update_template_parameter_value(
-                result->arguments[i],
-                new_template_context,
+                decl_context,
                 filename, line);
     }
 
@@ -1659,9 +1640,9 @@ template_parameter_list_t* update_template_argument_list_in_dependent_typename(
 static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         nodecl_t dependent_parts,
-        decl_context_t decl_context UNUSED_PARAMETER,
-        const char* filename UNUSED_PARAMETER, 
-        int line UNUSED_PARAMETER)
+        decl_context_t decl_context,
+        const char* filename,
+        int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
@@ -1682,13 +1663,48 @@ static type_t* update_dependent_typename(
 
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
 
-    ERROR_CONDITION(nodecl_is_null(dependent_parts), "Dependent parts cannot be empty", 0);
+    if(nodecl_is_null(dependent_parts))
+    {
+        return get_user_defined_type(dependent_entry);
+    }
 
     scope_entry_t* current_member = dependent_entry;
 
+    if (class_type_is_incomplete_independent(current_member->type_information))
+    {
+        instantiate_template_class(current_member, decl_context,
+                filename, line);
+    }
+
     decl_context_t class_context = class_type_get_inner_context(current_member->type_information);
 
-    scope_entry_list_t* entry_list = query_nodecl_name_in_class(class_context, dependent_parts);
+    // We need to update dependent parts, lest there was a template-id
+    int num_parts = 0;
+    int i;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_parts);
+    nodecl_t new_dependent_parts_list = nodecl_null();
+    for (i = 0; i < num_parts; i++)
+    {
+        nodecl_t new_current_part = nodecl_copy(list[i]);
+
+        if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+        {
+            template_parameter_list_t* template_arguments 
+                = nodecl_get_template_parameters(new_current_part);
+            template_parameter_list_t* new_template_arguments 
+                = update_template_argument_list_in_dependent_typename(decl_context, 
+                        template_arguments, 
+                        filename, line);
+
+            nodecl_set_template_parameters(new_current_part, new_template_arguments);
+        }
+
+        new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
+                new_current_part);
+    }
+    nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, filename, line);
+
+    scope_entry_list_t* entry_list = query_nodecl_name_in_class(class_context, new_dependent_parts);
 
     if (entry_list == NULL)
         return NULL;
@@ -2873,9 +2889,16 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
                 entry->entity_specs.template_parameter_nesting,
                 entry->entity_specs.template_parameter_position);
 
-        ERROR_CONDITION(real_name == NULL, "Invalid template parameter symbol", 0);
+        // ERROR_CONDITION(real_name == NULL, "Invalid template parameter symbol", 0);
 
-        result = real_name->symbol_name;
+        if (real_name != NULL)
+        {
+            result = real_name->symbol_name;
+        }
+        else
+        {
+            result = strappend("/* ??? */", entry->symbol_name);
+        }
 
         // This is dependent
         (*is_dependent) |= 1;
@@ -3605,6 +3628,7 @@ static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_cont
 static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags,
+        scope_entry_t* previous_symbol,
         scope_entry_list_t *(query_first)(decl_context_t, nodecl_t, decl_flags_t))
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_NESTED
@@ -3621,7 +3645,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
 
     decl_context_t current_context = decl_context;
-    scope_entry_t* previous_symbol = NULL;
 
     if (is_global)
     {
@@ -3643,16 +3666,6 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         if (previous_symbol == NULL)
         {
             current_entry_list = query_first(current_context, current_name, nested_flags);
-
-            if (current_entry_list == NULL
-                    || entry_list_size(current_entry_list) > 1)
-            {
-                entry_list_free(current_entry_list);
-                free(list);
-                return NULL;
-            }
-
-            current_symbol = entry_list_head(current_entry_list);
         }
         else if (previous_symbol->kind == SK_CLASS)
         {
@@ -3693,6 +3706,16 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                     previous_symbol->kind, 
                     previous_symbol->symbol_name);
         }
+
+        if (current_entry_list == NULL
+                || entry_list_size(current_entry_list) > 1)
+        {
+            entry_list_free(current_entry_list);
+            free(list);
+            return NULL;
+        }
+
+        current_symbol = entry_list_head(current_entry_list);
 
         if (current_symbol->kind == SK_NAMESPACE)
         {
@@ -3808,6 +3831,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
 
     nodecl_t last_name = list[num_items - 1];
 
+
     scope_entry_list_t* result = NULL;
     
     // This happens for names like ::X
@@ -3882,6 +3906,7 @@ static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_conte
     return query_nodecl_qualified_name_aux(decl_context,
             nodecl_name,
             decl_flags,
+            NULL,
             query_nodecl_name_flags);
 
 }
@@ -3893,6 +3918,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
     return query_nodecl_qualified_name_aux(decl_context,
             nodecl_name,
             decl_flags,
+            decl_context.current_scope->related_entry,
             query_nodecl_name_in_class_flags);
 }
 
@@ -3900,6 +3926,9 @@ static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t d
 scope_entry_list_t* query_nodecl_name_in_class_flags(decl_context_t decl_context,
         nodecl_t nodecl_name, decl_flags_t decl_flags)
 {
+    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE,
+            "This is not a class scope!", 0);
+
     switch (nodecl_get_kind(nodecl_name))
     {
         case NODECL_CXX_DEP_NAME_SIMPLE:
@@ -4146,7 +4175,8 @@ void compute_nodecl_name_from_qualified_name(AST global_op, AST nested_name_spec
         nodecl_t nodecl_nested = nodecl_null();
         compute_nodecl_name_from_nested_part(nested_name_spec, decl_context, &nodecl_nested);
 
-        if (nodecl_is_err_expr(nodecl_nested))
+        if (!nodecl_is_null(nodecl_nested)
+                && nodecl_is_err_expr(nodecl_nested))
         {
             *nodecl_output = nodecl_make_err_expr(ASTFileName(nested_name_spec), ASTLine(nested_name_spec));
             return;

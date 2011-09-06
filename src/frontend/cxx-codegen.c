@@ -4084,6 +4084,33 @@ static void codegen_cxx_dep_name_simple(nodecl_codegen_visitor_t* visitor, nodec
     fprintf(visitor->file, "%s", nodecl_get_text(node));
 }
 
+static void codegen_cxx_dep_template_id(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+
+    fprintf(visitor->file, "%s", 
+            template_arguments_to_str(nodecl_get_template_parameters(node),  
+                CURRENT_COMPILED_FILE->global_decl_context));
+}
+
+static void codegen_cxx_dep_name_nested(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    walk_list(visitor, nodecl_get_child(node, 0), "::");
+}
+
+static void codegen_cxx_dep_global_name_nested(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "::");
+    codegen_cxx_dep_name_nested(visitor, node);
+}
+
+static void codegen_cxx_dep_name_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    fprintf(visitor->file, "operator %s", 
+            print_type_str(nodecl_get_type(node), 
+                CURRENT_COMPILED_FILE->global_decl_context));
+}
+
 static void codegen_cxx_parenthesized_initializer(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "(");
@@ -4107,8 +4134,6 @@ static void codegen_cxx_braced_initializer(nodecl_codegen_visitor_t* visitor, no
 static void codegen_offsetof(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "__builtin_offsetof(");
-
-    type_t* t = nodecl_get_type(node);
 
     codegen_walk(visitor, nodecl_get_child(node, 0));
 
@@ -4240,6 +4265,10 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_cxx_equal_initializer = codegen_visitor_fun(codegen_cxx_equal_initializer);
 
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_simple = codegen_visitor_fun(codegen_cxx_dep_name_simple);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_template_id = codegen_visitor_fun(codegen_cxx_dep_template_id);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_global_name_nested = codegen_visitor_fun(codegen_cxx_dep_global_name_nested);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_nested = codegen_visitor_fun(codegen_cxx_dep_name_nested);
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_conversion = codegen_visitor_fun(codegen_cxx_dep_name_conversion);
 }
 
 // External interface
