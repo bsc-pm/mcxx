@@ -4668,6 +4668,7 @@ static void parse_reference(AST op,
         }
     }
 
+    // Usual check
     check_expression_impl_(op, decl_context, nodecl_output);
 }
 
@@ -4688,7 +4689,48 @@ static void compute_operator_reference_type(nodecl_t* op,
     if (nodecl_get_kind(*op) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
             || nodecl_get_kind(*op) == NODECL_CXX_DEP_NAME_NESTED)
     {
-        internal_error("Not yet implemented", 0);
+        scope_entry_list_t* entry_list = query_nodecl_name(decl_context, *op);
+
+        ERROR_CONDITION(entry_list == NULL, "Invalid list", 0);
+
+        scope_entry_t* entry = entry_list_head(entry_list);
+
+        if (entry->kind == SK_TEMPLATE
+                && is_function_type(template_type_get_primary_type(entry->type_information)))
+        {
+            entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
+        }
+
+        if (entry->kind == SK_VARIABLE)
+        {
+            *nodecl_output = nodecl_make_pointer_to_member(entry, filename, line);
+        }
+        else if (entry->kind == SK_FUNCTION)
+        {
+            *nodecl_output = nodecl_make_symbol(entry, filename, line);
+
+            int num_items = 0;
+            nodecl_t* list = nodecl_unpack_list(nodecl_get_child(*op, 0), &num_items);
+
+            nodecl_t last = list[num_items - 1];
+
+            template_parameter_list_t* template_args = NULL;
+            if (nodecl_get_kind(last) == NODECL_CXX_DEP_TEMPLATE_ID)
+            {
+                template_args = nodecl_get_template_parameters(last);
+            }
+
+            type_t* t = get_unresolved_overloaded_type(entry_list, template_args);
+
+            free(list);
+
+            nodecl_set_type(*nodecl_output, t);
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+        entry_list_free(entry_list);
     }
     else
     {
@@ -4883,7 +4925,7 @@ static void check_unary_expression(AST expression, decl_context_t decl_context, 
 
     nodecl_t nodecl_op = nodecl_null();
 
-    node_t node_kind = ASTType(op);
+    node_t node_kind = ASTType(expression);
     (unary_expression_fun[node_kind].pre)(op, decl_context, &nodecl_op);
 
     if (nodecl_is_err_expr(nodecl_op))
@@ -13622,6 +13664,44 @@ static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
     v->nodecl_result = result;
 }
 
+static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+
+    if (nodecl_is_err_expr(nodecl_op))
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+    }
+    else if (nodecl_get_kind(nodecl_op) == NODECL_SYMBOL)
+    {
+        scope_entry_t* sym = nodecl_get_symbol(nodecl_op);
+
+        if (sym->entity_specs.is_member
+                && !sym->entity_specs.is_static
+                && (sym->kind == SK_VARIABLE
+                    || sym->kind == SK_FUNCTION))
+        {
+            if (sym->kind == SK_VARIABLE)
+            {
+                v->nodecl_result = nodecl_make_pointer_to_member(sym, nodecl_get_filename(node), nodecl_get_line(node));
+            }
+            else // SK_FUNCTION
+            {
+                v->nodecl_result = nodecl_op;
+            }
+            return;
+        }
+    }
+    else
+    {
+        check_unary_expression_(nodecl_get_kind(node),
+                &nodecl_op,
+                v->decl_context,
+                nodecl_get_filename(nodecl_op), nodecl_get_line(nodecl_op),
+                &v->nodecl_result);
+    }
+}
+
 static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t dep_expr = nodecl_get_child(node, 0);
@@ -13743,7 +13823,7 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     
     // Unary
     NODECL_VISITOR(v)->visit_derreference = instantiate_expr_visitor_fun(instantiate_unary_op);
-    NODECL_VISITOR(v)->visit_reference = instantiate_expr_visitor_fun(instantiate_unary_op);
+    NODECL_VISITOR(v)->visit_reference = instantiate_expr_visitor_fun(instantiate_reference);
     NODECL_VISITOR(v)->visit_plus = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_neg = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_logical_not = instantiate_expr_visitor_fun(instantiate_unary_op);
