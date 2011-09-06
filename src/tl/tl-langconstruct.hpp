@@ -1136,6 +1136,12 @@ namespace TL
              */
             void add_replacement(Symbol sym, const std::string& str);
 
+            //! States whether sym has a related replacement
+            bool has_replacement(Symbol sym) const;
+
+            //! Returns the replacement of the symbol
+            std::string get_replacement(Symbol sym) const;
+
             //! Sets a replacement for this
             /*!
              * \param str A string containing the expression used for the replacement

@@ -34,9 +34,72 @@
 
 namespace TL
 {
-
     namespace Nanox
     {
+        class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
+        {
+            private:
+                int _min_expr_size;
+                Symbol _ind_var_sym;
+                int _num_repl;
+                std::stack<bool> _inside_simd_for;
+                std::stack<bool> _replication_state;
+                ObjectList<Symbol> _nonlocal_symbols;
+
+            protected:
+                static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint (AST_t a, void* data);
+                static const char* recursive_prettyprint_without_simd_repls (AST_t a, void* data);
+                std::string get_integer_casting(AST_t a, Type type1, Type type2);
+                std::string scalar_expansion(Expression expr);
+                std::string ind_var_scalar_expansion(Expression expr);
+                std::string statement_replication(
+                        Expression expr, 
+                        int num_repls, 
+                        AST_t statement_ast);
+                std::string declaration_replication(
+                        Declaration declaration, 
+                        int num_repls, 
+                        AST_t declaration_ast);
+
+            public:
+                ReplaceSrcSMP(ScopeLink sl, int width) 
+                    : ReplaceSrcGenericFunction(sl, "smp", width), 
+                    _min_expr_size(0), _ind_var_sym(NULL), _num_repl(-1)
+                {
+                    _inside_simd_for.push(false);
+                    _replication_state.push(false);
+                }
+
+                ReplaceSrcSMP(ScopeLink sl, 
+                        int width, 
+                        int min_expr_size,
+                        Symbol ind_var_sym,
+                        bool inside_simd_for, 
+                        bool replication_state) 
+                    : ReplaceSrcGenericFunction(sl, "smp", width),
+                    _min_expr_size(min_expr_size), _ind_var_sym(ind_var_sym), _num_repl(-1)
+                {
+                    _inside_simd_for.push(inside_simd_for);
+                    _replication_state.push(replication_state);
+                    
+                }
+
+                void set_min_expr_size(int min_expr_size);
+
+                void add_replacement(Symbol sym, const std::string& str);
+                void add_this_replacement(const std::string& str);
+
+                Source replace(AST_t a) const;
+                Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name);
+                Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name);
+
+                int compute_new_step(int step);
+                int needs_epilog(Expression upper_bound_exp, 
+                        Expression lower_bound_exp,
+                        Expression step_exp);
+        };
+
 
         class DeviceSMP : public DeviceProvider
         {
@@ -92,63 +155,8 @@ namespace TL
 
                 virtual void insert_function_definition(PragmaCustomConstruct ctr, bool is_copy);
                 virtual void insert_declaration(PragmaCustomConstruct ctr, bool is_copy);
-        };
 
-        class ReplaceSrcSMP : public TL::SIMD::ReplaceSrcGenericFunction
-        {
-            private:
-                int _min_expr_size;
-                Symbol _ind_var_sym;
-                int _num_repl;
-                std::stack<bool> _inside_simd_for;
-                std::stack<bool> _replication_state;
-                ObjectList<Symbol> _nonlocal_symbols;
-
-            protected:
-                static const char* prettyprint_callback (AST a, void* data);
-                static const char* recursive_prettyprint (AST_t a, void* data);
-                static std::string get_integer_casting(AST_t a, Type type1, Type type2);
-                static std::string scalar_expansion(Expression expr, void* data);
-                static std::string ind_var_scalar_expansion(Expression expr, void* data);
-                static std::string statement_replication(
-                        Expression expr, 
-                        int num_repls, 
-                        AST_t statement_ast,
-                        ReplaceSrcSMP * _this);
-                static std::string declaration_replication(
-                        Declaration declaration, 
-                        int num_repls, 
-                        AST_t declaration_ast,
-                        ReplaceSrcSMP * _this);
-
-            public:
-                ReplaceSrcSMP(ScopeLink sl, int width) 
-                    : ReplaceSrcGenericFunction(sl, "smp", width), 
-                    _min_expr_size(0), _ind_var_sym(NULL), _num_repl(-1)
-                {
-                    _inside_simd_for.push(false);
-                    _replication_state.push(false);
-                }
-
-                ReplaceSrcSMP(ScopeLink sl, 
-                        int width, 
-                        int min_expr_size,
-                        Symbol ind_var_sym,
-                        bool inside_simd_for, 
-                        bool replication_state) 
-                    : ReplaceSrcGenericFunction(sl, "smp", width),
-                    _min_expr_size(min_expr_size), _ind_var_sym(ind_var_sym), _num_repl(-1)
-                {
-                    _inside_simd_for.push(inside_simd_for);
-                    _replication_state.push(replication_state);
-                    
-                }
-
-                void add_replacement(Symbol sym, const std::string& str);
-                void add_this_replacement(const std::string& str);
-                Source replace(AST_t a) const;
-                Source replace_naive_function(const Symbol& func_sym, const std::string& naive_func_name);
-                Source replace_simd_function(const Symbol& func_sym, const std::string& simd_func_name);
+                void simd_replacements(ReplaceSrcSMP& replace_src, AST_t body);
         };
     }
 }

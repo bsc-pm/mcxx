@@ -39,6 +39,7 @@
 
 #include "tl-omp-target.hpp"
 
+#include "tl-lexer.hpp"
 namespace TL
 {
     namespace OpenMP
@@ -115,6 +116,9 @@ namespace TL
                 void common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
 
                 void task_function_handler_pre(PragmaCustomConstruct construct);
+      			void task_inline_handler_pre(PragmaCustomConstruct construct);
+
+				RealTimeInfo task_real_time_handler_pre(PragmaCustomConstruct construct);
 
                 void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
                 void fix_first_section(PragmaCustomConstruct construct);

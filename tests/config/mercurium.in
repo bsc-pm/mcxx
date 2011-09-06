@@ -9,7 +9,7 @@ then
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
 cat <<EOF
-MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_top_builddir@/config/config.plain --verbose"
+MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-dir=@abs_top_builddir@/config --verbose"
 test_CC="\${MCXX} --profile=plaincc"
 test_CXX="\${MCXX} --profile=plaincxx"
 test_FC="\${MCXX} --profile=plainfc"

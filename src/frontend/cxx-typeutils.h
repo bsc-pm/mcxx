@@ -34,11 +34,20 @@
 #include "cxx-type-decls.h"
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
+#include "cxx-cexpr-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
 #include "cxx-solvetemplate.h"
 
 MCXX_BEGIN_DECLS
+
+// This cannot be moved to cxx-type-decls.h because of scope_entry_t* being used here
+// FIXME - We should refactor cxx-scope-decls.h a bit more
+typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
+        type_t** argument_types, 
+        AST *argument_expressions,
+        int num_arguments,
+        const_value_t** const_value);
 
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
@@ -47,11 +56,6 @@ LIBMCXX_EXTERN type_t* standard_conversion_get_dest_type(standard_conversion_t s
 
 LIBMCXX_EXTERN char standard_conversion_between_types(standard_conversion_t *result, 
         type_t* orig, type_t* dest);
-
-typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
-        type_t** argument_types, 
-        AST *argument_expressions,
-        int num_arguments);
 
 // Get environmental information for the type
 LIBMCXX_EXTERN char type_is_runtime_sized(type_t* t);
@@ -158,6 +162,20 @@ LIBMCXX_EXTERN type_t* get_array_type_bounds(type_t*,
         AST lower_bound, 
         AST upper_bound, 
         decl_context_t decl_context);
+
+LIBMCXX_EXTERN type_t* get_array_type_with_regions(type_t* element_type, 
+        AST size_of_array, 
+        decl_context_t decl_context,
+        AST size_of_region,
+        decl_context_t decl_context_region);
+
+LIBMCXX_EXTERN type_t* get_array_type_bounds_with_regions(type_t*, 
+        AST lower_bound, 
+        AST upper_bound, 
+        decl_context_t decl_context,
+        AST lower_bound_region, 
+        AST upper_bound_region, 
+        decl_context_t decl_context_region);
 
 LIBMCXX_EXTERN type_t* get_array_type_str(type_t*, const char* dim);
 
@@ -383,6 +401,12 @@ LIBMCXX_EXTERN AST array_type_get_array_lower_bound(type_t* t);
 LIBMCXX_EXTERN AST array_type_get_array_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN char array_type_is_vla(type_t* t);
+
+LIBMCXX_EXTERN char array_type_has_region(type_t* t);
+LIBMCXX_EXTERN decl_context_t array_type_get_region_size_expr_context(type_t* t);
+LIBMCXX_EXTERN AST array_type_get_region_size_expr(type_t* t);
+LIBMCXX_EXTERN AST array_type_get_region_lower_bound(type_t* t);
+LIBMCXX_EXTERN AST array_type_get_region_upper_bound(type_t* t);
 
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(type_t* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(type_t* t, int n);

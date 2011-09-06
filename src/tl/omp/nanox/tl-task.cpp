@@ -24,13 +24,12 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
-
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-devices.hpp"
 #include "tl-nanos.hpp"
+#include "tl-parallel-common.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -235,7 +234,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
            fill_dependences_outline,
            fill_dependences_immediate;
 
-    Source dependency_array, num_dependences;
+    Source dependency_array, num_dependences, dependency_struct, dependency_regions;
 
     fill_data_args("ol_args", 
             data_environ_info, 
@@ -258,178 +257,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             /* is_pointer */ immediate_is_alloca,
             fill_immediate_arguments);
 
-    // Fill dependences, if any
-    if (!dependences.empty())
-    {
-        num_dependences << dependences.size();
-        Source dependency_defs_outline, dependency_defs_immediate;
-        fill_dependences_outline
-            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
-            << dependency_defs_outline
-            << "};"
-            ;
-
-        fill_dependences_immediate
-            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
-            << dependency_defs_immediate
-            << "};"
-            ;
-
-        dependency_array << "_dependences";
-
-        int num_dep = 0;
-        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
-                it != dependences.end();
-                it++)
-        {
-            Source dependency_flags;
-            Source reduction_flag;
-            dependency_flags << "{";
-            OpenMP::DependencyDirection attr = it->get_kind();
-            if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
-            {
-                if (Nanos::Version::interface_is_at_least("master", 5001))
-                {
-                    reduction_flag << "0";
-                }
-
-                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
-                {
-                    dependency_flags << "1,"; 
-                }
-                else
-                {
-                    dependency_flags << "0,"; 
-                }
-                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-                {
-                    dependency_flags << "1,"; 
-                }
-                else
-                {
-                    dependency_flags << "0,"; 
-                }
-            }
-            else 
-            {
-                if (!Nanos::Version::interface_is_at_least("master", 5001))
-                {
-                    fprintf(stderr,
-                            "%s: warning: the current version of Nanos does not"
-                            " support reduction dependencies in Superscalar\n",
-                            ctr.get_ast().get_locus().c_str());
-                }
-                else
-                {
-                    reduction_flag << "1";
-                }
-                // Reduction behaves like an inout
-                dependency_flags << "1, 1,";
-            }
-
-            Source dependency_field_name;
-
-            DataReference data_ref = it->get_dependency_expression();
-            Symbol sym = data_ref.get_base_symbol();
-
-            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
-
-            if (data_env_item.get_symbol().is_valid())
-            {
-                dependency_field_name
-                    << data_env_item.get_field_name();
-            }
-            else
-            {
-                internal_error("symbol without data environment info %s",
-                        it->get_dependency_expression().prettyprint().c_str());
-            }
-
-            if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
-            {
-                // Reductions cannot be renamed
-                dependency_flags << "0,"
-                    ;
-            }
-            else
-            {
-                // Can rename otherwise
-                dependency_flags << "1,"
-                    ;
-            }
-
-            dependency_flags << reduction_flag;
-            dependency_flags << "}"
-                    ;
-
-            DataReference dependency_expression = it->get_dependency_expression();
-
-            Source dep_size;
-            dep_size << dependency_expression.get_sizeof();
-
-            Source dependency_offset, imm_dependency_offset;
-
-            dependency_defs_outline
-                << "{"
-                << "(void**)&ol_args->" << dependency_field_name << ","
-                << dependency_offset << ","
-                << dependency_flags << ","
-                << dep_size  
-                << "}"
-                ;
-
-            Source dep_expr_addr = data_ref.get_address();
-
-            dependency_offset
-                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
-                ;
-
-            if (!immediate_is_alloca)
-            {
-                dependency_defs_immediate
-                    << "{"
-                    << "(void**)&imm_args." << dependency_field_name << ","
-                    << imm_dependency_offset << ","
-                    << dependency_flags << ","
-                    << dep_size 
-                    << "}"
-                    ;
-
-                imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
-                    ;
-            }
-            else
-            {
-                dependency_defs_immediate
-                    << "{"
-                    << "(void**)imm_args->" << dependency_field_name << ","
-                    << imm_dependency_offset << ","
-                    << dependency_flags << ","
-                    << dep_size 
-                    << "}"
-                    ;
-
-                imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
-                    ;
-            }
-
-            if ((it + 1) != dependences.end())
-            {
-                dependency_defs_outline << ",";
-                dependency_defs_immediate << ",";
-            }
-
-            num_dep++;
-        }
-    }
-    else
-    {
-        dependency_array << "0";
-        num_dependences << "0";
-    }
-
+    // Fill dependences, if any    
+    regions_spawn(dependency_struct, dependency_array, dependency_regions, num_dependences, 
+                  fill_dependences_outline, fill_dependences_immediate, dependences, data_environ_info, 
+                  immediate_is_alloca, ctr, /*is task*/ true);
+    
     // Honour if clause
     Source if_expr_cond_start, if_expr_cond_end;
     PragmaCustomClause if_clause = ctr.get_clause("if");
@@ -811,7 +643,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_dependences_outline
         <<        copy_setup
         <<        set_translation_fun
-        <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+        <<        "err = nanos_submit(wd, " << num_dependences << ", (" << dependency_struct << "*)" 
+                                            << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
@@ -825,7 +658,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<                struct_size << ", " 
         <<                alignment
         <<                (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
-        <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
+        <<                num_dependences << ", (" << dependency_struct << "*)" << dependency_array << ", &props,"
         <<                num_copies << "," << copy_imm_data 
         <<                translation_fun_arg_name << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -882,4 +715,3 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
         }
     }
 }
-

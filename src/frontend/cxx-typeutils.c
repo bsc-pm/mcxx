@@ -347,6 +347,24 @@ struct pointer_tag
     scope_entry_t* pointee_class;
 } pointer_info_t;
 
+typedef
+struct array_region_tag 
+{
+    // Whole size. If the array is created using lower and upper boundaries
+    // this one is upper - lower + 1
+    AST whole_size;
+    // This is always zero in C
+    // It may be non zero in Fortran
+    AST lower_bound; 
+
+    // This is the upper bound. If the array is created using the size of the
+    // array, this is always whole_size - 1
+    AST upper_bound;
+    
+    // Scope of the array region expressions
+    decl_context_t region_decl_context;
+} array_region_t;
+
 // Array information
 typedef 
 struct array_tag
@@ -361,13 +379,16 @@ struct array_tag
     // This is the upper bound. If the array is created using the size of the
     // array, this is always whole_size - 1
     AST upper_bound;
-
+    
     // Scope of the array size expressions
     decl_context_t array_expr_decl_context;
 
     // The type of the array elements
     type_t* element_type;
 
+    // Region information
+    array_region_t* region;
+    
     // Is literal string type ?
     unsigned char is_literal_string:1;
     unsigned char is_vla:1;
@@ -2054,30 +2075,33 @@ static void init_qualification_hash(void)
 }
 
 static void _get_array_type_components(type_t* array_type, 
-        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context);
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context,
+        array_region_t** array_region);
 
 static type_t* _get_array_type(type_t* element_type, 
-        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context);
+        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context,
+        array_region_t* array_region);
 
 static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
 {
         AST whole_size = NULL;
         AST lower_bound = NULL;
         AST upper_bound = NULL;
+        array_region_t* array_region = NULL;
         decl_context_t decl_context;
         memset(&decl_context, 0, sizeof(decl_context));
 
-        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context);
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context, &array_region);
 
         // And now rebuild the array type
         type_t* result = _get_array_type(new_element_type, 
                 ast_copy_for_instantiation(whole_size), 
                 ast_copy_for_instantiation(lower_bound), 
-                ast_copy_for_instantiation(upper_bound), 
-                decl_context);
+                ast_copy_for_instantiation(upper_bound),                                         
+                decl_context,
+                array_region);
         return result;
 }
-
 
 type_t* get_unqualified_type(type_t* t)
 {
@@ -2460,7 +2484,8 @@ type_t* get_array_type_str(type_t* element_type, const char* dim)
 
 // This is used only for cloning array types
 static void _get_array_type_components(type_t* array_type, 
-        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context)
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context,
+        array_region_t** array_region)
 {
     ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
 
@@ -2468,12 +2493,14 @@ static void _get_array_type_components(type_t* array_type,
     *lower_bound = array_type->array->lower_bound;
     *upper_bound = array_type->array->upper_bound;
     *decl_context = array_type->array->array_expr_decl_context;
+    *array_region = array_type->array->region;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
 // course)
 static type_t* _get_array_type(type_t* element_type, 
-        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context)
+        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context,
+        array_region_t* array_region)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
 
@@ -2598,7 +2625,8 @@ static type_t* _get_array_type(type_t* element_type,
         if (!CURRENT_CONFIGURATION->disable_sizeof
                 && whole_size_is_constant
                 && lower_bound_is_constant
-                && upper_bound_is_constant)
+                && upper_bound_is_constant
+                && array_region == NULL)
         {
             rb_red_blk_tree* array_sized_hash = get_array_sized_hash(whole_size_k, lower_bound_k, upper_bound_k);
 
@@ -2639,6 +2667,7 @@ static type_t* _get_array_type(type_t* element_type,
             result->array->lower_bound = lower_bound;
             result->array->upper_bound = upper_bound;
             result->array->array_expr_decl_context = decl_context;
+            result->array->region = array_region;
 
             C_LANGUAGE()
             {
@@ -2703,7 +2732,50 @@ type_t* get_array_type(type_t* element_type, AST whole_size, decl_context_t decl
                 ASTFileName(whole_size), ASTLine(whole_size), NULL);
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+}
+
+type_t* get_array_type_with_regions(type_t* element_type, 
+        AST whole_size, 
+        decl_context_t decl_context,
+        AST region_whole_size,
+        decl_context_t region_decl_context)
+{
+    whole_size = ast_copy_for_instantiation(whole_size);
+
+    AST lower_bound = NULL; 
+    AST upper_bound = NULL; 
+    if (whole_size != NULL)
+    {
+        lower_bound = ast_copy_for_instantiation(get_zero_tree());
+        ast_set_filename(lower_bound, ASTFileName(whole_size));
+        ast_set_line(lower_bound, ASTLine(whole_size));
+
+        upper_bound = ASTMake2(AST_MINUS, 
+                ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(whole_size), ASTFileName(whole_size), ASTLine(whole_size), NULL), 
+                ast_copy_for_instantiation(get_one_tree()), 
+                ASTFileName(whole_size), ASTLine(whole_size), NULL);
+    }
+
+    AST region_lower_bound = NULL; 
+    AST region_upper_bound = NULL; 
+
+    region_lower_bound = ast_copy_for_instantiation(get_zero_tree());
+    ast_set_filename(region_lower_bound, ASTFileName(region_whole_size));
+    ast_set_line(region_lower_bound, ASTLine(region_whole_size));
+
+    region_upper_bound = ASTMake2(AST_MINUS, 
+            ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(region_whole_size), ASTFileName(region_whole_size), ASTLine(region_whole_size), NULL), 
+            ast_copy_for_instantiation(get_one_tree()), 
+            ASTFileName(region_whole_size), ASTLine(region_whole_size), NULL);
+
+    array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region->lower_bound = region_lower_bound;
+    array_region->upper_bound = region_upper_bound;
+    array_region->whole_size = region_whole_size;
+    array_region->region_decl_context = region_decl_context;
+
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
 }
 
 type_t* get_array_type_bounds(type_t* element_type,
@@ -2726,15 +2798,73 @@ type_t* get_array_type_bounds(type_t* element_type,
             ASTMake2(AST_ADD, 
                     ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
                         ASTMake2(AST_MINUS, 
-                            ast_copy_for_instantiation(upper_bound), 
-                            ast_copy_for_instantiation(lower_bound), 
+                            ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(upper_bound), 
+                                     ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                            ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(lower_bound), 
+                                     ASTFileName(lower_bound), ASTLine(lower_bound), NULL),     
                             ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
                         ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
                     one_tree,
                     ASTFileName(lower_bound), ASTLine(lower_bound), NULL);
     }
 
-    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, /* array_region */ NULL);
+}
+
+type_t* get_array_type_bounds_with_regions(type_t* element_type,
+        AST lower_bound,
+        AST upper_bound,
+        decl_context_t decl_context,
+        AST region_lower_bound,
+        AST region_upper_bound,
+        decl_context_t region_decl_context)
+{
+    AST whole_size = NULL;
+    lower_bound = ast_copy_for_instantiation(lower_bound);
+    upper_bound = ast_copy_for_instantiation(upper_bound);
+
+    if (lower_bound != NULL
+            && upper_bound != NULL)
+    {
+        AST one_tree = ast_copy_for_instantiation(get_one_tree());
+        ast_set_filename(one_tree, ASTFileName(lower_bound));
+        ast_set_line(one_tree, ASTLine(lower_bound));
+
+        whole_size = 
+            ASTMake2(AST_ADD, 
+                    ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
+                        ASTMake2(AST_MINUS, 
+                            ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(upper_bound), 
+                                     ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                            ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(lower_bound), 
+                                     ASTFileName(lower_bound), ASTLine(lower_bound), NULL),                                
+                            ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                        ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                    one_tree,
+                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL);
+    }
+
+    AST one_tree = ast_copy_for_instantiation(get_one_tree());
+    AST region_whole_size = 
+        ASTMake2(AST_ADD, 
+                ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
+                    ASTMake2(AST_MINUS,
+                        ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(region_upper_bound), 
+                                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
+                        ASTMake1(AST_PARENTHESIZED_EXPRESSION, ast_copy_for_instantiation(region_lower_bound), 
+                                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL),  
+                        ASTFileName(region_lower_bound), ASTLine(region_lower_bound), NULL),
+                    ASTFileName(region_lower_bound), ASTLine(region_lower_bound), NULL),
+                one_tree,
+                ASTFileName(region_lower_bound), ASTLine(region_lower_bound), NULL);
+
+    array_region_t* array_region = counted_calloc(1, sizeof(*array_region), &_bytes_due_to_type_system);
+    array_region->lower_bound = region_lower_bound;
+    array_region->upper_bound = region_upper_bound;
+    array_region->whole_size = region_whole_size;
+    array_region->region_decl_context = region_decl_context;
+    
+    return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context, array_region);
 }
 
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
@@ -5181,6 +5311,47 @@ decl_context_t array_type_get_array_size_expr_context(type_t* t)
     return t->array->array_expr_decl_context;
 }
 
+
+char array_type_has_region(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region != NULL;    
+}
+
+decl_context_t array_type_get_region_size_expr_context(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->region_decl_context;
+}
+
+AST array_type_get_region_size_expr(type_t* t)
+{
+     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->whole_size;   
+}
+
+AST array_type_get_region_lower_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->lower_bound;
+}
+
+AST array_type_get_region_upper_bound(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->region->upper_bound;    
+}
+
 char array_type_is_vla(type_t* t)
 {
     ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
@@ -6771,7 +6942,16 @@ const char* print_declarator(type_t* printed_declarator)
                 tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->lower_bound));
                 tmp_result = strappend(tmp_result, ":");
                 tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->upper_bound));
-                tmp_result = strappend(tmp_result, "] of ");
+                tmp_result = strappend(tmp_result, "]" );
+                if (printed_declarator->array->region != NULL)
+                {
+                    tmp_result = strappend(tmp_result, "{");
+                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->region->lower_bound));
+                    tmp_result = strappend(tmp_result, ":");
+                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->region->upper_bound));
+                    tmp_result = strappend(tmp_result, "}" );
+                }
+                tmp_result = strappend(tmp_result, " of ");
                 printed_declarator = printed_declarator->array->element_type;
                 break;
             case TK_FUNCTION :
@@ -8415,15 +8595,19 @@ char class_type_is_standard_layout(type_t* t)
 
 char is_aggregate_type(type_t* t)
 {
+    if (is_array_type(t))
+        return 1;
+
+    // GCC seems to understand vector types as aggregates
+    if (is_vector_type(t))
+        return 1;
+
     /*
        An aggregate is an array or a class (Clause 9) with no user-provided
        constructors (12.1), no brace-or-equal initializers for non-static data
        members (9.2), no private or protected non-static data members (Clause
        11), no base classes (Clause 10), and no virtual functions (10.3).
      */
-    if (is_array_type(t))
-        return 1;
-
     if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);

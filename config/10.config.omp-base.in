@@ -1,0 +1,52 @@
+# OpenMP + Nanos 
+[omp-base]
+options =
+{debug} options = -g
+{(instrument|instrumentation)} options = --variable=instrument:1
+preprocessor_name = gcc
+preprocessor_options = -E
+{(instrument|instrumentation),!(openmpt|ompss|simd|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = -Xlinker --add-needed
+{openmp} compiler_phase = libtlomp-core.so
+{openmp} pragma_prefix = nanos
+{openmp} compiler_phase = libtlnanos-version.so
+# nanos4
+{openmp,!(nanox|openmpt|ompss|simd)} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
+{openmp,!(nanox|openmpt|ompss|simd)} linker_options = -L@NANOS4_LIBS@ -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOS4_LIBS@
+{openmp,!(nanox|openmpt|ompss|simd),!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
+{openmp,!(nanox|openmpt|ompss|simd),nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{openmp,!(nanox|openmpt|ompss|simd),instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Xlinker @RPATH_PARAMETER@ -Xlinker @MINTAKA_LIBS@ -lmintaka
+{openmp,!(nanox|openmpt|ompss|simd),debug} linker_options = -g -lnthreads-dbg
+{openmp,!(nanox|openmpt|ompss|simd),instrument,!debug} @INSTRUMENTATION_PHASE@
+{openmp,!(nanox|openmpt|ompss|simd),serialize} compiler_phase = libtlomp-serialize.so
+{openmp,!(nanox|openmpt|ompss|simd),serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization
+{openmp,!(nanox|openmpt|ompss|simd)} compiler_phase = libtlomp-nanos4.so
+# nanos++
+{openmp,(nanox|openmpt|ompss|simd)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{acml} preprocessor_options = -include math.h -include smmintrin.h -include acml_mv_m128.h
+{acml} options = --variable=acml:1
+{interm-simd} options = --variable=interm-simd:1
+{simd} preprocessor_options = -include math.h
+{simd} options = --ompss --hlt -msse4.1
+{openmp,!debug,!(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
+{openmp,debug,!(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/debug
+{openmp,!debug,(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/instrumentation -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation
+{openmp,debug,(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
+{openmp,nanox,!(openmpt|ompss|simd)} linker_options = -lnanox -lnanox-c -lnanox-omp
+{openmp,!nanox,(openmpt|ompss|simd)} linker_options = -lnanox -lnanox-c -lnanox-ss
+{acml} linker_options = -lacml_mv 
+{simd} linker_options = -lm
+{openmp,(nanox|openmpt|ompss|simd)} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_dto = show_warnings:bool:0
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-smp_ocl.so
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
+{openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
+
+

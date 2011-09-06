@@ -1,5 +1,14 @@
 #!/bin/bash
 
+with_regions="no"
+
+if [ x$1 = xregions ];
+then
+    with_regions="yes"
+fi
+
+
+# If no Nanos++ or no superscalar, exit
 if [ -z "@NANOX_INCLUDES@" -o "@ENABLE_SUPERSCALAR@" = "no" ];
 then
 
@@ -11,11 +20,23 @@ exit
 
 fi
 
+# If Nanos++ and superscalar but no regions and regions were requested, exit
+if [ $with_regions = yes -a "@NANOX_REGIONS@" = "no" ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+exit
+
+fi
+
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscc --config-file=@abs_top_builddir@/config/config.sscc --verbose"
-MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscxx --config-file=@abs_top_builddir@/config/config.sscc --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscxx --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
 if [ ! -z "@NANOX_INCLUDES@" ];

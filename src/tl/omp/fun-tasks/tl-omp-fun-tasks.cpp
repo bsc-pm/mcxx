@@ -205,18 +205,20 @@ namespace OpenMP
 
             ObjectList<int> parameters_as_dependences;
 
-            // Dependencies
-            ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             ObjectList<Expression> argument_list = expr.get_argument_list();
+           /* get dependences */ 
+            ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             for (ObjectList<Symbol>::iterator it2 = sym_list.begin();
                     it2 != sym_list.end();
                     it2++)
             {
+
                 Symbol &current_sym(*it2);
                 if (current_sym.is_parameter())
                 {
                     if (current_sym.get_parameter_position() < argument_list.size())
                     {
+
                         Source src;
                         src << "__tmp_" << current_sym.get_parameter_position();
 
@@ -252,6 +254,9 @@ namespace OpenMP
             Source input_args;
             Source output_args;
             Source inout_args;
+            Source fp_input_args;
+            Source fp_output_args;
+            Source fp_inout_args;
             Source reduction_args;
             Source shared_args;
 
@@ -260,21 +265,26 @@ namespace OpenMP
                     it2++)
             {
                 Source *args = NULL;
+                DataReference data_ref = it2->get_data_reference();
+                Symbol base_sym = data_ref.get_base_symbol();
                 switch (it2->get_direction())
                 {
                     case DEP_DIR_INPUT :
                         {
-                            args = &input_args;
+                            args = (base_sym.is_parameter()) ? 
+                                   &fp_input_args : &input_args;
                             break;
                         }
                     case DEP_DIR_OUTPUT :
                         {
-                            args = &output_args;
+                            args = (base_sym.is_parameter()) ? 
+                                   &fp_output_args : &output_args;
                             break;
                         }
                     case DEP_DIR_INOUT :
                         {
-                            args = &inout_args;
+                            args = (base_sym.is_parameter()) ?
+                                   &fp_inout_args : &inout_args;
                             break;
                         }
                     case DEP_REDUCTION :
@@ -288,10 +298,13 @@ namespace OpenMP
                             internal_error("Code unreachable", 0);
                         }
                 }
-
-                (*args).append_with_separator(
-                        replace.replace(it2->get_expression()), 
-                        ",");
+                if (!base_sym.is_parameter() && base_sym.is_member())
+                {
+                    Source src;
+                    src << "__tmp_this." << base_sym.get_name();
+                    replace.add_replacement(base_sym,src.get_source());
+                }
+                (*args).append_with_separator(replace.replace(data_ref),",");
             }
 
             Expression callee = expr.get_called_expression();
@@ -346,7 +359,7 @@ namespace OpenMP
 
                 if (sym.get_type().is_const())
                 {
-                    input_args.append_with_separator("__tmp_this", ",");
+                    fp_input_args.append_with_separator("__tmp_this", ",");
                 }
                 else
                 {
@@ -429,21 +442,33 @@ namespace OpenMP
                 }
             }
 
+            if (!input_args.empty())
+            {
+                arg_clauses << " input(" << input_args << ")";
+            }
+            if (!output_args.empty())
+            {
+                arg_clauses << " output(" << output_args << ")";
+            }
+            if (!inout_args.empty())
+            {
+                arg_clauses << " inout(" << inout_args << ")";
+            }
             if (!firstprivate_args.empty())
             {
                 arg_clauses << " firstprivate(" << firstprivate_args << ")";
             }
-            if (!input_args.empty())
+            if (!fp_input_args.empty())
             {
-                arg_clauses << " __fp_input(" << input_args << ")";
+                arg_clauses << " __fp_input(" << fp_input_args << ")";
             }
-            if (!output_args.empty())
+            if (!fp_output_args.empty())
             {
-                arg_clauses << " __fp_output(" << output_args << ")";
+                arg_clauses << " __fp_output(" << fp_output_args << ")";
             }
-            if (!inout_args.empty())
+            if (!fp_inout_args.empty())
             {
-                arg_clauses << " __fp_inout(" << inout_args << ")";
+                arg_clauses << " __fp_inout(" << fp_inout_args << ")";
             }
             if (!reduction_args.empty())
             {
@@ -587,7 +612,8 @@ namespace OpenMP
                                     internal_error("Code unreachable", 0);
                                 }
                         }
-                        Expression expr = it2->get_expression();
+
+                        Expression expr = it2->get_data_reference();
 
                         DataReference data_ref(expr);
 
@@ -622,7 +648,7 @@ namespace OpenMP
                         if (sym.is_parameter())
                         {
                             (*clause_args).append_with_separator(
-                                    replace_copies.replace(it2->get_expression()), 
+                                    replace_copies.replace(it2->get_data_reference()), 
                                     ",");
 
                         }
@@ -650,4 +676,5 @@ namespace OpenMP
         }
     }
 
-} }
+}
+}

@@ -14,10 +14,10 @@ fi
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --config-file=@abs_top_builddir@/config/config.cuda --verbose"
-MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --config-file=@abs_top_builddir@/config/config.cuda --verbose"
-SSCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscc --config-file=@abs_top_builddir@/config/config.sscc --config-file=@abs_top_builddir@/config/config.cuda --verbose"
-SSCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscxx --config-file=@abs_top_builddir@/config/config.sscc --config-file=@abs_top_builddir@/config/config.cuda --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-dir=@abs_top_builddir@/config --verbose"
+MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose"
+SSCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscc --config-dir=@abs_top_builddir@/config --verbose"
+SSCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscxx --config-dir=@abs_top_builddir@/config --verbose"
 EOF
 
 if [ ! -z "@NANOX_INCLUDES@" ];

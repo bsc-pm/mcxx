@@ -1,0 +1,7 @@
+[sscc : sscc-common]
+language = C
+preprocessor_name = gcc
+preprocessor_options = -std=gnu99 -E
+compiler_name = gcc
+compiler_options = -std=gnu99
+linker_name = gcc

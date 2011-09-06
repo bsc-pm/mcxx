@@ -1,0 +1,11 @@
+# Fortran EXPERIMENTAL support
+[mf95]
+language = Fortran
+options =
+preprocessor_name = gfortran
+preprocessor_options = -cpp -E
+compiler_name = gfortran
+compiler_options =
+linker_name = gfortran
+linker_options =
+{openmp} compiler_phase = libtlomp-core.so

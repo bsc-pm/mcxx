@@ -162,6 +162,16 @@ namespace TL
             _reduction_symbols.append(reduction_symbol);
         }
 
+		void DataSharingEnvironment::set_real_time_info(const RealTimeInfo & rt_info)
+		{
+			_real_time_info = rt_info;
+		}
+
+		RealTimeInfo DataSharingEnvironment::get_real_time_info() 
+		{
+			return _real_time_info;
+		}
+
         void DataSharingEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
@@ -422,6 +432,36 @@ namespace TL
         {
             return _copy_expr;
         }
+		
+		RealTimeInfo::RealTimeInfo()
+		{
+            _is_release_deadline = false;
+            _error_behavior = OMP_ABORT;
+		}
+				
+		RealTimeInfo::~RealTimeInfo()
+		{
+		}
+        
+        void RealTimeInfo::set_is_release_deadline(bool value)
+        {
+            _is_release_deadline = value;
+        }
+        
+        bool RealTimeInfo::get_is_release_deadline() 
+        {
+            return _is_release_deadline;
+        }
+                
+                
+        void RealTimeInfo::set_error_behavior(RealTimeErrorBehavior err)
+        {
+            _error_behavior = err;   
+        }
 
+        RealTimeInfo::RealTimeErrorBehavior RealTimeInfo::get_error_behavior()
+        {
+            return _error_behavior;
+        }
     }
 }

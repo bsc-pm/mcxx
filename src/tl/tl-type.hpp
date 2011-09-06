@@ -427,8 +427,18 @@ namespace TL
               and an upper of N-1 where N is the size of the array as returned
               by array_get_size
               */
-            void array_get_bounds(AST_t& lower, AST_t& upper);
+            void array_get_bounds(AST_t& lower, AST_t& upper) const;
 
+            //! States that this array type has region attached to it
+            bool array_is_region() const;
+
+            //! This returns the bounds of the array region 
+            /*! See array_get_bounds for an explanation of the returned AST_t */
+            void array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const;
+
+            //! This returns the expression of the array region size 
+            AST_t array_get_region_size() const;
+            
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
 

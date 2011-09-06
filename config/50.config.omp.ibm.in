@@ -1,0 +1,12 @@
+# IBM XL
+[xlmcc : mcc]
+preprocessor_name = @GXLC@
+preprocessor_uses_stdout = yes
+compiler_name = @GXLC@
+linker_name = @GXLC@
+
+[xlmcxx : mcxx]
+preprocessor_name = @GXLCXX@
+preprocessor_uses_stdout = yes
+compiler_name = @GXLCXX@
+linker_name = @GXLCXX@
