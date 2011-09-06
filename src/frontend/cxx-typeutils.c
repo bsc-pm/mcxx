@@ -5971,86 +5971,89 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         &is_dependent,
                         &max_qualif_level);
 
-                if (is_dependent)
+                nodecl_t  nodecl_parts = simple_type->dependent_parts;
+
+                if (is_dependent && !nodecl_is_null(nodecl_parts))
                 {
                     result = strappend("typename ", result);
                 }
 
-                nodecl_t  nodecl_parts = simple_type->dependent_parts;
-
-                int num_parts = 0;
-                nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
-
-                int i;
-                for (i = 0; i < num_parts; i++)
+                if (!nodecl_is_null(nodecl_parts))
                 {
-                    nodecl_t current_part = list[i];
+                    int num_parts = 0;
+                    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_parts, 0), &num_parts);
 
-                    nodecl_t simple_current_part = current_part;
-                    template_parameter_list_t* template_parameters = NULL;
-
-                    if (nodecl_get_kind(current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                    int i;
+                    for (i = 0; i < num_parts; i++)
                     {
-                        template_parameters = nodecl_get_template_parameters(current_part);
-                        simple_current_part = nodecl_get_child(current_part, 0);
-                    }
+                        nodecl_t current_part = list[i];
 
-                    const char* name = nodecl_get_text(simple_current_part);
+                        nodecl_t simple_current_part = current_part;
+                        template_parameter_list_t* template_parameters = NULL;
 
-                    result = strappend(result, "::");
-                    if (template_parameters != NULL && is_dependent)
-                    {
-                        result = strappend(result, "template ");
-                    }
-                    result = strappend(result, name);
-
-                    if (template_parameters != NULL)
-                    {
-                        result = strappend(result, "< ");
-                        int j;
-                        for (j = 0; j < template_parameters->num_parameters; j++)
+                        if (nodecl_get_kind(current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
                         {
-                            template_parameter_value_t * template_arg = template_parameters->arguments[j];
-
-                            switch (template_arg->kind)
-                            {
-                                case TPK_TYPE:
-                                    {
-                                        result = strappend(result, 
-                                                print_type_str(template_arg->type, decl_context));
-                                        break;
-                                    }
-                                case TPK_NONTYPE:
-                                    {
-                                        result = strappend(result, 
-                                                c_cxx_codegen_to_str(template_arg->value));
-                                        break;
-                                    }
-                                case TPK_TEMPLATE:
-                                    {
-                                        result = strappend(result,
-                                                get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
-                                                    decl_context));
-                                        break;
-                                    }
-                                default:
-                                    {
-                                        internal_error("Invalid template argument kind", 0);
-                                    }
-                            }
-
-                            if ((j + 1) < template_parameters->num_parameters)
-                            {
-                                result = strappend(result, ", ");
-                            }
+                            template_parameters = nodecl_get_template_parameters(current_part);
+                            simple_current_part = nodecl_get_child(current_part, 0);
                         }
 
-                        if (result[strlen(result) - 1] == '>')
-                        {
-                            result = strappend(result, " ");
-                        }
+                        const char* name = nodecl_get_text(simple_current_part);
 
-                        result = strappend(result, ">");
+                        result = strappend(result, "::");
+                        if (template_parameters != NULL && is_dependent)
+                        {
+                            result = strappend(result, "template ");
+                        }
+                        result = strappend(result, name);
+
+                        if (template_parameters != NULL)
+                        {
+                            result = strappend(result, "< ");
+                            int j;
+                            for (j = 0; j < template_parameters->num_parameters; j++)
+                            {
+                                template_parameter_value_t * template_arg = template_parameters->arguments[j];
+
+                                switch (template_arg->kind)
+                                {
+                                    case TPK_TYPE:
+                                        {
+                                            result = strappend(result, 
+                                                    print_type_str(template_arg->type, decl_context));
+                                            break;
+                                        }
+                                    case TPK_NONTYPE:
+                                        {
+                                            result = strappend(result, 
+                                                    c_cxx_codegen_to_str(template_arg->value));
+                                            break;
+                                        }
+                                    case TPK_TEMPLATE:
+                                        {
+                                            result = strappend(result,
+                                                    get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
+                                                        decl_context));
+                                            break;
+                                        }
+                                    default:
+                                        {
+                                            internal_error("Invalid template argument kind", 0);
+                                        }
+                                }
+
+                                if ((j + 1) < template_parameters->num_parameters)
+                                {
+                                    result = strappend(result, ", ");
+                                }
+                            }
+
+                            if (result[strlen(result) - 1] == '>')
+                            {
+                                result = strappend(result, " ");
+                            }
+
+                            result = strappend(result, ">");
+                        }
                     }
                 }
 
