@@ -3553,16 +3553,24 @@ static void embed_files(void)
 }
 
 static void link_files(const char** file_list, int num_files,
-        const char** additional_files, int num_additional_files,
+        const char* linked_output_filename,
         compilation_configuration_t* compilation_configuration)
 {
-    int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
-    int num_args_linker_options_pre = count_null_ended_array((void**)compilation_configuration->linker_options_pre);
-    int num_args_linker_command = compilation_configuration->num_args_linker_command;
+    int num_args_linker = 
+        count_null_ended_array((void**)compilation_configuration->linker_options);
+    int num_args_linker_options_pre = 
+        count_null_ended_array((void**)compilation_configuration->linker_options_pre);
+    int num_args_linker_command = 
+        compilation_configuration->num_args_linker_command;
     
-    int num_arguments = num_args_linker_options_pre + num_args_linker_command + num_args_linker + num_additional_files;
-    // -o output
-    //num_arguments += 2;
+    int num_arguments = num_args_linker_options_pre + num_args_linker_command + 
+        num_args_linker + num_files;
+
+    if (linked_output_filename != NULL)
+    {
+        // -o output
+        num_arguments += 2;
+    }
     
     // NULL
     num_arguments += 1;
@@ -3573,41 +3581,22 @@ static void link_files(const char** file_list, int num_files,
     int i = 0;
     int j = 0;
 
-    //if (compilation_configuration->linked_output_filename != NULL)
-    //{
-    //    linker_args[i] = uniquestr("-o");
-    //    i++;
-    //    linker_args[i] = compilation_configuration->linked_output_filename;
-    //    i++;
-    //}
-
-    //for (j = 0; j < num_additional_files; j++)
-    //{
-    //    linker_args[i] = additional_files[j];
-    //    i++;
-    //}
-
-    //for (j = 0; j < num_files; j++)
-    //{
-    //    linker_args[i] = file_list[j];
-    //    i++;
-    //}
-
-    //for (j = 0; j < num_args_linker; j++)
-    //{
-    //    linker_args[i] = compilation_configuration->linker_options[j];
-    //    i++;
-    //}
-
-    //adding linker options pre
-    for(j = 0; j < num_args_linker_options_pre; j++) 
+    if (linked_output_filename != NULL)
     {
-        linker_args[i] = compilation_configuration->linker_options[j];
-        ++j;
+        linker_args[i] = uniquestr("-o");
+        i++;
+        linker_args[i] = compilation_configuration->linked_output_filename;
+        i++;
     }
 
-    //adding linker command arguments
-    for(j = 0; j < num_args_linker_command; j++)
+    //Adding linker options pre
+    for(j = 0; j < num_args_linker_options_pre; j++, i++) 
+    {
+        linker_args[i] = compilation_configuration->linker_options[j];
+    }
+
+    //Adding linker command arguments
+    for(j = 0; j < num_args_linker_command; j++, i++)
     {
         // This is a file
         if (compilation_configuration->linker_command[j]->translation_unit != NULL)
@@ -3620,36 +3609,30 @@ static void link_files(const char** file_list, int num_files,
                 fileextensions_lookup(extension, strlen(extension));
             if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
             {
-                linker_args[j] = current_translation_unit->input_filename;
+                linker_args[i] = current_translation_unit->input_filename;
             }
             else
             {
-                linker_args[j] = current_translation_unit->output_filename;
+                linker_args[i] = current_translation_unit->output_filename;
             }
         }
         // This is another sort of command-line parameter
         else
         {
-            linker_args[j] = compilation_configuration->linker_command[j]->argument;    
+            linker_args[i] = compilation_configuration->linker_command[j]->argument;    
         }
-        i++;
     }
-    
-    //adding additional files 
-    for (j = 0; j < num_additional_files; j++)
+    //Adding multifile list or additional file list 
+    for (j = 0; j < num_files; j++, i++)
     {
-        linker_args[i] = additional_files[j];
-        i++;
+        linker_args[i] = file_list[j];
     }
 
-    //adding linker options arguments 
-    for (j = 0; j < num_args_linker; j++)
+    //Adding linker options arguments 
+    for (j = 0; j < num_args_linker; j++, i++)
     {
         linker_args[i] = compilation_configuration->linker_options[j];
-        i++;
     }
-    
-
       
     timing_t timing_link;
     timing_start(&timing_link);
@@ -3851,8 +3834,9 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             configuration->linked_output_filename =
                 strappend(configuration->configuration_name, linked_output_suffix);
 
+            // Here the file list contains all the elements of this secondary profile.
             link_files(multifile_file_list, multifile_num_files, 
-                    /* additional files */ NULL, /* num_additional_files */ 0,
+                    configuration->linked_output_filename,
                     configuration);
 
             do_combining(target_map, configuration);
@@ -3896,9 +3880,9 @@ static void link_objects(void)
     extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
             &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
-    link_files(file_list, compilation_process.num_translation_units, 
-            additional_files, 
-            num_additional_files, 
+    // Additional files are those coming from secondary profiles
+    link_files(additional_files, num_additional_files,
+            /* linked_output_filename */ NULL,
             CURRENT_CONFIGURATION);
 }
 

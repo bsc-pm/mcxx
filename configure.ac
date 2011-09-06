@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5.7],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.8],[rferrer@ac.upc.edu])
 
 configure_orig_arguments="$@"
 
