@@ -561,95 +561,79 @@ namespace TL
 
              
 
-
+            //looking for deadline clause
             PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
-            {   
-                // two cases: release deadline and deadline 
-                ObjectList<std::string> clause_names = construct.get_clause_names();
-                bool release = false;
-                ObjectList<std::string>::iterator it = clause_names.begin();
-                while (it != clause_names.end() && !release)
-                {
-                    if( *it == "release") release = true;
-                    it++;
-                }
-
-                if (release) 
-                {
-                    // if (*it) != "deadline" then error
-                    if (it == clause_names.end() || *it != "deadline")
-                    {
-                        std::cerr << construct.get_ast().get_locus()
-                                  << ": error: the next clause of 'release' must be 'deadline', skipping "
-                                  << std::endl;
-                    }
-                    else
-                    {
-                        ObjectList<std::string> release_deadline_args =
-                            deadline_clause.get_arguments(ExpressionTokenizer());
-                        if(release_deadline_args.size() != 2)
-                        {
-                            std::cerr << construct.get_ast().get_locus()
-                                      << ": warning: '#pragma omp task release deadline' "
-                                      << "has a wrong number of arguments, skipping"
-                                      << std::endl;
-
-                        }
-                        else
-                        {
-                            std::cerr << "warning: '#pragma omp task release deadline' "
-                                      << "is not implemented yet (tl-omp-tasks.cpp)"
-                                      << std::endl;
-
-                            rt_info.set_is_release_deadline(true);
-                        }
-                    }
-                }    
-                else // not release deadline
-                {
-                    ObjectList<std::string> deadline_args =
-                        deadline_clause.get_arguments(ExpressionTokenizer());
-
-                    if(deadline_args.size() != 1)
-                    {
-                        std::cerr << construct.get_ast().get_locus()
-                                  << ": warning: '#pragma omp task deadline' "
-                                  << "has a wrong number of arguments, skipping"
-                                  << std::endl;
-                    }
-                    else
-                    {
-                        std::cerr << "warning: '#pragma omp task deadline' "
-                                  << "is not implemented yet (tl-omp-tasks.cpp)"
-                                  << std::endl;
-                    }
-                }
-            }
-
-            PragmaCustomClause onerror_clause = construct.get_clause("onerror");
-            if (onerror_clause.is_defined())
             {
-                ObjectList<std::string> onerror_args =
-                    onerror_clause.get_arguments(ExpressionTokenizer());
-
-                if(onerror_args.size() != 1)
+                ObjectList<std::string> deadline_args =
+                    deadline_clause.get_arguments(ExpressionTokenizer());
+                
+                if(deadline_args.size() != 1) 
                 {
                     std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task onerror' "
+                              << ": warning: '#pragma omp task deadline' "
+                              << "has a wrong number of arguments, skipping"
+                              << std::endl;
+                }
+                else 
+                {
+                    std::cerr << "warning: '#pragma omp task deadline' "
+                              << "is not implemented yet."
+                              << std::endl;
+                }
+
+            }
+
+            //looking for release_deadline clause
+            PragmaCustomClause release_deadline_clause = construct.get_clause("release_deadline");
+            if (release_deadline_clause.is_defined())
+            {
+                ObjectList<std::string> release_deadline_args =
+                    release_deadline_clause.get_arguments(ExpressionTokenizer());
+                
+                if(release_deadline_args.size() != 1) 
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task release_deadline' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
                 }
                 else
                 {
-
+                    std::cerr << "warning: '#pragma omp task release_deadline' "
+                              << "is not implemented yet."
+                              << std::endl;
+                }
+            }
+            
+            //looking for on_error clause
+            ObjectList<std::string> names;
+            names.push_back("on_error");
+            names.push_back("onerror");
+            PragmaCustomClause on_error_clause = construct.get_clause(names);
+            if (on_error_clause.is_defined())
+            {
+                ObjectList<std::string> on_error_args =
+                    on_error_clause.get_arguments(ExpressionTokenizer());
+                
+                if(on_error_args.size() != 1) 
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                              << ": warning: '#pragma omp task on_error' "
+                              << "has a wrong number of arguments, skipping"
+                              << std::endl;
+                }
+                else
+                {
                     Lexer l = Lexer::get_current_lexer();
 
-                    ObjectList<int> tokens = l.lex_string(onerror_args[0]);
+                    ObjectList<int> tokens = l.lex_string(on_error_args[0]);
                     switch (tokens.size())
                     {
+                        
+                        // tokens structure: 'indentifier'
                         case 1:
-                        {// tokens structure: 'indentifier'
+                        {
                             if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
                             {
@@ -660,26 +644,28 @@ namespace TL
                             }
                             else
                             {
-                                std::cerr << "warning: '#pragma omp task onerror' "
-                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                std::cerr << "warning: '#pragma omp task on_error' "
+                                          << "is not implemented yet."
                                           << std::endl;
                             }
                             break;
                         }
+
+                        //tokens structure: 'identifier:identifier'
                         case 3:
-                        {//tokens structure: 'identifier:identifier'
+                        {
                             if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
                                 (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
                             {
-                                  std::cerr << construct.get_ast().get_locus()
-                                            << ": warning: '#pragma omp task onerror' "
-                                            << "first token must be an identifier, skipping"
-                                            << std::endl;
+                                std::cerr << construct.get_ast().get_locus()
+                                          << ": warning: '#pragma omp task on_error' "
+                                          << "first token must be an identifier, skipping"
+                                          << std::endl;
                             }
                             else if (tokens[1] != (int)':')
                             {
                                 std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task onerror' "
+                                          << ": warning: '#pragma omp task on_error' "
                                           << "second token must be a colon, skipping"
                                           << std::endl;
                             }
@@ -687,14 +673,14 @@ namespace TL
                                      (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
                             {
                                 std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task onerror' "
+                                          << ": warning: '#pragma omp task on_error' "
                                           << "third token must be an identifier, skipping"
                                           << std::endl;
                             }
                             else
                             {
-                                std::cerr << "warning: '#pragma omp task onerror' "
-                                          << "is not implemented yet (tl-omp-tasks.cpp)"
+                                std::cerr << "warning: '#pragma omp task on_error' "
+                                          << "is not implemented yet."
                                           << std::endl;
                             }
                             break;
@@ -710,7 +696,6 @@ namespace TL
                                   << std::endl;
                         }
                     }
-                                    
                 }
             }
             return rt_info;
