@@ -2701,14 +2701,14 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     entry_list_free(entry_list);
 
-    if (is_dependent_type(entry->type_information))
-    {
-        (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
-    }
-    else
-    {
+    // if (is_dependent_type(entry->type_information))
+    // {
+    //     (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
+    // }
+    // else
+    // {
         (*type_info) = get_user_defined_type(entry);
-    }
+    // }
 }
 
 static type_t* compute_underlying_type_enum(const_value_t* min_value, 

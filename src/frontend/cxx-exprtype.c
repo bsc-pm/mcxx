@@ -5335,242 +5335,270 @@ static char check_template_function(scope_entry_list_t* entry_list,
     return 1;
 }
 
-static void compute_qualified_id_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+static char nodecl_name_ends_in_template_id(nodecl_t nodecl_name)
 {
-    // This function only can be called in C++ world
-    AST global_scope = ASTSon0(expr);
-    AST nested_name_spec = ASTSon1(expr);
-    AST unqualified_object = ASTSon2(expr);
-
-    scope_entry_list_t* result_list = query_nested_name_flags(decl_context, global_scope, nested_name_spec, 
-            unqualified_object, DF_DEPENDENT_TYPENAME);
-
-    if (result_list != NULL
-            && entry_list_size(result_list) == 1)
+    if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+            || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_NESTED)
     {
-        scope_entry_t* entry = entry_list_head(result_list);
+        int num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
+
+        char result = nodecl_get_kind(list[num_items - 1]) == NODECL_CXX_DEP_TEMPLATE_ID;
+
+        free(list);
+
+        return result;
+    }
+    else if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+static template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name)
+{
+    template_parameter_list_t* result = NULL;
+    if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+            || nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_NAME_NESTED)
+    {
+        int num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
+
+        nodecl_t last_part = list[num_items - 1];
+
+        char is_template_id = nodecl_get_kind(last_part) == NODECL_CXX_DEP_TEMPLATE_ID;
+        if (is_template_id)
+        {
+            result = nodecl_get_template_parameters(last_part);
+        }
+
+        free(list);
+    }
+    else if (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        return nodecl_get_template_parameters(nodecl_name);
+    }
+
+    return result;
+}
+
+static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name, 
+        scope_entry_list_t* entry_list, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    if (entry_list != NULL
+            && entry_list_size(entry_list) == 1)
+    {
+        scope_entry_t* entry = entry_list_head(entry_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
-            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
+            *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             nodecl_set_type(*nodecl_output, entry->type_information);
             nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
 
-            entry_list_free(result_list);
+            entry_list_free(entry_list);
             return;
         }
     }
 
     {
         // Ignore friendly declared
-        scope_entry_list_t* old_result = result_list;
-        result_list = filter_friend_declared(result_list);
+        scope_entry_list_t* old_result = entry_list;
+        entry_list = filter_friend_declared(entry_list);
         entry_list_free(old_result);
     }
 
-    if (ASTType(unqualified_object) == AST_TEMPLATE_ID)
+    if (entry_list == NULL)
     {
-        if (result_list != NULL)
+        if (!checking_ambiguity())
         {
-            char dependent_template_parameters = 0;
-            template_parameter_list_t* template_parameters = NULL;
+            error_printf("%s: error: symbol '%s' not found in current scope\n",
+                    nodecl_get_locus(nodecl_name), c_cxx_codegen_to_str(nodecl_name));
+        }
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        return;
+    }
 
-            char ok = check_template_function(result_list, expr, decl_context,
-                    &template_parameters, 
-                    &dependent_template_parameters);
+    scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
 
-            if (ok)
+    if (entry->kind != SK_VARIABLE
+            && entry->kind != SK_ENUMERATOR
+            && entry->kind != SK_FUNCTION
+            && entry->kind != SK_TEMPLATE)
+    {
+        entry_list_free(entry_list);
+        *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        return;
+    }
+
+    if (entry->kind == SK_VARIABLE)
+    {
+        nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+
+        nodecl_set_type(nodecl_access_to_symbol, lvalue_ref(entry->type_information));
+        nodecl_expr_set_is_lvalue(nodecl_access_to_symbol, 1);
+
+        scope_entry_t* accessing_symbol = entry;
+        if (entry->entity_specs.is_member_of_anonymous)
+        {
+            nodecl_t accessor = entry->entity_specs.anonymous_accessor;
+            nodecl_access_to_symbol = nodecl_make_class_member_access(
+                    accessor,
+                    nodecl_access_to_symbol,
+                    lvalue_ref(entry->type_information),
+                    nodecl_get_filename(nodecl_name),
+                    nodecl_get_line(nodecl_name));
+            accessing_symbol = nodecl_get_symbol(accessor);
+        }
+
+        if (!accessing_symbol->entity_specs.is_member
+                || accessing_symbol->entity_specs.is_static)
+        {
+            *nodecl_output = nodecl_access_to_symbol;
+        }
+        else
+        {
+            scope_entry_list_t* this_symbol_list 
+                = query_name_str(decl_context, "this");
+            if (this_symbol_list != NULL)
             {
-                *nodecl_output = nodecl_make_symbol(
-                        entry_list_head(result_list),
-                        ASTFileName(expr),
-                        ASTLine(expr));
-                nodecl_set_type(*nodecl_output, get_unresolved_overloaded_type(result_list, template_parameters));
-                nodecl_expr_set_is_lvalue(*nodecl_output, 1);
+                scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
 
-                if (dependent_template_parameters)
+                // Construct (*this).x
+                type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
+                cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
+
+                nodecl_t nodecl_this_derref = 
+                    nodecl_make_derreference(
+                            nodecl_make_symbol(this_symbol, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name)),
+                            get_lvalue_reference_type(this_type),
+                            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+
+                type_t* qualified_data_member_type = entry->type_information;
+                if (!entry->entity_specs.is_mutable)
                 {
-                    nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+                    qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
                 }
-            } 
+                qualified_data_member_type = lvalue_ref(qualified_data_member_type);
 
-            entry_list_free(result_list);
-
-            if (!ok)
+                *nodecl_output =
+                    nodecl_make_class_member_access(nodecl_this_derref,
+                            nodecl_access_to_symbol,
+                            qualified_data_member_type,
+                            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+            }
+            else
             {
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+                // Invalid access to a nonstatic member from a "this" lacking context
+                if (!checking_ambiguity())
+                {
+                    error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
+                            nodecl_get_locus(nodecl_name),
+                            get_qualified_symbol_name(entry, entry->decl_context));
+                }
+                entry_list_free(entry_list);
+                *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
                 return;
             }
+            entry_list_free(this_symbol_list);
+        }
+
+        if (!entry->entity_specs.is_parameter
+                && is_const_qualified_type(no_ref(entry->type_information))
+                && !nodecl_is_null(entry->value)
+                && nodecl_is_constant(entry->value))
+        {
+            nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+        }
+
+        if (!nodecl_is_null(entry->value)
+                && nodecl_expr_is_value_dependent(entry->value))
+        {
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
+
+        if (is_dependent_type(entry->type_information))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
     }
-    else
+    else if (entry->kind == SK_ENUMERATOR)
     {
-        if (result_list == NULL)
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        nodecl_set_type(*nodecl_output, entry->type_information);
+
+        if (is_dependent_type(entry->type_information)
+                || nodecl_expr_is_value_dependent(entry->value))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
+                        nodecl_get_locus(nodecl_name), c_cxx_codegen_to_str(nodecl_name));
+            }
+            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        }
+        else
+        {
+            ERROR_CONDITION(!nodecl_is_constant(entry->value), "This should be constant", 0);
+            nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
+        }
+    }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        type_t* t = get_unresolved_overloaded_type(entry_list, /* template_args */ NULL);
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        nodecl_set_type(*nodecl_output, t);
+    }
+    else if (entry->kind == SK_TEMPLATE)
+    {
+        type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+        scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
+
+        if (named_type->kind != SK_FUNCTION)
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: symbol '%s' not found in current scope\n",
-                        ast_location(expr), prettyprint_in_buffer(expr));
+                error_printf("%s: error: invalid template class-name '%s' in expression\n", 
+                        nodecl_get_locus(nodecl_name),
+                        c_cxx_codegen_to_str(nodecl_name));
             }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
+            entry_list_free(entry_list);
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             return;
         }
 
-        scope_entry_t* entry = entry_advance_aliases(entry_list_head(result_list));
-
-        if (entry->kind != SK_VARIABLE
-                && entry->kind != SK_ENUMERATOR
-                && entry->kind != SK_FUNCTION
-                && entry->kind != SK_TEMPLATE)
+        template_parameter_list_t* last_template_args = NULL;
+        if (nodecl_name_ends_in_template_id(nodecl_name))
         {
-            entry_list_free(result_list);
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-            return;
+            last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
         }
 
-        if (entry->kind == SK_VARIABLE)
-        {
-            nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-
-            nodecl_set_type(nodecl_access_to_symbol, lvalue_ref(entry->type_information));
-            nodecl_expr_set_is_lvalue(nodecl_access_to_symbol, 1);
-
-            scope_entry_t* accessing_symbol = entry;
-            if (entry->entity_specs.is_member_of_anonymous)
-            {
-                nodecl_t accessor = entry->entity_specs.anonymous_accessor;
-                nodecl_access_to_symbol = nodecl_make_class_member_access(
-                        accessor,
-                        nodecl_access_to_symbol,
-                        lvalue_ref(entry->type_information),
-                        ASTFileName(expr),
-                        ASTLine(expr));
-                accessing_symbol = nodecl_get_symbol(accessor);
-            }
-
-            if (!accessing_symbol->entity_specs.is_member
-                    || accessing_symbol->entity_specs.is_static)
-            {
-                *nodecl_output = nodecl_access_to_symbol;
-            }
-            else
-            {
-                scope_entry_list_t* this_symbol_list 
-                    = query_name_str(decl_context, "this");
-                if (this_symbol_list != NULL)
-                {
-                    scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
-
-                    // Construct (*this).x
-                    type_t* this_type = pointer_type_get_pointee_type(this_symbol->type_information);
-                    cv_qualifier_t this_qualifier = get_cv_qualifier(this_type);
-
-                    nodecl_t nodecl_this_derref = 
-                        nodecl_make_derreference(
-                                nodecl_make_symbol(this_symbol, ASTFileName(expr), ASTLine(expr)),
-                                get_lvalue_reference_type(this_type),
-                                ASTFileName(expr), ASTLine(expr));
-
-                    type_t* qualified_data_member_type = entry->type_information;
-                    if (!entry->entity_specs.is_mutable)
-                    {
-                        qualified_data_member_type = get_cv_qualified_type(qualified_data_member_type, this_qualifier);
-                    }
-                    qualified_data_member_type = lvalue_ref(qualified_data_member_type);
-
-                    *nodecl_output =
-                        nodecl_make_class_member_access(nodecl_this_derref,
-                                nodecl_access_to_symbol,
-                                qualified_data_member_type,
-                                ASTFileName(expr), ASTLine(expr));
-                }
-                else
-                {
-                    // Invalid access to a nonstatic member from a "this" lacking context
-                    if (!checking_ambiguity())
-                    {
-                        error_printf("%s: error: cannot access to nonstatic data member '%s'\n",
-                                ast_location(expr),
-                                get_qualified_symbol_name(entry, entry->decl_context));
-                    }
-                    entry_list_free(result_list);
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-                    return;
-                }
-                entry_list_free(this_symbol_list);
-            }
-
-            if (!entry->entity_specs.is_parameter
-                    && is_const_qualified_type(no_ref(entry->type_information))
-                    && !nodecl_is_null(entry->value)
-                    && nodecl_is_constant(entry->value))
-            {
-                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-            }
-
-            if (!nodecl_is_null(entry->value)
-                    && nodecl_expr_is_value_dependent(entry->value))
-            {
-                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-            }
-
-            if (is_dependent_type(entry->type_information))
-            {
-                nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
-                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-            }
-        }
-        else if (entry->kind == SK_ENUMERATOR)
-        {
-            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-            nodecl_set_type(*nodecl_output, entry->type_information);
-
-            if (is_dependent_type(entry->type_information)
-                    || nodecl_expr_is_value_dependent(entry->value))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
-                            prettyprint_in_buffer(expr), ast_location(expr));
-                }
-                nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-            }
-            else
-            {
-                ERROR_CONDITION(!nodecl_is_constant(entry->value), "This should be constant", 0);
-                nodecl_set_constant(*nodecl_output, nodecl_get_constant(entry->value));
-            }
-        }
-        else if (entry->kind == SK_FUNCTION)
-        {
-            type_t* t = get_unresolved_overloaded_type(result_list, /* template_args */ NULL);
-            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-            nodecl_set_type(*nodecl_output, t);
-        }
-        else if (entry->kind == SK_TEMPLATE)
-        {
-            type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
-            scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
-
-            if (named_type->kind != SK_FUNCTION)
-            {
-                if (!checking_ambiguity())
-                {
-                    error_printf("%s: error: invalid template class-name '%s' in expression\n", 
-                            ast_location(expr),
-                            prettyprint_in_buffer(expr));
-                }
-                entry_list_free(result_list);
-                *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
-                return;
-            }
-
-            type_t* t =  get_unresolved_overloaded_type(result_list, /* template_args*/ NULL);
-            *nodecl_output = nodecl_make_symbol(entry, ASTFileName(expr), ASTLine(expr));
-            nodecl_set_type(*nodecl_output, t);
-        }
-
-        entry_list_free(result_list);
+        type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
+        *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
+        nodecl_set_type(*nodecl_output, t);
     }
+
+    entry_list_free(entry_list);
+}
+
+static void compute_qualified_id_type(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(expr, decl_context, &nodecl_name);
+
+    if (nodecl_is_err_expr(nodecl_name))
+    {
+        *nodecl_output = nodecl_name;
+        return;
+    }
+
+    scope_entry_list_t* result_list = query_nodecl_name_flags(decl_context, nodecl_name, DF_DEPENDENT_TYPENAME);
+
+    cxx_compute_name_from_entry_list(nodecl_name, result_list, decl_context, nodecl_output);
 }
 
 static void check_array_subscript_expr_nodecl(
@@ -13652,15 +13680,29 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
                         if (!checking_ambiguity())
                         {
                             error_printf("%s: error: '%s' does not name a class type\n",
-                                    c_cxx_codegen_to_str(node),
-                                    nodecl_get_locus(node));
+                                    nodecl_get_locus(node),
+                                    c_cxx_codegen_to_str(node));
                         }
                         v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
                         return;
                     }
                     else
                     {
-                        internal_error("Not yet implemented", 0);
+                        if (!nodecl_is_null(dependent_part))
+                        {
+                            if (class_type_is_incomplete_independent(new_class_type))
+                            {
+                                instantiate_template_class(named_type_get_symbol(new_class_type), 
+                                        v->decl_context, 
+                                        nodecl_get_filename(node),
+                                        nodecl_get_line(node));
+                            }
+
+                            decl_context_t class_context = class_type_get_inner_context(new_class_type);
+
+                            scope_entry_list_t* entry_list = query_nodecl_name_in_class(class_context, dependent_part);
+                            cxx_compute_name_from_entry_list(dependent_part, entry_list, v->decl_context, &result);
+                        }
                     }
 
                     break;
