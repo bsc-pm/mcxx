@@ -49,7 +49,15 @@ long long int typeunif_used_memory(void)
     return _bytes_typeunif;
 }
 
-static char equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree);
+typedef
+enum tribool_tag
+{
+    DEFINITELY_FALSE = 0,
+    DEFINITELY_TRUE = 1,
+    NOT_SURE = 2
+} tribool_t;
+
+static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree);
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context, 
@@ -653,20 +661,23 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                     c_cxx_codegen_to_str(left_tree),
                     c_cxx_codegen_to_str(right_tree));
         }
-        if (equivalent_expression_trees(left_tree, right_tree))
+        tribool_t tribool = equivalent_expression_trees(left_tree, right_tree);
+        if (tribool == NOT_SURE)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUNIF: Plain evaluation succeeded. They have the same value\n");
+                fprintf(stderr, "TYPEUNIF: Plain evaluation was not possible. Trying structural equivalence\n");
             }
-            return 1;
         }
         else
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUNIF: Plain evaluation failed. Trying structural equivalence\n");
+                fprintf(stderr, "TYPEUNIF: Constant values comparison %s. They have the %s values\n",
+                        tribool ? "succeeded" : "failed",
+                        tribool ? "equivalent" : "different");
             }
+            return tribool;
         }
     }
 
@@ -855,11 +866,17 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
 
             return equivalent;
         }
+        else if (left_symbol->kind == SK_DEPENDENT_ENTITY
+                && right_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            return equivalent_types(left_symbol->type_information, right_symbol->type_information);
+        }
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUNIF: Left part '%s' is not a nontype template parameter, they can't be equivalent expressions\n", 
-                    c_cxx_codegen_to_str(left_tree));
+            fprintf(stderr, "TYPEUNIF: Unification through symbols failed %s != %s\n", 
+                    c_cxx_codegen_to_str(left_tree),
+                    c_cxx_codegen_to_str(right_tree));
         }
 
         return 0;
@@ -1131,17 +1148,24 @@ static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tre
 //     return 0;
 // }
 
-static char equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree)
+static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree)
 {
     if (nodecl_is_constant(left_tree)
             && nodecl_is_constant(right_tree))
     {
-        return const_value_is_nonzero(
+        if (const_value_is_nonzero(
                 const_value_eq(
                     nodecl_get_constant(left_tree),
-                    nodecl_get_constant(right_tree)));
+                    nodecl_get_constant(right_tree))))
+        {
+            return DEFINITELY_TRUE;
+        }
+        else
+        {
+            return DEFINITELY_FALSE;
+        }
     }
-    return 0;
+    return NOT_SURE;
 }
 
 char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree, 

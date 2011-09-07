@@ -53,7 +53,15 @@ LIBMCXX_EXTERN char check_expression(AST a, decl_context_t decl_context, nodecl_
 
 LIBMCXX_EXTERN char check_expression_list(AST expression_list, decl_context_t decl_context, nodecl_t* nodecl_output);
 
-LIBMCXX_EXTERN char check_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
+LIBMCXX_EXTERN char check_initialization(AST initializer, 
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        nodecl_t* nodecl_output);
+
+LIBMCXX_EXTERN void check_initialization_nodecl(nodecl_t nodecl_initializer, 
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        nodecl_t* nodecl_output);
 
 // Used in some TL phases, do not remove
 LIBMCXX_EXTERN void check_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type, nodecl_t* nodecl_output);
@@ -108,6 +116,10 @@ LIBMCXX_EXTERN void ensure_function_is_emitted(scope_entry_t* entry,
 
 LIBMCXX_EXTERN char check_nontype_template_argument_expression(AST expression, decl_context_t decl_context, nodecl_t*);
 LIBMCXX_EXTERN char check_nodecl_nontype_template_argument_expression(nodecl_t nodecl, decl_context_t decl_context, nodecl_t*);
+LIBMCXX_EXTERN void check_nodecl_expr_initializer(nodecl_t expr, 
+        decl_context_t decl_context, 
+        type_t* declared_type, 
+        nodecl_t* nodecl_output);
 
 // Like nodecl_make_function_call but takes care of virtual function calls
 LIBMCXX_EXTERN nodecl_t cxx_nodecl_make_function_call(nodecl_t, nodecl_t, type_t*, const char* filename, int line);

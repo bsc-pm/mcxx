@@ -1386,7 +1386,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_DEPENDENT_ENTITY:
             {
-                internal_error("Not yet implemented", 0);
+                internal_error("Define: Not yet implemented -> '%s'", print_declarator(symbol->type_information));
                 // scope_entry_t* entry = NULL;
                 // dependent_name_part_t* dependent_parts = NULL;
                 // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
@@ -2024,7 +2024,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
             }
         case SK_DEPENDENT_ENTITY:
             {
-                internal_error("Not yet implemented", 0);
+                internal_error("Declare: Not yet implemented -> '%s'", print_declarator(symbol->type_information));
                 // scope_entry_t* entry = NULL;
                 // dependent_name_part_t* dependent_parts = NULL;
                 // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);

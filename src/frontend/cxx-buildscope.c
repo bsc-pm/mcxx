@@ -1276,9 +1276,9 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
             scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                     &current_gather_info, decl_context, &nodecl_declarator_name);
 
-            ERROR_CONDITION(entry == NULL, "Declaration '%s' in '%s' did not declare anything!", 
-                    prettyprint_in_buffer(a),
-                    ast_location(a));
+            // Something is wrong
+            if (entry == NULL)
+                return;
 
             // Only variables can be initialized
             if (initializer != NULL)
@@ -2345,11 +2345,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             // If the enclosing class is dependent, so is this one
             char c = is_dependent_type(class_entry->type_information);
-            type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
+            type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
             c = c || is_dependent_type(enclosing_class_type);
             set_is_dependent_type(class_entry->type_information, c);
 
-            class_type_set_enclosing_class_type(class_entry->type_information, enclosing_class_type);
+            class_type_set_enclosing_class_type(class_type, enclosing_class_type);
         }
         else if (decl_context.current_scope->kind == BLOCK_SCOPE)
         {
@@ -2972,12 +2972,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     {
                         if (!checking_ambiguity())
                         {
-                            if (!checking_ambiguity())
-                            {
-                                error_printf("%s: error: expression '%s' is not constant\n",
-                                        ast_location(enumeration_expr),
-                                        prettyprint_in_buffer(enumeration_expr));
-                            }
+                            error_printf("%s: error: expression '%s' is not constant\n",
+                                    ast_location(enumeration_expr),
+                                    prettyprint_in_buffer(enumeration_expr));
                         }
                         underlying_type = get_error_type();
                     }
@@ -5177,7 +5174,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // If the enclosing class is dependent, so is this one
         char c = is_dependent_type(class_type);
-        type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
+        type_t* enclosing_class_type = get_user_defined_type(decl_context.current_scope->related_entry);
         c = c || is_dependent_type(enclosing_class_type);
         set_is_dependent_type(class_type, c);
 
@@ -6609,11 +6606,13 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
+                    error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n", 
                             ast_location(declarator_id), 
-                            prettyprint_in_buffer(declarator_id), 
+                            prettyprint_in_buffer(declarator_id));
+                    info_printf("%s:%d: info: previous declaration of '%s'\n",
                             entry->file,
-                            entry->line);
+                            entry->line,
+                            entry->symbol_name);
                 }
                 return NULL;
             }
@@ -6644,11 +6643,13 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
+                    error_printf("%s: error: symbol '%s' has been redeclared as a different symbol kind\n", 
                             ast_location(declarator_id), 
-                            prettyprint_in_buffer(declarator_id), 
+                            prettyprint_in_buffer(declarator_id));
+                    info_printf("%s:%d: info: previous declaration of '%s'\n",
                             entry->file,
-                            entry->line);
+                            entry->line,
+                            entry->symbol_name);
                 }
                 return NULL;
             }

@@ -79,7 +79,7 @@ LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_c
 #define query_nodecl_name(_decl_context, _nodecl_simple_name) \
     query_nodecl_name_flags(_decl_context, _nodecl_simple_name, DF_NONE)
 
-LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(decl_context_t decl_context,
+LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(scope_entry_t* class_symbol,
         nodecl_t nodecl_name, decl_flags_t decl_flags);
 
 #define query_nodecl_name_in_class(_decl_context, _nodecl_simple_name) \
@@ -128,9 +128,6 @@ LIBMCXX_EXTERN const char* get_class_qualification_of_symbol_without_template(sc
 
 // A simpler version of get_fully_qualified_symbol_name
 LIBMCXX_EXTERN const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
-
-// Class scopes
-LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, decl_flags_t decl_flags, const char* name);
 
 // Template things, should be moved to typeutils
 LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
@@ -213,6 +210,21 @@ LIBMCXX_EXTERN void compute_nodecl_name_from_qualified_name(AST global_op,
         AST nested_name_spec, AST unqualified_id, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
+
+// Used by Fortran
+LIBMCXX_EXTERN scope_entry_list_t* class_context_lookup(decl_context_t decl_context, 
+        decl_flags_t decl_flags, const char* name);
+
+// C++ names
+LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);
+LIBMCXX_EXTERN char nodecl_name_ends_in_template_id(nodecl_t nodecl_name);
+LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name);
+
+LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list_in_dependent_typename(
+        decl_context_t decl_context,
+        template_parameter_list_t* dependent_type_template_arguments,
+        const char* filename, 
+        int line);
 
 MCXX_END_DECLS
 

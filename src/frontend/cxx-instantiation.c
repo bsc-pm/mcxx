@@ -284,12 +284,19 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 if (!nodecl_is_null(member_of_template->value))
                 {
-                    internal_error("Not yet implemented", 0);
-                    // new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
-
-                    // check_initialization(new_member->language_dependent_value, context_of_being_instantiated, 
-                    //         new_member->type_information);
-                    // new_member->value = expression_get_nodecl(new_member->language_dependent_value);
+                    nodecl_t new_expr = instantiate_expression(member_of_template->value, context_of_being_instantiated);
+                    if (nodecl_get_kind(new_expr) == NODECL_CXX_EQUAL_INITIALIZER
+                            || nodecl_get_kind(new_expr) == NODECL_CXX_PARENTHESIZED_INITIALIZER
+                            || nodecl_get_kind(new_expr) == NODECL_CXX_BRACED_INITIALIZER)
+                    {
+                        check_initialization_nodecl(new_expr, context_of_being_instantiated, new_member->type_information, 
+                                &new_member->value);
+                    }
+                    else
+                    {
+                        check_nodecl_expr_initializer(new_expr, context_of_being_instantiated, new_member->type_information,
+                                &new_member->value);
+                    }
                 }
 
                 DEBUG_CODE()
@@ -330,6 +337,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         member_of_template);
 
                 new_member->type_information = get_new_enum_type(context_of_being_instantiated);
+
+                // FIXME!!!
+                enum_type_set_underlying_type(new_member->type_information, get_signed_int_type());
 
                 // Register a map
 
@@ -381,11 +391,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 ERROR_CONDITION(nodecl_is_null(member_of_template->value),
                         "An enumerator always has a related expression", 0);
 
-                internal_error("Not yet implemented", 0);
-                // new_member->language_dependent_value = ast_copy_for_instantiation(member_of_template->language_dependent_value);
-                // check_expression(new_member->language_dependent_value, context_of_being_instantiated);
-
-                // new_member->value = expression_get_nodecl(new_member->language_dependent_value);
+                new_member->value = instantiate_expression(member_of_template->value, context_of_being_instantiated);
 
                 enum_type_add_enumerator(new_type, new_member);
 
