@@ -685,16 +685,24 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
     scope_entry_t* right_symbol = nodecl_get_symbol(right_tree);
 
     if (left_symbol != NULL
-            && left_symbol == right_symbol)
+            && right_symbol != NULL)
     {
-        DEBUG_CODE()
+        if (left_symbol == right_symbol)
         {
-            fprintf(stderr, "TYPEUNIF: Left tree '%s' and right tree '%s'"
-                    " are the same symbol. They are trivially equivalent\n", 
-                    c_cxx_codegen_to_str(left_tree),
-                    c_cxx_codegen_to_str(right_tree));
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Left tree '%s' and right tree '%s'"
+                        " are the same symbol. They are trivially equivalent\n", 
+                        c_cxx_codegen_to_str(left_tree),
+                        c_cxx_codegen_to_str(right_tree));
+            }
+            return 1;
         }
-        return 1;
+        else if (left_symbol->kind == SK_DEPENDENT_ENTITY
+                && right_symbol->kind == SK_DEPENDENT_ENTITY)
+        {
+            return equivalent_types(left_symbol->type_information, right_symbol->type_information);
+        }
     }
 
     if (right_symbol != NULL)
@@ -865,11 +873,6 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             }
 
             return equivalent;
-        }
-        else if (left_symbol->kind == SK_DEPENDENT_ENTITY
-                && right_symbol->kind == SK_DEPENDENT_ENTITY)
-        {
-            return equivalent_types(left_symbol->type_information, right_symbol->type_information);
         }
 
         DEBUG_CODE()

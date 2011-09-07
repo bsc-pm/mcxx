@@ -113,7 +113,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         scope_entry_list_t** declared_symbols);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
-        decl_context_t decl_context);
+        gather_decl_spec_t* gather_info, decl_context_t decl_context);
 static void gather_type_spec_from_enum_specifier(AST a, type_t** type_info, 
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context);
@@ -1783,7 +1783,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
     switch (ASTType(a))
     {
         case AST_SIMPLE_TYPE_SPEC :
-            gather_type_spec_from_simple_type_specifier(a, simple_type_info, decl_context);
+            gather_type_spec_from_simple_type_specifier(a, simple_type_info, gather_info, decl_context);
             break;
         case AST_ELABORATED_TYPENAME_SPEC : 
             gather_type_spec_from_dependent_typename(a, simple_type_info, decl_context);
@@ -2648,6 +2648,7 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
  * fill the simple_type with the proper reference of the user defined type.
  */
 void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
+        gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
 {
     AST id_expression = ASTSon0(a);
@@ -2680,9 +2681,9 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         if (entry->kind != SK_ENUM 
                 && entry->kind != SK_CLASS 
                 && entry->kind != SK_TYPEDEF 
-                && entry->kind != SK_TEMPLATE
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE)
+                && (!gather_info->allow_class_template_names || entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
                 && entry->kind != SK_GCC_BUILTIN_TYPE)
         {
             if (!checking_ambiguity())
@@ -2701,14 +2702,15 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     entry_list_free(entry_list);
 
-    // if (is_dependent_type(entry->type_information))
-    // {
-    //     (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
-    // }
-    // else
-    // {
+    if (entry->entity_specs.is_member
+            && is_dependent_type(entry->entity_specs.class_type))
+    {
+        (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
+    }
+    else
+    {
         (*type_info) = get_user_defined_type(entry);
-    // }
+    }
 }
 
 static type_t* compute_underlying_type_enum(const_value_t* min_value, 
@@ -5476,7 +5478,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 {
                     if (!checking_ambiguity())
                     {
-                        error_printf("%s: error: qualified name '%s' not found",
+                        error_printf("%s: error: qualified name '%s' not found\n",
                                 ast_location(declarator_name),
                                 prettyprint_in_buffer(declarator_name));
                     }
@@ -6306,7 +6308,14 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                         case AST_SYMBOL :
                             return 1;
                         case AST_QUALIFIED_ID :
-                            return 1;
+                            {
+                                AST qualif = ASTSon0(a);
+                                AST unqualif = ASTSon2(qualif);
+
+                                return ASTType(unqualif) == AST_TEMPLATE_ID
+                                    || ASTType(unqualif) == AST_SYMBOL;
+                                break;
+                            }
                         default :
                             return 0;
                     }

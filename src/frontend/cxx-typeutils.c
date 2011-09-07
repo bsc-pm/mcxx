@@ -1101,8 +1101,38 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
 {
     type_t* result = get_simple_type();
     result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-    result->type->dependent_entry = dependent_entry;
-    result->type->dependent_parts = nodecl_copy(dependent_parts);
+
+    if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        // Flatten dependent typenames
+        type_t* indirect_dependent_type = dependent_entry->type_information;
+
+        result->type->dependent_entry = indirect_dependent_type->type->dependent_entry;
+
+        if (!nodecl_is_null(indirect_dependent_type->type->dependent_parts)
+                && !nodecl_is_null(dependent_parts))
+        {
+            result->type->dependent_parts = 
+                nodecl_make_cxx_dep_name_nested(
+                        nodecl_concat_lists(nodecl_copy(nodecl_get_child(indirect_dependent_type->type->dependent_parts, 0)),
+                            nodecl_copy(nodecl_get_child(dependent_parts, 0))), 
+                        nodecl_get_filename(indirect_dependent_type->type->dependent_parts),
+                        nodecl_get_line(indirect_dependent_type->type->dependent_parts));
+        }
+        else if (nodecl_is_null(indirect_dependent_type->type->dependent_parts))
+        {
+            result->type->dependent_parts = nodecl_copy(dependent_parts);
+        }
+        else // nodecl_is_null(dependent_parts)
+        {
+            result->type->dependent_parts = nodecl_copy(indirect_dependent_type->type->dependent_parts);
+        }
+    }
+    else
+    {
+        result->type->dependent_entry = dependent_entry;
+        result->type->dependent_parts = nodecl_copy(dependent_parts);
+    }
 
     // This is always dependent
     result->info->is_dependent = 1;

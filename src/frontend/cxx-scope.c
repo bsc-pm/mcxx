@@ -717,6 +717,7 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
 
 
 static scope_entry_t* create_new_dependent_entity(
+        decl_context_t decl_context,
         scope_entry_t* dependent_entry,
         int nested_name_index,
         int nested_name_size,
@@ -736,6 +737,7 @@ static scope_entry_t* create_new_dependent_entity(
     scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->kind = SK_DEPENDENT_ENTITY;
+    result->decl_context = decl_context;
     result->symbol_name = dependent_entry->symbol_name;
     result->type_information = get_dependent_typename_type_from_parts(dependent_entry, nodecl_parts);
 
@@ -1700,13 +1702,6 @@ static template_parameter_value_t* update_template_parameter_value_aux(
                         c_cxx_codegen_to_str(orig));
             }
 
-            // Fold it now
-            if (nodecl_is_constant(result->value))
-            {
-                // FIXME - We should be more careful about the exact type of the literal
-                result->value = const_value_to_nodecl(nodecl_get_constant(result->value));
-            }
-
             // Force the type of the expression
             nodecl_set_type(result->value, result->type);
         }
@@ -2444,7 +2439,7 @@ static template_parameter_value_t* get_single_template_argument_from_syntax(AST 
                 type_t* type_info;
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
-                // gather_info.allow_class_template_names = 1;
+                gather_info.allow_class_template_names = 1;
 
                 nodecl_t dummy_nodecl_output = nodecl_null();
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
@@ -3540,7 +3535,30 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
         name = strappend("constructor ", name);
     }
 
-    return name_lookup(decl_context, name, decl_flags, filename, line);
+    scope_entry_list_t* result = name_lookup(decl_context, name, decl_flags, filename, line);
+
+    scope_entry_t* head = NULL;
+    if (result != NULL
+            && BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
+            && (head = entry_list_head(result))->entity_specs.is_member
+            && is_dependent_type(head->entity_specs.class_type))
+    {
+        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+        new_sym->kind = SK_DEPENDENT_ENTITY;
+        new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
+        new_sym->decl_context = decl_context;
+        new_sym->type_information = build_dependent_typename_for_entry(
+                named_type_get_symbol(head->entity_specs.class_type),
+                nodecl_name, 
+                nodecl_get_filename(nodecl_name), 
+                nodecl_get_line(nodecl_name));
+
+        entry_list_free(result);
+
+        return entry_list_new(new_sym);
+    }
+
+    return result;
 }
 
 static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl_context,
@@ -3566,6 +3584,7 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl
     {
         scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
         new_sym->kind = SK_DEPENDENT_ENTITY;
+        new_sym->decl_context = decl_context;
         new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
         new_sym->type_information = build_dependent_typename_for_entry(
                 decl_context.current_scope->related_entry,
@@ -3574,7 +3593,6 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl
 
         return entry_list_new(new_sym);
     }
-
 
     return query_in_class(decl_context.current_scope, 
             name, 
@@ -3689,11 +3707,21 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
 
 static char same_type_conversion(scope_entry_t* entry, void *p)
 {
-    type_t* t = (type_t*)p;
+    if (entry->kind == SK_FUNCTION)
+    {
+        type_t* t = (type_t*)p;
 
-    type_t* conversion_type = function_type_get_return_type(entry->type_information);
-
-    return equivalent_types(conversion_type, t);
+        type_t* conversion_type = function_type_get_return_type(entry->type_information);
+        return equivalent_types(conversion_type, t);
+    }
+    else if (entry->kind == SK_TEMPLATE)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_context,
@@ -3848,7 +3876,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         }
         else if (current_symbol->kind == SK_CLASS
                 || (current_symbol->kind == SK_TYPEDEF)
-                || current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                || current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || current_symbol->kind == SK_DEPENDENT_ENTITY)
         {
             if (current_symbol->kind == SK_TYPEDEF)
             {
@@ -3857,6 +3886,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                 if (is_dependent_typename_type(t))
                 {
                     scope_entry_t* dependent_symbol = create_new_dependent_entity(
+                            decl_context,
                             current_symbol,
                             i, num_items,
                             list);
@@ -3899,6 +3929,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                                )))
                 {
                     scope_entry_t* dependent_symbol = create_new_dependent_entity(
+                            decl_context,
                             current_symbol,
                             i, num_items,
                             list);
@@ -3908,9 +3939,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
 
                 current_context = class_type_get_inner_context(class_type);
             }
-            else if (current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER)
+            else if (current_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER
+                    || current_symbol->kind == SK_DEPENDENT_ENTITY)
             {
                 scope_entry_t* dependent_symbol = create_new_dependent_entity(
+                        decl_context,
                         current_symbol,
                         i, num_items,
                         list);

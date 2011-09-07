@@ -1386,21 +1386,7 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_DEPENDENT_ENTITY:
             {
-                internal_error("Define: Not yet implemented -> '%s'", print_declarator(symbol->type_information));
-                // scope_entry_t* entry = NULL;
-                // dependent_name_part_t* dependent_parts = NULL;
-                // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
-
-                // define_symbol(visitor, entry);
-
-                // while (dependent_parts != NULL)
-                // {
-                //     if (dependent_parts->template_arguments != NULL)
-                //     {
-                //         declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
-                //     }
-                //     dependent_parts = dependent_parts->next;
-                // }
+                declare_symbol(visitor, symbol);
                 break;
             }
         default:
@@ -2024,20 +2010,16 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
             }
         case SK_DEPENDENT_ENTITY:
             {
-                internal_error("Declare: Not yet implemented -> '%s'", print_declarator(symbol->type_information));
-                // scope_entry_t* entry = NULL;
-                // dependent_name_part_t* dependent_parts = NULL;
-                // dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+                scope_entry_t* entry = NULL;
+                nodecl_t dependent_parts = nodecl_null();
+                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
 
-                // declare_symbol(visitor, entry);
-
-                // while (dependent_parts != NULL)
+                declare_symbol(visitor, entry);
+                // fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+                // if (!nodecl_is_null(dependent_parts))
                 // {
-                //     if (dependent_parts->template_arguments != NULL)
-                //     {
-                //         declare_all_in_template_arguments(visitor, dependent_parts->template_arguments);
-                //     }
-                //     dependent_parts = dependent_parts->next;
+                //     fprintf(visitor->file, "::");
+                //     codegen_walk(visitor, dependent_parts);
                 // }
                 break;
             }

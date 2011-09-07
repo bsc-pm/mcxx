@@ -72,6 +72,9 @@ struct gather_decl_spec_tag {
     char is_overriden_type;
     char emit_always;
 
+    // In some cases we allow gather_type_spec_from_simple_type_specifier to allow templates
+    char allow_class_template_names;
+
     // This type-spec defines (not just declares!) a new type which is
     // accessible through this symbol
     scope_entry_t* defined_type;

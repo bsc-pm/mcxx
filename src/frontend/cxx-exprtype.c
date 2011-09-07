@@ -10555,7 +10555,8 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
         }
     }
 
-    if (!nodecl_is_err_expr(*nodecl_output))
+    if (nodecl_is_null(*nodecl_output)
+            || !nodecl_is_err_expr(*nodecl_output))
     {
         *nodecl_output = nodecl_make_cxx_braced_initializer(*nodecl_output, 
                 ASTFileName(initializer), ASTLine(initializer));
@@ -10788,6 +10789,7 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
                 }
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), 
                         nodecl_get_line(nodecl_expr));
+                return;
             }
 
     if (conversor != NULL)
@@ -13352,37 +13354,37 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
                         {
                             scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                            // Update dependent parts lest there were template-id
-                            int num_parts = 0;
-                            int i;
-                            nodecl_t* list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_parts);
-                            nodecl_t new_dependent_parts_list = nodecl_null();
-                            for (i = 0; i < num_parts; i++)
-                            {
-                                nodecl_t new_current_part = nodecl_copy(list[i]);
+                            // // Update dependent parts lest there were template-id
+                            // int num_parts = 0;
+                            // int i;
+                            // nodecl_t* list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_parts);
+                            // nodecl_t new_dependent_parts_list = nodecl_null();
+                            // for (i = 0; i < num_parts; i++)
+                            // {
+                            //     nodecl_t new_current_part = nodecl_copy(list[i]);
 
-                                if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
-                                {
-                                    template_parameter_list_t* template_arguments 
-                                        = nodecl_get_template_parameters(new_current_part);
-                                    template_parameter_list_t* new_template_arguments 
-                                        = update_template_argument_list_in_dependent_typename(v->decl_context, 
-                                                template_arguments, 
-                                                nodecl_get_filename(node), nodecl_get_line(node));
+                            //     if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
+                            //     {
+                            //         template_parameter_list_t* template_arguments 
+                            //             = nodecl_get_template_parameters(new_current_part);
+                            //         template_parameter_list_t* new_template_arguments 
+                            //             = update_template_argument_list_in_dependent_typename(v->decl_context, 
+                            //                     template_arguments, 
+                            //                     nodecl_get_filename(node), nodecl_get_line(node));
 
-                                    nodecl_set_template_parameters(new_current_part, new_template_arguments);
-                                }
+                            //         nodecl_set_template_parameters(new_current_part, new_template_arguments);
+                            //     }
 
-                                new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
-                                        new_current_part);
-                            }
-                            nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, 
-                                    nodecl_get_filename(node), 
-                                    nodecl_get_line(node));
+                            //     new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
+                            //             new_current_part);
+                            // }
+                            // nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, 
+                            //         nodecl_get_filename(node), 
+                            //         nodecl_get_line(node));
 
                             scope_entry_list_t* entry_list = query_nodecl_name_in_class_flags(class_sym,
-                                    new_dependent_parts, DF_DEPENDENT_TYPENAME);
-                            cxx_compute_name_from_entry_list(new_dependent_parts, entry_list, v->decl_context, &result);
+                                    dependent_parts, DF_DEPENDENT_TYPENAME);
+                            cxx_compute_name_from_entry_list(dependent_parts, entry_list, v->decl_context, &result);
                         }
                     }
 
