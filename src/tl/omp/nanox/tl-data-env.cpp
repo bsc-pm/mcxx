@@ -520,12 +520,14 @@ namespace TL
             }
 
             Type t = data_env_item.get_type();
+             
+            Symbol sym = data_env_item.get_symbol();
+            Type sym_type = sym.get_type();
 
             if (t.is_reference())
                 t = t.references_to();
 
             Source alignment;
-//AQUI
             struct_fields
                 << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) 
                 << alignment
@@ -536,7 +538,7 @@ namespace TL
             {
 		        if (compiler_alignment)
 		        {
-		            alignment << " __attribute__((aligned(" << t.get_alignment_of() << ")))";
+		            alignment << " __attribute__((aligned(" << sym_type.get_alignment_of() << ")))";
 		        }
 		        else
 		        {
