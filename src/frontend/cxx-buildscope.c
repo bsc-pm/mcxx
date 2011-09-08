@@ -2688,9 +2688,15 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: identifier '%s' does not name a type", 
+                error_printf("%s: error: identifier '%s' does not name a type\n", 
                         ast_location(a),
                         prettyprint_in_buffer(a));
+                if (entry->kind == SK_DEPENDENT_ENTITY)
+                {
+                    info_printf("%s: info: maybe you meant '%s'\n",
+                            ast_location(a),
+                            print_type_str(entry->type_information, entry->decl_context));
+                }
             }
             *type_info = get_error_type();
             return;
@@ -2700,12 +2706,40 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     scope_entry_t* entry = entry_advance_aliases(entry_list_head(entry_list));
 
+    // Chances are that through class-scope lookup we have found the injected name
+    if (entry->entity_specs.is_injected_class_name)
+    {
+        entry = named_type_get_symbol(entry->entity_specs.class_type);
+    }
+
     entry_list_free(entry_list);
 
     if (entry->entity_specs.is_member
             && is_dependent_type(entry->entity_specs.class_type))
     {
-        (*type_info) = get_dependent_typename_type_from_parts(entry, nodecl_null());
+        // Craft a nodecl name for it
+        nodecl_t nodecl_simple_name = nodecl_make_cxx_dep_name_simple(
+                entry->symbol_name,
+                ast_get_filename(a),
+                ast_get_line(a));
+
+        nodecl_t nodecl_name = nodecl_simple_name;
+
+        if (is_template_specialized_type(entry->type_information))
+        {
+            nodecl_name = nodecl_make_cxx_dep_template_id(
+                    nodecl_name,
+                    template_specialized_type_get_template_arguments(entry->type_information),
+                    ast_get_filename(a),
+                    ast_get_line(a));
+        }
+
+        // Craft a dependent typename since we will need it later for proper updates
+        (*type_info) = build_dependent_typename_for_entry(
+                named_type_get_symbol(entry->entity_specs.class_type),
+                nodecl_name,
+                ast_get_filename(a),
+                ast_get_line(a));
     }
     else
     {

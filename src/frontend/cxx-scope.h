@@ -226,6 +226,12 @@ LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list_in_depen
         const char* filename, 
         int line);
 
+LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
+        scope_entry_t* class_symbol,
+        nodecl_t nodecl_name,
+        const char* filename,
+        int line);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

@@ -1102,6 +1102,11 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entry,
     type_t* result = get_simple_type();
     result->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
 
+    if (!nodecl_is_null(dependent_parts))
+    {
+        ERROR_CONDITION(nodecl_get_kind(dependent_parts) != NODECL_CXX_DEP_NAME_NESTED, "Invalid nodecl", 0);
+    }
+
     if (dependent_entry->kind == SK_DEPENDENT_ENTITY)
     {
         // Flatten dependent typenames
@@ -4575,7 +4580,7 @@ static type_t* advance_dependent_typename_aux(
         }
     }
 
-    nodecl_t nodecl_unqualified_name = dep_parts[num_items - 1];
+    nodecl_t nodecl_unqualified_name = nodecl_copy(dep_parts[num_items - 1]);
 
     // Last part
     ERROR_CONDITION(nodecl_get_kind(nodecl_unqualified_name) != NODECL_CXX_DEP_NAME_SIMPLE
@@ -4609,7 +4614,9 @@ static type_t* advance_dependent_typename_aux(
             fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", name);
         }
         return get_dependent_typename_type_from_parts(current_member, 
-                nodecl_unqualified_name);
+                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                    nodecl_get_filename(nodecl_unqualified_name), 
+                    nodecl_get_line(nodecl_unqualified_name)));
     }
 
     if (entry_list_size(member_list) > 1)
@@ -4619,7 +4626,9 @@ static type_t* advance_dependent_typename_aux(
             fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", name);
         }
         return get_dependent_typename_type_from_parts(current_member, 
-                nodecl_unqualified_name);
+                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                    nodecl_get_filename(nodecl_unqualified_name), 
+                    nodecl_get_line(nodecl_unqualified_name)));
     }
 
     scope_entry_t* member = entry_list_head(member_list);
@@ -4638,7 +4647,9 @@ static type_t* advance_dependent_typename_aux(
                 fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
             }
             return get_dependent_typename_type_from_parts(current_member, 
-                    nodecl_unqualified_name);
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_filename(nodecl_unqualified_name), 
+                        nodecl_get_line(nodecl_unqualified_name)));
         }
         
         if (member->kind == SK_TYPEDEF)
@@ -4671,7 +4682,10 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
             }
-            return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_filename(nodecl_unqualified_name), 
+                        nodecl_get_line(nodecl_unqualified_name)));
         }
 
         // TEMPLATE RESOLUTION
@@ -4684,7 +4698,10 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
             }
-            return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+            return get_dependent_typename_type_from_parts(current_member, 
+                    nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                        nodecl_get_filename(nodecl_unqualified_name), 
+                        nodecl_get_line(nodecl_unqualified_name)));
         }
 
         DEBUG_CODE()
@@ -4709,7 +4726,10 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", name);
         }
-        return get_dependent_typename_type_from_parts(current_member, nodecl_unqualified_name);
+        return get_dependent_typename_type_from_parts(current_member, 
+                nodecl_make_cxx_dep_name_nested(nodecl_make_list_1(nodecl_unqualified_name), 
+                    nodecl_get_filename(nodecl_unqualified_name), 
+                    nodecl_get_line(nodecl_unqualified_name)));
     }
 
     // This looks a bit twisted

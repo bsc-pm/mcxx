@@ -1194,9 +1194,21 @@ type_t* build_dependent_typename_for_entry(
     build_dependent_parts_for_symbol_rec(class_symbol,
             filename, line, &dependent_entry, &nodecl_prev);
 
-    template_parameter_list_t* template_arguments = nodecl_name_name_last_template_arguments(nodecl_name);
-    
-    nodecl_t nodecl_current = nodecl_copy(nodecl_name);
+    nodecl_t nodecl_last = nodecl_name_get_last_part(nodecl_name);
+
+    template_parameter_list_t* template_arguments = NULL;
+
+    nodecl_t nodecl_current = nodecl_null(); 
+
+    if (nodecl_get_kind(nodecl_last) == NODECL_CXX_DEP_TEMPLATE_ID)
+    {
+        template_arguments = nodecl_get_template_parameters(nodecl_name);
+        nodecl_current = nodecl_copy(nodecl_get_child(nodecl_name, 0));
+    }
+    else
+    {
+        nodecl_current = nodecl_copy(nodecl_name);
+    }
 
     if (template_arguments != NULL)
     {
