@@ -4419,3 +4419,62 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context,
 
     return query_in_class(decl_context.current_scope, name, decl_flags, "(null)", 0);
 }
+
+scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_context,
+        scope_entry_t* dependent_entity,
+        const char* filename,
+        int line)
+{
+    ERROR_CONDITION(dependent_entity->kind != SK_DEPENDENT_ENTITY, "Invalid symbol", 0);
+
+    scope_entry_t* dependent_entry = NULL;
+    nodecl_t dependent_parts = nodecl_null();
+
+    dependent_typename_get_components(dependent_entity->type_information, &dependent_entry, &dependent_parts);
+
+    switch (dependent_entry->kind)
+    {
+        case SK_CLASS:
+        case SK_TYPEDEF:
+        case SK_TEMPLATE_TYPE_PARAMETER:
+            {
+                type_t* new_class_type = update_type_for_instantiation(get_user_defined_type(dependent_entry),
+                        decl_context,
+                        filename,
+                        line);
+
+                if (!is_class_type(new_class_type))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        error_printf("%s:%d: error: '%s' does not name a class type\n",
+                                filename, line,
+                                print_type_str(dependent_entity->type_information, dependent_entity->decl_context));
+                    }
+                    return NULL;
+                }
+                else
+                {
+                    if (!nodecl_is_null(dependent_parts))
+                    {
+                        scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
+
+                        return query_nodecl_name_in_class_flags(class_sym,
+                                dependent_parts, DF_DEPENDENT_TYPENAME);
+                    }
+                    else
+                    {
+                        return entry_list_new(named_type_get_symbol(new_class_type));
+                    }
+                }
+
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid symbol kind\n", 0);
+            }
+    }
+
+    return NULL;
+}

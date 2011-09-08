@@ -132,7 +132,9 @@ LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
         scope_entry_t* class_symbol,
         scope_entry_list_t* member_list);
 
-LIBMCXX_EXTERN void introduce_using_entities(scope_entry_list_t* used_entities, 
+LIBMCXX_EXTERN void introduce_using_entities(
+        nodecl_t nodecl_name,
+        scope_entry_list_t* used_entities, 
         decl_context_t decl_context, 
         scope_entry_t* current_class,
         char is_class_scope, 
@@ -145,7 +147,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type, 
         AST declarator);
 
-LIBMCXX_EXTERN void introduce_using_entity_id_expr(AST id_expression, 
+LIBMCXX_EXTERN void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, 
         decl_context_t decl_context, access_specifier_t current_access);
 
 LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);

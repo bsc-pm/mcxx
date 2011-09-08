@@ -13321,80 +13321,13 @@ static void instantiate_symbol(nodecl_instantiate_expr_visitor_t* v, nodecl_t no
     }
     else if (sym->kind == SK_DEPENDENT_ENTITY)
     {
+        scope_entry_list_t *entry_list = query_dependent_entity_in_context(v->decl_context, sym, nodecl_get_filename(node), nodecl_get_line(node));
+
         scope_entry_t* dependent_entry = NULL;
         nodecl_t dependent_parts = nodecl_null();
-
         dependent_typename_get_components(sym->type_information, &dependent_entry, &dependent_parts);
 
-        switch (dependent_entry->kind)
-        {
-            case SK_CLASS:
-            case SK_TYPEDEF:
-            case SK_TEMPLATE_TYPE_PARAMETER:
-                {
-                    type_t* new_class_type = update_type_for_instantiation(get_user_defined_type(dependent_entry),
-                            v->decl_context,
-                            nodecl_get_filename(node),
-                            nodecl_get_line(node));
-
-                    if (!is_class_type(new_class_type))
-                    {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: '%s' does not name a class type\n",
-                                    nodecl_get_locus(node),
-                                    c_cxx_codegen_to_str(node));
-                        }
-                        v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
-                        return;
-                    }
-                    else
-                    {
-                        if (!nodecl_is_null(dependent_parts))
-                        {
-                            scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
-
-                            // // Update dependent parts lest there were template-id
-                            // int num_parts = 0;
-                            // int i;
-                            // nodecl_t* list = nodecl_unpack_list(nodecl_get_child(dependent_parts, 0), &num_parts);
-                            // nodecl_t new_dependent_parts_list = nodecl_null();
-                            // for (i = 0; i < num_parts; i++)
-                            // {
-                            //     nodecl_t new_current_part = nodecl_copy(list[i]);
-
-                            //     if (nodecl_get_kind(new_current_part) == NODECL_CXX_DEP_TEMPLATE_ID)
-                            //     {
-                            //         template_parameter_list_t* template_arguments 
-                            //             = nodecl_get_template_parameters(new_current_part);
-                            //         template_parameter_list_t* new_template_arguments 
-                            //             = update_template_argument_list_in_dependent_typename(v->decl_context, 
-                            //                     template_arguments, 
-                            //                     nodecl_get_filename(node), nodecl_get_line(node));
-
-                            //         nodecl_set_template_parameters(new_current_part, new_template_arguments);
-                            //     }
-
-                            //     new_dependent_parts_list = nodecl_append_to_list(new_dependent_parts_list,
-                            //             new_current_part);
-                            // }
-                            // nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, 
-                            //         nodecl_get_filename(node), 
-                            //         nodecl_get_line(node));
-
-                            scope_entry_list_t* entry_list = query_nodecl_name_in_class_flags(class_sym,
-                                    dependent_parts, DF_DEPENDENT_TYPENAME);
-                            cxx_compute_name_from_entry_list(dependent_parts, entry_list, v->decl_context, &result);
-                        }
-                    }
-
-                    break;
-                }
-            default:
-                {
-                    internal_error("Invalid symbol kind\n", 0);
-                }
-        }
+        cxx_compute_name_from_entry_list(dependent_parts, entry_list, v->decl_context, &result);
     }
     else
     {

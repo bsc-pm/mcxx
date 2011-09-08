@@ -665,26 +665,31 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(member_of_template->type_information);
                 scope_entry_t* entry = entry_list_head(entry_list);
 
-                internal_error("Not yet implemented", 0);
                 if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
-#if 0
                     ERROR_CONDITION(entry_list_size(entry_list) != 1, "Invalid list", 0);
-                    introduce_using_entity_id_expr(entry->language_dependent_value, 
-                            context_of_being_instantiated, 
-                            member_of_template->entity_specs.access);
-#endif
-                }
-                else
-                {
 
-                    introduce_using_entities(entry_list, context_of_being_instantiated, 
-                            named_type_get_symbol(being_instantiated),
-                            /* is_class_scope */ 1,
-                            member_of_template->entity_specs.access,
+                    entry_list = query_dependent_entity_in_context(context_of_being_instantiated,
+                            entry,
                             member_of_template->file,
                             member_of_template->line);
                 }
+
+                introduce_using_entities(
+                        nodecl_null(),
+                        entry_list, context_of_being_instantiated, 
+                        named_type_get_symbol(being_instantiated),
+                        /* is_class_scope */ 1,
+                        member_of_template->entity_specs.access,
+                        member_of_template->file,
+                        member_of_template->line);
+
+                scope_entry_t* used_hub_symbol = calloc(1, sizeof(*used_hub_symbol));
+                used_hub_symbol->kind = SK_USING;
+                used_hub_symbol->type_information = get_unresolved_overloaded_type(entry_list, NULL);
+                used_hub_symbol->entity_specs.access = member_of_template->entity_specs.access;
+
+                class_type_add_member(get_actual_class_type(being_instantiated), used_hub_symbol);
                 break;
             }
         default:

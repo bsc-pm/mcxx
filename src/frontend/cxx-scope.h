@@ -232,6 +232,11 @@ LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
         const char* filename,
         int line);
 
+LIBMCXX_EXTERN scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_context,
+        scope_entry_t* dependent_entity,
+        const char* filename,
+        int line);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

@@ -954,7 +954,9 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context, node
             entry);
 }
 
-void introduce_using_entities(scope_entry_list_t* used_entities, 
+void introduce_using_entities(
+        nodecl_t nodecl_name,
+        scope_entry_list_t* used_entities, 
         decl_context_t decl_context, 
         scope_entry_t* current_class,
         char is_class_scope, 
@@ -990,6 +992,10 @@ void introduce_using_entities(scope_entry_list_t* used_entities,
             }
             else
             {
+                if (nodecl_is_null(nodecl_name))
+                {
+                    internal_error("Invalid dependent name found", 0);
+                }
                 // Dependent entity
                 continue;
             }
@@ -1036,10 +1042,10 @@ void introduce_using_entities(scope_entry_list_t* used_entities,
     entry_list_iterator_free(it);
 }
 
-void introduce_using_entity_id_expr(AST id_expression, decl_context_t decl_context, access_specifier_t current_access)
+void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t decl_context, access_specifier_t current_access)
 {
-    scope_entry_list_t* used_entities = query_id_expression_flags(decl_context, 
-            id_expression, 
+    scope_entry_list_t* used_entities = query_nodecl_name_flags(decl_context, 
+            nodecl_name, 
             // Do not examine uninstantiated templates
             DF_DEPENDENT_TYPENAME);
 
@@ -1048,8 +1054,8 @@ void introduce_using_entity_id_expr(AST id_expression, decl_context_t decl_conte
         if (!checking_ambiguity())
         {
             error_printf("%s: error: entity '%s' in using-declaration is unknown",
-                    ast_location(id_expression),
-                    prettyprint_in_buffer(id_expression));
+                    nodecl_get_locus(nodecl_name),
+                    c_cxx_codegen_to_str(nodecl_name));
         }
         return;
     }
@@ -1062,8 +1068,8 @@ void introduce_using_entity_id_expr(AST id_expression, decl_context_t decl_conte
         is_class_scope = 1;
     }
 
-    introduce_using_entities(used_entities, decl_context, current_class, is_class_scope, current_access,
-            ASTFileName(id_expression), ASTLine(id_expression));
+    introduce_using_entities(nodecl_name, used_entities, decl_context, current_class, is_class_scope, current_access,
+            nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
 
     if (current_class != NULL)
     {
@@ -1093,7 +1099,13 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
         return;
     }
 
-    introduce_using_entity_id_expr(id_expression, decl_context, current_access);
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+
+    if (nodecl_is_err_expr(nodecl_name))
+        return;
+
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access);
 }
 
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, 
@@ -1101,7 +1113,14 @@ static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
     AST id_expression = ASTSon0(a);
-    introduce_using_entity_id_expr(id_expression, decl_context, current_access);
+
+    nodecl_t nodecl_name = nodecl_null();
+    compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
+
+    if (nodecl_is_err_expr(nodecl_name))
+        return;
+
+    introduce_using_entity_nodecl_name(nodecl_name, decl_context, current_access);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -9880,7 +9899,16 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     // Update the type specifier to be a dependent typename
                     if (is_dependent_type(class_type))
                     {
-                        member_type = get_dependent_typename_type_from_parts(entry, nodecl_null());
+                        // This cannot be a template
+                        nodecl_t nodecl_name = nodecl_make_cxx_dep_name_simple(entry->symbol_name, 
+                                ast_get_filename(decl_spec_seq),
+                                ast_get_line(decl_spec_seq));
+
+                        member_type = build_dependent_typename_for_entry(
+                                named_type_get_symbol(class_info),
+                                nodecl_name,
+                                ast_get_filename(decl_spec_seq),
+                                ast_get_line(decl_spec_seq));
                     }
                 }
             }
