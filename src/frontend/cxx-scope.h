@@ -220,12 +220,6 @@ LIBMCXX_EXTERN nodecl_t nodecl_name_get_last_part(nodecl_t nodecl_name);
 LIBMCXX_EXTERN char nodecl_name_ends_in_template_id(nodecl_t nodecl_name);
 LIBMCXX_EXTERN template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nodecl_name);
 
-LIBMCXX_EXTERN template_parameter_list_t* update_template_argument_list_in_dependent_typename(
-        decl_context_t decl_context,
-        template_parameter_list_t* dependent_type_template_arguments,
-        const char* filename, 
-        int line);
-
 LIBMCXX_EXTERN type_t* build_dependent_typename_for_entry(
         scope_entry_t* class_symbol,
         nodecl_t nodecl_name,

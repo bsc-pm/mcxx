@@ -1705,13 +1705,11 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     {
         if (!nodecl_is_null(result->value))
         {
-            nodecl_t orig = result->value;
             result->value = update_nodecl_template_argument_expression(result->value, decl_context);
 
             if (nodecl_is_err_expr(result->value))
             {
-                internal_error("Updated nontype template parameter has an invalid expression '%s'", 
-                        c_cxx_codegen_to_str(orig));
+                return NULL;
             }
 
             // Force the type of the expression
@@ -1730,7 +1728,7 @@ template_parameter_value_t* update_template_parameter_value(
     return update_template_parameter_value_aux(v, decl_context, filename, line);
 }
 
-template_parameter_list_t* update_template_argument_list_in_dependent_typename(
+static template_parameter_list_t* update_template_argument_list_in_dependent_typename(
         decl_context_t decl_context,
         template_parameter_list_t* dependent_type_template_arguments,
         const char* filename, 
@@ -1745,6 +1743,9 @@ template_parameter_list_t* update_template_argument_list_in_dependent_typename(
                 result->arguments[i],
                 decl_context,
                 filename, line);
+
+        if (result->arguments[i] == NULL)
+            return NULL;
     }
 
     return result;
@@ -1806,6 +1807,9 @@ static type_t* update_dependent_typename(
                 = update_template_argument_list_in_dependent_typename(decl_context, 
                         template_arguments, 
                         filename, line);
+
+            if (new_template_arguments == NULL)
+                return NULL;
 
             nodecl_set_template_parameters(new_current_part, new_template_arguments);
         }
@@ -1997,6 +2001,9 @@ static type_t* update_type_aux_(type_t* orig_type,
                         template_parameters->arguments[i],
                         decl_context, 
                         filename, line);
+
+                if (updated_argument == NULL)
+                    return NULL;
 
                 updated_template_parameters->arguments[i] = updated_argument;
             }
@@ -2696,6 +2703,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
 
                     // If the symbol is not null, update the argument with its real function
                     result->arguments[i]->value = nodecl_make_symbol(entry, filename, line);
+                    nodecl_set_type(result->arguments[i]->value, entry->type_information);
                 }
                 else
                 {

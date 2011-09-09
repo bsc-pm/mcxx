@@ -2708,10 +2708,15 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
     result->num_args = num_args;
     result->args = args;
 
-    // Sanity check
-    int i;
-    for (i = 0; i < result->num_args; i++)
+    // For static members ignore the implicit argument
+    int i = 0;
+    if (entry->entity_specs.is_member 
+            && entry->entity_specs.is_static)
+        i = 1;
+
+    for (; i < result->num_args; i++)
     {
+        // Sanity check
         ERROR_CONDITION(result->args[i] == NULL, "An argument type cannot be NULL", 0);
     }
 

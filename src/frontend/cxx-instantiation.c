@@ -136,6 +136,14 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                     template_parameters->arguments[i],
                     new_context_for_template_parameters, 
                     filename, line);
+
+            if (updated_template_parameters->arguments[i] == NULL)
+            {
+                error_printf("%s:%d: could not instantiate template arguments of template type\n", 
+                        filename, 
+                        line);
+                return NULL;
+            }
         }
     }
 
@@ -477,13 +485,15 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     if (named_type_get_symbol(primary_template)->type_information == member_of_template->type_information)
                     {
-                        instantiate_template_type_member(template_type,
+                        scope_entry_t* new_member = instantiate_template_type_member(template_type,
                                 context_of_being_instantiated,
                                 member_of_template,
                                 being_instantiated, 
                                 /* is_class */ 1,
                                 filename, line,
                                 template_map, num_items_template_map);
+                        if (new_member == NULL)
+                            return;
                     }
                     else
                     {
@@ -505,7 +515,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             }
                         }
 
-                        ERROR_CONDITION(new_template_type == NULL, "Template type in instantiated class not found", 0);
+                        if (new_template_type == NULL)
+                            return;
 
                         template_parameter_list_t *template_args =
                             template_specialized_type_get_template_arguments(member_of_template->type_information);
@@ -577,6 +588,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             /* is_class */ 0,
                             filename, line,
                             template_map, num_items_template_map);
+
+                    if (new_member == NULL)
+                        return;
 
                     new_member->defined = 1;
                     // new_member->entity_specs.is_non_emitted = 1;

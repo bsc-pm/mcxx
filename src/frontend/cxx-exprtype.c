@@ -290,8 +290,9 @@ static
 scope_entry_list_t* get_member_of_class_type_nodecl(type_t* class_type,
         nodecl_t nodecl_name)
 {
-    // FIXME - This should be DF_DEPENDENT_TYPENAME
-    return query_nodecl_name_in_class(named_type_get_symbol(class_type), nodecl_name);
+    return query_nodecl_name_in_class(
+            named_type_get_symbol(advance_over_typedefs(class_type)), 
+            nodecl_name);
 }
 
 // Remove this function in a future
@@ -2051,6 +2052,35 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                     nodecl_make_list_1(*lhs),
                     actual_type_of_conversor(conversors[0]), nodecl_get_filename(*lhs), nodecl_get_line(*lhs));
         }
+        else if (is_unresolved_overloaded_type(lhs_type))
+        {
+            type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 0);
+
+            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(lhs_type);
+            scope_entry_t* solved_function = address_of_overloaded_function(
+                    unresolved_set,
+                    unresolved_overloaded_type_get_explicit_template_arguments(lhs_type),
+                    no_ref(param_type), 
+                    decl_context,
+                    nodecl_get_filename(*lhs),
+                    nodecl_get_line(*lhs));
+
+            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                *lhs = nodecl_make_symbol(solved_function, 
+                        nodecl_get_filename(*lhs), nodecl_get_line(*lhs));
+                nodecl_set_type(*lhs, lvalue_ref(solved_function->type_information));
+            }
+            else
+            {
+                *lhs = nodecl_make_pointer_to_member(solved_function, 
+                        nodecl_get_filename(*lhs), nodecl_get_line(*lhs));
+            }
+        }
+
         if (conversors[1] != NULL)
         {
             if (function_has_been_deleted(decl_context, conversors[1], filename, line))
@@ -2062,6 +2092,34 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                         nodecl_make_symbol(conversors[1], nodecl_get_filename(*rhs), nodecl_get_line(*rhs)),
                         nodecl_make_list_1(*rhs),
                         actual_type_of_conversor(conversors[1]), nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
+        }
+        else if (is_unresolved_overloaded_type(rhs_type))
+        {
+            type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
+
+            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
+            scope_entry_t* solved_function = address_of_overloaded_function(
+                    unresolved_set,
+                    unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
+                    no_ref(param_type), 
+                    decl_context,
+                    nodecl_get_filename(*rhs),
+                    nodecl_get_line(*rhs));
+
+            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                *rhs = nodecl_make_symbol(solved_function, 
+                        nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
+                nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
+            }
+            else
+            {
+                *rhs = nodecl_make_pointer_to_member(solved_function, 
+                        nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
+            }
         }
 
         *selected_operator = overloaded_call;
@@ -2181,6 +2239,34 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                         nodecl_make_symbol(conversors[0], nodecl_get_filename(*op), nodecl_get_line(*op)),
                         nodecl_make_list_1(*op),
                         actual_type_of_conversor(conversors[0]), nodecl_get_filename(*op), nodecl_get_line(*op));
+        }
+        else if (is_unresolved_overloaded_type(op_type))
+        {
+            type_t* param_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
+
+            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(op_type);
+            scope_entry_t* solved_function = address_of_overloaded_function(
+                    unresolved_set,
+                    unresolved_overloaded_type_get_explicit_template_arguments(op_type),
+                    no_ref(param_type), 
+                    decl_context,
+                    nodecl_get_filename(*op),
+                    nodecl_get_line(*op));
+
+            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                *op = nodecl_make_symbol(solved_function, 
+                        nodecl_get_filename(*op), nodecl_get_line(*op));
+                nodecl_set_type(*op, lvalue_ref(solved_function->type_information));
+            }
+            else
+            {
+                *op = nodecl_make_pointer_to_member(solved_function, 
+                        nodecl_get_filename(*op), nodecl_get_line(*op));
+            }
         }
 
         *selected_operator = overloaded_call;
@@ -3713,12 +3799,19 @@ static void compute_bin_nonoperator_assig_only_arithmetic_type(nodecl_t *lhs, no
                         || solved_function->entity_specs.is_static)
                 {
                     rhs_type = get_lvalue_reference_type(get_pointer_type(solved_function->type_information));
+
+                    *rhs = nodecl_make_symbol(solved_function, 
+                            nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
+                    nodecl_set_type(*rhs, lvalue_ref(solved_function->type_information));
                 }
                 else
                 {
                     rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
                                 solved_function->type_information,
                                 named_type_get_symbol(solved_function->entity_specs.class_type)));
+
+                    *rhs = nodecl_make_pointer_to_member(solved_function, 
+                            nodecl_get_filename(*rhs), nodecl_get_line(*rhs));
                 }
             }
         }
@@ -4641,7 +4734,7 @@ static void parse_reference(AST op,
                 return;
             }
 
-            scope_entry_list_t* entry_list = query_nodecl_name(decl_context, op_name);
+            scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, op_name, DF_DEPENDENT_TYPENAME);
 
             if (entry_list == NULL)
             {
@@ -4719,20 +4812,13 @@ static void compute_operator_reference_type(nodecl_t* op,
         {
             *nodecl_output = nodecl_make_symbol(entry, filename, line);
 
-            int num_items = 0;
-            nodecl_t* list = nodecl_unpack_list(nodecl_get_child(*op, 0), &num_items);
-
-            nodecl_t last = list[num_items - 1];
-
-            template_parameter_list_t* template_args = NULL;
-            if (nodecl_get_kind(last) == NODECL_CXX_DEP_TEMPLATE_ID)
+            template_parameter_list_t* last_template_args = NULL;
+            if (nodecl_name_ends_in_template_id(*op))
             {
-                template_args = nodecl_get_template_parameters(last);
+                last_template_args = nodecl_name_name_last_template_arguments(*op);
             }
 
-            type_t* t = get_unresolved_overloaded_type(entry_list, template_args);
-
-            free(list);
+            type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
 
             nodecl_set_type(*nodecl_output, t);
         }
@@ -5124,6 +5210,13 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         return;
     }
 
+    template_parameter_list_t* last_template_args = NULL;
+    if (nodecl_name_ends_in_template_id(nodecl_name))
+    {
+        last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
+    }
+
+
     if (entry->kind == SK_VARIABLE)
     {
         nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
@@ -5239,7 +5332,7 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
     }
     else if (entry->kind == SK_FUNCTION)
     {
-        type_t* t = get_unresolved_overloaded_type(entry_list, /* template_args */ NULL);
+        type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
     }
@@ -5259,12 +5352,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             entry_list_free(entry_list);
             *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
             return;
-        }
-
-        template_parameter_list_t* last_template_args = NULL;
-        if (nodecl_name_ends_in_template_id(nodecl_name))
-        {
-            last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
         }
 
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
@@ -7440,7 +7527,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     // Let's check the called entity
     //  - If it is a NODECL_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
-    // template_parameter_list_t* explicit_template_arguments = NULL;
+    template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
     if (nodecl_get_kind(nodecl_called) == NODECL_CXX_DEP_NAME_SIMPLE)
     {
@@ -7449,7 +7536,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         if (candidates == NULL)
         {
             // Try a plain lookup
-            candidates = query_nodecl_name(decl_context, nodecl_called);
+            candidates = query_nodecl_name_flags(decl_context, nodecl_called, DF_DEPENDENT_TYPENAME);
         }
 
         if (candidates == NULL)
@@ -7463,12 +7550,21 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
             *nodecl_output = nodecl_make_err_expr(filename, line);
             return;
         }
+        else if (entry_list_head(candidates)->kind == SK_DEPENDENT_ENTITY)
+        {
+            *nodecl_output = nodecl_make_function_call(nodecl_called,
+                    nodecl_argument_list,
+                    get_unknown_dependent_type(),
+                    filename, line);
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+            return;
+        }
     }
     else if (is_unresolved_overloaded_type(nodecl_get_type(nodecl_called)))
     {
         type_t* unresolved_type = nodecl_get_type(nodecl_called);
         candidates = unresolved_overloaded_type_get_overload_set(unresolved_type);
-        // explicit_template_arguments = unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type);
+        explicit_template_arguments = unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type);
     }
     else
     {
@@ -7497,7 +7593,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
     {
         if (!is_class_type(no_ref(called_type))
                 && !is_function_type(no_ref(called_type))
-                && !is_pointer_to_function_type(called_type))
+                && !is_pointer_to_function_type(no_ref(called_type)))
         {
             // This cannot be called at all
             if (!checking_ambiguity())
@@ -7681,7 +7777,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 filename, line,
-                /* explicit_template_parameters */ NULL);
+                explicit_template_arguments);
         entry_list_free(first_set_candidates);
     }
 
@@ -7736,7 +7832,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
         scope_entry_t* orig_entry = entry_list_iterator_current(it);
         scope_entry_t* entry = entry_advance_aliases(orig_entry);
 
-        if (entry->entity_specs.is_member
+        if (entry->entity_specs.is_member 
                 || entry->entity_specs.is_surrogate_function)
         {
             candidate_set = add_to_candidate_set(candidate_set,
@@ -7858,6 +7954,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                 {
                     nodecl_arg =
                         nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_arg), nodecl_get_line(nodecl_arg));
+                    nodecl_set_type(nodecl_arg, lvalue_ref(solved_function->type_information));
                 }
                 else
                 {
@@ -8480,7 +8577,7 @@ static void check_nodecl_member_access(
         type_t* t = function_type_get_return_type(selected_operator_arrow->type_information);
 
         // The accessed type is the pointed type
-        accessed_type = pointer_type_get_pointee_type(no_ref(nodecl_get_type(nodecl_accessed)));
+        accessed_type = pointer_type_get_pointee_type(no_ref(t));
 
         nodecl_accessed_out = 
             nodecl_make_derreference(
@@ -8576,8 +8673,14 @@ static void check_nodecl_member_access(
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
         {
-            type_t* t = get_unresolved_overloaded_type(entry_list, 
-                    /* explicit_template_parameters */ NULL);
+            template_parameter_list_t* last_template_args = NULL;
+            if (nodecl_name_ends_in_template_id(nodecl_member))
+            {
+                last_template_args = nodecl_name_name_last_template_arguments(nodecl_member);
+            }
+
+            type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
+
             ok = 1;
 
             *nodecl_output = nodecl_make_class_member_access(
@@ -10144,8 +10247,8 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
         }
         else
         {
-            // FIXME
-            // What should we do with value-initializers () ?
+            *nodecl_output = nodecl_make_structured_value(nodecl_null(), declared_type, 
+                    nodecl_get_filename(direct_initializer), nodecl_get_line(direct_initializer));
         }
     }
 }
