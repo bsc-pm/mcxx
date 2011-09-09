@@ -589,7 +589,7 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 10.config.omp-base 50.config.omp.mercurium"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 
-   if x$is_enabled_tl_omp_profile = xyes;
+   if test x$is_enabled_tl_omp_profile = xyes;
    then
        TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
        COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
@@ -610,7 +610,7 @@ then
       COMPILER_NAMES="${COMPILER_NAMES} imcxx"
    fi
 
-   if test x$ICC != x -o test x$ICPC != x;
+   if test x$ICC != x -o x$ICPC != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.intel"
    fi
@@ -630,7 +630,7 @@ then
    fi
 
 
-   if test x$GXLC != x -o test x$GXLCXX != x;
+   if test x$GXLC != x -o x$GXLCXX != x;
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ibm"
    fi
