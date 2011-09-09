@@ -2424,7 +2424,7 @@ void compute_bin_operator_generic(
 
     builtin_operators_set_t builtin_set;
     build_binary_builtin_operators(
-            no_ref(lhs_type), no_ref(rhs_type), 
+            lhs_type, rhs_type, 
             &builtin_set,
             decl_context, operator, 
             overload_operator_predicate,
@@ -2636,8 +2636,8 @@ void compute_bin_operator_div_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 
 static char operator_bin_only_integer_pred(type_t* lhs, type_t* rhs)
 {
-    return (is_integer_type(lhs) 
-            && is_integer_type(rhs));
+    return (is_integer_type(no_ref(lhs)) 
+            && is_integer_type(no_ref(rhs)));
 }
 
 static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs)
@@ -2830,20 +2830,20 @@ void compute_bin_operator_sub_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 
 static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs)
 {
-    return (is_integral_type(lhs)
-            && is_integral_type(rhs));
+    return (is_integral_type(no_ref(lhs))
+            && is_integral_type(no_ref(rhs)));
 }
 
 static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
 {
-    if (is_promoteable_integral_type(*lhs))
+    if (is_promoteable_integral_type(no_ref(*lhs)))
     {
-        *lhs = promote_integral_type(*lhs);
+        *lhs = promote_integral_type(no_ref(*lhs));
     }
 
-    if (is_promoteable_integral_type(*rhs))
+    if (is_promoteable_integral_type(no_ref(*rhs)))
     {
-        *rhs = promote_integral_type(*rhs);
+        *rhs = promote_integral_type(no_ref(*rhs));
     }
 
     return (*lhs);
@@ -2934,67 +2934,67 @@ void compute_bin_operator_shr_type(nodecl_t* lhs, nodecl_t* rhs, decl_context_t 
 static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rhs)
 {
     // Two arithmetics or enum or pointer
-    return ((is_arithmetic_type(lhs)
-                && is_arithmetic_type(rhs))
+    return ((is_arithmetic_type(no_ref(lhs))
+                && is_arithmetic_type(no_ref(rhs)))
             // T* < T*
-            || ((is_pointer_type(lhs) || is_array_type(lhs))
-                && (is_pointer_type(rhs) || is_array_type(rhs))
-                && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs)))
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
+                && (is_pointer_type(no_ref(rhs)) || is_array_type(no_ref(rhs)))
+                && equivalent_types(get_unqualified_type(no_ref(lhs)), get_unqualified_type(no_ref(rhs))))
             // Silly case for zero_type
-            || (is_pointer_type(lhs) && is_zero_type(rhs))
-            || (is_zero_type(lhs) && is_pointer_type(rhs))
+            || (is_pointer_type(no_ref(lhs)) && is_zero_type(no_ref(rhs)))
+            || (is_zero_type(no_ref(lhs)) && is_pointer_type(no_ref(rhs)))
             // enum E < enum E
-            || (is_enum_type(lhs)
-                && is_enum_type(rhs)
-                && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs))));
+            || (is_enum_type(no_ref(lhs))
+                && is_enum_type(no_ref(rhs))
+                && equivalent_types(get_unqualified_type(no_ref(lhs)), get_unqualified_type(no_ref(rhs)))));
 }
 
 static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type_t** rhs)
 {
-    if (is_arithmetic_type(*lhs)
-            && is_arithmetic_type(*rhs))
+    if (is_arithmetic_type(no_ref(*lhs))
+            && is_arithmetic_type(no_ref(*rhs)))
     {
-        if (is_promoteable_integral_type(*lhs))
-            *lhs = promote_integral_type(*lhs);
-        if (is_promoteable_integral_type(*rhs))
-            *rhs = promote_integral_type(*rhs);
+        if (is_promoteable_integral_type(no_ref(*lhs)))
+            *lhs = promote_integral_type(no_ref(*lhs));
+        if (is_promoteable_integral_type(no_ref(*rhs)))
+            *rhs = promote_integral_type(no_ref(*rhs));
 
         return get_bool_type();
     }
-    else if ((is_pointer_type(*lhs) || is_array_type(*lhs))
-            && (is_pointer_type(*rhs) || is_array_type(*rhs))
-            && equivalent_types(get_unqualified_type(*lhs), get_unqualified_type(*rhs)))
+    else if ((is_pointer_type(no_ref(*lhs)) || is_array_type(no_ref(*lhs)))
+            && (is_pointer_type(no_ref(*rhs)) || is_array_type(no_ref(*rhs)))
+            && equivalent_types(get_unqualified_type(no_ref(*lhs)), get_unqualified_type(no_ref(*rhs))))
     {
-        if (is_array_type(*lhs))
+        if (is_array_type(no_ref(*lhs)))
         {
-            *lhs = get_pointer_type(array_type_get_element_type(*lhs));
+            *lhs = get_pointer_type(array_type_get_element_type(no_ref(*lhs)));
         }
 
-        if (is_array_type(*rhs))
+        if (is_array_type(no_ref(*rhs)))
         {
-            *rhs = get_pointer_type(array_type_get_element_type(*rhs));
+            *rhs = get_pointer_type(array_type_get_element_type(no_ref(*rhs)));
         }
 
         return get_bool_type();
     }
-    else if ((is_zero_type(*lhs) && is_pointer_type(*rhs))
-            || (is_pointer_type(*lhs) && is_zero_type(*rhs)))
+    else if ((is_zero_type(no_ref(*lhs)) && is_pointer_type(no_ref(*rhs)))
+            || (is_pointer_type(no_ref(*lhs)) && is_zero_type(no_ref(*rhs))))
     {
         // Convert the zero type to the other pointer type
-        if (is_zero_type(*lhs))
+        if (is_zero_type(no_ref(*lhs)))
         {
-            *lhs = *rhs;
+            *lhs = no_ref(*rhs);
         }
-        if (is_zero_type(*rhs))
+        if (is_zero_type(no_ref(*rhs)))
         {
-            *rhs = *lhs;
+            *rhs = no_ref(*lhs);
         }
 
         return get_bool_type();
     }
-    else if (is_enum_type(no_ref(*lhs))
-            && is_enum_type(no_ref(*rhs))
-            && equivalent_types(get_unqualified_type(no_ref(*lhs)), get_unqualified_type(no_ref(*rhs))))
+    else if (is_enum_type(no_ref(no_ref(*lhs)))
+            && is_enum_type(no_ref(no_ref(*rhs)))
+            && equivalent_types(get_unqualified_type(no_ref(no_ref(*lhs))), get_unqualified_type(no_ref(no_ref(*rhs)))))
     {
         return get_bool_type();
     }
@@ -3218,8 +3218,8 @@ static void compute_bin_operator_equal_type(nodecl_t* lhs, nodecl_t* rhs, decl_c
 static char operator_bin_logical_types_pred(type_t* lhs, type_t* rhs)
 {
     standard_conversion_t dummy;
-    return (standard_conversion_between_types(&dummy, lhs, get_bool_type())
-            && standard_conversion_between_types(&dummy, rhs, get_bool_type()));
+    return (standard_conversion_between_types(&dummy, no_ref(lhs), get_bool_type())
+            && standard_conversion_between_types(&dummy, no_ref(rhs), get_bool_type()));
 }
 
 static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
@@ -4156,7 +4156,7 @@ static void compute_unary_operator_generic(
 
     builtin_operators_set_t builtin_set;
     build_unary_builtin_operators(
-            no_ref(op_type),
+            op_type,
             &builtin_set,
             decl_context, operator,
             overload_operator_predicate,
@@ -4223,7 +4223,7 @@ static void compute_unary_operator_generic(
 
 char operator_unary_derref_pred(type_t* op_type)
 {
-    if (is_pointer_type(op_type))
+    if (is_pointer_type(no_ref(op_type)))
     {
         return 1;
     }
@@ -4232,9 +4232,9 @@ char operator_unary_derref_pred(type_t* op_type)
 
 type_t* operator_unary_derref_result(type_t** op_type)
 {
-    if (is_pointer_type(*op_type))
+    if (is_pointer_type(no_ref(*op_type)))
     {
-        return get_lvalue_reference_type(pointer_type_get_pointee_type(*op_type));
+        return get_lvalue_reference_type(pointer_type_get_pointee_type(no_ref(*op_type)));
     }
     return get_error_type();
 }
@@ -4300,11 +4300,11 @@ static void compute_operator_derreference_type(
 
 static char operator_unary_plus_pred(type_t* op_type)
 {
-    if (is_pointer_type(op_type))
+    if (is_pointer_type(no_ref(op_type)))
     {
         return 1;
     }
-    else if (is_arithmetic_type(op_type))
+    else if (is_arithmetic_type(no_ref(op_type)))
     {
         return 1;
     }
@@ -4313,18 +4313,18 @@ static char operator_unary_plus_pred(type_t* op_type)
 
 static type_t* operator_unary_plus_result(type_t** op_type)
 {
-    if (is_pointer_type(*op_type))
+    if (is_pointer_type(no_ref(*op_type)))
     {
-        return *op_type;
+        return no_ref(*op_type);
     }
-    else if (is_arithmetic_type(*op_type))
+    else if (is_arithmetic_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(*op_type))
+        if (is_promoteable_integral_type(no_ref(*op_type)))
         {
-            *op_type = promote_integral_type(*op_type);
+            *op_type = promote_integral_type(no_ref(*op_type));
         }
 
-        return *op_type;
+        return no_ref(*op_type);
     }
     return get_error_type();
 }
@@ -4389,7 +4389,7 @@ static void compute_operator_plus_type(nodecl_t* op,
 
 static char operator_unary_minus_pred(type_t* op_type)
 {
-    if (is_arithmetic_type(op_type))
+    if (is_arithmetic_type(no_ref(op_type)))
     {
         return 1;
     }
@@ -4398,14 +4398,14 @@ static char operator_unary_minus_pred(type_t* op_type)
 
 static type_t* operator_unary_minus_result(type_t** op_type)
 {
-    if (is_arithmetic_type(*op_type))
+    if (is_arithmetic_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(*op_type))
+        if (is_promoteable_integral_type(no_ref(*op_type)))
         {
-            *op_type = promote_integral_type(*op_type);
+            *op_type = promote_integral_type(no_ref(*op_type));
         }
 
-        return *op_type;
+        return no_ref(*op_type);
     }
     return get_error_type();
 }
@@ -4464,7 +4464,7 @@ static void compute_operator_minus_type(nodecl_t* op, decl_context_t decl_contex
 
 static char operator_unary_complement_pred(type_t* op_type)
 {
-    if (is_integral_type(op_type))
+    if (is_integral_type(no_ref(op_type)))
     {
         return 1;
     }
@@ -4473,14 +4473,14 @@ static char operator_unary_complement_pred(type_t* op_type)
 
 static type_t* operator_unary_complement_result(type_t** op_type)
 {
-    if (is_integral_type(*op_type))
+    if (is_integral_type(no_ref(*op_type)))
     {
-        if (is_promoteable_integral_type(*op_type))
+        if (is_promoteable_integral_type(no_ref(*op_type)))
         {
-            *op_type = promote_integral_type(*op_type);
+            *op_type = promote_integral_type(no_ref(*op_type));
         }
 
-        return *op_type;
+        return no_ref(*op_type);
     }
     return get_error_type();
 }
@@ -4521,7 +4521,7 @@ static char operator_unary_not_pred(type_t* op_type)
     standard_conversion_t to_bool;
 
     if (standard_conversion_between_types(&to_bool,
-                op_type, get_bool_type()))
+                no_ref(op_type), get_bool_type()))
     {
         return 1;
     }
@@ -4599,7 +4599,7 @@ static char operator_unary_reference_pred(type_t* t)
 static type_t* operator_unary_reference_result(type_t** op_type)
 {
     // T* operator&(T&)
-    return get_pointer_type(reference_type_get_referenced_type(*op_type));
+    return get_pointer_type(no_ref(*op_type));
 }
 
 static type_t* compute_type_no_overload_reference(nodecl_t *op, char *is_lvalue)
@@ -4688,7 +4688,7 @@ static void compute_operator_reference_type(nodecl_t* op,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_REFERENCE, NULL, 0, NULL), NULL, 0, NULL);
+                ASTLeaf(AST_BITWISE_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     // If parse_reference passes us a qualified name we now this is a pointer
@@ -5984,8 +5984,8 @@ static void check_conditional_expression_impl_nodecl_aux(nodecl_t first_op,
             builtin_operators_set_t builtin_set;
 
             build_ternary_builtin_operators(get_bool_type(),
-                    no_ref(second_type),
-                    no_ref(third_type),
+                    second_type,
+                    third_type,
                     &builtin_set,
                     decl_context,
                     "operator ?",
@@ -6374,6 +6374,9 @@ static void check_new_expression_impl(
             {
                 has_dependent_placement_args = 1;
             }
+            // 0 -> this
+            // 1 -> size_t
+            arguments[i + 2] = nodecl_get_type(nodecl_list[i]);
         }
 
         free(nodecl_list);
@@ -6556,6 +6559,8 @@ static void check_new_expression_impl(
 
             free(list);
         }
+
+        nodecl_allocation_function = nodecl_make_symbol(chosen_operator_new, filename, line);
     }
 
     nodecl_t nodecl_init_out = nodecl_null();
@@ -10338,7 +10343,7 @@ static void check_nodecl_pointer_to_pointer_member(
 
     builtin_operators_set_t builtin_set; 
     build_binary_builtin_operators(
-            no_ref(lhs_type), no_ref(rhs_type), 
+            lhs_type, rhs_type, 
             &builtin_set,
             decl_context, operation_tree, 
             operator_bin_pointer_to_pm_pred,
@@ -12631,6 +12636,12 @@ char check_expression_list(AST expression_list,
 
         nodecl_t nodecl_current = nodecl_null();
         check_expression_impl_(ASTSon1(expression_list), decl_context, &nodecl_current);
+
+        if (nodecl_is_err_expr(nodecl_current))
+        {
+            *nodecl_output = nodecl_current;
+            return 0;
+        }
 
         *nodecl_output = nodecl_append_to_list(nodecl_prev_list, nodecl_current);
 

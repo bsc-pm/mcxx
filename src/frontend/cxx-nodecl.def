@@ -209,6 +209,7 @@ cxx-dependent-nodecls: cxx-dependent-name
 # Special nodes for dependent names
 cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
                    | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq)
+                   | cxx-atom-dependent-name
 cxx-atom-dependent-name : cxx-simple-name
                    | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) template-parameters
                    | NODECL_CXX_DEP_NAME_CONVERSION() 
@@ -224,7 +225,7 @@ cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-o
 
 cxx-dependent-expressions: NODECL_CXX_EXPLICIT_TYPE_CONVERSION([args]expression-seq-opt) type
 # a->b
-    | NODECL_CXX_ARROW([lhs]expression, [member]name) type
+    | NODECL_CXX_ARROW([lhs]expression, [member]expression) type
 # a.*b
     | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type
 # a->*b
