@@ -5061,7 +5061,6 @@ static void compute_symbol_type(AST expr, decl_context_t decl_context, nodecl_t*
             error_printf("%s: error: name '%s' not valid in expression\n",
                     ast_location(expr), ASTText(expr));
         }
-        entry_list_free(result);
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
     }
 
