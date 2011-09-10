@@ -41,6 +41,7 @@
 #include "cxx-scope.h"
 #include "cxx-entrylist.h"
 #include "cxx-graphviz.h"
+#include "cxx-diagnostic.h"
 
 #include "cxx-printscope.h"
 
