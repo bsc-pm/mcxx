@@ -104,7 +104,7 @@ expression : literal
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
            | NODECL_ARRAY_SECTION([subscripted] expression, [lower] expression, [upper] expression) type
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
            | NODECL_MUL([lhs]expression, [rhs]expression) type
@@ -195,6 +195,7 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_IMAG_PART([rhs]expression) type
                   | NODECL_OFFSETOF([type]type, [designator]cxx-dependent-initializer-seq) type
                   | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type
                   | cxx-dependent-nodecls
                   | cuda-expressions
 
@@ -234,10 +235,6 @@ cxx-dependent-expressions: NODECL_CXX_EXPLICIT_TYPE_CONVERSION([args]expression-
     | NODECL_CXX_SIZEOF([expr] expression) type
 # alignof(expr)
     | NODECL_CXX_ALIGNOF([expr] expression) type
-# a.T::~T
-    | NODECL_CXX_DOT_PSEUDO_DESTRUCTOR([postfix]expression) type
-# a->T::~T
-    | NODECL_CXX_ARROW_PSEUDO_DESTRUCTOR([postfix]expression) type
 # (type) { ... }
     | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type
 # a[e:e]

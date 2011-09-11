@@ -146,8 +146,6 @@ HANDLER_PROTOTYPE(linkage_specification_decl_handler);
 HANDLER_PROTOTYPE(namespace_alias_definition_handler);
 HANDLER_PROTOTYPE(using_directive_handler);
 HANDLER_PROTOTYPE(namespace_definition_handler);
-HANDLER_PROTOTYPE(pseudo_destructor_name_handler);
-HANDLER_PROTOTYPE(pseudo_destructor_template_name_handler);
 HANDLER_PROTOTYPE(parenthesized_initializer_handler);
 HANDLER_PROTOTYPE(unknown_pragma_handler);
 HANDLER_PROTOTYPE(kr_parameter_list_handler);
@@ -363,8 +361,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_POINTER_CLASS_MEMBER_ACCESS, infix_parameter_handler, "->"),
     NODE_HANDLER(AST_CLASS_TEMPLATE_MEMBER_ACCESS, template_member_access, "."),
     NODE_HANDLER(AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS, template_member_access, "->"),
-    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_CALL, infix_parameter_handler, "."),
-    NODE_HANDLER(AST_POINTER_PSEUDO_DESTRUCTOR_CALL, infix_parameter_handler, "->"),
     NODE_HANDLER(AST_POSTINCREMENT, son_handler_then_suffix_parameter, "++"),
     NODE_HANDLER(AST_POSTDECREMENT, son_handler_then_suffix_parameter, "--"),
     NODE_HANDLER(AST_DYNAMIC_CAST, templated_cast_handler, "dynamic_cast"),
@@ -495,8 +491,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_USING_NAMESPACE_DIRECTIVE, using_directive_handler, NULL),
     NODE_HANDLER(AST_NAMESPACE_DEFINITION, namespace_definition_handler, NULL),
     NODE_HANDLER(AST_NEW_PLACEMENT, list_parenthesized_son_handler, NULL),
-    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
-    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, pseudo_destructor_template_name_handler, NULL),
     NODE_HANDLER(AST_KR_PARAMETER_LIST, kr_parameter_list_handler, NULL),
     NODE_HANDLER(AST_DESIGNATED_INITIALIZER, designated_initializer_handler, NULL),
     NODE_HANDLER(AST_DESIGNATION, designation_handler, NULL),
@@ -2040,21 +2034,6 @@ static void namespace_definition_handler(FILE* f, AST a, prettyprint_context_t* 
     
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "}\n");
-}
-
-static void pseudo_destructor_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    double_colon_handler(f, a, pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void pseudo_destructor_template_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    double_colon_handler(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "template ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void parenthesized_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

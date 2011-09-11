@@ -403,7 +403,6 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> pm_expression
 %type<ast> postfix_expression
 %type<ast> primary_expression
-%type<ast> pseudo_destructor_name
 %type<ast> ptr_operator
 %type<ast> qualified_id
 %type<ast> qualified_id_globals
@@ -3885,14 +3884,6 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS, $1, $4, ASTFileName($1), ASTLine($1), NULL);
 }
-| postfix_expression '.' pseudo_destructor_name %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_PSEUDO_DESTRUCTOR_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| postfix_expression PTR_OP pseudo_destructor_name %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_POINTER_PSEUDO_DESTRUCTOR_CALL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-}
 | postfix_expression PLUSPLUS
 {
 	$$ = ASTMake1(AST_POSTINCREMENT, $1, ASTFileName($1), ASTLine($1), NULL);
@@ -3935,16 +3926,6 @@ postfix_expression : primary_expression
 expression_list : initializer_list
 {
     $$ = $1;
-}
-;
-
-pseudo_destructor_name : id_expression TWO_COLONS destructor_id
-{
-	$$ = ASTMake2(AST_PSEUDO_DESTRUCTOR_NAME, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| id_expression TWO_COLONS TEMPLATE destructor_template_id
-{
-	$$ = ASTMake2(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, $1, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

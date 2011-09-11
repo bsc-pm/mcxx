@@ -345,7 +345,15 @@ static void define_all_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_t);
 
 static void add_to_clear_list(scope_entry_t* entry);
 
-static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+
+static void define_generic_entities(nodecl_codegen_visitor_t* visitor, nodecl_t node,
+        void decl_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol),
+        void def_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol),
+        void define_entities_fun(nodecl_codegen_visitor_t* visitor, nodecl_t node),
+        void define_entry_fun(nodecl_codegen_visitor_t *visitor, 
+            nodecl_t node, scope_entry_t* entry,
+            void def_sym_fun_2(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol))
+        )
 {
     if (nodecl_is_null(node))
         return;
@@ -353,119 +361,13 @@ static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, no
     int i;
     for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
     {
-        define_local_entities_in_trees(visitor, nodecl_get_child(node, i));
-    }
-
-    scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL
-            && entry->type_information != NULL)
-    {
-        walk_type_for_symbols(visitor, entry->type_information, /* needs def */ 1,
-                declare_symbol_if_local,
-                define_symbol_if_local,
-                define_local_entities_in_trees);
-
-        define_local_entities_in_trees(visitor, entry->value);
-
-        if (visitor->current_scope == entry->decl_context.current_scope)
-        {
-            if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
-            {
-                define_symbol(visitor, entry);
-            }
-            else
-            {
-                // If this is an object init (and the traversal ensures that
-                // they will be seen first) we assume it's already been defined
-                entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
-                add_to_clear_list(entry);
-            }
-        }
-    }
-
-    type_t* type = nodecl_get_type(node);
-    if (type != NULL)
-    {
-        walk_type_for_symbols(visitor, type, /* needs def */ 1,
-                declare_symbol_if_local,
-                define_symbol_if_local,
-                define_local_entities_in_trees);
-    }
-}
-
-static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    if (nodecl_is_null(node))
-        return;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        define_nonlocal_entities_in_trees(visitor, nodecl_get_child(node, i));
-    }
-
-    scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL
-            && entry->type_information != NULL)
-    {
-        walk_type_for_symbols(visitor, entry->type_information, 
-                /* needs_def */ 1, declare_symbol_if_nonlocal, define_symbol_if_nonlocal,
-                define_nonlocal_entities_in_trees);
-        define_symbol_if_nonlocal(visitor, entry);
-
-        define_nonlocal_entities_in_trees(visitor, entry->value);
-    }
-
-    type_t* type = nodecl_get_type(node);
-    if (type != NULL)
-    {
-        walk_type_for_symbols(visitor, type,
-                /* needs_def */ 1, declare_symbol_if_nonlocal, define_symbol_if_nonlocal,
-                define_nonlocal_entities_in_trees);
-    }
-}
-
-static void define_nonnested_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    if (nodecl_is_null(node))
-        return;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        define_nonnested_entities_in_trees(visitor, nodecl_get_child(node, i));
-    }
-
-    scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL
-            && entry->type_information != NULL)
-    {
-        walk_type_for_symbols(visitor, entry->type_information, 
-                /* needs_def */ 1, declare_symbol_if_nonnested, define_symbol_if_nonnested,
-                define_nonnested_entities_in_trees);
-        define_symbol_if_nonnested(visitor, entry);
-
-        define_nonnested_entities_in_trees(visitor, entry->value);
-    }
-
-    type_t* type = nodecl_get_type(node);
-    if (type != NULL)
-    {
-        walk_type_for_symbols(visitor, type,
-                /* needs_def */ 1, declare_symbol_if_nonnested, define_symbol_if_nonnested,
-                define_nonnested_entities_in_trees);
-    }
-}
-
-static void define_all_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
-{
-    if (nodecl_is_null(node))
-        return;
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        define_all_entities_in_trees(visitor, nodecl_get_child(node, i));
+        define_generic_entities(visitor, 
+                nodecl_get_child(node, i),
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun,
+                define_entry_fun
+                );
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
@@ -473,22 +375,163 @@ static void define_all_entities_in_trees(nodecl_codegen_visitor_t* visitor, node
             && entry->type_information != NULL)
     {
         walk_type_for_symbols(visitor, entry->type_information, /* needs_def */ 1, 
-                declare_symbol,
-                define_symbol,
-                define_all_entities_in_trees);
-        define_symbol(visitor, entry);
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun
+                );
 
-        define_all_entities_in_trees(visitor, entry->value);
+        define_entry_fun(visitor, node, entry, def_sym_fun);
+
+        define_generic_entities(visitor, entry->value,
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun,
+                define_entry_fun
+                );
     }
 
     type_t* type = nodecl_get_type(node);
     if (type != NULL)
     {
-        walk_type_for_symbols(visitor, type, /* needs_def */ 1, 
-                declare_symbol,
-                define_symbol,
-                define_all_entities_in_trees);
+        walk_type_for_symbols(visitor, 
+                type, 
+                /* needs_def */ 1, 
+                decl_sym_fun,
+                def_sym_fun,
+                define_entities_fun);
     }
+
+    if (nodecl_get_kind(node) == NODECL_CONVERSION)
+    {
+        // Special cases for conversion nodes 
+        //
+        // When a pointer or reference to class type (or pointer to member) is
+        // converted from a derived class to a base class, it requires both
+        // classes be defined but since they are pointers, generic
+        // walk_type_for_symbols does not realize this fact. NODECL_CONVERSION
+        // nodes appear where a standard conversion has been applied by the
+        // frontend during typechecking
+        type_t* dest_type = nodecl_get_type(node);
+        type_t* source_type = nodecl_get_type(nodecl_get_child(node, 0));
+
+        if ((is_reference_to_class_type(dest_type)
+                && is_reference_to_class_type(source_type)
+                && class_type_is_base(no_ref(dest_type), no_ref(source_type)))
+                || (is_pointer_to_class_type(no_ref(dest_type))
+                    && is_pointer_to_class_type(no_ref(source_type))
+                    && class_type_is_base(
+                        pointer_type_get_pointee_type(no_ref(dest_type)),
+                        pointer_type_get_pointee_type(no_ref(source_type))))
+                || (is_pointer_to_member_type(no_ref(dest_type))
+                    && is_pointer_to_member_type(no_ref(source_type))
+                    && class_type_is_base(
+                        // This is OK, for pointers to members conversion is Base to Derived (not Derived to Base)
+                        pointer_to_member_type_get_class_type(no_ref(source_type)),
+                        pointer_to_member_type_get_class_type(no_ref(dest_type)))))
+        {
+            type_t* base_class = NULL;
+            type_t* derived_class = NULL;
+            if (is_reference_to_class_type(dest_type)
+                        && is_reference_to_class_type(source_type))
+            {
+                base_class = no_ref(dest_type);
+                derived_class = no_ref(source_type);
+            }
+            else if (is_pointer_to_class_type(no_ref(dest_type))
+                    && is_pointer_to_class_type(no_ref(source_type)))
+            {
+                base_class = pointer_type_get_pointee_type(no_ref(dest_type));
+                derived_class = pointer_type_get_pointee_type(no_ref(source_type));
+            }
+            else if (is_pointer_to_member_type(no_ref(dest_type))
+                    && is_pointer_to_member_type(no_ref(source_type)))
+            {
+                base_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(source_type)));
+                derived_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(dest_type)));
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+
+            walk_type_for_symbols(visitor, base_class, /* needs_def */ 1, 
+                    decl_sym_fun, 
+                    def_sym_fun,
+                    define_entities_fun);
+            walk_type_for_symbols(visitor, derived_class, /* needs_def */ 1, 
+                    decl_sym_fun, 
+                    def_sym_fun,
+                    define_entities_fun);
+        }
+    }
+}
+
+static void entry_just_define(nodecl_codegen_visitor_t *visitor, 
+        nodecl_t node UNUSED_PARAMETER, 
+        scope_entry_t* entry,
+        void def_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
+        )
+{
+    def_sym_fun(visitor, entry);
+}
+
+static void entry_local_definition(nodecl_codegen_visitor_t *visitor, 
+        nodecl_t node UNUSED_PARAMETER, 
+        scope_entry_t* entry,
+        void def_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol) 
+        )
+{
+    if (visitor->current_scope == entry->decl_context.current_scope)
+    {
+        if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
+        {
+            def_sym_fun(visitor, entry);
+        }
+        else
+        {
+            // If this is an object init (and the traversal ensures that
+            // they will be seen first) we assume it's already been defined
+            entry->entity_specs.codegen_status = CODEGEN_STATUS_DEFINED;
+            add_to_clear_list(entry);
+        }
+    }
+}
+
+static void define_local_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    define_generic_entities(visitor, node, 
+            declare_symbol_if_local,
+            define_symbol_if_local,
+            define_local_entities_in_trees,
+            entry_local_definition);
+}
+
+static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    define_generic_entities(visitor, node, 
+            declare_symbol_if_nonlocal,
+            define_symbol_if_nonlocal,
+            define_nonlocal_entities_in_trees,
+            entry_just_define);
+}
+
+static void define_nonnested_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    define_generic_entities(visitor, node, 
+            declare_symbol_if_nonnested,
+            define_symbol_if_nonnested,
+            define_nonnested_entities_in_trees,
+            entry_just_define);
+}
+
+static void define_all_entities_in_trees(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    define_generic_entities(visitor, node, 
+            declare_symbol,
+            define_symbol,
+            define_all_entities_in_trees,
+            entry_just_define);
 }
 
 static scope_entry_list_t *_clear_list = NULL;
@@ -2561,6 +2604,7 @@ static int get_rank_kind(node_t n, const char* text)
         case NODECL_ARRAY_SUBSCRIPT:
         case NODECL_FUNCTION_CALL:
         case NODECL_CLASS_MEMBER_ACCESS:
+        case NODECL_PSEUDO_DESTRUCTOR_NAME:
         case NODECL_TYPEID:
         case NODECL_POSTINCREMENT:
         case NODECL_POSTDECREMENT:
@@ -2887,6 +2931,25 @@ static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodec
             fprintf(visitor->file, ")"); 
         } 
     }
+}
+
+static void codegen_pseudo_destructor_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    fprintf(visitor->file, "%s", "."); 
+    codegen_walk(visitor, rhs); 
 }
 
 static void codegen_pointer_to_member(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
@@ -3808,12 +3871,12 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         internal_error("C/C++ does not have internal functions", 0);
     }
 
-    if (!nodecl_is_null(nodecl_get_child(statement_seq, 0)))
+    if (nodecl_list_length(statement_seq) != 1)
     {
         internal_error("C/C++ functions only have one statement", 0);
     }
 
-    nodecl_t statement = nodecl_get_child(statement_seq, 1);
+    nodecl_t statement = nodecl_list_head(statement_seq);
 
     scope_entry_t* symbol = nodecl_get_symbol(node);
     ERROR_CONDITION(symbol == NULL || symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
@@ -4228,6 +4291,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
+    NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
     NODECL_VISITOR(codegen_visitor)->visit_compound_expression = codegen_visitor_fun(codegen_compound_expression);
     NODECL_VISITOR(codegen_visitor)->visit_typeid = codegen_visitor_fun(codegen_typeid);

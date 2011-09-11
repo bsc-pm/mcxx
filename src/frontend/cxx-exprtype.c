@@ -346,7 +346,6 @@ static void check_comma_operand(AST expression, decl_context_t decl_context, nod
 static void check_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void check_conversion_function_id_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
-static void check_pseudo_destructor_name(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
 static void check_vla_expression(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -794,14 +793,6 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_DELETE_ARRAY_EXPR :
             {
                 check_delete_expression(expression, decl_context, nodecl_output);
-                break;
-            }
-        case AST_PSEUDO_DESTRUCTOR_CALL :
-        case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
-            {
-                // This name is misleading, this is not a name but a relaxed concession of using the destructor
-                // name even in non-type classes (by means of typedefs or instantiated templates)
-                check_pseudo_destructor_name(expression, decl_context, nodecl_output);
                 break;
             }
         case AST_VLA_EXPRESSION :
@@ -7538,7 +7529,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
 
     // From here only C++
     // Let's check the called entity
-    //  - If it is a NODECL_DEP_NAME_SIMPLE it will require Koenig lookup
+    //  - If it is a NODECL_CXX_DEP_NAME_SIMPLE it will require Koenig lookup
     scope_entry_list_t* candidates = NULL;
     template_parameter_list_t* explicit_template_arguments = NULL;
     type_t* called_type = NULL;
@@ -8431,6 +8422,161 @@ static nodecl_t integrate_field_accesses(nodecl_t base, nodecl_t accessor)
     }
 }
 
+static char is_pseudo_destructor_id(decl_context_t decl_context,
+        type_t* accessed_type,
+        nodecl_t nodecl_member)
+{
+    // A pseudo destructor id has the following structure
+    //
+    // ::[opt] nested-name-specifier-seq[opt] type-name1 :: ~ type-name2
+    //
+    // But we have created a nodecl_name which looks like as a qualified name
+    //
+    // We first lookup this part
+    //
+    // ::[opt] nested-name-specifier-seq[opt] type-name1
+    //
+    // it should give a type equivalent to accessed_type
+    //
+    // then we have to check that type-name1 and type-name2 mean the same name. Note that
+    // both can be typedefs and such, but they must mean the same. type-name2 is looked
+    // up in the context of type-name1, lest type-name1 was a qualified name
+
+    if (nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED
+            && nodecl_get_kind(nodecl_member) != NODECL_CXX_DEP_NAME_NESTED)
+    {
+        return 0;
+    }
+
+    nodecl_t nodecl_last_part = nodecl_name_get_last_part(nodecl_member);
+    if (nodecl_get_kind(nodecl_last_part) != NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        return 0;
+    }
+
+    const char* last_name = nodecl_get_text(nodecl_last_part);
+    // This is not a destructor-id
+    if (last_name[0] != '~')
+        return 0;
+
+    // Ignore '~'
+    last_name++;
+
+    // Now build ::[opt] nested-name-specifier-seq[opt] type-name1
+    nodecl_t new_list = nodecl_null();
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_member, 0), &num_items);
+    if (num_items < 2)
+    {
+        free(list);
+        return 0;
+    }
+
+    // Build the same list without the last name
+    nodecl_t nodecl_new_nested_name = nodecl_null();
+    if ((num_items - 1) > 1)
+    {
+        int i;
+        for (i = 0; i < num_items - 1; i++)
+        {
+            new_list = nodecl_append_to_list(new_list, nodecl_copy(list[i]));
+        }
+
+        if (nodecl_get_kind(nodecl_member) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED)
+        {
+            nodecl_new_nested_name = nodecl_make_cxx_dep_global_name_nested(new_list, 
+                    nodecl_get_filename(nodecl_member),
+                    nodecl_get_line(nodecl_member));
+        }
+        else
+        {
+            nodecl_new_nested_name = nodecl_make_cxx_dep_name_nested(new_list, 
+                    nodecl_get_filename(nodecl_member),
+                    nodecl_get_line(nodecl_member));
+        }
+    }
+    else
+    {
+        // For the case T::~T, we cannot build a nested name with a single
+        // element, so use the element itself
+        nodecl_new_nested_name = nodecl_copy(list[0]);
+    }
+
+    scope_entry_list_t* entry_list = query_nodecl_name_flags(decl_context, 
+            nodecl_new_nested_name, DF_DEPENDENT_TYPENAME);
+
+    if (entry_list == NULL)
+    {
+        return 0;
+    }
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+        // Note that dependent stuff is ignored here as we want a generic node
+        // for member access not a special one for pseudo destructors
+        if (entry->kind != SK_ENUM 
+                && entry->kind != SK_TYPEDEF)
+        {
+            entry_list_free(entry_list);
+            return 0;
+        }
+    }
+
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (!is_scalar_type(entry->type_information))
+    {
+        return 0;
+    }
+
+    // Now check that type-name2 names the same type we have found so far
+
+    entry_list = query_name_str(entry->decl_context, last_name);
+
+    if (entry_list == NULL)
+    {
+        return 0;
+    }
+
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_entry = entry_advance_aliases(entry_list_iterator_current(it));
+        // Note that dependent stuff is ignored here as we want a generic node
+        // for member access not a special one for pseudo destructors
+        if (current_entry->kind != SK_ENUM 
+                && current_entry->kind != SK_TYPEDEF)
+        {
+            entry_list_free(entry_list);
+            return 0;
+        }
+    }
+
+    scope_entry_t* second_entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (!equivalent_types(
+                get_unqualified_type(no_ref(entry->type_information)),
+                get_unqualified_type(no_ref(second_entry->type_information))))
+    {
+        return 0;
+    }
+
+    if (!equivalent_types(get_unqualified_type(no_ref(entry->type_information)),
+                get_unqualified_type(accessed_type)))
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 static void check_nodecl_member_access(
         nodecl_t nodecl_accessed, 
         nodecl_t nodecl_member,
@@ -8515,8 +8661,9 @@ static void check_nodecl_member_access(
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: '->' cannot be applied to '%s' (of type '%s')\n",
+                error_printf("%s: error: '->%s' cannot be applied to '%s' (of type '%s')\n",
                         nodecl_get_locus(nodecl_accessed),
+                        c_cxx_codegen_to_str(nodecl_member),
                         c_cxx_codegen_to_str(nodecl_accessed),
                         print_type_str(no_ref(accessed_type), decl_context));
             }
@@ -8616,13 +8763,24 @@ static void check_nodecl_member_access(
                     pointer_type_get_pointee_type(t), nodecl_get_filename(nodecl_accessed), nodecl_get_line(nodecl_accessed));
     }
 
-    if (!is_class_type(no_ref(accessed_type)))
+    if (IS_CXX_LANGUAGE
+            && is_scalar_type(no_ref(accessed_type))
+            && is_pseudo_destructor_id(decl_context, no_ref(accessed_type), nodecl_member))
+    {
+        *nodecl_output = nodecl_make_pseudo_destructor_name(nodecl_accessed_out, 
+                nodecl_member,
+                get_pseudo_destructor_call_type(),
+                filename, line);
+        return;
+    }
+    else if (!is_class_type(no_ref(accessed_type)))
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: '%s cannot be applied to '%s' (of type '%s')\n",
+            error_printf("%s: error: '%s%s' cannot be applied to '%s' (of type '%s')\n",
                     nodecl_get_locus(nodecl_accessed),
                     operator_arrow ? "->" : ".",
+                    c_cxx_codegen_to_str(nodecl_member),
                     c_cxx_codegen_to_str(nodecl_accessed),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
@@ -11599,277 +11757,6 @@ static void check_sizeof_typeid(AST expr, decl_context_t decl_context, nodecl_t*
     check_sizeof_type(declarator_type, decl_context, filename, line, nodecl_output);
 }
 
-static void check_nodecl_pseudo_destructor_name(nodecl_t nodecl_postfix,
-        type_t* named_type,
-        char is_arrow,
-        nodecl_t* nodecl_output,
-        const char* filename,
-        int line)
-{
-    if (nodecl_expr_is_type_dependent(nodecl_postfix)
-            || is_dependent_type(named_type))
-    {
-        if (!is_arrow)
-        {
-            *nodecl_output = nodecl_make_cxx_dot_pseudo_destructor(nodecl_postfix, 
-                    named_type, 
-                    nodecl_get_filename(nodecl_postfix),
-                    nodecl_get_line(nodecl_postfix));
-        }
-        else
-        {
-            *nodecl_output = nodecl_make_cxx_arrow_pseudo_destructor(nodecl_postfix, 
-                    named_type, 
-                    nodecl_get_filename(nodecl_postfix),
-                    nodecl_get_line(nodecl_postfix));
-        }
-    }
-
-    type_t* postfix_type = nodecl_get_type(nodecl_postfix);
-
-    type_t* object_type = no_ref(postfix_type);
-
-    if (is_arrow)
-    {
-        if (!is_pointer_type(object_type))
-        {
-            if (!checking_ambiguity())
-            {
-                DEBUG_CODE()
-                {
-                    error_printf("%s: error: type of postfix-expression in pseudo-destructor call is not a pointer type\n",
-                            nodecl_get_locus(nodecl_postfix));
-                }
-                *nodecl_output = nodecl_make_err_expr(filename, line);
-                return;
-            }
-        }
-
-        object_type = pointer_type_get_pointee_type(object_type);
-    }
-    
-    if (!is_scalar_type(object_type))
-    {
-        if (!checking_ambiguity())
-        {
-            DEBUG_CODE()
-            {
-                error_printf("%s: error: object-type in pseudo-destructor call is not a scalar type\n",
-                        nodecl_get_locus(nodecl_postfix));
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
-    }
-
-    if (!equivalent_types(get_unqualified_type(object_type), get_unqualified_type(named_type)))
-    {
-        if (!checking_ambiguity())
-        {
-            DEBUG_CODE()
-            {
-                error_printf("%s: error: object-type and designated type in pseudo-destructor are not the same\n",
-                        nodecl_get_locus(nodecl_postfix));
-            }
-            *nodecl_output = nodecl_make_err_expr(filename, line);
-            return;
-        }
-    }
-
-    // Everything seems fine, tag the output with a pseudo-destructor-type
-    *nodecl_output = nodecl_postfix;
-    nodecl_set_type(*nodecl_output, get_pseudo_destructor_call_type());
-}
-
-static void check_pseudo_destructor_name(AST expression, 
-        decl_context_t decl_context, 
-        nodecl_t* nodecl_output)
-{
-    char is_arrow = 0;
-    if (ASTType(expression) == AST_POINTER_PSEUDO_DESTRUCTOR_CALL)
-    {
-        is_arrow = 1;
-    }
-
-    AST postfix_expression = ASTSon0(expression);
-    
-    nodecl_t nodecl_postfix = nodecl_null();
-    check_expression_impl_(postfix_expression, decl_context, &nodecl_postfix);
-    if (nodecl_is_err_expr(nodecl_postfix))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "EXPRTYPE: postfix expression '%s' of pseudo-destructor call does not seem valid\n",
-                    prettyprint_in_buffer(postfix_expression));
-        }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(postfix_expression), ASTLine(postfix_expression));
-        return;
-    }
-    
-    // A::B::T::~T
-    AST pseudo_destructor_name = ASTSon1(expression);
-
-    // A::B::T (should be a nonscalar type)
-    AST pseudo_destructor_id_expression = ASTSon0(pseudo_destructor_name);
-    // ~T (this T and the other one should be the same
-    AST destructor_id = ASTSon1(pseudo_destructor_name);
-
-    // Lookup A::B::T
-    scope_entry_list_t* entry_list = query_id_expression(decl_context, pseudo_destructor_id_expression);
-
-    if (entry_list == NULL)
-    {
-        if (!checking_ambiguity())
-        {
-            error_printf("%s: error: pseudo-destructor '%s' not found", 
-                    ast_location(pseudo_destructor_name),
-                    prettyprint_in_buffer(pseudo_destructor_name));
-        }
-        *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), ASTLine(pseudo_destructor_id_expression));
-        return;
-    }
-
-    scope_entry_list_iterator_t *it = NULL;
-    for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it);
-            entry_list_iterator_next(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-        if (entry->kind != SK_ENUM 
-                && entry->kind != SK_CLASS 
-                && entry->kind != SK_TYPEDEF 
-                && entry->kind != SK_TEMPLATE
-                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-                && entry->kind != SK_GCC_BUILTIN_TYPE)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor '%s' does not name a type", 
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            entry_list_iterator_free(it);
-            entry_list_free(entry_list);
-            return;
-        }
-    }
-    entry_list_iterator_free(it);
-
-    scope_entry_t * entry = entry_list_head(entry_list);
-    entry_list_free(entry_list);
-    
-    decl_context_t destructor_lookup = decl_context;
-    // If the name is qualified the lookup is performed within the scope of the
-    // qualified type-name
-    if (ASTSon0(pseudo_destructor_id_expression) != NULL
-            || ASTSon1(pseudo_destructor_id_expression) != NULL)
-    {
-        destructor_lookup = entry->decl_context;
-    }
-
-    // FIXME: Check that template-template parameters also work here when
-    // involved in a type-name
-
-    if (ASTType(destructor_id) == AST_DESTRUCTOR_ID)
-    {
-        const char * type_name = ASTText(ASTSon0(destructor_id));
-        type_name++; // Ignore '~'
-
-        scope_entry_list_t *new_name = query_name_str(destructor_lookup,
-                type_name);
-
-        if (new_name == NULL)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor '%s' does not refer to any type-name",
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            return;
-        }
-
-        scope_entry_t* new_name_entry = entry_list_head(new_name);
-        entry_list_free(new_name);
-
-        if (!equivalent_types(get_user_defined_type(new_name_entry), 
-                    get_user_defined_type(entry)))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor '%s' does not match the type-name",
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            return;
-        }
-    }
-    else if (ASTType(destructor_id) == AST_DESTRUCTOR_TEMPLATE_ID)
-    {
-        // This must be a class
-        if (entry->kind != SK_CLASS)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor '%s' does not refer to a class",
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            return;
-        }
-
-        AST template_id = ASTSon0(destructor_id);
-
-        scope_entry_list_t *new_name = query_id_expression(destructor_lookup,
-                template_id);
-
-        if (new_name == NULL)
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor template-id '%s' does not refer to any type-name",
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            return;
-        }
-
-        scope_entry_t* new_name_entry = entry_list_head(new_name);
-        entry_list_free(new_name);
-
-        if (!equivalent_types(get_user_defined_type(entry), 
-                    get_user_defined_type(new_name_entry)))
-        {
-            if (!checking_ambiguity())
-            {
-                error_printf("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
-                        ast_location(pseudo_destructor_name),
-                        prettyprint_in_buffer(pseudo_destructor_name));
-            }
-            *nodecl_output = nodecl_make_err_expr(ASTFileName(pseudo_destructor_id_expression), 
-                    ASTLine(pseudo_destructor_id_expression));
-            return;
-        }
-    }
-
-    check_nodecl_pseudo_destructor_name(nodecl_postfix,
-        entry->type_information,
-        is_arrow,
-        nodecl_output,
-        nodecl_get_filename(nodecl_postfix),
-        nodecl_get_line(nodecl_postfix));
-}
 
 static void check_vla_expression(AST expression UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER, 

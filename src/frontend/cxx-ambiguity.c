@@ -1978,7 +1978,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 //
                 //  either_type(a, b, T1, T2) 
                 //     will return  1 if a == T1 and b == T2
-                //     will return -1 if a == T2 and b == T1 s
+                //     will return -1 if a == T2 and b == T1 
                 //     will return  0 otherwise
                 //
                 //  So if 
@@ -2052,45 +2052,6 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 //
                 else if ((either = either_type(previous_choice, current_choice,
                                 AST_FUNCTION_CALL, AST_GREATER_THAN)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                    }
-                }
-                // This one covers the following case
-                //
-                // void f(_T a)
-                // {
-                //   a.A::~A();
-                // }
-                //
-                // could be regarded as either a member access (like a.B::b
-                // provided B is a base class of the type of 'a') or like a
-                // pseudo destructor call, but the latter wins
-                else if ((either = either_type(previous_choice, current_choice,
-                                AST_PSEUDO_DESTRUCTOR_CALL,
-                                AST_CLASS_MEMBER_ACCESS)))
-                {
-                    if (either < 0)
-                    {
-                        correct_choice = i;
-                    }
-                }
-                // This one covers the following case
-                //
-                // template <typename _T>
-                // void f(_T* a)
-                // {
-                //   a->_T::~T();
-                // }
-                //
-                // could be regarded as either a member access (like a.B::f
-                // provided B is a base class of the type of 'a') or like a
-                // pseudo destructor call, but the latter wins
-                else if ((either = either_type(previous_choice, current_choice,
-                                AST_POINTER_PSEUDO_DESTRUCTOR_CALL,
-                                AST_POINTER_CLASS_MEMBER_ACCESS)))
                 {
                     if (either < 0)
                     {
