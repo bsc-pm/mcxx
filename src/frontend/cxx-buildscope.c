@@ -1917,7 +1917,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                     if (is_dependent_type(computed_type))
                     {
                         // The expression type is dependent, wrap it in a typeof
-                        computed_type = get_gcc_typeof_expr_type(expression, decl_context);
+                        computed_type = get_gcc_typeof_expr_type(nodecl_expr, decl_context);
                     }
 
                     switch (ASTType(expression))
@@ -2046,10 +2046,10 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                         entry);
                             }
                         }
-                        else if (is_dependent_type(computed_type))
+                        else if (nodecl_expr_is_type_dependent(nodecl_expr))
                         {
                             // The expression type is dependent, so we will wrap in an typeof expression
-                            computed_type = get_gcc_typeof_expr_type(ASTSon0(a), decl_context);
+                            computed_type = get_gcc_typeof_expr_type(nodecl_expr, decl_context);
                         }
                     }
 

@@ -2980,7 +2980,16 @@ static void codegen_typeid(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     fprintf(visitor->file, "typeid(");
     codegen_walk(visitor, expr);
     fprintf(visitor->file, ")");
+}
 
+static void codegen_explicit_type_cast(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    fprintf(visitor->file, "%s", print_type_str(t, visitor->current_sym->decl_context));
+
+    nodecl_t parenthesized_init = nodecl_get_child(node, 0);
+    codegen_walk(visitor, parenthesized_init);
 }
 
 static void codegen_type(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -4315,6 +4324,8 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_global_name_nested = codegen_visitor_fun(codegen_cxx_dep_global_name_nested);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_nested = codegen_visitor_fun(codegen_cxx_dep_name_nested);
     NODECL_VISITOR(codegen_visitor)->visit_cxx_dep_name_conversion = codegen_visitor_fun(codegen_cxx_dep_name_conversion);
+
+    NODECL_VISITOR(codegen_visitor)->visit_cxx_explicit_type_cast = codegen_visitor_fun(codegen_explicit_type_cast);
 }
 
 // External interface

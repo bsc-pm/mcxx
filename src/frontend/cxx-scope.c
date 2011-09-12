@@ -2342,6 +2342,25 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         return updated_type;
     }
+    else if (is_gcc_typeof_expr(orig_type))
+    {
+        nodecl_t nodecl_expr = gcc_typeof_expr_type_get_expression(orig_type);
+
+        nodecl_t nodecl_new_expr = instantiate_expression(nodecl_expr, decl_context);
+
+        if (nodecl_is_err_expr(nodecl_new_expr))
+        {
+            return NULL;
+        }
+        else if (nodecl_expr_is_type_dependent(nodecl_new_expr))
+        {
+            return orig_type;
+        }
+        else
+        {
+            return nodecl_get_type(nodecl_new_expr);
+        }
+    }
     else
     {
         // Fallback
@@ -3567,11 +3586,13 @@ static scope_entry_list_t* query_nodecl_simple_name(decl_context_t decl_context,
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
         new_sym->decl_context = decl_context;
+        new_sym->file = filename;
+        new_sym->line = line;
         new_sym->type_information = build_dependent_typename_for_entry(
                 named_type_get_symbol(head->entity_specs.class_type),
                 nodecl_name, 
-                nodecl_get_filename(nodecl_name), 
-                nodecl_get_line(nodecl_name));
+                filename,
+                line);
 
         entry_list_free(result);
 
@@ -3605,6 +3626,8 @@ static scope_entry_list_t* query_nodecl_simple_name_in_class(decl_context_t decl
         scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
         new_sym->kind = SK_DEPENDENT_ENTITY;
         new_sym->decl_context = decl_context;
+        new_sym->file = filename;
+        new_sym->line = line;
         new_sym->symbol_name = nodecl_get_text(nodecl_name_get_last_part(nodecl_name));
         new_sym->type_information = build_dependent_typename_for_entry(
                 decl_context.current_scope->related_entry,
@@ -4451,7 +4474,21 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                         filename,
                         line);
 
-                if (!is_class_type(new_class_type))
+                if (is_dependent_type(new_class_type))
+                {
+                    scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+                    new_sym->kind = SK_DEPENDENT_ENTITY;
+                    new_sym->file = filename;
+                    new_sym->line = line;
+                    new_sym->symbol_name = dependent_entity->symbol_name;
+                    new_sym->decl_context = decl_context;
+                    new_sym->type_information = get_dependent_typename_type_from_parts(
+                            named_type_get_symbol(new_class_type),
+                            dependent_parts);
+
+                    return entry_list_new(new_sym);
+                }
+                else if (!is_class_type(new_class_type))
                 {
                     if (!checking_ambiguity())
                     {
@@ -4460,11 +4497,6 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                                 print_type_str(dependent_entity->type_information, dependent_entity->decl_context));
                     }
                     return NULL;
-                }
-                else if (is_dependent_type(new_class_type))
-                {
-                    internal_error("Not yet implemented", 0);
-                    // return entry_list_new(dependent_entity);
                 }
                 else
                 {

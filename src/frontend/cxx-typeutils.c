@@ -73,6 +73,7 @@ enum type_kind
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
     TK_BRACED_LIST,        // 12
+    TK_TYPE_DEP_EXPR,      // 13
     TK_ERROR,
 };
 
@@ -213,10 +214,6 @@ struct simple_type_tag {
     // signed
     unsigned char is_signed:1;
 
-    // For typeof and template dependent types
-    // (kind == STK_TYPEOF)
-    unsigned char typeof_is_expr:1;
-
     // States that the STK_INDIRECT is a not the last indirect
     unsigned char is_indirect:1;
 
@@ -257,7 +254,7 @@ struct simple_type_tag {
 
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
-    AST typeof_expr;
+    nodecl_t typeof_expr;
     decl_context_t typeof_decl_context;
 
     // This is a STK_INDIRECT
@@ -956,28 +953,41 @@ type_t* get_void_type(void)
     return _type;
 }
 
-type_t* get_gcc_typeof_type(AST type_tree, decl_context_t decl_context)
+type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context)
 {
     type_t* type = get_simple_type();
 
     type->type->kind = STK_TYPEOF;
-    type->type->typeof_is_expr = 0;
-    type->type->typeof_expr = type_tree;
+    type->type->typeof_expr = nodecl_expr;
     type->type->typeof_decl_context = decl_context;
 
     return type;
 }
 
-type_t* get_gcc_typeof_expr_type(AST type_expr, decl_context_t decl_context)
+char is_gcc_typeof_expr(type_t* t)
 {
-    type_t* type = get_simple_type();
+    t = advance_over_typedefs(t);
+    return t != NULL
+        && t->kind == TK_DIRECT
+        && t->type->kind == STK_TYPEOF;
+}
 
-    type->type->kind = STK_TYPEOF;
-    type->type->typeof_is_expr = 1;
-    type->type->typeof_expr = type_expr;
-    type->type->typeof_decl_context = decl_context;
+nodecl_t gcc_typeof_expr_type_get_expression(type_t* t)
+{
+    ERROR_CONDITION(!is_gcc_typeof_expr(t), "This is not a typeof type", 0);
 
-    return type;
+    t = advance_over_typedefs(t);
+
+    return t->type->typeof_expr;
+}
+
+decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t)
+{
+    ERROR_CONDITION(!is_gcc_typeof_expr(t), "This is not a typeof type", 0);
+
+    t = advance_over_typedefs(t);
+
+    return t->type->typeof_decl_context;
 }
 
 type_t* get_gcc_builtin_va_list_type(void)
@@ -3997,7 +4007,8 @@ char equivalent_types(type_t* t1, type_t* t2)
             result = 1;
             break;
         case TK_OVERLOAD:
-            // This is always false
+        case TK_TYPE_DEP_EXPR:
+            // These are always false
             break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -5890,7 +5901,23 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TYPEOF :
             {
-                result = "__typeof_not_supported_yet__";
+                if (IS_C_LANGUAGE
+                        || IS_CXX03_LANGUAGE)
+                {
+                    result = strappend(result, "__typeof__(");
+                    result = strappend(result, c_cxx_codegen_to_str(simple_type->typeof_expr));
+                    result = strappend(result, ")");
+                }
+                else if (IS_CXX1X_LANGUAGE)
+                {
+                    result = strappend(result, "decltype(");
+                    result = strappend(result, c_cxx_codegen_to_str(simple_type->typeof_expr));
+                    result = strappend(result, ")");
+                }
+                else
+                {
+                    internal_error("Code unreachable", 0);
+                }
                 break;
             }
         case STK_VA_LIST :
@@ -6868,7 +6895,7 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_TYPEOF :
             result = strappend(result, "__typeof__(");
-            result = strappend(result, prettyprint_in_buffer(simple_type_info->typeof_expr));
+            result = strappend(result, c_cxx_codegen_to_str(simple_type_info->typeof_expr));
             result = strappend(result, ")");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -6946,6 +6973,7 @@ type_t* get_unknown_dependent_type(void)
     if (_dependent_type == NULL)
     {
         _dependent_type = get_simple_type();
+        _dependent_type->kind = TK_TYPE_DEP_EXPR;
     }
     return _dependent_type;
 }

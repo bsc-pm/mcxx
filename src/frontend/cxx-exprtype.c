@@ -6834,6 +6834,33 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
     }
 }
 
+static void check_nodecl_explicit_type_conversion(type_t* type_info,
+        nodecl_t parenthesized_init, decl_context_t decl_context,
+        nodecl_t* nodecl_output,
+        const char* filename,
+        int line)
+{
+    check_nodecl_parenthesized_initializer(parenthesized_init, decl_context, type_info, nodecl_output);
+
+    if (nodecl_is_err_expr(*nodecl_output))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    if (is_dependent_type(type_info))
+    {
+        *nodecl_output = 
+            nodecl_make_cxx_explicit_type_cast(*nodecl_output, type_info, filename, line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    }
+    if (is_dependent_type(type_info)
+            || nodecl_expr_is_value_dependent(*nodecl_output))
+    {
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+    }
+}
+
 static void check_explicit_type_conversion_common(type_t* type_info, 
         AST expr, AST expression_list, decl_context_t decl_context,
         nodecl_t* nodecl_output)
@@ -6850,13 +6877,9 @@ static void check_explicit_type_conversion_common(type_t* type_info,
     }
 
     nodecl_expr_list = nodecl_make_cxx_parenthesized_initializer(nodecl_expr_list, ASTFileName(expr), ASTLine(expr));
-    check_nodecl_parenthesized_initializer(nodecl_expr_list, decl_context, type_info, nodecl_output);
 
-    if (is_dependent_type(type_info)
-            || nodecl_expr_is_value_dependent(*nodecl_output))
-    {
-        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
-    }
+    check_nodecl_explicit_type_conversion(type_info, nodecl_expr_list, decl_context,
+            nodecl_output, ASTFileName(expr), ASTLine(expr));
 }
 
 static void check_explicit_typename_type_conversion(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -8227,6 +8250,10 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
             cast_kind,
             filename, line);
 
+    if (is_dependent_type(declarator_type))
+    {
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+    }
     if (is_dependent_type(declarator_type)
             || nodecl_expr_is_value_dependent(nodecl_casted_expr))
     {
@@ -9722,7 +9749,7 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
     if (is_dependent_type(declared_type))
     {
         *nodecl_output = braced_initializer;
-        nodecl_set_type(*nodecl_output, get_unknown_dependent_type());
+        nodecl_set_type(*nodecl_output, declared_type);
         return;
     }
 
@@ -10314,7 +10341,7 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
     if (is_dependent_type(declared_type))
     {
         *nodecl_output = direct_initializer;
-        nodecl_set_type(*nodecl_output, get_unknown_dependent_type());
+        nodecl_set_type(*nodecl_output, declared_type);
         return;
     }
 
@@ -10416,6 +10443,12 @@ static void check_nodecl_parenthesized_initializer(nodecl_t direct_initializer,
             nodecl_t expr = nodecl_list_head(nodecl_list);
 
             check_nodecl_expr_initializer(expr, decl_context, declared_type, nodecl_output);
+
+            *nodecl_output = nodecl_make_structured_value(
+                    nodecl_make_list_1(*nodecl_output), 
+                    declared_type, 
+                    nodecl_get_filename(direct_initializer), 
+                    nodecl_get_line(direct_initializer));
 
             if (!nodecl_is_err_expr(*nodecl_output))
             {
@@ -13551,6 +13584,24 @@ static void instantiate_nondep_sizeof(nodecl_instantiate_expr_visitor_t* v, node
     v->nodecl_result = result;
 }
 
+static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    type_t * t = nodecl_get_type(node);
+    t = update_type_for_instantiation(t, v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+
+    nodecl_t parenthesized_init = nodecl_get_child(node, 0);
+    nodecl_t new_parenthesized_init = instantiate_expr_walk(v, parenthesized_init);
+
+    check_nodecl_explicit_type_conversion(t, 
+            new_parenthesized_init, 
+            v->decl_context, 
+            &v->nodecl_result,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+}
+
 static void instantiate_parenthesized_initializer(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_result_list = nodecl_null();
@@ -13724,5 +13775,6 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_cxx_equal_initializer = instantiate_expr_visitor_fun(instantiate_equal_initializer);
     NODECL_VISITOR(v)->visit_cxx_braced_initializer = instantiate_expr_visitor_fun(instantiate_braced_initializer);
     NODECL_VISITOR(v)->visit_cxx_parenthesized_initializer = instantiate_expr_visitor_fun(instantiate_parenthesized_initializer);
+    NODECL_VISITOR(v)->visit_cxx_explicit_type_cast = instantiate_expr_visitor_fun(instantiate_explicit_type_cast);
 }
 
