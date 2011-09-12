@@ -4461,6 +4461,11 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     }
                     return NULL;
                 }
+                else if (is_dependent_type(new_class_type))
+                {
+                    internal_error("Not yet implemented", 0);
+                    // return entry_list_new(dependent_entity);
+                }
                 else
                 {
                     if (!nodecl_is_null(dependent_parts))
