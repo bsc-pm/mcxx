@@ -13456,6 +13456,55 @@ static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t
             &v->nodecl_result);
 }
 
+static void instantiate_function_call(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_called = nodecl_null();
+    nodecl_t orig_called = nodecl_get_child(node, 0);
+
+    if (nodecl_get_kind(orig_called) == NODECL_CXX_DEP_NAME_SIMPLE)
+    {
+        nodecl_called = nodecl_copy(orig_called);
+    }
+    else
+    {
+        nodecl_called = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    }
+
+    if (nodecl_is_err_expr(nodecl_called))
+    {
+        v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+        return;
+    }
+
+    nodecl_t nodecl_argument_list = nodecl_get_child(node, 1);
+
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+
+    nodecl_t new_list = nodecl_null();
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t current_arg = 
+                instantiate_expr_walk(v, list[i]);
+
+        if (nodecl_is_err_expr(current_arg))
+        {
+            v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+            return;
+        }
+
+        new_list = nodecl_append_to_list(
+                new_list,
+                current_arg);
+    }
+
+    check_nodecl_function_call(nodecl_called, 
+            new_list,
+            v->decl_context,
+            &v->nodecl_result);
+}
+
 static void instantiate_dep_sizeof_expr(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t dep_expr = nodecl_get_child(node, 0);
@@ -13657,6 +13706,9 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_neg = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_logical_not = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_bitwise_not = instantiate_expr_visitor_fun(instantiate_unary_op);
+
+    // Function call
+    NODECL_VISITOR(v)->visit_function_call = instantiate_expr_visitor_fun(instantiate_function_call);
 
     // Sizeof
     NODECL_VISITOR(v)->visit_sizeof = instantiate_expr_visitor_fun(instantiate_nondep_sizeof);
