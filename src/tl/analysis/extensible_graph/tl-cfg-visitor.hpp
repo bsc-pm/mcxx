@@ -52,30 +52,6 @@ namespace TL
         }
     };
     
-    struct switch_nodes {
-        Node* cond;
-        Node* exit;
-        ObjectList<Node*> broken_cases;
-        Node* last_no_broken_case;
-        
-        switch_nodes() 
-            : cond(NULL), exit(NULL), broken_cases(), last_no_broken_case(NULL)
-        {}
-        
-        void clear()
-        {
-            cond = NULL;
-            exit = NULL;
-            broken_cases.clear();
-            last_no_broken_case = NULL;
-        }
-        
-        bool is_empty()
-        {
-            return (cond == NULL);
-        }
-    };
-    
     struct try_block_nodes {
         ObjectList<Node*> handler_parents;
         ObjectList<Node*> handler_exits;
@@ -98,8 +74,8 @@ namespace TL
     protected:
         ExtensibleGraph* _actual_cfg;
         ScopeLink _sl;
+        
         struct loop_control_nodes _actual_loop_info;
-        struct switch_nodes _actual_switch_info;
         
         //! List with the struct containing information about the try hierarchy we are
         /*!
@@ -107,6 +83,8 @@ namespace TL
          * in the case we detect a Throw, we want to connect it to any catch of any try level of hierarchy
          */
         ObjectList<struct try_block_nodes> _actual_try_info;
+        
+        std::stack<Node*> _switch_cond_s;
         
     private:
         ObjectList<ExtensibleGraph*> _cfgs;
@@ -146,10 +124,6 @@ namespace TL
          * \return The entry node of a sub-graph
          */
         ObjectList<Node*> get_first_nodes(Node* actual_node);
-        
-        //! This method deletes the nodes in the last switch construction which are within the Switch
-        //! but do not belong to any Case statement
-        void delete_non_case_nodes_within_switch();
         
         //! This method implements the visitor for a CaseStatement and for DefaultStatement
         /*!

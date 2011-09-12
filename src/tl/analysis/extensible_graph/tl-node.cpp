@@ -343,6 +343,25 @@ namespace TL
         return (!_entry_edges.empty() || !_exit_edges.empty());
     }
 
+    bool Node::has_child(Node* n)
+    {
+        bool result = false;
+        int id = n->_id;
+        
+        for (ObjectList<Edge*>::iterator it = _exit_edges.begin();
+            it != _exit_edges.end();
+            ++it)
+        {
+            if ((*it)->get_target()->_id == id)
+            {    
+                result = true;
+                break;
+            }
+        }
+        
+        return result;
+    }
+
     Node* Node::advance_over_non_statement_nodes()
     {
         ObjectList<Node*> children = get_children();

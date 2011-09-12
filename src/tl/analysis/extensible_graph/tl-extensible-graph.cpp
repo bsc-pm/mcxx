@@ -106,14 +106,24 @@ namespace TL
         return append_new_node_to_parent(parents, ObjectList<Nodecl::NodeclBase>(1, nodecl), ntype, etype);
     }
 
-    void ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label)
+    Edge* ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype, std::string label)
     {
         if (parent != NULL && child != NULL)
         {
-            std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
-            Edge* new_edge = new Edge(parent, child, etype, label);
-            parent->set_exit_edge(new_edge);
-            child->set_entry_edge(new_edge);
+            if (parent->has_child(child))
+            {
+                std::cerr << "warning: Trying to connect node '" << parent->get_id() << "' with '" << child->get_id() 
+                           << "' and these nodes are already connected" << std::endl;
+                return NULL;
+            }
+            else
+            {
+                std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
+                Edge* new_edge = new Edge(parent, child, etype, label);
+                parent->set_exit_edge(new_edge);
+                child->set_entry_edge(new_edge);
+                return new_edge;
+            }
         }
         else
         {

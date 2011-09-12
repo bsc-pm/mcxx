@@ -211,6 +211,9 @@ namespace TL
             //! Returns true when the node is connected to any parent and/or any child
             bool is_connected();
             
+            //! Returns true when the node is in its children list
+            bool has_child(Node* n);
+            
             // *** Analysis *** //
             
             //! Sets the initial liveness information of the node.

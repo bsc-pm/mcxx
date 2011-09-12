@@ -186,13 +186,14 @@ namespace TL
             
             //! Connects two nodes by creating a new edge between them.
             /*!
-              \param parent Source node of the connection.             
-              \param child Target node of the connection.
-              \param etype Type of the connection between the two nodes.
-              \param label Label for the connection. It will be used when a Catch or a Case edges
-                           are built.
+             * \param parent Source node of the connection.             
+             * \param child Target node of the connection.
+             * \param etype Type of the connection between the two nodes.
+             * \param label Label for the connection. It will be used when a Catch or a Case edges
+             *              are built.
+             * \return The new edge created between the two nodes             
              */
-            void connect_nodes(Node* parent, Node* child, 
+            Edge* connect_nodes(Node* parent, Node* child, 
                                Edge_type etype = ALWAYS_EDGE, std::string label = "");        
            
             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
@@ -206,7 +207,7 @@ namespace TL
             //! children and each connection may be different from the others. 
             //! A set of edge types and labels must be provided.            
             void connect_nodes(Node* parent, ObjectList<Node*> children, 
-                               ObjectList<Edge_type> etypes,ObjectList<std::string> labels);
+                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
 
             //! Wrapper method for #connect_nodes when a set of parents must be connected to an
             //! only child and the nature of the connection is the same for all of them.
