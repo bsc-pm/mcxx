@@ -54,13 +54,7 @@ namespace TL
             ObjectList<Node*> _unhand_try_excpt_list;
             ObjectList<Node*> _labeled_node_list;
             ObjectList<Node*> _goto_node_list;
-            ObjectList<Node*> _throw_node_list;
             ObjectList<Node*> _tasks_node_list;
-            
-            //! Auxiliary values to know where we are
-            bool _continue_stmt;
-            bool _break_stmt;
-            bool _goto_stmt;
             
             //! List of nodes that will be parents of a new node
             ObjectList<Node*> _last_nodes;
@@ -72,41 +66,6 @@ namespace TL
             
             
             // *** Private methods *** //
-
-            
-            //! Builds a set of connected nodes that are contained between two iterators.
-            //! These statements must be a set contained within a SwitchStatement.
-            /*!
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-                            It will be the condition of a SwitchStatement.
-              \param previous_parents List of other parents formed for all the exit statements of
-                                      the immediate previous CaseStatements without a
-                                      BreakStatement at the end.
-              \param switch_exit_parents List of exits formed by the exit node of each
-                                         CaseStatement with a BreakStatement at the end.
-              \param actual_edge_index Counter used to label the edges between the condition of the
-                                       SwitchStatement and each CaseStatement.
-              \param it Iterator to the first statement to be parsed.
-              \param end Iterator to the end of the list of statements to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-            */ 
-            void build_case_node(Node* parent, ObjectList<Node*>& previous_parents,
-                                 ObjectList<Node*>& switch_exit_parents, int& actual_edge_index,
-                                 ObjectList<Statement>::iterator& it, 
-                                 ObjectList<Statement>::iterator end, 
-                                 Node* outer_graph = NULL);
-            
-            //! Set of methods that removes those nodes that can never be reached.                 
-            void clear_orphaned_nodes(Node* actual_node);
-            void clear_orphaned_nodes_in_subgraph(Node* actual_node);
-            void clear_orphaned_cascade(Node* actual_node);
-            
-            //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
-            //! children nodes properly.
-            void erase_unclassified_nodes(Node* actual);
             
             //! Joins all these statements that form a Basic Block.
             //! It assumes that there is no node with UNCLASSIFIED_NODE type in the graph
@@ -205,23 +164,23 @@ namespace TL
              * \param ntype Type of the node to be created. 
              *              By default is BASIC_NORMAL_NODE.
              * \param etype Type of the new edge that connects the new node with @_last_node.
-             *              By default is ALWAYS_EDGE. 
+             *              By default is ALWAYS_EDGE.
+             * \return The new node created
              */
-            void append_new_node_to_parent(ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
+            Node* append_new_node_to_parent(ObjectList<Node*> parent, ObjectList<Nodecl::NodeclBase> nodecl,
                                            Node_type ntype = BASIC_NORMAL_NODE, 
                                            Edge_type etype = ALWAYS_EDGE);
             
             
-            void append_new_node_to_parent(Node* parent, Nodecl::NodeclBase nodecl,
+            Node* append_new_node_to_parent(Node* parent, Nodecl::NodeclBase nodecl,
                                            Node_type ntype = BASIC_NORMAL_NODE, 
                                            Edge_type etype = ALWAYS_EDGE);
-
             
-            void append_new_node_to_parent(Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
+            Node* append_new_node_to_parent(Node* parent, ObjectList<Nodecl::NodeclBase> nodecl,
                                            Node_type ntype = BASIC_NORMAL_NODE, 
                                            Edge_type etype = ALWAYS_EDGE);            
 
-            void append_new_node_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
+            Node* append_new_node_to_parent(ObjectList<Node*> parents, Nodecl::NodeclBase nodecl,
                                            Node_type ntype = BASIC_NORMAL_NODE, 
                                            Edge_type etype = ALWAYS_EDGE);                   
             
@@ -233,12 +192,26 @@ namespace TL
               \param label Label for the connection. It will be used when a Catch or a Case edges
                            are built.
              */
-            void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
-                               std::string label = "");        
+            void connect_nodes(Node* parent, Node* child, 
+                               Edge_type etype = ALWAYS_EDGE, std::string label = "");        
            
-            //! Wrapper method of #connect_nodes for the case of connecting many sources with one only target
-            void connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype = ALWAYS_EDGE, 
-                               std::string label = "");         
+            //! Wrapper method for #connect_nodes when a set of parents must be connected to a
+            //! set of children and each connection may be different from the others. 
+            //! A set of edge types and labels must be provided. It is assumed that each parent is
+            //! connected to all its children with the same type of edge.
+            void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
+                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+           
+            //! Wrapper method for #connect_nodes when a parent must be connected to a set of
+            //! children and each connection may be different from the others. 
+            //! A set of edge types and labels must be provided.            
+            void connect_nodes(Node* parent, ObjectList<Node*> children, 
+                               ObjectList<Edge_type> etypes,ObjectList<std::string> labels);
+
+            //! Wrapper method for #connect_nodes when a set of parents must be connected to an
+            //! only child and the nature of the connection is the same for all of them.
+            void connect_nodes(ObjectList<Node*> parents, Node* child, 
+                               Edge_type etype = ALWAYS_EDGE, std::string label = "");
             
             //! Builds a composite node with an entry and an exit node.
             /*!
@@ -259,8 +232,44 @@ namespace TL
              */
             Node* create_unconnected_node(Nodecl::NodeclBase nodecl);
             
+            //! Deletes a node from the graph
+            /*!
+             * The method erases the node from the list of children of its parent and
+             * from the list of parents of its children as well. Finally, frees the pointer.
+             * \param n Pointer to the node to be deleted
+             */
+            void delete_node(Node* n);
+            
+            //! This method removes all those nodes that are unreachable and those that were created
+            //! as auxiliary nodes when the graph was created. 
+            //! It also joins those nodes that are always consecutively executed and non of them
+            //! are the target of a jump.
+            void clear_unnecessary_nodes();
+            
+            //! This function clears the attribute #visited from nodes bellow @actual node.
+            //! It works properly if there isn't any unreachable node in the graph bellow @actual.
+            void clear_visits(Node* actual);
+                       
+            //! Set of methods that removes those nodes that can never be reached.                 
+            void clear_orphaned_nodes(Node* actual_node);
+            void clear_orphaned_nodes_in_subgraph(Node* actual_node);
+            void clear_orphaned_cascade(Node* actual_node);
+            
+            //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
+            //! children nodes properly.
+            void erase_unclassified_nodes(Node* actual);            
             
             
+            // *** DOT Graph *** //
+            
+            //! Build a DOT file that represents the CFG
+            void print_graph_to_dot();
+            
+            
+            // *** Static CFG Analysis *** //
+            
+            //! Computes the define-use chain of the cfg
+            void live_variable_analysis();            
             
             
             
@@ -271,93 +280,7 @@ namespace TL
             
             
             // *** Modifiers *** //
-           
-            //! Wrapper method for #build_CFG, when the code is contained in an only Statement
-            void build_CFG(Statement stmt);
-            
-            //! Builds a Control Flow Graph of a piece of code contained in a list of statements
-            void build_CFG(ObjectList<Statement> stmts);
-            
-            //! Wrapper for #build_graph_from_statements when only one statement.
-            Node* build_graph_from_statement(Node *parent, Statement stmt, 
-                                             Node* outer_graph = NULL);
-            
-            //! Builds a node or a set of them containing a set of statements
-            /*!
-              \param parent Parent of the first of the new nodes to be built.
-              \param stmt Set of statements to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Depending on the type of the node/s built:  
-                        - if composite node, the whole node is returned.
-                        - otherwise, an empty node which is the exit of the chain.
-            */
-            Node* build_graph_from_statements(Node *parent, ObjectList<Statement> stmts, 
-                                              Node* outer_graph = NULL);
-            
-            //! Builds a node or a set of them containing a set of statements.
-            /*!
-              The statements must not be break the the flow (as statements). That means that the
-              set must not contain statements of the type: ForStatement, WhileStatement,
-              IfStatement, DoWhileStatement, SwitchStatement, BreakStatement, ContinueStatement,
-              TryStatement, ReturnStatement, GotoStatement or LabeledStatement.
-              \param parent Parent of the first of the new nodes to be built.
-              \param stmts Set of statements to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Depending on the type of the node/s built:  
-                        - if composite node, the whole node is returned.
-                        - otherwise, an empty node which is the exit of the chain.
-             */
-            Node* build_node_from_sequential_statements(Node *parent, 
-                                                        ObjectList<Statement> stmts,
-                                                        Node* outer_graph = NULL);
-            
-            //! Builds a node or a set of them containing a expression.
-            /*!
-              The method splits the expression until it founds a literal or an id_expression.
-              It tries to build the minimum number of nodes as possible. When it can not be sure of
-              the atomicity of the expression, then it builds different nodes and concatenates them
-              within a composite node. It happens when:
-                - Function call.
-                - Conditional expression.
-                - Some of the previous cases occurs within other expression.
-              \param parent Parent of the first of the new nodes to be built.
-              \param expr Expression to be parsed.
-              \param always_create_node true when the expression must build always a node, 
-                                        even if the instruction represented does not split the flow.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Depending on the type of the node/s built:  
-                        - if composite node, the whole node is returned.
-                        - otherwise, an empty node which is the exit of the chain.
-             */
-            Node* build_node_from_expression(Node* parent, Expression expr, 
-                                             bool always_create_node, Node* outer_graph = NULL);
-            
-            //! Builds a set of connected nodes that contains a ForStatement.
-            /*!
-              \param parent Parent of the first of the new nodes to be built.
-              \param for_stmt ForStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-             */
-            Node* build_for_node(Node* parent, Statement for_stmt, Node* outer_graph = NULL);
-            
-            //! Builds a set of connected nodes that contains a WhileStatement.
-            /*!
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-              \param while_stmt WhileStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-             */            
-            Node* build_while_node(Node* parent, Statement while_stmt, Node* outer_graph = NULL);
+
             
             //! Builds a set of connected nodes that contains a DoWhileStatement.
             /*!
@@ -372,50 +295,6 @@ namespace TL
             */               
             Node* build_dowhile_node(Node* parent, Statement dowhile_stmt, 
                                      Node* outer_graph = NULL);
-                                     
-            //! Builds a set of connected nodes that contains a IfStatement.
-            /*!
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-              \param if_stmt IfStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-            */   
-            Node* build_if_node(Node* parent, Statement if_stmt, Node* outer_graph = NULL);
-            
-            //! Builds a set of connected nodes that contains a SwitchStatement.
-            /*!
-              Since the inner statements in a SwitchStatement are a Compound Statement where the
-              the CaseStatements are only linked with the immediatly next statement, we must parse
-              each statement remembering what happened in the past. 
-              For that reason a CaseStatement can not be built regardless of the rest of statements
-              within the SwitchStatement.
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-              \param switch_stmt SwitchStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-            */ 
-            Node* build_switch_node(Node* parent, Statement switch_stmt, Node* outer_graph = NULL);
-
-            //! Builds a set of connected nodes that contains a TryStatement.
-            /*!
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-              \param try_block TryStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-            */ 
-            Node* build_try_node(Node* parent, Statement try_block, Node* outer_graph = NULL);
             
             //! Builds a node that contains a LabeledStatement.
             /*!
@@ -467,17 +346,6 @@ namespace TL
             */                       
             Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
             
-            //! Builds a node that contains a ReturnStatement.
-            /*!
-              \param parent Parent of the first of the new nodes to be built.
-              \param return_stmt ReturnStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Node containing the ReturnStatement.
-            */ 
-            Node* build_return_node(Node* parent, Statement return_stmt, Node* outer_graph = NULL);
-           
-            
             //! Builds a barrier node with its flush nodes.
             /*!
               Since a Flush is implied during a Barrier region, a Flush Node is added before and
@@ -511,30 +379,14 @@ namespace TL
                                             Node* outer_graph = NULL, 
                                             Node_type ntype = BASIC_NORMAL_NODE,
                                             Edge_type etype = ALWAYS_EDGE);
-            
-//             //! Wrapper method for #connect_nodes when a set of parents must be connected to an
-//             //! only child and the nature of the connection is the same for all of them.
-//             void connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype=ALWAYS_EDGE,
-//                                std::string label = "");
-//                                
-//             //! Wrapper method for #connect_nodes when a parent must be connected to a set of
-//             //! children and each connection may be different from the others. 
-//             //! A set of edge types and labels must be provided.
-//             void connect_nodes(Node* parent, ObjectList<Node*> children, 
-//                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+
 //             
 //             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
 //             //! child and each connection may be different from the others. 
 //             //! A set of edge types and labels must be provided.
 //             void connect_nodes(ObjectList<Node*> parents, Node* children, 
 //                                 ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
-//                                 
-//             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
-//             //! set of children and each connection may be different from the others. 
-//             //! A set of edge types and labels must be provided. It is assumed that each parent is
-//             //! connected to all its children with the same type of edge.
-//             void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
-//                                ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+
             
             
             // OLD method
@@ -562,37 +414,7 @@ namespace TL
               \param child Target of the connection to be removed.
              */
             void disconnect_nodes(Node *parent, Node *child);
-            
-            
-            //! This method removes all those nodes that are unreachable and those that were created
-            //! as auxiliary nodes when the graph was created. 
-            //! It also joins those nodes that are always consecutively executed and non of them
-            //! are the target of a jump.
-            void clear_unnecessary_nodes();
-            
-            //! This function clears the attribute #visited from nodes bellow @actual node.
-            //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-            void clear_visits(Node* actual);
-            
-            
-            // *** Utils *** //
-            
-            //! Returns true when some of the following statements: ForStatement, WhileStatement,
-            //! IfStatement, DoWhileStatement, SwitchStatement, BreakStatement, ContinueStatement,
-            //! TryStatement, ReturnStatement, GotoStatement or LabeledStatement.
-            bool statement_breaks_flow(Statement stmt);
-            
-            
-            // *** DOT Graph *** //
-            
-            //! Build a DOT file that represents the CFG
-            void print_graph_to_dot();
 
-            
-            // *** Static CFG Analysis *** //
-            
-            //! Computes the define-use chain of the cfg
-            void live_variable_analysis();
             
         friend class CfgVisitor;
         friend class InGraphNodeVisitor;

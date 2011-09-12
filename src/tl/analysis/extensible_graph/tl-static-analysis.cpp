@@ -54,7 +54,7 @@ namespace TL
     
     void ExtensibleGraph::gather_live_initial_information(Node* actual)
     {
-        Node_type ntype = actual->get_data<Node_type>("type");
+        Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
         while (!actual->is_visited())
         {
             actual->set_visited(true);
@@ -62,7 +62,7 @@ namespace TL
             {
                 if (ntype == GRAPH_NODE)
                 {
-                    gather_live_initial_information(actual->get_data<Node*>("entry"));
+                    gather_live_initial_information(actual->get_data<Node*>(_ENTRY_NODE));
                 }
                 else if (ntype != BASIC_ENTRY_NODE)
                 {
@@ -99,21 +99,21 @@ namespace TL
         {
             actual->set_visited(true);
             
-            Node_type ntype = actual->get_data<Node_type>("type");
+            Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
             if (ntype != BASIC_EXIT_NODE)
             {
                 ObjectList<Node*> children = actual->get_children();
                 
                 if (ntype == GRAPH_NODE)
                 {
-                    if (!actual->has_key("label"))
+                    if (!actual->has_key(_NODE_LABEL))
                     {
                         internal_error("Graph node '%d' with no specified label."
                                        "Expecting a Pragma, Function_call, Conditional Espression "
                                        "or Splitted instruction as a Graph node here",
                                        actual->get_id());
                     }
-                    Node* entry_node = actual->get_data<Node*>("entry");
+                    Node* entry_node = actual->get_data<Node*>(_ENTRY_NODE);
                     solve_live_equations_recursive(entry_node, changed);
                     
                     // spread the liveness inside the node to the Graph node
@@ -135,11 +135,11 @@ namespace TL
                             it != children.end();
                             ++it)
                         {
-                            Node_type nt = (*it)->get_data<Node_type>("type");
+                            Node_type nt = (*it)->get_data<Node_type>(_NODE_TYPE);
                             if (nt == GRAPH_NODE)
                             {
                                 ObjectList<Node*> inner_children = 
-                                    (*it)->get_data<Node*>("entry")->get_children();
+                                    (*it)->get_data<Node*>(_ENTRY_NODE)->get_children();
                                 for(ObjectList<Node*>::iterator itic = inner_children.begin();
                                     itic != inner_children.end();
                                     ++itic)
@@ -152,7 +152,7 @@ namespace TL
                             else if (nt == BASIC_EXIT_NODE /*&& *it != _exit*/)     // Exit ja no existeix així!!
                             {
                                 ObjectList<Node*> outer_children = 
-                                    (*it)->get_data<Node*>("outer_graph")->get_children();
+                                    (*it)->get_data<Node*>(_OUTER_NODE)->get_children();
                                 for(ObjectList<Node*>::iterator itoc = outer_children.begin();
                                     itoc != outer_children.end();
                                     ++itoc)
@@ -196,9 +196,9 @@ namespace TL
     
     void Node::set_live_initial_information(ScopeLink sl)
     {
-        if (has_key("statements")) 
+        if (has_key(_NODE_STMTS)) 
         {
-            ObjectList<AST_t> basic_block = get_data<ObjectList<AST_t> >("statements");
+            ObjectList<AST_t> basic_block = get_data<ObjectList<AST_t> >(_NODE_STMTS);
             for (ObjectList<AST_t>::iterator it = basic_block.begin();
                     it != basic_block.end();
                     ++it)

@@ -116,10 +116,15 @@ namespace TL
              * \param id Last identifier used to built a node (the method increments it by 1).
              * \param outer_node Pointer to the wrapper node. If the node does not belong to other
              *                   node, then this parameter must be NULL.
-             * \param nodecl Nodecl containing the Statement to be included in the new node
+             * \param nodecls List of Nodecl containing the Statements to be included in the new node
              */
-            Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
+            Node(int& id, Node_type type, Node* outer_graph, ObjectList<Nodecl::NodeclBase> nodecls);
 
+            //! Wrapper constructor in the for Basic Nodes with statements in the case that only one statement
+            //! must be included in the list
+            Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
+            
+            Node(const Node& n);
             
             // *** Modifiers *** //
             
@@ -132,8 +137,8 @@ namespace TL
             
             //! Removes an exit edge from the correspondent list.
             /*!
-              If the target node does not exist, then a warning message is shown.
-              \param source Pointer to the target node of the Edge that will be erased.
+             * If the target node does not exist, then a warning message is shown.
+             * \param source Pointer to the target node of the Edge that will be erased.
              */
             void erase_exit_edge(Node* target);
             
@@ -148,14 +153,21 @@ namespace TL
             
             //! Returns a boolean indicating whether the node was visited or not.
             /*!
-              This method is useful when traversals among the nodes are performed.
-              Once the traversal is ended, all nodes must be set to non-visited using 
-              set_visited method.
+             * This method is useful when traversals among the nodes are performed.
+             * Once the traversal is ended, all nodes must be set to non-visited using
+             * set_visited method.
              */
             bool is_visited() const;
             
             //! Sets node member #visited.
             void set_visited(bool visited);
+            
+            //! Returns a boolean indicating whether the node is empty or not
+            /*!
+             * A empty node is created in the cases when we need a node to be returned but 
+             * no node is needed to represent data.
+             */
+            bool is_empty_node();
             
             //! Returns the list of entry edges of the node.
             ObjectList<Edge*> get_entry_edges() const;
@@ -196,6 +208,8 @@ namespace TL
             //! Returns true when the node is not a composite node (does not contain nodes inside).
             bool is_basic_node();
             
+            //! Returns true when the node is connected to any parent and/or any child
+            bool is_connected();
             
             // *** Analysis *** //
             

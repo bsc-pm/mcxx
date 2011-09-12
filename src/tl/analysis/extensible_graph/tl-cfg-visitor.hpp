@@ -36,28 +36,43 @@ namespace TL
         Node* next;
         
         loop_control_nodes() 
-            : init(NULL), cond(NULL), next(NULL) 
+            : init(NULL), cond(NULL), next(NULL)
         {}
+        
+        void clear()
+        {
+            init = NULL;
+            cond = NULL;
+            next = NULL;
+        }
+        
+        bool is_empty()
+        {
+            return ((init==NULL) && (cond==NULL) && (next==NULL));
+        }
     };
     
     struct switch_nodes {
         Node* cond;
-        Node* case_no_break;
-        ObjectList<Node*> cases_break;
-        int ncases;
-        bool last_case_no_break;
+        Node* exit;
+        ObjectList<Node*> broken_cases;
+        Node* last_no_broken_case;
         
         switch_nodes() 
-            : cond(NULL), case_no_break(NULL), cases_break(), ncases(-1), last_case_no_break(true)
+            : cond(NULL), exit(NULL), broken_cases(), last_no_broken_case(NULL)
         {}
         
         void clear()
         {
             cond = NULL;
-            case_no_break = NULL;
-            cases_break.clear();
-            ncases = -1;
-            last_case_no_break = true;
+            exit = NULL;
+            broken_cases.clear();
+            last_no_broken_case = NULL;
+        }
+        
+        bool is_empty()
+        {
+            return (cond == NULL);
         }
     };
     
@@ -75,7 +90,7 @@ namespace TL
             handler_parents.clear();
             handler_exits.clear();
             nhandlers = -1;
-        }
+        }  
     };
     
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
@@ -85,39 +100,43 @@ namespace TL
         ScopeLink _sl;
         struct loop_control_nodes _actual_loop_info;
         struct switch_nodes _actual_switch_info;
-        struct try_block_nodes _actual_try_info;
+        
+        //! List with the struct containing information about the try hierarchy we are
+        /*!
+         * This member is a list because we need to access the different levels without deleting them
+         * in the case we detect a Throw, we want to connect it to any catch of any try level of hierarchy
+         */
+        ObjectList<struct try_block_nodes> _actual_try_info;
         
     private:
         ObjectList<ExtensibleGraph*> _cfgs;
-        ObjectList<Nodecl::NodeclBase> _seq_nodecl;
-        
-        //! This method creates a node from a expression
-        /*!
-         * \param n Source expression
-         * \param connect_node Boolean indicating whether the node must be connected with the last nodes
-         *                     created in the graph
-         * \return The new node created
-         */
-//         Node* get_expression_node(const Nodecl::NodeclBase& n, bool connect_node = true);
+       
         
         //! This method creates a list with the nodes in an specific subgraph
         /*!
          * \param node First node to be traversed. The method will visit all nodes from here.
          */
-//         void compute_catch_parents(Node* node);
+        void compute_catch_parents(Node* node);
         
-        //! This method merges two nodes containing an Expression into one
+        //! This method merges a list of nodes containing an Expression into one
         /*!
          * The way the method merges the nodes depends on the kind of the nodes to be merged:
-         * The nodes that are not a GRAPH NODE are deleted. The rest, remains there to be the parents of the new node.
+         * The nodes that are not a GRAPH NODE are deleted. The rest remain there to be the parents of the new node.
+         * \param n Nodecl containing a Expression which will be wrapped in the new node
+         * \param nodes_l List of nodes containing the different parts of an expression
+         * \return The new node created
+         */        
+        Node* merge_nodes(Nodecl::NodeclBase n, ObjectList<Node*> nodes_l);
+        
+        //! This is a wrapper method of #merge_nodes for the case having only one or two nodes to be merged
+        /*!
          * \param n Nodecl containing a Expression which will be wrapped in the new node
          * \param first Pointer to the node containing one part of the new node
          * \param second Pointer to the node containing other part of the new node
-         * \return The new node created
          */
         Node* merge_nodes(Nodecl::NodeclBase n, Node* first, Node* second);
         
-        //! This method finds the parent node in a sequence of connected nodes
+        //! This method finds the parent nodes in a sequence of connected nodes
         /*!
          * The method fails when the sub-graph has more than one entry node.
          * Since this method is used specifically to collapse the nodes created while building the node of an expression
@@ -126,7 +145,19 @@ namespace TL
          * \param actual_node Node we are computing in this moment
          * \return The entry node of a sub-graph
          */
-        Node* get_first_node(Node* actual_node);
+        ObjectList<Node*> get_first_nodes(Node* actual_node);
+        
+        //! This method deletes the nodes in the last switch construction which are within the Switch
+        //! but do not belong to any Case statement
+        void delete_non_case_nodes_within_switch();
+        
+        //! This method implements the visitor for a CaseStatement and for DefaultStatement
+        /*!
+         * \param n Nodecl containing the Case or the Default Statement
+         * \return The last node created while the Statement has been parsed
+         */
+        template <typename T>
+        CfgVisitor::Ret visit_Case_or_Default(const T& n);
         
     public:
         CfgVisitor(ScopeLink sl);
@@ -142,7 +173,6 @@ namespace TL
         Ret visit(const Nodecl::Symbol& n);
         Ret visit(const Nodecl::ExpressionStatement& n);
         Ret visit(const Nodecl::ParenthesizedExpression& n);
-        Ret visit(const Nodecl::ErrExpr& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::ArraySubscript& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);

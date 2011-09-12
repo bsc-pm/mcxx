@@ -425,7 +425,7 @@ def generate_nodecl_classes_base(rule_map):
    print "    std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = \"(null)\"; return c; }"
    print "    int get_line() const { return nodecl_get_line(_n); }"
    print "    std::string get_locus() const { std::stringstream ss; ss << this->get_filename() << \":\" << this->get_line(); return ss.str(); }"
-   print "    nodecl_t get_internal_nodecl() { return _n; }"
+   print "    nodecl_t get_internal_nodecl() const { return _n; }"
    print "    // Simple RTTI"
    print "    template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }"
    print "    template <typename T> T as() const { return T(this->_n); }"

@@ -2625,7 +2625,6 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     PREFIX_UNARY_EXPRESSION(predecrement, "--") \
     PREFIX_UNARY_EXPRESSION(delete, "delete ") \
     PREFIX_UNARY_EXPRESSION(delete_array, "delete[] ") \
-    PREFIX_UNARY_EXPRESSION(throw, "throw ") \
     POSTFIX_UNARY_EXPRESSION(postincrement, "++") \
     POSTFIX_UNARY_EXPRESSION(postdecrement, "--") \
     BINARY_EXPRESSION(add, " + ") \
@@ -2677,6 +2676,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
             fprintf(visitor->file, ")"); \
         } \
     }
+
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
@@ -2760,6 +2760,25 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
+
+static void codegen_throw(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t rhs = nodecl_get_child(node, 0);
+    fprintf(visitor->file, "%s", "throw");
+    if(!nodecl_is_null(rhs))
+    {
+        char needs_parentheses = operand_has_lower_priority(node, rhs);
+        if (needs_parentheses)
+        {
+            fprintf(visitor->file, "(");
+        }
+        codegen_walk(visitor, rhs);
+        if (needs_parentheses)
+        {
+            fprintf(visitor->file, ")");
+        }    
+    }
+}
 
 static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {

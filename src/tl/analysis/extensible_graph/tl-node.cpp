@@ -22,27 +22,28 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
+#include "cxx-codegen.h"
 #include "cxx-process.h"
 #include "tl-node.hpp"
+
 
 namespace TL
 {
     Node::Node()
         : _id(-1), _entry_edges(), _exit_edges(), _visited(false)
     {
-        std::cerr << "Created new empty node" << std::endl;
         set_data(_NODE_TYPE, UNCLASSIFIED_NODE);
     }
     
     Node::Node(int& id, Node_type ntype, Node* outer_graph)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
-        std::cerr << "Created new node wo stmts " << _id << std::endl;
+//         std::cerr << "Created node " << _id << std::endl;
         set_data(_NODE_TYPE, ntype);
         
         if (outer_graph != NULL)
         {
-            set_data(_OUTER_GRAPH, outer_graph);
+            set_data(_OUTER_NODE, outer_graph);
         }
 
         if (ntype == GRAPH_NODE)
@@ -52,18 +53,47 @@ namespace TL
         }
     }
     
+    Node::Node(int& id, Node_type type, Node* outer_graph, ObjectList<Nodecl::NodeclBase> nodecls)
+        : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
+    {
+//         std::cerr << "Created node " << _id << " with nodecl " 
+//                   << c_cxx_codegen_to_str(((Nodecl::NodeclBase)nodecls[0]).get_internal_nodecl()) 
+//                   << std::endl;
+        set_data(_NODE_TYPE, type);
+        
+        if (outer_graph != NULL)
+        {    
+            set_data(_OUTER_NODE, outer_graph);
+        }
+        
+        set_data(_NODE_STMTS, nodecls);
+    }
+    
     Node::Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
-        std::cerr << "Created new node W stmts" << _id << std::endl;
-        
+//         Node(id, type, outer_graph, ObjectList<Nodecl::NodeclBase>(1, nodecl));
+
+//         std::cerr << "Created node " << _id << " with nodecl " 
+//                   << c_cxx_codegen_to_str(((Nodecl::NodeclBase)nodecl).get_internal_nodecl())
+//                   << std::endl;
+                  
         set_data(_NODE_TYPE, type);
+        
         if (outer_graph != NULL)
         {    
-            set_data(_OUTER_GRAPH, outer_graph);
+            set_data(_OUTER_NODE, outer_graph);
         }
         
-        set_data(_NODE_STMTS, nodecl);
+        set_data(_NODE_STMTS, ObjectList<Nodecl::NodeclBase>(1,nodecl));
+    }
+    
+    Node::Node(const Node& n)
+    {
+        _id = n._id;
+        _entry_edges = n._entry_edges;
+        _exit_edges = n._exit_edges;
+        _visited = n._visited;
     }
     
     void Node::erase_entry_edge(Node* source)
@@ -118,7 +148,6 @@ namespace TL
     
     void Node::set_id(int id)
     {
-        std::cerr << "Setting id " << id << " to some node" << std::endl;
         _id = id;
     }
     
@@ -130,6 +159,11 @@ namespace TL
     void Node::set_visited(bool visited)
     {
         _visited = visited;
+    }
+    
+    bool Node::is_empty_node()
+    {
+        return (_id==-1 && get_data<Node_type>(_NODE_TYPE)==UNCLASSIFIED_NODE);
     }
     
     ObjectList<Edge*> Node::get_entry_edges() const
@@ -150,7 +184,7 @@ namespace TL
                 it != _entry_edges.end();
                 ++it)
         {
-            result.append((*it)->get_data<Edge_type>(_NODE_TYPE));
+            result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
         }
         
         return result;
@@ -164,14 +198,7 @@ namespace TL
                 it != _entry_edges.end();
                 ++it)
         {
-            if ((*it)->has_key(_NODE_LABEL))
-            {    
-                result.append((*it)->get_data<std::string>(_NODE_LABEL));
-            }
-            else
-            {
-                result.append("");
-            }
+            result.append((*it)->get_label());
         }
         
         return result;
@@ -209,7 +236,7 @@ namespace TL
                 it != _exit_edges.end();
                 ++it)
         {
-            result.append((*it)->get_data<Edge_type>(_NODE_TYPE));
+            result.append((*it)->get_data<Edge_type>(_EDGE_TYPE));
         }
         
         return result;
@@ -223,14 +250,7 @@ namespace TL
                 it != _exit_edges.end();
                 ++it)
         {
-            if ((*it)->has_key(_NODE_LABEL))
-            {    
-                result.append((*it)->get_data<std::string>(_NODE_LABEL));
-            }
-            else
-            {
-                result.append("");
-            }
+            result.append((*it)->get_label());
         }
         
         return result;
@@ -274,6 +294,10 @@ namespace TL
                 break;
                 case BASIC_LABELED_NODE:            type = "BASIC_LABELED_NODE";
                 break;
+                case BASIC_BREAK_NODE:              type = "BASIC_BREAK_NODE";
+                break;
+                case BASIC_CONTINUE_NODE:           type = "BASIC_CONTINUE_NODE";
+                break;
                 case BASIC_GOTO_NODE:               type = "BASIC_GOTO_NODE";
                 break;
                 case BASIC_FUNCTION_CALL_NODE:      type = "BASIC_FUNCTION_CALL_NODE";
@@ -314,6 +338,11 @@ namespace TL
         }
     }
 
+    bool Node::is_connected()
+    {
+        return (!_entry_edges.empty() || !_exit_edges.empty());
+    }
+
     Node* Node::advance_over_non_statement_nodes()
     {
         ObjectList<Node*> children = get_children();
@@ -330,9 +359,9 @@ namespace TL
             }
             else if (ntype == BASIC_EXIT_NODE)
             {
-                if (c0->has_key(_OUTER_GRAPH))
+                if (c0->has_key(_OUTER_NODE))
                 {
-                    result = c0->get_data<Node*>(_OUTER_GRAPH);
+                    result = c0->get_data<Node*>(_OUTER_NODE);
                 }
                 else
                 {    
@@ -366,9 +395,9 @@ namespace TL
             }
             else if (ntype == BASIC_ENTRY_NODE)
             {
-                if (p0->has_key(_OUTER_GRAPH))
+                if (p0->has_key(_OUTER_NODE))
                 {
-                    result = p0->get_data<Node*>(_OUTER_GRAPH);
+                    result = p0->get_data<Node*>(_OUTER_NODE);
                 }
                 else
                 {    

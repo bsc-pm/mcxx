@@ -29,8 +29,8 @@ namespace TL
     Edge::Edge(Node *source, Node *target, Edge_type type, std::string label)
         : _source(source), _target(target)
     {
-        set_data<Edge_type>("type", type);
-        set_data<std::string>("label", label);
+        set_data<Edge_type>(_EDGE_TYPE, type);
+        set_data<std::string>(_EDGE_LABEL, label);
     }
 
     Node* Edge::get_source() const
@@ -45,9 +45,9 @@ namespace TL
 
     Edge_type Edge::get_type()
     {
-        if (has_key("type"))
+        if (has_key(_EDGE_TYPE))
         {    
-            return get_data<Edge_type>("type");
+            return get_data<Edge_type>(_EDGE_TYPE);
         }
         else
         {    
@@ -59,10 +59,10 @@ namespace TL
     {
         std::string label = "";
         
-        if (has_key("type") && 
-            get_data<Edge_type>("type") != UNCLASSIFIED_EDGE)
+        if (has_key(_EDGE_TYPE) && 
+            get_data<Edge_type>(_EDGE_TYPE) != UNCLASSIFIED_EDGE)
         {
-            Edge_type etype = get_data<Edge_type>((const std::string) "type");
+            Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
             switch (etype)
             {
                 case TRUE_EDGE:     label = "True";
@@ -72,7 +72,7 @@ namespace TL
                 case ALWAYS_EDGE:   label = "";
                 break;
                 case CASE_EDGE:
-                case CATCH_EDGE:    label = get_data<std::string>(std::string("label"));
+                case CATCH_EDGE:    label = get_data<std::string>(std::string(_EDGE_LABEL));
                 break;
                 default: std::cerr << " ** Edge.cpp :: get_label() ** "
                                    << "warning: Unexpected type '" << etype << "' while getting "

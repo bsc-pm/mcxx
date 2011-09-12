@@ -36,6 +36,8 @@ namespace TL
         BASIC_NORMAL_NODE,              //! Node representing a Basic Bloc
         BASIC_LABELED_NODE,             //! Node containing an only Labeled Statement
         BASIC_GOTO_NODE,                //! Node containing a GotoStatement
+        BASIC_BREAK_NODE,               //! Node containing a BreakStatement
+        BASIC_CONTINUE_NODE,            //! Node containing a ContinueStatement
         BASIC_FUNCTION_CALL_NODE,       //! Node containing a Function Call
         FLUSH_NODE,                     //! Node containing an OMP Flush directive
         BARRIER_NODE,                   //! Node containing an OMP Barrier directive
@@ -60,13 +62,13 @@ namespace TL
       Type of a node. This will be a value of the enumeration Node_type.
       Mandatory in all nodes.
      */
-    #define _NODE_TYPE      "type"
-    /*! \def _OUTER_GRAPH
+    #define _NODE_TYPE      "node_type"
+    /*! \def _OUTER_NODE
       Pointer to the node which contains a node. 
       Only the nodes that are within other nodes has this value set.
       Available in all type of nodes.
      */
-    #define _OUTER_GRAPH    "outer_graph"
+    #define _OUTER_NODE    "outer_node"
     /*! \def _NODE_LABEL
       String containing the label of a node.
       It may have different meanings depending on the node type:
@@ -74,7 +76,7 @@ namespace TL
         - Goto / Label: label that identifies the source or target of the Statement contained.
       Available and mandatory in 'Composite', 'Labeled' or 'Goto' nodes.
      */    
-    #define _NODE_LABEL     "label"
+    #define _NODE_LABEL     "node_label"
     /*! \def _LIVE_IN
       Set of variables that are alive at the entry point of a node.
       Available in all nodes (Mandatory once the Liveness analysis is performed).
@@ -127,12 +129,12 @@ namespace TL
       Type of the edge. This will be a value of the enumeration Edge_type.
       Mandatory in all edges.
      */
-    #define _EDGE_TYPE      "type"
+    #define _EDGE_TYPE      "edge_type"
     /*! \def _EDGE_LABEL
       String containing the label of an edge.
       Available and mandatory in all edges but those with 'Always' type.
      */
-    #define _EDGE_LABEL     "label"
+    #define _EDGE_LABEL     "edge_label"
 }
 
 #endif // STRUCTURES_HPP
