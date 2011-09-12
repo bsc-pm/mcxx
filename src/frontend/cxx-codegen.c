@@ -2133,25 +2133,10 @@ static char symbol_is_nested_in_defined_classes(nodecl_codegen_visitor_t* visito
 
 static void declare_symbol_if_nonnested(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
-    if (!symbol_is_nested_in_defined_classes(visitor, symbol))
+    if (!symbol_is_nested_in_defined_classes(visitor, symbol)
+            || !symbol->entity_specs.is_member)
     {
         declare_symbol(visitor, symbol);
-    }
-    else
-    {
-        // // If we only need a declaration, we need the definition(s) of the enclosing class(es)
-        // if (symbol->entity_specs.is_member
-        //         && (symbol->kind == SK_CLASS
-        //             || symbol->kind == SK_ENUM))
-        // {
-        //     scope_entry_t* current_sym = named_type_get_symbol(symbol->entity_specs.class_type);
-        //     while (current_sym->entity_specs.is_member)
-        //     {
-        //         visitor->pending_nested_types_to_define = 
-        //             entry_list_add_once(visitor->pending_nested_types_to_define, current_sym);
-        //         current_sym = named_type_get_symbol(current_sym->entity_specs.class_type);
-        //     }
-        // }
     }
 }
 

@@ -13449,6 +13449,16 @@ static void instantiate_unary_op(nodecl_instantiate_expr_visitor_t* v, nodecl_t 
     v->nodecl_result = result;
 }
 
+static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    type_t* t = nodecl_get_type(node);
+
+    t = update_type_for_instantiation(t, 
+            v->decl_context,
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
+}
+
 static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
 {
     nodecl_t nodecl_op = instantiate_expr_walk(v, nodecl_get_child(node, 0));
@@ -13757,6 +13767,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_neg = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_logical_not = instantiate_expr_visitor_fun(instantiate_unary_op);
     NODECL_VISITOR(v)->visit_bitwise_not = instantiate_expr_visitor_fun(instantiate_unary_op);
+
+    NODECL_VISITOR(v)->visit_structured_value = instantiate_expr_visitor_fun(instantiate_structured_value);
 
     // Function call
     NODECL_VISITOR(v)->visit_function_call = instantiate_expr_visitor_fun(instantiate_function_call);
