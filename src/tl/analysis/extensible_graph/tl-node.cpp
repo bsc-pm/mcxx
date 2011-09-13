@@ -256,6 +256,23 @@ namespace TL
         return result;
     }
     
+    Edge* Node::get_exit_edge(Node* target)
+    {
+        Edge* result = NULL;
+        int id = target->get_id();
+        for(ObjectList<Edge*>::iterator it = _exit_edges.begin();
+            it != _exit_edges.end();
+            ++it)
+        {
+            if ((*it)->get_target()->get_id() == id)
+            { 
+                result = *it;
+                break;
+            }
+        }
+        return result;
+    }
+    
     ObjectList<Node*> Node::get_children()
     {
         ObjectList<Node*> result;

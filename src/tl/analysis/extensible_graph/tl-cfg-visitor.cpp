@@ -31,7 +31,8 @@ namespace TL
 {
     CfgVisitor::CfgVisitor(ScopeLink sl)
         : _actual_cfg(NULL), _sl(sl), 
-          _actual_loop_info(), _actual_try_info(), _switch_cond_s(),
+          _actual_loop_info(), _actual_try_info(), 
+          _omp_pragma_info_s(), _switch_cond_s(), 
           _cfgs()
     {}
     
@@ -41,6 +42,7 @@ namespace TL
         _sl = visitor._sl;
         _actual_loop_info = visitor._actual_loop_info;
         _actual_try_info = visitor._actual_try_info;
+        _omp_pragma_info_s = visitor._omp_pragma_info_s;
         _switch_cond_s = visitor._switch_cond_s;
         _cfgs = visitor._cfgs;
     }
@@ -111,8 +113,8 @@ namespace TL
             // Connect the exit nodes to the Exit node of the master graph
             Node* graph_exit = _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE);
             graph_exit->set_id(++_actual_cfg->_nid);
+                 
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
-            _actual_cfg->connect_nodes(_actual_cfg->_unhand_try_excpt_list, graph_exit);
             
             // Remove the unnecessary nodes and join these ones that are always executed consecutively
             _actual_cfg->clear_unnecessary_nodes();
@@ -134,7 +136,6 @@ namespace TL
         _actual_try_info.append(new_try_block);
         ObjectList<Node*> try_parents = _actual_cfg->_last_nodes;
         ObjectList<Node*> try_stmts = walk(n.get_statement());
-        std::cerr << try_stmts[2]->get_id() << std::endl;
         
         Node* first_try_node = try_parents[0]->get_exit_edges()[0]->get_target();
         compute_catch_parents(first_try_node);
@@ -156,11 +157,10 @@ namespace TL
             for (ObjectList<Node*>::iterator it = actual_try_info->handler_parents.begin();
                 it != actual_try_info->handler_parents.end();
                 ++it)
-            {  
-                int last_edge_index = (*it)->get_exit_edges().size() - 1;
-                Edge* catch_edge = (*it)->get_exit_edges()[last_edge_index];
+            { 
+                Edge* catch_edge = (*it)->get_exit_edges().back();
                 catch_edge->set_data(_EDGE_TYPE, CATCH_EDGE);
-                catch_edge->set_data(_EDGE_LABEL, std::string("..."));
+                catch_edge->set_data(_EDGE_LABEL, ObjectList<Nodecl::NodeclBase>(1, Nodecl::NodeclBase::null()));
             }           
         }
         
@@ -186,19 +186,24 @@ namespace TL
         ObjectList<Node*> catch_l = walk(n.get_statement());
         
         actual_try_info->handler_exits.append(catch_l[0]);
-        
+
         // Set the type of the edge between each handler parent and the actual handler
+        Nodecl::NodeclBase label = n.get_name();
         for (ObjectList<Node*>::iterator it = actual_try_info->handler_parents.begin();
             it != actual_try_info->handler_parents.end();
             ++it)
-        {  
-            int last_edge_index = (*it)->get_exit_edges().size() - 1;
-            Edge* catch_edge = (*it)->get_exit_edges()[last_edge_index];
-            catch_edge->set_data(_EDGE_TYPE, CATCH_EDGE);
-            std::string label = c_cxx_codegen_to_str((n.get_name()).get_internal_nodecl());
-            catch_edge->set_data(_EDGE_LABEL, label);
+        { 
+            Edge* catch_edge = (*it)->get_exit_edge(catch_l[0]);
+            if (catch_edge != NULL)
+            {
+                catch_edge->set_data(_EDGE_TYPE, CATCH_EDGE);
+                catch_edge->set_data(_EDGE_LABEL, ObjectList<Nodecl::NodeclBase>(1, label));
+            }
+            
         }
-        // Should handler be connected to the exit of the graph or the catch statements of more outer try blocks??
+        
+        // FIXME If there is no Ellipsis, all statements within Try must be connected to the Exit of the graph
+        // TODO We can reduce considerably the number of connections by analysing the kind of every exception
         
         return catch_l;
     }
@@ -569,36 +574,54 @@ namespace TL
         return Ret();
     }
 
-    // TODO
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomConstruct& n)
     {
-        walk(n.get_pragma_line());
-        walk(n.get_statement());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
+        // Built a new object in the pragma stack to store its relative info
+        struct omp_pragma actual_omp_pragma;
+        _omp_pragma_info_s.push(actual_omp_pragma);
+        
+        Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "omp_pragma");
+        if (!_actual_cfg->_last_nodes.empty())
+        {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
+            _actual_cfg->_last_nodes.clear();
+        }
+        
+        pragma_graph_node->set_data(_NODE_LABEL, n.get_pragma_line()));
+        
+        _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
+        ObjectList<Node*> pragma_statement = walk(n.get_statement());
+       
+        Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
+        graph_exit->set_id(++_actual_cfg->_nid);
+        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+       
+        _actual_cfg->_outer_node.pop();
+        _actual_cfg->_last_nodes.clear();
+        _actual_cfg->_last_nodes.append(pragma_graph_node);
+       
+        return ObjectList<Node*>(1, pragma_graph_node);
     }
 
-    // TODO
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomClause& n)
     {
-        walk(n.get_arguments());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+        std::cerr << "Pragma Custom Clause: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
+        struct omp_clause actual_omp_clause = {n, n.get_arguments()};
+        _omp_pragma_info_s.top().clauses = actual_omp_clause;
         return Ret();
     }
 
-    // TODO
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
     {
-        walk(n.get_parameters());
-        walk(n.get_clauses());
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+        std::cerr << "Pragma Custom Line: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
+        _omp_pragma_info_s.top().params = n.get_parameters();
+        walk(n.get_clauses());  // This method do not return anything
         return Ret();
     }
 
-    // TODO
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaClauseArg& n)
-    {
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+    {   // nothing to do
+        std::cerr << "Pragma Clause Arg: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
         return Ret();
     }
     
@@ -768,7 +791,6 @@ namespace TL
         _actual_cfg->connect_nodes(condition_node, exit_node, FALSE_EDGE);
         
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
-        std::cerr << "Do stmt has set the _last nodes value to " << exit_node->get_id() << std::endl;
         
         if (!stmts.empty())
             return ObjectList<Node*>(1, stmts[0]);
@@ -854,7 +876,7 @@ namespace TL
         // Build case nodes
         ObjectList<Node*> case_stmt_l = walk(n.get_statement());
      
-        std::string label = "";
+        ObjectList<Nodecl::NodeclBase> label;
         // Set the edge between the Case and the Switch condition
         if (!case_stmt_l.empty())
         {
@@ -864,20 +886,19 @@ namespace TL
                 if (n.template is<Nodecl::CaseStatement>())
                 {   // We are visiting a Case Statement
                     Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
-                    label = c_cxx_codegen_to_str(case_stmt.get_case().get_internal_nodecl());
-                    e->set_data(_EDGE_LABEL, label);
+                    label.append(case_stmt.get_case());
                 }
                 else if (n.template is<Nodecl::DefaultStatement>())
                 {   // We are visiting a Default Statement
-                    e->set_data(_EDGE_LABEL, std::string("-1"));
+                    label.append(Nodecl::NodeclBase::null());
                 }
                 else
                 {
                     internal_error("Unexpected type of Nodecl '%s' found in Case Default visit.",
                                 c_cxx_codegen_to_str(n.get_internal_nodecl()));
                 }
-               
-                std::cerr << "Setting last nodes from CASE to " << case_stmt_l.back()->get_id() << std::endl;
+                e->set_data(_EDGE_LABEL, label);
+              
                 if (case_stmt_l.back()->get_data<Node_type>(_NODE_TYPE) != BASIC_BREAK_NODE)
                 {
                     _actual_cfg->_last_nodes = ObjectList<Node*>(1, case_stmt_l.back());
@@ -901,16 +922,15 @@ namespace TL
                     internal_error("No edge found while searching existent edge between '%d' and '%d'", 
                                    _switch_cond_s.top()->get_id(), case_stmt_l[0]->get_id());
                     
-                label = ee->get_data<std::string>(_EDGE_LABEL);
+                label.append(ee->get_data<nodecl_t>(_EDGE_LABEL));
                 if (n.template is<Nodecl::CaseStatement>())
                 {   // We are visiting a Case Statement
                     Nodecl::CaseStatement case_stmt = n.template as<Nodecl::CaseStatement>();
-                    std::string actual_label = c_cxx_codegen_to_str(case_stmt.get_case().get_internal_nodecl());
-                    label += std::string(", " + actual_label);
+                    label.append(case_stmt.get_case());
                 }
                 else if (n.template is<Nodecl::DefaultStatement>())
                 {   // We are visiting a Default Statement
-                    label += ", -1";
+                    label.append(Nodecl::NodeclBase::null());
                 }
                 else
                 {
@@ -959,6 +979,12 @@ namespace TL
         internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
         return Ret();
     }  
+
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LabeledStatement& n)
+    {
+        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
+        return Ret();
+    }
     
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
@@ -987,13 +1013,7 @@ namespace TL
         _actual_cfg->_outer_node.pop();
         
         return ObjectList<Node*>(1, cond_expr_node);
-    }  
-
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LabeledStatement& n)
-    {
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
-    }
+    } 
 
 
     // ************* Assignment ************* //
@@ -1546,7 +1566,7 @@ namespace TL
             if (there_is_graph)
             {   // If there exists any graph node in the list, 
                 // then we must create a new graph node containing all nodes
-                result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "derived");
+                result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "split_stmt");
                 Node* entry = result->get_data<Node*>(_ENTRY_NODE);
                 
                 // Get the children for the Entry node. They will be those nodes which do not have its parents

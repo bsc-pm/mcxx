@@ -51,7 +51,6 @@ namespace TL
             std::stack<Node*> _break_stack;
             
             //! Lists to keep special nodes that breaks the expected behaviour of the flow
-            ObjectList<Node*> _unhand_try_excpt_list;
             ObjectList<Node*> _labeled_node_list;
             ObjectList<Node*> _goto_node_list;
             ObjectList<Node*> _tasks_node_list;
@@ -218,14 +217,14 @@ namespace TL
             /*!
               \param outer_graph Node to which the new structure will belong to.
                                  It must be a Composite node.
-              \param label AST containing the Statement represented with the new node. It will be
+              \param label Nodecl containing the Statement represented with the new node. It will be
                            the label of the node.
               \param graph_type Type of the composite node. 
-                                It must be some of these values: 'splitted_instruction',
+                                It must be some of these values: 'split_stmt',
                                 'function_call', 'conditional_expression', 'omp_pragma'.
               \return The new composite node.
              */
-            Node* create_graph_node(Node* outer_graph, AST_t label, std::string graph_type);            
+            Node* create_graph_node(Node* outer_graph, Nodecl::NodeclBase label, std::string graph_type);            
             
             //! Builds a basic normal node (BASIC_NORMAL_NODE)
             /*!

@@ -58,7 +58,7 @@ namespace TL
     std::string Edge::get_label()
     {
         std::string label = "";
-        
+            
         if (has_key(_EDGE_TYPE) && 
             get_data<Edge_type>(_EDGE_TYPE) != UNCLASSIFIED_EDGE)
         {
@@ -71,8 +71,31 @@ namespace TL
                 break;
                 case ALWAYS_EDGE:   label = "";
                 break;
-                case CASE_EDGE:
-                case CATCH_EDGE:    label = get_data<std::string>(std::string(_EDGE_LABEL));
+                case CASE_EDGE:     {
+                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
+                                        if (labels[0].is_null())
+                                            label = "default";
+                                        else
+                                            label = labels[0].get_symbol().get_name();
+                                        int i = 1;
+                                        while (i<labels.size())
+                                        {
+                                            if (labels[i].is_null())
+                                                label += ", default";
+                                            else
+                                                label += ", " + labels[i].get_symbol().get_name();                                         
+ 
+                                            ++i;
+                                        }
+                                    }
+                break;
+                case CATCH_EDGE:    {
+                                        ObjectList<Nodecl::NodeclBase> labels = get_data<ObjectList<Nodecl::NodeclBase> >(_EDGE_LABEL);
+                                        if (labels[0].is_null())
+                                            label = "...";
+                                        else
+                                            label = labels[0].get_symbol().get_name();
+                                    }
                 break;
                 default: std::cerr << " ** Edge.cpp :: get_label() ** "
                                    << "warning: Unexpected type '" << etype << "' while getting "

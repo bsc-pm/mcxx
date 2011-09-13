@@ -196,6 +196,9 @@ namespace TL
             //! Returns the list of exit edges labels of the node.
             ObjectList<std::string> get_exit_edge_labels();
             
+            //! Returns the edge between the node and a target node, if exists
+            Edge* get_exit_edge(Node* target);
+            
             //! Returns the list children nodes of the node.
             ObjectList<Node*> get_children();
             
@@ -213,6 +216,7 @@ namespace TL
             
             //! Returns true when the node is in its children list
             bool has_child(Node* n);
+           
             
             // *** Analysis *** //
             

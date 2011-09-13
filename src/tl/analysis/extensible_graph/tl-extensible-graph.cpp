@@ -33,8 +33,7 @@ namespace TL
     ExtensibleGraph::ExtensibleGraph(ScopeLink sl, std::string name)
         : _graph(NULL), _sl(sl), _name(name), _nid(-1),
           _continue_stack(), _break_stack(),
-          _unhand_try_excpt_list(), _labeled_node_list(), 
-          _goto_node_list(), _tasks_node_list(),
+          _labeled_node_list(), _goto_node_list(), _tasks_node_list(),
           _last_nodes(), _outer_node()
     {
         _graph = create_graph_node(NULL, AST_t(), "extensible_graph");
@@ -49,7 +48,6 @@ namespace TL
         _nid = graph._nid;
         _continue_stack = graph._continue_stack;
         _break_stack = graph._break_stack;
-        _unhand_try_excpt_list = graph._unhand_try_excpt_list;
         _labeled_node_list = graph._labeled_node_list; 
         _goto_node_list = graph._goto_node_list;
         _tasks_node_list = graph._tasks_node_list;
@@ -118,7 +116,7 @@ namespace TL
             }
             else
             {
-                std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
+//                 std::cerr << "Connecting " << parent->get_id() << " with " << child->get_id() << std::endl;
                 Edge* new_edge = new Edge(parent, child, etype, label);
                 parent->set_exit_edge(new_edge);
                 child->set_entry_edge(new_edge);
@@ -185,7 +183,7 @@ namespace TL
         }
     }
 
-    Node* ExtensibleGraph::create_graph_node(Node* outer_graph, AST_t label, std::string graph_type)
+    Node* ExtensibleGraph::create_graph_node(Node* outer_graph, Nodecl::NodeclBase label, std::string graph_type)
     {
 //         std::cerr << "Creating Graph node " << _nid+1 << std::endl;
         Node* result = new Node(_nid, GRAPH_NODE, outer_graph);
