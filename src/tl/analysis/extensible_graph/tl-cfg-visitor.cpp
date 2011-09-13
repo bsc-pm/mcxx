@@ -32,7 +32,7 @@ namespace TL
     CfgVisitor::CfgVisitor(ScopeLink sl)
         : _actual_cfg(NULL), _sl(sl), 
           _actual_loop_info(), _actual_try_info(), 
-          _omp_pragma_info_s(), _switch_cond_s(), 
+          /* _omp_pragma_info_s(), */ _switch_cond_s(), 
           _cfgs()
     {}
     
@@ -42,7 +42,7 @@ namespace TL
         _sl = visitor._sl;
         _actual_loop_info = visitor._actual_loop_info;
         _actual_try_info = visitor._actual_try_info;
-        _omp_pragma_info_s = visitor._omp_pragma_info_s;
+        /* _omp_pragma_info_s = visitor._omp_pragma_info_s; */
         _switch_cond_s = visitor._switch_cond_s;
         _cfgs = visitor._cfgs;
     }
@@ -427,7 +427,7 @@ namespace TL
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
         // Create the new Function Call node and built it
-        Node* func_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "function_call");
+        Node* func_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "function_call");
 //         _actual_cfg->_outer_node.push(func_node);
 //         
 //         ObjectList<Node*> arguments_l = walk(n.get_arguments());
@@ -446,7 +446,7 @@ namespace TL
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::FunctionCall& n)
     {
         // Create the new Function Call node and built it
-        Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "function_call");
+        Node* func_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "function_call");
         if (!_actual_cfg->_last_nodes.empty())
         {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
@@ -577,50 +577,52 @@ namespace TL
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomConstruct& n)
     {
         // Built a new object in the pragma stack to store its relative info
-        struct omp_pragma actual_omp_pragma;
-        _omp_pragma_info_s.push(actual_omp_pragma);
+        // struct omp_pragma actual_omp_pragma;
+        // _omp_pragma_info_s.push(actual_omp_pragma);
         
-        Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "omp_pragma");
-        if (!_actual_cfg->_last_nodes.empty())
-        {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
-            _actual_cfg->_last_nodes.clear();
-        }
-        
-        pragma_graph_node->set_data(_NODE_LABEL, n.get_pragma_line()));
-        
-        _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
-        ObjectList<Node*> pragma_statement = walk(n.get_statement());
+        // // Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "omp_pragma");
+        // if (!_actual_cfg->_last_nodes.empty())
+        // {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
+        //     _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
+        //     _actual_cfg->_last_nodes.clear();
+        // }
+        // 
+        // pragma_graph_node->set_data(_NODE_LABEL, n.get_pragma_line());
+        // 
+        // _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
+        // ObjectList<Node*> pragma_statement = walk(n.get_statement());
        
-        Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
-        graph_exit->set_id(++_actual_cfg->_nid);
-        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+        // Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
+        // graph_exit->set_id(++_actual_cfg->_nid);
+        // _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
        
-        _actual_cfg->_outer_node.pop();
-        _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(pragma_graph_node);
+        // _actual_cfg->_outer_node.pop();
+        // _actual_cfg->_last_nodes.clear();
+        // _actual_cfg->_last_nodes.append(pragma_graph_node);
        
-        return ObjectList<Node*>(1, pragma_graph_node);
+        // return ObjectList<Node*>(1, pragma_graph_node);
+        return Ret();
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomClause& n)
     {
         std::cerr << "Pragma Custom Clause: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
-        struct omp_clause actual_omp_clause = {n, n.get_arguments()};
-        _omp_pragma_info_s.top().clauses = actual_omp_clause;
+        // struct omp_clause actual_omp_clause = {n, n.get_arguments()};
+        // _omp_pragma_info_s.top().clauses = actual_omp_clause;
         return Ret();
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
     {
-        std::cerr << "Pragma Custom Line: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
-        _omp_pragma_info_s.top().params = n.get_parameters();
-        walk(n.get_clauses());  // This method do not return anything
+        // std::cerr << "Pragma Custom Line: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
+        // _omp_pragma_info_s.top().params = n.get_parameters();
+        // walk(n.get_clauses());  // This method do not return anything
         return Ret();
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaClauseArg& n)
-    {   // nothing to do
+    {   
+        // nothing to do
         std::cerr << "Pragma Clause Arg: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
         return Ret();
     }
@@ -988,7 +990,7 @@ namespace TL
     
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ConditionalExpression& n)
     {
-        Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "conditional_expression");
+        Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "conditional_expression");
         Node* entry_node = cond_expr_node->get_data<Node*>(_ENTRY_NODE);
         
         // Build condition node
@@ -1566,7 +1568,7 @@ namespace TL
             if (there_is_graph)
             {   // If there exists any graph node in the list, 
                 // then we must create a new graph node containing all nodes
-                result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), AST(), "split_stmt");
+                result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "split_stmt");
                 Node* entry = result->get_data<Node*>(_ENTRY_NODE);
                 
                 // Get the children for the Entry node. They will be those nodes which do not have its parents

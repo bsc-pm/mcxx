@@ -69,14 +69,14 @@ namespace TL
         }  
     };
     
-    struct omp_pragma {
-        struct omp_clause {
-            Nodecl::NodeclBase clause;
-            ObjectList<Nodecl::NodeclBase> args;
-        };
-        ObjectList<Nodecl::NodeclBase> params;
-        ObjectList<struct omp_clauses> clauses;
-    };
+    // struct omp_pragma {
+    //     struct omp_clause {
+    //         Nodecl::NodeclBase clause;
+    //         ObjectList<Nodecl::NodeclBase> args;
+    //     };
+    //     ObjectList<Nodecl::NodeclBase> params;
+    //     ObjectList<struct omp_clauses> clauses;
+    // };
     
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
@@ -93,7 +93,7 @@ namespace TL
          */
         ObjectList<struct try_block_nodes> _actual_try_info;
         
-        std::stack<struct omp_pragma> _omp_pragma_info_s;
+        // std::stack<struct omp_pragma> _omp_pragma_info_s;
         
         std::stack<Node*> _switch_cond_s;
         
