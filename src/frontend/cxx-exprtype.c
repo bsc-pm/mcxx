@@ -13457,6 +13457,38 @@ static void instantiate_structured_value(nodecl_instantiate_expr_visitor_t* v, n
             v->decl_context,
             nodecl_get_filename(node),
             nodecl_get_line(node));
+
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_get_child(node, 0), &num_items);
+
+    nodecl_t nodecl_new_list = nodecl_null();
+
+    int i;
+    for (i = 0; i < num_items; i++)
+    {
+        nodecl_t nodecl_new_item = nodecl_new_item = instantiate_expr_walk(v, list[i]);
+
+        if (nodecl_is_err_expr(nodecl_new_item))
+        {
+            v->nodecl_result = nodecl_make_err_expr(nodecl_get_filename(node), nodecl_get_line(node));
+            return;
+        }
+
+        nodecl_new_list = nodecl_append_to_list(nodecl_new_list, nodecl_new_item);
+    }
+
+    // We use braced because it is the most generic 
+    nodecl_t nodecl_braced_init = 
+        nodecl_make_cxx_braced_initializer(
+                nodecl_new_list,
+                nodecl_get_filename(node),
+                nodecl_get_line(node));
+
+    check_nodecl_braced_initializer(
+            nodecl_braced_init,
+            v->decl_context,
+            t,
+            &v->nodecl_result);
 }
 
 static void instantiate_reference(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)

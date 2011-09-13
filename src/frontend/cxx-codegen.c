@@ -3372,25 +3372,161 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
     nodecl_t items = nodecl_get_child(node, 0);
     type_t* type = nodecl_get_type(node);
 
-    if (!visitor->in_copy_initializer
-            && !visitor->in_direct_initializer
-            && !visitor->inside_structured_value)
+    enum structured_value_kind 
     {
-        // We need a type here
-        fprintf(visitor->file, "(%s)", print_type_str(type, visitor->current_sym->decl_context));
+        INVALID = 0,
+        // (T) { expr-list }
+        GCC_POSTFIX,
+        // T(single-expression)
+        CXX03_EXPLICIT,
+        // T{expr-list}
+        CXX1X_EXPLICIT,
+    } kind = INVALID;
+
+    if (IS_C_LANGUAGE)
+    {
+        kind = GCC_POSTFIX;
     }
-    char old_in_direct_initializer = visitor->in_direct_initializer;
-    char old_in_copy_initializer = visitor->in_copy_initializer;
-    visitor->in_copy_initializer = 0;
-    visitor->in_direct_initializer = 0;
-    char inside_structured_value = visitor->inside_structured_value;
-    visitor->inside_structured_value = 1;
-    fprintf(visitor->file, "{ ");
-    walk_expression_list(visitor, items);
-    fprintf(visitor->file, " }");
-    visitor->inside_structured_value = inside_structured_value;
-    visitor->in_copy_initializer = old_in_copy_initializer;
-    visitor->in_direct_initializer = old_in_direct_initializer;
+    else if (IS_CXX03_LANGUAGE)
+    {
+        if ((nodecl_is_null(items)
+                    || (nodecl_list_length(items) == 1))
+                && (is_named_type(type) || is_builtin_type(no_ref(type))))
+        {
+            kind = CXX03_EXPLICIT;
+        }
+        else
+        {
+            kind = GCC_POSTFIX;
+        }
+    }
+    else if (IS_CXX1X_LANGUAGE)
+    {
+        if (is_vector_type(no_ref(type)))
+        {
+            // This is nonstandard, lets fallback to gcc
+            kind = GCC_POSTFIX;
+        }
+        else if (is_named_type(type))
+        {
+            kind = CXX1X_EXPLICIT;
+        }
+        else
+        {
+            // If this is not a named type fallback to gcc
+            kind = GCC_POSTFIX;
+        }
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    if (visitor->inside_structured_value)
+    {
+        kind = GCC_POSTFIX;
+    }
+
+    switch (kind)
+    {
+        // (T) { expr-list }
+        case GCC_POSTFIX:
+            {
+                if (!visitor->in_copy_initializer
+                        && !visitor->in_direct_initializer
+                        && !visitor->inside_structured_value)
+                {
+                    fprintf(visitor->file, "(%s)", print_type_str(type, visitor->current_sym->decl_context));
+                }
+
+                char old_in_direct_initializer = visitor->in_direct_initializer;
+                char old_in_copy_initializer = visitor->in_copy_initializer;
+
+                visitor->in_copy_initializer = 0;
+                visitor->in_direct_initializer = 0;
+
+                char inside_structured_value = visitor->inside_structured_value;
+                visitor->inside_structured_value = 1;
+
+                fprintf(visitor->file, "{ ");
+                walk_expression_list(visitor, items);
+                fprintf(visitor->file, " }");
+
+                visitor->inside_structured_value = inside_structured_value;
+                visitor->in_copy_initializer = old_in_copy_initializer;
+                visitor->in_direct_initializer = old_in_direct_initializer;
+                break;
+            }
+        case CXX03_EXPLICIT:
+            {
+                if (!visitor->in_direct_initializer
+                        || nodecl_is_null(items))
+                {
+                    fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
+                }
+
+                char old_in_direct_initializer = visitor->in_direct_initializer;
+                char old_in_copy_initializer = visitor->in_copy_initializer;
+
+                visitor->in_copy_initializer = 0;
+                visitor->in_direct_initializer = 0;
+
+                char inside_structured_value = visitor->inside_structured_value;
+                visitor->inside_structured_value = 0;
+
+                if (nodecl_is_null(items))
+                {
+                    fprintf(visitor->file, "()");
+                }
+                else
+                {
+                    if (!visitor->in_copy_initializer)
+                    {
+                        fprintf(visitor->file, "(");
+                    }
+                    walk_expression_list(visitor, items);
+                    if (!visitor->in_copy_initializer)
+                    {
+                        fprintf(visitor->file, ")");
+                    }
+                }
+
+                visitor->inside_structured_value = inside_structured_value;
+                visitor->in_copy_initializer = old_in_copy_initializer;
+                visitor->in_direct_initializer = old_in_direct_initializer;
+                break;
+                break;
+            }
+        case CXX1X_EXPLICIT:
+            {
+                if (!visitor->in_direct_initializer)
+                {
+                    fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
+                }
+
+                char old_in_direct_initializer = visitor->in_direct_initializer;
+                char old_in_copy_initializer = visitor->in_copy_initializer;
+
+                visitor->in_copy_initializer = 0;
+                visitor->in_direct_initializer = 0;
+
+                char inside_structured_value = visitor->inside_structured_value;
+                visitor->inside_structured_value = 1;
+
+                fprintf(visitor->file, "{ ");
+                walk_expression_list(visitor, items);
+                fprintf(visitor->file, " }");
+
+                visitor->inside_structured_value = inside_structured_value;
+                visitor->in_copy_initializer = old_in_copy_initializer;
+                visitor->in_direct_initializer = old_in_direct_initializer;
+                break;
+            }
+        default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+    }
 }
 
 static void codegen_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
