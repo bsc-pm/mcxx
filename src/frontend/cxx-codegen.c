@@ -2797,6 +2797,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
             fprintf(visitor->file, ")"); \
         } \
     }
+
 #define POSTFIX_UNARY_EXPRESSION(_name, _operand) \
     static void codegen_##_name(nodecl_codegen_visitor_t* visitor, nodecl_t node) \
     { \
@@ -3653,8 +3654,10 @@ static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, n
 
     indent(visitor);
 
+    // FIXME  parallel|for must be printed as parallel for
     fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
+    fprintf(visitor->file, "\n");
     codegen_walk(visitor, statement);
 }
 
@@ -3965,7 +3968,11 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
 
-    if (!visitor->mem_init_list)
+    if (visitor->do_not_emit_declarations)
+    {
+        fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+    }
+    else if (!visitor->mem_init_list)
     {
         walk_type_for_symbols(visitor, entry->type_information, 
                 /* needs def */ 1,

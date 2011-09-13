@@ -63,7 +63,7 @@ my_complex_t complex_mul (my_complex_t a, my_complex_t b)
 #define N 100
 my_complex_t vector[N];
 
-void f(my_complex_t x, my_complex_t y)
+int main(my_complex_t x, my_complex_t y)
 {
     int i;
 
@@ -77,5 +77,7 @@ void f(my_complex_t x, my_complex_t y)
         x = complex_add(x,vector[i]);
         y = complex_mul(y,vector[i]);
     }
+
+    return 0;
 }
 

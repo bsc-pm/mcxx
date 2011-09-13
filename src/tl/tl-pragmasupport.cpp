@@ -324,6 +324,7 @@ namespace TL
     PragmaCustomClause PragmaCustomConstruct::get_clause(const ObjectList<std::string>& names) const
     {
         AST_t pragma_line(_ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE));
+
         PragmaCustomClause result(names, pragma_line, this->get_scope_link());
         if (_dto!=NULL)
         {

@@ -282,7 +282,7 @@ namespace TL
             this->init(data_flow);
 
             // Call pragma run
-            PragmaCustomCompilerPhase::run(data_flow);
+            // PragmaCustomCompilerPhase::run(data_flow);
         }
 
         void OpenMPPhase::init(DTO& dto)

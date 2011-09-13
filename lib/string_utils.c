@@ -265,7 +265,6 @@ void private_fusion(char **list, int ind_lower, int ind_upper, unsigned char asc
 }
 
 
-
 void private_merge_sort_str(char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     if(ind_upper - ind_lower > 0)

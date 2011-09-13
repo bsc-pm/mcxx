@@ -2235,7 +2235,6 @@ static void load_configuration(void)
                 stat(full_path, &buf);
                 if (S_ISREG(buf.st_mode))
                 {
-
                     if(contain_prefix_number(dir_entry->d_name))
                     {
                         //Allocating configuration filename

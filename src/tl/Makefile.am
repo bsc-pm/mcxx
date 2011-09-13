@@ -24,11 +24,12 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt manip @TL_EXTENSIONS@ 
+SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
 END=
 
-DIST_SUBDIRS=omp \
+DIST_SUBDIRS=analysis \
+	     omp \
              superscalar \
              instr \
              instr_pthreads \

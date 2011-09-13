@@ -131,7 +131,7 @@ namespace TL
 
 	bool Statement::breaks_flow()
 	{
-		if ( (TL::Bool) this->_ref.get_attribute(LANG_IS_FOR_STATEMENT) ||
+		return ( (TL::Bool) this->_ref.get_attribute(LANG_IS_FOR_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_WHILE_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_IF_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_DO_STATEMENT) ||
@@ -146,14 +146,7 @@ namespace TL
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_LABELED_STATEMENT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ||
 				(TL::Bool) this->_ref.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE)
-			)
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+			   );
 	}
 
     bool ForStatement::check_statement()

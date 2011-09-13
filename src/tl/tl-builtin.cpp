@@ -81,4 +81,12 @@ namespace TL
 
         return *this;
     }
+    
+    bool LinkData::has_key(std::string str) const
+    {
+        if (_data_list->find(str) == _data_list->end())
+            return false;
+        else
+            return true;
+    }
 }
