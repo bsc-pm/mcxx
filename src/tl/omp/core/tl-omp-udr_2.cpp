@@ -34,6 +34,7 @@
 #include "cxx-parser.h"
 #include "c99-parser.h"
 
+#include "cxx-ambiguity.h"
 #include "cxx-exprtype.h"
 #include "cxx-koenig.h"
 #include "cxx-instantiation.h"
@@ -98,18 +99,17 @@ namespace TL
             typedef struct 
             {
                 std::string udr_specifier;
-                AST_t identity;
+                std::string identity;
             } reduction_info_t;
 
             Scope global_scope = scope_link.get_scope(translation_unit);
 
-            // AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
-            // AST_t real_zero(internal_expression_parse("0.0", global_scope.get_decl_context()));
-            // AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            // AST_t real_one(internal_expression_parse("1.0", global_scope.get_decl_context()));
-            // AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
-
-            AST zero, real_zero, one, real_one, neg_zero;
+            // FIXME - This should be moved to nodecl!!!
+            std::string zero = "0";
+            std::string real_zero = "0.0";
+            std::string one = "1";
+            std::string real_one = "1.0";
+            std::string neg_zero = "~0";
 
             const std::string complex_types = "float _Complex, double _Complex, long double _Complex ";
             const std::string real_types = "float, double, long double, " + complex_types;
@@ -143,7 +143,7 @@ namespace TL
                 {"^: " + integer_types + ": _out ^= _in", zero}, 
                 {"&&: " + scalar_types + ": _out = _out && _in", one}, 
                 {"||: " + scalar_types + ": _out = _out || _in", zero},
-                {"", AST_t(NULL)}
+                {"", ""}
             };
 
             // call 'parse_omp_udr_declare_arguments_2' to create one UDRInfoItem2 for each builtin case  
@@ -182,7 +182,7 @@ namespace TL
 		            builtin_udr.set_out_symbol((*it).out_symbol);
                     AST_t identity_expr(NULL);
                     bool is_constructor, need_equal_initializer;
-                    parse_udr_identity(builtin_operators[i].identity.prettyprint(), ref_tree_of_clause,
+                    parse_udr_identity(builtin_operators[i].identity, ref_tree_of_clause,
                                 scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
                     builtin_udr.set_identity(identity_expr);
                     builtin_udr.set_is_constructor(false);
@@ -257,9 +257,11 @@ namespace TL
             Scope sc = sl.get_scope(ref_tree);
             decl_context_t decl_context = sc.get_decl_context();
 
-		    /*enter_test_expression();
-		    check_for_expression(a, decl_context);
-		    leave_test_expression();*/
+            nodecl_t nodecl_output = nodecl_null();
+
+		    enter_test_expression();
+		    check_expression(a, decl_context, &nodecl_output);
+		    leave_test_expression();
 
 		    // Set properly the context of the reference tree
             scope_link_t* _scope_link = sl.get_internal_scope_link();
@@ -373,8 +375,8 @@ namespace TL
 	    		in_symbol->line = ASTLine(expression);
 	    		in_symbol->type_information = get_const_qualified_type(declarator_type);
 
-	    	    // bool res = check_expression(expression, new_context);
-                bool res = false;
+                nodecl_t nodecl_output = nodecl_null();
+	    	    bool res = check_expression(expression, new_context, &nodecl_output);
 	    		if (!res)
                 {
                     running_error("%s: error: invalid expression '%s' for OpenMP UDR reduction\n", 

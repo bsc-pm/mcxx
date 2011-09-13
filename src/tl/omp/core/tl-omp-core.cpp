@@ -140,7 +140,7 @@ namespace TL
                 initialize_builtin_udr_reductions(global_scope);
             }
 
-            PragmaCustomCompilerPhase::run(dto);
+            // PragmaCustomCompilerPhase::run(dto);
         }
 
         void Core::register_omp_constructs()
