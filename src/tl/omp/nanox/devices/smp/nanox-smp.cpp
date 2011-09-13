@@ -2028,6 +2028,7 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
     }
 
     // Nonstatic members have a special replacement (this may override some symbols!)
+    ObjectList<Symbol> symbols_in_data_env = data_env_info.get_items().map(functor(&DataEnvironItem::get_symbol));
     ObjectList<Symbol> nonstatic_members; 
     nonstatic_members.insert(Statement(body, scope_link)
         .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
@@ -2037,8 +2038,10 @@ void DeviceSMP::do_smp_outline_replacements(AST_t body,
             it != nonstatic_members.end();
             it++)
     {
-//        replace_src.add_replacement(*it, "(_" + it->get_name() + ")");
-        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+        if(!symbols_in_data_env.contains(*it))
+        {
+            replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+        }
     }
 
     // Create local variables for reduction symbols

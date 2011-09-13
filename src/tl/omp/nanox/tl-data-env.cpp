@@ -624,15 +624,20 @@ namespace TL
 
             if (!data_env_item.is_firstprivate())
             {
+                Source this_accessor;
+                if (sym.is_member() && !sym.is_static()) 
+                {
+                    this_accessor << "this->";
+                }
                 if (type.is_array())
                 {
                     result << arg_var_accessor << field_name
-                        << "= " << sym.get_qualified_name() << ";";
+                        << "= " << this_accessor << sym.get_qualified_name() << ";";
                 }
                 else
                 {
                     result << arg_var_accessor << field_name
-                        << "= &(" << sym.get_qualified_name() << ");";
+                        << "= &(" << this_accessor << sym.get_qualified_name() << ");";
                 }
             }
             else

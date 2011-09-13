@@ -100,7 +100,8 @@ namespace TL { namespace OpenMP {
                 data_type = data_type.references_to();
             }
 
-            if (expr.is_id_expression())
+            if (expr.is_id_expression() 
+                || (sym.is_member() && !sym.is_static()))
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
@@ -121,7 +122,6 @@ namespace TL { namespace OpenMP {
                     data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                 }
             }
-
             data_sharing.add_dependence(dep_item);
         }
     }

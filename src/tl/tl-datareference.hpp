@@ -109,6 +109,13 @@ namespace TL
               use this function to check it
               */
             bool is_valid(std::string& reason) const;
+            
+            //! States whether this DataReference is a this access
+            /*!
+                Not all data references are this access
+              */
+            static bool is_this_access(Expression expr);
+
 
             //! Returns the warning log
             /*!
