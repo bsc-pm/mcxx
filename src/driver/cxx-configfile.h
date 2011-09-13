@@ -49,6 +49,7 @@ option_function_t config_set_prescanner_options;
 option_function_t config_set_compiler_name;
 option_function_t config_set_compiler_options;
 option_function_t config_set_linker_name;
+option_function_t config_set_linker_options_pre;
 option_function_t config_set_linker_options;
 option_function_t config_add_compiler_phase;
 option_function_t config_add_preprocessor_prefix;

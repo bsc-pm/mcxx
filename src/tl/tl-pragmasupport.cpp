@@ -27,7 +27,7 @@
 
 
 #include <typeinfo>
-
+#include <cctype>
 #include "cxx-utils.h"
 #include "tl-pragmasupport.hpp"
 
@@ -321,7 +321,22 @@ namespace TL
 
         return result;
     }
+    PragmaCustomClause PragmaCustomConstruct::get_clause(const ObjectList<std::string>& names) const
+    {
+        AST_t pragma_line (_ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE));
+        PragmaCustomClause result(names, pragma_line, this->get_scope_link());
+        if (_dto!=NULL)
+        {
+		    RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
+		    if (!clauses_info->directive_already_defined(this->get_ast()))
+		    {
+                init_clause_info();
+            }
+		    clauses_info->add_referenced_clause(this->get_ast(), names);
+        }
 
+        return result;
+    }
     bool PragmaCustomConstruct::is_function_definition() const
     {
         AST_t declaration = get_declaration();
@@ -513,11 +528,17 @@ namespace TL
         {
             private:
                 PredicateAttr _custom_clause;
-                const std::string& _clause_name;
+                const ObjectList<std::string> & _clause_names;
+
+                static std::string to_lower(std::string  s) 
+                {
+                    std::transform(s.begin(), s.end(), s.begin(), (int (*)(int))std::tolower);
+                    return s;
+                }
 
             public:
-                PredicateCustomClause(const std::string& clause_name)
-                    : _custom_clause(LANG_IS_PRAGMA_CUSTOM_CLAUSE), _clause_name(clause_name)
+                PredicateCustomClause(const ObjectList<std::string> & clause_names)
+                    : _custom_clause(LANG_IS_PRAGMA_CUSTOM_CLAUSE), _clause_names(clause_names)
                 {
                 }
 
@@ -526,14 +547,15 @@ namespace TL
                     if (_custom_clause(t))
                     {
                         TL::String clause_name_attr = t.get_attribute(LANG_PRAGMA_CUSTOM_CLAUSE);
-
-                        return (clause_name_attr.compare_case_insensitive_to(_clause_name));
+                        
+                        std::string str = to_lower(clause_name_attr);
+                        return _clause_names.contains(str);
                     }
                     else return false;
                 }
         };
 
-        PredicateCustomClause predicate_custom_clause(_clause_name);
+        PredicateCustomClause predicate_custom_clause(_clause_names);
 
         ObjectList<AST_t> result = _ref.depth_subtrees(predicate_custom_clause);
 

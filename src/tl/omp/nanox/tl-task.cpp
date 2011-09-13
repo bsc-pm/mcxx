@@ -231,12 +231,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences, dependency_struct, dependency_regions;
 
-    fill_data_args("ol_args", 
-            data_environ_info, 
-            dependences, 
-            /* is_pointer */ true,
-            fill_outline_arguments);
-
     bool immediate_is_alloca = false;
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
 
@@ -244,6 +238,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     {
         immediate_is_alloca = true;
     }
+    if(function_symbol.is_member() && !function_symbol.is_static()) 
+    {
+            fill_outline_arguments << "ol_args->_this = this;";
+            fill_immediate_arguments  << "imm_args" << (immediate_is_alloca ? "->" : ".") << "_this = this;";
+    }
+    fill_data_args("ol_args", 
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ true,
+            fill_outline_arguments);
 
     fill_data_args(
             "imm_args",

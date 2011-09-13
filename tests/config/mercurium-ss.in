@@ -16,7 +16,7 @@ EOF
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar -I@abs_top_srcdir@/../../master --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-dir=@abs_top_builddir@/config -I@abs_top_srcdir@/../../master --verbose"
 
 test_CC_API_3="\${MCC}"
 test_CC_API_4="\${MCC}"

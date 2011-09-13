@@ -199,6 +199,16 @@ int config_set_linker_name(struct compilation_configuration_tag* config, const c
     return 0;
 }
 
+// Set linker options pre
+int config_set_linker_options_pre(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    int num;
+    const char **blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->linker_options_pre, blank_separated_options, num);
+    return 0;
+}
+
 // Set linker options
 int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {

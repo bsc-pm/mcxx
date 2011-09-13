@@ -47,7 +47,7 @@ MCXX_BEGIN_DECLS
 
 LIBMCXXPROCESS_EXTERN compilation_process_t compilation_process;
 
-LIBMCXXPROCESS_EXTERN void add_new_file_to_compilation_process(
+LIBMCXXPROCESS_EXTERN translation_unit_t* add_new_file_to_compilation_process(
         compilation_file_process_t* current_file_process,
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);

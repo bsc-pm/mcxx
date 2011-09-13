@@ -1,0 +1,7 @@
+[sscxx : sscc-common]
+language = C++
+preprocessor_name = g++
+preprocessor_options = -E
+{openmp} preprocessor_options = -include new
+compiler_name = g++
+linker_name = g++

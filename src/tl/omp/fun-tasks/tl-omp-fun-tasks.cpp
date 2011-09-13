@@ -259,14 +259,21 @@ namespace OpenMP
             Source fp_inout_args;
             Source reduction_args;
             Source shared_args;
+            Source firstprivate_args;
 
+            bool implicit_this = false;
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
                     it2++)
             {
                 Source *args = NULL;
-                DataReference data_ref = it2->get_expression();
+                DataReference data_ref = it2->get_data_reference();
                 Symbol base_sym = data_ref.get_base_symbol();
+                if (base_sym.get_name() == "this") 
+                {
+                  implicit_this = true;
+                }
+                
                 switch (it2->get_direction())
                 {
                     case DEP_DIR_INPUT :
@@ -301,7 +308,7 @@ namespace OpenMP
                 if (!base_sym.is_parameter() && base_sym.is_member())
                 {
                     Source src;
-                    src << "__tmp_this." << base_sym.get_name();
+                    src << "__tmp_this->" << base_sym.get_name();
                     replace.add_replacement(base_sym,src.get_source());
                 }
                 (*args).append_with_separator(replace.replace(data_ref),",");
@@ -318,23 +325,23 @@ namespace OpenMP
                 if (callee.is_member_access())
                 {
                     called_object_type = callee.get_accessed_entity().get_type();
+                    
+                    if (called_object_type.is_reference())
+                        called_object_type = called_object_type.references_to();
+                    
+                    called_object_type = called_object_type.get_pointer_to();
 
-                    new_callee << "__tmp_this." << callee.get_accessed_member();
+                    new_callee << "__tmp_this->" << callee.get_accessed_member();
 
-                    init_this << callee.get_accessed_entity();
+                    init_this << "&(" << callee.get_accessed_entity() << ")";
                 }
                 else if (callee.is_pointer_member_access())
                 {
                     called_object_type = callee.get_accessed_entity().get_type();
 
-                    if (called_object_type.is_reference())
-                        called_object_type = called_object_type.references_to();
+                    new_callee << "__tmp_this->" << callee.get_accessed_member();
 
-                    called_object_type = called_object_type.points_to().get_reference_to();
-
-                    new_callee << "__tmp_this." << callee.get_accessed_member();
-
-                    init_this << "*" << callee.get_accessed_entity();
+                    init_this << callee.get_accessed_entity();
                 }
                 else if (callee.is_id_expression())
                 {
@@ -344,12 +351,12 @@ namespace OpenMP
                         running_error("%s: error: invalid nonstatic member call\n",
                                 expr.get_ast().get_locus().c_str());
                     }
-                    called_object_type = this_sym.get_type().points_to().get_reference_to();
+                    called_object_type = this_sym.get_type();
 
-                    new_callee << "__tmp_this." << callee
+                    new_callee << "__tmp_this->" << callee
                         ;
 
-                    init_this << "*this";
+                    init_this << "this";
                 }
                 else
                 {
@@ -357,18 +364,15 @@ namespace OpenMP
                             expr.get_ast().get_locus().c_str());
                 }
 
-                if (sym.get_type().is_const())
+                //By default, this will be shared
+                if(!implicit_this) 
                 {
-                    fp_input_args.append_with_separator("__tmp_this", ",");
-                }
-                else
-                {
-                    shared_args.append_with_separator("__tmp_this", ",");
+                    firstprivate_args.append_with_separator("__tmp_this", ",");
                 }
 
                 additional_decls
                     << "#line " << expr.get_ast().get_line() << " \"" << expr.get_ast().get_file() << "\"\n" 
-                    << called_object_type.get_declaration(callee.get_scope(), "__tmp_this") << "(" << init_this << ");"
+                    << called_object_type.get_declaration(callee.get_scope(), " __tmp_this") << " = " << init_this << ";"
                     ;
             }
             else
@@ -431,7 +435,6 @@ namespace OpenMP
 
             // Now check parameters that do not appear in dependences since
             // they must appear in firstprivate
-            Source firstprivate_args;
             for (unsigned int i = 0; i < argument_list.size(); i++)
             {
                 if (!parameters_as_dependences.contains(i))
@@ -608,7 +611,7 @@ namespace OpenMP
                                 }
                         }
 
-                        Expression expr = it2->get_expression();
+                        Expression expr = it2->get_data_reference();
 
                         DataReference data_ref(expr);
 
@@ -635,7 +638,7 @@ namespace OpenMP
                             replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
 
                             (*clause_args).append_with_separator(
-                                    replace_copies.replace(it2->get_expression()), 
+                                    replace_copies.replace(it2->get_data_reference()), 
                                     ",");
 
                         }

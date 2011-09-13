@@ -555,6 +555,13 @@ namespace TL
         return b;
     }
 
+    bool Expression::is_accessed_member()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ACCESSED_MEMBER);
+
+        return b;
+    }
+
     IdExpression Expression::get_id_expression()
     {
         return IdExpression(_ref, this->_scope_link);
