@@ -463,7 +463,7 @@ AC_SUBST([CUDA_LIBS])
 
 if test x$gpu_valid = xyes;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.nvidia"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.nvidia"
    COMPILER_NAMES="${COMPILER_NAMES} mnvcc mnvcxx"
 fi
 
@@ -612,7 +612,7 @@ then
 
    if test x$ICC != x -o x$ICPC != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.intel"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.intel"
    fi
 
    dnl XL (gcc driver)
@@ -632,7 +632,7 @@ then
 
    if test x$GXLC != x -o x$GXLCXX != x;
    then
-      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 50.config.omp.ibm"
+      INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.ibm"
    fi
 
 fi
