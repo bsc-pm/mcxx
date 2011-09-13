@@ -523,7 +523,7 @@ namespace TL
         return ObjectList<Node*>(1, basic_node);
     }
 
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::StructuredLiteral& n)
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::StructuredValue& n)
     {
         ObjectList<Node*> items = walk(n.get_items());
         return Ret();

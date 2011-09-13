@@ -36,6 +36,7 @@
 #include "cxx-printscope.h"
 #include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
+#include "cxx-codegen.h"
 
 /*
  * Building a symbol table for C++ is such a hard thing that we need ways to debug it.
@@ -197,7 +198,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
         if (entry->entity_specs.is_bitfield)
         {
             PRINT_INDENTED_LINE(stderr, global_indent + 1, "Bitfield of size: %s\n", 
-                    prettyprint_in_buffer(entry->entity_specs.bitfield_expr));
+                    c_cxx_codegen_to_str(entry->entity_specs.bitfield_size));
         }
     }
     if (entry->kind == SK_TEMPLATE_PARAMETER
@@ -331,10 +332,10 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
     }
 
     if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
-            && entry->language_dependent_value != NULL)
+            && !nodecl_is_null(entry->value))
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: %s\n",
-                prettyprint_in_buffer(entry->language_dependent_value));
+                c_cxx_codegen_to_str(entry->value));
     }
 
     if (entry->kind == SK_FUNCTION)
@@ -364,7 +365,7 @@ static void print_scope_entry(const char* key, scope_entry_t* entry, int global_
                     {
                         PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
                                 i,
-                                prettyprint_in_buffer(entry->entity_specs.default_argument_info[i]->argument));
+                                c_cxx_codegen_to_str(entry->entity_specs.default_argument_info[i]->argument));
                     }
                 }
             }

@@ -145,7 +145,7 @@ static void system_v_field_layout(scope_entry_t* field,
         // Bitfields are very special, otherwise all this stuff would be
         // extremely easy
         unsigned int bitsize = const_value_cast_to_4(
-                expression_get_constant(field->entity_specs.bitfield_expr)
+                nodecl_get_constant(field->entity_specs.bitfield_size)
                 );
 
         if (!(*previous_was_bitfield))
@@ -920,7 +920,7 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         layout_info_t* layout_info)
 {
     unsigned int bitsize 
-        = const_value_cast_to_4(expression_get_constant(member->entity_specs.bitfield_expr));
+        = const_value_cast_to_4(nodecl_get_constant(member->entity_specs.bitfield_size));
 
     _size_t size_of_member = type_get_size(member->type_information);
     _size_t initial_bit = 0;
@@ -1226,7 +1226,7 @@ static char is_pod_type_layout(type_t* t)
             {
                 _size_t bits_of_bitfield = 
                     const_value_cast_to_8(
-                            expression_get_constant(data_member->entity_specs.bitfield_expr)
+                            nodecl_get_constant(data_member->entity_specs.bitfield_size)
                             );
 
                 _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
@@ -1644,6 +1644,7 @@ void init_type_environments(void)
     linux_ia32.sizeof_bool = 1;
     linux_ia32.alignof_bool = 1;
 
+    linux_ia32.int_type_of_wchar_t = get_signed_long_int_type;
     linux_ia32.sizeof_wchar_t = 4;
     linux_ia32.alignof_wchar_t = 4;
 
@@ -1710,6 +1711,7 @@ void init_type_environments(void)
     linux_amd64.sizeof_bool = 1;
     linux_amd64.alignof_bool = 1;
 
+    linux_amd64.int_type_of_wchar_t = get_signed_int_type;
     linux_amd64.sizeof_wchar_t = 4;
     linux_amd64.alignof_wchar_t = 4;
 
@@ -1783,6 +1785,7 @@ void init_type_environments(void)
     linux_ia64.sizeof_bool = 1;
     linux_ia64.alignof_bool = 1;
 
+    linux_ia64.int_type_of_wchar_t = get_signed_int_type;
     linux_ia64.sizeof_wchar_t = 4;
     linux_ia64.alignof_wchar_t = 4;
 
@@ -1846,6 +1849,7 @@ void init_type_environments(void)
     linux_ppc32.sizeof_bool = 1;
     linux_ppc32.alignof_bool = 1;
 
+    linux_ppc32.int_type_of_wchar_t = get_signed_long_int_type;
     linux_ppc32.sizeof_wchar_t = 4;
     linux_ppc32.alignof_wchar_t = 4;
 
@@ -1914,6 +1918,7 @@ void init_type_environments(void)
     linux_ppc64.sizeof_bool = 1;
     linux_ppc64.alignof_bool = 1;
 
+    linux_ppc64.int_type_of_wchar_t = get_signed_int_type;
     linux_ppc64.sizeof_wchar_t = 4;
     linux_ppc64.alignof_wchar_t = 4;
 
@@ -1983,6 +1988,7 @@ void init_type_environments(void)
     linux_spu.sizeof_bool = 1;
     linux_spu.alignof_bool = 1;
 
+    linux_spu.int_type_of_wchar_t = get_signed_long_int_type;
     linux_spu.sizeof_wchar_t = 4;
     linux_spu.alignof_wchar_t = 4;
 
@@ -2047,6 +2053,7 @@ void init_type_environments(void)
     solaris_sparcv9.sizeof_bool = 1;
     solaris_sparcv9.alignof_bool = 1;
 
+    solaris_sparcv9.int_type_of_wchar_t = get_signed_int_type;
     solaris_sparcv9.sizeof_wchar_t = 4;
     solaris_sparcv9.alignof_wchar_t = 4;
 
@@ -2119,6 +2126,7 @@ void init_type_environments(void)
     linux_arm_eabi.sizeof_bool = 1;
     linux_arm_eabi.alignof_bool = 1;
 
+    linux_arm_eabi.int_type_of_wchar_t = get_signed_long_int_type;
     linux_arm_eabi.sizeof_wchar_t = 4;
     linux_arm_eabi.alignof_wchar_t = 4;
 

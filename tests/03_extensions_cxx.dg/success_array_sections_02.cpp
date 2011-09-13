@@ -25,27 +25,28 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-extensions
+</testinfo>
+*/
+int v_1D[2000];
+int v_2D[2000][2000];
+void g() 
+{
+	v_1D[:10];
+	v_1D[1:];
+	v_1D[0:];
+	v_1D[:];
 
-#ifndef CXX_GCCSUPPORT_H
-#define CXX_GCCSUPPORT_H
+	v_2D[:];
+	v_2D[:][:];
+	v_2D[0:][0:];
+	v_2D[:][:5];
+	v_2D[:][1:3];
+	v_2D[1:1][1:1];
+	v_2D[:][101:100];
 
-#include "libmcxx-common.h"
-#include "cxx-ast-decls.h"
-#include "cxx-buildscope-decls.h"
+}
 
-MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute, 
-        gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list, 
-        gather_decl_spec_t *gather_info, 
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN char check_gxx_type_traits(AST expression, 
-        decl_context_t decl_context, nodecl_t* nodecl_output);
-
-MCXX_END_DECLS
-
-#endif // CXX_GCCSUPPORT_H

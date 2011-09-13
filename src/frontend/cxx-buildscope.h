@@ -110,6 +110,8 @@ LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const char *filename, int line, nodecl_t* nodecl_output);
 
+LIBMCXX_EXTERN scope_entry_t* finish_anonymous_class(scope_entry_t* class_symbol, decl_context_t decl_context);
+
 LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info, 
         gather_decl_spec_t *gather_info, decl_context_t dctx, nodecl_t* nodecl_output);
 
@@ -118,13 +120,37 @@ LIBMCXX_EXTERN void leave_class_specifier(nodecl_t*);
 
 LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
 
-LIBMCXX_EXTERN AST internal_expression_parse(const char *source, decl_context_t decl_context);
+LIBMCXX_EXTERN nodecl_t internal_expression_parse(const char *source, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void build_scope_template_header(AST template_parameter_list, 
         decl_context_t decl_context, decl_context_t *template_context,
         nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN scope_entry_t* entry_advance_aliases(scope_entry_t* entry);
+
+LIBMCXX_EXTERN void insert_members_in_enclosing_nonanonymous_class(
+        scope_entry_t* class_symbol,
+        scope_entry_list_t* member_list);
+
+LIBMCXX_EXTERN void introduce_using_entities(
+        nodecl_t nodecl_name,
+        scope_entry_list_t* used_entities, 
+        decl_context_t decl_context, 
+        scope_entry_t* current_class,
+        char is_class_scope, 
+        access_specifier_t current_access,
+        const char* filename, int line);
+
+void build_scope_friend_declarator(decl_context_t decl_context, 
+        gather_decl_spec_t *gather_info,
+        type_t* class_type,
+        type_t* member_type, 
+        AST declarator);
+
+LIBMCXX_EXTERN void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, 
+        decl_context_t decl_context, access_specifier_t current_access);
+
+LIBMCXX_EXTERN scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context);
 
 MCXX_END_DECLS
 

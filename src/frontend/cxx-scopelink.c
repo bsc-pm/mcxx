@@ -101,7 +101,7 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
     {
         scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
         new_entry->decl_context = decl_context;
-        rb_tree_add(sl->h, a, new_entry);
+        rb_tree_insert(sl->h, a, new_entry);
     }
     else
     {

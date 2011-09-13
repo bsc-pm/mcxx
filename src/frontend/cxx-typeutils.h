@@ -77,11 +77,17 @@ LIBMCXX_EXTERN type_t* get_void_type(void);
 LIBMCXX_EXTERN type_t* get_double_type(void);
 LIBMCXX_EXTERN type_t* get_long_double_type(void);
 
+LIBMCXX_EXTERN type_t* get_unknown_dependent_type(void);
+
 /* Fortran specialities */
 LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
 
-LIBMCXX_EXTERN type_t* get_gcc_typeof_type(AST type_tree, decl_context_t decl_context);
-LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(AST type_expr, decl_context_t decl_context);
+LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(nodecl_t nodecl_expr, decl_context_t decl_context);
+
+LIBMCXX_EXTERN nodecl_t gcc_typeof_expr_type_get_expression(type_t* t);
+LIBMCXX_EXTERN decl_context_t gcc_typeof_expr_type_get_expression_context(type_t* t);
+
+LIBMCXX_EXTERN char is_gcc_typeof_expr(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_gcc_builtin_va_list_type(void);
 
@@ -93,7 +99,7 @@ LIBMCXX_EXTERN type_t* get_dependent_typename_type(scope_entry_t* dependent_enti
         AST nested_name, AST unqualified_part);
 
 LIBMCXX_EXTERN type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
-        dependent_name_part_t* dependent_parts);
+        nodecl_t dependent_parts);
 
 LIBMCXX_EXTERN type_t* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
@@ -108,9 +114,7 @@ LIBMCXX_EXTERN type_t* get_unresolved_overloaded_type(const scope_entry_list_t* 
 LIBMCXX_EXTERN template_parameter_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t);
 
 LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(type_t* t, 
-        decl_context_t decl_context, int line, const char* filename);
-
-LIBMCXX_EXTERN type_t* get_dependent_expr_type(void);
+        decl_context_t decl_context, const char* filename, int line);
 
 LIBMCXX_EXTERN type_t* canonical_type(type_t* type);
 
@@ -180,7 +184,6 @@ LIBMCXX_EXTERN type_t* get_vector_type(type_t* element_type, unsigned int vector
 
 LIBMCXX_EXTERN type_t* get_generic_vector_type(struct type_tag* element_type);
 
-LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 LIBMCXX_EXTERN type_t* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
@@ -316,7 +319,6 @@ LIBMCXX_EXTERN char is_dependent_typename_type(type_t* t);
 LIBMCXX_EXTERN char is_complex_type(type_t* t);
 
 LIBMCXX_EXTERN char is_unresolved_overloaded_type(type_t* t);
-LIBMCXX_EXTERN char is_dependent_expr_type(type_t* t);
 
 LIBMCXX_EXTERN char is_zero_type(type_t* t);
 
@@ -458,12 +460,12 @@ LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(type_t* t,
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type(type_t* t, 
         template_parameter_list_t * template_parameters,
         decl_context_t decl_context, 
-        int line, const char* filename);
+        const char* filename, int line);
 LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_parameter_list_t *template_parameters, 
         type_t* after_type,
         decl_context_t decl_context, 
-        int line, const char* filename);
+        const char* filename, int line);
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(type_t* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(type_t* t);
@@ -484,7 +486,7 @@ LIBMCXX_EXTERN void template_specialized_type_update_template_parameters(type_t*
 
 LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t, 
         scope_entry_t** dependent_entry, 
-        dependent_name_part_t** dependent_parts);
+        nodecl_t* dependent_parts);
 
 LIBMCXX_EXTERN int vector_type_get_vector_size(type_t*);
 LIBMCXX_EXTERN type_t* vector_type_get_element_type(type_t*);
@@ -521,7 +523,11 @@ LIBMCXX_EXTERN type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_quali
 
 LIBMCXX_EXTERN type_t* reference_type_get_referenced_type(type_t* t1);
 
+// Remove reference type
 LIBMCXX_EXTERN type_t* no_ref(type_t* t);
+
+// Only returns a reference in C++. In C it does nothing
+LIBMCXX_EXTERN type_t* lvalue_ref(type_t* t);
 
 LIBMCXX_EXTERN type_t* get_actual_class_type(type_t* class_type);
 
@@ -568,11 +574,8 @@ LIBMCXX_EXTERN char is_braced_list_type(type_t* t);
 LIBMCXX_EXTERN char has_dependent_template_parameters(template_parameter_list_t* template_parameters);
 
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
-        dependent_name_part_t* dependent_parts_1,
-        dependent_name_part_t* dependent_parts_2);
-
-LIBMCXX_EXTERN dependent_name_part_t* copy_dependent_parts(
-        dependent_name_part_t* dependent_part);
+        nodecl_t dependent_parts_1,
+        nodecl_t dependent_parts_2);
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(type_t* printed_declarator);

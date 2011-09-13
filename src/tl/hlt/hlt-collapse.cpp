@@ -69,7 +69,7 @@ TL::Source LoopCollapse::get_source()
     }
 
     if (_nest_level != 0
-            && _nest_level < for_nest_list.size())
+            && _nest_level < (int)for_nest_list.size())
     {
         for_nest_list.erase(for_nest_list.begin() + _nest_level, 
                 for_nest_list.end());
@@ -177,7 +177,7 @@ TL::Source LoopCollapse::get_source()
                 _ancillary_names->append(var_name);
             }
 
-            for (int i = loop_n; i < for_nest_list.size(); i++)
+            for (int i = loop_n; i < (int)for_nest_list.size(); i++)
             {
                 current_count_value.append_with_separator(Source("_iteration_count_") << i, "*");
             }

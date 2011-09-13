@@ -35,6 +35,10 @@ void nodecl_set_type(nodecl_t, type_t*);
 scope_entry_t* nodecl_get_symbol(nodecl_t);
 void nodecl_set_symbol(nodecl_t, scope_entry_t*);
 
+// Template parameters (C++ only)
+void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* template_parameters);
+template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n);
+
 // Location
 const char* nodecl_get_filename(nodecl_t);
 int nodecl_get_line(nodecl_t);
@@ -58,16 +62,30 @@ char nodecl_is_list(nodecl_t);
 // Unpack a list. Do not forget to free the returned pointer
 nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items);
 
+// Length of a list
+int nodecl_list_length(nodecl_t list);
+
 // Wrap (use sparingly)
 nodecl_t _nodecl_wrap(AST);
+
+// Generic routines (meant for generic processing)
+nodecl_t nodecl_generic_make(node_t, const char* filename, int line);
+void nodecl_set_child(nodecl_t, int, nodecl_t);
 
 // Free a temporally allocated nodecl
 void nodecl_free(nodecl_t);
 
-// C++ specific stuff
-char nodecl_is_cxx_dependent_expr(nodecl_t n);
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t);
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t*);
+// Expression specific stuff
+char nodecl_expr_is_lvalue(nodecl_t);
+void nodecl_expr_set_is_lvalue(nodecl_t, char);
+
+char nodecl_expr_is_value_dependent(nodecl_t);
+void nodecl_expr_set_is_value_dependent(nodecl_t, char);
+
+char nodecl_expr_is_type_dependent(nodecl_t);
+void nodecl_expr_set_is_type_dependent(nodecl_t, char);
+
+char nodecl_is_err_expr(nodecl_t);
 
 MCXX_END_DECLS
 

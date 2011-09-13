@@ -49,7 +49,7 @@ scope_entry_list_t* koenig_lookup(
         int num_arguments,
         type_t** argument_type_list,
         decl_context_t normal_decl_context,
-        AST id_expression)
+        nodecl_t nodecl_simple_name)
 {
     DEBUG_CODE()
     {
@@ -82,7 +82,7 @@ scope_entry_list_t* koenig_lookup(
     scope_entry_list_t *result = NULL;
 
     // First do normal lookup
-    result = query_id_expression(normal_decl_context, id_expression);
+    result = query_nodecl_name(normal_decl_context, nodecl_simple_name);
 
     // For every associated scope
     int i;
@@ -101,7 +101,9 @@ scope_entry_list_t* koenig_lookup(
             fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
         }
 
-        scope_entry_list_t* current_result = query_in_scope(current_context, id_expression);
+        scope_entry_list_t* current_result = query_nodecl_name_flags(current_context, 
+                nodecl_simple_name, 
+                DF_ONLY_CURRENT_SCOPE);
 
         scope_entry_list_t* old_result = result;
         result = entry_list_merge(old_result, current_result);

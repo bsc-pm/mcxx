@@ -52,6 +52,8 @@ def print_type_and_name(_type, name):
         return [("int", name, "")]
     elif (_type == "AST"):
         return [("AST", name, "")]
+    elif (_type == "nodecl"):
+        return [("nodecl_t", name, "")]
     elif (_type == "type"):
         return [("type_t*", name, "")]
     elif (_type == "string"):
@@ -143,6 +145,8 @@ def insert_extra_attr_code(_type, name, suffix):
         _insert_code.append("insert_extra_attr_string(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
     elif (_type == "AST"):
         _insert_code.append("insert_extra_attr_ast(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
+    elif (_type == "nodecl"):
+        _insert_code.append("insert_extra_attr_nodecl(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
     elif (_type == "type"):
         _insert_code.append("insert_extra_attr_type(handle, sym, \"" + name + "\", sym->entity_specs." + name + suffix + ");")
     elif (_type == "symbol"):
@@ -207,6 +211,15 @@ def get_extra_load_code(_type, num_name, list_name):
         result.append("sym->entity_specs." + num_name + " = extra_trees.num_trees;")
         result.append("sym->entity_specs." + list_name + " = extra_trees.trees;")
         result.append("}")
+    elif (_type == "nodecl"):
+        result.append("{")
+        result.append("extra_nodecls_t extra_nodecls;")
+        result.append("memset(&extra_nodecls, 0, sizeof(extra_nodecls));")
+        result.append("extra_nodecls.handle = handle;");
+        result.append("get_extended_attribute(handle, sym_oid, \"" + list_name + "\", &extra_nodecls, get_extra_nodecls);")
+        result.append("sym->entity_specs." + num_name + " = extra_nodecls.num_nodecls;")
+        result.append("sym->entity_specs." + list_name + " = extra_nodecls.nodecls;")
+        result.append("}")
     elif (_type.startswith("typeof")):
         type_name = get_up_to_matching_paren(_type[len("typeof"):])
         if type_name == "gather_gcc_attribute_t" :
@@ -251,6 +264,12 @@ def get_load_code(_type, name):
         result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
         result.append("{")
         result.append("   sym->entity_specs." + name + " = load_ast(handle, safe_atoll(values[i]));")
+        result.append("}")
+    elif (_type == "nodecl"):
+        result.append("int i;");
+        result.append("if (query_contains_field(ncols, names, \"" + name + "\", &i))");
+        result.append("{")
+        result.append("   sym->entity_specs." + name + " = load_nodecl(handle, safe_atoll(values[i]));")
         result.append("}")
     elif (_type == "type"):
         result.append("int i;");
@@ -320,6 +339,10 @@ def print_fortran_modules_functions(lines):
           attr_names.append(name)
           _format.append("%lld")
           _insert_code.append("    insert_ast(handle, sym->entity_specs." + name + ");");
+      elif (_type == "nodecl"):
+          attr_names.append(name)
+          _format.append("%lld")
+          _insert_code.append("    insert_nodecl(handle, sym->entity_specs." + name + ");");
       elif (_type == "type"):
           attr_names.append(name)
           _format.append("%lld")

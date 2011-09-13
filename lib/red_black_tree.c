@@ -288,7 +288,7 @@ static void TreeInsertHelp(rb_red_blk_tree* tree, rb_red_blk_node* z) {
 /*            info pointers and inserts it into the tree. */
 /***********************************************************************/
 
-rb_red_blk_node * rb_tree_add(rb_red_blk_tree* tree, const void* key, void* info) {
+static rb_red_blk_node * rb_tree_add(rb_red_blk_tree* tree, const void* key, void* info) {
   rb_red_blk_node * y;
   rb_red_blk_node * x;
   rb_red_blk_node * newNode;

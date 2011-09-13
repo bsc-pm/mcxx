@@ -40,7 +40,7 @@ LIBMCXX_EXTERN scope_entry_list_t* koenig_lookup(
         int num_arguments,
         struct type_tag** argument_type_list,
         decl_context_t normal_decl_context,
-        AST id_expression);
+        nodecl_t nodecl_simple_name);
 
 MCXX_END_DECLS
 

@@ -6,8 +6,8 @@
 void fortran_init_intrinsics(decl_context_t decl_context);
 
 scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
-        type_t** argument_types, 
-        AST* actual_arguments, 
+        const char** actual_arguments_keywords, 
+        nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified);
 

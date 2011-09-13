@@ -162,3 +162,15 @@ const char* strtolower(const char* c)
     }
     return NULL;
 }
+
+const char* has_prefix(const char* prefix, const char* str)
+{
+    if (strncmp(prefix, str, strlen(prefix)) == 0)
+    {
+        return str + strlen(prefix);
+    }
+    else
+    {
+        return NULL;
+    }
+}

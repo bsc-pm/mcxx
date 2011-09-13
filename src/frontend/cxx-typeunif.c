@@ -49,7 +49,15 @@ long long int typeunif_used_memory(void)
     return _bytes_typeunif;
 }
 
-static char equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree);
+typedef
+enum tribool_tag
+{
+    DEFINITELY_FALSE = 0,
+    DEFINITELY_TRUE = 1,
+    NOT_SURE = 2
+} tribool_t;
+
+static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree);
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context, 
@@ -622,7 +630,7 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
     return result;
 }
 
-static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, AST right_tree,
+static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tree, 
         deduction_set_t** unif_set,
         deduction_flags_t flags);
 
@@ -637,8 +645,8 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                 c_cxx_codegen_to_str(left_tree),
                 c_cxx_codegen_to_str(right_tree));
     }
-    if (nodecl_is_cxx_dependent_expr(left_tree)
-            || nodecl_is_cxx_dependent_expr(right_tree))
+    if (nodecl_expr_is_value_dependent(left_tree)
+            || nodecl_expr_is_value_dependent(right_tree))
     {
         DEBUG_CODE()
         {
@@ -653,31 +661,33 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
                     c_cxx_codegen_to_str(left_tree),
                     c_cxx_codegen_to_str(right_tree));
         }
-        if (equivalent_expression_trees(left_tree, right_tree))
+        tribool_t tribool = equivalent_expression_trees(left_tree, right_tree);
+        if (tribool == NOT_SURE)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUNIF: Plain evaluation succeeded. They have the same value\n");
+                fprintf(stderr, "TYPEUNIF: Plain evaluation was not possible. Trying structural equivalence\n");
             }
-            return 1;
         }
         else
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUNIF: Plain evaluation failed. Trying structural equivalence\n");
+                fprintf(stderr, "TYPEUNIF: Constant values comparison %s. They have the %s values\n",
+                        tribool ? "succeeded" : "failed",
+                        tribool ? "equivalent" : "different");
             }
+            return tribool;
         }
     }
 
-    if (!nodecl_is_cxx_dependent_expr(left_tree)
-            && !nodecl_is_cxx_dependent_expr(right_tree))
-    {
-        scope_entry_t* left_symbol = nodecl_get_symbol(left_tree);
-        scope_entry_t* right_symbol = nodecl_get_symbol(right_tree);
+    scope_entry_t* left_symbol = nodecl_get_symbol(left_tree);
+    scope_entry_t* right_symbol = nodecl_get_symbol(right_tree);
 
-        if (left_symbol != NULL
-                && left_symbol == right_symbol)
+    if (left_symbol != NULL
+            && right_symbol != NULL)
+    {
+        if (left_symbol == right_symbol)
         {
             DEBUG_CODE()
             {
@@ -688,466 +698,477 @@ static char equivalent_dependent_expressions(nodecl_t left_tree,
             }
             return 1;
         }
-
-        if (right_symbol != NULL)
+        else if (left_symbol->kind == SK_DEPENDENT_ENTITY
+                && right_symbol->kind == SK_DEPENDENT_ENTITY)
         {
-            // Advance right value
-            if (!nodecl_is_null(right_symbol->value))
-                return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
+            return equivalent_types(left_symbol->type_information, right_symbol->type_information);
         }
+    }
 
-        if (left_symbol != NULL)
+    if (right_symbol != NULL)
+    {
+        // Advance right value
+        if (!nodecl_is_null(right_symbol->value))
+            return equivalent_dependent_expressions(left_tree, right_symbol->value, unif_set, flags);
+    }
+
+    if (left_symbol != NULL)
+    {
+        // Advance left value only if it is not a nontype template parameter
+        if (left_symbol->kind != SK_TEMPLATE_PARAMETER 
+                && !nodecl_is_null(left_symbol->value))
+            return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set, flags);
+
+        // Try to unify using this template parameter
+        if (left_symbol->kind == SK_TEMPLATE_PARAMETER)
         {
-            // Advance left value
-            if (left_symbol->kind != SK_TEMPLATE_PARAMETER // A template parameter may have a value of no interest here
-                    && !nodecl_is_null(left_symbol->value))
-                return equivalent_dependent_expressions(left_symbol->value, right_tree, unif_set, flags);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Left part '%s' found to be a nontype template parameter\n", 
+                        c_cxx_codegen_to_str(left_tree));
+            }
+            deduction_t* deduction = get_unification_item_template_parameter(unif_set,
+                    left_symbol);
 
-            // Try to unify using this template parameter
-            if (left_symbol->kind == SK_TEMPLATE_PARAMETER)
+            deduced_parameter_t current_deduced_parameter;
+            memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+            current_deduced_parameter.value = right_tree;
+            current_deduced_parameter.type = left_symbol->type_information;
+
+            // Fold if possible
+            if (nodecl_is_constant(right_tree))
+            {
+                current_deduced_parameter.value = 
+                    const_value_to_nodecl(nodecl_get_constant(right_tree));
+            }
+
+            char found = 0;
+            int i;
+            for (i = 0; i < deduction->num_deduced_parameters; i++)
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "TYPEUNIF: Left part '%s' found to be a nontype template parameter\n", 
-                            c_cxx_codegen_to_str(left_tree));
+                    fprintf(stderr, "TYPEUNIF: Checking previous deductions\n");
                 }
-                deduction_t* deduction = get_unification_item_template_parameter(unif_set,
-                        left_symbol);
+                deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
 
-                deduced_parameter_t current_deduced_parameter;
-                memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+                nodecl_t previous_deduced_value = previous_deduced_parameter->value;
 
-                current_deduced_parameter.value = right_tree;
-                current_deduced_parameter.type = left_symbol->type_information;
+                scope_entry_t* previous_unified_symbol = nodecl_get_symbol(previous_deduced_value);
 
-                // Fold if possible
-                if (nodecl_is_constant(right_tree))
-                {
-                    current_deduced_parameter.value = 
-                        const_value_to_nodecl(nodecl_get_constant(right_tree));
-                }
-
-                char found = 0;
-                int i;
-                for (i = 0; i < deduction->num_deduced_parameters; i++)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEUNIF: Checking previous deductions\n");
-                    }
-                    deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
-
-                    nodecl_t previous_deduced_value = previous_deduced_parameter->value;
-
-                    scope_entry_t* previous_unified_symbol = nodecl_get_symbol(previous_deduced_value);
-
-                    if (previous_unified_symbol != NULL
-                            && right_symbol != NULL
-                            && previous_unified_symbol->kind == SK_TEMPLATE_PARAMETER
-                            && right_symbol->kind == SK_TEMPLATE_PARAMETER)
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "TYPEUNIF: In previous deduction both left tree '%s' and right tree '%s'"
-                                    " are nontype template parameters. Checking if they are the same\n", 
-                                    c_cxx_codegen_to_str(left_tree),
-                                    c_cxx_codegen_to_str(right_tree));
-                        }
-
-                        int previous_unified_expr_parameter_position = 
-                            previous_unified_symbol->entity_specs.template_parameter_position;
-                        int previous_unified_expr_parameter_nesting = 
-                            previous_unified_symbol->entity_specs.template_parameter_nesting;
-
-                        int currently_unified_template_param_position = 
-                            right_symbol->entity_specs.template_parameter_position;
-                        int currently_unified_template_param_nesting = 
-                            right_symbol->entity_specs.template_parameter_nesting;
-
-                        if ((currently_unified_template_param_position == previous_unified_expr_parameter_position)
-                                && (currently_unified_template_param_nesting == previous_unified_expr_parameter_nesting))
-                        {
-                            found = 1;
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "TYPEUNIF: They are the same\n");
-                            }
-                        }
-                        else
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "TYPEUNIF: They are different\n");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "TYPEUNIF: Checking if previous deduced expression '%s' and right part '%s'"
-                                    " are the same\n", 
-                                    c_cxx_codegen_to_str(previous_deduced_value),
-                                    c_cxx_codegen_to_str(right_tree));
-                        }
-                        if (equivalent_dependent_expressions(previous_deduced_value,
-                                    right_tree, unif_set, flags))
-                        {
-                            found = 1;
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "TYPEUNIF: They are the same\n");
-                            }
-                        }
-                        else
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "TYPEUNIF: They are different\n");
-                            }
-                        }
-                    }
-                }
-
-                if (!found)
-                {
-                    deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
-                    *new_deduced_parameter = current_deduced_parameter;
-
-                    P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEUNIF: Added unification for '%s' <- '%s'\n",
-                                c_cxx_codegen_to_str(left_tree),
-                                c_cxx_codegen_to_str(right_tree));
-                    }
-                }
-
-                char equivalent = 0;
-
-                if (right_symbol != NULL
+                if (previous_unified_symbol != NULL
+                        && right_symbol != NULL
+                        && previous_unified_symbol->kind == SK_TEMPLATE_PARAMETER
                         && right_symbol->kind == SK_TEMPLATE_PARAMETER)
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "TYPEUNIF: Checking if it is exactly the same template parameter '%s' and '%s'\n",
+                        fprintf(stderr, "TYPEUNIF: In previous deduction both left tree '%s' and right tree '%s'"
+                                " are nontype template parameters. Checking if they are the same\n", 
                                 c_cxx_codegen_to_str(left_tree),
                                 c_cxx_codegen_to_str(right_tree));
                     }
-                    if ((right_symbol->entity_specs.template_parameter_nesting 
-                                == left_symbol->entity_specs.template_parameter_nesting)
-                            && (right_symbol->entity_specs.template_parameter_position 
-                                == left_symbol->entity_specs.template_parameter_position))
+
+                    int previous_unified_expr_parameter_position = 
+                        previous_unified_symbol->entity_specs.template_parameter_position;
+                    int previous_unified_expr_parameter_nesting = 
+                        previous_unified_symbol->entity_specs.template_parameter_nesting;
+
+                    int currently_unified_template_param_position = 
+                        right_symbol->entity_specs.template_parameter_position;
+                    int currently_unified_template_param_nesting = 
+                        right_symbol->entity_specs.template_parameter_nesting;
+
+                    if ((currently_unified_template_param_position == previous_unified_expr_parameter_position)
+                            && (currently_unified_template_param_nesting == previous_unified_expr_parameter_nesting))
                     {
                         found = 1;
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "TYPEUNIF: They are the same template parameter\n");
+                            fprintf(stderr, "TYPEUNIF: They are the same\n");
                         }
-                        equivalent = 1;
                     }
                     else
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "TYPEUNIF: They are different template parameters\n");
+                            fprintf(stderr, "TYPEUNIF: They are different\n");
                         }
-                        equivalent = 0;
                     }
                 }
-
-                return equivalent;
+                else
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Checking if previous deduced expression '%s' and right part '%s'"
+                                " are the same\n", 
+                                c_cxx_codegen_to_str(previous_deduced_value),
+                                c_cxx_codegen_to_str(right_tree));
+                    }
+                    if (equivalent_dependent_expressions(previous_deduced_value,
+                                right_tree, unif_set, flags))
+                    {
+                        found = 1;
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEUNIF: They are the same\n");
+                        }
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "TYPEUNIF: They are different\n");
+                        }
+                    }
+                }
             }
 
-            DEBUG_CODE()
+            if (!found)
             {
-                fprintf(stderr, "TYPEUNIF: Left part '%s' is not a nontype template parameter, they can't be equivalent expressions\n", 
-                        c_cxx_codegen_to_str(left_tree));
+                deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                *new_deduced_parameter = current_deduced_parameter;
+
+                P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Added unification for '%s' <- '%s'\n",
+                            c_cxx_codegen_to_str(left_tree),
+                            c_cxx_codegen_to_str(right_tree));
+                }
             }
 
-            return 0;
+            char equivalent = 0;
+
+            if (right_symbol != NULL
+                    && right_symbol->kind == SK_TEMPLATE_PARAMETER)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Checking if it is exactly the same template parameter '%s' and '%s'\n",
+                            c_cxx_codegen_to_str(left_tree),
+                            c_cxx_codegen_to_str(right_tree));
+                }
+                if ((right_symbol->entity_specs.template_parameter_nesting 
+                            == left_symbol->entity_specs.template_parameter_nesting)
+                        && (right_symbol->entity_specs.template_parameter_position 
+                            == left_symbol->entity_specs.template_parameter_position))
+                {
+                    found = 1;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: They are the same template parameter\n");
+                    }
+                    equivalent = 1;
+                }
+                else
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: They are different template parameters\n");
+                    }
+                    equivalent = 0;
+                }
+            }
+
+            return equivalent;
         }
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "TYPEUNIF: Nodecls are not comparable\n");
+            fprintf(stderr, "TYPEUNIF: Unification through symbols failed %s != %s\n", 
+                    c_cxx_codegen_to_str(left_tree),
+                    c_cxx_codegen_to_str(right_tree));
         }
 
         return 0;
     }
-    else if (nodecl_is_cxx_dependent_expr(left_tree)
-            && nodecl_is_cxx_dependent_expr(right_tree))
-    {
-        decl_context_t dummy;
-        return equivalent_dependent_expressions_cxx_dependent_expr(nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy),
-                nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy),
-                unif_set,
-                flags);
-    }
-    else
-    {
-        // These are special cases we allow
-        if (nodecl_is_cxx_dependent_expr(left_tree))
-        {
-            decl_context_t dummy;
-            AST left_expr = nodecl_unwrap_cxx_dependent_expr(left_tree, &dummy);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Left is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(left_expr), 
-                        ast_print_node_type(ASTType(left_expr)));
-            }
-
-            if (expression_has_symbol(left_expr))
-            {
-                scope_entry_t* sym = expression_get_symbol(left_expr);
-                return equivalent_dependent_expressions(nodecl_make_symbol(sym, sym->file, sym->line), right_tree, unif_set, flags);
-            }
-        }
-        if (nodecl_is_cxx_dependent_expr(right_tree))
-        {
-            decl_context_t dummy;
-            AST right_expr = nodecl_unwrap_cxx_dependent_expr(right_tree, &dummy);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Right is C++ raw '%s' (%s), maybe it has a symbol\n", prettyprint_in_buffer(right_expr), 
-                        ast_print_node_type(ASTType(right_expr)));
-            }
-
-            if (expression_has_symbol(right_expr))
-            {
-                scope_entry_t* sym = expression_get_symbol(right_expr);
-                return equivalent_dependent_expressions(left_tree, nodecl_make_symbol(sym, sym->file, sym->line), unif_set, flags);
-            }
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUNIF: One is C++ raw and other is nodecl, this can't be equivalent\n");
-        }
-        return 0;
-    }
-
-    return 0;
-}
-
-static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, AST right_tree,
-        deduction_set_t** unif_set,
-        deduction_flags_t flags)
-{
-    left_tree = advance_expression_nest(left_tree);
-    right_tree = advance_expression_nest(right_tree);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEUNIF: Checking whether raw C++ trees %s and %s are equivalent\n",
-                prettyprint_in_buffer(left_tree),
-                prettyprint_in_buffer(right_tree));
+        fprintf(stderr, "TYPEUNIF: Nodecls are not comparable\n");
     }
 
-    nodecl_t nodecl_left = expression_get_nodecl(left_tree);
-    if (!nodecl_is_null(nodecl_left)
-            && nodecl_is_cxx_dependent_expr(nodecl_left))
-    {
-        nodecl_left = nodecl_null();
-    }
-
-    nodecl_t nodecl_right = expression_get_nodecl(right_tree);
-    if (!nodecl_is_null(nodecl_right)
-            && nodecl_is_cxx_dependent_expr(nodecl_right))
-    {
-        nodecl_right = nodecl_null();
-    }
-
-    // Try to go back to nodecl if possible
-    if (!nodecl_is_null(nodecl_left)
-            && !nodecl_is_null(nodecl_right))
-        return equivalent_dependent_expressions(nodecl_left, nodecl_right, unif_set, flags);
-
-    if (ASTType(left_tree) != ASTType(right_tree))
-        return 0;
-
-    switch (ASTType(left_tree))
-    {
-        case AST_SYMBOL :
-        case AST_QUALIFIED_ID :
-            {
-                scope_entry_t* left_symbol = expression_get_symbol(left_tree);
-                scope_entry_t* right_symbol = expression_get_symbol(right_tree);
-
-                if (left_symbol != NULL
-                        && right_symbol != NULL)
-                {
-                    return equivalent_dependent_expressions(
-                            nodecl_make_symbol(left_symbol, left_symbol->file, left_symbol->line),
-                            nodecl_make_symbol(right_symbol, right_symbol->file, right_symbol->line),
-                            unif_set, flags);
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: One of the symbolic trees lacks a symbol, they can't be equivalent\n");
-                }
-                return 0;
-                break;
-            }
-        case AST_LOGICAL_OR :
-        case AST_LOGICAL_AND :
-        case AST_BITWISE_OR :
-        case AST_BITWISE_XOR :
-        case AST_BITWISE_AND :
-        case AST_DIFFERENT :
-        case AST_EQUAL :
-        case AST_LOWER_THAN :
-        case AST_GREATER_THAN :
-        case AST_GREATER_OR_EQUAL_THAN :
-        case AST_LOWER_OR_EQUAL_THAN :
-        case AST_SHL :
-        case AST_SHR :
-        case AST_ADD :
-        case AST_MINUS :
-        case AST_MUL :
-        case AST_MOD :
-        case AST_DIV :
-            {
-                AST left_tree_0 = ASTSon0(left_tree);
-                AST left_tree_1 = ASTSon1(left_tree);
-
-                AST right_tree_0 = ASTSon0(right_tree);
-                AST right_tree_1 = ASTSon1(right_tree);
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_tree_0,
-                        right_tree_0, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_dependent_expr(left_tree_1, 
-                            right_tree_1, unif_set, flags);
-                break;
-            }
-        case AST_CAST :
-            // They share a similar tree layout
-        case AST_STATIC_CAST : 
-        case AST_DYNAMIC_CAST : 
-        case AST_REINTERPRET_CAST : 
-        case AST_CONST_CAST : 
-            {
-                internal_error("Code unreachable 4\n", 0);
-                break;
-            }
-        case AST_CONDITIONAL_EXPRESSION :
-            {
-                AST left_condition = ASTSon0(left_tree);
-                AST left_true = ASTSon1(left_tree);
-                AST left_false = ASTSon2(left_tree);
-
-                AST right_condition = ASTSon0(right_tree);
-                AST right_true = ASTSon1(right_tree);
-                AST right_false = ASTSon2(right_tree);
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_condition, 
-                        right_condition, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_dependent_expr(left_true, 
-                            right_true, unif_set, flags)
-                    && equivalent_dependent_expressions_cxx_dependent_expr(left_false, 
-                            right_false, unif_set, flags);
-                break;
-            }
-        case AST_DECIMAL_LITERAL :
-        case AST_OCTAL_LITERAL :
-        case AST_HEXADECIMAL_LITERAL :
-        case AST_CHARACTER_LITERAL :
-        case AST_BOOLEAN_LITERAL :
-            {
-                // Check literal values
-                internal_error("Code unreachable 5\n", 0);
-                break;
-            }
-        case AST_PLUS :
-        case AST_LOGICAL_NOT :
-        case AST_NEG :
-        case AST_BITWISE_NOT :
-            {
-                AST left_operand = ASTSon0(left_tree);
-                AST right_operand = ASTSon0(right_tree);
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_operand, 
-                        right_operand, unif_set, flags);
-            }
-        case AST_SIZEOF :
-            {
-                // If they are expressions they are still workable
-                AST left_sizeof = ASTSon0(left_tree);
-                AST right_sizeof = ASTSon0(right_tree);
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_sizeof, 
-                        right_sizeof, unif_set, flags);
-            }
-        case AST_SIZEOF_TYPEID :
-            {
-                type_t* sizeof_left_type = expression_get_type(ASTSon0(left_tree));
-                type_t* sizeof_right_type = expression_get_type(ASTSon0(right_tree));
-
-                // We do not unificate sizeofs (though we could), just assert
-                // if the sizeof'd type is the same
-                return equivalent_types(sizeof_left_type, sizeof_right_type);
-            }
-        case AST_EXPLICIT_TYPE_CONVERSION :
-            {
-                // Take the last one
-                AST left_expression_list = ASTSon1(left_tree);
-                ERROR_CONDITION((ASTSon0(left_expression_list) != NULL), 
-                        "In '%s' cannot cast left_tree constant expression formed with an expression list longer than 1", 
-                        ast_location(left_tree));
-                AST left_first_expression = ASTSon1(left_expression_list);
-
-                AST right_expression_list = ASTSon1(right_tree);
-                ERROR_CONDITION((ASTSon0(right_expression_list) != NULL), 
-                        "In '%s' cannot cast right_tree constant expression formed with an expression list longer than 1", 
-                        ast_location(right_tree));
-                AST right_first_expression = ASTSon1(right_expression_list);
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_first_expression,
-                        right_first_expression, 
-                        unif_set, flags);
-            }
-        case AST_REFERENCE :
-            {
-                AST left_reference = advance_expression_nest(ASTSon0(left_tree));
-                AST right_reference = advance_expression_nest(ASTSon0(right_tree));
-
-                return equivalent_dependent_expressions_cxx_dependent_expr(left_reference,
-                        right_reference, 
-                        unif_set, flags);
-            }
-        case AST_GXX_TYPE_TRAITS:
-            {
-                // fprintf(stderr, "%s: warning: (still) unsupported type traits '%s' and '%s' comparison. Assuming equals\n",
-                //         prettyprint_in_buffer(right_tree),
-                //         prettyprint_in_buffer(left_tree));
-                // FIXME
-                internal_error("Code unreachable 6", 0);
-                return 1;
-            }
-        default:
-            internal_error("Unknown node type '%s' in %s\n", ast_print_node_type(ASTType(right_tree)), 
-                    ast_location(right_tree));
-            return 0;
-            break;
-    }
-
-    return 0;
+    // Best effort
+    return equivalent_nodecl_expressions(left_tree, right_tree, unif_set, flags);
 }
 
-static char equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree)
+static char equivalent_nodecl_expressions(nodecl_t left_tree, nodecl_t right_tree, 
+        deduction_set_t** unif_set,
+        deduction_flags_t flags)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: Checking whether nodecls %s and %s are structurally equivalent\n",
+                c_cxx_codegen_to_str(left_tree),
+                c_cxx_codegen_to_str(right_tree));
+    }
+
+    if (nodecl_get_kind(left_tree) != nodecl_get_kind(right_tree))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUNIF: Their kinds are different %s != %s\n",
+                    ast_print_node_type(nodecl_get_kind(left_tree)),
+                    ast_print_node_type(nodecl_get_kind(right_tree)));
+        }
+        return 0;
+    }
+    
+    // FIXME - This can be done better
+    // This is a crude implementation that applies equivalent_dependent_expressions to each nodecl
+    char ok = 1;
+    int i;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN && ok; i++)
+    {
+        nodecl_t left_child = nodecl_get_child(left_tree, i);
+        nodecl_t right_child = nodecl_get_child(right_tree, i);
+
+        if (nodecl_is_null(left_child) != nodecl_is_null(right_child))
+        {
+            return 0;
+        }
+
+        if (!nodecl_is_null(left_child))
+        {
+            ok = ok && equivalent_dependent_expressions(left_child, right_child, unif_set, flags);
+        }
+    }
+
+    return ok;
+}
+
+// static char equivalent_dependent_expressions_cxx_dependent_expr(AST left_tree, AST right_tree,
+//         deduction_set_t** unif_set,
+//         deduction_flags_t flags)
+// {
+//     left_tree = advance_expression_nest(left_tree);
+//     right_tree = advance_expression_nest(right_tree);
+// 
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "TYPEUNIF: Checking whether raw C++ trees %s and %s are equivalent\n",
+//                 prettyprint_in_buffer(left_tree),
+//                 prettyprint_in_buffer(right_tree));
+//     }
+// 
+//     nodecl_t nodecl_left = expression_get_nodecl(left_tree);
+//     if (!nodecl_is_null(nodecl_left)
+//             && nodecl_expr_is_value_dependent(nodecl_left))
+//     {
+//         nodecl_left = nodecl_null();
+//     }
+// 
+//     nodecl_t nodecl_right = expression_get_nodecl(right_tree);
+//     if (!nodecl_is_null(nodecl_right)
+//             && nodecl_expr_is_value_dependent(nodecl_right))
+//     {
+//         nodecl_right = nodecl_null();
+//     }
+// 
+//     // Try to go back to nodecl if possible
+//     if (!nodecl_is_null(nodecl_left)
+//             && !nodecl_is_null(nodecl_right))
+//         return equivalent_dependent_expressions(nodecl_left, nodecl_right, unif_set, flags);
+// 
+//     if (ASTType(left_tree) != ASTType(right_tree))
+//         return 0;
+// 
+//     switch (ASTType(left_tree))
+//     {
+//         case AST_SYMBOL :
+//         case AST_QUALIFIED_ID :
+//             {
+//                 internal_error("Not yet implemented", 0);
+// 
+// #if 0
+//                 scope_entry_t* left_symbol = expression_get_symbol(left_tree);
+//                 scope_entry_t* right_symbol = expression_get_symbol(right_tree);
+// 
+//                 if (left_symbol != NULL
+//                         && right_symbol != NULL)
+//                 {
+//                     return equivalent_dependent_expressions(
+//                             nodecl_make_symbol(left_symbol, left_symbol->file, left_symbol->line),
+//                             nodecl_make_symbol(right_symbol, right_symbol->file, right_symbol->line),
+//                             unif_set, flags);
+//                 }
+// 
+//                 DEBUG_CODE()
+//                 {
+//                     fprintf(stderr, "TYPEUNIF: One of the symbolic trees lacks a symbol, they can't be equivalent\n");
+//                 }
+//                 return 0;
+// #endif
+//                 break;
+//             }
+//         case AST_LOGICAL_OR :
+//         case AST_LOGICAL_AND :
+//         case AST_BITWISE_OR :
+//         case AST_BITWISE_XOR :
+//         case AST_BITWISE_AND :
+//         case AST_DIFFERENT :
+//         case AST_EQUAL :
+//         case AST_LOWER_THAN :
+//         case AST_GREATER_THAN :
+//         case AST_GREATER_OR_EQUAL_THAN :
+//         case AST_LOWER_OR_EQUAL_THAN :
+//         case AST_SHL :
+//         case AST_SHR :
+//         case AST_ADD :
+//         case AST_MINUS :
+//         case AST_MUL :
+//         case AST_MOD :
+//         case AST_DIV :
+//             {
+//                 AST left_tree_0 = ASTSon0(left_tree);
+//                 AST left_tree_1 = ASTSon1(left_tree);
+// 
+//                 AST right_tree_0 = ASTSon0(right_tree);
+//                 AST right_tree_1 = ASTSon1(right_tree);
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_tree_0,
+//                         right_tree_0, unif_set, flags)
+//                     && equivalent_dependent_expressions_cxx_dependent_expr(left_tree_1, 
+//                             right_tree_1, unif_set, flags);
+//                 break;
+//             }
+//         case AST_CAST :
+//             // They share a similar tree layout
+//         case AST_STATIC_CAST : 
+//         case AST_DYNAMIC_CAST : 
+//         case AST_REINTERPRET_CAST : 
+//         case AST_CONST_CAST : 
+//             {
+//                 internal_error("Code unreachable 4\n", 0);
+//                 break;
+//             }
+//         case AST_CONDITIONAL_EXPRESSION :
+//             {
+//                 AST left_condition = ASTSon0(left_tree);
+//                 AST left_true = ASTSon1(left_tree);
+//                 AST left_false = ASTSon2(left_tree);
+// 
+//                 AST right_condition = ASTSon0(right_tree);
+//                 AST right_true = ASTSon1(right_tree);
+//                 AST right_false = ASTSon2(right_tree);
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_condition, 
+//                         right_condition, unif_set, flags)
+//                     && equivalent_dependent_expressions_cxx_dependent_expr(left_true, 
+//                             right_true, unif_set, flags)
+//                     && equivalent_dependent_expressions_cxx_dependent_expr(left_false, 
+//                             right_false, unif_set, flags);
+//                 break;
+//             }
+//         case AST_DECIMAL_LITERAL :
+//         case AST_OCTAL_LITERAL :
+//         case AST_HEXADECIMAL_LITERAL :
+//         case AST_CHARACTER_LITERAL :
+//         case AST_BOOLEAN_LITERAL :
+//             {
+//                 // Check literal values
+//                 internal_error("Code unreachable 5\n", 0);
+//                 break;
+//             }
+//         case AST_PLUS :
+//         case AST_LOGICAL_NOT :
+//         case AST_NEG :
+//         case AST_BITWISE_NOT :
+//             {
+//                 AST left_operand = ASTSon0(left_tree);
+//                 AST right_operand = ASTSon0(right_tree);
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_operand, 
+//                         right_operand, unif_set, flags);
+//             }
+//         case AST_SIZEOF :
+//             {
+//                 // If they are expressions they are still workable
+//                 AST left_sizeof = ASTSon0(left_tree);
+//                 AST right_sizeof = ASTSon0(right_tree);
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_sizeof, 
+//                         right_sizeof, unif_set, flags);
+//             }
+//         case AST_SIZEOF_TYPEID :
+//             {
+//                 internal_error("Not yet implemented", 0);
+// #if 0
+//                 type_t* sizeof_left_type = expression_get_type(ASTSon0(left_tree));
+//                 type_t* sizeof_right_type = expression_get_type(ASTSon0(right_tree));
+// 
+//                 // We do not unificate sizeofs (though we could), just assert
+//                 // if the sizeof'd type is the same
+//                 return equivalent_types(sizeof_left_type, sizeof_right_type);
+// #endif
+//             }
+//         case AST_EXPLICIT_TYPE_CONVERSION :
+//             {
+//                 // Take the last one
+//                 AST left_expression_list = ASTSon1(left_tree);
+//                 ERROR_CONDITION((ASTSon0(left_expression_list) != NULL), 
+//                         "In '%s' cannot cast left_tree constant expression formed with an expression list longer than 1", 
+//                         ast_location(left_tree));
+//                 AST left_first_expression = ASTSon1(left_expression_list);
+// 
+//                 AST right_expression_list = ASTSon1(right_tree);
+//                 ERROR_CONDITION((ASTSon0(right_expression_list) != NULL), 
+//                         "In '%s' cannot cast right_tree constant expression formed with an expression list longer than 1", 
+//                         ast_location(right_tree));
+//                 AST right_first_expression = ASTSon1(right_expression_list);
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_first_expression,
+//                         right_first_expression, 
+//                         unif_set, flags);
+//             }
+//         case AST_REFERENCE :
+//             {
+//                 AST left_reference = advance_expression_nest(ASTSon0(left_tree));
+//                 AST right_reference = advance_expression_nest(ASTSon0(right_tree));
+// 
+//                 return equivalent_dependent_expressions_cxx_dependent_expr(left_reference,
+//                         right_reference, 
+//                         unif_set, flags);
+//             }
+//         case AST_GXX_TYPE_TRAITS:
+//             {
+//                 // fprintf(stderr, "%s: warning: (still) unsupported type traits '%s' and '%s' comparison. Assuming equals\n",
+//                 //         prettyprint_in_buffer(right_tree),
+//                 //         prettyprint_in_buffer(left_tree));
+//                 // FIXME
+//                 internal_error("Code unreachable 6", 0);
+//                 return 1;
+//             }
+//         default:
+//             internal_error("Unknown node type '%s' in %s\n", ast_print_node_type(ASTType(right_tree)), 
+//                     ast_location(right_tree));
+//             return 0;
+//             break;
+//     }
+// 
+//     return 0;
+// }
+
+static tribool_t equivalent_expression_trees(nodecl_t left_tree, nodecl_t right_tree)
 {
     if (nodecl_is_constant(left_tree)
             && nodecl_is_constant(right_tree))
     {
-        return const_value_is_nonzero(
+        if (const_value_is_nonzero(
                 const_value_eq(
                     nodecl_get_constant(left_tree),
-                    nodecl_get_constant(right_tree)));
+                    nodecl_get_constant(right_tree))))
+        {
+            return DEFINITELY_TRUE;
+        }
+        else
+        {
+            return DEFINITELY_FALSE;
+        }
     }
-    return 0;
+    return NOT_SURE;
 }
 
 char same_functional_expression(nodecl_t left_tree, nodecl_t right_tree, 
@@ -1230,7 +1251,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                 // Now get a specialized template type for this
                 // function (this will sign it in if it does not exist)
                 type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                        argument_list, decl_context, line, filename);
+                        argument_list, decl_context, filename, line);
 
                 // Update entry and its function type
                 entry = named_type_get_symbol(named_specialization_type);

@@ -28,11 +28,39 @@
 /*
 <testinfo>
 test_generator=config/mercurium
+test_compile_fail=yes
+test_compile_faulty=yes
 </testinfo>
 */
+
+// g++ cannot compile this code, it gets lost during
+// the instantiation of A<B>
+
+template <typename _T>
+struct A;
+
+struct B
+{
+    template <typename S>
+        void f(S s)
+        {
+            A<S>::c = 3;
+        }
+};
 
 template <typename _T>
 struct A
 {
+    private:
+    static int c;
+
+    public:
     friend void _T::template f<>(_T);
 };
+
+
+void g()
+{
+    B b;
+    b.f(b);
+}

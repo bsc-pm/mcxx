@@ -40,7 +40,7 @@ typedef struct rb_red_blk_node_tag rb_red_blk_node;
 LIBUTILS_EXTERN rb_red_blk_tree* rb_tree_create( int (*comp_func) (const void*,const void*),
 			      void (*key_dtor_func) (const void*),
 			      void (*info_dtor_func) (const void*));
-LIBUTILS_EXTERN rb_red_blk_node *rb_tree_add(rb_red_blk_tree*, const void* key, void* info);
+// LIBUTILS_EXTERN rb_red_blk_node *rb_tree_add(rb_red_blk_tree*, const void* key, void* info);
 LIBUTILS_EXTERN rb_red_blk_node *rb_tree_insert(rb_red_blk_tree*, const void* key, void* info);
 LIBUTILS_EXTERN void rb_tree_walk(rb_red_blk_tree*, 
         void (*walk_func) (const void* key, void* value, void* data), 

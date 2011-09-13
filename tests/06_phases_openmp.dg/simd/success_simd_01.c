@@ -6,9 +6,10 @@ test_generator=config/mercurium-simd
 
 int test(void)
 {
+  #if __GNUC__ == 4 && __GNUC_MINOR__ >= 4
     int i;
-    unsigned char a[102];
-    float b[102];
+    unsigned char __attribute__((aligned(16))) a[102];
+    float __attribute__((aligned(16))) b[102];
 
 
 #pragma omp task shared(i, a, b)
@@ -67,6 +68,9 @@ int test(void)
         return 1;
     }
 
+#else
+  #warning "This compiler is not supported"
+#endif
     return 0;
 }
 

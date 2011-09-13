@@ -389,11 +389,11 @@ static rb_red_blk_tree* intrinsic_map = NULL;
 static char generic_keyword_check(
         scope_entry_t* symbol,
         int *num_arguments,
-        AST *argument_expressions,
+        const char** actual_keywords,
+        nodecl_t *argument_expressions,
         const char* keywords,
-        type_t** argument_types,
         type_t** reordered_types,
-        AST* reordered_exprs)
+        nodecl_t* reordered_exprs)
 {
     intrinsic_variant_info_t current_variant = get_variant(keywords);
     DEBUG_CODE()
@@ -414,16 +414,18 @@ static char generic_keyword_check(
         }
     }
 
-    if (argument_expressions == NULL)
+    if (*num_arguments == 0)
     {
-        if (argument_types != NULL)
-        {
-            int i;
-            for (i = 0; i < current_variant.num_keywords; i++)
-            {
-                reordered_types[i] = argument_types[i];
-            }
-        }
+        // FIXME - ...
+        //
+        // if (argument_types != NULL)
+        // {
+        //     int i;
+        //     for (i = 0; i < current_variant.num_keywords; i++)
+        //     {
+        //         reordered_types[i] = argument_types[i];
+        //     }
+        // }
 
         DEBUG_CODE()
         {
@@ -438,10 +440,9 @@ static char generic_keyword_check(
         int i;
         for (i = 0; i < (*num_arguments); i++)
         {
-            reordered_types[i] = argument_types[i];
+            reordered_types[i] = nodecl_get_type(argument_expressions[i]);
 
-            AST argument = argument_expressions[i];
-            AST expr = ASTSon1(argument);
+            nodecl_t expr = argument_expressions[i];
             reordered_exprs[i] = expr;
         }
         DEBUG_CODE()
@@ -458,10 +459,8 @@ static char generic_keyword_check(
     char seen_keywords = 0;
     for (i = 0; i < (*num_arguments) && ok; i++)
     {
-        AST argument = argument_expressions[i];
-
-        AST keyword = ASTSon0(argument);
-        AST expr = ASTSon1(argument);
+        const char* keyword = actual_keywords[i];
+        nodecl_t expr = argument_expressions[i];
 
         if (keyword != NULL)
         {
@@ -469,7 +468,7 @@ static char generic_keyword_check(
             int j;
             for (j = 0; j < current_variant.num_keywords && !found; j++)
             {
-                if (strcasecmp(current_variant.keyword_names[j], ASTText(keyword)) == 0)
+                if (strcasecmp(current_variant.keyword_names[j], keyword) == 0)
                 {
                     position = j;
                     found = 1;
@@ -486,7 +485,7 @@ static char generic_keyword_check(
                 {
                     fprintf(stderr, "INTRINSICS: Intrinsic '%s' does not have any keyword '%s'\n",
                             symbol->symbol_name,
-                            ASTText(keyword));
+                            keyword);
                 }
                 ok = 0;
                 break;
@@ -509,21 +508,24 @@ static char generic_keyword_check(
                 break;
             }
         }
-        if (reordered_exprs[position] == NULL)
+        if (nodecl_is_null(reordered_exprs[position]))
         {
-            if (is_error_type(expression_get_type(expr)))
+            if (!nodecl_is_null(expr))
             {
-                DEBUG_CODE()
+                if (nodecl_is_err_expr(expr))
                 {
-                    fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
-                            current_variant.keyword_names[position],
-                            symbol->symbol_name);
-                }
-                ok = 0;
-                break;
-            };
-            reordered_exprs[position] = expr;
-            reordered_types[position] = expression_get_type(expr);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "INTRINSICS: Dummy argument '%s' of intrinsic '%s' is associated to an invalid expression\n",
+                                current_variant.keyword_names[position],
+                                symbol->symbol_name);
+                    }
+                    ok = 0;
+                    break;
+                };
+                reordered_exprs[position] = expr;
+                reordered_types[position] = nodecl_get_type(expr);
+            }
         }
         else
         {
@@ -549,7 +551,7 @@ static char generic_keyword_check(
     int j;
     for (j = 0; j < current_variant.num_keywords && ok; j++)
     {
-        if (reordered_exprs[j] == NULL
+        if (nodecl_is_null(reordered_exprs[j])
                 && !current_variant.is_optional[j])
         {
             // fprintf(stderr, "%s: warning: no real argument given for dummy argument '%s' of intrinsic '%s'\n",
@@ -638,7 +640,10 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         }
         type_t* function_type = get_new_function_type(result_type, param_info, num_types);
 
-        scope_entry_t* new_entry = new_symbol(decl_context, decl_context.current_scope, name);
+        // We do not want it be signed in the scope
+        scope_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+        new_entry->symbol_name = name;
+        new_entry->decl_context = decl_context;
         new_entry->kind = SK_FUNCTION;
         new_entry->do_not_print = 1;
         new_entry->type_information = function_type;
@@ -648,7 +653,7 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
         new_entry->entity_specs.is_builtin = 1;
         new_entry->entity_specs.is_builtin_subroutine = (result_type == NULL);
 
-        rb_tree_add(intrinsic_map, p, new_entry);
+        rb_tree_insert(intrinsic_map, p, new_entry);
 
         DEBUG_CODE()
         {
@@ -719,12 +724,12 @@ static scope_entry_t* get_intrinsic_symbol_(const char* name,
 #define FORTRAN_GENERIC_INTRINSIC(name, keywords0, kind0, compute_code) \
     static scope_entry_t* compute_intrinsic_##name(scope_entry_t* symbol,  \
             type_t** argument_types, \
-            AST *argument_expressions, \
+            nodecl_t *argument_expressions, \
             int num_arguments, \
             const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
-        AST *argument_expressions, \
+        nodecl_t *argument_expressions, \
         int num_arguments, \
         const_value_t** const_value) \
 { \
@@ -734,17 +739,17 @@ static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
 #define FORTRAN_GENERIC_INTRINSIC_2(name, keywords0, kind0, compute_code0, keywords1, kind1, compute_code1) \
     static scope_entry_t* compute_intrinsic_##name##_0(scope_entry_t* symbol,  \
             type_t** argument_types, \
-            AST *argument_expressions, \
+            nodecl_t *argument_expressions, \
             int num_arguments, \
             const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_1(scope_entry_t* symbol,  \
         type_t** argument_types, \
-        AST *argument_expressions, \
+        nodecl_t *argument_expressions, \
         int num_arguments, \
         const_value_t** const_value); \
 static scope_entry_t* compute_intrinsic_##name##_aux(scope_entry_t* symbol,  \
         type_t** argument_types UNUSED_PARAMETER, \
-        AST *argument_expressions, \
+        nodecl_t *argument_expressions, \
         int num_arguments, \
         const_value_t** const_value) \
 { \
@@ -809,10 +814,26 @@ static scope_entry_t* register_specific_intrinsic_name(
     ERROR_CONDITION(generic_entry == NULL
             || !generic_entry->entity_specs.is_builtin, "Invalid symbol when registering specific intrinsic name\n", 0);
 
-    type_t* type_list[7] = { t0, t1, t2, t3, t4, t5, t6 };
+    ERROR_CONDITION(num_args > 7, "Too many arguments", 0);
 
-    scope_entry_t* specific_entry = fortran_intrinsic_solve_call(generic_entry, type_list, NULL, num_args, NULL);
+    const char* argument_keywords[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
+    nodecl_t nodecl_actual_arguments[7] = { 
+        t0 != NULL ? nodecl_make_type(t0, NULL, 0) : nodecl_null(),
+        t1 != NULL ? nodecl_make_type(t1, NULL, 0) : nodecl_null(),
+        t2 != NULL ? nodecl_make_type(t2, NULL, 0) : nodecl_null(),
+        t3 != NULL ? nodecl_make_type(t3, NULL, 0) : nodecl_null(),
+        t4 != NULL ? nodecl_make_type(t4, NULL, 0) : nodecl_null(),
+        t5 != NULL ? nodecl_make_type(t5, NULL, 0) : nodecl_null(),
+        t6 != NULL ? nodecl_make_type(t6, NULL, 0) : nodecl_null() 
+    };
+
+    nodecl_t nodecl_simplified = nodecl_null();
+    scope_entry_t* specific_entry = fortran_intrinsic_solve_call(generic_entry, 
+            argument_keywords, 
+            nodecl_actual_arguments,
+            num_args, &nodecl_simplified);
+    
     ERROR_CONDITION(specific_entry == NULL, "No specific symbol is possible when registering specific intrinsic name '%s' of generic intrinsic '%s'\n", 
             specific_name,
             generic_name);
@@ -919,7 +940,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_2("anint", "anint", get_float_type(), NULL);
     REGISTER_SPECIFIC_INTRINSIC_1("asin", "asin", get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("atan", "atan", get_float_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("atan2", "atan2", get_float_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("atan2", "atan2", get_float_type(), get_float_type());
     REGISTER_SPECIFIC_INTRINSIC_1("cabs", "abs", get_complex_type(get_float_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("ccos", "cos", get_complex_type(get_float_type()));
     REGISTER_SPECIFIC_INTRINSIC_1("cexp", "exp", get_complex_type(get_float_type()));
@@ -935,7 +956,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
     REGISTER_SPECIFIC_INTRINSIC_1("dacos", "cos", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dasin", "asin", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("datan", "atan", get_double_type());
-    REGISTER_SPECIFIC_INTRINSIC_1("datan2", "atan2", get_double_type());
+    REGISTER_SPECIFIC_INTRINSIC_2("datan2", "atan2", get_double_type(), get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dcos", "cos", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_1("dcosh", "cosh", get_double_type());
     REGISTER_SPECIFIC_INTRINSIC_2("ddim", "dim", get_double_type(), get_double_type());
@@ -991,7 +1012,7 @@ static void fortran_init_specific_names(decl_context_t decl_context)
 
 scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1010,15 +1031,15 @@ scope_entry_t* compute_intrinsic_abs(scope_entry_t* symbol UNUSED_PARAMETER,
     return NULL;
 }
 
-static char opt_valid_kind_expr(AST expr, int *val)
+static char opt_valid_kind_expr(nodecl_t expr, int *val)
 {
-    if (expr == NULL)
+    if (nodecl_is_null(expr))
         return 1;
 
-    if (!expression_is_constant(expr))
+    if (!nodecl_is_constant(expr))
         return 0;
 
-    int k = const_value_cast_to_4(expression_get_constant(expr));
+    int k = const_value_cast_to_4(nodecl_get_constant(expr));
 
     if (val != NULL)
         *val = k;
@@ -1028,7 +1049,7 @@ static char opt_valid_kind_expr(AST expr, int *val)
 
 scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1048,7 +1069,7 @@ scope_entry_t* compute_intrinsic_achar(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_acos(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1063,7 +1084,7 @@ scope_entry_t* compute_intrinsic_acos(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_acosh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1078,7 +1099,7 @@ scope_entry_t* compute_intrinsic_acosh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_adjustl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1092,7 +1113,7 @@ scope_entry_t* compute_intrinsic_adjustl(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_adjustr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1106,7 +1127,7 @@ scope_entry_t* compute_intrinsic_adjustr(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1120,7 +1141,7 @@ scope_entry_t* compute_intrinsic_aimag(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1139,7 +1160,7 @@ scope_entry_t* compute_intrinsic_aint(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1159,7 +1180,7 @@ scope_entry_t* compute_intrinsic_all(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1169,7 +1190,7 @@ scope_entry_t* compute_intrinsic_allocated_0(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1178,7 +1199,7 @@ scope_entry_t* compute_intrinsic_allocated_1(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1197,7 +1218,7 @@ scope_entry_t* compute_intrinsic_anint(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1217,7 +1238,7 @@ scope_entry_t* compute_intrinsic_any(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_asin(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1232,7 +1253,7 @@ scope_entry_t* compute_intrinsic_asin(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1247,7 +1268,7 @@ scope_entry_t* compute_intrinsic_asinh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1275,7 +1296,7 @@ scope_entry_t* compute_intrinsic_associated(scope_entry_t* symbol UNUSED_PARAMET
 
 scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1304,7 +1325,7 @@ scope_entry_t* compute_intrinsic_atan_0(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_atan_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1313,7 +1334,7 @@ scope_entry_t* compute_intrinsic_atan_1(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1322,7 +1343,7 @@ scope_entry_t* compute_intrinsic_atan2(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1337,7 +1358,7 @@ scope_entry_t* compute_intrinsic_atanh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_atomic_define(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1347,7 +1368,7 @@ scope_entry_t* compute_intrinsic_atomic_define(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_atomic_ref(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1357,7 +1378,7 @@ scope_entry_t* compute_intrinsic_atomic_ref(scope_entry_t* symbol UNUSED_PARAMET
 
 scope_entry_t* compute_intrinsic_bessel_j0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1371,7 +1392,7 @@ scope_entry_t* compute_intrinsic_bessel_j0(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_bessel_j1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1385,7 +1406,7 @@ scope_entry_t* compute_intrinsic_bessel_j1(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1417,7 +1438,7 @@ scope_entry_t* compute_intrinsic_bessel_jn_0(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_bessel_jn_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1426,7 +1447,7 @@ scope_entry_t* compute_intrinsic_bessel_jn_1(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_bessel_y0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1440,7 +1461,7 @@ scope_entry_t* compute_intrinsic_bessel_y0(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_bessel_y1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1454,7 +1475,7 @@ scope_entry_t* compute_intrinsic_bessel_y1(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1486,7 +1507,7 @@ scope_entry_t* compute_intrinsic_bessel_yn_0(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_bessel_yn_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1495,7 +1516,7 @@ scope_entry_t* compute_intrinsic_bessel_yn_1(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1509,7 +1530,7 @@ scope_entry_t* compute_intrinsic_bge(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1523,7 +1544,7 @@ scope_entry_t* compute_intrinsic_bgt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1537,7 +1558,7 @@ scope_entry_t* compute_intrinsic_ble(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1551,7 +1572,7 @@ scope_entry_t* compute_intrinsic_blt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1565,7 +1586,7 @@ scope_entry_t* compute_intrinsic_bit_size(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1581,7 +1602,7 @@ scope_entry_t* compute_intrinsic_btest(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1600,7 +1621,7 @@ scope_entry_t* compute_intrinsic_ceiling(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1619,7 +1640,7 @@ scope_entry_t* compute_intrinsic_char(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1648,7 +1669,7 @@ scope_entry_t* compute_intrinsic_cmplx(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1672,7 +1693,7 @@ scope_entry_t* compute_intrinsic_dcmplx(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1686,7 +1707,7 @@ scope_entry_t* compute_intrinsic_command_argument_count(scope_entry_t* symbol UN
 
 scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1700,7 +1721,7 @@ scope_entry_t* compute_intrinsic_conjg(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1716,7 +1737,7 @@ scope_entry_t* compute_intrinsic_cos(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_cosh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1731,7 +1752,7 @@ scope_entry_t* compute_intrinsic_cosh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1756,7 +1777,7 @@ scope_entry_t* compute_intrinsic_count(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1772,7 +1793,7 @@ scope_entry_t* compute_intrinsic_cpu_time(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1793,7 +1814,7 @@ scope_entry_t* compute_intrinsic_cshift(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1819,7 +1840,7 @@ scope_entry_t* compute_intrinsic_date_and_time(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1836,7 +1857,7 @@ scope_entry_t* compute_intrinsic_dble(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1853,7 +1874,7 @@ scope_entry_t* compute_intrinsic_digits(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_dim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1872,7 +1893,7 @@ scope_entry_t* compute_intrinsic_dim(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_dot_product(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1906,7 +1927,7 @@ scope_entry_t* compute_intrinsic_dot_product(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1924,7 +1945,7 @@ scope_entry_t* compute_intrinsic_dprod(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_dshiftl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1944,7 +1965,7 @@ scope_entry_t* compute_intrinsic_dshiftl(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_dshiftr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1964,7 +1985,7 @@ scope_entry_t* compute_intrinsic_dshiftr(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -1995,7 +2016,7 @@ scope_entry_t* compute_intrinsic_eoshift(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_epsilon(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2011,7 +2032,7 @@ scope_entry_t* compute_intrinsic_epsilon(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_erf(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2025,7 +2046,7 @@ scope_entry_t* compute_intrinsic_erf(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_erfc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2039,7 +2060,7 @@ scope_entry_t* compute_intrinsic_erfc(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_erfc_scaled(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2053,7 +2074,7 @@ scope_entry_t* compute_intrinsic_erfc_scaled(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2082,7 +2103,7 @@ scope_entry_t* compute_intrinsic_execute_command_line(scope_entry_t* symbol UNUS
 
 scope_entry_t* compute_intrinsic_exp(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2097,7 +2118,7 @@ scope_entry_t* compute_intrinsic_exp(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2111,7 +2132,7 @@ scope_entry_t* compute_intrinsic_exponent(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_extends_type_of(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2121,7 +2142,7 @@ scope_entry_t* compute_intrinsic_extends_type_of(scope_entry_t* symbol UNUSED_PA
 
 scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2129,7 +2150,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
     type_t* t1 = argument_types[1];
     type_t* t2 = num_arguments == 6 ? argument_types[2] : NULL;
     type_t* t3 = num_arguments == 6 ? argument_types[3] : argument_types[2];
-    AST kind = num_arguments == 6 ? argument_expressions[4] : argument_expressions[3];
+    nodecl_t kind = num_arguments == 6 ? argument_expressions[4] : argument_expressions[3];
     type_t* t5 = num_arguments == 6 ? argument_types[5] : argument_types[4];
 
     int di = fortran_get_default_integer_type_kind();
@@ -2173,7 +2194,7 @@ scope_entry_t* compute_intrinsic_findloc_0(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_findloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2182,12 +2203,12 @@ scope_entry_t* compute_intrinsic_findloc_1(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
     type_t* t0 = get_rank0_type(argument_types[0]);
-    AST kind = argument_expressions[1];
+    nodecl_t kind = argument_expressions[1];
 
     int dr = fortran_get_default_real_type_kind();
     if (is_floating_type(t0)
@@ -2201,7 +2222,7 @@ scope_entry_t* compute_intrinsic_floor(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2217,7 +2238,7 @@ scope_entry_t* compute_intrinsic_fraction(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2233,7 +2254,7 @@ scope_entry_t* compute_intrinsic_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2256,7 +2277,7 @@ scope_entry_t* compute_intrinsic_get_command(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2283,7 +2304,7 @@ scope_entry_t* compute_intrinsic_get_command_argument(scope_entry_t* symbol UNUS
 
 scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2313,7 +2334,7 @@ scope_entry_t* compute_intrinsic_get_environment_variable(scope_entry_t* symbol 
 
 scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2328,7 +2349,7 @@ scope_entry_t* compute_intrinsic_huge(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_hypot(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2345,7 +2366,7 @@ scope_entry_t* compute_intrinsic_hypot(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2364,7 +2385,7 @@ scope_entry_t* compute_intrinsic_iachar(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2386,7 +2407,7 @@ scope_entry_t* compute_intrinsic_iall_0(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iall_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2395,7 +2416,7 @@ scope_entry_t* compute_intrinsic_iall_1(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iand(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2412,7 +2433,7 @@ scope_entry_t* compute_intrinsic_iand(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2434,7 +2455,7 @@ scope_entry_t* compute_intrinsic_iany_0(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iany_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2443,7 +2464,7 @@ scope_entry_t* compute_intrinsic_iany_1(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ibclr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2460,7 +2481,7 @@ scope_entry_t* compute_intrinsic_ibclr(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ibits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2479,7 +2500,7 @@ scope_entry_t* compute_intrinsic_ibits(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ibset(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2496,7 +2517,7 @@ scope_entry_t* compute_intrinsic_ibset(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2515,7 +2536,7 @@ scope_entry_t* compute_intrinsic_ichar(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ieor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2532,7 +2553,7 @@ scope_entry_t* compute_intrinsic_ieor(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_image_index(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2542,7 +2563,7 @@ scope_entry_t* compute_intrinsic_image_index(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2570,7 +2591,7 @@ scope_entry_t* compute_intrinsic_index(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2593,7 +2614,7 @@ scope_entry_t* compute_intrinsic_int(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2610,7 +2631,7 @@ scope_entry_t* compute_intrinsic_ior(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2633,7 +2654,7 @@ scope_entry_t* compute_intrinsic_iparity_0(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_iparity_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2642,7 +2663,7 @@ scope_entry_t* compute_intrinsic_iparity_1(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_ishft(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2659,7 +2680,7 @@ scope_entry_t* compute_intrinsic_ishft(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2678,7 +2699,7 @@ scope_entry_t* compute_intrinsic_ishftc(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2694,7 +2715,7 @@ scope_entry_t* compute_intrinsic_is_contiguous(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2709,7 +2730,7 @@ scope_entry_t* compute_intrinsic_is_iostat_end(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2724,7 +2745,7 @@ scope_entry_t* compute_intrinsic_is_iostat_eor(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2740,7 +2761,7 @@ scope_entry_t* compute_intrinsic_kind(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2774,7 +2795,7 @@ scope_entry_t* compute_intrinsic_lbound(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_lcobound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2784,7 +2805,7 @@ scope_entry_t* compute_intrinsic_lcobound(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2799,7 +2820,7 @@ scope_entry_t* compute_intrinsic_leadz(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2820,7 +2841,7 @@ scope_entry_t* compute_intrinsic_len(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2841,7 +2862,7 @@ scope_entry_t* compute_intrinsic_len_trim(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2859,7 +2880,7 @@ scope_entry_t* compute_intrinsic_lge(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2877,7 +2898,7 @@ scope_entry_t* compute_intrinsic_lgt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2895,7 +2916,7 @@ scope_entry_t* compute_intrinsic_lle(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2913,7 +2934,7 @@ scope_entry_t* compute_intrinsic_llt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2929,7 +2950,7 @@ scope_entry_t* compute_intrinsic_log(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2945,7 +2966,7 @@ scope_entry_t* compute_intrinsic_log_gamma(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2961,7 +2982,7 @@ scope_entry_t* compute_intrinsic_log10(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2981,7 +3002,7 @@ scope_entry_t* compute_intrinsic_logical(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3002,7 +3023,7 @@ scope_entry_t* compute_intrinsic_maskl(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3023,7 +3044,7 @@ scope_entry_t* compute_intrinsic_maskr(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_matmul(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3077,7 +3098,7 @@ scope_entry_t* compute_intrinsic_max_min_aux(
         type_t* input_type,
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3133,7 +3154,7 @@ scope_entry_t* compute_intrinsic_max_min_aux(
 scope_entry_t* compute_intrinsic_max(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3144,7 +3165,7 @@ scope_entry_t* compute_intrinsic_max(
 scope_entry_t* compute_intrinsic_max0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3155,7 +3176,7 @@ scope_entry_t* compute_intrinsic_max0(
 scope_entry_t* compute_intrinsic_max1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3166,7 +3187,7 @@ scope_entry_t* compute_intrinsic_max1(
 scope_entry_t* compute_intrinsic_amax0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3177,7 +3198,7 @@ scope_entry_t* compute_intrinsic_amax0(
 scope_entry_t* compute_intrinsic_amax1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3188,7 +3209,7 @@ scope_entry_t* compute_intrinsic_amax1(
 scope_entry_t* compute_intrinsic_dmax1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3198,7 +3219,7 @@ scope_entry_t* compute_intrinsic_dmax1(
 
 scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3213,7 +3234,7 @@ scope_entry_t* compute_intrinsic_maxexponent(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3221,7 +3242,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t1 = num_arguments == 5 ? argument_types[1] : NULL;
     type_t* t2 = num_arguments == 5 ? argument_types[2] : argument_types[1];
     // type_t* t3 = num_arguments == 5 ? argument_types[3] : argument_types[2];
-    AST kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
+    nodecl_t kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
     type_t* t4 = num_arguments == 5 ? argument_types[4] : argument_types[3];
 
     int di = fortran_get_default_integer_type_kind();
@@ -3267,7 +3288,7 @@ scope_entry_t* compute_intrinsic_maxloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_maxloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3276,7 +3297,7 @@ scope_entry_t* compute_intrinsic_maxloc_1(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3303,7 +3324,7 @@ scope_entry_t* compute_intrinsic_maxval_0(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_maxval_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3312,7 +3333,7 @@ scope_entry_t* compute_intrinsic_maxval_1(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_merge(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3331,7 +3352,7 @@ scope_entry_t* compute_intrinsic_merge(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_merge_bits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3351,7 +3372,7 @@ scope_entry_t* compute_intrinsic_merge_bits(scope_entry_t* symbol UNUSED_PARAMET
 scope_entry_t* compute_intrinsic_min(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3362,7 +3383,7 @@ scope_entry_t* compute_intrinsic_min(
 scope_entry_t* compute_intrinsic_min0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3373,7 +3394,7 @@ scope_entry_t* compute_intrinsic_min0(
 scope_entry_t* compute_intrinsic_min1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3384,7 +3405,7 @@ scope_entry_t* compute_intrinsic_min1(
 scope_entry_t* compute_intrinsic_amin0(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3395,7 +3416,7 @@ scope_entry_t* compute_intrinsic_amin0(
 scope_entry_t* compute_intrinsic_amin1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3406,7 +3427,7 @@ scope_entry_t* compute_intrinsic_amin1(
 scope_entry_t* compute_intrinsic_dmin1(
         scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3416,7 +3437,7 @@ scope_entry_t* compute_intrinsic_dmin1(
 
 scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3431,7 +3452,7 @@ scope_entry_t* compute_intrinsic_minexponent(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3439,7 +3460,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
     type_t* t1 = num_arguments == 5 ? argument_types[1] : NULL;
     type_t* t2 = num_arguments == 5 ? argument_types[2] : argument_types[1];
     // type_t* t3 = num_arguments == 5 ? argument_types[3] : argument_types[2];
-    AST kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
+    nodecl_t kind = num_arguments == 5 ? argument_expressions[3] : argument_expressions[2];
     type_t* t4 = num_arguments == 5 ? argument_types[4] : argument_types[3];
 
     int di = fortran_get_default_integer_type_kind();
@@ -3485,7 +3506,7 @@ scope_entry_t* compute_intrinsic_minloc_0(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_minloc_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3494,7 +3515,7 @@ scope_entry_t* compute_intrinsic_minloc_1(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3521,7 +3542,7 @@ scope_entry_t* compute_intrinsic_minval_0(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_minval_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3530,7 +3551,7 @@ scope_entry_t* compute_intrinsic_minval_1(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3549,7 +3570,7 @@ scope_entry_t* compute_intrinsic_mod(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3567,7 +3588,7 @@ scope_entry_t* compute_intrinsic_modulo(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3585,7 +3606,7 @@ scope_entry_t* compute_intrinsic_move_alloc(scope_entry_t* symbol UNUSED_PARAMET
 
 scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3609,7 +3630,7 @@ scope_entry_t* compute_intrinsic_mvbits(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_nearest(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3627,7 +3648,7 @@ scope_entry_t* compute_intrinsic_nearest(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_new_line(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3642,7 +3663,7 @@ scope_entry_t* compute_intrinsic_new_line(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3664,7 +3685,7 @@ scope_entry_t* compute_intrinsic_nint(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_not(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3680,7 +3701,7 @@ scope_entry_t* compute_intrinsic_not(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3709,7 +3730,7 @@ scope_entry_t* compute_intrinsic_norm2(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3729,7 +3750,7 @@ scope_entry_t* compute_intrinsic_null(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_num_images(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3739,7 +3760,7 @@ scope_entry_t* compute_intrinsic_num_images(scope_entry_t* symbol UNUSED_PARAMET
 
 scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3767,7 +3788,7 @@ scope_entry_t* compute_intrinsic_pack(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_parity(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3796,7 +3817,7 @@ scope_entry_t* compute_intrinsic_parity(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3812,7 +3833,7 @@ scope_entry_t* compute_intrinsic_popcnt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3828,7 +3849,7 @@ scope_entry_t* compute_intrinsic_poppar(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3844,7 +3865,7 @@ scope_entry_t* compute_intrinsic_precision(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3854,7 +3875,7 @@ scope_entry_t* compute_intrinsic_present(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3881,7 +3902,7 @@ scope_entry_t* compute_intrinsic_product_0(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_product_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3890,7 +3911,7 @@ scope_entry_t* compute_intrinsic_product_1(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3907,7 +3928,7 @@ scope_entry_t* compute_intrinsic_radix(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3923,7 +3944,7 @@ scope_entry_t* compute_intrinsic_random_number(scope_entry_t* symbol UNUSED_PARA
 
 scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3950,7 +3971,7 @@ scope_entry_t* compute_intrinsic_random_seed(scope_entry_t* symbol UNUSED_PARAME
 
 scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3968,7 +3989,7 @@ scope_entry_t* compute_intrinsic_range(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -3990,7 +4011,7 @@ scope_entry_t* compute_intrinsic_real(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_repeat(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4008,7 +4029,7 @@ scope_entry_t* compute_intrinsic_repeat(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4034,7 +4055,7 @@ scope_entry_t* compute_intrinsic_reshape(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4050,7 +4071,7 @@ scope_entry_t* compute_intrinsic_rrspacing(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_same_type_as(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4060,7 +4081,7 @@ scope_entry_t* compute_intrinsic_same_type_as(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_scale(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4078,7 +4099,7 @@ scope_entry_t* compute_intrinsic_scale(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4106,7 +4127,7 @@ scope_entry_t* compute_intrinsic_scan(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4120,7 +4141,7 @@ scope_entry_t* compute_intrinsic_selected_char_kind(scope_entry_t* symbol UNUSED
 
 scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4134,7 +4155,7 @@ scope_entry_t* compute_intrinsic_selected_int_kind(scope_entry_t* symbol UNUSED_
 
 scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4159,7 +4180,7 @@ scope_entry_t* compute_intrinsic_selected_real_kind(scope_entry_t* symbol UNUSED
 
 scope_entry_t* compute_intrinsic_set_exponent(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4177,7 +4198,7 @@ scope_entry_t* compute_intrinsic_set_exponent(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4196,7 +4217,7 @@ scope_entry_t* compute_intrinsic_shape(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_shifta(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4214,7 +4235,7 @@ scope_entry_t* compute_intrinsic_shifta(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_shiftl(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4232,7 +4253,7 @@ scope_entry_t* compute_intrinsic_shiftl(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_shiftr(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4250,7 +4271,7 @@ scope_entry_t* compute_intrinsic_shiftr(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_sign(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4270,7 +4291,7 @@ scope_entry_t* compute_intrinsic_sign(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4286,7 +4307,7 @@ scope_entry_t* compute_intrinsic_sin(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4302,7 +4323,7 @@ scope_entry_t* compute_intrinsic_sinh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4326,7 +4347,7 @@ scope_entry_t* compute_intrinsic_size(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_spacing(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4341,7 +4362,7 @@ scope_entry_t* compute_intrinsic_spacing(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4363,7 +4384,7 @@ scope_entry_t* compute_intrinsic_spread(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4379,7 +4400,7 @@ scope_entry_t* compute_intrinsic_sqrt(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4398,7 +4419,7 @@ scope_entry_t* compute_intrinsic_storage_size(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4425,7 +4446,7 @@ scope_entry_t* compute_intrinsic_sum_0(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_sum_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4434,7 +4455,7 @@ scope_entry_t* compute_intrinsic_sum_1(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4457,7 +4478,7 @@ scope_entry_t* compute_intrinsic_system_clock(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4473,7 +4494,7 @@ scope_entry_t* compute_intrinsic_tan(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_tanh(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4489,7 +4510,7 @@ scope_entry_t* compute_intrinsic_tanh(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_this_image_0(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4499,7 +4520,7 @@ scope_entry_t* compute_intrinsic_this_image_0(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_this_image_1(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4509,7 +4530,7 @@ scope_entry_t* compute_intrinsic_this_image_1(scope_entry_t* symbol UNUSED_PARAM
 
 scope_entry_t* compute_intrinsic_tiny(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4523,7 +4544,7 @@ scope_entry_t* compute_intrinsic_tiny(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4537,7 +4558,7 @@ scope_entry_t* compute_intrinsic_trailz(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4572,7 +4593,7 @@ scope_entry_t* compute_intrinsic_transfer(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_transpose(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4588,7 +4609,7 @@ scope_entry_t* compute_intrinsic_transpose(scope_entry_t* symbol UNUSED_PARAMETE
 
 scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4604,7 +4625,7 @@ scope_entry_t* compute_intrinsic_trim(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4638,7 +4659,7 @@ scope_entry_t* compute_intrinsic_ubound(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_ucobound(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4648,7 +4669,7 @@ scope_entry_t* compute_intrinsic_ucobound(scope_entry_t* symbol UNUSED_PARAMETER
 
 scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4673,7 +4694,7 @@ scope_entry_t* compute_intrinsic_unpack(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4699,7 +4720,7 @@ scope_entry_t* compute_intrinsic_verify(scope_entry_t* symbol UNUSED_PARAMETER,
 
 scope_entry_t* compute_intrinsic_loc(scope_entry_t* symbol UNUSED_PARAMETER,
         type_t** argument_types UNUSED_PARAMETER,
-        AST *argument_expressions UNUSED_PARAMETER,
+        nodecl_t* argument_expressions UNUSED_PARAMETER,
         int num_arguments UNUSED_PARAMETER,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -4741,15 +4762,15 @@ static void update_keywords_of_intrinsic(scope_entry_t* entry, const char* keywo
 }
 
 scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol, 
-        type_t** argument_types, 
-        AST* actual_arguments, 
+        const char** actual_arguments_keywords, 
+        nodecl_t* nodecl_actual_arguments,
         int num_actual_arguments,
         nodecl_t* nodecl_simplified)
 {
     if (nodecl_simplified != NULL)
         *nodecl_simplified = nodecl_null();
     type_t* reordered_types[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
-    AST reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+    nodecl_t reordered_exprs[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { nodecl_null() };
 
     computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
@@ -4762,11 +4783,12 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
     int i;
     for (i = 0; i < num_keywords; i++)
     {
-        if (generic_keyword_check(symbol, &num_actual_arguments, 
-                    actual_arguments, 
+        if (generic_keyword_check(symbol, 
+                    &num_actual_arguments, 
+                    actual_arguments_keywords,
+                    nodecl_actual_arguments, 
                     current_keyword_set[i], 
-                    argument_types, 
-                    reordered_types, 
+                    reordered_types,
                     reordered_exprs))
         {
             const_value_t* const_value = NULL;
@@ -4785,8 +4807,8 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                     int j;
                     for (j = 0; j < num_actual_arguments; j++)
                     {
-                        if (reordered_exprs[j] != NULL)
-                            nodecl_arguments[j] = expression_get_nodecl(reordered_exprs[j]);
+                        if (!nodecl_is_null(reordered_exprs[j]))
+                            nodecl_arguments[j] = reordered_exprs[j];
                         else
                             nodecl_arguments[j] = nodecl_null();
                     }
@@ -4794,8 +4816,10 @@ scope_entry_t* fortran_intrinsic_solve_call(scope_entry_t* symbol,
                     *nodecl_simplified = (symbol->entity_specs.simplify_function)(num_actual_arguments, nodecl_arguments);
                 }
             }
+
+            return entry;
         }
     }
 
-    return entry;
+    return NULL;
 }

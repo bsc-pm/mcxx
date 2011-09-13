@@ -51,6 +51,8 @@ LIBUTILS_EXTERN const char* get_unique_name(void);
 LIBUTILS_EXTERN const char* strtoupper(const char*);
 LIBUTILS_EXTERN const char* strtolower(const char*);
 
+LIBUTILS_EXTERN const char* has_prefix(const char* prefix, const char* str);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int

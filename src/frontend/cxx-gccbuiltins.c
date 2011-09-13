@@ -130,7 +130,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
     }
 
 // This is required for the sync overloaded functions
-static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, AST *arguments, int num_arguments, 
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** types, nodecl_t *arguments, int num_arguments, 
         const_value_t** const_value);
 DEF_PRIMITIVE_TYPE(BT_FN_SYNC_OVERLOAD, get_computed_function_type(solve_gcc_sync_builtins_overload_name))
 
@@ -2178,7 +2178,7 @@ DEF_GOMP_BUILTIN (BUILT_IN_GOMP_SINGLE_COPY_END, "GOMP_single_copy_end",
 
 static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, 
         type_t** types, 
-        AST *arguments UNUSED_PARAMETER,
+        nodecl_t *arguments UNUSED_PARAMETER,
         int num_arguments,
         const_value_t** const_value UNUSED_PARAMETER)
 {
@@ -2217,7 +2217,7 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
     {
         snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_bit_size);
         name[255] = '\0';
-        scope_entry_list_t *entry_list = query_unqualified_name_str(overloaded_function->decl_context, name);
+        scope_entry_list_t *entry_list = query_name_str(overloaded_function->decl_context, name);
 
         // Let's assume no more overloads have been defined
         if (entry_list == NULL)

@@ -75,7 +75,7 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        scope_entry_list_t* entry_list = query_unqualified_name_str(_decl_context, const_cast<char*>(str.c_str()));
+        scope_entry_list_t* entry_list = query_name_str(_decl_context, const_cast<char*>(str.c_str()));
 
         convert_to_vector(entry_list, result);
 
@@ -225,7 +225,7 @@ namespace TL
 
     ObjectList<Symbol> Scope::cascade_lookup(const std::string& str, const std::string& filename, int line)
     {
-        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), filename.c_str(), line);
+        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), DF_NONE, filename.c_str(), line);
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
         entry_list_free(entry_list);
@@ -258,24 +258,25 @@ namespace TL
 
     ObjectList<Symbol> Scope::koenig_lookup(ObjectList<Type> arguments, AST_t id_expr)
     {
-        int num_args = arguments.size();
-        type_t** argument_list = new type_t*[arguments.size()];
+        internal_error("Not yet implemented", 0);
+        //* int num_args = arguments.size();
+        //* type_t** argument_list = new type_t*[arguments.size()];
 
-        int i = 0;
-        for (ObjectList<Type>::iterator it = arguments.begin(); it != arguments.end(); it++, i++)
-        {
-            argument_list[i] = it->get_internal_type();
-        }
+        //* int i = 0;
+        //* for (ObjectList<Type>::iterator it = arguments.begin(); it != arguments.end(); it++, i++)
+        //* {
+        //*     argument_list[i] = it->get_internal_type();
+        //* }
 
-        scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
+        //* scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
 
-        ObjectList<Symbol> result;
-        convert_to_vector(entry_list, result);
-        entry_list_free(entry_list);
+        //* ObjectList<Symbol> result;
+        //* convert_to_vector(entry_list, result);
+        //* entry_list_free(entry_list);
 
-        delete[] argument_list;
+        //* delete[] argument_list;
 
-        return result;
+        //* return result;
     }
 
     AST_t Scope::wrap_symbol_name(const std::string& str)

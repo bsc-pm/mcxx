@@ -78,11 +78,11 @@ TL::Source LoopBlocking::do_blocking()
     // loops, so the permutation is {1, i+2, i+4, ..., 2, i+2, i+2, .., 2*N}
     // The following two loops create the permutation itself
     ObjectList<int> permutation;
-    for (int i = 1; i <= _nesting; i++)
+    for (int i = 1; i <= (int)_nesting; i++)
     {
         permutation.append(2*i-1);
     }
-    for (int i = 1; i <= _nesting; i++)
+    for (int i = 1; i <= (int)_nesting; i++)
     {
         permutation.append(2*i);
     }
@@ -202,7 +202,7 @@ bool LoopBlocking::check_nesting()
     }
 
     if (_nesting != 0 
-            && _nesting > found_nesting)
+            && _nesting > (unsigned int)found_nesting)
     {
         _ostream << _for_stmt.get_ast().get_locus() << ": warning: given nest of " << _nesting 
             << " is bigger than the real nesting of " << found_nesting << std::endl;

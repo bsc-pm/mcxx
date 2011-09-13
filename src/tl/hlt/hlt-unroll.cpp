@@ -97,7 +97,7 @@ TL::Source LoopUnroll::silly_unroll()
 			;
 	}
 
-	for (int i = 0; i < _factor; i++)
+	for (int i = 0; i < (int)_factor; i++)
 	{
 		if (i > 0)
 		{
@@ -120,7 +120,7 @@ TL::Source LoopUnroll::silly_unroll()
 	}
 
 	// Close braces
-	for (int i = 0; i < _factor; i++)
+	for (int i = 0; i < (int)_factor; i++)
 	{
 		silly_unrolled_loop
 			<< "}"
@@ -297,7 +297,7 @@ void LoopUnroll::simple_replication(int factor, Source &replicated_body,
 		Source &epilogue_body,
         IdExpression induction_var, Statement loop_body)
 {
-    for (unsigned int i = 0; i < factor; i++)
+    for (unsigned int i = 0; i < (unsigned int)factor; i++)
     {
         ReplaceSrcIdExpression replacement(_for_stmt.get_scope_link());
         replacement.set_ignore_pragma(true);

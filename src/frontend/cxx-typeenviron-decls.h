@@ -40,7 +40,7 @@ MCXX_BEGIN_DECLS
 #include <stdlib.h>
 typedef size_t _size_t;
 
-struct type_tag;
+#include "cxx-type-fwd.h"
 
 /*
  * Typing environment
@@ -77,8 +77,9 @@ struct type_environment_tag
     // bool
     _size_t sizeof_bool;
     _size_t alignof_bool;
-
+    
     // wchar_t
+    type_t* (*int_type_of_wchar_t)(void); // This is only for C99
     _size_t sizeof_wchar_t;
     _size_t alignof_wchar_t;
 
@@ -143,14 +144,14 @@ struct type_environment_tag
 
     // function that computes the size of a class type
     // this typically will follow some underlying ABI
-    void (*compute_sizeof)(struct type_tag*);
+    void (*compute_sizeof)(type_t*);
 
     // The type that matches the one of sizeof
-    struct type_tag* (*type_of_sizeof)(void);
+    type_t* (*type_of_sizeof)(void);
 
     // The exact 'char' type (depending on the environment it is 'signed' or
     // 'unsigned')
-    struct type_tag* (*char_type)(void);
+    type_t* (*char_type)(void);
 
     // Special type for GCC compatibility
     _size_t sizeof_builtin_va_list;

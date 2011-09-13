@@ -25,27 +25,16 @@
 --------------------------------------------------------------------*/
 
 
+/*
+<testinfo>
+test_generator=config/mercurium-nanox
+</testinfo>
+*/
 
-#ifndef CXX_GCCSUPPORT_H
-#define CXX_GCCSUPPORT_H
+#pragma omp task deadline(1)
+void f(int e) {}      
 
-#include "libmcxx-common.h"
-#include "cxx-ast-decls.h"
-#include "cxx-buildscope-decls.h"
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN void gather_gcc_attribute(AST attribute, 
-        gather_decl_spec_t* gather_info, 
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN void gather_gcc_attribute_list(AST attribute_list, 
-        gather_decl_spec_t *gather_info, 
-        decl_context_t decl_context);
-
-LIBMCXX_EXTERN char check_gxx_type_traits(AST expression, 
-        decl_context_t decl_context, nodecl_t* nodecl_output);
-
-MCXX_END_DECLS
-
-#endif // CXX_GCCSUPPORT_H
+int b,c;
+#pragma omp task onerror(b:c)
+void i(int e) {}
+int main() {}

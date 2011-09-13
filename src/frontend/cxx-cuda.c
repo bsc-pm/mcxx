@@ -9,6 +9,8 @@
 #include "cxx-entrylist.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+#include "cxx-diagnostic.h"
+#include "cxx-codegen.h"
 
 #if 0
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
@@ -201,74 +203,47 @@ void cuda_kernel_symbols_for_function_body(
     }
 }
 
-void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
+void check_nodecl_cuda_kernel_call(nodecl_t nodecl_postfix, nodecl_t nodecl_cuda_kernel_args, 
+        nodecl_t nodecl_call_args, 
+        decl_context_t decl_context,
+        const char* filename, 
+        int line,
+        nodecl_t *nodecl_output)
 {
-    AST postfix_expr = ASTSon0(expression);
-    AST cuda_kernel_args = ASTSon1(expression);
-    AST call_args = ASTSon2(expression);
-
-    AST arg_0 = ASTSon0(cuda_kernel_args);
-    if (!check_expression(arg_0, decl_context))
-    {
-        expression_set_error(expression);
-        return;
-    }
-
-    AST arg_1 = ASTSon1(cuda_kernel_args);
-    if (!check_expression(arg_1, decl_context))
-    {
-        expression_set_error(expression);
-        return;
-    }
-
-    AST arg_2 = ASTSon2(cuda_kernel_args);
-    if (arg_2 != NULL
-            && !check_expression(arg_2, decl_context))
-    {
-        expression_set_error(expression);
-        return;
-    }
-
-    AST arg_3 = ASTSon3(cuda_kernel_args);
-    if (arg_3 != NULL
-            && !check_expression(arg_3, decl_context))
-    {
-        expression_set_error(expression);
-        return;
-    }
-
     type_t* dim3_type = cuda_get_dim3_type();
     type_t* cudaStream_t_type = cuda_get_cudaStream_t_type();
 
     struct kernel_arg_item
     {
-        AST tree;
         const char* position;
         type_t* expected_type;
     } kernel_args[] = 
     {
-        { arg_0, "first", dim3_type },
-        { arg_1, "second", dim3_type },
-        { arg_2, "third", get_size_t_type() },
-        { arg_3, "fourth", cudaStream_t_type },
-	// Sentinel
-	{ NULL, NULL, NULL }
+        { "first", dim3_type },
+        { "second", dim3_type },
+        { "third", get_size_t_type() },
+        { "fourth", cudaStream_t_type },
     };
 
+    int num_items = 0;
+    nodecl_t* list = nodecl_unpack_list(nodecl_cuda_kernel_args, &num_items);
+
     int i = 0;
-    while (kernel_args[i].tree != NULL)
+
+    for (i = 0; i < num_items; i++)
     {
         char is_convertible = 1;
 
-        AST tree = kernel_args[i].tree;
+        nodecl_t nodecl_arg = list[i];
         type_t* dest_type = kernel_args[i].expected_type;
+
+        type_t* orig_type = nodecl_get_type(nodecl_arg);
 
         C_LANGUAGE()
         {
             standard_conversion_t result;
             is_convertible = standard_conversion_between_types(&result, 
-                    expression_get_type(tree), dest_type);
-
+                    orig_type, dest_type);
         }
 
         CXX_LANGUAGE()
@@ -276,56 +251,164 @@ void cuda_kernel_call_check(AST expression, decl_context_t decl_context)
             char ambiguous_conversion = 0;
             scope_entry_t* conversor = NULL;
             is_convertible = (type_can_be_implicitly_converted_to(
-                        expression_get_type(tree), 
+                        orig_type,
                         get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
                         decl_context, 
                         &ambiguous_conversion, &conversor,
-                        ASTFileName(tree), ASTLine(tree))
+                        filename, line)
                     && !ambiguous_conversion);
         }
 
         if (!is_convertible)
         {
-            // FIXME - CUDA and C do not mix
-            // if (!checking_ambiguity())
-            // {
-            //     fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-            //             ast_location(tree),
-            //             kernel_args[i].position,
-            //             prettyprint_in_buffer(tree),
-            //             print_type_str(dest_type, decl_context));
-            // }
-            // expression_set_error(expression);
-            // return;
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                        nodecl_get_locus(nodecl_arg),
+                        kernel_args[i].position,
+                        c_cxx_codegen_to_str(nodecl_arg),
+                        print_type_str(dest_type, decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
         }
-        i++;
     }
 
-    // 1. Check if we might require Koenig lookup
-    char might_require_koenig = 0;
-    CXX_LANGUAGE()
-    {
-        might_require_koenig = (ASTType(postfix_expr) == AST_SYMBOL
-                || ASTType(postfix_expr) == AST_CONVERSION_FUNCTION_ID
-                || ASTType(postfix_expr) == AST_OPERATOR_FUNCTION_ID);
-    }
+    nodecl_t nodecl_plain_call = nodecl_null();
+    check_nodecl_function_call(nodecl_postfix, nodecl_call_args, decl_context, &nodecl_plain_call);
 
-    nodecl_t nodecl_argument_list = nodecl_null();
-    if (!_check_functional_expression(expression, postfix_expr, 
-                call_args, decl_context, 
-                might_require_koenig, &nodecl_argument_list))
+    *nodecl_output = nodecl_make_cuda_kernel_call(nodecl_cuda_kernel_args,
+            nodecl_plain_call,
+            get_void_type(),
+            filename, line);
+}
+
+void check_cuda_kernel_call(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+{
+    AST postfix_expr = ASTSon0(expression);
+    AST cuda_kernel_args = ASTSon1(expression);
+    AST call_args = ASTSon2(expression);
+
+    const char* filename = ASTFileName(expression);
+    int line = ASTLine(expression);
+
+    nodecl_t nodecl_postfix = nodecl_null();
+    check_expression(postfix_expr, decl_context, &nodecl_postfix);
+
+    if (nodecl_is_err_expr(nodecl_postfix))
     {
-        expression_set_error(expression);
+        *nodecl_output = nodecl_make_err_expr(filename, line);
         return;
     }
 
-    // A CUDA kernel should return void
-    expression_set_type(expression, get_void_type());
+    nodecl_t nodecl_kernel_arg_0 = nodecl_null();
+    AST arg_0 = ASTSon0(cuda_kernel_args);
+    if (!check_expression(arg_0, decl_context, &nodecl_kernel_arg_0))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
 
-    ASTAttrSetValueType(expression, LANG_IS_CUDA_KERNEL_CALL, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expression, LANG_KERNEL_CONFIGURATION, cuda_kernel_args);
-    ast_set_link_to_child(expression, LANG_CALLED_EXPRESSION, postfix_expr);
-    ast_set_link_to_child(expression, LANG_FUNCTION_ARGUMENTS, call_args);
+    nodecl_t nodecl_kernel_arg_1 = nodecl_null();
+    AST arg_1 = ASTSon1(cuda_kernel_args);
+    if (!check_expression(arg_1, decl_context, &nodecl_kernel_arg_1))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    nodecl_t nodecl_kernel_arg_2 = nodecl_null();
+    AST arg_2 = ASTSon2(cuda_kernel_args);
+    if (arg_2 != NULL
+            && !check_expression(arg_2, decl_context, &nodecl_kernel_arg_2))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    nodecl_t nodecl_kernel_arg_3 = nodecl_null();
+    AST arg_3 = ASTSon3(cuda_kernel_args);
+    if (arg_3 != NULL
+            && !check_expression(arg_3, decl_context, &nodecl_kernel_arg_3))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    nodecl_t nodecl_cuda_kernel_args = nodecl_make_list_2(nodecl_kernel_arg_0, nodecl_kernel_arg_1);
+
+    if (!nodecl_is_null(nodecl_kernel_arg_2))
+    {
+        nodecl_cuda_kernel_args = nodecl_append_to_list(nodecl_cuda_kernel_args, nodecl_kernel_arg_2);
+    }
+    if (!nodecl_is_null(nodecl_kernel_arg_3))
+    {
+        nodecl_cuda_kernel_args = nodecl_append_to_list(nodecl_cuda_kernel_args, nodecl_kernel_arg_3);
+    }
+
+    nodecl_t nodecl_argument_list = nodecl_null();
+    check_function_arguments(call_args, decl_context, &nodecl_argument_list);
+
+    if (!nodecl_is_null(nodecl_argument_list) 
+            && nodecl_is_err_expr(nodecl_argument_list))
+    {
+        *nodecl_output = nodecl_make_err_expr(filename, line);
+        return;
+    }
+
+    char is_dependent = 0;
+
+    // Check dependent expressions
+    if (nodecl_expr_is_type_dependent(nodecl_postfix))
+    {
+        is_dependent = 1;
+    }
+    else if (nodecl_expr_is_type_dependent(nodecl_kernel_arg_0)
+            || nodecl_expr_is_type_dependent(nodecl_kernel_arg_1)
+            || (!nodecl_is_null(nodecl_kernel_arg_2) && nodecl_expr_is_type_dependent(nodecl_kernel_arg_2))
+            || (!nodecl_is_null(nodecl_kernel_arg_3) && nodecl_expr_is_type_dependent(nodecl_kernel_arg_3)))
+    {
+        is_dependent = 1;
+    }
+    else 
+    {
+        int num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(nodecl_argument_list, &num_items);
+
+        int i;
+        for (i = 0; i < num_items && !is_dependent; i++)
+        {
+            if (nodecl_expr_is_type_dependent(list[i]))
+            {
+                is_dependent = 1;
+            }
+        }
+        free(list);
+    }
+
+    if (is_dependent)
+    {
+        *nodecl_output = 
+            nodecl_make_cuda_kernel_call(
+                    nodecl_cuda_kernel_args,
+                    nodecl_make_function_call(
+                        nodecl_postfix,
+                        nodecl_argument_list,
+                        get_unknown_dependent_type(),
+                        filename, line),
+                    get_unknown_dependent_type(),
+                    filename,
+                    line);
+        nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        return;
+    }
+
+    check_nodecl_cuda_kernel_call(nodecl_postfix, 
+            nodecl_cuda_kernel_args, 
+            nodecl_argument_list,
+            decl_context,
+            filename, line,
+            nodecl_output);
 }
 
 void init_cuda_builtins(decl_context_t decl_context UNUSED_PARAMETER)

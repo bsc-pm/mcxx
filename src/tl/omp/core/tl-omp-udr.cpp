@@ -734,9 +734,11 @@ namespace TL
                 AST_t identity;
             } reduction_info_t; 
 
-            AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
-            AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
+            nodecl_t nodecl_dummy = nodecl_null();
+            // AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
+            // AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
+            // AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
+            AST_t zero, one, neg_zero;
 
             reduction_info_t builtin_arithmetic_operators[] =
             {
@@ -925,7 +927,7 @@ namespace TL
                 if (ASTType(operator_id) != AST_OMP_UDR_MEMBER_OP
                         && ASTType(operator_id) != AST_OMP_UDR_BUILTIN_OP)
                 {
-                    check_expression(operator_id, decl_context);
+                    // check_expression(operator_id, decl_context);
                 }
 
                 operator_list.append(AST_t(operator_id));
@@ -1017,7 +1019,7 @@ namespace TL
 
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
-                check_initializer_clause(a, decl_context, udr_type.get_internal_type());
+                // check_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
@@ -1026,7 +1028,7 @@ namespace TL
 
                 if (expr_list != NULL)
                 {
-                    check_expression_list(expr_list, decl_context);
+                    // check_expression_list(expr_list, decl_context);
                 }
             }
 

@@ -178,7 +178,7 @@ namespace TL
         Ret visit(const Nodecl::IntegerLiteral& n);
         Ret visit(const Nodecl::ComplexLiteral& n);
         Ret visit(const Nodecl::FloatingLiteral& n);
-        Ret visit(const Nodecl::StructuredLiteral& n);
+        Ret visit(const Nodecl::StructuredValue& n);
         Ret visit(const Nodecl::EmptyStatement& n);
         Ret visit(const Nodecl::ReturnStatement& n);
         Ret visit(const Nodecl::BuiltinExpr& n);
@@ -280,7 +280,7 @@ namespace TL
 //         Ret visit(const Nodecl::IntegerLiteral& n);
 //         Ret visit(const Nodecl::ComplexLiteral& n);
 //         Ret visit(const Nodecl::FloatingLiteral& n);
-//         Ret visit(const Nodecl::StructuredLiteral& n);
+//         Ret visit(const Nodecl::StructuredValue& n);
 //         Ret visit(const Nodecl::Symbol& n);
 //         Ret visit(const Nodecl::VirtualFunctionCall& n);
 //         Ret visit(const Nodecl::FunctionCall& n);

@@ -37,12 +37,13 @@
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-cexpr-decls.h"
+#include "cxx-nodecl-decls.h"
 
 MCXX_BEGIN_DECLS
 
 typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
         type_t** argument_types, 
-        AST *argument_expressions,
+        nodecl_t *argument_expressions,
         int num_arguments,
         const_value_t** const_value);
 
@@ -97,15 +98,6 @@ struct standard_conversion_tag
     struct type_tag* orig;
     struct type_tag* dest;
     standard_conversion_item_t conv[3];
-};
-
-// Dependent typenames
-struct dependent_name_part_tag
-{
-    const char* name;
-    template_parameter_list_t* template_arguments;
-    struct type_tag* related_type;
-    struct dependent_name_part_tag* next;
 };
 
 

@@ -760,6 +760,7 @@ type {
         }
     }
 
+#if 0
     CXX_LANGUAGE()
     {
         if (extern_c_block)
@@ -769,6 +770,7 @@ type {
                     scanning_now.line_number);
         }
     }
+#endif
 
     if (system_header_file)
     {

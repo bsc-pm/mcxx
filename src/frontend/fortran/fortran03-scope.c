@@ -196,7 +196,7 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
 
 scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t decl_context, const char* name)
 {
-    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
+    scope_entry_list_t* entry_list = query_name_str(decl_context, strtolower(name));
 
     scope_entry_t* result = NULL;
 
@@ -214,7 +214,7 @@ scope_entry_t* query_name_no_implicit_or_builtin(decl_context_t decl_context, co
 
 scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* name)
 {
-    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, strtolower(name));
+    scope_entry_list_t* entry_list = query_name_str(decl_context, strtolower(name));
 
     scope_entry_t* result = NULL;
 
@@ -275,7 +275,7 @@ scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
 scope_entry_t* query_name_in_class(decl_context_t class_context, const char* name)
 {
     scope_entry_t* entry = NULL;
-    scope_entry_list_t* entry_list = class_context_lookup(class_context, strtolower(name));
+    scope_entry_list_t* entry_list = class_context_lookup(class_context, DF_NONE, strtolower(name));
     if (entry_list != NULL)
     {
         entry = entry_list_head(entry_list);

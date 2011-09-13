@@ -157,6 +157,7 @@ struct decl_context_tag
     SYMBOL_KIND(SK_TEMPLATE_TEMPLATE_PARAMETER, "template template parameter") \
     SYMBOL_KIND(SK_GCC_BUILTIN_TYPE, "__builtin_va_list") \
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
+    SYMBOL_KIND(SK_DEPENDENT_FRIEND, "dependent friend name") \
     SYMBOL_KIND(SK_USING, "using declared name") \
     SYMBOL_KIND(SK_SCOPE, "<<scoping symbol>>")  \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
@@ -257,7 +258,7 @@ typedef enum access_specifier_t
 
 struct default_argument_info_tag
 {
-    struct AST_tag* argument;
+    nodecl_t argument;
     decl_context_t context;
 };
 
@@ -314,7 +315,6 @@ struct scope_entry_tag
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
-    struct AST_tag* language_dependent_value;
     nodecl_t value;
 
     // File and line where this simbol was signed up

@@ -135,7 +135,7 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
         ;
 
     Symbol induction_sym = induction_var.get_symbol();
-    for (unsigned int i = 0; i < factor; i++)
+    for (unsigned int i = 0; i < (unsigned int)factor; i++)
     {
         replication
             << flatten_compound(loop_body, i, induction_sym)
@@ -181,7 +181,7 @@ void LoopUnroll::omp_replication_by_task_aggregation(int factor, Source& replica
         ;
 
     Symbol induction_sym = induction_var.get_symbol();
-    for (unsigned int i = 0; i < factor; i++)
+    for (unsigned int i = 0; i < (unsigned int)factor; i++)
     {
         replication
             << flatten_compound(loop_body, i, induction_sym)

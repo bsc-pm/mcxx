@@ -1,6 +1,9 @@
 #include "cxx-diagnostic.h"
+#include "cxx-process.h"
+#include "cxx-driver-decls.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <signal.h>
 
 static int error_count = 0;
 static int warn_count = 0;
@@ -28,6 +31,9 @@ void error_printf(const char* format, ...)
     vfprintf(stderr, format, va);
     va_end(va);
     error_count++;
+
+    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+        raise(SIGABRT);
 }
 
 void warn_printf(const char* format, ...)

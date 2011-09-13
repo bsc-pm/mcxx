@@ -28,8 +28,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-extensions
-test_compile_faulty=yes
-test_compile_fail=yes
 </testinfo>
 */
 
@@ -38,11 +36,11 @@ int *b;
 
 void f(void)
 {
-    a[0:49] = 1;
-    a[50:99] = 2;
+    a[0:49];
+    a[50:99];
 
     b = a;
 
-    b[0:49] = 2;
-    b[50:99] = 3;
+    b[0:49];
+    b[50:99];
 }

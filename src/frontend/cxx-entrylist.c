@@ -77,6 +77,40 @@ static void entry_list_add_to_pos(scope_entry_list_t* list,
     }
 }
 
+static scope_entry_list_t* entry_list_prepend_rec(scope_entry_list_t* list, 
+        scope_entry_t* entry,
+        int num_items)
+{
+    scope_entry_t* last = list->list[NUM_IMMEDIATE - 1];
+    int i;
+    // -2 because we do not want to write past the last element
+    for (i = NUM_IMMEDIATE - 2; i >= 0; i--)
+    {
+        list->list[i+1] = list->list[i];
+    }
+    list->list[0] = entry;
+    list->num_items_list++;
+
+    if (num_items >= NUM_IMMEDIATE)
+    {
+        list->next = entry_list_prepend(list->next, last);
+    }
+    return list;
+}
+
+scope_entry_list_t* entry_list_prepend(scope_entry_list_t* list, 
+        scope_entry_t* entry)
+{
+    if (list == NULL)
+    {
+        return entry_list_new(entry);
+    }
+    else
+    {
+        return entry_list_prepend_rec(list, entry, list->num_items_list);
+    }
+}
+
 scope_entry_list_t* entry_list_add(scope_entry_list_t* list, 
         scope_entry_t* entry)
 {

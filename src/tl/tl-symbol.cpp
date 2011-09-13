@@ -287,12 +287,12 @@ namespace TL
 
     bool Symbol::has_initialization() const
     {
-        return (_symbol->language_dependent_value != NULL);
+        return (!nodecl_is_null(_symbol->value));
     }
 
     AST_t Symbol::get_initialization() const
     {
-        return _symbol->language_dependent_value;
+        return AST_t();
     }
 
     bool Symbol::has_namespace_scope() const
@@ -337,7 +337,7 @@ namespace TL
 
     AST_t Symbol::get_definition_tree() const
     {
-        return _symbol->entity_specs.definition_tree;
+        return AST_t();
     }
     
     bool Symbol::has_gcc_attribute(const std::string &str) const

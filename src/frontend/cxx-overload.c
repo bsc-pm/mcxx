@@ -279,8 +279,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
             print_declarator(dest));
 
     scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
-            NULL, 
-            /* mandatory */ 0);
+            NULL, 0, /* mandatory */ 0);
 
     *result = invalid_ics;
 
@@ -692,7 +691,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_parameters,
-                        decl_context, line, filename);
+                        decl_context, filename, line);
 
                 if (named_specialization_type == NULL)
                 {
@@ -869,7 +868,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
  
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         deduced_template_parameters,
-                        decl_context, line, filename); 
+                        decl_context, filename, line); 
 
                 if (named_specialization_type == NULL)
                 {
@@ -1962,13 +1961,14 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             while (it != NULL)
             {
                 scope_entry_t* entry = entry_advance_aliases(it->candidate->entry);
-                fprintf(stderr, "OVERLOAD:    %s:%d: %s\n",
+                fprintf(stderr, "OVERLOAD:    %s:%d: %s %s\n",
                         entry->file,
                         entry->line,
                         print_decl_type_str(
                             entry->type_information,
                             entry->decl_context,
-                            entry->symbol_name));
+                            entry->symbol_name),
+                        entry->entity_specs.is_builtin ? "<builtin>" : "");
 
                 it = it->next;
             }
@@ -2338,7 +2338,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             template_parameters,
                             deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            argument_list, decl_context, line, filename);
+                            argument_list, decl_context, filename, line);
 
                     if (named_specialization_type != NULL)
                     {
@@ -2514,7 +2514,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
         // Filter init constructors only
         if (init_constructors_only)
         {
-            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
 
             int num_parameters = function_type_get_num_parameters(constructor->type_information);
             // Number of real parameters, ellipsis are counted as parameters
@@ -2628,7 +2628,7 @@ scope_entry_t* solve_init_list_constructor(
     ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
             "This function expects a single argument of type braced initializer list", 0);
 
-    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, filename, line, /* mandatory */ 1);
 
     char has_initializer_list_ctor = 0;
     if (std_initializer_list_template != NULL)
@@ -2708,10 +2708,15 @@ candidate_t* add_to_candidate_set(candidate_t* candidate_set,
     result->num_args = num_args;
     result->args = args;
 
-    // Sanity check
-    int i;
-    for (i = 0; i < result->num_args; i++)
+    // For static members ignore the implicit argument
+    int i = 0;
+    if (entry->entity_specs.is_member 
+            && entry->entity_specs.is_static)
+        i = 1;
+
+    for (; i < result->num_args; i++)
     {
+        // Sanity check
         ERROR_CONDITION(result->args[i] == NULL, "An argument type cannot be NULL", 0);
     }
 

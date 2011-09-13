@@ -1,8 +1,93 @@
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
+#include "cxx-attrnames.h"
 #include <stdlib.h>
+#include <string.h>
 
+typedef
+struct nodecl_expr_info_tag
+{
+    char is_lvalue:1;
+    char is_value_dependent:1;
+    char is_type_dependent_expression:1;
+    int _reserved0;
+
+    type_t* type_info;
+
+    const_value_t* const_val;
+    scope_entry_t* symbol;
+
+    template_parameter_list_t* template_parameters;
+} nodecl_expr_info_t;
+
+// Nodecl expression routines. 
+// These are implementation only
+static nodecl_expr_info_t* nodecl_expr_get_expression_info_noalloc(AST expr)
+{
+    if (expr == NULL)
+        return NULL;
+
+    nodecl_expr_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, nodecl_expr_info_t);
+    return p;
+}
+
+#define NODECL_EXPR_GET_PTR(return_type, what, field_name) \
+static return_type* nodecl_expr_get_##what(AST expr) \
+{ \
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr); \
+    return expr_info == NULL ? NULL : expr_info->field_name; \
+}
+
+// static type_t* nodecl_expr_get_type(AST expr)
+NODECL_EXPR_GET_PTR(type_t, type, type_info)
+
+// static scope_entry_t* nodecl_expr_get_symbol(AST expr)
+NODECL_EXPR_GET_PTR(scope_entry_t, symbol, symbol)
+
+// static const_value_t* nodecl_expr_get_constant(AST expr)
+NODECL_EXPR_GET_PTR(const_value_t, constant, const_val)
+
+// static template_parameter_list_t* nodecl_expr_get_template_parameters(AST expr)
+NODECL_EXPR_GET_PTR(template_parameter_list_t, template_parameters, template_parameters)
+
+char nodecl_expr_is_constant(AST expr)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr);
+    return expr_info == NULL ? 0 : (expr_info->const_val != NULL);
+}
+
+static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
+{
+    nodecl_expr_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, nodecl_expr_info_t);
+    if (p == NULL)
+    {
+        p = calloc(1, sizeof(*p));
+        ast_set_field(expr, LANG_EXPRESSION_INFO, p);
+    }
+    return p;
+}
+
+#define NODECL_EXPR_SET_PTR(type, what, field_name) \
+static void nodecl_expr_set_##what(AST expr, type * datum) \
+{ \
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info(expr); \
+    expr_info->field_name = datum; \
+}
+
+// static void nodecl_expr_set_symbol(AST expr, scope_entry_t* entry)
+NODECL_EXPR_SET_PTR(scope_entry_t, symbol, symbol)
+
+// static void nodecl_expr_set_type(AST expr, type_t* t)
+NODECL_EXPR_SET_PTR(type_t, type, type_info)
+
+// static void nodecl_expr_set_constant(AST expr, const_value_t* const_val)
+NODECL_EXPR_SET_PTR(const_value_t, constant, const_val)
+    
+// static void nodecl_expr_set_template_parameters(AST expr, template_parameter_list_t* template_params)
+NODECL_EXPR_SET_PTR(template_parameter_list_t, template_parameters, template_parameters)
+
+// Public routines
 nodecl_t nodecl_null(void)
 {
     nodecl_t result = { NULL };
@@ -19,28 +104,24 @@ AST nodecl_get_ast(nodecl_t t)
     return t.tree;
 }
 
-const char* nodecl_get_text(nodecl_t t)
+const char* nodecl_get_text(nodecl_t n)
 {
-    return ASTText(t.tree);
+    return ASTText(n.tree);
+}
+
+void nodecl_set_text(nodecl_t n, const char *c)
+{
+    ast_set_text(n.tree, c);
 }
 
 type_t* nodecl_get_type(nodecl_t t)
 {
-    type_t* type = expression_get_type(t.tree);
-
-    // Very usual case
-    if (type == NULL
-            && nodecl_get_kind(t) == NODECL_SYMBOL)
-    {
-        type = nodecl_get_symbol(t)->type_information;
-    }
-
-    return type;
+    return nodecl_expr_get_type(t.tree);
 }
 
 void nodecl_set_type(nodecl_t t, type_t* type)
 {
-    return expression_set_type(t.tree, type);
+    return nodecl_expr_set_type(t.tree, type);
 }
 
 nodecl_t nodecl_copy(nodecl_t t)
@@ -51,17 +132,27 @@ nodecl_t nodecl_copy(nodecl_t t)
 
 char nodecl_is_constant(nodecl_t t)
 {
-    return expression_is_constant(t.tree);
+    return nodecl_expr_is_constant(t.tree);
 }
 
 const_value_t* nodecl_get_constant(nodecl_t t)
 {
-    return expression_get_constant(t.tree);
+    return nodecl_expr_get_constant(t.tree);
 }
 
 void nodecl_set_constant(nodecl_t t, const_value_t* cval)
 {
-    expression_set_constant(t.tree, cval);
+    nodecl_expr_set_constant(t.tree, cval);
+}
+
+template_parameter_list_t* nodecl_get_template_parameters(nodecl_t n)
+{
+    return nodecl_expr_get_template_parameters(n.tree);
+}
+
+void nodecl_set_template_parameters(nodecl_t n, template_parameter_list_t* template_parameters)
+{
+    nodecl_expr_set_template_parameters(n.tree, template_parameters);
 }
 
 const char* nodecl_get_filename(nodecl_t t)
@@ -127,12 +218,12 @@ nodecl_t nodecl_make_list_1(nodecl_t element0)
 
 scope_entry_t* nodecl_get_symbol(nodecl_t node)
 {
-    return expression_get_symbol(node.tree);
+    return nodecl_expr_get_symbol(node.tree);
 }
 
 void nodecl_set_symbol(nodecl_t node, scope_entry_t* entry)
 {
-    return expression_set_symbol(node.tree, entry);
+    return nodecl_expr_set_symbol(node.tree, entry);
 }
 
 nodecl_t _nodecl_wrap(AST a)
@@ -176,6 +267,24 @@ nodecl_t* nodecl_unpack_list(nodecl_t n, int *num_items)
     return output;
 }
 
+int nodecl_list_length(nodecl_t list)
+{
+    if (nodecl_is_null(list))
+        return 0;
+
+    ERROR_CONDITION(!nodecl_is_list(list), "Invalid list", 0);
+    AST a = nodecl_get_ast(list);
+
+    int n = 0;
+    AST it = NULL;
+    for_each_element(a, it)
+    {
+        n++;
+    }
+
+    return n;
+}
+
 nodecl_t nodecl_list_head(nodecl_t list)
 {
     ERROR_CONDITION(nodecl_is_null(list), "Invalid list", 0);
@@ -200,39 +309,91 @@ char nodecl_is_list(nodecl_t n)
     return !nodecl_is_null(n) && nodecl_get_kind(n) == AST_NODE_LIST;
 }
 
-char nodecl_is_cxx_dependent_expr(nodecl_t n)
-{
-    return !nodecl_is_null(n) && (nodecl_get_kind(n) == NODECL_CXX_DEPENDENT_EXPR);
-}
-
-nodecl_t nodecl_wrap_cxx_dependent_expr(AST expression, decl_context_t decl_context)
-{
-    // Create a raw tree
-    nodecl_t nodecl_raw = nodecl_make_cxx_dependent_expr(
-            new_scope_symbol(decl_context),
-            ASTFileName(expression), ASTLine(expression));
-    // Note that we do not want this nodecl_raw to become the parent of expression
-    // FIXME - This may create lots of copies
-    ast_set_child(nodecl_get_ast(nodecl_raw), 0, ast_copy(expression));
-
-    return nodecl_raw;
-}
-
-AST nodecl_unwrap_cxx_dependent_expr(nodecl_t n, decl_context_t* decl_context)
-{
-    ERROR_CONDITION(nodecl_get_kind(n) != NODECL_CXX_DEPENDENT_EXPR, "Invalid nodecl of kind", ast_print_node_type(nodecl_get_kind(n)));
-
-    nodecl_t wrap = nodecl_get_child(n, 0);
-    AST tree = nodecl_get_ast(wrap);
-
-    scope_entry_t* entry = nodecl_get_symbol(n);
-    ERROR_CONDITION(entry == NULL, "Invalid cxx dependent expr", 0);
-    *decl_context = entry->decl_context;
-
-    return tree;
-}
-
 void nodecl_free(nodecl_t n)
 {
     ast_free(nodecl_get_ast(n));
+}
+
+char nodecl_expr_is_lvalue(nodecl_t expr)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(expr.tree);
+    return expr_info == NULL ? 0 : expr_info->is_lvalue;
+}
+
+void nodecl_expr_set_is_lvalue(nodecl_t node, char is_lvalue)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_lvalue)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_lvalue = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_lvalue = is_lvalue;
+    }
+}
+
+char nodecl_expr_is_value_dependent(nodecl_t node)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    return expr_info == NULL ? 0 : expr_info->is_value_dependent;
+}
+
+void nodecl_expr_set_is_value_dependent(nodecl_t node, char is_value_dependent)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_value_dependent)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_value_dependent = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_value_dependent = is_value_dependent;
+    }
+}
+
+char nodecl_expr_is_type_dependent(nodecl_t node)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    return expr_info == NULL ? 0 : expr_info->is_type_dependent_expression;
+}
+
+void nodecl_expr_set_is_type_dependent(nodecl_t node, char is_type_dependent_expression)
+{
+    nodecl_expr_info_t* expr_info = nodecl_expr_get_expression_info_noalloc(node.tree);
+    if (expr_info == NULL)
+    {
+        if (is_type_dependent_expression)
+        {
+            expr_info = nodecl_expr_get_expression_info(node.tree);
+            expr_info->is_type_dependent_expression = 1;
+        }
+    }
+    else
+    {
+        expr_info->is_type_dependent_expression = is_type_dependent_expression;
+    }
+}
+
+char nodecl_is_err_expr(nodecl_t n)
+{
+    return nodecl_get_kind(n) == NODECL_ERR_EXPR;
+}
+
+nodecl_t nodecl_generic_make(node_t kind, const char* filename, int line)
+{
+    return _nodecl_wrap(ASTLeaf(kind, filename, line, NULL));
+}
+
+void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
+{
+    ast_set_child(nodecl_get_ast(n), nc, nodecl_get_ast(c));
 }

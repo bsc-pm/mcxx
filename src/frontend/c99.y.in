@@ -261,6 +261,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> initializer
 %type<ast> initializer_clause
 %type<ast> initializer_list
+%type<ast> braced_init_list
 %type<ast> iteration_statement
 %type<ast> jump_statement
 %type<ast> label_declaration
@@ -1116,6 +1117,7 @@ functional_declarator_id : functional_final_declarator_id '(' identifier_list ')
 | functional_final_declarator_id '(' ')'
 {
 	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -1485,17 +1487,9 @@ initializer_clause : assignment_expression
 {
 	$$ = $1;
 }
-| '{' initializer_list '}'
+| braced_init_list
 {
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, $1.token_file, $1.token_line, NULL);
-}
-| '{' initializer_list ',' '}'
-{
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, $1.token_file, $1.token_line, NULL);
-}
-| '{' '}'
-{
-	$$ = ASTMake1(AST_INITIALIZER_BRACES, NULL, $1.token_file, $1.token_line, NULL);
+    $$ = $1;
 }
 ;
 
@@ -2102,13 +2096,23 @@ postfix_expression : primary_expression
 	$$ = ASTMake1(AST_POSTDECREMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extensions
-| '(' type_id ')' '{' initializer_list '}'
+| '(' type_id ')' braced_init_list
 {
-	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
 }
-| '(' type_id ')' '{' initializer_list ',' '}'
+;
+
+braced_init_list : '{' initializer_list '}'
 {
-	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, $1.token_file, $1.token_line, NULL);
+}
+| '{' initializer_list ',' '}'
+{
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, $2, $1.token_file, $1.token_line, NULL);
+}
+| '{' '}'
+{
+	$$ = ASTMake1(AST_INITIALIZER_BRACES, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 

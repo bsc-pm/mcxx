@@ -63,24 +63,56 @@ char deduce_template_parameters_common(
         fprintf(stderr, "TYPEDEDUC: Trying to deduce template arguments for template\n");
         if (template_parameters != NULL)
         {
+
+            char * kind_name[]=
+            {
+                [TPK_TYPE] = "type-template parameter",
+                [TPK_NONTYPE] = "nontype-template parameter",
+                [TPK_TEMPLATE] = "template-template parameter",
+            };
+
             fprintf(stderr, "TYPEDEDUC: Template parameters of the template type\n");
             int i;
             for (i = 0; i < template_parameters->num_parameters; i++)
             {
                 template_parameter_t* current_template_parameter = template_parameters->parameters[i];
 
-                char * kind_name[]=
-                {
-                    [TPK_TYPE] = "type-template parameter",
-                    [TPK_NONTYPE] = "nontype-template parameter",
-                    [TPK_TEMPLATE] = "template-template parameter",
-                };
-
                 fprintf(stderr, "TYPEDEDUC:   [%d] %s - %s\n", i, 
                         kind_name[current_template_parameter->kind],
                         current_template_parameter->entry->symbol_name);
             }
             fprintf(stderr, "TYPEDEDUC: End of template parameters involved\n");
+            if (explicit_template_parameters == NULL)
+            {
+                fprintf(stderr, "TYPEDEDUC: No explicit template arguments available\n");
+            }
+            else
+            {
+                fprintf(stderr, "TYPEDEDUC: %d explicit template arguments already available\n", 
+                        explicit_template_parameters->num_parameters);
+                for (i = 0; i < explicit_template_parameters->num_parameters; i++)
+                {
+                    template_parameter_value_t* current_template_argument = template_parameters->arguments[i];
+
+                    const char* value = "<<<UNKNOWN>>>";
+                    switch (current_template_argument->kind)
+                    {
+                        case TPK_TEMPLATE:
+                        case TPK_TYPE:
+                            value = print_declarator(current_template_argument->type);
+                            break;
+                        case TPK_NONTYPE:
+                            value = c_cxx_codegen_to_str(current_template_argument->value);
+                            break;
+                        default:
+                            internal_error("Code unreachable", 0);
+                    }
+                    fprintf(stderr, "TYPEDEDUC:   [%d] %s <- %s\n", i, 
+                            kind_name[current_template_argument->kind],
+                            value);
+                }
+                fprintf(stderr, "TYPEDEDUC: End of explicit template arguments available\n");
+            }
         }
     }
 
@@ -845,7 +877,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 {
                     // Simplify an unresolved overload of singleton, if possible
                     scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
-                            decl_context, line, filename);
+                            decl_context, filename, line);
 
                     if (solved_function == NULL)
                     {

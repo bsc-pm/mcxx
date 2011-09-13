@@ -1,3 +1,31 @@
+# Syntax
+#
+#   rule : another-rule
+#        | NODECL_TREE_CONSTRUCTOR([child_name] rule-name, ...) options
+#
+#
+# Up to 4 children, [child_name] is mandatory and must be a valid C/C++/Fortran name
+#
+# options is a blank-separated sequence of the following. Each option-name declares extra
+# information that is mandatory to the tree (i.e. it cannot be NULL). 
+#
+#    option-name               frontend type
+#        symbol                    scope_entry_t*
+#        type                      type_t*
+#        text                      const char*
+#        const_value               const_value_t*
+#        template-parameters       template_parameter_list_t*
+#
+# The order that appears here is the order in which this extra information is
+# passed (regardless of the precise syntax of the rule, i.e. 'symbol' is always
+# considered before 'type')
+#
+# There is a special rule 'nodecl' which is the root of the whole hierarchy,
+# while not enforced every rule should be referenced in another rule. The
+# structure must be nonambiguous (i.e. there must be a single way of
+# constructing a given hierarchy)
+#
+
 nodecl : NODECL_TOP_LEVEL([top_level] top-level-seq-opt)
 top-level : function-code 
           | object-init
@@ -15,7 +43,7 @@ statement : statement-but-object-init
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
-          | NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
+          | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
           | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) symbol
           | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) symbol
@@ -33,6 +61,8 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | c-cxx-only-statements
           | fortran-only-statements
           | builtin-decl
+
+compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
 
 case-expression : expression
                 | subscript-triplet
@@ -65,7 +95,7 @@ literal : NODECL_INTEGER_LITERAL() type const_value
     | NODECL_COMPLEX_LITERAL([real]expression, [imag]expression) type
     | NODECL_BOOLEAN_LITERAL() type const_value
     | string-literal
-    | structured-literal
+    | structured-value
 
 string-literal: NODECL_STRING_LITERAL() type const_value
  
@@ -73,7 +103,8 @@ expression : literal
            | name
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
-           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]name) type
+           | NODECL_ARRAY_SECTION([subscripted] expression, [lower] expression, [upper] expression) type
+           | NODECL_CLASS_MEMBER_ACCESS([lhs]expression, [member]expression) type
            | NODECL_PLUS([rhs]expression) type
            | NODECL_NEG([rhs]expression) type
            | NODECL_MUL([lhs]expression, [rhs]expression) type
@@ -102,13 +133,16 @@ expression : literal
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type
            | NODECL_DERREFERENCE([rhs]expression) type
            | NODECL_CAST([rhs]expression) type text
+           | NODECL_COMPOUND_EXPRESSION([nest]compound-statement) type
            | c-cxx-expressions
            | fortran-expressions
            | object-init
            | builtin-expr
+# This one is intended to represent implicit conversions allowed by the base language
+           | NODECL_CONVERSION([nest] expression) type
            | NODECL_ERR_EXPR()
 
-structured-literal: NODECL_STRUCTURED_LITERAL([items]initializer-item-seq-opt) type
+structured-value: NODECL_STRUCTURED_VALUE([items]initializer-item-seq-opt) type
 
 initializer-item: NODECL_FIELD_DESIGNATOR([field]name, [next]initializer-item)
           | NODECL_INDEX_DESIGNATOR([index]expression, [next]initializer-item)
@@ -119,9 +153,11 @@ fortran-implied-do: NODECL_FORTRAN_IMPLIED_DO([symbol]name, [range]subscript-tri
 
 argument : named-pair
          | expression
+         | alt-return
 
 named-pair: NODECL_FORTRAN_NAMED_PAIR_SPEC([name]name-opt, [argument]expression)
 
+alt-return: NODECL_FORTRAN_ALT_RETURN()
 
 subscript : expression
           | subscript-triplet
@@ -148,19 +184,66 @@ c-cxx-expressions : NODECL_CONDITIONAL_EXPRESSION([condition]expression, [true]e
                   | NODECL_PREDECREMENT([rhs]expression) type
                   | NODECL_POSTDECREMENT([rhs]expression) type
                   | NODECL_SIZEOF([size_type]type) type
+                  | NODECL_ALIGNOF([size_type]type) type
                   | NODECL_OFFSET([base]expression, [offset]expression) type
                   | NODECL_TYPEID([arg]type-or-expr) type
-                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt) type
+                  | NODECL_NEW([init]expression-opt, [placement]expression-seq-opt, [alloc_func]name-opt) type text
                   | NODECL_DELETE([rhs]expression) type
                   | NODECL_DELETE_ARRAY([rhs]expression) type
-                  | cxx-dependent-expr
-                  | cxx-unresolved-overload
+                  | NODECL_POINTER_TO_MEMBER() symbol type
+                  | NODECL_REAL_PART([rhs]expression) type
+                  | NODECL_IMAG_PART([rhs]expression) type
+                  | NODECL_OFFSETOF([type]type, [designator]cxx-dependent-initializer-seq) type
+                  | NODECL_SHAPING([postfix] expression, [shape] expression-seq) type
+                  | NODECL_PSEUDO_DESTRUCTOR_NAME([accessed] expression, [destructor_name] cxx-dependent-name) type
+                  | cxx-dependent-nodecls
+                  | cuda-expressions
 
-# Special node used only to hold a C++ tree found to be value or type dependent
-cxx-dependent-expr: NODECL_CXX_DEPENDENT_EXPR() symbol
+# This is only for dependent parts of C++. These nodecls exist because
+# usual nodecls may not retain enough semantic information for a successful
+# instantiation. These nodecls should never appear in the code (but may be accessible
+# through symbols for instantiation purposes)
+cxx-dependent-nodecls: cxx-dependent-name
+   | cxx-dependent-initializer
+   | cxx-dependent-expressions
 
-# Special node used only to hold cases where we have an unresolved overload
-cxx-unresolved-overload: NODECL_CXX_UNRESOLVED_OVERLOAD() type
+# Special nodes for dependent names
+cxx-dependent-name : NODECL_CXX_DEP_GLOBAL_NAME_NESTED([items] cxx-atom-dependent-name-seq)
+                   | NODECL_CXX_DEP_NAME_NESTED([items] cxx-atom-dependent-name-seq)
+                   | cxx-atom-dependent-name
+cxx-atom-dependent-name : cxx-simple-name
+                   | NODECL_CXX_DEP_TEMPLATE_ID([name]cxx-atom-dependent-name) template-parameters
+                   | NODECL_CXX_DEP_NAME_CONVERSION() 
+
+cxx-simple-name: NODECL_CXX_DEP_NAME_SIMPLE() text
+
+cxx-dependent-initializer : NODECL_CXX_BRACED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_CXX_EQUAL_INITIALIZER([init]expression)
+    | NODECL_CXX_PARENTHESIZED_INITIALIZER([init]expression-seq-opt)
+    | NODECL_C99_DESIGNATED_INITIALIZER([designation]cxx-dependent-initializer-seq, [init]expression)
+    | NODECL_C99_FIELD_DESIGNATOR([name]cxx-simple-name)
+    | NODECL_C99_INDEX_DESIGNATOR([expr]expression) 
+
+# a->b
+cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression) type
+# a.*b
+    | NODECL_CXX_DOT_PTR_MEMBER([lhs]expression, [ptr]expression) type
+# a->*b
+    | NODECL_CXX_ARROW_PTR_MEMBER([lhs]expression, [ptr]expression) type
+# sizeof(expr)
+    | NODECL_CXX_SIZEOF([expr] expression) type
+# alignof(expr)
+    | NODECL_CXX_ALIGNOF([expr] expression) type
+# (type) { ... }
+    | NODECL_CXX_POSTFIX_INITIALIZER([postfix]expression) type
+# a[e:e]
+    | NODECL_CXX_ARRAY_SECTION_RANGE([postfix] expression, [lower] expression-opt, [upper] expression-opt]) type
+# a[e;e]
+    | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt]) type
+# T(expr-list)
+    | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type
+
+cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type
 
 type-or-expr : type
              | expression
