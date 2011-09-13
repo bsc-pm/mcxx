@@ -2126,6 +2126,10 @@ static void remove_parameter_from_argv(int i)
     compilation_process.argc--;
 }
 
+static int strcmp_ptr_list(const char** a, const char** b)
+{
+    return strcmp(*a, *b);
+}
 
 static void load_configuration(void)
 {
@@ -2195,7 +2199,7 @@ static void load_configuration(void)
     else
     {
         //Array of configuration filenames
-        char ** list_config_files = NULL;
+        const char** list_config_files = NULL;
         int num_config_files = 0;
         
         struct dirent *dir_entry;
@@ -2219,8 +2223,7 @@ static void load_configuration(void)
                     if(contain_prefix_number(dir_entry->d_name))
                     {
                         //Allocating configuration filename
-                        char * config_file = (char *)calloc(strlen(dir_entry->d_name), sizeof(char));
-                        strncpy(config_file, dir_entry->d_name, strlen(dir_entry->d_name));
+                        const char * config_file = uniquestr(dir_entry->d_name);
                         P_LIST_ADD(list_config_files, num_config_files, config_file);
                     }
                     else
@@ -2232,19 +2235,18 @@ static void load_configuration(void)
             }
             dir_entry = readdir(config_dir);
         }
-        
-        //Sort all configuration filenames using merge sort algorithm
-        merge_sort_list_str(list_config_files, num_config_files,/*ascending*/ 1);
+
+        qsort(list_config_files, num_config_files, sizeof(const char*), (int(*)(const void*, const void*))strcmp_ptr_list);
         
         int i;
         for(i = 0; i < num_config_files; ++i)
         {
             const char * full_path = 
-                strappend(strappend(compilation_process.config_dir, DIR_SEPARATOR),list_config_files[i]);
+                strappend(strappend(compilation_process.config_dir, DIR_SEPARATOR),
+                        list_config_files[i]);
             
             load_configuration_file(full_path);
             //Deallocating configuration filename 
-            free(list_config_files[i]);
         }
         closedir(config_dir);
     }
