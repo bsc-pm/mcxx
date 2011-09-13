@@ -68,6 +68,8 @@ namespace TL
               This method is called each time a PragmaCustomConstruct calls the method get_clause()
               */
 		    void add_referenced_clause(AST_t directive, std::string clause_name);
+        
+            void add_referenced_clause(AST_t directive, const ObjectList<std::string> & clause_names);
 
             //! Add the locus info (file and line) to the a/ directive entry of _directive_clauses_map
             void set_locus_info(AST_t directive);

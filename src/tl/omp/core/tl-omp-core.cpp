@@ -850,7 +850,8 @@ namespace TL
                 Symbol sym = it->get_symbol();
 
                 if (!sym.is_valid()
-                        || !sym.is_variable())
+                        || !sym.is_variable()
+                        || (sym.is_member() && !sym.is_static()))
                     continue;
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);

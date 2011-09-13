@@ -14,7 +14,7 @@ fi
 source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=stmcxx --config-file=@abs_top_builddir@/config/config.stm_nebelung --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=stmcxx --config-dir=@abs_top_builddir@/config --verbose"
 
 test_CXX="\${MCC}"
 

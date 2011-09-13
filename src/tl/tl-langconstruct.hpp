@@ -449,7 +449,10 @@ namespace TL
 
             //! States whether this is an id-expression
             bool is_id_expression();
-            //! Returns an id-expression
+            //! States whether this is an id-expression
+            bool is_accessed_member();
+            //! Returns an id-expression. 
+            // Only valid if is_id_expression, is_member_acces return true
             IdExpression get_id_expression();
 
             //! States whether this is a binary operation

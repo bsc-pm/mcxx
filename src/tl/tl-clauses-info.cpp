@@ -48,6 +48,16 @@ namespace TL
     {
         _directive_clauses_map[directive].referenced_clauses.append(clause_name);
     }
+    
+    void ClausesInfo::add_referenced_clause(AST_t directive, const ObjectList<std::string> & clause_names)
+    {
+         for(ObjectList<std::string>::const_iterator it = clause_names.begin();
+            it != clause_names.end();
+            ++it)
+         {
+            _directive_clauses_map[directive].referenced_clauses.append(*it);
+         }
+    }
 
     void ClausesInfo::set_locus_info(AST_t directive)
     {
