@@ -3654,8 +3654,10 @@ static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, n
 
     indent(visitor);
 
+    // FIXME  parallel|for must be printed as parallel for
     fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
+    fprintf(visitor->file, "\n");
     codegen_walk(visitor, statement);
 }
 
