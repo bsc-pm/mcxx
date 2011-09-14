@@ -769,6 +769,7 @@ static char can_be_inherited(scope_entry_t* entry, void* p UNUSED_PARAMETER)
     return 1;
 }
 
+#if 0
 static char is_injected_class_name(scope_entry_t* entry, void* p UNUSED_PARAMETER)
 {
     ERROR_CONDITION(entry == NULL, "Error, entry can't be null", 0);
@@ -780,16 +781,19 @@ static char is_injected_class_name(scope_entry_t* entry, void* p UNUSED_PARAMETE
 
     return 1;
 }
+#endif
 
 static scope_entry_list_t* filter_not_inherited_entities(scope_entry_list_t* list)
 {
     return filter_symbol_using_predicate(list, can_be_inherited, NULL);
 }
 
+#if 0
 static scope_entry_list_t* filter_injected_class_name(scope_entry_list_t* list)
 {
     return filter_symbol_using_predicate(list, is_injected_class_name, NULL);
 }
+#endif
 
 void class_scope_lookup_rec(scope_t* current_class_scope, const char* name, 
         class_scope_lookup_t* derived, char is_virtual, char initial_lookup, decl_flags_t decl_flags,
@@ -859,13 +863,6 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     {
         scope_entry_list_t* old_entry_list = entry_list;
         entry_list = filter_not_inherited_entities(old_entry_list);
-        entry_list_free(old_entry_list);
-    }
-
-    if (BITMAP_TEST(decl_flags, DF_NO_INJECTED_CLASS_NAME))
-    {
-        scope_entry_list_t* old_entry_list = entry_list;
-        entry_list = filter_injected_class_name(entry_list);
         entry_list_free(old_entry_list);
     }
 
@@ -3665,13 +3662,31 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
 {
     nodecl_t simple_name = nodecl_get_child(nodecl_name, 0);
 
-    scope_entry_list_t* entry_list = query_fun_nodecl(decl_context, simple_name, 
-            decl_flags | DF_NO_INJECTED_CLASS_NAME);
-
     template_parameter_list_t* template_parameters = nodecl_get_template_parameters(nodecl_name);
 
     if (template_parameters == NULL)
         return NULL;
+
+    scope_entry_list_t* entry_list = query_fun_nodecl(decl_context, simple_name, 
+            decl_flags);
+
+    // Ignore injected class name
+    if (entry_list != NULL
+            && entry_list_head(entry_list)->entity_specs.is_injected_class_name)
+    {
+        scope_entry_t* entry_name = named_type_get_symbol(entry_list_head(entry_list)->entity_specs.class_type);
+
+        if (!is_template_specialized_type(entry_name->type_information))
+        {
+            entry_list_free(entry_list);
+            return NULL;
+        }
+
+        type_t* template_type = template_specialized_type_get_related_template_type(entry_name->type_information);
+        entry_name = template_type_get_related_symbol(template_type);
+        entry_list_free(entry_list);
+        entry_list = entry_list_new(entry_name);
+    }
 
     // Filter template-names
     enum cxx_symbol_kind template_name_filter[] = {

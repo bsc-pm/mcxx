@@ -1647,7 +1647,7 @@ static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
     }
 
     return (is_pointer_type(lhs_type)
-            && is_integral_type(rhs_type));
+            && (is_integral_type(rhs_type) || is_enum_type(rhs_type)));
 }
 
 static 
@@ -8543,6 +8543,15 @@ static char is_pseudo_destructor_id(decl_context_t decl_context,
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_advance_aliases(entry_list_iterator_current(it));
+
+        if (entry->kind == SK_TYPEDEF)
+        {
+            // Advance if typedef to the ultimate type
+            if (is_named_class_type(advance_over_typedefs(entry->type_information)))
+            {
+                entry = named_type_get_symbol(advance_over_typedefs(entry->type_information));
+            }
+        }
         // Note that dependent stuff is ignored here as we want a generic node
         // for member access not a special one for pseudo destructors
         if (entry->kind != SK_ENUM 
@@ -10215,14 +10224,34 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
 
             nodecl_t initializer_clause = nodecl_list_head(initializer_clause_list);
-            check_nodecl_initializer_clause(initializer_clause, decl_context, declared_type, nodecl_output);
+            nodecl_t nodecl_expr_out = nodecl_null();
+            check_nodecl_initializer_clause(initializer_clause, decl_context, declared_type, &nodecl_expr_out);
+
+            if (nodecl_is_err_expr(nodecl_expr_out))
+            {
+                *nodecl_output = nodecl_make_err_expr(
+                        nodecl_get_filename(braced_initializer), 
+                        nodecl_get_line(braced_initializer));
+                return;
+            }
+            else
+            {
+                *nodecl_output = nodecl_make_structured_value(
+                        nodecl_make_list_1(nodecl_expr_out),
+                        declared_type,
+                        nodecl_get_filename(braced_initializer), 
+                        nodecl_get_line(braced_initializer));
+
+                nodecl_set_constant(*nodecl_output, nodecl_get_constant(nodecl_expr_out));
+            }
             return;
         }
         else
         {
             // Empty is OK
-            // FIXME: We should compute the default value
-            *nodecl_output = nodecl_make_cxx_braced_initializer(nodecl_null(), 
+            // FIXME: Should we compute the default value instead of an empty tree?
+            *nodecl_output = nodecl_make_structured_value(nodecl_null(), 
+                    declared_type,
                     nodecl_get_filename(braced_initializer), 
                     nodecl_get_line(braced_initializer));
             return;

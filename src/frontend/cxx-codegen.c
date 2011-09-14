@@ -446,8 +446,8 @@ static void define_generic_entities(nodecl_codegen_visitor_t* visitor, nodecl_t 
             else if (is_pointer_to_member_type(no_ref(dest_type))
                     && is_pointer_to_member_type(no_ref(source_type)))
             {
-                base_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(source_type)));
-                derived_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(dest_type)));
+                base_class = pointer_to_member_type_get_class_type(no_ref(source_type));
+                derived_class = pointer_to_member_type_get_class_type(no_ref(dest_type));
             }
             else
             {
