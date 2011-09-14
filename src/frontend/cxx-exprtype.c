@@ -287,10 +287,13 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
 
 
 static
-scope_entry_list_t* get_member_of_class_type_nodecl(type_t* class_type,
+scope_entry_list_t* get_member_of_class_type_nodecl(
+        decl_context_t decl_context,
+        type_t* class_type,
         nodecl_t nodecl_name)
 {
     return query_nodecl_name_in_class(
+            decl_context,
             named_type_get_symbol(advance_over_typedefs(class_type)), 
             nodecl_name);
 }
@@ -302,7 +305,9 @@ static scope_entry_list_t* get_member_of_class_type(type_t* class_type,
     nodecl_t nodecl_name = nodecl_null();
     compute_nodecl_name_from_id_expression(id_expression, decl_context, &nodecl_name);
 
-    return get_member_of_class_type_nodecl(class_type, nodecl_name);
+    return get_member_of_class_type_nodecl(decl_context,
+            class_type,
+            nodecl_name);
 }
 
 static void decimal_literal_type(AST expr, nodecl_t* nodecl_output);
@@ -8831,7 +8836,9 @@ static void check_nodecl_member_access(
 
     // This need not to be a member function but 'get_member_of_class_type' works
     // also for data members
-    scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(accessed_type,
+    scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
+            decl_context,
+            accessed_type,
             nodecl_member);
 
     if (entry_list == NULL)
@@ -10296,7 +10303,9 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
                     else
                     {
                         nodecl_t nodecl_name = nodecl_get_child(nodecl_current_designator, 0);
-                        scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(designated_type,
+                        scope_entry_list_t* entry_list = get_member_of_class_type_nodecl(
+                                decl_context,
+                                designated_type,
                                 nodecl_name);
                         if (entry_list == NULL)
                         {

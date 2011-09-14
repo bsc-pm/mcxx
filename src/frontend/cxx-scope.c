@@ -1816,7 +1816,7 @@ static type_t* update_dependent_typename(
     }
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, filename, line);
 
-    scope_entry_list_t* entry_list = query_nodecl_name_in_class(current_member, new_dependent_parts);
+    scope_entry_list_t* entry_list = query_nodecl_name_in_class(decl_context, current_member, new_dependent_parts);
 
     if (entry_list == NULL)
         return NULL;
@@ -3833,14 +3833,21 @@ static scope_entry_list_t* query_nodecl_conversion_name(decl_context_t decl_cont
 static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_context,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags,
-        scope_entry_t* previous_symbol,
-        scope_entry_list_t *(query_first)(decl_context_t, nodecl_t, decl_flags_t))
+        char check_symbol_in_nest(scope_entry_t* previous_sym, 
+            scope_entry_t* current_sym, 
+            char is_last, 
+            const char* filename,
+            int line,
+            void* data),
+        void *check_symbol_data)
 {
     ERROR_CONDITION(nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_NAME_NESTED
             && nodecl_get_kind(nodecl_name) != NODECL_CXX_DEP_GLOBAL_NAME_NESTED,
             "Invalid nodecl", 0);
 
     char is_global = (nodecl_get_kind(nodecl_name) == NODECL_CXX_DEP_GLOBAL_NAME_NESTED);
+
+    scope_entry_t* previous_symbol = NULL;
 
     decl_flags_t nested_flags = decl_flags;
     nested_flags &= ~DF_LABEL;
@@ -3870,7 +3877,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
 
         if (previous_symbol == NULL)
         {
-            current_entry_list = query_first(current_context, current_name, nested_flags);
+            current_entry_list = query_nodecl_name_flags(current_context, current_name, nested_flags);
         }
         else if (previous_symbol->kind == SK_CLASS)
         {
@@ -4037,6 +4044,15 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             return NULL;
         }
 
+        if (!check_symbol_in_nest(previous_symbol, current_symbol, 
+                    /* is_last */ 0,
+                    nodecl_get_filename(current_name),
+                    nodecl_get_line(current_name),
+                    check_symbol_data))
+        {
+            return NULL;
+        }
+
         previous_symbol = current_symbol;
     }
 
@@ -4104,6 +4120,18 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
         internal_error("Code unreachable", 0);
     }
 
+    if (result != NULL
+            && !check_symbol_in_nest(previous_symbol, 
+                entry_list_head(result),
+                /* is_last */ 1,
+                nodecl_get_filename(last_name),
+                nodecl_get_line(last_name),
+                check_symbol_data))
+    {
+        free(result);
+        return NULL;
+    }
+
     free(list);
 
     return result;
@@ -4116,27 +4144,90 @@ static scope_entry_list_t* query_nodecl_qualified_name(decl_context_t decl_conte
     return query_nodecl_qualified_name_aux(decl_context,
             nodecl_name,
             decl_flags,
-            NULL,
-            query_nodecl_name_flags);
+            NULL, NULL);
 
 }
 
-static scope_entry_list_t* query_nodecl_name_in_class_aux(decl_context_t decl_context,
-        nodecl_t nodecl_name, 
-        decl_flags_t decl_flags);
+
+static char check_symbol_is_base_or_member(scope_entry_t* previous_symbol, 
+        scope_entry_t* current_symbol, 
+        char is_last, 
+        const char* filename,
+        int line,
+        void* data)
+{
+    scope_entry_t* class_symbol = (scope_entry_t*)data;
+
+    if (previous_symbol != NULL)
+    {
+        class_symbol = previous_symbol;
+    }
+
+    if (class_symbol->entity_specs.is_injected_class_name)
+    {
+        class_symbol = named_type_get_symbol(class_symbol->entity_specs.class_type);
+    }
+
+    ERROR_CONDITION(class_symbol->kind != SK_CLASS, "This should be a class", 0);
+
+    if (is_last)
+    {
+        // If we are the last component we must be a member of class_symbol
+        if (!(current_symbol->entity_specs.is_member
+                    && (class_type_is_base(current_symbol->entity_specs.class_type, class_symbol->type_information)
+                        || named_type_get_symbol(current_symbol->entity_specs.class_type) == class_symbol)))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s:%d: error: '%s' is not a member of '%s'\n",
+                        filename, line,
+                        current_symbol->symbol_name,
+                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+            }
+            return 0;
+        }
+    }
+    else
+    {
+        if (current_symbol->kind == SK_TYPEDEF)
+        {
+            if (is_named_type(advance_over_typedefs(current_symbol->type_information)))
+            {
+                current_symbol = named_type_get_symbol(advance_over_typedefs(current_symbol->type_information));
+            }
+        }
+        // If we are not the last component we must be a base class
+        if (current_symbol->kind != SK_CLASS
+                || !class_type_is_base(current_symbol->type_information, class_symbol->type_information))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s:%d: error: '%s' is not a base of '%s'\n",
+                        filename, line,
+                        current_symbol->symbol_name,
+                        get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+            }
+            return 0;
+        }
+    }
+    return 1;
+}
 
 static scope_entry_list_t* query_nodecl_qualified_name_in_class(decl_context_t decl_context,
+        scope_entry_t* class_symbol,
         nodecl_t nodecl_name,
         decl_flags_t decl_flags)
 {
     return query_nodecl_qualified_name_aux(decl_context,
             nodecl_name,
             decl_flags,
-            decl_context.current_scope->related_entry,
-            query_nodecl_name_in_class_aux);
+            check_symbol_is_base_or_member,
+            class_symbol);
 }
 
-static scope_entry_list_t* query_nodecl_name_in_class_aux(decl_context_t decl_context,
+static scope_entry_list_t* query_nodecl_name_in_class_aux(
+        decl_context_t decl_context,
+        scope_entry_t* class_symbol,
         nodecl_t nodecl_name, 
         decl_flags_t decl_flags)
 {
@@ -4144,24 +4235,30 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(decl_context_t decl_co
     {
         case NODECL_CXX_DEP_NAME_SIMPLE:
             {
-                return query_nodecl_simple_name_in_class(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_simple_name_in_class(
+                        class_type_get_inner_context(class_symbol->type_information), 
+                        nodecl_name, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_TEMPLATE_ID:
             {
-                return query_nodecl_template_id(decl_context, nodecl_name, decl_flags, 
+                return query_nodecl_template_id(
+                        class_type_get_inner_context(class_symbol->type_information), 
+                        nodecl_name, decl_flags, 
                         query_nodecl_simple_name_in_class);
                 break;
             }
         case NODECL_CXX_DEP_NAME_CONVERSION:
             {
-                return query_nodecl_conversion_name(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_conversion_name(
+                        class_type_get_inner_context(class_symbol->type_information), 
+                        nodecl_name, decl_flags);
                 break;
             }
         case NODECL_CXX_DEP_NAME_NESTED:
         case NODECL_CXX_DEP_GLOBAL_NAME_NESTED:
             {
-                return query_nodecl_qualified_name_in_class(decl_context, nodecl_name, decl_flags);
+                return query_nodecl_qualified_name_in_class(decl_context, class_symbol, nodecl_name, decl_flags);
                 break;
             }
         default:
@@ -4172,7 +4269,15 @@ static scope_entry_list_t* query_nodecl_name_in_class_aux(decl_context_t decl_co
     return NULL;
 }
 
-scope_entry_list_t* query_nodecl_name_in_class_flags(scope_entry_t* class_symbol,
+static scope_entry_list_t* query_nodecl_name_in_class_aux(
+        decl_context_t decl_context,
+        scope_entry_t* class_symbol,
+        nodecl_t nodecl_name, 
+        decl_flags_t decl_flags);
+
+scope_entry_list_t* query_nodecl_name_in_class_flags(
+        decl_context_t decl_context,
+        scope_entry_t* class_symbol,
         nodecl_t nodecl_name, decl_flags_t decl_flags)
 {
     ERROR_CONDITION(class_symbol == NULL 
@@ -4186,9 +4291,7 @@ scope_entry_list_t* query_nodecl_name_in_class_flags(scope_entry_t* class_symbol
                 nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
     }
 
-    decl_context_t current_context = class_type_get_inner_context(class_type);
-
-    return query_nodecl_name_in_class_aux(current_context, nodecl_name, decl_flags);
+    return query_nodecl_name_in_class_aux(decl_context, class_symbol, nodecl_name, decl_flags);
 }
 
 scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_context,
@@ -4519,7 +4622,8 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                        return query_nodecl_name_in_class_flags(class_sym,
+                        return query_nodecl_name_in_class_flags(
+                                decl_context, class_sym,
                                 dependent_parts, DF_DEPENDENT_TYPENAME);
                     }
                     else
