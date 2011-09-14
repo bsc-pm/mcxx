@@ -211,6 +211,7 @@ namespace TL
                         {
                             std::cerr << data_ref.get_ast().get_locus() << ": ignoring: '" << data_ref 
                                 << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                            continue;
                         }
 
                         data_ref_list.append(data_ref);
