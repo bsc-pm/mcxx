@@ -3971,10 +3971,17 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
+    nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
     if (visitor->do_not_emit_declarations)
     {
-        fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+        fprintf(visitor->file, "%s", print_decl_type_str(entry->type_information, entry->decl_context, 
+                  get_qualified_symbol_name(entry, entry->decl_context)));
+        if (!nodecl_is_null(nodecl_init_expr))
+        {
+            fprintf(visitor->file, " = ");
+            codegen_walk(visitor, nodecl_init_expr);
+        }
     }
     else if (!visitor->mem_init_list)
     {
@@ -3989,7 +3996,6 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
     }
     else
     {
-        nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
         fprintf(visitor->file, "%s(", entry->symbol_name);
         char in_direct_initializer = visitor->in_direct_initializer;
