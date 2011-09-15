@@ -469,22 +469,14 @@ namespace TL
             FunctionTaskTargetInfo target_info;
 
             AST_t param_ref_tree = function_sym.get_point_of_declaration();
-            if (parameter_decl.empty()
-                    || (parameter_decl.size() == 1 && parameter_decl[0].get_type().is_void()))
-            {
-                if(!function_sym.is_member() || function_sym.is_static())
-                {
-                    std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task' "
-                              << "applied to a function with no parameters"
-                              << std::endl;
-                }
-            }
-            else
-            {
-                // Use the first parameter as a reference tree so we can parse the specifications
+
+             if(!parameter_decl.empty()
+                 && (parameter_decl.size() != 1 || !parameter_decl[0].get_type().is_void()))
+             {
+                //Use the first parameter as a reference tree so we can parse the specifications
                 param_ref_tree = parameter_decl[0].get_ast();
-            }
+             }
+
              dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
                              param_ref_tree,construct.get_scope_link())));
 
