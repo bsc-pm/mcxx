@@ -3655,7 +3655,7 @@ static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, n
     indent(visitor);
 
     // FIXME  parallel|for must be printed as parallel for
-    fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
+    fprintf(visitor->file, "#pragma %s ", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
     fprintf(visitor->file, "\n");
     codegen_walk(visitor, statement);
@@ -3670,7 +3670,7 @@ static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, node
 {
     nodecl_t arguments = nodecl_get_child(node, 0);
 
-    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
 
     if (!nodecl_is_null(arguments))
     {
@@ -3685,16 +3685,20 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
     nodecl_t parameters = nodecl_get_child(node, 0);
     nodecl_t clauses = nodecl_get_child(node, 1);
 
-    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
 
     if (!nodecl_is_null(parameters))
     {
         fprintf(visitor->file, "(");
         walk_list(visitor, parameters, ", ");
-        fprintf(visitor->file, ")");
+        fprintf(visitor->file, ") ");
+    }
+    else
+    {
+        fprintf(visitor->file, " ");
     }
 
-    codegen_walk(visitor, clauses);
+    walk_list(visitor, clauses, " ");
 }
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -3702,7 +3706,7 @@ static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, n
     nodecl_t pragma_line = nodecl_get_child(node, 0);
 
     indent(visitor);
-    fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
+    fprintf(visitor->file, "#pragma %s ", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
     fprintf(visitor->file, "\n");
 }
