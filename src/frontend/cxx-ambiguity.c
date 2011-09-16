@@ -1947,7 +1947,7 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
-char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context)
+void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(ambig_expression) != AST_AMBIGUITY,
             "Must be ambiguous node", 0);
@@ -2069,8 +2069,6 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
         }
     }
 
-    char result = 0;
-
     if (correct_choice < 0)
     {
         if (!checking_ambiguity())
@@ -2095,16 +2093,12 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 choose_option(ambig_expression, 0);
             }
         }
-        result = 0;
     }
     else
     {
         // Choose the option and state that this can be valid
         choose_option(ambig_expression, correct_choice);
-        result = 1;
     }
-    
-    return result;
 }
 
 static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)

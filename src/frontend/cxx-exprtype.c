@@ -873,14 +873,9 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_AMBIGUITY :
             {
-                if (!solve_ambiguous_expression(expression, decl_context))
-                {
-                    *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
-                }
-                else
-                {
-                    check_expression_impl_(expression, decl_context, nodecl_output);
-                }
+                solve_ambiguous_expression(expression, decl_context);
+                // Restart
+                check_expression_impl_(expression, decl_context, nodecl_output);
                 break;
             }
         default :
