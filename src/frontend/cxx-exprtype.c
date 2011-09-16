@@ -8221,6 +8221,7 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
                 nodecl_make_list_1(nodecl_copy(nodecl_casted_expr)),
                 nodecl_get_filename(nodecl_casted_expr),
                 nodecl_get_line(nodecl_casted_expr));
+        // This actually checks T(e)
         check_nodecl_parenthesized_initializer(nodecl_parenthesized_init, 
                 decl_context, 
                 declarator_type, 
@@ -8230,6 +8231,12 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         if (!nodecl_is_err_expr(nodecl_cast_output))
         {
             nodecl_casted_expr = nodecl_cast_output;
+
+            // T(e) becomes (T){e}, so we get 'e' so the result is (T)e and not (T)(T){e}
+            if (nodecl_get_kind(nodecl_casted_expr) == NODECL_STRUCTURED_VALUE)
+            {
+                nodecl_casted_expr = nodecl_list_head(nodecl_get_child(nodecl_casted_expr, 0));
+            }
         }
     }
 
@@ -13671,8 +13678,35 @@ static void instantiate_explicit_type_cast(nodecl_instantiate_expr_visitor_t* v,
             nodecl_get_filename(node),
             nodecl_get_line(node));
 
+    nodecl_t nodecl_new_list = nodecl_null();
+
     nodecl_t parenthesized_init = nodecl_get_child(node, 0);
-    nodecl_t new_parenthesized_init = instantiate_expr_walk(v, parenthesized_init);
+    if (!nodecl_is_null(parenthesized_init))
+    {
+        nodecl_t old_list = nodecl_get_child(parenthesized_init, 0);
+        int num_items = 0;
+        nodecl_t* list = nodecl_unpack_list(old_list, &num_items);
+
+        int i;
+        for (i = 0; i < num_items; i++)
+        {
+            nodecl_t n = instantiate_expr_walk(v, list[i]);
+
+            if (nodecl_is_err_expr(n))
+            {
+                v->nodecl_result = n;
+                return;
+            }
+
+            nodecl_new_list = nodecl_append_to_list(nodecl_new_list, n);
+        }
+
+        free(list);
+    }
+
+    nodecl_t new_parenthesized_init = nodecl_make_cxx_parenthesized_initializer(nodecl_new_list, 
+            nodecl_get_filename(node),
+            nodecl_get_line(node));
 
     check_nodecl_explicit_type_conversion(t, 
             new_parenthesized_init, 
@@ -13780,6 +13814,32 @@ static void instantiate_cast(nodecl_instantiate_expr_visitor_t* v, nodecl_t node
     v->nodecl_result = result;
 }
 
+static void instantiate_conditional_expression(nodecl_instantiate_expr_visitor_t* v, nodecl_t node)
+{
+    nodecl_t nodecl_cond = instantiate_expr_walk(v, nodecl_get_child(node, 0));
+    if (nodecl_is_err_expr(nodecl_cond))
+    {
+        v->nodecl_result = nodecl_cond;
+        return;
+    }
+
+    nodecl_t nodecl_true = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    if (nodecl_is_err_expr(nodecl_true))
+    {
+        v->nodecl_result = nodecl_true;
+        return;
+    }
+
+    nodecl_t nodecl_false = instantiate_expr_walk(v, nodecl_get_child(node, 1));
+    if (nodecl_is_err_expr(nodecl_false))
+    {
+        v->nodecl_result = nodecl_true;
+        return;
+    }
+
+    check_conditional_expression_impl_nodecl(nodecl_cond, nodecl_true, nodecl_false, v->decl_context, &v->nodecl_result);
+}
+
 // Initialization
 static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, decl_context_t decl_context)
 {
@@ -13858,5 +13918,8 @@ static void instantiate_expr_init_visitor(nodecl_instantiate_expr_visitor_t* v, 
     NODECL_VISITOR(v)->visit_cxx_braced_initializer = instantiate_expr_visitor_fun(instantiate_braced_initializer);
     NODECL_VISITOR(v)->visit_cxx_parenthesized_initializer = instantiate_expr_visitor_fun(instantiate_parenthesized_initializer);
     NODECL_VISITOR(v)->visit_cxx_explicit_type_cast = instantiate_expr_visitor_fun(instantiate_explicit_type_cast);
+
+    // Conditional
+    NODECL_VISITOR(v)->visit_conditional_expression = instantiate_expr_visitor_fun(instantiate_conditional_expression);
 }
 

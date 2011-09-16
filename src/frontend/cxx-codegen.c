@@ -2708,6 +2708,18 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_shift_bin_operator(node_t n)
+{
+    return n == NODECL_SHL
+        || n == NODECL_SHR;
+}
+
+static char is_additive_bin_operator(node_t n)
+{
+    return n == NODECL_ADD
+        || n == NODECL_MINUS;
+}
+
 
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
@@ -2719,11 +2731,15 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     node_t current_kind = nodecl_get_kind(current_operator);
     node_t operand_kind = nodecl_get_kind(operand);
 
-    if (is_bitwise_bin_operator(current_kind) // &
-            && is_bitwise_bin_operator(operand_kind)) // |
+    // For the sake of clarity
+    // a | b & c  -> a | (b & c)
+    // a << b - c   -> a << (b - c)
+    if ((is_bitwise_bin_operator(current_kind)
+                && is_bitwise_bin_operator(operand_kind))
+            || (is_shift_bin_operator(current_kind) 
+                && is_additive_bin_operator(operand_kind))
+       )
     {
-        // For the sake of clarity
-        // a | b & c  -> a | (b & c)
         return 1;
     }
 

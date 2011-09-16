@@ -1816,7 +1816,9 @@ static type_t* update_dependent_typename(
     }
     nodecl_t new_dependent_parts = nodecl_make_cxx_dep_name_nested(new_dependent_parts_list, filename, line);
 
-    scope_entry_list_t* entry_list = query_nodecl_name_in_class(decl_context, current_member, new_dependent_parts);
+    scope_entry_list_t* entry_list = query_nodecl_name(
+            class_type_get_inner_context(current_member->type_information),
+            new_dependent_parts);
 
     if (entry_list == NULL)
         return NULL;
@@ -3852,6 +3854,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
     decl_flags_t nested_flags = decl_flags;
     nested_flags &= ~DF_LABEL;
     nested_flags &= ~DF_CONSTRUCTOR;
+    nested_flags &= ~DF_DEPENDENT_TYPENAME;
 
     int num_items = 0;
     nodecl_t* list = nodecl_unpack_list(nodecl_get_child(nodecl_name, 0), &num_items);
@@ -3986,7 +3989,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                 }
                 else if (class_type_is_incomplete_dependent(class_type)
                         // In some cases we do not want to examine uninstantiated templates
-                        || (BITMAP_TEST(nested_flags, DF_DEPENDENT_TYPENAME)
+                        || (BITMAP_TEST(decl_flags, DF_DEPENDENT_TYPENAME)
                             // Why are we checking this?
                             && (class_type_is_complete_dependent(class_type)
                                 || (current_symbol->decl_context.current_scope->kind == CLASS_SCOPE
@@ -4044,7 +4047,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
             return NULL;
         }
 
-        if (!check_symbol_in_nest(previous_symbol, current_symbol, 
+        if (check_symbol_in_nest != NULL
+                && !check_symbol_in_nest(previous_symbol, current_symbol, 
                     /* is_last */ 0,
                     nodecl_get_filename(current_name),
                     nodecl_get_line(current_name),
@@ -4061,7 +4065,11 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
 
     scope_entry_list_t* result = NULL;
     
-    if (previous_symbol->kind == SK_NAMESPACE)
+    if (previous_symbol == NULL)
+    {
+        result = query_nodecl_name_flags(current_context, last_name, decl_flags);
+    }
+    else if (previous_symbol->kind == SK_NAMESPACE)
     {
         if (nodecl_get_kind(last_name) == NODECL_CXX_DEP_NAME_SIMPLE)
         {
@@ -4121,6 +4129,7 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
     }
 
     if (result != NULL
+            && check_symbol_in_nest != NULL
             && !check_symbol_in_nest(previous_symbol, 
                 entry_list_head(result),
                 /* is_last */ 1,
@@ -4622,8 +4631,14 @@ scope_entry_list_t* query_dependent_entity_in_context(decl_context_t decl_contex
                     {
                         scope_entry_t* class_sym = named_type_get_symbol(new_class_type);
 
-                        return query_nodecl_name_in_class_flags(
-                                decl_context, class_sym,
+                        if (class_type_is_incomplete_independent(class_sym->type_information))
+                        {
+                            instantiate_template_class(class_sym, class_sym->decl_context,
+                                    filename, line);
+                        }
+
+                        return query_nodecl_name_flags(
+                                class_type_get_inner_context(class_sym->type_information),
                                 dependent_parts, DF_DEPENDENT_TYPENAME);
                     }
                     else

@@ -262,6 +262,7 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
         nodecl_t* nodecl_output);
 
 static void call_destructors_of_classes(decl_context_t block_context, 
+        const char* filename, int line,
         nodecl_t* nodecl_output);
 
 // Current linkage, by default C++
@@ -9002,7 +9003,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         nodecl_t nodecl_destructors = nodecl_null();
         CXX_LANGUAGE()
         {
-            call_destructors_of_classes(block_context, &nodecl_destructors);
+            call_destructors_of_classes(block_context, ASTFileName(statement), ASTLine(statement), &nodecl_destructors);
         }
 
         // We manually create a compound statement here for nodecl
@@ -10552,6 +10553,8 @@ struct call_to_destructor_data_tag
 {
     nodecl_t* nodecl_output;
     scope_t* scope;
+    const char* filename;
+    int line;
 } call_to_destructor_data_t;
 
 static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
@@ -10566,12 +10569,16 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
             && !entry->entity_specs.is_static
             && !entry->entity_specs.is_extern)
     {
-        type_t* class_type = get_actual_class_type(entry->type_information);
+        if (class_type_is_incomplete_independent(entry->type_information))
+        {
+            instantiate_template_class(named_type_get_symbol(entry->type_information), 
+                    entry->decl_context, destructor_data->filename, destructor_data->line);
+        }
 
         nodecl_t nodecl_call_to_destructor = 
             nodecl_make_expression_statement(
                     cxx_nodecl_make_function_call(
-                        nodecl_make_symbol(class_type_get_destructor(class_type), NULL, 0),
+                        nodecl_make_symbol(class_type_get_destructor(entry->type_information), NULL, 0),
                         nodecl_make_list_1(nodecl_make_symbol(entry, NULL, 0)),
                         get_void_type(),
                         NULL, 0), NULL, 0);
@@ -10585,11 +10592,15 @@ static void call_to_destructor(scope_entry_list_t* entry_list, void *data)
 }
 
 static void call_destructors_of_classes(decl_context_t block_context, 
+        const char* filename,
+        int line,
         nodecl_t* nodecl_output)
 {
     call_to_destructor_data_t call_to_destructor_data = { 
         .nodecl_output = nodecl_output,
-        .scope = block_context.current_scope
+        .scope = block_context.current_scope,
+        .filename = filename,
+        .line = line,
     };
 
     scope_for_each_entity(block_context.current_scope, &call_to_destructor_data, call_to_destructor);
@@ -10644,7 +10655,7 @@ static void build_scope_compound_statement(AST a,
     nodecl_t nodecl_destructors = nodecl_null();
     CXX_LANGUAGE()
     {
-        call_destructors_of_classes(block_context, &nodecl_destructors);
+        call_destructors_of_classes(block_context, ASTFileName(a), ASTLine(a), &nodecl_destructors);
     }
 
     *nodecl_output = nodecl_make_list_1(
