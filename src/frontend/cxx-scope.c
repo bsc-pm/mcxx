@@ -1127,7 +1127,7 @@ template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nod
 {
     if (nodecl_name_ends_in_template_id(nodecl_name))
     {
-        return nodecl_get_template_parameters(nodecl_name);
+        return nodecl_get_template_parameters(nodecl_name_get_last_part(nodecl_name));
     }
     else
     {

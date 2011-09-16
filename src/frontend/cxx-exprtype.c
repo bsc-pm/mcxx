@@ -873,9 +873,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_expression(expression, decl_context);
-                // Restart
-                check_expression_impl_(expression, decl_context, nodecl_output);
+                solve_ambiguous_expression(expression, decl_context, nodecl_output);
                 break;
             }
         default :
@@ -4751,8 +4749,7 @@ static void parse_reference(AST op,
             scope_entry_t* entry = entry_list_head(entry_list);
             entry_list_free(entry_list);
 
-            if (entry->kind == SK_TEMPLATE
-                    && is_function_type(template_type_get_primary_type(entry->type_information)))
+            if (entry->kind == SK_TEMPLATE)
             {
                 entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
             }
@@ -4796,8 +4793,7 @@ static void compute_operator_reference_type(nodecl_t* op,
 
         scope_entry_t* entry = entry_list_head(entry_list);
 
-        if (entry->kind == SK_TEMPLATE
-                && is_function_type(template_type_get_primary_type(entry->type_information)))
+        if (entry->kind == SK_TEMPLATE)
         {
             entry = named_type_get_symbol(template_type_get_primary_type(entry->type_information));
         }
@@ -5210,7 +5206,6 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         last_template_args = nodecl_name_name_last_template_arguments(nodecl_name);
     }
 
-
     if (entry->kind == SK_VARIABLE)
     {
         nodecl_t nodecl_access_to_symbol = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
@@ -5328,6 +5323,12 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         type_t* t = get_unresolved_overloaded_type(entry_list, last_template_args);
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
+
+        if (last_template_args != NULL
+                && has_dependent_template_parameters(last_template_args))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
     }
     else if (entry->kind == SK_TEMPLATE)
     {
@@ -5349,6 +5350,12 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
         type_t* t =  get_unresolved_overloaded_type(entry_list, last_template_args);
         *nodecl_output = nodecl_make_symbol(entry, nodecl_get_filename(nodecl_name), nodecl_get_line(nodecl_name));
         nodecl_set_type(*nodecl_output, t);
+
+        if (last_template_args != NULL
+                && has_dependent_template_parameters(last_template_args))
+        {
+            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+        }
     }
     else if (entry->kind == SK_TEMPLATE_PARAMETER)
     {
