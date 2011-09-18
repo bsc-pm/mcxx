@@ -5421,10 +5421,7 @@ static void check_array_subscript_expr_nodecl(
     type_t* subscripted_type = nodecl_get_type(nodecl_subscripted);
     type_t* subscript_type = nodecl_get_type(nodecl_subscript);
 
-    if (!is_array_type(no_ref(subscripted_type))
-            && !is_pointer_type(no_ref(subscripted_type))
-            && (is_array_type(no_ref(subscript_type))
-                || is_pointer_type(no_ref(subscript_type))))
+    if (is_pointer_and_integral_type(no_ref(subscript_type), no_ref(subscripted_type)))
     {
         // C oddity: since E1[E2] is equivalent to *(E1 + E2) and it is also
         // valid *(E2 + E1), then E2[E1] is valid too
