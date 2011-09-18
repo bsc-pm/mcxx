@@ -6281,8 +6281,8 @@ static void check_conditional_expression_impl_nodecl(nodecl_t first_op,
         }
 
         if (nodecl_expr_is_value_dependent(first_op)
-                && nodecl_expr_is_value_dependent(second_op)
-                && nodecl_expr_is_value_dependent(third_op))
+                || nodecl_expr_is_value_dependent(second_op)
+                || nodecl_expr_is_value_dependent(third_op))
         {
             nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
         }
