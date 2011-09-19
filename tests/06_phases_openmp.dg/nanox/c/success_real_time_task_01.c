@@ -35,6 +35,6 @@ test_generator=config/mercurium-nanox
 void f(int e) {}      
 
 int b,c;
-#pragma omp task onerror(OMP_NO_ACTION)
+#pragma omp task onerror(b:c)
 void i(int e) {}
 int main() {}
