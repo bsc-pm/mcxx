@@ -6785,24 +6785,59 @@ UNUSED_PARAMETER static char is_deallocation_function(scope_entry_t* entry)
     return 1;
 }
 
-static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr, 
+static void check_delete_expression_nodecl(nodecl_t nodecl_deleted_expr,
         decl_context_t decl_context UNUSED_PARAMETER,
         const char* filename, int line,
+        char is_array_delete,
         nodecl_t* nodecl_output)
 {
-    // FIXME - The deallocation function is not checked!
-    *nodecl_output = nodecl_make_delete(nodecl_deleted_expr, get_void_type(), 
-            filename, line);
-}
+    // FIXME - We are not calling the deallocation function
+    type_t* deleted_type = no_ref(nodecl_get_type(nodecl_deleted_expr));
 
-static void check_delete_array_expression_nodecl(nodecl_t nodecl_deleted_expr,
-        decl_context_t decl_context UNUSED_PARAMETER,
-        const char* filename, int line,
-        nodecl_t* nodecl_output)
-{
-    // FIXME - The deallocation function is not checked!
-    *nodecl_output = nodecl_make_delete_array(nodecl_deleted_expr, get_void_type(),
-            filename, line);
+    if (!is_dependent_type(deleted_type))
+    {
+        if (!is_pointer_type(deleted_type)
+                || is_pointer_to_function_type(deleted_type)
+                || is_pointer_to_member_type(deleted_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s:%d: error: invalid type '%s' for delete%s expression\n",
+                        filename, line,
+                        is_array_delete ? "[]" : "",
+                        print_type_str(deleted_type, decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
+
+        type_t* full_type = pointer_type_get_pointee_type(deleted_type);
+        if (!is_complete_type(full_type))
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s:%d: error: invalid incomplete type '%s' in delete%s expression\n",
+                        filename, line,
+                        is_array_delete ? "[]" : "",
+                        print_type_str(full_type, decl_context));
+            }
+            *nodecl_output = nodecl_make_err_expr(filename, line);
+            return;
+        }
+
+        nodecl_set_type(nodecl_deleted_expr, full_type);
+    }
+
+    if (is_array_delete)
+    {
+        *nodecl_output = nodecl_make_delete_array(nodecl_deleted_expr, get_void_type(),
+                filename, line);
+    }
+    else
+    {
+        *nodecl_output = nodecl_make_delete(nodecl_deleted_expr, get_void_type(),
+                filename, line);
+    }
 }
 
 
@@ -6821,21 +6856,17 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
     nodecl_t nodecl_deleted_expr = nodecl_null();
     check_expression_impl_(deleted_expression, decl_context, &nodecl_deleted_expr);
 
-    if (is_array_delete)
+    if (nodecl_is_err_expr(nodecl_deleted_expr))
     {
-        check_delete_array_expression_nodecl(nodecl_deleted_expr, 
-                decl_context, 
-                ASTFileName(expression), 
-                ASTLine(expression),
-                nodecl_output);
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+        return;
     }
-    else
-    {
-        check_delete_expression_nodecl(nodecl_deleted_expr, decl_context, 
-                ASTFileName(expression), 
-                ASTLine(expression),
-                nodecl_output);
-    }
+
+    check_delete_expression_nodecl(nodecl_deleted_expr, decl_context, 
+            ASTFileName(expression), 
+            ASTLine(expression),
+            is_array_delete,
+            nodecl_output);
 }
 
 static void check_nodecl_explicit_type_conversion(type_t* type_info,
@@ -7989,7 +8020,7 @@ void check_nodecl_function_call(nodecl_t nodecl_called,
                         decl_context,
                         filename, line);
 
-                ERROR_CONDITION(solved_function == 0, "Code unreachable", 0);
+                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
 
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
@@ -11175,6 +11206,39 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     }
     else
     {
+        if (is_unresolved_overloaded_type(initializer_expr_type))
+        {
+            // Note: type_can_be_implicitly_converted_to already did this:
+            // figure a way to get this conversion without having to compute
+            // this address overload twice
+            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(initializer_expr_type);
+            scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
+                    unresolved_overloaded_type_get_explicit_template_arguments(initializer_expr_type),
+                    no_ref(declared_type_no_cv),
+                    decl_context,
+                    nodecl_get_filename(nodecl_expr), 
+                    nodecl_get_line(nodecl_expr));
+
+            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+            if (!solved_function->entity_specs.is_member
+                    || solved_function->entity_specs.is_static)
+            {
+                nodecl_expr =
+                    nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+                nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
+            }
+            else
+            {
+                nodecl_expr =
+                    nodecl_make_pointer_to_member(solved_function, 
+                            get_lvalue_reference_type(
+                                get_pointer_to_member_type(solved_function->type_information,
+                                    named_type_get_symbol(solved_function->entity_specs.class_type))),
+                            nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+            }
+        }
+
         *nodecl_output = nodecl_expr;
     }
 }
