@@ -528,7 +528,7 @@ namespace TL
         void Core::task_inline_handler_pre(PragmaCustomConstruct construct)
         {
             RealTimeInfo rt_info = task_real_time_handler_pre(construct);
-            
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
@@ -550,15 +550,17 @@ namespace TL
         RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
         {
             RealTimeInfo rt_info;
-            
+
+             
+
             //looking for deadline clause
             PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
             {
-                ObjectList<Expression> deadline_exprs =
-                    deadline_clause.get_expression_list();
+                ObjectList<std::string> deadline_args =
+                    deadline_clause.get_arguments(ExpressionTokenizer());
                 
-                if(deadline_exprs.size() != 1) 
+                if(deadline_args.size() != 1) 
                 {
                     std::cerr << construct.get_ast().get_locus()
                               << ": warning: '#pragma omp task deadline' "
@@ -567,19 +569,21 @@ namespace TL
                 }
                 else 
                 {
-                    rt_info.set_time_deadline(deadline_exprs[0]);
+                    std::cerr << "warning: '#pragma omp task deadline' "
+                              << "is not implemented yet."
+                              << std::endl;
                 }
 
             }
 
             //looking for release_deadline clause
-            PragmaCustomClause release_clause = construct.get_clause("release_deadline");
-            if (release_clause.is_defined())
+            PragmaCustomClause release_deadline_clause = construct.get_clause("release_deadline");
+            if (release_deadline_clause.is_defined())
             {
-                ObjectList<Expression> release_exprs =
-                    release_clause.get_expression_list();
+                ObjectList<std::string> release_deadline_args =
+                    release_deadline_clause.get_arguments(ExpressionTokenizer());
                 
-                if(release_exprs.size() != 1) 
+                if(release_deadline_args.size() != 1) 
                 {
                     std::cerr << construct.get_ast().get_locus()
                               << ": warning: '#pragma omp task release_deadline' "
@@ -588,12 +592,17 @@ namespace TL
                 }
                 else
                 {
-                    rt_info.set_time_release(release_exprs[0]);
+                    std::cerr << "warning: '#pragma omp task release_deadline' "
+                              << "is not implemented yet."
+                              << std::endl;
                 }
             }
             
-            //looking for onerror clause
-            PragmaCustomClause on_error_clause = construct.get_clause("onerror");
+            //looking for on_error clause
+            ObjectList<std::string> names;
+            names.push_back("on_error");
+            names.push_back("onerror");
+            PragmaCustomClause on_error_clause = construct.get_clause(names);
             if (on_error_clause.is_defined())
             {
                 ObjectList<std::string> on_error_args =
@@ -602,7 +611,7 @@ namespace TL
                 if(on_error_args.size() != 1) 
                 {
                     std::cerr << construct.get_ast().get_locus()
-                              << ": warning: '#pragma omp task onerror' "
+                              << ": warning: '#pragma omp task on_error' "
                               << "has a wrong number of arguments, skipping"
                               << std::endl;
                 }
@@ -610,15 +619,15 @@ namespace TL
                 {
                     Lexer l = Lexer::get_current_lexer();
 
-                    ObjectList<Lexer::pair_token> tokens = l.lex_string(on_error_args[0]);
+                    ObjectList<int> tokens = l.lex_string(on_error_args[0]);
                     switch (tokens.size())
                     {
                         
                         // tokens structure: 'indentifier'
                         case 1:
                         {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
                             {
                                   std::cerr << construct.get_ast().get_locus()
                                             << ": warning: '#pragma omp task onerror' "
@@ -627,7 +636,9 @@ namespace TL
                             }
                             else
                             {
-                                rt_info.add_error_behavior(tokens[0].second);
+                                std::cerr << "warning: '#pragma omp task on_error' "
+                                          << "is not implemented yet."
+                                          << std::endl;
                             }
                             break;
                         }
@@ -635,32 +646,34 @@ namespace TL
                         //tokens structure: 'identifier:identifier'
                         case 3:
                         {
-                            if ((IS_C_LANGUAGE   && (tokens[0].first != TokensC::IDENTIFIER)) ||
-                                (IS_CXX_LANGUAGE && (tokens[0].first != TokensCXX::IDENTIFIER)))
+                            if ((IS_C_LANGUAGE   && (tokens[0] != TokensC::IDENTIFIER)) ||
+                                (IS_CXX_LANGUAGE && (tokens[0] != TokensCXX::IDENTIFIER)))
                             {
                                 std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task onerror' "
+                                          << ": warning: '#pragma omp task on_error' "
                                           << "first token must be an identifier, skipping"
                                           << std::endl;
                             }
-                            else if (tokens[1].first != (int)':')
+                            else if (tokens[1] != (int)':')
                             {
                                 std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task onerror' "
+                                          << ": warning: '#pragma omp task on_error' "
                                           << "second token must be a colon, skipping"
                                           << std::endl;
                             }
-                            else if ((IS_C_LANGUAGE   && (tokens[2].first != TokensC::IDENTIFIER)) ||
-                                     (IS_CXX_LANGUAGE && (tokens[2].first != TokensCXX::IDENTIFIER)))
+                            else if ((IS_C_LANGUAGE   && (tokens[2] != TokensC::IDENTIFIER)) ||
+                                     (IS_CXX_LANGUAGE && (tokens[2] != TokensCXX::IDENTIFIER)))
                             {
                                 std::cerr << construct.get_ast().get_locus()
-                                          << ": warning: '#pragma omp task onerror' "
+                                          << ": warning: '#pragma omp task on_error' "
                                           << "third token must be an identifier, skipping"
                                           << std::endl;
                             }
                             else
                             {
-                                rt_info.add_error_behavior(tokens[0].second, tokens[2].second);
+                                std::cerr << "warning: '#pragma omp task on_error' "
+                                          << "is not implemented yet."
+                                          << std::endl;
                             }
                             break;
                         }

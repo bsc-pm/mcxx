@@ -179,66 +179,30 @@ namespace TL
 
         class LIBTL_CLASS RealTimeInfo  
         {
-            
             public:
-                #define ENUM_OMP_ERROR_EVENT_LIST \
-                    ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
-                    ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
                 
-                enum omp_error_event_t 
+                enum RealTimeErrorBehavior 
                 {
-                   #define ENUM_OMP_ERROR_EVENT(x) x,
-                        ENUM_OMP_ERROR_EVENT_LIST
-                   #undef ENUM_OMP_ERROR_EVENT
+                    OMP_ABORT = 0
                 };
-                
-                #define ENUM_OMP_ERROR_ACTION_LIST \
-                    ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION) \
-                    ENUM_OMP_ERROR_ACTION(OMP_ACTION_SKIP)
-
-                
-                enum omp_error_action_t  
-                {
-                    #define ENUM_OMP_ERROR_ACTION(x) x,
-                        ENUM_OMP_ERROR_ACTION_LIST
-                    #undef ENUM_OMP_ERROR_ACTION
-                };
-                
-                
-                Expression *_time_deadline;
-
-                Expression *_time_release;
-               
-                typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
-                
-                map_error_behavior_t _map_error_behavior;
-
                 
                 RealTimeInfo();
                 
                 ~RealTimeInfo();
+
+                void set_is_release_deadline(bool value);
                 
-                RealTimeInfo (const RealTimeInfo& rt_copy);
+                bool get_is_release_deadline();
+
+                void set_error_behavior(RealTimeErrorBehavior err);
+
+                RealTimeErrorBehavior get_error_behavior();
+            
+            private:
                 
-                RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
+                bool _is_release_deadline;
 
-                Expression get_time_deadline() const;
-
-                Expression get_time_release() const;
-                
-                map_error_behavior_t get_map_error_behavior() const; 
-
-                bool has_deadline_time() const;
-
-                bool has_release_time() const;
-
-                void set_time_deadline(Expression exp);
-
-                void set_time_release(Expression exp);
-
-                void add_error_behavior(std::string event, std::string action);
-                 
-                void add_error_behavior(std::string action);
+                RealTimeErrorBehavior _error_behavior;
 
         };
 

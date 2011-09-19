@@ -319,20 +319,20 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             }
 
             Lexer l = Lexer::get_current_lexer();
-            ObjectList<Lexer::pair_token> tokens_key = l.lex_string(arguments[0]);
+            ObjectList<int> tokens_key = l.lex_string(arguments[0]);
             if (tokens_key.size() != 1
-                    || (IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
-                    || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
+                    || (IS_C_LANGUAGE && (tokens_key[0] != TokensC::IDENTIFIER))
+                    || (IS_CXX_LANGUAGE && (tokens_key[0] != TokensCXX::IDENTIFIER)))
             {
                 std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
                 invalid_instrument_declare(ctr);
                 return;
             }
 
-            ObjectList<Lexer::pair_token> tokens_descr = l.lex_string(arguments[1]);
+            ObjectList<int> tokens_descr = l.lex_string(arguments[1]);
             if (tokens_descr.size() != 1
-                    || (IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
-                    || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
+                    || (IS_C_LANGUAGE && (tokens_descr[0] != TokensC::STRING_LITERAL))
+                    || (IS_CXX_LANGUAGE && (tokens_descr[0] != TokensCXX::STRING_LITERAL)))
             {
                 std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
                 invalid_instrument_declare(ctr);
@@ -368,8 +368,8 @@ nanos_err_t nanos_instrument_close_user_fun_event();
             }
 
             Lexer l = Lexer::get_current_lexer();
-            ObjectList<Lexer::pair_token> tokens_key = l.lex_string(arguments[0]);
-            ObjectList<Lexer::pair_token> tokens_descr = l.lex_string(arguments[1]);
+            ObjectList<int> tokens_key = l.lex_string(arguments[0]);
+            ObjectList<int> tokens_descr = l.lex_string(arguments[1]);
 
             if (tokens_key.size() != 1
                     || tokens_descr.size() != 1)
@@ -378,16 +378,16 @@ nanos_err_t nanos_instrument_close_user_fun_event();
                 return;
             }
 
-            if ((IS_C_LANGUAGE && (tokens_key[0].first != TokensC::IDENTIFIER))
-                    || (IS_CXX_LANGUAGE && (tokens_key[0].first != TokensCXX::IDENTIFIER)))
+            if ((IS_C_LANGUAGE && (tokens_key[0] != TokensC::IDENTIFIER))
+                    || (IS_CXX_LANGUAGE && (tokens_key[0] != TokensCXX::IDENTIFIER)))
             {
                 std::cerr << ctr.get_ast().get_locus() << ": warning: first argument must be an identifier" << std::endl;
                 invalid_instrument_emit(ctr);
                 return;
             }
 
-            if ((IS_C_LANGUAGE && (tokens_descr[0].first != TokensC::STRING_LITERAL))
-                    || (IS_CXX_LANGUAGE && (tokens_descr[0].first != TokensCXX::STRING_LITERAL)))
+            if ((IS_C_LANGUAGE && (tokens_descr[0] != TokensC::STRING_LITERAL))
+                    || (IS_CXX_LANGUAGE && (tokens_descr[0] != TokensCXX::STRING_LITERAL)))
             {
                 std::cerr << ctr.get_ast().get_locus() << ": warning: second argument must be a string-literal" << std::endl;
                 invalid_instrument_emit(ctr);

@@ -31,16 +31,16 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#pragma omp task deadline(a) release_deadline(b) onerror(OMP_ACTION_SKIP)
+#pragma omp task deadline(a) release_deadline(b) on_error(b)
 void success_deadline_release_deadline_on_error(int f) {}
 
-#pragma omp task release_deadline(b) onerror(b)
+#pragma omp task release_deadline(b) on_error(b)
 void success_release_deadline_on_error(int f) {}
 
 #pragma omp task deadline(a) release_deadline(b)
 void success_deadline_release_deadline(int f) {}
 
-#pragma omp task deadline(a) onerror(OMP_ACTION_SKIP)
+#pragma omp task deadline(a) on_error(b)
 void success_deadline_on_error(int f) {}
 
 #pragma omp task release_deadline(b)
@@ -49,7 +49,7 @@ void success_release_deadline(int f) {}
 #pragma omp task deadline(b)
 void success_deadline(int f) {}
 
-#pragma omp task onerror(OMP_ANY_EVENT:OMP_NO_ACTION)
+#pragma omp task onerror(a:b)
 void success_on_error(int f) {}
 
 
