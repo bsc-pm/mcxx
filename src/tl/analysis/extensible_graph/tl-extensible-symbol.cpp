@@ -29,12 +29,11 @@ Cambridge, MA 02139, USA.
 namespace TL
 {
     ExtensibleSymbol::ExtensibleSymbol()
-        : _sym(NULL), _member(NULL, ScopeLink()), _array_accessed_pos()
+        : _sym(NULL), _n(Nodecl::NodeclBase::null())
     {}
     
-    ExtensibleSymbol::ExtensibleSymbol(Symbol s)
-        : _sym(s.get_internal_symbol()), _member(NULL, ScopeLink()),
-        _array_accessed_pos()
+    ExtensibleSymbol::ExtensibleSymbol(Symbol s, Nodecl::NodeclBase n)
+        : _sym(s.get_internal_symbol()), _n(n)
     {}
     
     std::string ExtensibleSymbol::get_name() const
@@ -52,35 +51,45 @@ namespace TL
         return _sym.get_type();
     }
     
-    IdExpression ExtensibleSymbol::get_member() const
+    bool ExtensibleSymbol::is_simple_symbol() const
     {
-        return _member;
+        return (_n.is_null());
     }
     
-    std::set<int> ExtensibleSymbol::get_accessed_positions() const
+    bool ExtensibleSymbol::is_array_access() const
     {
-        return _array_accessed_pos;
+        return (_n.is<Nodecl::ArraySubscript>() || _n.is<Nodecl::ArraySection>());
     }
-   
+
+    bool ExtensibleSymbol::is_member_access() const
+    {
+        return (_n.is<Nodecl::ClassMemberAccess>() || _n.is<Nodecl::PointerToMember>());
+    }
+
     bool ExtensibleSymbol::operator==(const ExtensibleSymbol &cfgs) const
     {
-        std::vector<int> v(this->_array_accessed_pos.size() + _array_accessed_pos.size());
-        std::vector<int>::iterator it = std::set_difference(this->_array_accessed_pos.begin(), 
-                                                            this->_array_accessed_pos.end(),
-                                                            _array_accessed_pos.begin(),
-                                                            _array_accessed_pos.end(),
-                                                            v.begin());
-        
-        return ( (this->_sym == cfgs._sym) && (this->_member.get_ast() == cfgs._member.get_ast()) &&
-                 (this->_member.get_scope_link() == cfgs._member.get_scope_link() ) &&
-                 (int(it - v.begin()) == 0) );
+//         std::vector<int> v(this->_array_accessed_pos.size() + _array_accessed_pos.size());
+//         std::vector<int>::iterator it = std::set_difference(this->_array_accessed_pos.begin(), 
+//                                                             this->_array_accessed_pos.end(),
+//                                                             _array_accessed_pos.begin(),
+//                                                             _array_accessed_pos.end(),
+//                                                             v.begin());
+//         
+//         return ( (this->_sym == cfgs._sym) && (this->_member.get_ast() == cfgs._member.get_ast()) &&
+//                  (this->_member.get_scope_link() == cfgs._member.get_scope_link() ) &&
+//                  (int(it - v.begin()) == 0) );
+    // FIXME
+        return false;
     }
     
     bool ExtensibleSymbol::operator<(const ExtensibleSymbol &cfgs) const
     {
-        if (_sym < cfgs._sym)
-            return true;
-        else
-            return false;
+//         if (_sym < cfgs._sym)
+//             return true;
+//         else
+//             return false;
+    
+    // FIXME
+        return false;
     }
 }

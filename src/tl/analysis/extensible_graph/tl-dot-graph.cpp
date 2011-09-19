@@ -103,22 +103,38 @@ namespace TL
         getcwd(buffer, 1024);
         std::stringstream ss; ss << rand();
         std::string dot_file_name = std::string(buffer) + "/" + _name + ".dot";
-        std::cerr << "Printing graph to file '" << dot_file_name << "'" << std::endl;
         dot_cfg.open(dot_file_name.c_str());
         
-        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
-        int subgraph_id = 0;
-        dot_cfg << "digraph CFG {\n";
-            std::string graph_data = "";
-            std::vector<std::string> outer_edges;
-            std::vector<Node*> outer_nodes;
-            get_nodes_dot_data(entry, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
-            dot_cfg << graph_data;
-        dot_cfg << "}";
-        
-        dot_cfg.close();
-        
-        clear_visits(entry);
+        if (dot_cfg.good())
+        {
+            DEBUG_CODE()
+            {
+                std::cerr << "=== Printing CFG to file [" << dot_file_name << "]===" << std::endl;
+            }
+            
+            Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
+            int subgraph_id = 0;
+            dot_cfg << "digraph CFG {\n";
+                std::string graph_data = "";
+                std::vector<std::string> outer_edges;
+                std::vector<Node*> outer_nodes;
+                get_nodes_dot_data(entry, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
+                dot_cfg << graph_data;
+            dot_cfg << "}";
+            
+            clear_visits(entry);
+            
+            dot_cfg.close();
+            
+            if (!dot_cfg.good())
+            {
+                internal_error("Unable to close the file '%s' where CFG has been stored.", dot_file_name.c_str());
+            }
+        }
+        else
+        {
+            internal_error("Unable to open the file '%s' to store the CFG.", dot_file_name.c_str());
+        }
     }
 
     // Preorder traversal 
@@ -133,14 +149,18 @@ namespace TL
             if (ntype == GRAPH_NODE)
             {
                 std::stringstream ssgid; ssgid << subgraph_id;
-//                 std::string subgraph_label = actual_node->get_data<AST_t>(_NODE_LABEL).prettyprint();
                 std::stringstream ssnode; ssnode << actual_node->get_id();
                 std::string subgraph_label = ssnode.str();
+                Nodecl::NodeclBase actual_label(actual_node->get_data<Nodecl::NodeclBase>(_NODE_LABEL, Nodecl::NodeclBase::null()));
+                if (!actual_label.is_null())
+                {
+                    subgraph_label += actual_label.get_text();
+                }
                 std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
                                              "LO: " + prettyprint_set(actual_node->get_live_out_vars());
                 dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
                 
-//                 makeup_dot_block(subgraph_label);
+                makeup_dot_block(subgraph_label);
                 dot_graph += indent + "\tlabel=\"" + subgraph_label + "\";\n";
                 subgraph_id++;
                 
@@ -314,24 +334,17 @@ namespace TL
                     it != node_block.end();
                     it++)
             {
-//                 std::cerr << "Adding statement " << c_cxx_codegen_to_str(it->get_internal_nodecl()) << std::endl;
                 aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
                 makeup_dot_block(aux_str);
                 basic_block += aux_str + "\\n";
             }
             basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-            
-            // Get the label of the node, if it has one
-            std::string special_attrs;
-            if (nt == BASIC_LABELED_NODE || nt == BASIC_GOTO_NODE)
-            {
-                special_attrs = actual_node->get_data<std::string>(_NODE_LABEL) + " |";
-            }
-            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + special_attrs + basic_block /*+
+           
+            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
                             " | LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + 
                             " | KILL: " + prettyprint_set(actual_node->get_killed_vars()) +
                             " | UE: "   + prettyprint_set(actual_node->get_ue_vars()) +
-                            " | LO: "   + prettyprint_set(actual_node->get_live_out_vars())*/ + "}\", shape=record];\n";
+                            " | LO: "   + prettyprint_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";
         }
         else if (nt == UNCLASSIFIED_NODE)
         {
