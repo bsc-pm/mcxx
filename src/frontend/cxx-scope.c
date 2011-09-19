@@ -715,15 +715,39 @@ static scope_entry_list_t* query_in_class(scope_t* current_class_scope,
         const char* name, decl_flags_t decl_flags,
         const char* filename, int line);
 
+static void build_dependent_parts_for_symbol_rec(
+        scope_entry_t* entry,
+        const char* filename, 
+        int line,
+        scope_entry_t** dependent_entry,
+        nodecl_t* nodecl_output);
 
 static scope_entry_t* create_new_dependent_entity(
         decl_context_t decl_context,
         scope_entry_t* dependent_entry,
         int nested_name_index,
         int nested_name_size,
+        const char* filename, 
+        int line,
         nodecl_t* parts)
 {
     nodecl_t nodecl_list = nodecl_null();
+    scope_entry_t* updated_dependent_entry = NULL;
+
+    // We may have to extend the nodecl name here
+    if (dependent_entry->kind == SK_TYPEDEF
+            && is_class_type(dependent_entry->type_information))
+    {
+        dependent_entry = named_type_get_symbol(advance_over_typedefs(dependent_entry->type_information));
+    }
+    if (dependent_entry->kind == SK_CLASS)
+    {
+        build_dependent_parts_for_symbol_rec(dependent_entry,
+                filename, line, &updated_dependent_entry, &nodecl_list);
+    }
+
+    if (updated_dependent_entry == NULL)
+        updated_dependent_entry = dependent_entry;
 
     int i;
     for (i = nested_name_index + 1; i < nested_name_size; i++)
@@ -739,7 +763,7 @@ static scope_entry_t* create_new_dependent_entity(
     result->kind = SK_DEPENDENT_ENTITY;
     result->decl_context = decl_context;
     result->symbol_name = dependent_entry->symbol_name;
-    result->type_information = get_dependent_typename_type_from_parts(dependent_entry, nodecl_parts);
+    result->type_information = get_dependent_typename_type_from_parts(updated_dependent_entry, nodecl_parts);
 
     return result;
 }
@@ -1135,7 +1159,7 @@ template_parameter_list_t* nodecl_name_name_last_template_arguments(nodecl_t nod
     }
 }
 
-void build_dependent_parts_for_symbol_rec(
+static void build_dependent_parts_for_symbol_rec(
         scope_entry_t* entry,
         const char* filename, 
         int line,
@@ -1155,7 +1179,7 @@ void build_dependent_parts_for_symbol_rec(
         template_parameter_list_t* template_arguments = NULL;
         if (is_template_specialized_type(entry->type_information))
         {
-            template_specialized_type_get_template_arguments(entry->type_information);
+            template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
         }
 
         nodecl_t nodecl_current = nodecl_make_cxx_dep_name_simple(entry->symbol_name, filename, line);
@@ -1170,7 +1194,7 @@ void build_dependent_parts_for_symbol_rec(
         }
         else
         {
-            *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_current);
+            *nodecl_output = nodecl_concat_lists(nodecl_prev, nodecl_make_list_1(nodecl_current));
         }
     }
     else
@@ -1223,7 +1247,9 @@ type_t* build_dependent_typename_for_entry(
     }
     dependent_parts = nodecl_make_cxx_dep_name_nested(dependent_parts, filename, line);
 
-    return get_dependent_typename_type_from_parts(dependent_entry, dependent_parts);
+    type_t* result = get_dependent_typename_type_from_parts(dependent_entry, dependent_parts);
+
+    return result;
 }
 
 static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
@@ -3957,6 +3983,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                             decl_context,
                             current_symbol,
                             i, num_items,
+                            nodecl_get_filename(current_name),
+                            nodecl_get_line(current_name),
                             list);
 
                     free(list);
@@ -4000,6 +4028,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                             decl_context,
                             current_symbol,
                             i, num_items,
+                            nodecl_get_filename(current_name),
+                            nodecl_get_line(current_name),
                             list);
                     free(list);
                     return entry_list_new(dependent_symbol);
@@ -4014,6 +4044,8 @@ static scope_entry_list_t* query_nodecl_qualified_name_aux(decl_context_t decl_c
                         decl_context,
                         current_symbol,
                         i, num_items,
+                        nodecl_get_filename(current_name),
+                        nodecl_get_line(current_name),
                         list);
                 free(list);
                 return entry_list_new(dependent_symbol);

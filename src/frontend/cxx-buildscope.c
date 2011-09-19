@@ -964,8 +964,29 @@ void introduce_using_entities(
         access_specifier_t current_access,
         const char* filename, int line)
 {
-    // Now add all the used entities to the current scope
+    scope_entry_list_t* existing_usings = 
+        query_in_scope_str(decl_context, entry_list_head(used_entities)->symbol_name);
+
+    enum cxx_symbol_kind filter_usings[] = { SK_USING };
+
+    existing_usings = filter_symbol_kind_set(existing_usings, STATIC_ARRAY_LENGTH(filter_usings), filter_usings);
+
+    scope_entry_list_t* already_using = NULL;
+
     scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(existing_usings);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        scope_entry_t* current_using = entry_list_iterator_current(it);
+
+        already_using = entry_list_add_once(already_using, current_using->entity_specs.alias_to);
+    }
+    entry_list_iterator_free(it);
+
+    entry_list_free(existing_usings);
+
+    // Now add all the used entities to the current scope
     for (it = entry_list_iterator_begin(used_entities);
             !entry_list_iterator_end(it);
             entry_list_iterator_next(it))
@@ -1026,6 +1047,10 @@ void introduce_using_entities(
         if (is_hidden)
             continue;
 
+        // Do not add it twice in the scope
+        if (entry_list_contains(already_using, entry))
+                continue;
+
         scope_entry_t* used_name = new_symbol(decl_context, decl_context.current_scope, entry->symbol_name);
         used_name->kind = SK_USING;
         used_name->file = filename;
@@ -1041,6 +1066,8 @@ void introduce_using_entities(
         insert_entry(decl_context.current_scope, used_name);
     }
     entry_list_iterator_free(it);
+
+    entry_list_free(already_using);
 }
 
 void introduce_using_entity_nodecl_name(nodecl_t nodecl_name, decl_context_t decl_context, access_specifier_t current_access)
@@ -3463,16 +3490,12 @@ static void build_scope_ctor_initializer(
                         AST id_expression = ASTSon0(mem_initializer_id);
 
                         scope_entry_list_t* result_list = NULL;
-                        result_list = query_id_expression(decl_context, id_expression);
+                        decl_context_t class_context = class_type_get_inner_context(class_sym->type_information);
+                        class_context.template_parameters = decl_context.template_parameters;
+                        result_list = query_id_expression(class_context, id_expression);
 
                         // In dependent contexts, just disambiguate by
                         // querying, but nothing else)
-                        if (dependent_context)
-                        {
-                            nodecl_t nodecl_dummy = nodecl_null();
-                            check_initialization(initializer, decl_context, get_user_defined_type(class_sym), &nodecl_dummy);
-                            break;
-                        }
                         if (result_list == NULL)
                         {
                             if (!checking_ambiguity())
@@ -3483,9 +3506,22 @@ static void build_scope_ctor_initializer(
                             }
                             break;
                         }
-
+                        
                         scope_entry_t* entry = entry_list_head(result_list);
                         entry_list_free(result_list);
+
+                        // This is dependent stuff, we do nothing with it
+                        nodecl_t nodecl_init = nodecl_null();
+
+                        // FIXME - We are not keeping these things anywhere!
+                        if (dependent_context)                        
+                        {
+                            check_initialization(initializer,
+                                    decl_context,
+                                    get_unqualified_type(entry->type_information),
+                                    &nodecl_init);
+                            break;
+                        }
 
                         if (entry->kind == SK_TYPEDEF)
                         {
@@ -3514,7 +3550,6 @@ static void build_scope_ctor_initializer(
                             break;
                         }
 
-                        nodecl_t nodecl_init = nodecl_null();
                         if (entry->kind == SK_VARIABLE)
                         {
                             if (!entry_list_contains(nonstatic_data_members, entry))
@@ -11191,12 +11226,15 @@ static void build_scope_return_statement(AST a,
             if (!is_dependent_type(return_type)
                     && !nodecl_expr_is_type_dependent(nodecl_expr))
             {
+                char wrong_return = 0;
                 CXX_LANGUAGE()
                 {
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
-                    if (!type_can_be_implicitly_converted_to(nodecl_get_type(nodecl_expr),
-                                return_type, decl_context, &ambiguous_conversion, &conversor, 
+                    if (!type_can_be_implicitly_converted_to(
+                                get_unqualified_type(nodecl_get_type(nodecl_expr)),
+                                get_unqualified_type(return_type), 
+                                decl_context, &ambiguous_conversion, &conversor, 
                                 ASTFileName(expression), ASTLine(expression)))
                     {
                         if (!checking_ambiguity())
@@ -11206,6 +11244,7 @@ static void build_scope_return_statement(AST a,
                                     print_type_str(nodecl_get_type(nodecl_expr), decl_context),
                                     print_type_str(return_type, decl_context));
                         }
+                        wrong_return = 1;
                     }
 
                     if (conversor != NULL)
@@ -11229,6 +11268,20 @@ static void build_scope_return_statement(AST a,
                                     print_type_str(nodecl_get_type(nodecl_expr), decl_context),
                                     print_type_str(return_type, decl_context));
                         }
+                        wrong_return = 1;
+                    }
+                }
+
+                if (!wrong_return)
+                {
+                    if (!equivalent_types(
+                                get_unqualified_type(no_ref(nodecl_get_type(nodecl_return))),
+                                get_unqualified_type(no_ref(return_type))))
+                    {
+                        nodecl_return = cxx_nodecl_make_conversion(nodecl_return,
+                                return_type,
+                                nodecl_get_filename(nodecl_return),
+                                nodecl_get_line(nodecl_return));
                     }
                 }
             }

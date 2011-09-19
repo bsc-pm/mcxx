@@ -1922,7 +1922,20 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
-    original = advance_over_typedefs_with_cv_qualif(original, NULL);
+
+    cv_qualifier_t old_cv_qualifier = CV_NONE;
+    type_t* unchanged_type = original;
+
+    original = advance_over_typedefs_with_cv_qualif(original, &old_cv_qualifier);
+    
+    // Try hard to preserve the type
+    if (cv_qualification == old_cv_qualifier)
+        return unchanged_type;
+
+    // If we are just adding qualifiers, we can use the unchanged type
+    if (original->kind != TK_ARRAY
+            && is_more_cv_qualified(cv_qualification, old_cv_qualifier))
+        original = unchanged_type;
 
     ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);

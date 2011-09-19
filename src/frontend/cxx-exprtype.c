@@ -97,8 +97,6 @@ void build_ternary_builtin_operators(type_t* t1,
         char (*property)(type_t*, type_t*, type_t*),
         type_t* (*result_type)(type_t**, type_t**, type_t**));
 
-static nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line);
-
 scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_set_t* builtin_operators)
 {
     if (builtin_operators->num_builtins == 0)
@@ -13158,7 +13156,7 @@ static void error_message_overload_failed(candidate_t* candidates, const char* f
     }
 }
 
-static nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line)
+nodecl_t cxx_nodecl_make_conversion(nodecl_t expr, type_t* dest_type, const char* filename, int line)
 {
     char is_value_dep = nodecl_expr_is_value_dependent(expr);
     char is_lvalue = nodecl_expr_is_lvalue(expr);

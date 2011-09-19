@@ -320,6 +320,21 @@ static void walk_type_for_symbols(
         entry_list_iterator_free(it);
         entry_list_free(unresolved_set);
     }
+    else if (is_dependent_typename_type(t))
+    {
+        nodecl_t nodecl_parts = nodecl_null();
+        scope_entry_t* dependent_entry = NULL;
+        dependent_typename_get_components(t, &dependent_entry, &nodecl_parts);
+
+        if (needs_def)
+        {
+            symbol_to_define(visitor, dependent_entry);
+        }
+        else
+        {
+            symbol_to_declare(visitor, dependent_entry);
+        }
+    }
     else
     {
         // Do nothing as it will be a builtin type
@@ -575,9 +590,7 @@ static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* cl
     }
 }
 
-
-
-// Classes are so complex that they reserve a whole routine for them
+// Classes are so complex that they deserve a whole routine for them
 static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
     static int _num_being_checked_for_required = 0;
@@ -646,10 +659,33 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
                 {
                     define_nonnested_entities_in_trees(visitor, member->value);
                 }
+                // if (!is_template_specialized_type(member->type_information))
+                // {
                 walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
                         declare_symbol_if_nonnested, 
                         define_symbol_if_nonnested,
                         define_nonnested_entities_in_trees);
+                // }
+                // else
+                // {
+                //     type_t* template_type = template_specialized_type_get_related_template_type(member->type_information);
+                //     for (i = 0; i < template_type_get_num_specializations(template_type); i++)
+                //     {
+                //         type_t* t = template_type_get_specialization_num(template_type, i);
+
+                //         if (!is_dependent_type(t))
+                //         {
+                //             // scope_entry_t* sym = named_type_get_symbol(t);
+                //             // fprintf(stderr, "-> '%s'\n", 
+                //             //         print_decl_type_str(sym->type_information, sym->decl_context, sym->symbol_name));
+
+                //             walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
+                //                     declare_symbol_if_nonnested, 
+                //                     define_symbol_if_nonnested,
+                //                     define_nonnested_entities_in_trees);
+                //         }
+                //     }
+                // }
             }
             else if (member->kind == SK_ENUM)
             {
@@ -684,7 +720,8 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         entry_list_free(friends);
     }
     else if (symbol->kind == SK_ENUM
-             || symbol->kind == SK_ENUMERATOR)
+             || symbol->kind == SK_ENUMERATOR
+             || symbol->kind == SK_TYPEDEF)
     {
         walk_type_for_symbols(visitor, symbol->type_information, /* needs_def */ 0, 
                 declare_symbol_if_nonnested, 
@@ -1070,13 +1107,12 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                         char is_primary_template = (named_type_get_symbol(primary_template) == member);
 
                         // C++ has a problem here: we cannot explicitly
-                        // specialize a member template class in non
-                        // namespace scope but we need the definition, here
-                        // EXCEPTIONALLY we will emit dependent code
-                        // because this language quirk. Other solutions
-                        // (like flattening the members) are more
-                        // cumbersome, more painstaking and more
-                        // painstaking than this one.
+                        // specialize a member template class in non namespace
+                        // scope but we need the definition, here EXCEPTIONALLY
+                        // we will emit dependent code because this language
+                        // quirk. Other solutions (like flattening the members)
+                        // are more cumbersome and more painstaking than this
+                        // one.
                         if (is_primary_template)
                         {
                             // Check every complete specialization
@@ -1429,7 +1465,11 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_DEPENDENT_ENTITY:
             {
-                declare_symbol(visitor, symbol);
+                scope_entry_t* entry = NULL;
+                nodecl_t dependent_parts = nodecl_null();
+                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+
+                declare_symbol(visitor, entry);
                 break;
             }
         default:
@@ -1866,22 +1906,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             is_primary_template = 1;
                         }
                     }
-
-                    // Default arguments
-                    //
-                    // int i;
-                    // int num_param_types = function_type_get_num_parameters(symbol->type_information);
-                    // char has_ellipsis = function_type_get_has_ellipsis(symbol->type_information);
-                    // if (has_ellipsis)
-                    //     num_param_types--;
-                    // for (i = 0; i < num_param_types; i++)
-                    // {
-                    //     if (symbol->entity_specs.default_argument_info != NULL 
-                    //             && symbol->entity_specs.default_argument_info[i] != NULL)
-                    //     {
-                    //         define_all_entities_in_trees(visitor, symbol->entity_specs.default_argument_info[i]->argument);
-                    //     }
-                    // }
                 }
 
                 const char* decl_spec_seq = "";
@@ -1975,49 +1999,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             get_template_arguments_str(symbol, symbol->decl_context));
                 }
 
-#if 0
-                const char *declarator = print_type_str(function_type_get_return_type(real_type),
-                        symbol->decl_context);
-
-                declarator = strappend(declarator, " ");
-                declarator = strappend(declarator, function_name);
-
-                declarator = strappend(declarator, "(");
-
-                int num_param_types = function_type_get_num_parameters(real_type);
-                char has_ellipsis = function_type_get_has_ellipsis(real_type);
-                if (has_ellipsis)
-                    num_param_types--;
-                for (i = 0; i < num_param_types; i++)
-                {
-                    if (i > 0)
-                    {
-                        declarator = strappend(declarator, ", ");
-                    }
-
-                    declarator = strappend(declarator, 
-                            print_type_str(function_type_get_parameter_type_num(real_type, i), symbol->decl_context));
-
-                    if (symbol->entity_specs.default_argument_info != NULL 
-                            && symbol->entity_specs.default_argument_info[i] != NULL)
-                    {
-                        declarator = strappend(declarator, " = ");
-                        declarator = strappend(declarator, 
-                                c_cxx_codegen_to_str(symbol->entity_specs.default_argument_info[i]->argument));
-                    }
-                }
-
-                declarator = strappend(declarator, ")");
-
-                if (is_const_qualified_type(real_type))
-                {
-                    declarator = strappend(declarator, " const");
-                }
-                if (is_volatile_qualified_type(real_type))
-                {
-                    declarator = strappend(declarator, " volatile");
-                }
-#endif
                 const char* declarator = print_decl_type_str(real_type,
                         symbol->decl_context,
                         function_name);
@@ -2058,12 +2039,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
 
                 declare_symbol(visitor, entry);
-                // fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
-                // if (!nodecl_is_null(dependent_parts))
-                // {
-                //     fprintf(visitor->file, "::");
-                //     codegen_walk(visitor, dependent_parts);
-                // }
                 break;
             }
         default:
@@ -2257,22 +2232,6 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     CXX_LANGUAGE()
     {
-        // dependent_name_part_t* dependent_parts = NULL;
-        // if (entry->kind == SK_DEPENDENT_ENTITY)
-        // {
-        //     dependent_typename_get_components(entry->type_information, &entry, &dependent_parts);
-        //     dependent_name_part_t* it_dependent_parts = dependent_parts;
-
-        //     while (it_dependent_parts != NULL)
-        //     {
-        //         if (it_dependent_parts->template_arguments != NULL)
-        //         {
-        //             declare_all_in_template_arguments(visitor, it_dependent_parts->template_arguments);
-        //         }
-        //         it_dependent_parts = it_dependent_parts->next;
-        //     }
-        // }
-        
         if (!entry->entity_specs.is_template_parameter
                 && !entry->entity_specs.is_builtin)
         {
@@ -2282,20 +2241,6 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         {
             fprintf(visitor->file, "%s", entry->symbol_name);
         }
-
-        // while (dependent_parts != NULL)
-        // {
-        //     if (dependent_parts->template_arguments != NULL)
-        //     {
-        //         fprintf(visitor->file, "::template %s<%s>", dependent_parts->name, 
-        //                 template_arguments_to_str(dependent_parts->template_arguments, entry->decl_context));
-        //     }
-        //     else
-        //     {
-        //         fprintf(visitor->file, "::%s", dependent_parts->name);
-        //     }
-        //     dependent_parts = dependent_parts->next;
-        // }
     }
     C_LANGUAGE()
     {
@@ -2792,8 +2737,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION_ASSIG(bitwise_or_assignment, " |= ") \
     BINARY_EXPRESSION_ASSIG(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION_ASSIG(mod_assignment, " %= ") \
-    BINARY_EXPRESSION(offset, ".*") \
-    BINARY_EXPRESSION(comma, ", ") 
+    BINARY_EXPRESSION(offset, ".*") 
 
 // BINARY_EXPRESSION(class_member_access, ".") 
 
@@ -2897,6 +2841,48 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
+
+static void codegen_comma(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
+{ 
+    if (visitor->in_copy_initializer)
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    char old_copy_init = visitor->in_copy_initializer;
+    visitor->in_copy_initializer = 0;
+
+    nodecl_t lhs = nodecl_get_child(node, 0); 
+    nodecl_t rhs = nodecl_get_child(node, 1); 
+    char needs_parentheses = operand_has_lower_priority(node, lhs); 
+
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, lhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+    fprintf(visitor->file, ", "); 
+    needs_parentheses = operand_has_lower_priority(node, rhs); 
+    if (needs_parentheses) 
+    {
+        fprintf(visitor->file, "("); 
+    } 
+    codegen_walk(visitor, rhs); 
+    if (needs_parentheses) 
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+
+    visitor->in_copy_initializer = old_copy_init;
+
+    if (visitor->in_copy_initializer)
+    { 
+        fprintf(visitor->file, ")"); 
+    } 
+}
 
 static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
 {
@@ -3408,7 +3394,9 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
     {
         if ((nodecl_is_null(items)
                     || (nodecl_list_length(items) == 1))
-                && (is_named_type(type) || is_builtin_type(no_ref(type))))
+                && (is_named_type(type) 
+                    || is_pointer_type(no_ref(type))
+                    || is_builtin_type(no_ref(type))))
         {
             kind = CXX03_EXPLICIT;
         }
@@ -4443,6 +4431,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 #undef PREFIX_UNARY_EXPRESSION
 #undef POSTFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
+    NODECL_VISITOR(codegen_visitor)->visit_comma = codegen_visitor_fun(codegen_comma);
     NODECL_VISITOR(codegen_visitor)->visit_class_member_access = codegen_visitor_fun(codegen_class_member_access);
     NODECL_VISITOR(codegen_visitor)->visit_pseudo_destructor_name = codegen_visitor_fun(codegen_pseudo_destructor_name);
     NODECL_VISITOR(codegen_visitor)->visit_pointer_to_member = codegen_visitor_fun(codegen_pointer_to_member);
