@@ -1163,7 +1163,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_executable_0  ) \
- STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_continue_stmt,         kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -5364,6 +5364,17 @@ static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, no
 {
     // Do nothing for directives
     common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
+}
+
+static void build_scope_unknown_pragma(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    *nodecl_output = 
+        nodecl_make_builtin_decl(
+                nodecl_make_any_list(
+                    nodecl_make_list_1(
+                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))), 
+                    ASTFileName(a), ASTLine(a)),
+                "unknown-pragma", ASTFileName(a), ASTLine(a));
 }
 
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t, nodecl_t*);
