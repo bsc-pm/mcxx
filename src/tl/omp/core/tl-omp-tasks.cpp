@@ -573,7 +573,7 @@ namespace TL
             }
 
             //looking for release_deadline clause
-            PragmaCustomClause release_clause = construct.get_clause("release_deadline");
+            PragmaCustomClause release_clause = construct.get_clause("release_after");
             if (release_clause.is_defined())
             {
                 ObjectList<Expression> release_exprs =

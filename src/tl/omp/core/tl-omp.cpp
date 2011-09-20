@@ -444,17 +444,17 @@ namespace TL
 		}
         
         RealTimeInfo::RealTimeInfo(const RealTimeInfo& rt_copy) :
-		_time_deadline(NULL), _time_release(NULL) 
+		_time_deadline(NULL), _time_release(NULL),
+        _map_error_behavior(rt_copy._map_error_behavior)
         {
-            //delete old realtime information
-            if(_time_release  != NULL) delete _time_release;
-            if(_time_deadline != NULL) delete _time_deadline;
-
-            //copy new realtime information 
-            _time_release = (rt_copy.has_release_time()  ? new Expression(rt_copy.get_time_release()) : NULL); 
-            _time_release = (rt_copy.has_deadline_time() ? new Expression(rt_copy.get_time_deadline()) : NULL); 
-            _map_error_behavior = rt_copy.get_map_error_behavior();
-            
+            if(rt_copy.has_release_time())
+            {
+                _time_release = new Expression(rt_copy.get_time_release());
+            }
+            if(rt_copy.has_deadline_time())
+            {
+                _time_deadline = new Expression(rt_copy.get_time_deadline());
+            }
         }
                
        RealTimeInfo & RealTimeInfo::operator=(const RealTimeInfo & rt_copy)
@@ -466,8 +466,8 @@ namespace TL
                if(_time_deadline != NULL) delete _time_deadline;
 
                //copy new realtime information 
-               _time_release = (rt_copy.has_release_time()  ? new Expression(rt_copy.get_time_release()) : NULL); 
-               _time_release = (rt_copy.has_deadline_time() ? new Expression(rt_copy.get_time_deadline()) : NULL); 
+               _time_release  = (rt_copy.has_release_time()  ? new Expression(rt_copy.get_time_release()) : NULL);
+               _time_deadline = (rt_copy.has_deadline_time() ? new Expression(rt_copy.get_time_deadline()) : NULL);
                _map_error_behavior = rt_copy.get_map_error_behavior();
            }
            return *this;
@@ -487,7 +487,7 @@ namespace TL
         {
             return _map_error_behavior;
         }
-        
+
         bool RealTimeInfo::has_deadline_time() const
         {
             return (_time_deadline != NULL);
@@ -527,7 +527,7 @@ namespace TL
         
         static bool is_omp_error_action(std::string action)
         {
-            #define ENUM_OMP_ERROR_ACTION(x) \
+            #define ENUM_OMP_ERROR_ACTION(x,y) \
                 if(action == #x) return true;
                 ENUM_OMP_ERROR_ACTION_LIST
             #undef ENUM_OMP_ERROR_ACTION
@@ -544,13 +544,31 @@ namespace TL
         
         static RealTimeInfo::omp_error_action_t get_omp_error_action(std::string action)
         { 
-            #define ENUM_OMP_ERROR_ACTION(x) \
-                if(action == #x) return RealTimeInfo::x;
+            #define ENUM_OMP_ERROR_ACTION(x,y) \
+                if(action == #x) return RealTimeInfo::y;
                 ENUM_OMP_ERROR_ACTION_LIST
             #undef ENUM_OMP_ERROR_ACTION
         }
 
+        static std::string get_omp_error_action_str(RealTimeInfo::omp_error_action_t action)
+        { 
+            #define ENUM_OMP_ERROR_ACTION(x,y) \
+                if(action == RealTimeInfo::y) return #y;
+                ENUM_OMP_ERROR_ACTION_LIST
+            #undef ENUM_OMP_ERROR_ACTION
+            return "";
+        }
 
+        std::string RealTimeInfo::get_action_error(RealTimeInfo::omp_error_event_t event) 
+        { 
+            RealTimeInfo::map_error_behavior_t::iterator it = _map_error_behavior.find(event);
+            if(it != _map_error_behavior.end())
+            {
+                return get_omp_error_action_str((*it).second);
+            }
+            return "";
+        }
+        
         void RealTimeInfo::add_error_behavior(std::string event, std::string action)
         {
             if(is_omp_error_event(event))
@@ -609,6 +627,5 @@ namespace TL
                           << std::endl;
             }
         }
-
     }
 }
