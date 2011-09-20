@@ -539,7 +539,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (standard_conversion_between_types(&standard_conv, orig, dest))
+    if (!is_class_type(dest)
+            && standard_conversion_between_types(&standard_conv, orig, dest))
     {
         DEBUG_CODE()
         {
@@ -2587,7 +2588,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        conversors[i] = augmented_conversors[i+1];
+        conversors[i] = augmented_conversors[i];
     }
 
     return overload_resolution;

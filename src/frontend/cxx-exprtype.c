@@ -1933,7 +1933,7 @@ static void error_message_delete_call(decl_context_t decl_context, scope_entry_t
                 get_qualified_symbol_name(entry, decl_context)));
 }
 
-static char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const char* filename, int line)
+char function_has_been_deleted(decl_context_t decl_context, scope_entry_t* entry, const char* filename, int line)
 {
     char c = entry->entity_specs.is_deleted;
     if (c)
@@ -7262,11 +7262,10 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
 {
     check_arg_data_t* p = (check_arg_data_t*)data;
 
-    char ambiguous_conversion = 0;
-    scope_entry_t* conversor = NULL;
+    nodecl_t nodecl_result = nodecl_null();
+    check_nodecl_expr_initializer(*arg, p->decl_context, param_type, &nodecl_result);
 
-    if (!type_can_be_implicitly_converted_to(arg_type, param_type, p->decl_context, 
-                &ambiguous_conversion, &conversor, nodecl_get_filename(*arg), nodecl_get_line(*arg)))
+    if (nodecl_is_err_expr(nodecl_result))
     {
         if (!checking_ambiguity())
         {
@@ -7281,46 +7280,7 @@ static char arg_type_is_ok_for_param_type_cxx(type_t* arg_type, type_t* param_ty
     }
     else
     {
-        if (conversor != NULL)
-        {
-            if (function_has_been_deleted(p->decl_context, conversor, 
-                        nodecl_get_filename(*arg), nodecl_get_line(*arg)))
-            {
-                return 0;
-            }
-            *arg = cxx_nodecl_make_function_call(
-                    nodecl_make_symbol(conversor, nodecl_get_filename(*arg), nodecl_get_line(*arg)),
-                    nodecl_make_list_1(*arg),
-                    actual_type_of_conversor(conversor), nodecl_get_filename(*arg), nodecl_get_line(*arg));
-        }
-        else if (is_unresolved_overloaded_type(arg_type))
-        {
-            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(arg_type);
-            scope_entry_t* solved_function = address_of_overloaded_function(
-                    unresolved_set,
-                    unresolved_overloaded_type_get_explicit_template_arguments(arg_type),
-                    no_ref(param_type), 
-                    p->decl_context,
-                    nodecl_get_filename(*arg),
-                    nodecl_get_line(*arg));
-
-            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
-            {
-                *arg = nodecl_make_symbol(solved_function, nodecl_get_filename(*arg), nodecl_get_line(*arg));
-                nodecl_set_type(*arg, lvalue_ref(solved_function->type_information));
-            }
-            else
-            {
-                *arg = nodecl_make_pointer_to_member(solved_function, 
-                        get_lvalue_reference_type(
-                            get_pointer_to_member_type(solved_function->type_information,
-                                named_type_get_symbol(solved_function->entity_specs.class_type))),
-                        nodecl_get_filename(*arg), nodecl_get_line(*arg));
-            }
-        }
+        *arg = nodecl_result;
     }
     return 1;
 }
@@ -11130,11 +11090,19 @@ void compute_nodecl_initialization(AST initializer, decl_context_t decl_context,
     }
 }
 
+
 void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
         decl_context_t decl_context, 
         type_t* declared_type, 
         nodecl_t* nodecl_output)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Conversion from expression '%s' with type '%s' to type '%s'\n",
+                c_cxx_codegen_to_str(nodecl_expr),
+                print_declarator(nodecl_get_type(nodecl_expr)),
+                print_declarator(declared_type));
+    }
     type_t* initializer_expr_type = nodecl_get_type(nodecl_expr);
     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
 
@@ -11146,98 +11114,205 @@ void check_nodecl_expr_initializer(nodecl_t nodecl_expr,
     }
 
     // Now we have to check whether this can be converted to the declared entity
-    char ambiguous_conversion = 0;
-    scope_entry_t* conversor = NULL;
-    standard_conversion_t standard_conversion_sequence;
-    if (!is_dependent_type(declared_type_no_cv)
-            && !(IS_C_LANGUAGE
-                && standard_conversion_between_types(
+    C_LANGUAGE()
+    {
+        standard_conversion_t standard_conversion_sequence;
+        if (!standard_conversion_between_types(
                     &standard_conversion_sequence,
                     initializer_expr_type,
-                    declared_type_no_cv))
-            && !(IS_CXX_LANGUAGE 
-                && type_can_be_implicitly_converted_to(initializer_expr_type, 
-                    declared_type_no_cv, 
-                    decl_context, 
-                    &ambiguous_conversion, 
-                    &conversor,
-                    nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)))
-            // A cv char[x] can be initialized with a string literal, we do not check the size
-            && !(is_array_type(declared_type_no_cv)
-                && is_character_type(array_type_get_element_type(declared_type_no_cv))
-                && is_array_type(no_ref(initializer_expr_type))
-                && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                && is_literal_string_type(no_ref(initializer_expr_type))
-                )
-            // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-            && !(is_array_type(declared_type_no_cv)
+                    declared_type_no_cv)
+                && !(is_array_type(declared_type_no_cv)
+                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
+                    && is_array_type(no_ref(initializer_expr_type))
+                    && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    )
+                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
+                && !(is_array_type(declared_type_no_cv)
                     && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
                     && is_array_type(no_ref(initializer_expr_type))
                     && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
                     && is_literal_string_type(no_ref(initializer_expr_type))
-                )
-            )
+                    )
+           )
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
+                        nodecl_get_locus(nodecl_expr),
+                        c_cxx_codegen_to_str(nodecl_expr),
+                        print_decl_type_str(initializer_expr_type, decl_context, ""),
+                        print_decl_type_str(declared_type, decl_context, ""));
+            }
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), 
+                    nodecl_get_line(nodecl_expr));
+            return;
+        }
+
+
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    // C++ only from now
+
+    if (is_dependent_type(declared_type_no_cv))
+    {
+        *nodecl_output = nodecl_expr;
+        return;
+    }
+
+    char ambiguous_conversion = 0;
+    scope_entry_t* conversor = NULL;
+
+    if (!is_class_type(declared_type_no_cv))
+    {
+        if (!type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, 
+                    decl_context,
+                    &ambiguous_conversion, &conversor, 
+                    nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr))
+                && !(is_array_type(declared_type_no_cv)
+                    && is_character_type(array_type_get_element_type(declared_type_no_cv))
+                    && is_array_type(no_ref(initializer_expr_type))
+                    && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    )
+                // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
+                && !(is_array_type(declared_type_no_cv)
+                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                    && is_array_type(no_ref(initializer_expr_type))
+                    && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                    && is_literal_string_type(no_ref(initializer_expr_type))
+                    )
+           )
+        {
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
+                        nodecl_get_locus(nodecl_expr),
+                        c_cxx_codegen_to_str(nodecl_expr),
+                        print_decl_type_str(initializer_expr_type, decl_context, ""),
+                        print_decl_type_str(declared_type, decl_context, ""));
+            }
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), 
+                    nodecl_get_line(nodecl_expr));
+            return;
+        }
+
+        if (conversor != NULL)
+        {
+            *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(conversor,
+                        nodecl_get_filename(nodecl_expr), 
+                        nodecl_get_line(nodecl_expr)),
+                    nodecl_make_list_1(nodecl_expr),
+                    actual_type_of_conversor(conversor),
+                    nodecl_get_filename(nodecl_expr), 
+                    nodecl_get_line(nodecl_expr));
+        }
+        else
+        {
+            if (is_unresolved_overloaded_type(initializer_expr_type))
+            {
+                // Note: type_can_be_implicitly_converted_to already did this:
+                // figure a way to get this conversion without having to compute
+                // this address overload twice
+                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(initializer_expr_type);
+                scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
+                        unresolved_overloaded_type_get_explicit_template_arguments(initializer_expr_type),
+                        no_ref(declared_type_no_cv),
+                        decl_context,
+                        nodecl_get_filename(nodecl_expr), 
+                        nodecl_get_line(nodecl_expr));
+
+                ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
+
+                if (!solved_function->entity_specs.is_member
+                        || solved_function->entity_specs.is_static)
+                {
+                    nodecl_expr =
+                        nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+                    nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
+                }
+                else
+                {
+                    nodecl_expr =
+                        nodecl_make_pointer_to_member(solved_function, 
+                                get_lvalue_reference_type(
+                                    get_pointer_to_member_type(solved_function->type_information,
+                                        named_type_get_symbol(solved_function->entity_specs.class_type))),
+                                nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+                }
+            }
+
+            *nodecl_output = nodecl_expr;
+        }
+    }
+    else
+    {
+        int num_arguments = 1;
+        type_t* arguments[MCXX_MAX_FUNCTION_CALL_ARGUMENTS] = { 0 };
+        scope_entry_t* conversors[1];
+
+        arguments[0] = initializer_expr_type;
+        conversors[0] = NULL;
+
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* chosen_constructor = solve_constructor(declared_type_no_cv,
+                arguments, num_arguments,
+                /* is_explicit */ 0,
+                decl_context,
+                nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr),
+                conversors,
+                &candidates);
+        
+        if (chosen_constructor == NULL)
+        {
+            if (entry_list_size(candidates) != 0)
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: initializer '%s' has type '%s' not convertible to '%s'\n",
-                            nodecl_get_locus(nodecl_expr),
-                            c_cxx_codegen_to_str(nodecl_expr),
-                            print_decl_type_str(initializer_expr_type, decl_context, ""),
-                            print_decl_type_str(declared_type, decl_context, ""));
+                    error_printf("%s:%d: error: no suitable constructor for direct initialization of type '%s' using an expression of type '%s'\n",
+                            nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr),
+                            print_type_str(initializer_expr_type, decl_context),
+                            print_type_str(declared_type_no_cv, decl_context));
+                    diagnostic_candidates(candidates, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
                 }
+            }
+            entry_list_free(candidates);
+
+            *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), 
+                    nodecl_get_line(nodecl_expr));
+            return;
+        }
+        else
+        {
+            entry_list_free(candidates);
+            if (function_has_been_deleted(decl_context, chosen_constructor, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)))
+            {
                 *nodecl_output = nodecl_make_err_expr(nodecl_get_filename(nodecl_expr), 
                         nodecl_get_line(nodecl_expr));
                 return;
             }
 
-    if (conversor != NULL)
-    {
-        *nodecl_output = cxx_nodecl_make_function_call(
-                nodecl_make_symbol(conversor,
-                    nodecl_get_filename(nodecl_expr), 
-                    nodecl_get_line(nodecl_expr)),
-                nodecl_make_list_1(nodecl_expr),
-                actual_type_of_conversor(conversor),
-                nodecl_get_filename(nodecl_expr), 
-                nodecl_get_line(nodecl_expr));
-    }
-    else
-    {
-        if (is_unresolved_overloaded_type(initializer_expr_type))
-        {
-            // Note: type_can_be_implicitly_converted_to already did this:
-            // figure a way to get this conversion without having to compute
-            // this address overload twice
-            scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(initializer_expr_type);
-            scope_entry_t* solved_function = address_of_overloaded_function(unresolved_set,
-                    unresolved_overloaded_type_get_explicit_template_arguments(initializer_expr_type),
-                    no_ref(declared_type_no_cv),
-                    decl_context,
-                    nodecl_get_filename(nodecl_expr), 
-                    nodecl_get_line(nodecl_expr));
-
-            ERROR_CONDITION(solved_function == NULL, "Code unreachable", 0);
-
-            if (!solved_function->entity_specs.is_member
-                    || solved_function->entity_specs.is_static)
-            {
-                nodecl_expr =
-                    nodecl_make_symbol(solved_function, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
-                nodecl_set_type(nodecl_expr, lvalue_ref(solved_function->type_information));
-            }
-            else
-            {
-                nodecl_expr =
-                    nodecl_make_pointer_to_member(solved_function, 
-                            get_lvalue_reference_type(
-                                get_pointer_to_member_type(solved_function->type_information,
-                                    named_type_get_symbol(solved_function->entity_specs.class_type))),
-                            nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
-            }
+            conversor = conversors[0];
         }
 
-        *nodecl_output = nodecl_expr;
+        if (conversor != NULL)
+        {
+            nodecl_expr = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(conversor, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
+                    nodecl_make_list_1(nodecl_expr),
+                    actual_type_of_conversor(conversor),
+                    nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
+        }
+
+        // Remember a call to the constructor here
+        *nodecl_output = cxx_nodecl_make_function_call(
+                    nodecl_make_symbol(chosen_constructor, nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr)),
+                    nodecl_make_list_1(nodecl_expr),
+                    declared_type_no_cv,
+                    nodecl_get_filename(nodecl_expr), nodecl_get_line(nodecl_expr));
     }
 }
 

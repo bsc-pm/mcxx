@@ -1715,6 +1715,7 @@ static nodecl_t update_nodecl_constant_expression(nodecl_t nodecl,
 static template_parameter_value_t* update_template_parameter_value_aux(
         template_parameter_value_t* v,
         decl_context_t decl_context,
+        char is_template_class,
         const char* filename, int line)
 {
     template_parameter_value_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
@@ -1723,6 +1724,11 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     result->is_default = 0;
 
     result->type = update_type(result->type, decl_context, filename, line);
+    
+    if (is_template_class)
+    {
+        result->type = advance_over_typedefs(result->type);
+    }
 
     if (result->kind == TPK_NONTYPE)
     {
@@ -1743,12 +1749,20 @@ static template_parameter_value_t* update_template_parameter_value_aux(
     return result;
 }
 
+template_parameter_value_t* update_template_parameter_value_of_template_class(
+        template_parameter_value_t* v,
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 1, filename, line);
+}
+
 template_parameter_value_t* update_template_parameter_value(
         template_parameter_value_t* v,
         decl_context_t decl_context,
         const char* filename, int line)
 {
-    return update_template_parameter_value_aux(v, decl_context, filename, line);
+    return update_template_parameter_value_aux(v, decl_context, /* is_template_class */ 0, filename, line);
 }
 
 static template_parameter_list_t* update_template_argument_list_in_dependent_typename(
@@ -2022,7 +2036,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                 {
                     fprintf(stderr, "SCOPE: Updating template argument %d of specialized template class\n", i);
                 }
-                template_parameter_value_t* updated_argument = update_template_parameter_value_aux(
+                template_parameter_value_t* updated_argument = update_template_parameter_value_of_template_class(
                         template_parameters->arguments[i],
                         decl_context, 
                         filename, line);
@@ -2672,7 +2686,7 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                 P_LIST_ADD(result->parameters,
                         num_parameters,
                         primary_template_parameters->parameters[i]);
-                template_parameter_value_t* v = update_template_parameter_value(primary_template_parameters->arguments[i],
+                template_parameter_value_t* v = update_template_parameter_value_of_template_class(primary_template_parameters->arguments[i],
                         new_template_context,
                         filename, line);
                 P_LIST_ADD(result->arguments, result->num_parameters, v);

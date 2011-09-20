@@ -11221,69 +11221,17 @@ static void build_scope_return_statement(AST a,
 
         if (valid_expr)
         {
-            nodecl_return = nodecl_expr;
+            check_nodecl_expr_initializer(nodecl_expr, 
+                    decl_context,
+                    return_type,
+                    &nodecl_return);
 
-            if (!is_dependent_type(return_type)
-                    && !nodecl_expr_is_type_dependent(nodecl_expr))
+            if (nodecl_is_err_expr(nodecl_return))
             {
-                char wrong_return = 0;
-                CXX_LANGUAGE()
-                {
-                    char ambiguous_conversion = 0;
-                    scope_entry_t* conversor = NULL;
-                    if (!type_can_be_implicitly_converted_to(
-                                get_unqualified_type(nodecl_get_type(nodecl_expr)),
-                                get_unqualified_type(return_type), 
-                                decl_context, &ambiguous_conversion, &conversor, 
-                                ASTFileName(expression), ASTLine(expression)))
-                    {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: cannot convert type '%s' to '%s'\n",
-                                    ast_location(expression),
-                                    print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                                    print_type_str(return_type, decl_context));
-                        }
-                        wrong_return = 1;
-                    }
-
-                    if (conversor != NULL)
-                    {
-                        nodecl_return = cxx_nodecl_make_function_call(
-                                nodecl_make_symbol(conversor, ASTFileName(expression), ASTLine(expression)),
-                                nodecl_make_list_1(nodecl_return),
-                                actual_type_of_conversor(conversor),
-                                ASTFileName(expression), ASTLine(expression));
-                    }
-                }
-                C_LANGUAGE()
-                {
-                    standard_conversion_t scs;
-                    if (!standard_conversion_between_types(&scs, nodecl_get_type(nodecl_expr), return_type))
-                    {
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s: error: invalid returned value of type '%s' in a function returning '%s'\n",
-                                    ast_location(expression),
-                                    print_type_str(nodecl_get_type(nodecl_expr), decl_context),
-                                    print_type_str(return_type, decl_context));
-                        }
-                        wrong_return = 1;
-                    }
-                }
-
-                if (!wrong_return)
-                {
-                    if (!equivalent_types(
-                                get_unqualified_type(no_ref(nodecl_get_type(nodecl_return))),
-                                get_unqualified_type(no_ref(return_type))))
-                    {
-                        nodecl_return = cxx_nodecl_make_conversion(nodecl_return,
-                                return_type,
-                                nodecl_get_filename(nodecl_return),
-                                nodecl_get_line(nodecl_return));
-                    }
-                }
+                error_printf("%s: error: no conversion is possible from '%s' to '%s' in return statement\n", 
+                        print_type_str(nodecl_get_type(nodecl_expr), decl_context),
+                        print_type_str(return_type, decl_context),
+                        ast_location(a));
             }
         }
     }
