@@ -90,7 +90,7 @@ struct X
         // assert(owner);
     }
 
- private:    // Move stuff
+ /*private: */    // Move stuff
     struct ref { ref(X*p) : p(p) {} X* p; };
 
  public:    // Move stuff
