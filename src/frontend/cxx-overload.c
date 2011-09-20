@@ -539,8 +539,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (!is_class_type(dest)
-            && standard_conversion_between_types(&standard_conv, orig, dest))
+    if (standard_conversion_between_types(&standard_conv, orig, dest))
     {
         DEBUG_CODE()
         {
