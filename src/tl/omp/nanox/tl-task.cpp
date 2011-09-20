@@ -37,7 +37,10 @@ using namespace TL::Nanox;
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
-
+    
+    //if the task is a function task rt_info must be changed
+    OpenMP::RealTimeInfo rt_info = data_sharing.get_real_time_info();
+    
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
 
@@ -163,6 +166,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         OpenMP::FunctionTaskInfo& function_task_info 
             = function_task_set->get_function_task(task_symbol);
+        
+        //sets the right value to rt_info 
+        rt_info = function_task_info.get_real_time_info();
+
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
@@ -609,6 +616,61 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
+    
+    Source fill_real_time_info;
+    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    {
+        Source release_after, deadline, onerror;
+        fill_real_time_info 
+            << deadline
+            << release_after
+            << onerror
+            ;
+        //Adds release time information
+        if(rt_info.has_release_time())
+        {
+            release_after << "props._release_after = "
+                          << rt_info.get_time_release().prettyprint() << ";";
+        }
+        else
+        {
+            release_after << "props._release_after = 0;";
+        }
+       
+        //Adds deadline time information
+        if(rt_info.has_deadline_time())
+        {
+            deadline  << "props._deadline_time = "
+                      << rt_info.get_time_deadline().prettyprint() << ";";
+        }
+        else
+        {
+            deadline << "props._deadline_time = 0;";
+        }
+
+        //Adds action error information
+        //looking for the event 'OMP_DEADLINE_EXPIRED'
+        std::string action = 
+            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED); 
+        
+        if(action != "")
+        {
+            onerror  << "props._onerror_action = " << action << ";";
+        }
+        else 
+        {
+            //looking for the event 'OMP_ANY_EVENT'
+            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT); 
+            if(action != "") 
+            {
+                onerror  << "props._onerror_action = " << action << ";";
+            }
+            else
+            {
+                onerror  << "props._onerror_action = OMP_NO_ACTION;";
+            }
+        }
+    }
 
     spawn_code
         << "{"
@@ -622,6 +684,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     creation
         <<     priority
         <<     tiedness
+        <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start

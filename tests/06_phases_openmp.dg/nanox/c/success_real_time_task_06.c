@@ -33,10 +33,13 @@ test_generator=config/mercurium-nanox
 
 int o;
 double x, y;
-#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
+
 void f(int e) 
 {
-    o = e + 1;
+#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
+    {
+        o = e + 1;
+    }
 }      
 
 int main() 
