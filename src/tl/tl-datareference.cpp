@@ -59,17 +59,6 @@ bool DataReference::is_valid(std::string& reason) const
     return _valid;
 }
 
-bool DataReference::is_this_access(Expression expr)
-{
-    if(expr.is_pointer_member_access())
-    {
-        Expression l_expr = expr.get_accessed_entity();
-        Expression r_expr = expr.get_accessed_member().get_expression();
-        return (l_expr.is_this_variable() && r_expr.is_accessed_member());
-    }
-    return false;
-}
-
 std::string DataReference::get_warning_log() const
 {
     return _warnlog.str();
@@ -101,6 +90,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         Source &addr, 
         Type &type,
         bool enclosing_is_array,
+        bool pointer_access_member,
         std::stringstream& warnlog)
 {
     if (expr.is_id_expression()
@@ -168,6 +158,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_addr,
                 arr_type,
                 /* enclosing_is_array */ true,
+                pointer_access_member,
                 warnlog);
         if (!b)
         {
@@ -265,6 +256,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                 arr_addr,
                 arr_type,
                 /* enclosing_is_array */ true,
+                pointer_access_member,
                 warnlog);
         if (!b)
             return false;
@@ -323,6 +315,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         addr, 
                         type,
                         enclosing_is_array, 
+                        pointer_access_member,
                         warnlog);
             }
             else if (ref_expr.is_array_subscript())
@@ -334,6 +327,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         addr,
                         type,
                         enclosing_is_array, 
+                        pointer_access_member,
                         warnlog);
             }
             else if (ref_expr.is_array_section_range()
@@ -347,6 +341,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         addr,
                         type,
                         enclosing_is_array,
+                        pointer_access_member,
                         warnlog);
             }
         }
@@ -363,6 +358,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         addr, 
                         type,
                         enclosing_is_array,
+                        pointer_access_member,
                         warnlog);
             }
             else
@@ -375,6 +371,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         ptr_addr, 
                         type,
                         enclosing_is_array,
+                        pointer_access_member,
                         warnlog);
 
                 if (!b)
@@ -410,7 +407,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         bool b = gather_info_data_expr_rec(shaped_expr, base_sym, 
                 arr_size, arr_addr, 
-                type, /* enclosing_is_array */ true, warnlog);
+                type, /* enclosing_is_array */ true,
+                pointer_access_member, warnlog);
 
         if (!b)
             return false;
@@ -464,7 +462,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         bool b = gather_info_data_expr_rec(obj_expr, base_sym, 
                 obj_size, obj_addr, 
                 type,
-                /* enclosing_is_array */ false, warnlog);
+                /* enclosing_is_array */ false, pointer_access_member, warnlog);
 
         if (!b)
             return false;
@@ -504,8 +502,9 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         bool b = gather_info_data_expr_rec(obj_expr, base_sym, 
                 size, obj_addr, 
                 type,
-                /* enclosing_is_array */ false, warnlog);
-
+               /* enclosing_is_array */ false, 
+               /* pointer member access */ true, warnlog);
+ 
         if (!b)
             return false;
 
@@ -547,7 +546,8 @@ bool DataReference::gather_info_data_expr(Expression &expr, Symbol& base_sym,
         Type &type,
         std::stringstream& warnlog)
 {
-    return gather_info_data_expr_rec(expr, base_sym, size, addr, type, /* enclosing_is_array */ false, warnlog);
+    return gather_info_data_expr_rec(expr, base_sym, size, addr, type, 
+        /* enclosing_is_array */ false, /* pointer member access */ false, warnlog);
 }
 
 // This function constructs a sizeof but avoids variable length arrays which are not valid in C++
