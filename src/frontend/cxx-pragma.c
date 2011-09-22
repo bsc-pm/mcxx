@@ -2,7 +2,6 @@
 #include "cxx-nodecl-output.h"
 #include "cxx-ast.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-scope.h"
 
 static void common_build_scope_pragma_custom_clause_argument(AST a, 

@@ -152,7 +152,7 @@ namespace TL
             template <typename T>
             struct FinishParseFun
             { 
-                typedef T (*Type)(ParseFlags, decl_context_t, scope_link_t*, AST);
+                typedef T (*Type)(ParseFlags, decl_context_t, AST);
             };
 
             template <typename T>

@@ -39,7 +39,6 @@
 #include "cxx-typeutils.h"
 #include "cxx-ambiguity.h"
 #include "cxx-exprtype.h"
-#include "cxx-attrnames.h"
 #include "cxx-tltype.h"
 #include "cxx-entrylist.h"
 

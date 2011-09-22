@@ -825,7 +825,6 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && entry->kind != SK_SCOPE
             && !entry->entity_specs.from_module)
     {
         declare_symbol(visitor, entry);
@@ -874,8 +873,7 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL
-            && entry->kind != SK_SCOPE)
+    if (entry != NULL)
     {
         if (is_class_type(entry->type_information))
         {
@@ -1937,14 +1935,9 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin_decl);
 }
 
-void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, nodecl_t node, scope_link_t* sl UNUSED_PARAMETER)
+void fortran_codegen_translation_unit(FILE* f, nodecl_t node)
 {
     nodecl_codegen_visitor_t codegen_visitor;
-
-    if (sl == NULL)
-    {
-        sl = CURRENT_COMPILED_FILE->scope_link;
-    }
 
     fortran_codegen_init(&codegen_visitor);
     

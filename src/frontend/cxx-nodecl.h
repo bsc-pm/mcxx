@@ -87,6 +87,14 @@ void nodecl_expr_set_is_type_dependent(nodecl_t, char);
 
 char nodecl_is_err_expr(nodecl_t);
 
+// Retrieve the context from a node (or the currently compiled file global
+// context if not context is found)
+decl_context_t nodecl_retrieve_context(nodecl_t);
+
+// These only work on NODECL_CONTEXT
+decl_context_t nodecl_get_decl_context(nodecl_t n);
+void nodecl_set_decl_context(nodecl_t, decl_context_t);
+
 MCXX_END_DECLS
 
 #endif // CXX_NODECL_H

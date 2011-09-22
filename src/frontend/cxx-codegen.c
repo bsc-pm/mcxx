@@ -30,7 +30,7 @@ struct nodecl_codegen_visitor_tag
     scope_entry_t* global_namespace;
     scope_entry_t* opened_namespace;
 
-    scope_t* current_scope;
+    decl_context_t decl_context;
 
     char in_condition;
     nodecl_t condition_top;
@@ -494,7 +494,7 @@ static void entry_local_definition(nodecl_codegen_visitor_t *visitor,
         void def_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol) 
         )
 {
-    if (visitor->current_scope == entry->decl_context.current_scope)
+    if (visitor->decl_context.current_scope == entry->decl_context.current_scope)
     {
         if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
         {
@@ -3038,12 +3038,7 @@ static void codegen_compound_statement_for_compound_expression(nodecl_codegen_vi
     visitor->indent_level++;
     nodecl_t statement_seq = nodecl_get_child(node, 0);
 
-    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
-    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
-
-    visitor->current_scope = scope_symbol->decl_context.current_scope;
     define_local_entities_in_trees(visitor, statement_seq);
-    visitor->current_scope = NULL;
 
     codegen_walk(visitor, statement_seq);
 
@@ -3965,12 +3960,7 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     visitor->indent_level++;
     nodecl_t statement_seq = nodecl_get_child(node, 0);
 
-    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
-    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
-
-    visitor->current_scope = scope_symbol->decl_context.current_scope;
     define_local_entities_in_trees(visitor, statement_seq);
-    visitor->current_scope = NULL;
 
     codegen_walk(visitor, statement_seq);
 
@@ -4390,11 +4380,26 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     codegen_walk(visitor, list);
 }
 
+// Context
+static void codegen_context(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    decl_context_t old_context = visitor->decl_context;
+
+    visitor->decl_context = nodecl_get_decl_context(node);
+
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+
+    visitor->decl_context = old_context;
+}
+
 static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 {
     nodecl_init_walker((nodecl_external_visitor_t*)codegen_visitor, not_implemented_yet);
 
     NODECL_VISITOR(codegen_visitor)->visit_top_level = codegen_visitor_fun(codegen_top_level);
+
+    NODECL_VISITOR(codegen_visitor)->visit_context = codegen_visitor_fun(codegen_context);
+
     NODECL_VISITOR(codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
     NODECL_VISITOR(codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);
@@ -4486,21 +4491,17 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 }
 
 // External interface
-void c_cxx_codegen_translation_unit(FILE *f, nodecl_t node, scope_link_t* sl)
+void c_cxx_codegen_translation_unit(FILE *f, nodecl_t node)
 {
     nodecl_codegen_visitor_t codegen_visitor;
     memset(&codegen_visitor, 0, sizeof(codegen_visitor));
-
-    if (sl == NULL)
-    {
-        sl = CURRENT_COMPILED_FILE->scope_link;
-    }
 
     c_cxx_codegen_init(&codegen_visitor);
     
     codegen_visitor.file = f;
     codegen_visitor.indent_level = 0;
-    decl_context_t global_context = scope_link_get_decl_context(sl, nodecl_get_ast(node));
+
+    decl_context_t global_context = nodecl_retrieve_context(node);
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;
@@ -4527,7 +4528,7 @@ char* c_cxx_codegen_to_str(nodecl_t node)
 
     codegen_visitor.file = temporal_stream;
     codegen_visitor.indent_level = 0;
-    decl_context_t global_context = scope_link_get_decl_context(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(node));
+    decl_context_t global_context = CURRENT_COMPILED_FILE->global_decl_context;
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;

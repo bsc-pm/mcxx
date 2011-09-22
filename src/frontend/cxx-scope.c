@@ -43,7 +43,6 @@
 #include "cxx-buildscope.h"
 #include "cxx-overload.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-printscope.h"
 #include "cxx-codegen.h"
 #include "cxx-entrylist.h"
@@ -3482,21 +3481,6 @@ void scope_for_each_entity(scope_t* sc, void *data, void (*fun)(scope_entry_list
     struct fun_adaptor_data_tag fun_adaptor_data = { .data = data, .fun = fun };
 
     rb_tree_walk(sc->hash, for_each_fun_adaptor, &fun_adaptor_data);
-}
-
-scope_entry_t* new_scope_symbol(decl_context_t decl_context)
-{
-    scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-
-    char c[256];
-    snprintf(c, 255, "<<scoping symbol %p>>", decl_context.current_scope);
-    c[255] = '\0';
-
-    result->kind = SK_SCOPE;
-    result->symbol_name = uniquestr(c);
-    result->decl_context = decl_context;
-
-    return result;
 }
 
 int get_template_nesting_of_context(decl_context_t decl_context)

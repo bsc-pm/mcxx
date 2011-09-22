@@ -156,7 +156,6 @@ struct decl_context_tag
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND, "dependent friend name") \
     SYMBOL_KIND(SK_USING, "using declared name") \
-    SYMBOL_KIND(SK_SCOPE, "<<scoping symbol>>")  \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
 #ifdef FORTRAN_SUPPORT

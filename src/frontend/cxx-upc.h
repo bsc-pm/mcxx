@@ -35,6 +35,12 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void upc_sign_in_builtins(decl_context_t decl_context);
 
+#define UPC_FORALL_STATEMENT "upc.forall_statement"
+#define UPC_NOTIFY_STATEMENT "upc.notify_statement"
+#define UPC_WAIT_STATEMENT "upc.wait_statement"
+#define UPC_BARRIER_STATEMENT "upc.barrier_statement"
+#define UPC_FENCE_STATEMENT "upc.fence_statement"
+
 MCXX_END_DECLS
 
 #endif // CXX_UPC_H

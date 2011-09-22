@@ -35,7 +35,6 @@
 #include "cxx-koenig.h"
 #include "cxx-tltype.h"
 #include "cxx-ambiguity.h"
-#include "cxx-attrnames.h"
 #include "cxx-overload.h"
 #include "cxx-prettyprint.h"
 #include "cxx-instantiation.h"

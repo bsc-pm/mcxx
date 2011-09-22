@@ -1,7 +1,6 @@
 #include "cxx-nodecl.h"
 #include "cxx-exprtype.h"
 #include "cxx-utils.h"
-#include "cxx-attrnames.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,6 +19,8 @@ struct nodecl_expr_info_tag
 
     template_parameter_list_t* template_parameters;
 } nodecl_expr_info_t;
+
+#define LANG_EXPRESSION_INFO "lang.expression_info"
 
 // Nodecl expression routines. 
 // These are implementation only
@@ -396,4 +397,70 @@ nodecl_t nodecl_generic_make(node_t kind, const char* filename, int line)
 void nodecl_set_child(nodecl_t n, int nc, nodecl_t c)
 {
     ast_set_child(nodecl_get_ast(n), nc, nodecl_get_ast(c));
+}
+
+#define LANG_DECL_CONTEXT "lang.decl_context_t"
+
+decl_context_t nodecl_get_decl_context(nodecl_t n)
+{
+    ERROR_CONDITION(nodecl_is_null(n) || 
+            nodecl_get_kind(n) != NODECL_CONTEXT,
+            "This is not a context node", 0);
+    decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);
+
+    ERROR_CONDITION(p == NULL, "Invalid context", 0);
+
+    return *p;
+}
+
+void nodecl_set_decl_context(nodecl_t n, decl_context_t decl_context)
+{
+    ERROR_CONDITION(nodecl_is_null(n) || 
+            nodecl_get_kind(n) != NODECL_CONTEXT,
+            "This is not a context node", 0);
+
+    decl_context_t* p = (decl_context_t*)ast_get_field(nodecl_get_ast(n), LANG_DECL_CONTEXT);
+
+    if (p == NULL)
+    {
+        p = calloc(1, sizeof(*p));
+
+        *p = decl_context;
+
+        ast_set_field(nodecl_get_ast(n), LANG_DECL_CONTEXT, p);
+    }
+    else
+    {
+        *p = decl_context;
+    }
+}
+
+static nodecl_t nodecl_get_parent(nodecl_t n)
+{
+    ERROR_CONDITION(nodecl_is_null(n), "Invalid node", 0);
+
+    return _nodecl_wrap(ASTParent(nodecl_get_ast(n)));
+}
+
+static decl_context_t nodecl_retrieve_context_rec(nodecl_t n)
+{
+    if (nodecl_is_null(n))
+    {
+        return CURRENT_COMPILED_FILE->global_decl_context;
+    }
+    else if (nodecl_get_kind(n) == NODECL_CONTEXT)
+    {
+        return nodecl_get_decl_context(n);
+    }
+    else 
+    {
+        return nodecl_retrieve_context_rec(nodecl_get_parent(n));
+    }
+}
+
+decl_context_t nodecl_retrieve_context(nodecl_t n)
+{
+    ERROR_CONDITION(nodecl_is_null(n), "Invalid node", 0);
+
+    return nodecl_retrieve_context_rec(n);
 }

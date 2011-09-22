@@ -30,7 +30,6 @@
 #include <string.h>
 #include "extstruct.h"
 #include "cxx-ast.h"
-#include "cxx-attrnames.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"

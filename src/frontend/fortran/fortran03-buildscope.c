@@ -9,12 +9,10 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
-#include "cxx-scopelink.h"
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include "cxx-limits.h"
@@ -54,10 +52,8 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
     // Technically Fortran does not have a global scope but it is convenient to have one
-    decl_context_t decl_context 
-        = scope_link_get_global_decl_context(translation_unit->scope_link);
+    decl_context_t decl_context = translation_unit->global_decl_context;
 
-    scope_link_set(translation_unit->scope_link, a, decl_context);
 
     nodecl_t nodecl_program_units = nodecl_null();
     AST list = ASTSon0(a);
@@ -323,7 +319,6 @@ void build_scope_program_unit(AST program_unit,
     decl_context_t program_unit_context = new_context(decl_context);
 
     scope_entry_t* _program_unit_symbol = NULL;
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, program_unit, program_unit_context);
 
     switch (ASTType(program_unit))
     {
@@ -2417,12 +2412,11 @@ static void build_scope_block_construct(AST a,
 
     if (block != NULL)
     {
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, block, new_context);
     }
 
 
     *nodecl_output = nodecl_make_compound_statement(nodecl_body, nodecl_null(),
-            new_scope_symbol(new_context), ASTFileName(a), ASTLine(a));
+            ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2845,7 +2839,6 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         running_error("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
     }
 
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, decl_context);
 
     nodecl_t nodecl_rec = nodecl_null();
     rec_handler(implied_do_object_list, decl_context, &nodecl_rec);
@@ -3119,8 +3112,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
     if (component_part != NULL)
     {
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, component_part, inner_decl_context);
-
         for_each_element(component_part, it)
         {
             AST component_def_stmt = ASTSon1(it);
@@ -3370,7 +3361,6 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
                 nodecl_stride, 
                 ASTFileName(loop_control), ASTLine(loop_control)),
             nodecl_statement,
-            new_scope_symbol(decl_context),
             ASTFileName(a), ASTLine(a));
 }
 
@@ -3632,7 +3622,6 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
             nodecl_logical_expr,
             nodecl_then,
             nodecl_else,
-            new_scope_symbol(decl_context),
             ASTFileName(a),
             ASTLine(a));
 }
@@ -5251,7 +5240,6 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
 
     *nodecl_output = nodecl_make_while_statement(nodecl_expr,
             nodecl_statement, 
-            new_scope_symbol(decl_context),
             ASTFileName(a), ASTLine(a));
 }
 

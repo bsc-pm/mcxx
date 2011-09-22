@@ -44,8 +44,6 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-instantiation.h"
 #include "cxx-tltype.h"
-#include "cxx-scopelink.h"
-#include "cxx-attrnames.h"
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
@@ -249,11 +247,9 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
 static AST get_enclosing_declaration(AST point_of_declarator);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, 
-        char* _dummy, 
         nodecl_t* nodecl_output);
 static void build_scope_pragma_custom_construct_declaration(AST a, 
         decl_context_t decl_context, 
-        char* attr_name,
         nodecl_t* nodecl_output);
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
         decl_context_t decl_context, 
@@ -287,11 +283,6 @@ void initialize_translation_unit_scope(translation_unit_t* translation_unit, dec
 
     // The global scope is created here
     translation_unit->global_decl_context = *decl_context;
-    translation_unit->scope_link = scope_link_new(*decl_context);
-
-    // Link the AST root node with the global scope
-    AST a = translation_unit->parsed_tree;
-    scope_link_set(translation_unit->scope_link, a, *decl_context);
 }
 
 void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
@@ -305,8 +296,7 @@ void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 void build_scope_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
-    decl_context_t decl_context 
-        = scope_link_get_global_decl_context(translation_unit->scope_link);
+    decl_context_t decl_context = translation_unit->global_decl_context;
 
     nodecl_t nodecl = nodecl_null();
 
@@ -318,7 +308,6 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-        // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
         build_scope_declaration_sequence(list, decl_context, &nodecl);
     }
 
@@ -329,37 +318,6 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     }
 
     translation_unit->nodecl = nodecl_make_top_level(nodecl, ASTFileName(a), ASTLine(a));
-}
-
-void build_scope_translation_unit_tree_with_global_scope(AST tree, 
-        scope_link_t* scope_link UNUSED_PARAMETER, 
-        decl_context_t decl_context)
-{
-    if (ASTType(tree) != AST_TRANSLATION_UNIT)
-    {
-        internal_error("This function expects a translation unit tree but '%s'", 
-                ast_print_node_type(ASTType(tree)));
-    }
-
-    nodecl_t nodecl_output = nodecl_null();
-
-    CXX_LANGUAGE()
-    {
-        instantiation_init();
-    }
-
-    AST list = ASTSon0(tree);
-    if (list != NULL)
-    {
-        // The scope will have been already populated with basic things
-        build_scope_declaration_sequence(list, decl_context, &nodecl_output);
-    }
-
-    CXX_LANGUAGE()
-    {
-        nodecl_t instantiated_units = instantiation_instantiate_pending_functions();
-        nodecl_output = nodecl_concat_lists(nodecl_output, instantiated_units);
-    }
 }
 
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
@@ -668,12 +626,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
             {
-                build_scope_pragma_custom_directive(a, decl_context, NULL, nodecl_output);
+                build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
                 break;
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT: 
             {
-                build_scope_pragma_custom_construct_declaration(a, decl_context, NULL, nodecl_output);
+                build_scope_pragma_custom_construct_declaration(a, decl_context, nodecl_output);
                 break;
             }
             // GCC Extensions
@@ -5270,7 +5228,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
 
     // The inner scope is properly adjusted here thus we can link it with the AST
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, inner_decl_context);
 
     // Build scope of members
     AST member_specification = ASTSon1(a);
@@ -5579,7 +5536,6 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 entry_list_free(symbols);
             }
 
-            scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, entity_context);
         }
 
         // Second traversal, here we build the type
@@ -5832,7 +5788,6 @@ static void set_function_parameter_clause(type_t** function_type,
     // a block scope
 
     // Link the scope of the parameters
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, parameters, decl_context);
 
     C_LANGUAGE()
     {
@@ -7482,7 +7437,6 @@ static void build_scope_template_declaration(AST a,
     }
 
     // Link the AST with the scope in the templated declaration
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, templated_decl, template_context);
 
     switch (ASTType(templated_decl))
     {
@@ -8312,7 +8266,6 @@ static void build_scope_namespace_definition(AST a,
             entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
-            scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);
 
             if (is_inline)
             {
@@ -8372,7 +8325,6 @@ static void build_scope_namespace_definition(AST a,
             entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
-            scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);
 
             // And associate it to the current namespace
             scope_t* namespace_scope = decl_context.current_scope;
@@ -8814,7 +8766,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     }
 
     // The scope seen by this function definition
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, decl_context);
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION), 
             "This is not a function!!!", 0);
@@ -8949,7 +8900,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         AST list = ASTSon0(statement);
         if (list != NULL)
         {
-            scope_link_set(CURRENT_COMPILED_FILE->scope_link, list, block_context);
 
             build_scope_statement_seq(list, block_context, &body_nodecl);
         }
@@ -8962,7 +8912,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
         // We manually create a compound statement here for nodecl
         body_nodecl = nodecl_make_compound_statement(body_nodecl, nodecl_destructors, 
-                new_scope_symbol(block_context), 
                 ASTFileName(statement), ASTLine(statement));
     }
     else if (ASTType(statement) == AST_TRY_BLOCK)
@@ -8976,7 +8925,6 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         internal_error("Unreachable code", 0);
     }
 
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
     {
         // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
@@ -8984,7 +8932,10 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     // Create nodecl (only if not dependent)
     nodecl_t nodecl_function_def = nodecl_make_function_code(
-            nodecl_make_list_1(body_nodecl), 
+            nodecl_make_context(
+                nodecl_make_list_1(body_nodecl),
+                block_context,
+                ASTFileName(a), ASTLine(a)),
             nodecl_initializers,
             /* internal_functions */ nodecl_null(),
             entry,
@@ -9089,7 +9040,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
             {
-                build_scope_pragma_custom_directive(a, inner_decl_context, NULL, nodecl_output);
+                build_scope_pragma_custom_directive(a, inner_decl_context, nodecl_output);
                 break;
             }
         case AST_PRAGMA_CUSTOM_CONSTRUCT: 
@@ -9156,7 +9107,6 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     }
 
     // Link the AST with the scope
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, template_context);
 
     switch (ASTType(templated_decl))
     {
@@ -10546,18 +10496,16 @@ static void call_destructors_of_classes(decl_context_t block_context,
  * Building scope for statements
  */
 
-typedef void (*stmt_scope_handler_t)(AST a, decl_context_t decl_context, char* attrib_to_set, nodecl_t* nodecl_output);
+typedef void (*stmt_scope_handler_t)(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 typedef 
 struct stmt_scope_handler_map_tag
 {
     stmt_scope_handler_t handler;
-    char* attr_name;
 } stmt_scope_handler_map_t;
 
 
 static void build_scope_compound_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -10577,7 +10525,6 @@ static void build_scope_compound_statement(AST a,
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, list, block_context);
 
         nodecl_t current_nodecl_output = nodecl_null();
         build_scope_statement_seq(list, block_context, &current_nodecl_output);
@@ -10593,8 +10540,11 @@ static void build_scope_compound_statement(AST a,
     }
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, new_scope_symbol(block_context), 
-                ASTFileName(a), ASTLine(a)));
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    nodecl_make_compound_statement(nodecl_output_list, nodecl_destructors, ASTFileName(a), ASTLine(a))
+                    ),
+                block_context, ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -10713,30 +10663,30 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
 
 static void build_scope_while_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
 
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(ASTSon0(a), block_context, &nodecl_condition);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, ASTSon0(a), block_context);
 
     nodecl_t nodecl_statement = nodecl_null();
     if (ASTSon1(a) != NULL)
     {
         build_scope_statement(ASTSon1(a), block_context, &nodecl_statement);
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, ASTSon1(a), block_context);
     }
 
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_while_statement(nodecl_condition, nodecl_statement, new_scope_symbol(block_context), ASTFileName(a), ASTLine(a)));
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    nodecl_make_while_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a))),
+                block_context,
+                ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
         decl_context_t decl_context, 
-        char* attrib_to_set UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     solve_ambiguous_statement(a, decl_context);
@@ -10746,7 +10696,6 @@ static void build_scope_ambiguity_handler(AST a,
 
 static void build_scope_declaration_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST declaration = ASTSon0(a);
@@ -10758,7 +10707,6 @@ static void build_scope_declaration_statement(AST a,
 
 static void build_scope_expression_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST expr = ASTSon0(a);
@@ -10799,7 +10747,6 @@ static void build_scope_expression_statement(AST a,
 
 static void build_scope_if_else_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -10807,30 +10754,30 @@ static void build_scope_if_else_statement(AST a,
     AST condition = ASTSon0(a);
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, condition, block_context);
 
     AST then_branch = ASTSon1(a);
     nodecl_t nodecl_then = nodecl_null();
     build_scope_statement(then_branch, block_context, &nodecl_then);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, then_branch, block_context);
 
     nodecl_t nodecl_else = nodecl_null();
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
         build_scope_statement(else_branch, block_context, &nodecl_else);
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, else_branch, block_context);
     }
 
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, new_scope_symbol(block_context),
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    nodecl_make_if_else_statement(nodecl_condition, nodecl_then, nodecl_else, 
+                        ASTFileName(a), ASTLine(a))),
+                block_context,
                 ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_for_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t *nodecl_output)
 {
     AST loop_control = ASTSon0(a);
@@ -10861,7 +10808,7 @@ static void build_scope_for_statement(AST a,
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
-        build_scope_expression_statement(for_init_statement, block_context, NULL, &nodecl_loop_init);
+        build_scope_expression_statement(for_init_statement, block_context, &nodecl_loop_init);
         nodecl_loop_init = nodecl_list_head(nodecl_loop_init);
         // Get the expression itself instead of an expression statement
         nodecl_loop_init = nodecl_get_child(nodecl_loop_init, 0); 
@@ -10876,13 +10823,11 @@ static void build_scope_for_statement(AST a,
     {
         internal_error("unexpected node '%s'", ast_print_node_type(ASTType(for_init_statement)));
     }
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, for_init_statement, block_context);
 
     nodecl_t nodecl_loop_condition = nodecl_null();
     if (condition != NULL)
     {
         build_scope_condition(condition, block_context, &nodecl_loop_condition);
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, condition, block_context);
     }
 
     nodecl_t nodecl_loop_iter = nodecl_null();
@@ -10898,26 +10843,28 @@ static void build_scope_for_statement(AST a,
             }
         }
 
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, expression, block_context);
     }
 
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
 
     nodecl_t nodecl_loop_control = nodecl_make_loop_control(nodecl_loop_init, nodecl_loop_condition, nodecl_loop_iter,
             ASTFileName(a), ASTLine(a));
-    *nodecl_output = nodecl_make_list_1(
-            nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
-                new_scope_symbol(block_context), 
-                ASTFileName(a), ASTLine(a)));
+    *nodecl_output = 
+        nodecl_make_list_1(
+                nodecl_make_context(
+                    nodecl_make_list_1(
+                        nodecl_make_for_statement(nodecl_loop_control, nodecl_statement, 
+                            ASTFileName(a), ASTLine(a))),
+                    block_context,
+                    ASTFileName(a), ASTLine(a)
+                    ));
 }
 
 static void build_scope_switch_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     decl_context_t block_context = new_block_context(decl_context);
@@ -10927,15 +10874,17 @@ static void build_scope_switch_statement(AST a,
 
     nodecl_t nodecl_condition = nodecl_null();
     build_scope_condition(condition, block_context, &nodecl_condition);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, condition, block_context);
 
     nodecl_t nodecl_statement = nodecl_null();
     build_scope_statement(statement, block_context, &nodecl_statement);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
 
     *nodecl_output = nodecl_make_list_1(
-            nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a)));
+            nodecl_make_context(
+                nodecl_make_list_1(
+                    nodecl_make_switch_statement(nodecl_condition, nodecl_statement, ASTFileName(a), ASTLine(a))),
+                block_context,
+                ASTFileName(a), ASTLine(a)));
 }
 
 scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
@@ -10962,12 +10911,10 @@ scope_entry_t* add_label_if_not_found(AST label, decl_context_t decl_context)
 }
 static void build_scope_goto_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
     scope_entry_t* sym_label = add_label_if_not_found(label, decl_context);
-
 
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_goto_statement(sym_label, ASTFileName(a), ASTLine(a)));
@@ -10975,7 +10922,6 @@ static void build_scope_goto_statement(AST a,
 
 static void build_scope_labeled_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST label = ASTSon0(a);
@@ -10994,7 +10940,6 @@ static void build_scope_labeled_statement(AST a,
 
 static void build_scope_default_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST statement = ASTSon0(a);
@@ -11008,7 +10953,6 @@ static void build_scope_default_statement(AST a,
 
 static void build_scope_case_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST constant_expression = ASTSon0(a);
@@ -11036,7 +10980,6 @@ static void build_scope_case_statement(AST a,
 
 static void build_scope_return_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST expression = ASTSon0(a);
@@ -11114,7 +11057,6 @@ static void build_scope_return_statement(AST a,
 
 static void build_scope_try_block(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST protected_block = ASTSon0(a);
@@ -11156,7 +11098,6 @@ static void build_scope_try_block(AST a,
             build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                     block_context, &dummy);
 
-            scope_link_set(CURRENT_COMPILED_FILE->scope_link, exception_declaration, block_context);
 
             type_t* declarator_type = type_info;
 
@@ -11182,7 +11123,11 @@ static void build_scope_try_block(AST a,
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
                     nodecl_make_catch_handler(exception_name, 
-                        nodecl_catch_statement, 
+                        nodecl_make_context(
+                            nodecl_catch_statement,
+                            block_context,
+                            ASTFileName(exception_declaration), 
+                            ASTLine(exception_declaration)),
                         declarator_type,
                         ASTFileName(exception_declaration), 
                         ASTLine(exception_declaration)));
@@ -11210,7 +11155,6 @@ static void build_scope_try_block(AST a,
 
 static void build_scope_do_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output) 
 {
     AST statement = ASTSon0(a);
@@ -11236,48 +11180,30 @@ static void build_scope_do_statement(AST a,
 
 static void build_scope_empty_statement(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
-        char* attr_name,
         nodecl_t* nodecl_output)
 {
-    // Do nothing
-    if (attr_name != NULL)
-    {
-    }
-
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_empty_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_break(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
-        char* attr_name,
         nodecl_t* nodecl_output)
 {
-    if (attr_name != NULL)
-    {
-    }
-
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_break_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_continue(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
-        char* attr_name,
         nodecl_t* nodecl_output)
 {
-    // Do nothing
-    if (attr_name != NULL)
-    {
-    }
-
     *nodecl_output = nodecl_make_list_1(
             nodecl_make_continue_statement(ASTFileName(a), ASTLine(a)));
 }
 
 static void build_scope_pragma_custom_directive(AST a, 
         decl_context_t decl_context, 
-        char* _dummy UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
@@ -11293,7 +11219,6 @@ void build_scope_statement_pragma(AST a,
 
 static void build_scope_pragma_custom_construct_statement(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
@@ -11310,7 +11235,6 @@ static void build_scope_declaration_pragma(AST a,
 
 static void build_scope_pragma_custom_construct_declaration(AST a, 
         decl_context_t decl_context, 
-        char* attr_name UNUSED_PARAMETER,
         nodecl_t *nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
@@ -11376,7 +11300,6 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
 
 static void build_scope_upc_synch_statement(AST a, 
         decl_context_t decl_context, 
-        char *attr_name,
         nodecl_t* nodecl_output)
 {
 
@@ -11394,12 +11317,27 @@ static void build_scope_upc_synch_statement(AST a,
 
     nodecl_expression = nodecl_make_list_1(nodecl_expression);
 
-    *nodecl_output = nodecl_make_builtin_decl(nodecl_expression, attr_name, ASTFileName(a), ASTLine(a));
+
+    const char* stmt_name = NULL;
+#define START_CHECKS \
+    if (0);
+#define CHECK(x) \
+    else if (ASTType(a) == AST_##x) { stmt_name = x##_STATEMENT; }
+#define END_CHECKS \
+    ERROR_CONDITION(stmt_name == NULL, "Invalid statmeent name", 0);
+
+    START_CHECKS
+       CHECK(UPC_NOTIFY)
+       CHECK(UPC_WAIT)
+       CHECK(UPC_BARRIER)
+       CHECK(UPC_FENCE)
+    END_CHECKS
+
+    *nodecl_output = nodecl_make_builtin_decl(nodecl_expression, stmt_name, ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_upc_forall_statement(AST a, 
         decl_context_t decl_context, 
-        char *attr_name UNUSED_PARAMETER,
         nodecl_t* nodecl_output)
 {
     AST forall_header = ASTSon0(a);
@@ -11426,9 +11364,8 @@ static void build_scope_upc_forall_statement(AST a,
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
-        build_scope_expression_statement(for_init_statement, block_context, NULL, &nodecl_for_init);
+        build_scope_expression_statement(for_init_statement, block_context, &nodecl_for_init);
     }
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, for_init_statement, block_context);
 
     nodecl_t nodecl_condition = nodecl_null();
     if (condition != NULL)
@@ -11480,62 +11417,43 @@ static void build_scope_upc_forall_statement(AST a,
     }
 
     build_scope_statement(statement, block_context, nodecl_output);
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, statement, block_context);
 
 
-    *nodecl_output = nodecl_make_builtin_decl(nodecl_list, UPC_IS_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
+    *nodecl_output = nodecl_make_builtin_decl(nodecl_list, UPC_FORALL_STATEMENT, ASTFileName(a), ASTLine(a));
 }
 
-#define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
+#define STMT_HANDLER(type, hndl) [type] = { .handler = (hndl) }
 
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
 {
-    STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler, NULL),
-    STMT_HANDLER(AST_EXPRESSION_STATEMENT, build_scope_expression_statement, NULL),
-    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, NULL),
-    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, NULL),
-    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, NULL),
-    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement, NULL),
-    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement, NULL),
-    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement, NULL),
-    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement, NULL),
-    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement, NULL),
-    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement, NULL),
-    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement, NULL),
-    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block, NULL),
-    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement, NULL),
-    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_empty_statement, LANG_IS_EMPTY_STATEMENT),
-    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_break, LANG_IS_BREAK_STATEMENT),
-    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_continue, LANG_IS_CONTINUE_STATEMENT),
-    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement, NULL),
+    STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler),
+    STMT_HANDLER(AST_EXPRESSION_STATEMENT, build_scope_expression_statement),
+    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement),
+    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement),
+    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement),
+    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement),
+    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement),
+    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement),
+    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement),
+    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement),
+    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement),
+    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement),
+    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
+    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),
+    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_empty_statement),
+    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_break),
+    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_continue),
+    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement),
     // Pragma custom support
-    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, NULL),
-    STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive, NULL),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive),
     // UPC
-    STMT_HANDLER(AST_UPC_NOTIFY, build_scope_upc_synch_statement, UPC_IS_NOTIFY_STATEMENT),
-    STMT_HANDLER(AST_UPC_WAIT, build_scope_upc_synch_statement, UPC_IS_WAIT_STATEMENT),
-    STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement, UPC_IS_BARRIER_STATEMENT),
-    STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement, UPC_IS_FENCE_STATEMENT),
-    STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement, NULL),
+    STMT_HANDLER(AST_UPC_NOTIFY, build_scope_upc_synch_statement),
+    STMT_HANDLER(AST_UPC_WAIT, build_scope_upc_synch_statement),
+    STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement),
+    STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement),
+    STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement),
 };
-
-void build_scope_member_specification_with_scope_link(
-        decl_context_t class_context,
-        scope_link_t* scope_link,
-        AST member_specification_tree, 
-        access_specifier_t current_access,
-        type_t* simple_type_info,
-        nodecl_t* nodecl_output)
-{
-    scope_link_t* old_scope_link = CURRENT_COMPILED_FILE->scope_link;
-    CURRENT_COMPILED_FILE->scope_link = scope_link;
-
-    build_scope_member_specification(class_context, member_specification_tree, 
-            current_access, simple_type_info, nodecl_output, /* declared_symbols */ NULL);
-    build_scope_delayed_functions(nodecl_output);
-
-    CURRENT_COMPILED_FILE->scope_link = old_scope_link;
-}
 
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
@@ -11557,32 +11475,6 @@ static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl
     *nodecl_output = nodecl_output_list;
 }
 
-void build_scope_statement_seq_with_scope_link(AST a, 
-        decl_context_t decl_context, 
-        scope_link_t* scope_link,
-        nodecl_t* nodecl_output)
-{
-    scope_link_t* old_scope_link = CURRENT_COMPILED_FILE->scope_link;
-    CURRENT_COMPILED_FILE->scope_link = scope_link;
-
-    build_scope_statement_seq(a, decl_context, nodecl_output);
-
-    CURRENT_COMPILED_FILE->scope_link = old_scope_link;
-}
-
-void build_scope_declaration_sequence_with_scope_link(AST a, 
-        decl_context_t decl_context, 
-        scope_link_t* scope_link, 
-        nodecl_t* nodecl_output)
-{
-    scope_link_t* old_scope_link = CURRENT_COMPILED_FILE->scope_link;
-    CURRENT_COMPILED_FILE->scope_link = scope_link;
-
-    build_scope_declaration_sequence(a, decl_context, nodecl_output);
-
-    CURRENT_COMPILED_FILE->scope_link = old_scope_link;
-}
-
 static void build_scope_statement_(AST a, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output)
@@ -11593,11 +11485,10 @@ static void build_scope_statement_(AST a,
     }
 
     stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)].handler;
-    char* attr_name = stmt_scope_handlers[ASTType(a)].attr_name;
 
     if (f != NULL)
     {
-        f(a, decl_context, attr_name, nodecl_output);
+        f(a, decl_context, nodecl_output);
     }
     else
     {
@@ -11916,8 +11807,6 @@ nodecl_t internal_expression_parse(const char *source, decl_context_t decl_conte
         internal_error("Internally parsed expression '%s' could not be properly checked\n",
                 prettyprint_in_buffer(a));
     }
-
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, decl_context);
 
     ast_free(a);
 

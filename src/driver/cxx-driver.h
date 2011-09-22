@@ -32,7 +32,6 @@
 #include "cxx-process.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
-#include "cxx-scopelink.h"
 #include "cxx-driver-decls.h"
 #include "cxx-macros.h"
 #include "cxx-parameters.h"

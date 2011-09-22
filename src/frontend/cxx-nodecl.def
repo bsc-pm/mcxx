@@ -15,6 +15,7 @@
 #        text                      const char*
 #        const_value               const_value_t*
 #        template-parameters       template_parameter_list_t*
+#        context                   decl_context_t
 #
 # The order that appears here is the order in which this extra information is
 # passed (regardless of the precise syntax of the rule, i.e. 'symbol' is always
@@ -35,19 +36,26 @@ top-level : function-code
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
 
-function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
+# function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
+function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
 object-init : NODECL_OBJECT_INIT([init_expr]expression-opt) symbol
 
 statement : statement-but-object-init
           | object-init
+          | context
+
+context : NODECL_CONTEXT([in_context] in_context) context
+
+in_context : statement-seq-opt
+           | expression
 
 statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | NODECL_EXPRESSION_STATEMENT([nest]expression)
           | compound-statement
           | NODECL_DO_STATEMENT([statement]statement-seq, [condition]expression)
-          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) symbol
-          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) symbol
-          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) symbol
+          | NODECL_WHILE_STATEMENT([condition]expression, [statement]statement-seq) 
+          | NODECL_FOR_STATEMENT([loop_header]loop-control, [statement]statement-seq) 
+          | NODECL_IF_ELSE_STATEMENT([condition]expression, [then]statement-seq, [else]statement-seq-opt) 
           | NODECL_LABELED_STATEMENT([statement]statement-seq) symbol
           | NODECL_SWITCH_STATEMENT([switch]expression, [statement]statement-seq)
           | NODECL_DEFAULT_STATEMENT([statement]statement-seq)
@@ -62,7 +70,7 @@ statement-but-object-init: NODECL_EMPTY_STATEMENT()
           | fortran-only-statements
           | builtin-decl
 
-compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) symbol
+compound-statement : NODECL_COMPOUND_STATEMENT([statements]statement-seq-opt, [finally]statement-seq-opt) 
 
 case-expression : expression
                 | subscript-triplet
@@ -101,6 +109,7 @@ string-literal: NODECL_STRING_LITERAL() type const_value
  
 expression : literal
            | name
+           | context
            | NODECL_FUNCTION_CALL([called] expression, [arguments] argument-seq-opt) type
            | NODECL_ARRAY_SUBSCRIPT([subscripted] expression, [subscripts]subscript-seq) type
            | NODECL_ARRAY_SECTION([subscripted] expression, [lower] expression, [upper] expression) type
@@ -133,7 +142,7 @@ expression : literal
            | NODECL_PARENTHESIZED_EXPRESSION([nest]expression) type
            | NODECL_DERREFERENCE([rhs]expression) type
            | NODECL_CAST([rhs]expression) type text
-           | NODECL_COMPOUND_EXPRESSION([nest]compound-statement) type
+           | NODECL_COMPOUND_EXPRESSION([nest]context) type
            | c-cxx-expressions
            | fortran-expressions
            | object-init

@@ -40,7 +40,6 @@
 #include "cxx-driver.h"
 #include "cxx-ambiguity.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 
@@ -2322,14 +2321,6 @@ static type_t* _get_array_type(type_t* element_type,
     ERROR_CONDITION(!nodecl_is_null(whole_size)
             && (nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound)),
             "Invalid definition of boundaries for array", 0);
-
-        // Properly set the scope links, as if the expressions belonged to decl_context
-    if (!nodecl_is_null(lower_bound))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(lower_bound), decl_context);
-    if (!nodecl_is_null(upper_bound))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(upper_bound), decl_context);
-    if (!nodecl_is_null(whole_size))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(whole_size), decl_context);
 
     char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;

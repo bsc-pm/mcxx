@@ -106,7 +106,6 @@ libmcxx_la_SOURCES = \
   cxx-entrylist.h \
   cxx-scope-fwd.h \
   cxx-scope-decls.h \
-  cxx-attrnames.c \
   cxx-buildscope-decls.h \
   cxx-buildscope.c \
   cxx-buildscope.h \
@@ -140,9 +139,6 @@ libmcxx_la_SOURCES = \
   cxx-dyninit.h \
   cxx-tltype.h \
   cxx-tltype.c \
-  cxx-scopelink.c \
-  cxx-scopelink-decls.h \
-  cxx-scopelink.h \
   cxx-exprtype-decls.h \
   cxx-exprtype.h \
   cxx-exprtype.c \
@@ -221,8 +217,6 @@ AST_NODE_TYPE_FILES_GEN =
 AST_NODE_TYPE_FILES_GEN += cxx-asttype-nodecl.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES) $(AST_NODE_TYPE_FILES_GEN)
-
-EXTRA_DIST += cxx-attrnames.def
 
 EXTRA_DIST += c99.l
 EXTRA_DIST += c99.y

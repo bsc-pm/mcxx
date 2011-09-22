@@ -38,7 +38,6 @@
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-nodecl.h"
 #include "cxx-nodecl-output.h"
 #include "cxx-diagnostic.h"

@@ -68,6 +68,7 @@ def parse_rules(f):
                 needs_text = "text" in remaining_flags
                 needs_cval = "const_value" in remaining_flags
                 needs_template_parameters = "template-parameters" in remaining_flags
+                needs_decl_context = "context" in remaining_flags
                 if ast_args :
                     ast_args_2 = map(lambda x : x.strip(), ast_args.split(","))
                     ast_args_3 = []
@@ -83,10 +84,10 @@ def parse_rules(f):
                         i = i + 1
                         
                     rule_map[rule_name].append( NodeclStructure(tree_ast, ast_args_3, needs_symbol, needs_type, \
-                                needs_text, needs_cval, needs_template_parameters) )
+                                needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
                 else:
                     rule_map[rule_name].append( NodeclStructure(tree_ast, [], needs_symbol, needs_type, \
-                                needs_text, needs_cval, needs_template_parameters) )
+                                needs_text, needs_cval, needs_template_parameters, needs_decl_context) )
             else:
                 rule_map[rule_name].append( RuleRef(rhs) )
     return rule_map
@@ -96,7 +97,7 @@ class Variable:
     pass
 
 class NodeclStructure(Variable):
-    def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval, needs_template_parameters):
+    def __init__(self, tree_kind, subtrees, needs_symbol, needs_type, needs_text, needs_cval, needs_template_parameters, needs_decl_context):
         self.tree_kind = tree_kind
         self.subtrees = subtrees
         self.needs_symbol = needs_symbol
@@ -104,6 +105,9 @@ class NodeclStructure(Variable):
         self.needs_text = needs_text
         self.needs_cval = needs_cval
         self.needs_template_parameters = needs_template_parameters
+        self.needs_decl_context = needs_decl_context
+    def get_name(self):
+        return "NODECL STRUCTURE -> %s" % (self.tree_kind)
     def is_nullable(self, already_seen = []):
         return False
     def first(self, already_seen = []) :
@@ -163,6 +167,8 @@ class NodeclStructure(Variable):
 class RuleRef(Variable):
     def __init__(self, rule_ref):
         self.rule_ref = rule_ref
+    def get_name(self):
+        return "Rule Ref -> %s" % (self.rule_ref)
     def normalize_rule_name(self, rule_ref):
         is_seq = rule_ref.find("-seq") > 0
         is_opt = rule_ref.find("-opt") > 0
@@ -198,65 +204,32 @@ class RuleRef(Variable):
         s = set([])
         for rhs in rule_set:
             s = s.union(rhs.first(already_seen))
+        if is_seq:
+            s = s.union(set(["AST_NODE_LIST"]))
         return s
     def check_code(self, tree_expr):
+        print "// Check code for '%s'" % (self.rule_ref)
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
-        first_set = self.first()
+        first_set = RuleRef(rule_ref).first()
+        rule_set = rule_map[rule_ref]
+
         if not first_set:
-            raise Exception("First set can't be empty!")
-        if is_seq:
-           print "{"
-           print "nodecl_t list = %s;" % (tree_expr)
-           print "int i, num_items = 0;"
-           print "nodecl_t* list_items = nodecl_unpack_list(list, &num_items);"
-           print "for (i = 0; i < num_items; i++)"
-           print "{"
-           print "   nodecl_t e = list_items[i];"
-           print "   switch (nodecl_get_kind(e))"
-           print "   {"
-           for first_item in first_set:
-                 print "        case %s : " % (first_item) 
-           print "        {"
-           print "               nodecl_check_tree_%s(e);" % (rule_ref_c)
-           print "               break;"
-           print "        }"
-           print "        default:"
-           print "        {"
-           print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(e)));" \
-               % (string.join(first_set, " or "))
-           print "           break;"
-           print "        }"
-           print "   }"
-           print "}"
-           print "free(list_items);"
-           print "}"
-        else:
-           for first_item in first_set:
-                 print "        case %s : " % (first_item) 
-           print "        {"
-           print "               nodecl_check_tree_%s(%s);" % (rule_ref_c, tree_expr)
-           print "               break;"
-           print "        }"
+           raise Exception("First set can't be empty!")
+
+        for first_item in first_set:
+              print "        case %s : " % (first_item) 
+        print "        {"
+        print "               nodecl_check_tree_%s(%s);" % (rule_ref_c, tree_expr)
+        print "               break;"
+        print "        }"
+        print "// End of check code for '%s'" % (self.rule_ref)
 
 def generate_check_routines_rec(rule_map, rule_name):
     rule_info = rule_map[rule_name]
     rule_name_c = rule_name.replace("-", "_");
     print "static void nodecl_check_tree_%s(nodecl_t n)" % (rule_name_c)
     print "{"
-    print "   ERROR_CONDITION(nodecl_is_null(n), \"Invalid null tree\", 0);"
-    print "   switch (nodecl_get_kind(n))"
-    print "   {"
-    first_set = set([])
-    for rhs in rule_info:
-        rhs.check_code("n")
-        first_set = first_set.union(rhs.first())
-    print "     default:"
-    print "     {"
-    print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(n)));" \
-        % (string.join(first_set, " or "))
-    print "        break;"
-    print "     }"
-    print "   }"
+    print " // Not yet implemented"
     print "}"
 
 
@@ -575,6 +548,8 @@ def generate_routines_header(rule_map):
            param_list_nodecl.append("const_value_t*");
        if rhs_rule.needs_template_parameters:
            param_list_nodecl.append("template_parameter_list_t*");
+       if rhs_rule.needs_decl_context:
+           param_list_nodecl.append("decl_context_t");
        param_list_nodecl.append("const char* filename");
        param_list_nodecl.append("int line");
 
@@ -629,6 +604,8 @@ def generate_routines_impl(rule_map):
            param_list_nodecl.append("const_value_t* cval");
        if rhs_rule.needs_template_parameters:
            param_list_nodecl.append("template_parameter_list_t* template_parameters");
+       if rhs_rule.needs_decl_context:
+           param_list_nodecl.append("decl_context_t decl_context");
        param_list_nodecl.append("const char* filename");
        param_list_nodecl.append("int line");
        if not param_list_nodecl:
@@ -698,6 +675,8 @@ def generate_routines_impl(rule_map):
            print "  nodecl_set_constant(result, cval);"
        if rhs_rule.needs_template_parameters:
            print "  nodecl_set_template_parameters(result, template_parameters);"
+       if rhs_rule.needs_decl_context:
+           print "  nodecl_set_decl_context(result, decl_context);"
 
        print "  return result;"
        print "}"
