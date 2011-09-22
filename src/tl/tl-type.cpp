@@ -27,7 +27,8 @@
 
 
 #include "tl-type.hpp"
-#include "tl-ast.hpp"
+#include "tl-scope.hpp"
+#include "tl-nodecl.hpp"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
@@ -119,28 +120,27 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_array_to(AST_t array_expr, Scope sc)
+    Type Type::get_array_to(Nodecl::NodeclBase array_expr, Scope sc)
     {
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        nodecl_t n = { array_expr._ast };
-// FIXME - This requires a nodecl
-        type_t* array_to = get_array_type(result_type, n, decl_context);
+        type_t* array_to = get_array_type(result_type, array_expr.get_internal_nodecl(), decl_context);
 
         return Type(array_to);
     }
 
-    Type Type::get_array_to(AST_t lower_bound, AST_t upper_bound, Scope sc)
+    Type Type::get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope sc)
     {
         type_t* result_type = this->_type_info;
 
         decl_context_t decl_context = sc.get_decl_context();
 
-        nodecl_t l = { lower_bound._ast };
-        nodecl_t u = { upper_bound._ast };
-        type_t* array_to = get_array_type_bounds(result_type, l, u, decl_context);
+        type_t* array_to = get_array_type_bounds(result_type, 
+                lower_bound.get_internal_nodecl(), 
+                upper_bound.get_internal_nodecl(), 
+                decl_context);
 
         return Type(array_to);
     }
@@ -428,16 +428,15 @@ namespace TL
         return false;
     }
 
-    AST_t Type::array_get_size() const
+    Nodecl::NodeclBase Type::array_get_size() const
     {
-        AST expression = nodecl_get_ast(array_type_get_array_size_expr(_type_info));
-        return expression;
+        return array_type_get_array_size_expr(_type_info);
     }
 
-    void Type::array_get_bounds(AST_t& lower, AST_t& upper) const
+    void Type::array_get_bounds(Nodecl::NodeclBase& lower, Nodecl::NodeclBase& upper) const
     {
-        lower = AST_t(nodecl_get_ast(array_type_get_array_lower_bound(_type_info)));
-        upper = AST_t(nodecl_get_ast(array_type_get_array_upper_bound(_type_info)));
+        lower = array_type_get_array_lower_bound(_type_info);
+        upper = array_type_get_array_upper_bound(_type_info);
     }
 
     bool Type::array_is_region() const
@@ -445,16 +444,15 @@ namespace TL
         return array_type_has_region(_type_info);
     }
 
-    void Type::array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const
+    void Type::array_get_region_bounds(Nodecl::NodeclBase& region_lower, Nodecl::NodeclBase& region_upper) const
     {
-        region_lower = nodecl_get_ast(array_type_get_region_lower_bound(_type_info));
-        region_upper = nodecl_get_ast(array_type_get_region_upper_bound(_type_info));
+        region_lower = array_type_get_region_lower_bound(_type_info);
+        region_upper = array_type_get_region_upper_bound(_type_info);
     }
 
-    AST_t Type::array_get_region_size() const
+    Nodecl::NodeclBase Type::array_get_region_size() const
     {
-        AST expression = nodecl_get_ast(array_type_get_region_size_expr(_type_info));
-        return expression;
+        return array_type_get_region_size_expr(_type_info);
     }
 
     Type Type::get_void_type(void)
@@ -744,42 +742,6 @@ namespace TL
     bool Type::is_template_specialized_type() const
     {
         return (::is_template_specialized_type(_type_info));
-    }
-
-    ObjectList<TemplateParameter> Type::get_template_parameters() const
-    {
-        ObjectList<TemplateParameter> result;
-        template_parameter_list_t* template_parameters = NULL;
-
-        if (is_template_type())
-        {
-            template_parameters = template_type_get_template_parameters(_type_info);
-        }
-        else if (is_template_specialized_type())
-        {
-            template_parameters = template_specialized_type_get_template_parameters(_type_info);
-        }
-
-        int i;
-        for (i = 0; i < template_parameters->num_parameters; i++)
-        {
-            result.append(TemplateParameter(template_parameters, i));
-        }
-
-        return result;
-    }
-
-    ObjectList<TemplateArgument> Type::get_template_arguments() const
-    {
-        ObjectList<TemplateArgument> result;
-        template_parameter_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
-
-        for (int i = 0; i < arg_list->num_parameters; i++)
-        {
-            result.append(TemplateArgument(arg_list, i));
-        }
-
-        return result;
     }
 
     Type Type::get_related_template_type() const

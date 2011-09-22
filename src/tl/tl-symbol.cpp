@@ -27,7 +27,9 @@
 
 
 #include "tl-symbol.hpp"
+#include "tl-scope.hpp"
 #include "tl-type.hpp"
+#include "tl-nodecl.hpp"
 
 namespace TL
 {
@@ -194,23 +196,6 @@ namespace TL
         return Type(_symbol->entity_specs.class_type);
     }
 
-    AST_t Symbol::get_point_of_declaration() const
-    {
-        return AST_t(_symbol->point_of_declaration);
-    }
-
-    AST_t Symbol::get_point_of_definition() const
-    {
-        if (is_defined())
-        {
-            return AST_t(_symbol->point_of_definition);
-        }
-        else
-        {
-            return AST_t(NULL);
-        }
-    }
-
     bool Symbol::is_parameter() const
     {
         return (_symbol->entity_specs.is_parameter);
@@ -290,9 +275,9 @@ namespace TL
         return (!nodecl_is_null(_symbol->value));
     }
 
-    AST_t Symbol::get_initialization() const
+    Nodecl::NodeclBase Symbol::get_initialization() const
     {
-        return AST_t();
+        return _symbol->value;
     }
 
     bool Symbol::has_namespace_scope() const
@@ -335,9 +320,9 @@ namespace TL
         return _symbol->entity_specs.is_builtin;
     }
 
-    AST_t Symbol::get_definition_tree() const
+    Nodecl::NodeclBase Symbol::get_definition_tree() const
     {
-        return AST_t();
+        return Nodecl::NodeclBase::null();
     }
     
     bool Symbol::has_gcc_attribute(const std::string &str) const
@@ -353,7 +338,7 @@ namespace TL
         return false;
     }
 
-    AST_t Symbol::get_argument_of_gcc_attribute(const std::string &str) const
+    Nodecl::NodeclBase Symbol::get_argument_of_gcc_attribute(const std::string &str) const
     {
         for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
         {
@@ -361,11 +346,11 @@ namespace TL
 
             if (current_gcc_attr == str)
             {
-                return nodecl_get_ast(_symbol->entity_specs.gcc_attributes[i].expression_list);
+                return _symbol->entity_specs.gcc_attributes[i].expression_list;
             }
         }
 
-        return AST_t(NULL);
+        return Nodecl::NodeclBase::null();
     }
 
     bool Symbol::is_defined() const

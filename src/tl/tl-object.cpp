@@ -28,8 +28,8 @@
 
 #include "tl-builtin.hpp"
 #include "tl-object.hpp"
-#include "tl-ast.hpp"
 #include "tl-symbol.hpp"
+#include "tl-type.hpp"
 
 #include <cstdlib>
 #include <cstring>

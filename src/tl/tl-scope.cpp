@@ -94,35 +94,6 @@ namespace TL
         return result;
     }
 
-    ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
-    {
-        ObjectList<Symbol> result;
-        AST _ast = ast._ast;
-
-        decl_flags_t flags = DF_NONE;
-
-        if (!examine_uninstantiated)
-            flags = DF_DEPENDENT_TYPENAME;
-
-        scope_entry_list_t* entry_list = query_id_expression_flags(_decl_context, _ast, flags);
-
-        convert_to_vector(entry_list, result);
-
-        entry_list_free(entry_list);
-
-        return result;
-    }
-
-    Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
-    {
-        ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast, examine_uninstantiated);
-
-        Symbol result(NULL);
-        get_head(list, result);
-
-        return result;
-    }
-
     Scope Scope::temporal_scope() const
     {
         decl_context_t block_context = new_block_context(_decl_context);
@@ -233,56 +204,9 @@ namespace TL
         return result;
     }
 
-    ObjectList<TemplateParameter> Scope::get_template_parameters() const
-    {
-        ObjectList<TemplateParameter> result;
-
-        if (_decl_context.template_parameters != NULL)
-        {
-            for (int i = 0; i < _decl_context.template_parameters->num_parameters; i++)
-            {
-                result.append(TemplateParameter(
-                            _decl_context.template_parameters,
-                            i
-                            ));
-            }
-        }
-
-        return result;
-    }
-
     Symbol Scope::get_class_of_scope()
     {
         return _decl_context.class_scope->related_entry;
-    }
-
-    ObjectList<Symbol> Scope::koenig_lookup(ObjectList<Type> arguments, AST_t id_expr)
-    {
-        internal_error("Not yet implemented", 0);
-        //* int num_args = arguments.size();
-        //* type_t** argument_list = new type_t*[arguments.size()];
-
-        //* int i = 0;
-        //* for (ObjectList<Type>::iterator it = arguments.begin(); it != arguments.end(); it++, i++)
-        //* {
-        //*     argument_list[i] = it->get_internal_type();
-        //* }
-
-        //* scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
-
-        //* ObjectList<Symbol> result;
-        //* convert_to_vector(entry_list, result);
-        //* entry_list_free(entry_list);
-
-        //* delete[] argument_list;
-
-        //* return result;
-    }
-
-    AST_t Scope::wrap_symbol_name(const std::string& str)
-    {
-        AST a = ASTLeaf(AST_SYMBOL, NULL, 0, str.c_str());
-        return a;
     }
 
     Symbol Scope::get_related_symbol() const

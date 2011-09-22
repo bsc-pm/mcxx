@@ -24,7 +24,9 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
+# SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
+
+SUBDIRS = .
 
 END=
 
@@ -80,86 +82,143 @@ EXTRA_DIST=Makefile.phases \
            $(END)
 
 libtl_la_SOURCES = \
+    tl-common.hpp \
     tl-object.hpp \
     tl-object.cpp \
     tl-builtin.hpp \
     tl-builtin.cpp \
-    tl-ast.hpp \
-    tl-ast.cpp \
     tl-nodecl-visitor.hpp \
     tl-nodecl-visitor.cpp \
+    tl-nodecl-fwd.hpp \
     tl-nodecl.hpp \
     tl-nodecl.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
-	tl-scopelink.hpp \
-	tl-scopelink.cpp \
     tl-dto.hpp \
     tl-dto.cpp \
-	tl-symbol.hpp \
-	tl-symbol.cpp \
+    tl-symbol-fwd.hpp \
+    tl-symbol.hpp \
+    tl-symbol.cpp \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
-	tl-lexer.hpp \
-	tl-lexer.cpp \
-	tl-lexer-tokens.hpp \
-	tl-source.hpp \
-	tl-source.cpp \
-	tl-type.hpp \
-	tl-type.cpp \
-    tl-overload.cpp \
-    tl-overload.hpp \
-	tl-traverse.hpp \
-	tl-traverse.cpp \
-	tl-context.hpp \
-	tl-context.cpp \
-	tl-objectlist.hpp \
-	tl-objectlist.cpp \
-	tl-predicate.hpp \
-	tl-predicate.cpp \
-	tl-functor.hpp \
-	tl-functor.cpp \
-	tl-predicateutils.hpp \
-	tl-predicateutils.cpp \
-	tl-langconstruct.hpp \
-	tl-langconstruct.cpp \
-	tl-statement.hpp \
-	tl-statement.cpp \
-	tl-externalvars.hpp \
-	tl-externalvars.cpp \
-	tl-handler.hpp \
-	tl-handler.cpp \
-	tl-pragmasupport.hpp \
-	tl-pragmasupport.cpp \
-	tl-refptr.hpp \
-	tl-multifile.hpp \
-	tl-multifile.cpp \
-	tl-compilerpipeline.cpp \
-	tl-compilerpipeline.hpp \
-	tl-declarationclosure.hpp \
-	tl-declarationclosure.cpp \
-	tl-static-callgraph.hpp \
-	tl-static-callgraph.cpp \
-    tl-common.hpp \
+    tl-lexer.hpp \
+    tl-lexer.cpp \
+    tl-lexer-tokens.hpp \
+    tl-source.hpp \
+    tl-source.cpp \
+    tl-type-fwd.hpp \
+    tl-type.hpp \
+    tl-type.cpp \
+    tl-objectlist.hpp \
+    tl-objectlist.cpp \
+    tl-externalvars.hpp \
+    tl-externalvars.cpp \
+    tl-pragmasupport.hpp \
+    tl-pragmasupport.cpp \
+    tl-refptr.hpp \
+    tl-multifile.hpp \
+    tl-multifile.cpp \
+    tl-compilerpipeline.cpp \
+    tl-compilerpipeline.hpp \
     tl-for-nest.hpp \
     tl-for-nest.cpp \
     tl-counters.hpp \
     tl-counters.cpp \
-    tl-templates.hpp \
-    tl-templates.cpp \
     tl-datareference.hpp \
     tl-datareference.cpp \
     tl-clauses-info.hpp \
     tl-clauses-info.cpp \
     tl-setdto-phase.hpp \
     tl-setdto-phase.cpp \
-    tl-fortran.hpp \
-    tl-fortran.cpp \
-    tl-simd.hpp \
-    tl-simd.cpp \
-	tl-cuda.hpp \
-	tl-cuda.cpp \
-	$(END)
+    tl-predicate.hpp \
+    tl-predicate.cpp \
+    tl-functor.hpp \
+    tl-functor.cpp \
+    tl-handler.hpp \
+    tl-handler.cpp \
+    $(END)
+
+# libtl_la_SOURCES = \
+#     tl-object.hpp \
+#     tl-object.cpp \
+#     tl-builtin.hpp \
+#     tl-builtin.cpp \
+#     tl-ast.hpp \
+#     tl-ast.cpp \
+#     tl-nodecl-visitor.hpp \
+#     tl-nodecl-visitor.cpp \
+#     tl-nodecl.hpp \
+#     tl-nodecl.cpp \
+#     tl-scope.hpp \
+#     tl-scope.cpp \
+#     tl-scopelink.hpp \
+#     tl-scopelink.cpp \
+#     tl-dto.hpp \
+#     tl-dto.cpp \
+#     tl-symbol.hpp \
+#     tl-symbol.cpp \
+#     tl-compilerphase.hpp \
+#     tl-compilerphase.cpp \
+#     tl-lexer.hpp \
+#     tl-lexer.cpp \
+#     tl-lexer-tokens.hpp \
+#     tl-source.hpp \
+#     tl-source.cpp \
+#     tl-type.hpp \
+#     tl-type.cpp \
+#     tl-overload.cpp \
+#     tl-overload.hpp \
+#     tl-traverse.hpp \
+#     tl-traverse.cpp \
+#     tl-context.hpp \
+#     tl-context.cpp \
+#     tl-objectlist.hpp \
+#     tl-objectlist.cpp \
+#     tl-predicate.hpp \
+#     tl-predicate.cpp \
+#     tl-functor.hpp \
+#     tl-functor.cpp \
+#     tl-predicateutils.hpp \
+#     tl-predicateutils.cpp \
+#     tl-langconstruct.hpp \
+#     tl-langconstruct.cpp \
+#     tl-statement.hpp \
+#     tl-statement.cpp \
+#     tl-externalvars.hpp \
+#     tl-externalvars.cpp \
+#     tl-handler.hpp \
+#     tl-handler.cpp \
+#     tl-pragmasupport.hpp \
+#     tl-pragmasupport.cpp \
+#     tl-refptr.hpp \
+#     tl-multifile.hpp \
+#     tl-multifile.cpp \
+#     tl-compilerpipeline.cpp \
+#     tl-compilerpipeline.hpp \
+#     tl-declarationclosure.hpp \
+#     tl-declarationclosure.cpp \
+#     tl-static-callgraph.hpp \
+#     tl-static-callgraph.cpp \
+#     tl-common.hpp \
+#     tl-for-nest.hpp \
+#     tl-for-nest.cpp \
+#     tl-counters.hpp \
+#     tl-counters.cpp \
+#     tl-templates.hpp \
+#     tl-templates.cpp \
+#     tl-datareference.hpp \
+#     tl-datareference.cpp \
+#     tl-clauses-info.hpp \
+#     tl-clauses-info.cpp \
+#     tl-setdto-phase.hpp \
+#     tl-setdto-phase.cpp \
+#     tl-fortran.hpp \
+#     tl-fortran.cpp \
+#     tl-simd.hpp \
+#     tl-simd.cpp \
+#     tl-cuda.hpp \
+#     tl-cuda.cpp \
+#     $(END)
 
 if WINDOWS_BUILD
 no_undefined=-no-undefined

@@ -35,9 +35,7 @@
 #include <algorithm>
 #include "tl-clauses-info.hpp"
 #include "tl-compilerphase.hpp"
-#include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
-#include "tl-traverse.hpp"
 #include "tl-source.hpp"
 #include "cxx-attrnames.h"
 

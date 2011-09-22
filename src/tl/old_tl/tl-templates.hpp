@@ -33,7 +33,6 @@
 
 #include "tl-type.hpp"
 #include "tl-symbol.hpp"
-#include "tl-scopelink.hpp"
 
 namespace TL
 {

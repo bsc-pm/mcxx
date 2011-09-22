@@ -437,6 +437,10 @@ def generate_nodecl_classes_base(rule_map):
    print "    template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }"
    print "    template <typename T> T as() const { return T(this->_n); }"
    print "    template <typename Ret> friend class BaseNodeclVisitor;"
+   print "    // Sorting of trees by pointer"
+   print "    bool operator<(const NodeclBase& n) { return nodecl_get_ast(this->_n) < nodecl_get_ast(n._n); }"
+   print "    // Equality by pointer"
+   print "    bool operator==(const NodeclBase& n) { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }"
    print "};"
    classes_and_children = get_all_class_names_and_children_names(rule_map)
    for (class_name, children_name, tree_kind) in classes_and_children:
