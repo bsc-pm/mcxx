@@ -113,21 +113,13 @@ libtl_la_SOURCES = \
     tl-objectlist.cpp \
     tl-externalvars.hpp \
     tl-externalvars.cpp \
-    tl-pragmasupport.hpp \
-    tl-pragmasupport.cpp \
     tl-refptr.hpp \
     tl-multifile.hpp \
     tl-multifile.cpp \
     tl-compilerpipeline.cpp \
     tl-compilerpipeline.hpp \
-    tl-for-nest.hpp \
-    tl-for-nest.cpp \
     tl-counters.hpp \
     tl-counters.cpp \
-    tl-datareference.hpp \
-    tl-datareference.cpp \
-    tl-clauses-info.hpp \
-    tl-clauses-info.cpp \
     tl-setdto-phase.hpp \
     tl-setdto-phase.cpp \
     tl-predicate.hpp \

@@ -31,8 +31,12 @@
 
 #include <string>
 
-#include "tl-type.hpp"
-#include "tl-pragmasupport.hpp"
+#include "tl-object.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-type-fwd.hpp"
+#include "tl-nodecl-fwd.hpp"
+
+#include <map>
 
 namespace TL
 {
@@ -52,41 +56,41 @@ namespace TL
 			};
 
             //! Keys of clauses for each directive
-			std::map<AST_t, DirectiveClauses> _directive_clauses_map;
+			std::map<Nodecl::NodeclBase, DirectiveClauses> _directive_clauses_map;
             
-            DirectiveClauses& lookup_map(AST_t a);
+            DirectiveClauses& lookup_map(Nodecl::NodeclBase a);
             
 		public:
             //! Default constructor
             ClausesInfo();
 
             //! Store in the map 'directive_clauses_map' all possible clauses related to /a directive
-            void set_all_clauses(AST_t directive, ObjectList<std::string> all_clauses);
+            void set_all_clauses(Nodecl::NodeclBase directive, ObjectList<std::string> all_clauses);
 
             //! Add clause that is used to /a directive
             /*!
               This method is called each time a PragmaCustomConstruct calls the method get_clause()
               */
-		    void add_referenced_clause(AST_t directive, std::string clause_name);
+		    void add_referenced_clause(Nodecl::NodeclBase directive, std::string clause_name);
         
-            void add_referenced_clause(AST_t directive, const ObjectList<std::string> & clause_names);
+            void add_referenced_clause(Nodecl::NodeclBase directive, const ObjectList<std::string> & clause_names);
 
             //! Add the locus info (file and line) to the a/ directive entry of _directive_clauses_map
-            void set_locus_info(AST_t directive);
+            void set_locus_info(Nodecl::NodeclBase directive);
 
             void set_pragma(const PragmaCustomConstruct& directive);
 
             //! Concludes if /a directive is already defined in _directive_clauses_map
-            bool directive_already_defined(AST_t directive);
+            bool directive_already_defined(Nodecl::NodeclBase directive);
 
             //! Return all clauses related to /a directive that hasn't been used during the execution
-		    ObjectList<std::string> get_unreferenced_clauses(AST_t directive);
+		    ObjectList<std::string> get_unreferenced_clauses(Nodecl::NodeclBase directive);
 
             //! Return the file and line where /a directive was declared
-		    std::string get_locus_info(AST_t directive);
+		    std::string get_locus_info(Nodecl::NodeclBase directive);
 
             //! Return the pragma for which /a directive was declared
-		    std::string get_pragma(AST_t directive);
+		    std::string get_pragma(Nodecl::NodeclBase directive);
     };
 }
 
