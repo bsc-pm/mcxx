@@ -30,10 +30,10 @@ namespace TL
     static bool is_worksharing(std::string directive);
     static bool is_combined_worksharing(std::string directive);
     
-    ExtensibleGraph::ExtensibleGraph(ScopeLink sl, std::string name)
-        : _graph(NULL), _sl(sl), _name(name), _nid(-1),
+    ExtensibleGraph::ExtensibleGraph(std::string name)
+        : _graph(NULL), _name(name), _nid(-1),
           _continue_stack(), _break_stack(),
-          _labeled_node_list(), _goto_node_list(), _tasks_node_list(),
+          _labeled_node_l(), _goto_node_l(), _tasks_node_l(),
           _last_nodes(), _outer_node()
     {
         _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), "extensible_graph");
@@ -43,14 +43,13 @@ namespace TL
     ExtensibleGraph::ExtensibleGraph(const ExtensibleGraph& graph)
     {
         _graph = graph._graph;
-        _sl = graph._sl;
         _name = graph._name;
         _nid = graph._nid;
         _continue_stack = graph._continue_stack;
         _break_stack = graph._break_stack;
-        _labeled_node_list = graph._labeled_node_list; 
-        _goto_node_list = graph._goto_node_list;
-        _tasks_node_list = graph._tasks_node_list;
+        _labeled_node_l = graph._labeled_node_l;
+        _goto_node_l = graph._goto_node_l;
+        _tasks_node_l = graph._tasks_node_l;
         _last_nodes = graph._last_nodes;
         _outer_node = graph._outer_node;
     }
@@ -173,6 +172,27 @@ namespace TL
         }
     }
 
+    void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, 
+                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels)
+    {
+        ObjectList<Edge_type>::iterator itt = etypes.begin();
+        ObjectList<std::string>::iterator itl = labels.begin();
+        ObjectList<Node*>::iterator it = parents.begin();
+        for(;
+            it != parents.end(), itt != etypes.end(), itl != labels.end();
+            ++it, ++itt, ++itl)
+        {
+            connect_nodes(*it, child, *itt, *itl);
+        }
+        
+        if (it != parents.end() || itt != etypes.end() || itl != labels.end())
+        {
+            internal_error("Wrong list size while connecting a list of nodes as parent of "
+                           "other node (parents '%d', edge types '%d', edge labels '%d')\n",
+                           parents.size(), etypes.size(), labels.size());
+        }        
+    }
+
     void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype, std::string label)
     {
         for(ObjectList<Node*>::iterator it = parents.begin();
@@ -183,10 +203,10 @@ namespace TL
         }
     }
 
-    Node* ExtensibleGraph::create_graph_node(Node* outer_graph, Nodecl::NodeclBase label, std::string graph_type)
+    Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, std::string graph_type)
     {
 //         std::cerr << "Creating Graph node " << _nid+1 << std::endl;
-        Node* result = new Node(_nid, GRAPH_NODE, outer_graph);
+        Node* result = new Node(_nid, GRAPH_NODE, outer_node);
         
         Node* entry_node = result->get_data<Node*>(_ENTRY_NODE);
         entry_node->set_data(_OUTER_NODE, result);
@@ -199,6 +219,17 @@ namespace TL
         _outer_node.push(result);
         
         return result;
+    }
+    
+    void ExtensibleGraph::create_barrier_node(Node* outer_node)
+    {
+        Node* flush_node = new Node(_nid, FLUSH_NODE, outer_node);
+        connect_nodes(_last_nodes, flush_node);
+        Node* barrier_node = new Node(_nid, BARRIER_NODE, outer_node);
+        connect_nodes(flush_node, barrier_node);
+        flush_node = new Node(_nid, FLUSH_NODE, outer_node);
+        connect_nodes(barrier_node, flush_node);
+        _last_nodes.clear(); _last_nodes.append(flush_node);
     }
     
     Node* ExtensibleGraph::create_unconnected_node(Nodecl::NodeclBase nodecl)
@@ -233,9 +264,91 @@ namespace TL
         delete (n);
     }
     
+    void ExtensibleGraph::concat_sequential_nodes()
+    {
+        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
+
+        ObjectList<Node*> seq_l;
+        concat_sequential_nodes_recursive(entry, seq_l);
+    }
+    
+    void ExtensibleGraph::concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes)
+    {
+        if (!actual_node->is_visited())
+        {
+            actual_node->set_visited(true);
+            
+            Node_type ntype = actual_node->get_data<Node_type>(_NODE_TYPE);
+            
+            if ((ntype != BASIC_NORMAL_NODE || actual_node->get_exit_edges().size() > 2) 
+                && ntype != BASIC_ENTRY_NODE)
+            {
+                concat_nodes(last_seq_nodes);
+                last_seq_nodes.clear();
+                
+                if (ntype == GRAPH_NODE)
+                {
+                    concat_sequential_nodes_recursive(actual_node->get_data<Node*>(_ENTRY_NODE), last_seq_nodes);
+                }
+                else if (ntype == BASIC_EXIT_NODE)
+                {
+                    return;
+                }
+            }
+            else if (ntype != BASIC_ENTRY_NODE)
+            {
+                last_seq_nodes.append(actual_node);
+            }
+            
+            ObjectList<Node*> actual_exits = actual_node->get_children();
+            for(ObjectList<Node*>::iterator it = actual_exits.begin();
+                it != actual_exits.end();
+                ++it)
+            {
+                concat_sequential_nodes_recursive(*it, last_seq_nodes);
+            }
+        }
+    }
+    
+    void ExtensibleGraph::concat_nodes(ObjectList<Node*> node_l)
+    {
+        if (!node_l.empty())
+        {
+            // Create the new node
+            ObjectList<Nodecl::NodeclBase> stmt_l;
+            for(ObjectList<Node*>::iterator it = node_l.begin();
+                it != node_l.end();
+                ++it)
+            {
+                stmt_l.append((*it)->get_data<Nodecl::NodeclBase>(_NODE_STMTS, Nodecl::NodeclBase::null()));
+            }
+            Node* new_node = new Node(_nid, BASIC_NORMAL_NODE, _outer_node.top(), stmt_l);
+            
+            // Connect the node
+            Node* front = node_l.front();
+            Node* back = node_l.back();
+            connect_nodes(front->get_parents(), new_node,
+                        front->get_entry_edge_types(), front->get_entry_edge_labels());
+            connect_nodes(new_node, back->get_children(),
+                        back->get_exit_edge_types(), back->get_exit_edge_labels());
+            
+            // Destroy the previous nodes
+            for(ObjectList<Node*>::iterator it = node_l.begin();
+                it != node_l.end();
+                ++it)
+            {
+                delete_node(*it);
+            }
+        }
+        else
+        {
+            std::cerr << "warning: trying to concatenate an empty list of nodes" << std::endl;
+        }
+    }
+    
     void ExtensibleGraph::clear_unnecessary_nodes()
     {   
-        std::cerr << "Clearing unnecessary nodes" << std::endl;
+//         std::cerr << "Clearing unnecessary nodes" << std::endl;
         // Clear all the Entry / Exit nodes except the first and the last ones
         Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
         Node* exit = _graph->get_data<Node*>(_EXIT_NODE);
@@ -243,8 +356,8 @@ namespace TL
 //         clear_orphaned_nodes(exit);
 //         clear_visits(entry);
         
-//         erase_unclassified_nodes(entry);
-//         clear_visits(entry);
+        erase_unclassified_nodes(entry);
+        clear_visits(entry);
         
 //         join_unhalted_statements(entry, ObjectList<Node*>());
 //         clear_visits(entry);
@@ -331,7 +444,6 @@ namespace TL
     {
         ObjectList<Node*> children = actual_node->get_children();
         disconnect_nodes(actual_node, children);
-        std::cerr << "Deleting node " << actual_node->get_id() << std::endl;
         delete_node(actual_node);
         
         for(ObjectList<Node*>::iterator it = children.begin();
@@ -370,6 +482,7 @@ namespace TL
                     disconnect_nodes(actual, children);
                     
                     connect_nodes(parents, children, entry_types, entry_labels);
+                    delete (actual);
                 }
                 else if (ntype == GRAPH_NODE)
                 {
@@ -403,53 +516,6 @@ namespace TL
 
 
 
-    Node* ExtensibleGraph::build_labeled_statement(Node* parent, Statement labeled_stmt, 
-                                                   Node* outer_graph)
-    {
-        LabeledStatement inner_labeled_statement(labeled_stmt.get_ast(), _sl);
-        ObjectList<AST_t> labeled_ast(1, inner_labeled_statement.get_labeled_statement().get_ast());
-        Node* labeled_node = append_new_node_to_parent(parent, labeled_ast, outer_graph, 
-                                                       BASIC_LABELED_NODE);
-        labeled_node->set_data<std::string>(_NODE_LABEL, inner_labeled_statement.get_label());
-        
-        _labeled_node_list.append(labeled_node);
-        
-        // Check if there is some GotoStatement that jumps to this node
-        for(ObjectList<Node*>::iterator it = _goto_node_list.begin();
-                it != _goto_node_list.end();
-                ++it)
-        {
-            if ((*it)->get_data<std::string>(_NODE_LABEL) == inner_labeled_statement.get_label())
-            {    
-                connect_nodes(*it, labeled_node);
-            }
-        }
-        
-        return labeled_node;
-    }
-    
-    Node* ExtensibleGraph::build_goto_statement(Node* parent, Statement goto_stmt,Node* outer_graph)
-    {
-        GotoStatement inner_goto_statement(goto_stmt.get_ast(), _sl);
-        
-        Node* goto_node= append_new_node_to_parent(parent,ObjectList<AST_t>(1,goto_stmt.get_ast()), 
-                                                    outer_graph, BASIC_GOTO_NODE);
-        goto_node->set_data<std::string>(_NODE_LABEL, inner_goto_statement.get_label());
-        
-        _goto_node_list.append(goto_node);
-        
-        for(ObjectList<Node*>::iterator it = _labeled_node_list.begin();
-                it != _labeled_node_list.end();
-                ++it)
-        {
-            if ((*it)->get_data<std::string>(_NODE_LABEL) == inner_goto_statement.get_label())
-            {    
-                connect_nodes(goto_node, *it);
-            }
-        }
-        
-        return NULL;
-    }
     
     Node* ExtensibleGraph::build_pragma_construct(Node* parent, Statement pragma_stmt, 
                                                   Node* outer_graph)
@@ -719,146 +785,9 @@ namespace TL
 //         }
 //         
 //         return create_barrier_node(section_nodes, outer_graph);
-return NULL;
-    }
-
-    Node* ExtensibleGraph::create_barrier_node(ObjectList<Node*> parents, Node* outer_graph)
-    {
-//         Node* flush_before_barrier = 
-//             append_new_node_to_parent(NULL, ObjectList<AST_t>(1, AST_t()), outer_graph, FLUSH_NODE);
-//         connect_nodes(parents, flush_before_barrier);
-//         Node* barrier_node = append_new_node_to_parent(flush_before_barrier, 
-//                                                        ObjectList<AST_t>(1, AST_t()), outer_graph,
-//                                                        BARRIER_NODE);
-//         Node* flush_after_barrier = append_new_node_to_parent(barrier_node, 
-//                                                               ObjectList<AST_t>(1, AST_t()),
-//                                                               outer_graph, FLUSH_NODE);
-//         return flush_after_barrier;
         return NULL;
     }
 
-    Node* ExtensibleGraph::append_new_node_to_parent(Node *parent, ObjectList<Statement> stmts, 
-                                                     Node* outer_graph, Node_type ntype, 
-                                                     Edge_type etype)
-    {
-        ObjectList<AST_t> stmts_asts;
-        for(ObjectList<Statement>::iterator it = stmts.begin();
-                it != stmts.end();
-                ++it)
-        {
-            stmts_asts.append(it->get_ast());
-        }
-        return append_new_node_to_parent(parent, stmts_asts, outer_graph, ntype, etype);
-    }
-
-    Node* ExtensibleGraph::append_new_node_to_parent(Node *parent, ObjectList<AST_t> stmts, 
-                                                     Node* outer_graph, Node_type ntype, 
-                                                     Edge_type etype)
-    {
-        Node* new_node = new Node(_nid, ntype, outer_graph);
-        if (ntype != BASIC_ENTRY_NODE && ntype != BASIC_EXIT_NODE && ntype != GRAPH_NODE && 
-            ntype != UNCLASSIFIED_NODE && ntype != FLUSH_NODE && ntype != BARRIER_NODE)
-        {
-            new_node->set_data(_NODE_STMTS, stmts);
-        }
-        if (ntype == GRAPH_NODE)
-        {
-            internal_error("A Graph node must be created with the function 'create_graph_node' "
-                           "and connected by hand [new id = %d]", _nid);
-        }
-        if (parent != NULL)
-        {
-            connect_nodes(parent, new_node, etype);
-        }
-        
-        return new_node;
-    }
-    
-//     void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* child, Edge_type etype, 
-//                                         std::string label)
-//     {
-//         for(ObjectList<Node*>::iterator it = parents.begin();
-//                 it != parents.end();
-//                 ++it)
-//         {
-//             connect_nodes(*it, child, etype, label);
-//         }
-//     }    
-//     
-//     void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
-//                                         ObjectList<Edge_type> etypes,ObjectList<std::string> labels)
-//     {
-//         ObjectList<Edge_type>::iterator itt = etypes.begin();
-//         ObjectList<std::string>::iterator itl = labels.begin();
-//         ObjectList<Node*>::iterator it = parents.begin();
-//         for(;
-//             it != parents.end(), itt != etypes.end(), itl != labels.end();
-//             ++it, ++itt, ++itl)
-//         {
-//             connect_nodes(*it, children, ObjectList<Edge_type>(children.size(), *itt), 
-//                           ObjectList<std::string>(children.size(), *itl));
-//         }
-//         
-//         if (it != parents.end() || itt != etypes.end() || itl != labels.end())
-//         {
-//             internal_error("Wrong list size while connecting a list of nodes as children of " 
-//                            "other node (children '%d', edge types '%d', edge labels '%d')\n",
-//                            parents.size(), etypes.size(), labels.size());
-//         }
-//     }
-//     
-//     void ExtensibleGraph::connect_nodes(Node* parent, ObjectList<Node*> children, 
-//                                         ObjectList<Edge_type> etypes,ObjectList<std::string> labels)
-//     {
-//         ObjectList<Edge_type>::iterator itt = etypes.begin();
-//         ObjectList<std::string>::iterator itl = labels.begin();
-//         ObjectList<Node*>::iterator it = children.begin();
-//         for(;
-//             it != children.end(), itt != etypes.end(), itl != labels.end();
-//             ++it, ++itt, ++itl)
-//         {
-//             connect_nodes(parent, *it, *itt, *itl);
-//         }
-//         
-//         if (it != children.end() || itt != etypes.end() || itl != labels.end())
-//         {
-//             internal_error("Wrong list size while connecting a list of nodes as children of "
-//                            "other node (children '%d', edge types '%d', edge labels '%d')\n",
-//                            children.size(), etypes.size(), labels.size());
-//         }
-//     }
-//     
-//     void ExtensibleGraph::connect_nodes(ObjectList<Node*> parents, Node* children, 
-//                                         ObjectList<Edge_type> etypes,ObjectList<std::string> labels)
-//     {
-//         ObjectList<Edge_type>::iterator itt = etypes.begin();
-//         ObjectList<std::string>::iterator itl = labels.begin();
-//         ObjectList<Node*>::iterator it = parents.begin();
-//         for(;
-//             it != parents.end(), itt != etypes.end(), itl != labels.end();
-//             ++it, ++itt, ++itl)
-//         {
-//             connect_nodes(*it, children, *itt, *itl);
-//         }
-//         
-//         if (it != parents.end() || itt != etypes.end() || itl != labels.end())
-//         {
-//             internal_error("Wrong list size while connecting a list of nodes as parents of "
-//                            "other node (parents '%d', edge types '%d', edge labels '%d')\n",
-//                            parents.size(), etypes.size(), labels.size());
-//         }        
-//     }
-//     
-//     void ExtensibleGraph::connect_nodes(Node* parent, Node* child, Edge_type etype,
-//                                         std::string label)
-//     {
-//         if (parent != NULL && child != NULL)
-//         {
-//             Edge* new_edge = new Edge(parent, child, etype, label);
-//             parent->set_exit_edge(new_edge);
-//             child->set_entry_edge(new_edge);
-//         }
-//     }
 
 
     void ExtensibleGraph::disconnect_nodes(ObjectList<Node*> parents, Node* child)

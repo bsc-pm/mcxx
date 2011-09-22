@@ -42,7 +42,6 @@ namespace TL
         protected:
             // *** Class attributes *** //
             Node* _graph;    // Node with type GRAPH_NODE which contains the whole graph
-            ScopeLink _sl;
             std::string _name;
             int _nid;
             
@@ -51,9 +50,9 @@ namespace TL
             std::stack<Node*> _break_stack;
             
             //! Lists to keep special nodes that breaks the expected behaviour of the flow
-            ObjectList<Node*> _labeled_node_list;
-            ObjectList<Node*> _goto_node_list;
-            ObjectList<Node*> _tasks_node_list;
+            ObjectList<Node*> _labeled_node_l;
+            ObjectList<Node*> _goto_node_l;
+            ObjectList<Node*> _tasks_node_l;
             
             //! List of nodes that will be parents of a new node
             ObjectList<Node*> _last_nodes;
@@ -143,11 +142,10 @@ namespace TL
             // *** Constructors *** //
             
             //! Constructor used by the different phases to build a new ExtensibleGraph.
-            /*! 
-              \param sl ScopeLink context where the code is located.
+            /*!
               \param name Name which will identify the graph.
              */
-            ExtensibleGraph(ScopeLink sl, std::string name);
+            ExtensibleGraph(std::string name);
             
             //! Copy constructor
             ExtensibleGraph(const ExtensibleGraph& graph);
@@ -211,20 +209,35 @@ namespace TL
             //! Wrapper method for #connect_nodes when a set of parents must be connected to an
             //! only child and the nature of the connection is the same for all of them.
             void connect_nodes(ObjectList<Node*> parents, Node* child, 
+                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+            
+            //! Wrapper method for #connect_nodes when a set of parents must be connected to an
+            //! only child and the nature of the connection is the same for all of them.
+            void connect_nodes(ObjectList<Node*> parents, Node* child, 
                                Edge_type etype = ALWAYS_EDGE, std::string label = "");
             
             //! Builds a composite node with an entry and an exit node.
             /*!
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \param label Nodecl containing the Statement represented with the new node. It will be
-                           the label of the node.
-              \param graph_type Type of the composite node. 
-                                It must be some of these values: 'split_stmt',
-                                'function_call', 'conditional_expression', 'omp_pragma'.
-              \return The new composite node.
+             * \param outer_node Node to which the new structure will belong to.
+             *                   It must be a Graph node.
+             * \param label Nodecl containing the Statement represented with the new node. It will be
+             *              the label of the node.
+             * \param graph_type Type of the composite node. 
+             *                   It must be some of these values: 'split_stmt',
+             *                   'function_call', 'conditional_expression', 'omp_pragma'.
+             * \return The new composite node.
              */
-            Node* create_graph_node(Node* outer_graph, Nodecl::NodeclBase label, std::string graph_type);            
+            Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, std::string graph_type);            
+            
+            //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
+            /*!
+             * As defined in OpenMP standard, a flush occurs while a barrier point. To describe this behaviour 
+             * with the graph, we add a Flush node before and after a Barrier node.
+             * The method modifies the attribute #_last_nodes to the last Flush node created.
+             * \param outer_node Node to which the new nodes will belong to.
+             *                   It must be a Graph node.
+             */
+            void create_barrier_node(Node* outer_node);
             
             //! Builds a basic normal node (BASIC_NORMAL_NODE)
             /*!
@@ -245,6 +258,28 @@ namespace TL
             //! It also joins those nodes that are always consecutively executed and non of them
             //! are the target of a jump.
             void clear_unnecessary_nodes();
+            
+            //! This method concatenates all those nodes that form a Basic Block in one only node.
+            //! It creates a new node containing all the statements and deleted the previous nodes.
+            void concat_sequential_nodes();
+            
+            
+            void concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes);
+            
+            //! This method concatenates a list of nodes into only one
+            /*!
+             * The method assumes that each node is parent of the next node in the list, and only with it.
+             * For the first node in the list, it can be child of an unspecified list of nodes.
+             * For the last node in the list, it can be parent of an unspecified list of nodes.
+             * 
+             * The method also assumes that all the nodes in the list are BASIC_NORMAL_NODEs.
+             * 
+             * The new node will be child of the parents of the first node in the list, and 
+             * it will be parent of all the children of the last node in the list.
+             * 
+             * The new node will contain the statements of all the nodes of the list.
+             */
+            void concat_nodes(ObjectList<Node*> node_l);
             
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.
@@ -281,48 +316,7 @@ namespace TL
             
             // *** Modifiers *** //
 
-            
-            //! Builds a set of connected nodes that contains a DoWhileStatement.
-            /*!
-              The exit of the set of nodes is an empty node with type UNCLASSIFIED_NODE. All this
-              kind of nodes are removed by calling the function #clear_unnecessary_nodes.
-              \param parent Parent of the first of the new nodes to be built.
-              \param dowhile_stmt DoWhileStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Empty node with type UNCLASSIFIED_NODE.
-                      All this kind of nodes will be removed by calling #clear_unnecessary_nodes.
-            */               
-            Node* build_dowhile_node(Node* parent, Statement dowhile_stmt, 
-                                     Node* outer_graph = NULL);
-            
-            //! Builds a node that contains a LabeledStatement.
-            /*!
-              The new node is stored in a buffer where, when a GotoStatement arrives, will search
-              for any connection.
-              Also, the method searchs in a buffer where the targets of the GotoStatements arrived
-              until the moment are stored for any matching.
-              \param parent Parent of the first of the new nodes to be built.
-              \param labeled_stmt LabeledStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Node containing the labeled statement.
-            */ 
-            Node* build_labeled_statement(Node* parent, Statement labeled_stmt, 
-                                          Node* outer_graph = NULL);
-            
-            //! Builds a node that contains a GotoStatement.
-            /*!
-              Since the target of a Goto Statement will potentially not be in the following
-              statement, the Goto node is stored in a buffer where, when a Labeled Statement
-              arrives, the connexion will be searched.
-              \param parent Parent of the first of the new nodes to be built.
-              \param goto_stmt GotoStatement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return NULL pointer.
-            */ 
-            Node* build_goto_statement(Node* parent, Statement goto_stmt, Node* outer_graph = NULL);
+
             
             //! Builds a set of connected nodes that contains a Pragma Construct Statement
             /*!
@@ -345,61 +339,11 @@ namespace TL
               \return Composite node containing the set of statements of the directive.
             */                       
             Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
-            
-            //! Builds a barrier node with its flush nodes.
-            /*!
-              Since a Flush is implied during a Barrier region, a Flush Node is added before and
-              after a Barrier node.
-              \param parents Set of parents of the new barrier node.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Flush node created after the barrier node.
-             */
-            Node* create_barrier_node(ObjectList<Node*> parents, Node* outer_graph);
            
-            //! Wrapper method for #append_new_node_to_parent when the set of statements is
-            //! represented as a set of AST_t's
-            Node* append_new_node_to_parent(Node* parent, ObjectList<AST_t> stmts, 
-                                            Node* parent_graph = NULL, 
-                                            Node_type ntype=BASIC_NORMAL_NODE,
-                                            Edge_type etype=ALWAYS_EDGE);
-            
-            //! This method creates a new node containing a Basic Block and connects it to its
-            //! parent node with a new edge.
-            /*!
-              \param parent Node which is parent of the new created node
-              \param stmts Set of Statements that forms a Basic Bloc
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \param ntype Type of the node to be created.
-              \param etype Type of the new edge that connects the node parent with its new child
-              \return The new node created.
-             */
-            Node* append_new_node_to_parent(Node* parent, ObjectList<Statement> stmts,
-                                            Node* outer_graph = NULL, 
-                                            Node_type ntype = BASIC_NORMAL_NODE,
-                                            Edge_type etype = ALWAYS_EDGE);
+           
 
-//             
-//             //! Wrapper method for #connect_nodes when a set of parents must be connected to a
-//             //! child and each connection may be different from the others. 
-//             //! A set of edge types and labels must be provided.
-//             void connect_nodes(ObjectList<Node*> parents, Node* children, 
-//                                 ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
-
-            
             
             // OLD method
-            //! Connects two nodes by creating a new edge between them.
-            /*!
-              \param parent Source node of the connection. 
-              \param child Target node of the connection.
-              \param etype Type of the connection between the two nodes.
-              \param label Label for the connection. It will be used when a Catch or a Case edges
-                           are built.
-             */
-//             void connect_nodes(Node* parent, Node* child, Edge_type etype = ALWAYS_EDGE, 
-//                                std::string label = "");
             
             //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
             void disconnect_nodes(ObjectList<Node*> parents, Node* child);

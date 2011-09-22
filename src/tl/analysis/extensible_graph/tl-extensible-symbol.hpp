@@ -27,7 +27,7 @@ Cambridge, MA 02139, USA.
 
 #include <set>
 
-#include "tl-langconstruct.hpp"
+#include "tl-nodecl.hpp"
 #include "tl-symbol.hpp"
 
 namespace TL
@@ -42,8 +42,7 @@ namespace TL
     {
         private:
             Symbol _sym;
-            IdExpression _member;                // Only when _sym is a struct
-            std::set<int> _array_accessed_pos;   // Only when _sym is an array
+            Nodecl::NodeclBase _n;
             
         public:
             // *** Constructors *** //
@@ -59,8 +58,11 @@ namespace TL
               Use is_valid if the Symbol wrapped as an ExtensibleSymbol is eligible as an 
               extensible symbol.
               \param s Symbol which is wrapped in the new ExtensibleSymbol
+              \param n Nodecl containg additional information about the Symbol like
+                       the member accessed in a struct or the subscript of an array access.
+                       By default, this parameter contains a null nodecl.
              */
-            ExtensibleSymbol(Symbol s);
+            ExtensibleSymbol(Symbol s, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
             
             
             // *** Getters and Setters *** //
@@ -76,13 +78,23 @@ namespace TL
               If the ExtensibleSymbol does not represents a member, then returns an empty
               IdExpression.
              */
-            IdExpression get_member() const;
+            Nodecl::NodeclBase get_nodecl() const;
+
+            //! Returns true when the extensible symbol contains a symbols which do not represents
+            //! neither an array access nor a member access, but a symbol.
+            bool is_simple_symbol() const;
             
-            //! Returns the set of accessed positions of an array.
+            //! Returns true when the extensible symbol contains an array access.
             /*!
-              If the ExtensibleSymbol does not represents an array, then returns an empty set.
-            */
-            std::set<int> get_accessed_positions() const;
+             * This method is only valid when the extensible symbol wraps a non-simple symbol
+             */            
+            bool is_array_access() const;
+            
+            //! Returns true when the extensible symbol contains a member access.
+            /*!
+             * This method is only valid when the extensible symbol wraps a non-simple symbol
+             */            
+            bool is_member_access() const;
             
             
             // *** Overloaded methods *** //
