@@ -634,7 +634,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
         else
         {
-            release_after << "props._release_after = 0;";
+            release_after << "props._release_after = -1;";
         }
        
         //Adds deadline time information
@@ -645,7 +645,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
         else
         {
-            deadline << "props._deadline_time = 0;";
+            deadline << "props._deadline_time = -1;";
         }
 
         //Adds action error information
