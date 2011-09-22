@@ -106,75 +106,53 @@ class NodeclStructure(Variable):
         self.needs_cval = needs_cval
         self.needs_template_parameters = needs_template_parameters
         self.needs_decl_context = needs_decl_context
-    def get_name(self):
-        return "NODECL STRUCTURE -> %s" % (self.tree_kind)
     def is_nullable(self, already_seen = []):
         return False
     def first(self, already_seen = []) :
         return set([self.tree_kind])
-    def check_code(self, tree_expr):
-        print "case %s :" % (self.tree_kind)
+    def check_function_name(self):
+        return "nodecl_check_%s" % (self.tree_kind)
+    def call_to_check(self, tree_name):
+        return "%s(%s);" % (self.check_function_name(), tree_name);
+    def function_check_code(self):
+        print "static void %s(nodecl_t n)" % (self.check_function_name())
         print "{"
+        print "ERROR_CONDITION(nodecl_is_null(n), \"Node is null\", 0);"
+        print "ERROR_CONDITION(nodecl_get_kind(n) != %s, \"Invalid node\", 0);" % self.tree_kind
         if (self.needs_symbol):
-           print "   ERROR_CONDITION(nodecl_get_symbol(%s) == NULL, \"Tree lacks a symbol\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_symbol(n) == NULL, \"Tree lacks a symbol\", 0);" 
         if (self.needs_type):
-           print "   ERROR_CONDITION(nodecl_get_type(%s) == NULL, \"Tree lacks a type\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_type(n) == NULL, \"Tree lacks a type\", 0);" 
         if (self.needs_text):
-           print "   ERROR_CONDITION(nodecl_get_text(%s) == NULL, \"Tree lacks an associated text\", 0);" % (tree_expr)
+           print "   ERROR_CONDITION(nodecl_get_text(n) == NULL, \"Tree lacks an associated text\", 0);" 
         if (self.needs_cval):
-           print "   ERROR_CONDITION(nodecl_get_constant(%s) == NULL, \"Tree lacks a constant value\", 0);" % (tree_expr)
-        # We do not check template parameters
+           print "   ERROR_CONDITION(nodecl_get_constant(n) == NULL, \"Tree lacks a constant value\", 0);" 
         i = 0
         for subtree in self.subtrees:
            (rule_label, rule_ref) = subtree
 
            current_rule = RuleRef(rule_ref)
 
-           if current_rule.is_nullable():
-               print "if (!nodecl_is_null(nodecl_get_child(%s, %d)))" % (tree_expr, i) 
-               print "{"
-           else:
-               print "ERROR_CONDITION(nodecl_is_null(nodecl_get_child(%s, %d)), \"Tree cannot be NULL!\", 0);" % (tree_expr, i)
-
-           if current_rule.is_seq():
-               print "ERROR_CONDITION(!nodecl_is_list(nodecl_get_child(%s, %d)), \"List node required here but got %%s\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" % (tree_expr, i, tree_expr, i)
-               current_rule.check_code("nodecl_get_child(%s, %d)" % (tree_expr, i))
-           else:
-               print "   switch (nodecl_get_kind(nodecl_get_child(%s, %d)))" % (tree_expr, i)
-               print "   {"
-               print "        // rule -> %s" % (rule_ref)
-               current_rule.check_code("nodecl_get_child(%s, %d)" % (tree_expr, i))
-               print "       default:"
-               print "       {"
-               first_set = current_rule.first()
-               if current_rule.is_seq():
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting an AST_NODE_LIST\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" \
-                                      % (tree_expr, i)
-               else:
-                  print "           internal_error(\"Invalid tree kind '%%s' expecting one of %s\", ast_print_node_type(nodecl_get_kind(nodecl_get_child(%s, %d))));" \
-                      % (string.join(first_set, " or "), tree_expr, i)
-               print "          break;"
-               print "       }"
-               print "   }"
-
-           if (current_rule.is_nullable()):
-               print "}"
+           print current_rule.call_to_check("nodecl_get_child(n, %d)" % (i));
 
            i = i + 1
-        print "  break;"
         print "}"
 
 class RuleRef(Variable):
     def __init__(self, rule_ref):
         self.rule_ref = rule_ref
-    def get_name(self):
-        return "Rule Ref -> %s" % (self.rule_ref)
     def normalize_rule_name(self, rule_ref):
         is_seq = rule_ref.find("-seq") > 0
         is_opt = rule_ref.find("-opt") > 0
         rule_ref = rule_ref.replace("-seq", "").replace("-opt", "")
         rule_ref_c = rule_ref.replace("-", "_")
         return (rule_ref, rule_ref_c, is_seq, is_opt) 
+    def canonical_rule(self):
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        return rule_ref
+    def is_canonical_rule(self):
+        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
+        return rule_ref == self.rule_ref
     def is_opt(self):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         return is_opt
@@ -199,58 +177,117 @@ class RuleRef(Variable):
         (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
         if rule_ref in already_seen:
            return set([])
+        if is_seq:
+            return set(["AST_NODE_LIST"])
         already_seen.append(rule_ref)
         rule_set = rule_map[rule_ref]
         s = set([])
         for rhs in rule_set:
             s = s.union(rhs.first(already_seen))
-        if is_seq:
-            s = s.union(set(["AST_NODE_LIST"]))
         return s
-    def check_code(self, tree_expr):
-        print "// Check code for '%s'" % (self.rule_ref)
-        (rule_ref, rule_ref_c, is_seq, is_opt) = self.normalize_rule_name(self.rule_ref)
-        first_set = RuleRef(rule_ref).first()
-        rule_set = rule_map[rule_ref]
+    def check_function_name(self):
+        return "nodecl_check_%s" % (self.canonical_rule().replace("-", "_"))
+    def call_to_check(self, tree_name):
+        if self.is_nullable():
+            if self.is_seq():
+               return "nodecl_check_nullable_list_rule(%s, %s);" % (tree_name, self.check_function_name()) 
+            else:
+               return "nodecl_check_nullable_rule(%s, %s);" % (tree_name, self.check_function_name())
+        else:
+            if self.is_seq():
+               return "nodecl_check_list_rule(%s, %s);" % (tree_name, self.check_function_name()) 
+            else:
+               return "%s(%s);" % (self.check_function_name(), tree_name)
+    def function_check_code(self):
+        if not self.is_canonical_rule():
+            raise Exception("Do not call this on non canonical rules")
 
-        if not first_set:
-           raise Exception("First set can't be empty!")
+        rule_set = rule_map[self.rule_ref]
+        print "static void %s(nodecl_t n)" % (self.check_function_name())
+        print "{"
+        print "ERROR_CONDITION(nodecl_is_null(n), \"Node is null\", 0);"
+        print "switch (nodecl_get_kind(n))"
+        print "{"
+        for rhs in rule_set:
+            first_set = rhs.first()
+            if not first_set:
+               raise Exception("First is empty!")
+            for first in first_set:
+                print "case %s:" % (first)
+            print "{"
+            print rhs.call_to_check("n");
+            print "break;"
+            print "}"
 
-        for first_item in first_set:
-              print "        case %s : " % (first_item) 
-        print "        {"
-        print "               nodecl_check_tree_%s(%s);" % (rule_ref_c, tree_expr)
-        print "               break;"
-        print "        }"
-        print "// End of check code for '%s'" % (self.rule_ref)
+        print "default:"
+        print "{"
+        print "internal_error(\"Node of kind %s not valid\", ast_print_node_type(nodecl_get_kind(n)));"
+        print "break;"
+        print "}"
+        print "}"
 
-def generate_check_routines_rec(rule_map, rule_name):
-    rule_info = rule_map[rule_name]
-    rule_name_c = rule_name.replace("-", "_");
-    print "static void nodecl_check_tree_%s(nodecl_t n)" % (rule_name_c)
-    print "{"
-    print " // Not yet implemented"
-    print "}"
+        print "}"
 
+def get_all_nodecl_structs():
+    node_kind_set = set([])
+    nodes = []
+    for rule_name in rule_map:
+        rule_rhs = rule_map[rule_name]
+        for rhs in rule_rhs:
+            if rhs.__class__ == NodeclStructure:
+                if rhs.tree_kind not in node_kind_set:
+                    node_kind_set.add(rhs.tree_kind)
+                    nodes.append(rhs)
+    return nodes
 
 def generate_check_routines(rule_map):
     print "/* Autogenerated file. DO NOT MODIFY. */"
     print "/* Changes in nodecl-generator.py or cxx-nodecl.def will overwrite this file */"
     print ""
-    print "#include \"cxx-nodecl-decls.h\""
+    print "#include \"cxx-nodecl.h\""
     print "#include \"cxx-utils.h\""
     print "#include \"cxx-exprtype.h\""
     print ""
-    for rule_name in rule_map:
-        rule_name_c = rule_name.replace("-", "_");
-        print "static void nodecl_check_tree_%s(nodecl_t);" % (rule_name_c)
-    print ""
-    for rule_name in rule_map:
-        generate_check_routines_rec(rule_map, rule_name)
-    print "void nodecl_check_tree(nodecl_t n)"
+    print "static void nodecl_check_nullable_rule(nodecl_t n, void (*fun)(nodecl_t))"
     print "{"
-    print "   nodecl_check_tree_nodecl(n);"
+    print "   if (nodecl_is_null(n)) return;"
+    print "   fun(n);"
     print "}"
+    print "static void nodecl_check_list_rule(nodecl_t n, void (*fun)(nodecl_t))"
+    print "{"
+    print "   ERROR_CONDITION(!nodecl_is_list(n), \"Node must be a list\", 0);"
+    print "   int num_items = 0;"
+    print "   nodecl_t* list = nodecl_unpack_list(n, &num_items);"
+    print "   int i;"
+    print "   for (i = 0; i < num_items; i++)"
+    print "   {"
+    print "      fun(list[i]);"
+    print "   }"
+    print "   free(list);"
+    print "}"
+    print "static void nodecl_check_nullable_list_rule(nodecl_t n, void (*fun)(nodecl_t))"
+    print "{"
+    print "   if (nodecl_is_null(n)) return;"
+    print "   nodecl_check_list_rule(n, fun);"
+    print "}"
+
+    nodes = get_all_nodecl_structs()
+    for node in nodes:
+        print "static void %s(nodecl_t);" % (node.check_function_name())
+
+    for rule_name in rule_map:
+        print "static void %s(nodecl_t);" % ( RuleRef(rule_name).check_function_name() )
+    print ""
+    for node in nodes:
+        node.function_check_code()
+    for rule_name in rule_map:
+        RuleRef(rule_name).function_check_code()
+
+    print "void nodecl_check_tree(AST a)"
+    print "{"
+    print     "nodecl_check_nodecl(_nodecl_wrap(a));"
+    print "}"
+    
 
 def from_underscore_to_camel_case(x):
     result = ''
@@ -617,7 +654,7 @@ def generate_routines_impl(rule_map):
        i = 0
        for subrule in rhs_rule.subtrees:
           subrule_ref = RuleRef(subrule[1])
-          first_set = subrule_ref.first();
+          first_set = RuleRef(subrule_ref.canonical_rule()).first();
 
           print "{"
           print "nodecl_t checked_tree = %s;" % (param_name_list[i])
