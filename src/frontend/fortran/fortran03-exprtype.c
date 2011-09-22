@@ -537,9 +537,6 @@ static void check_array_ref_(AST expr, decl_context_t decl_context, nodecl_t nod
         return;
     }
 
-    ASTAttrSetValueType(expr, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_SUBSCRIPTED_EXPRESSION, ASTSon0(expr));
-    ast_set_link_to_child(expr, LANG_SUBSCRIPT_EXPRESSION, ASTSon1(expr));
 
     nodecl_t nodecl_list = nodecl_null();
     for (i = num_subscripts-1; i >= 0; i--)
@@ -645,8 +642,6 @@ static void compute_boz_literal(AST expr, const char *valid_prefix, int base, no
 
     const_value_t* const_value = const_value_get_signed_int(value);
 
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
     *nodecl_output = nodecl_make_integer_literal(fortran_get_default_logical_type(), const_value, ASTFileName(expr), ASTLine(expr));
 }
@@ -672,8 +667,6 @@ static void check_boolean_literal(AST expr, decl_context_t decl_context UNUSED_P
     {
         internal_error("Invalid boolean literal", 0);
     }
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
 
     *nodecl_output = nodecl_make_boolean_literal(fortran_get_default_logical_type(), const_value, 
             ASTFileName(expr), ASTLine(expr));
@@ -751,8 +744,6 @@ static void check_complex_literal(AST expr, decl_context_t decl_context, nodecl_
         return;
     }
 
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_COMPLEX_LITERAL, tl_type_t, tl_bool(1));
 
     *nodecl_output = nodecl_make_complex_literal(
             nodecl_real, nodecl_imag, 
@@ -810,18 +801,13 @@ static void check_component_ref(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    ASTAttrSetValueType(ASTSon1(expr), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
-    ast_set_link_to_child(expr, LANG_ACCESSED_ENTITY, ASTSon0(expr));
-    ast_set_link_to_child(expr, LANG_ACCESSED_MEMBER, ASTSon1(expr));
 
     if (is_pointer_to_class_type(t))
     {
-        ASTAttrSetValueType(expr, LANG_IS_POINTER_MEMBER_ACCESS, tl_type_t, tl_bool(1));
     }
     else
     {
-        ASTAttrSetValueType(expr, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
     }
 
     *nodecl_output = nodecl_make_class_member_access(nodecl_base, 
@@ -917,8 +903,6 @@ static void check_decimal_literal(AST expr, decl_context_t decl_context, nodecl_
     type_t* t = choose_int_type_from_kind(nodecl_fake, 
             kind);
 
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
     *nodecl_output = nodecl_make_integer_literal(t, const_value, 
             ASTFileName(expr), ASTLine(expr));
@@ -1046,8 +1030,6 @@ static void check_derived_type_constructor(AST expr, decl_context_t decl_context
         }
     }
 
-    ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, component_spec_list);
 
     *nodecl_output = nodecl_make_structured_value(nodecl_initializer_list, 
             entry->type_information, 
@@ -1095,8 +1077,6 @@ static void check_floating_literal(AST expr, decl_context_t decl_context, nodecl
     nodecl_t nodecl_fake = nodecl_make_text(floating_text, ASTFileName(expr), ASTLine(expr));
    type_t* t = choose_float_type_from_kind(nodecl_fake, kind);
 
-   ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-   ASTAttrSetValueType(expr, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
    const_value_t *value = NULL;
    if (kind == (floating_type_get_info(get_float_type())->bits / 8))
@@ -1847,9 +1827,6 @@ static void check_function_call(AST expr, decl_context_t decl_context, nodecl_t*
         return;
     }
 
-    ASTAttrSetValueType(expr, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_CALLED_EXPRESSION, procedure_designator);
-    ast_set_link_to_child(expr, LANG_FUNCTION_ARGUMENTS, actual_arg_spec_list);
 
     // Check arguments again...
     nodecl_t nodecl_argument_list = nodecl_null();
@@ -2031,8 +2008,6 @@ static void check_parenthesized_expression(AST expr, decl_context_t decl_context
     nodecl_t nodecl_expr = nodecl_null();
     fortran_check_expression_impl_(ASTSon0(expr), decl_context, &nodecl_expr);
 
-    ASTAttrSetValueType(expr, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_EXPRESSION_NESTED, ASTSon0(expr));
 
     *nodecl_output = nodecl_make_parenthesized_expression(
             nodecl_expr,
@@ -2055,29 +2030,6 @@ static void check_power_op(AST expr, decl_context_t decl_context, nodecl_t* node
     common_binary_check(expr, decl_context, nodecl_output);
 }
 
-static char* binary_expression_attr[] =
-{
-    [AST_MUL] = LANG_IS_MULT_OP,
-    [AST_DIV] = LANG_IS_DIVISION_OP,
-    [AST_MOD] = LANG_IS_MODULUS_OP,
-    [AST_ADD] = LANG_IS_ADDITION_OP,
-    [AST_MINUS] = LANG_IS_SUBSTRACTION_OP,
-    [AST_SHL] = LANG_IS_SHIFT_LEFT_OP,
-    [AST_SHR] = LANG_IS_SHIFT_RIGHT_OP,
-    [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
-    [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
-    [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
-    [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
-    [AST_EQUAL] = LANG_IS_EQUAL_OP,
-    [AST_DIFFERENT] = LANG_IS_DIFFERENT_OP,
-    [AST_LOGICAL_EQUAL] = LANG_IS_EQUAL_OP,
-    [AST_LOGICAL_DIFFERENT] = LANG_IS_DIFFERENT_OP,
-    [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
-    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
-    [AST_POWER] = LANG_IS_POWER_OP,
-    [AST_CONCAT] = LANG_IS_CONCAT_OP,
-};
-
 static void common_binary_intrinsic_check(AST expr, decl_context_t, type_t* lhs_type, type_t* rhs_type, 
         nodecl_t nodecl_lhs, nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
 static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2096,10 +2048,6 @@ static void common_binary_check(AST expr, decl_context_t decl_context, nodecl_t*
 
     common_binary_intrinsic_check(expr, decl_context, lhs_type, rhs_type, nodecl_lhs, nodecl_rhs, nodecl_output);
 
-    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, binary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
-    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 }
 
 static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* lhs_type, type_t* rhs_type,
@@ -2110,13 +2058,6 @@ static void common_binary_intrinsic_check(AST expr, decl_context_t decl_context,
 
 static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
         nodecl_t nodecl_rhs, nodecl_t* nodecl_output);
-
-static char* unary_expression_attr[] =
-{
-    [AST_PLUS]         = LANG_IS_PLUS_OP,
-    [AST_NEG]          = LANG_IS_NEGATE_OP,
-    [AST_LOGICAL_NOT]  = LANG_IS_NOT_OP,
-};
 
 static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* nodecl_output) 
 {
@@ -2130,9 +2071,6 @@ static void common_unary_check(AST expr, decl_context_t decl_context, nodecl_t* 
 
     common_unary_intrinsic_check(expr, decl_context, rhs_type, nodecl_expr, nodecl_output);
 
-    ASTAttrSetValueType(expr, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, unary_expression_attr[ASTType(expr)], tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_UNARY_OPERAND, ASTSon0(expr));
 }
 
 static void common_unary_intrinsic_check(AST expr, decl_context_t decl_context, type_t* rhs_type,
@@ -2217,8 +2155,6 @@ static void check_string_literal(AST expr, decl_context_t decl_context, nodecl_t
 
     type_t* t = get_array_type_bounds(fortran_get_default_character_type(), one, length_tree, decl_context);
 
-    ASTAttrSetValueType(expr, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
     const_value_t* value = const_value_make_string(real_string, real_length);
 
@@ -2531,9 +2467,6 @@ static void check_symbol(AST expr, decl_context_t decl_context, nodecl_t* nodecl
     }
 
 
-    ASTAttrSetValueType(expr, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_UNQUALIFIED_ID, expr);
 }
 
 static void conform_types(type_t* lhs_type, type_t* rhs_type, type_t** conf_lhs_type, type_t** conf_rhs_type);
@@ -2665,10 +2598,6 @@ static void check_assignment(AST expr, decl_context_t decl_context, nodecl_t* no
         return;
     }
 
-    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
-    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 
     if (!is_defined_assig)
     {
@@ -2745,11 +2674,6 @@ static void check_ptr_assignment(AST expr, decl_context_t decl_context, nodecl_t
         *nodecl_output = nodecl_make_err_expr(ASTFileName(expr), ASTLine(expr));
         return;
     }
-
-    ASTAttrSetValueType(expr, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(expr, LANG_IS_ASSIGNMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(expr, LANG_LHS_OPERAND, ASTSon0(expr));
-    ast_set_link_to_child(expr, LANG_RHS_OPERAND, ASTSon1(expr));
 
     ERROR_CONDITION(nodecl_get_kind(nodecl_lvalue) != NODECL_DERREFERENCE, 
             "A reference to a pointer entity must be derreferenced", 0);

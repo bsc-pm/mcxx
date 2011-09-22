@@ -28,7 +28,7 @@ static nodecl_expr_info_t* nodecl_expr_get_expression_info_noalloc(AST expr)
     if (expr == NULL)
         return NULL;
 
-    nodecl_expr_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, nodecl_expr_info_t);
+    nodecl_expr_info_t* p = (nodecl_expr_info_t*)ast_get_field(expr, LANG_EXPRESSION_INFO);
     return p;
 }
 
@@ -59,7 +59,7 @@ char nodecl_expr_is_constant(AST expr)
 
 static nodecl_expr_info_t* nodecl_expr_get_expression_info(AST expr)
 {
-    nodecl_expr_info_t* p = ASTAttrValueType(expr, LANG_EXPRESSION_INFO, nodecl_expr_info_t);
+    nodecl_expr_info_t* p = (nodecl_expr_info_t*)ast_get_field(expr, LANG_EXPRESSION_INFO);
     if (p == NULL)
     {
         p = calloc(1, sizeof(*p));

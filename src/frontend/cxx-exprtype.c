@@ -441,24 +441,18 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
         case AST_OCTAL_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
             {
-                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
                 decimal_literal_type(expression, nodecl_output);
                 break;
             }
         case AST_FLOATING_LITERAL :
             {
-                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
                 floating_literal_type(expression, nodecl_output);
                 break;
             }
         case AST_BOOLEAN_LITERAL :
             {
-                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
 
                 type_t* t = get_bool_type();
 
@@ -483,16 +477,12 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
             }
         case AST_CHARACTER_LITERAL :
             {
-                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
 
                 character_literal_type(expression, nodecl_output);
                 break;
             }
         case AST_STRING_LITERAL :
             {
-                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
                 string_literal_type(expression, nodecl_output);
                 break;
@@ -6961,8 +6951,6 @@ static void check_delete_expression(AST expression, decl_context_t decl_context,
     {
         is_array_delete = 1;
     }
-
-    ASTAttrSetValueType(expression, LANG_IS_DELETE_EXPRESSION, tl_type_t, tl_bool(1));
 
     AST deleted_expression = ASTSon1(expression);
 
