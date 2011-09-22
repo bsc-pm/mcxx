@@ -71,15 +71,6 @@ namespace TL
             
             //! Returns the list of live out variables in the node (Used in composite nodes)
             std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_live_out_over_nodes();
-            
-            //! Computes liveness information (used and defined variables) from an Expression.
-            /*!
-              The method computes the used and defined variables of a node taking into
-              account only the inner statements.
-              \param e Expression that provides the liveness information.
-              \param defined 0 when the expression is a left-hand one, 1 otherwise.
-             */
-            void set_live_initial_expression_information(Expression e, bool defined);
            
             //! Sets the variable represented by a symbol as a killed or an upper exposed variable 
             //! depending on @defined attribute
@@ -225,7 +216,7 @@ namespace TL
               The method computes the used and defined variables of a node taking into account only
               the inner statements.
              */
-            void set_live_initial_information(ScopeLink sl);
+            void set_live_initial_information();
             
             //! Applies liveness analysis in a composite node.
             /*!
@@ -270,6 +261,8 @@ namespace TL
             
             //! Adds a new killed variable to the node
             void set_killed_var(ExtensibleSymbol new_killed_var);
+            
+        friend class CfgAnalysisVisitor;
     };
 }
 

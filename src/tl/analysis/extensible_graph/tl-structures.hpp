@@ -54,7 +54,8 @@ namespace TL
         FALSE_EDGE,             //! Taken when a previous condition is evaluated false
         ALWAYS_EDGE,            //! Always taken edge
         CASE_EDGE,              //! Edge within a Switch statement representing a case/default stmt
-        CATCH_EDGE              //! Handler edge for a Try/Catch statement
+        CATCH_EDGE,             //! Handler edge for a Try/Catch statement
+        GOTO_EDGE               //! Edge between a GotoNode and a LabeledNode containing the label
     };
     
     //! Definitions of the different node attributes

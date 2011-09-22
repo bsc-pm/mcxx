@@ -431,18 +431,19 @@ namespace TL
             /*!
             * \param str The name of the data. If it was not retrieved never
             * before, a default construction will happen.
+            * \param t Copy constructor value
             *
             * The requested type must be default constructible. Calling
             * this function with a same name and different types with same (or
             * shared) LinkData objects will fail miserably.
             */
         template <typename _T>
-            _T& get_data(const std::string& str)
+            _T& get_data(const std::string& str, const _T& t = _T())
             {
                 _T* result = NULL;
                 if (_data_list->find(str) == _data_list->end())
                 {
-                    result = new _T();
+                    result = new _T(t);
 
                     data_info d;
                     d.data = result;

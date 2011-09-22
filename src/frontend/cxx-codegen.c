@@ -3667,7 +3667,7 @@ static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, n
     indent(visitor);
 
     // FIXME  parallel|for must be printed as parallel for
-    fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
+    fprintf(visitor->file, "#pragma %s ", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
     fprintf(visitor->file, "\n");
     codegen_walk(visitor, statement);
@@ -3682,7 +3682,7 @@ static void codegen_pragma_custom_clause(nodecl_codegen_visitor_t* visitor, node
 {
     nodecl_t arguments = nodecl_get_child(node, 0);
 
-    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
 
     if (!nodecl_is_null(arguments))
     {
@@ -3697,16 +3697,20 @@ static void codegen_pragma_custom_line(nodecl_codegen_visitor_t* visitor, nodecl
     nodecl_t parameters = nodecl_get_child(node, 0);
     nodecl_t clauses = nodecl_get_child(node, 1);
 
-    fprintf(visitor->file, " %s", nodecl_get_text(node));
+    fprintf(visitor->file, "%s", nodecl_get_text(node));
 
     if (!nodecl_is_null(parameters))
     {
         fprintf(visitor->file, "(");
         walk_list(visitor, parameters, ", ");
-        fprintf(visitor->file, ")");
+        fprintf(visitor->file, ") ");
+    }
+    else
+    {
+        fprintf(visitor->file, " ");
     }
 
-    codegen_walk(visitor, clauses);
+    walk_list(visitor, clauses, " ");
 }
 
 static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -3714,7 +3718,7 @@ static void codegen_pragma_custom_directive(nodecl_codegen_visitor_t* visitor, n
     nodecl_t pragma_line = nodecl_get_child(node, 0);
 
     indent(visitor);
-    fprintf(visitor->file, "#pragma %s", nodecl_get_text(node));
+    fprintf(visitor->file, "#pragma %s ", nodecl_get_text(node));
     codegen_walk(visitor, pragma_line);
     fprintf(visitor->file, "\n");
 }
@@ -3979,10 +3983,17 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
+    nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
     if (visitor->do_not_emit_declarations)
     {
-        fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
+        fprintf(visitor->file, "%s", print_decl_type_str(entry->type_information, entry->decl_context, 
+                  get_qualified_symbol_name(entry, entry->decl_context)));
+        if (!nodecl_is_null(nodecl_init_expr))
+        {
+            fprintf(visitor->file, " = ");
+            codegen_walk(visitor, nodecl_init_expr);
+        }
     }
     else if (!visitor->mem_init_list)
     {
@@ -3997,7 +4008,6 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
     }
     else // visitor->mem_init_list && !visitor->do_not_emit_declarations
     {
-        nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
         fprintf(visitor->file, "%s(", entry->symbol_name);
 

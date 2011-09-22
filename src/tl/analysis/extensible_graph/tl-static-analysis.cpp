@@ -25,6 +25,8 @@ Cambridge, MA 02139, USA.
 #include "tl-extensible-graph.hpp"
 #include "tl-extensible-symbol.hpp"
 
+#include "tl-cfg-analysis-visitor.hpp"
+
 namespace TL
 {
     //! This function returns the set which is the union of the two input sets
@@ -47,8 +49,13 @@ namespace TL
     
     void ExtensibleGraph::live_variable_analysis()
     {
-//         gather_live_initial_information(_entry);
-//         clear_visits(_entry);
+        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
+        DEBUG_CODE()
+        {
+            std::cerr << "=== CFG Function Live Variable analysis ===" << std::endl;
+        }
+        gather_live_initial_information(entry);
+        clear_visits(entry);
 //         solve_live_equations();
     }
     
@@ -66,7 +73,7 @@ namespace TL
                 }
                 else if (ntype != BASIC_ENTRY_NODE)
                 {
-                    actual->set_live_initial_information(_sl);
+                    actual->set_live_initial_information();
                 }
                     
                 ObjectList<Edge*> exit_edges = actual->get_exit_edges();
@@ -85,11 +92,12 @@ namespace TL
     void ExtensibleGraph::solve_live_equations()
     {
         bool changed = true;
+        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
         while (changed)
         {
             changed = false;
-//             solve_live_equations_recursive(_entry, changed);
-//             clear_visits(_entry);
+            solve_live_equations_recursive(entry, changed);
+            clear_visits(entry);
         }
     }
     
@@ -194,189 +202,140 @@ namespace TL
         }
     }
     
-    void Node::set_live_initial_information(ScopeLink sl)
+    void Node::set_live_initial_information()
     {
         if (has_key(_NODE_STMTS)) 
         {
-            ObjectList<AST_t> basic_block = get_data<ObjectList<AST_t> >(_NODE_STMTS);
-            for (ObjectList<AST_t>::iterator it = basic_block.begin();
+            ObjectList<Nodecl::NodeclBase> basic_block = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = basic_block.begin();
                     it != basic_block.end();
                     ++it)
             {
-                if (Declaration::predicate(*it))
-                {
-                    // Get the defined variables in the declaration
-                    Declaration decl(*it, sl);
-                    ObjectList<DeclaredEntity> decl_ents = decl.get_declared_entities();
-                    for(ObjectList<DeclaredEntity>::iterator itdecl = decl_ents.begin();
-                        itdecl != decl_ents.end();
-                        itdecl++)
-                    {
-                        set_killed_var(ExtensibleSymbol(itdecl->get_declared_symbol()));
-                    }
-                }
-                else if (Expression::predicate(*it))
-                {
-                    Expression expr(*it, sl);
-                    set_live_initial_expression_information(expr, /* Left-hand expr */ false);
-                }
-                else if (IS_FORTRAN_LANGUAGE)
-                {
-                    if (Fortran::StopStatement::predicate(*it))
-                    {  // Do nothing
-                    }
-                    else if (Fortran::SpecificationStatement::predicate(*it))
-                    {
-                        std::cout << "warning: '" << it->prettyprint() 
-                                  << "' is a special Fortran Statement. It is not already supported"
-                                    << std::endl;
-                    }
-                }
-                else if (Statement::predicate(*it))
-                {
-                    if (ReturnStatement::predicate(*it))
-                    {
-                        ReturnStatement stmt(*it, sl);
-                        if (stmt.has_return_expression())
-                            set_live_initial_expression_information(stmt.get_return_expression(), 
-                                                                    /* Left-hand expr */ false);
-                    }
-                    else
-                    {
-                        internal_error("Unexpected Statement '%s' while computing initial node "
-                                       "information in Liveness analysis", 
-                                        it->prettyprint().c_str());
-                    }
-                }
-                else
-                {
-                    internal_error("Unexpected tree type '%s' while computing initial node "
-                                    "information in Liveness analysis", 
-                                    it->internal_ast_type().c_str());
-                }
+                CfgAnalysisVisitor cfg_analysis_visitor(this);
+                cfg_analysis_visitor.walk(*it);
             }
         }
     }
     
-    void Node::set_live_initial_expression_information(Expression e, bool defined)
-    {
-        //         std::cout << "Expression: " << e.prettyprint() << std::endl;
-        bool has_ellipsis = false;
-        if (e.is_literal())
-            return;
-        if (e.is_id_expression())
-            fill_use_def_sets(e.get_id_expression().get_symbol(), defined);
-        else if (e.is_unary_operation() && e.get_operation_kind()==Expression::REFERENCE)
-            fill_use_def_sets(e.get_unary_operand().get_symbol(), defined);
-        else if (e.is_member_access() || e.is_pointer_member_access())
-            fill_use_def_sets(e.get_accessed_entity().get_symbol(), defined);
-        else if (e.is_assignment())
-        {
-            set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
-            set_live_initial_expression_information(e.get_first_operand(), /* Defined */ true);
-        }
-        else if (e.is_binary_operation())
-        {
-            if (e.get_operation_kind() == Expression::SHIFT_LEFT)
-            {
-                std::cerr <<" ** static_analysis.cpp :: set_live_initial_expression_information ** "
-                          << "warning: When shift operation is an overloaded funtion " 
-                          << " then the left hand operator must be treated as a definition "
-                          << "but it is done as a use. We must fix that" << std::endl;
-            }
-            // FIXME When '<<' is an overloaded function, then the left variable must be defined
-            set_live_initial_expression_information(e.get_first_operand(), /* Defined */ false);
-            set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
-        }
-        else if (e.is_unary_operation())
-        {
-            // The symbol will always be read before than written, so it will be Used before Defined
-            set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ false);
-            // If the unary operation is an Incr/Decrement, then the symbol will be also Defined
-            Expression::OperationKind op = e.get_operation_kind();
-            if ((op == Expression::PREINCREMENT) || (op == Expression::POSTINCREMENT) 
-                || (op == Expression::PREDECREMENT) || (op == Expression::POSTDECREMENT))
-                set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ true);
-        }
-        else if (e.is_casting())
-        {
-            set_live_initial_expression_information(e.get_casted_expression(), /* Defined */ false);
-        }
-        else if (e.is_array_subscript())
-        {
-            set_live_initial_expression_information(e.get_subscript_expression(), 
-                                                    /* Defined */ false);
-            set_live_initial_expression_information(e.get_subscripted_expression(), defined);
-        }
-        else if (e.is_function_call())
-        {
-            Expression called_expression = e.get_called_expression();
-            Type type = called_expression.get_type();
-            ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
-            
-            ObjectList<Expression> args = e.get_argument_list();
-            ObjectList<Type>::iterator itp = parameter_types.begin();
-            ObjectList<Expression>::iterator ita = args.begin();
-            for(; itp != parameter_types.end(); ita++, itp++)
-            {
-                // Regarding the parameter, if possible (arguments that are not in ellipsis)
-                if ((itp->is_pointer() && !itp->points_to().is_const()) || 
-                    (itp->is_reference() && !itp->references_to().is_const()))
-                {
-//                     std::cout << "Parameter " << ita->prettyprint() 
-//                               << " is pointer and not const" << std::endl;
-                    // Assuming that the argument is used and defined, in this order
-                    set_live_initial_expression_information(*ita, /* Defined */ false);
-                    set_live_initial_expression_information(*ita, /* Defined */ true);
-                }
-                else
-                {
-//                     std::cout << "Parameter " << ita->prettyprint() 
-//                               << " is not pointer or const" << std::endl;
-                    set_live_initial_expression_information(*ita, /* Defined */ false);
-                }
-            }
-            if (has_ellipsis)
-            {
-                // There are more arguments than parameters, so we must regard the argument
-                for(; ita != args.end(); ita++)
-                {
-                    if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
-                        (ita->get_type().is_reference() && 
-                             !ita->get_type().references_to().is_const()))
-                    {
-//                         std::cout << "Argument " << ita->prettyprint() 
-//                                   << " is pointer and not const" << std::endl;
-                        // Assuming that the argument is used and defined, in this order
-                        set_live_initial_expression_information(*ita, /* Defined */ false);
-                        set_live_initial_expression_information(*ita, /* Defined */ true);
-                    }
-                    else
-                    {    
-//                         std::cout << "Argument " << ita->prettyprint() 
-//                                   << " is not pointer or const" << std::endl;
-                        set_live_initial_expression_information(*ita, /* Defined */ false);
-                    }
-                }
-            }
-        }
-        else if (e.is_conditional())
-        {
-            set_live_initial_expression_information(e.get_condition_expression(), 
-                                                    /* Defined */ false);
-            set_live_initial_expression_information(e.get_true_expression(), /* Defined */ false);
-            set_live_initial_expression_information(e.get_false_expression(), /* Defined */ false);
-        }
-        else if (e.is_throw_expression())
-        {
-            set_live_initial_expression_information(e.get_throw_expression(), /* Defined */ false);
-        }
-        else
-        {
-            internal_error("Unexpected expression '%s' when computing the live variable analysis\n",
-                           e.prettyprint().c_str());
-        }
-    }
+//     void Node::set_live_initial_expression_information(Expression e, bool defined)
+//     {
+//         //         std::cout << "Expression: " << e.prettyprint() << std::endl;
+//         bool has_ellipsis = false;
+//         if (e.is_literal())
+//             return;
+//         if (e.is_id_expression())
+//             fill_use_def_sets(e.get_id_expression().get_symbol(), defined);
+//         else if (e.is_unary_operation() && e.get_operation_kind()==Expression::REFERENCE)
+//             fill_use_def_sets(e.get_unary_operand().get_symbol(), defined);
+//         else if (e.is_member_access() || e.is_pointer_member_access())
+//             fill_use_def_sets(e.get_accessed_entity().get_symbol(), defined);
+//         else if (e.is_assignment())
+//         {
+//             set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
+//             set_live_initial_expression_information(e.get_first_operand(), /* Defined */ true);
+//         }
+//         else if (e.is_binary_operation())
+//         {
+//             if (e.get_operation_kind() == Expression::SHIFT_LEFT)
+//             {
+//                 std::cerr <<" ** static_analysis.cpp :: set_live_initial_expression_information ** "
+//                           << "warning: When shift operation is an overloaded funtion " 
+//                           << " then the left hand operator must be treated as a definition "
+//                           << "but it is done as a use. We must fix that" << std::endl;
+//             }
+//             // FIXME When '<<' is an overloaded function, then the left variable must be defined
+//             set_live_initial_expression_information(e.get_first_operand(), /* Defined */ false);
+//             set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
+//         }
+//         else if (e.is_unary_operation())
+//         {
+//             // The symbol will always be read before than written, so it will be Used before Defined
+//             set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ false);
+//             // If the unary operation is an Incr/Decrement, then the symbol will be also Defined
+//             Expression::OperationKind op = e.get_operation_kind();
+//             if ((op == Expression::PREINCREMENT) || (op == Expression::POSTINCREMENT) 
+//                 || (op == Expression::PREDECREMENT) || (op == Expression::POSTDECREMENT))
+//                 set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ true);
+//         }
+//         else if (e.is_casting())
+//         {
+//             set_live_initial_expression_information(e.get_casted_expression(), /* Defined */ false);
+//         }
+//         else if (e.is_array_subscript())
+//         {
+//             set_live_initial_expression_information(e.get_subscript_expression(), 
+//                                                     /* Defined */ false);
+//             set_live_initial_expression_information(e.get_subscripted_expression(), defined);
+//         }
+//         else if (e.is_function_call())
+//         {
+//             Expression called_expression = e.get_called_expression();
+//             Type type = called_expression.get_type();
+//             ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
+//             
+//             ObjectList<Expression> args = e.get_argument_list();
+//             ObjectList<Type>::iterator itp = parameter_types.begin();
+//             ObjectList<Expression>::iterator ita = args.begin();
+//             for(; itp != parameter_types.end(); ita++, itp++)
+//             {
+//                 // Regarding the parameter, if possible (arguments that are not in ellipsis)
+//                 if ((itp->is_pointer() && !itp->points_to().is_const()) || 
+//                     (itp->is_reference() && !itp->references_to().is_const()))
+//                 {
+// //                     std::cout << "Parameter " << ita->prettyprint() 
+// //                               << " is pointer and not const" << std::endl;
+//                     // Assuming that the argument is used and defined, in this order
+//                     set_live_initial_expression_information(*ita, /* Defined */ false);
+//                     set_live_initial_expression_information(*ita, /* Defined */ true);
+//                 }
+//                 else
+//                 {
+// //                     std::cout << "Parameter " << ita->prettyprint() 
+// //                               << " is not pointer or const" << std::endl;
+//                     set_live_initial_expression_information(*ita, /* Defined */ false);
+//                 }
+//             }
+//             if (has_ellipsis)
+//             {
+//                 // There are more arguments than parameters, so we must regard the argument
+//                 for(; ita != args.end(); ita++)
+//                 {
+//                     if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
+//                         (ita->get_type().is_reference() && 
+//                              !ita->get_type().references_to().is_const()))
+//                     {
+// //                         std::cout << "Argument " << ita->prettyprint() 
+// //                                   << " is pointer and not const" << std::endl;
+//                         // Assuming that the argument is used and defined, in this order
+//                         set_live_initial_expression_information(*ita, /* Defined */ false);
+//                         set_live_initial_expression_information(*ita, /* Defined */ true);
+//                     }
+//                     else
+//                     {    
+// //                         std::cout << "Argument " << ita->prettyprint() 
+// //                                   << " is not pointer or const" << std::endl;
+//                         set_live_initial_expression_information(*ita, /* Defined */ false);
+//                     }
+//                 }
+//             }
+//         }
+//         else if (e.is_conditional())
+//         {
+//             set_live_initial_expression_information(e.get_condition_expression(), 
+//                                                     /* Defined */ false);
+//             set_live_initial_expression_information(e.get_true_expression(), /* Defined */ false);
+//             set_live_initial_expression_information(e.get_false_expression(), /* Defined */ false);
+//         }
+//         else if (e.is_throw_expression())
+//         {
+//             set_live_initial_expression_information(e.get_throw_expression(), /* Defined */ false);
+//         }
+//         else
+//         {
+//             internal_error("Unexpected expression '%s' when computing the live variable analysis\n",
+//                            e.prettyprint().c_str());
+//         }
+//     }
     
     void Node::fill_use_def_sets(Symbol s, bool defined)
     {

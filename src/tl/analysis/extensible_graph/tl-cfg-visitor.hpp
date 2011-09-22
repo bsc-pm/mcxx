@@ -69,20 +69,45 @@ namespace TL
         }  
     };
     
-    // struct omp_pragma {
-    //     struct omp_clause {
-    //         Nodecl::NodeclBase clause;
-    //         ObjectList<Nodecl::NodeclBase> args;
-    //     };
-    //     ObjectList<Nodecl::NodeclBase> params;
-    //     ObjectList<struct omp_clauses> clauses;
-    // };
+    struct omp_clause {
+        std::string clause;
+        ObjectList<Nodecl::NodeclBase> args;
+        omp_clause()
+            : clause(), args()
+        {}
+        omp_clause(std::string s)
+            : clause(s), args()
+        {}
+    };    
+    
+    struct omp_pragma {
+        ObjectList<Nodecl::NodeclBase> params;
+        ObjectList<struct omp_clause> clauses;
+        omp_pragma()
+            : params(), clauses()
+        {}
+        
+        bool has_clause(std::string s)
+        {
+            for (ObjectList<struct omp_clause>::iterator it = clauses.begin();
+                it != clauses.end();
+                ++it)
+            {
+                if (it->clause == s) return true;
+            }
+            
+            return false;
+        }
+    };
+    
+    
     
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
     protected:
         ExtensibleGraph* _actual_cfg;
-        ScopeLink _sl;
+        
+        ObjectList<ExtensibleGraph*> _cfgs;
         
         struct loop_control_nodes _actual_loop_info;
         
@@ -93,12 +118,11 @@ namespace TL
          */
         ObjectList<struct try_block_nodes> _actual_try_info;
         
-        // std::stack<struct omp_pragma> _omp_pragma_info_s;
+        std::stack<struct omp_pragma> _omp_pragma_info_s;
         
         std::stack<Node*> _switch_cond_s;
         
     private:
-        ObjectList<ExtensibleGraph*> _cfgs;
        
         
         //! This method creates a list with the nodes in an specific subgraph
@@ -139,14 +163,50 @@ namespace TL
         //! This method implements the visitor for a CaseStatement and for DefaultStatement
         /*!
          * \param n Nodecl containing the Case or the Default Statement
-         * \return The last node created while the Statement has been parsed
+         * \return The graph node created while the Statement has been parsed
          */
         template <typename T>
-        CfgVisitor::Ret visit_Case_or_Default(const T& n);
+        Ret visit_Case_or_Default(const T& n);
+        
+        //! This method implements the visitor for a VirtualFunctionCall and a FunctionCall
+        /*!
+         * \param n Nodecl containinf the VirtualFunctionCall or the FunctionCall
+         * \return The graph node created while the function call has been parsed
+         */
+        template <typename T>
+        Ret function_call_visit(const T& n);
         
     public:
-        CfgVisitor(ScopeLink sl);
+        //! Empty constructor
+        /*!
+         * This method is used when we want to perform the analysis from the Analyisis pahse
+         */
+        CfgVisitor();
+        
+        //! Constructor which built a CFG
+        /*!
+         * This method is used when we want to perform the analysis starting from any piece of code.
+         * Not necessarily from a TopLevel or a FunctionCode node.
+         */        
+        CfgVisitor(std::string actual_cfg_name);
+        
+        //! Copy constructor
         CfgVisitor(const CfgVisitor& visitor);
+        
+        // Non visiting methods
+        
+        //! This method returns the list of extensible graphs generated while visiting a Nodecl
+        ObjectList<ExtensibleGraph*> get_cfgs() const;
+        
+        //! This method build a CFG from 'nodecl'
+        /*!
+         * The method allows building a graph from any kind of nodecl, not only TopLevel or FunctionCode.
+         * \param nodecl Pointer to the nodecl containing the code to build the graph.
+         * \param graph_name Name for the new graph.
+         */
+        void build_cfg(RefPtr<Nodecl::NodeclBase> nodecl, std::string graph_name);
+        
+        // Visiting methods
         
         Ret unhandled_node(const Nodecl::NodeclBase& n);
         Ret visit(const Nodecl::TopLevel& n);
@@ -155,6 +215,7 @@ namespace TL
         Ret visit(const Nodecl::CatchHandler& n);
         Ret visit(const Nodecl::Throw& n);
         Ret visit(const Nodecl::CompoundStatement& n);
+        Ret visit(const Nodecl::Conversion& n);
         Ret visit(const Nodecl::Symbol& n);
         Ret visit(const Nodecl::ExpressionStatement& n);
         Ret visit(const Nodecl::ParenthesizedExpression& n);
@@ -270,79 +331,3 @@ namespace TL
     };
 }
 #endif  // TL_CFG_VISITOR_HPP
-
-
-//         Ret visit(const Nodecl::VirtualFunctionCall& n);
-//         Ret visit(const Nodecl::FunctionCall& n);
-//         Ret visit(const Nodecl::ConditionalExpression& n);
-//         Ret visit(const Nodecl::StringLiteral& n);
-//         Ret visit(const Nodecl::BooleanLiteral& n);
-//         Ret visit(const Nodecl::IntegerLiteral& n);
-//         Ret visit(const Nodecl::ComplexLiteral& n);
-//         Ret visit(const Nodecl::FloatingLiteral& n);
-//         Ret visit(const Nodecl::StructuredValue& n);
-//         Ret visit(const Nodecl::Symbol& n);
-//         Ret visit(const Nodecl::VirtualFunctionCall& n);
-//         Ret visit(const Nodecl::FunctionCall& n);
-//         Ret visit(const Nodecl::ArraySubscript& n);
-//         Ret visit(const Nodecl::ClassMemberAccess& n);
-//         Ret visit(const Nodecl::Plus& n);
-//         Ret visit(const Nodecl::Neg& n);
-//         Ret visit(const Nodecl::Add& n);
-//         Ret visit(const Nodecl::Minus& n);
-//         Ret visit(const Nodecl::Mul& n);
-//         Ret visit(const Nodecl::Div& n);
-//         Ret visit(const Nodecl::Mod& n);
-//         Ret visit(const Nodecl::Power& n);
-//         Ret visit(const Nodecl::Concat& n);
-//         Ret visit(const Nodecl::Equal& n);
-//         Ret visit(const Nodecl::Different& n);
-//         Ret visit(const Nodecl::LowerThan& n);
-//         Ret visit(const Nodecl::GreaterThan& n);
-//         Ret visit(const Nodecl::LowerOrEqualThan& n);
-//         Ret visit(const Nodecl::GreaterOrEqualThan& n);
-//         Ret visit(const Nodecl::LogicalAnd& n);
-//         Ret visit(const Nodecl::LogicalOr& n);
-//         Ret visit(const Nodecl::LogicalNot& n);
-//         Ret visit(const Nodecl::BitwiseAnd& n);
-//         Ret visit(const Nodecl::BitwiseOr& n);
-//         Ret visit(const Nodecl::BitwiseXor& n);
-//         Ret visit(const Nodecl::BitwiseNot& n);
-//         Ret visit(const Nodecl::Shr& n);
-//         Ret visit(const Nodecl::Shl& n);
-//         Ret visit(const Nodecl::Assignment& n);
-//         Ret visit(const Nodecl::AddAssignment& n);
-//         Ret visit(const Nodecl::SubAssignment& n);
-//         Ret visit(const Nodecl::DivAssignment& n);
-//         Ret visit(const Nodecl::MulAssignment& n);
-//         Ret visit(const Nodecl::ModAssignment& n);        
-//         Ret visit(const Nodecl::BitwiseAndAssignment& n);
-//         Ret visit(const Nodecl::BitwiseOrAssignment& n);
-//         Ret visit(const Nodecl::BitwiseXorAssignment& n);
-//         Ret visit(const Nodecl::ShrAssignment& n);
-//         Ret visit(const Nodecl::ShlAssignment& n);        
-//         Ret visit(const Nodecl::ParenthesizedExpression& n);
-//         Ret visit(const Nodecl::Reference& n);
-//         Ret visit(const Nodecl::Derreference& n);
-//         Ret visit(const Nodecl::Cast& n);
-//         Ret visit(const Nodecl::ConditionalExpression& n);
-//         Ret visit(const Nodecl::Comma& n);
-//         Ret visit(const Nodecl::Throw& n);
-//         Ret visit(const Nodecl::Predecrement& n);
-//         Ret visit(const Nodecl::Postdecrement& n);
-//         Ret visit(const Nodecl::Preincrement& n);
-//         Ret visit(const Nodecl::Postincrement& n);
-//         Ret visit(const Nodecl::Sizeof& n);    
-//         Ret visit(const Nodecl::Typeid& n);
-//         Ret visit(const Nodecl::Offset& n); 
-//         Ret visit(const Nodecl::New& n);
-//         Ret visit(const Nodecl::Delete& n);
-//         Ret visit(const Nodecl::DeleteArray& n);
-//         Ret visit(const Nodecl::CxxRaw& n);
-//         Ret visit(const Nodecl::FortranData& n);
-//         Ret visit(const Nodecl::FortranEquivalence& n);
-//         Ret visit(const Nodecl::ImpliedDo& n);
-//         Ret visit(const Nodecl::ObjectInit& n);
-//         Ret visit(const Nodecl::BuiltinExpr& n);
-//         Ret visit(const Nodecl::Text& n);
-//         Ret visit(const Nodecl::ErrExpr& n);

@@ -97,6 +97,8 @@ namespace TL
                                             label = labels[0].get_symbol().get_name();
                                     }
                 break;
+                case GOTO_EDGE:     label = get_data<std::string>(_EDGE_LABEL);
+                break;
                 default: std::cerr << " ** Edge.cpp :: get_label() ** "
                                    << "warning: Unexpected type '" << etype << "' while getting "
                                    << "the Edge label" << std::endl;
