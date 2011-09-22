@@ -71,7 +71,7 @@ namespace TL
                     Source &addr, 
                     Type& type,
                     bool enclosing_is_array,
-                    bool pointer_member_access,
+                    bool & pointer_access_member,
                     std::stringstream& warnlog);
 
             static bool gather_info_data_expr(Expression &expr, 

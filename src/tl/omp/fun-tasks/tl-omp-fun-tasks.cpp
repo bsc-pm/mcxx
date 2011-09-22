@@ -177,6 +177,9 @@ namespace OpenMP
             Source new_stmt_src;
             Source additional_decls;
             Source new_call;
+
+            AST_t location;
+
             new_stmt_src
                 << "{"
                 << additional_decls
@@ -188,6 +191,7 @@ namespace OpenMP
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << new_call << ";"
                 << "}"
+                << statement_placeholder(location)
                 << "}"
                 ;
 
@@ -269,10 +273,6 @@ namespace OpenMP
                 Source *args = NULL;
                 DataReference data_ref = it2->get_data_reference();
                 Symbol base_sym = data_ref.get_base_symbol();
-                if (base_sym.get_name() == "this") 
-                {
-                  implicit_this = true;
-                }
                 
                 switch (it2->get_direction())
                 {
@@ -364,11 +364,8 @@ namespace OpenMP
                             expr.get_ast().get_locus().c_str());
                 }
 
-                //By default, this will be shared
-                if(!implicit_this) 
-                {
-                    firstprivate_args.append_with_separator("__tmp_this", ",");
-                }
+                //By default, this will be firstprivate
+                firstprivate_args.append_with_separator("__tmp_this", ",");
 
                 additional_decls
                     << "#line " << expr.get_ast().get_line() << " \"" << expr.get_ast().get_file() << "\"\n" 
@@ -663,6 +660,14 @@ namespace OpenMP
                     scope_link);
 
             stmt.get_ast().replace(new_stmt_tree);
+
+            Scope sc = scope_link.get_scope(location);
+            // FIXME - This lookup should be constrained to the current scope only
+            Symbol tmp_this_sym = sc.get_symbol_from_name("__tmp_this");
+            if (tmp_this_sym.is_valid())
+            {
+                tmp_this_sym.set_attribute("IS_TMP_THIS", true);
+            }
         }
     }
 

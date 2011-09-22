@@ -212,8 +212,9 @@ namespace TL
                     _copy_items(),
                     _reduction_symbols(),
                     _data_sharing(NULL),
-                    _has_local_copies(false),
-                    _this_accessor() { }
+                    _this_accessor(),
+                    _has_local_copies(false)
+                     { }
 
                 //! Adds a data environment item to the data environment
                 void add_item(const DataEnvironItem& item)
