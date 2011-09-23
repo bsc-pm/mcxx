@@ -11484,7 +11484,7 @@ struct declaration_pragma_member_info_tag
 static void build_scope_member_declaration_pragma(AST a, decl_context_t decl_context, nodecl_t* nodecl_output, void* info)
 {
     struct declaration_pragma_member_info_tag* mem = (struct declaration_pragma_member_info_tag*)info;
-    build_scope_member_declaration(decl_context, ASTSon1(a), mem->current_access, mem->class_info, nodecl_output, mem->declared_symbols);
+    build_scope_member_declaration(decl_context, a, mem->current_access, mem->class_info, nodecl_output, mem->declared_symbols);
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
