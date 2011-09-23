@@ -1345,10 +1345,16 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 #endif
 }
 
+static void codegen_context(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
+    nodecl_t context = nodecl_get_child(node, 0);
+    nodecl_t statement_seq = nodecl_get_child(context, 0);
     nodecl_t internal_subprograms = nodecl_get_child(node, 2);
 
     // Module procedures are only printed if we are in the current module
@@ -1866,6 +1872,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_top_level = codegen_visitor_fun(codegen_top_level);
     NODECL_VISITOR(codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
+    NODECL_VISITOR(codegen_visitor)->visit_context = codegen_visitor_fun(codegen_context);
     NODECL_VISITOR(codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);
     NODECL_VISITOR(codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);

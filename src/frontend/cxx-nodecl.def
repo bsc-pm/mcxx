@@ -36,7 +36,6 @@ top-level : function-code
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
 
-# function-code : NODECL_FUNCTION_CODE([statements]statement-seq, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
 function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
 object-init : NODECL_OBJECT_INIT([init_expr]expression-opt) symbol
 

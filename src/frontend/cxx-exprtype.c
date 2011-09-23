@@ -12516,14 +12516,18 @@ static void check_gcc_postfix_expression(AST expression,
     check_nodecl_braced_initializer(nodecl_braced_init, decl_context, t, nodecl_output);
 }
 
-static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_compound, 
+static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_context, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         const char* filename, int line,
         nodecl_t* nodecl_output)
 {
+    nodecl_t nodecl_compound = nodecl_list_head(nodecl_get_child(nodecl_context, 0));
+
+    ERROR_CONDITION(nodecl_get_kind(nodecl_compound) != NODECL_COMPOUND_STATEMENT, "Invalid node", 0);
+
     nodecl_t nodecl_list_of_stmts = nodecl_get_child(nodecl_compound, 0);
 
-    type_t* computed_type = get_void_type();
+    type_t* computed_type = NULL;
 
     int num_items = 0;
     nodecl_t* nodecl_list = nodecl_unpack_list(nodecl_list_of_stmts, &num_items);
@@ -12547,6 +12551,10 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_compound,
 
         computed_type = nodecl_get_type(nodecl_expr);
     }
+    else if (num_items == 0)
+    {
+        computed_type = get_void_type();
+    }
 
     if (computed_type == NULL
             || is_error_type(computed_type))
@@ -12557,7 +12565,8 @@ static void check_nodecl_gcc_parenthesized_expression(nodecl_t nodecl_compound,
 
     free(nodecl_list);
 
-    *nodecl_output = nodecl_make_compound_expression(nodecl_compound,
+    *nodecl_output = nodecl_make_compound_expression(
+            nodecl_context,
             computed_type,
             filename, line);
 }
@@ -12570,16 +12579,15 @@ static void check_gcc_parenthesized_expression(AST expression, decl_context_t de
     // This returns a list, we only want the first item of that list
     build_scope_statement(compound_statement, decl_context, &nodecl_stmt_seq);
 
-    int num_items = 0;
-    nodecl_t* list = nodecl_unpack_list(nodecl_stmt_seq, &num_items);
+    ERROR_CONDITION(nodecl_list_length(nodecl_stmt_seq) != 1, "This should be 1", 0);
 
-    ERROR_CONDITION(num_items != 1, "This should be 1", 0);
+    nodecl_t nodecl_context = nodecl_list_head(nodecl_stmt_seq);
+    ERROR_CONDITION(nodecl_get_kind(nodecl_context) != NODECL_CONTEXT, "Invalid tree", 0);
 
-    nodecl_t nodecl_compound = list[0];
-    free(list);
-
-    check_nodecl_gcc_parenthesized_expression(nodecl_compound, decl_context, 
-            ASTFileName(expression), ASTLine(expression),
+    check_nodecl_gcc_parenthesized_expression(nodecl_context, 
+            decl_context, 
+            ASTFileName(expression), 
+            ASTLine(expression),
             nodecl_output);
 }
 

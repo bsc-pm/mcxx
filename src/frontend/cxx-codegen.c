@@ -3034,25 +3034,35 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
 static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
+    decl_context_t old_context = visitor->decl_context;
+    visitor->decl_context = nodecl_get_decl_context(node);
+
     fprintf(visitor->file, "{\n");
     visitor->indent_level++;
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
 
-    define_local_entities_in_trees(visitor, statement_seq);
 
-    codegen_walk(visitor, statement_seq);
+    nodecl_t nodecl_statement_seq = nodecl_get_child(node, 0);
+    nodecl_t nodecl_first_statement = nodecl_list_head(nodecl_statement_seq);
+
+    nodecl_t compound_statement_seq = nodecl_get_child(nodecl_first_statement, 0);
+
+    define_local_entities_in_trees(visitor, compound_statement_seq);
+
+    codegen_walk(visitor, compound_statement_seq);
 
     visitor->indent_level--;
     indent(visitor);
     fprintf(visitor->file, "}");
+
+    visitor->decl_context = old_context;
 }
 
 static void codegen_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "(");
 
-    nodecl_t compound = nodecl_get_child(node, 0);
-    codegen_compound_statement_for_compound_expression(visitor, compound);
+    nodecl_t context = nodecl_get_child(node, 0);
+    codegen_compound_statement_for_compound_expression(visitor, context);
 
     fprintf(visitor->file, ")");
 }
@@ -4018,7 +4028,8 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 // Function code
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
+    nodecl_t context = nodecl_get_child(node, 0);
+    nodecl_t statement_seq = nodecl_get_child(context, 0);
     nodecl_t initializers = nodecl_get_child(node, 1);
     nodecl_t internal_functions = nodecl_get_child(node, 2);
 
@@ -4251,7 +4262,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         fprintf(visitor->file, "\n");
     }
 
-    codegen_walk(visitor, statement);
+    codegen_walk(visitor, context);
 }
 
 static void codegen_c99_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)

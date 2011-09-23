@@ -11123,11 +11123,12 @@ static void build_scope_try_block(AST a,
 
             nodecl_catch_list = nodecl_append_to_list(nodecl_catch_list, 
                     nodecl_make_catch_handler(exception_name, 
-                        nodecl_make_context(
-                            nodecl_catch_statement,
-                            block_context,
-                            ASTFileName(exception_declaration), 
-                            ASTLine(exception_declaration)),
+                        nodecl_make_list_1(
+                            nodecl_make_context(
+                                nodecl_catch_statement,
+                                block_context,
+                                ASTFileName(exception_declaration), 
+                                ASTLine(exception_declaration))),
                         declarator_type,
                         ASTFileName(exception_declaration), 
                         ASTLine(exception_declaration)));
