@@ -1,3 +1,27 @@
+/*--------------------------------------------------------------------
+(C) Copyright 2006-2009 Barcelona Supercomputing Center 
+Centro Nacional de Supercomputacion
+
+This file is part of Mercurium C/C++ source-to-source compiler.
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 3 of the License, or (at your option) any later version.
+
+Mercurium C/C++ source-to-source compiler is distributed in the hope
+that it will be useful, but WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+PURPOSE.  See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with Mercurium C/C++ source-to-source compiler; if
+not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
+
 
 #ifndef TL_CFG_ANALYSIS_VISITOR_HPP
 #define TL_CFG_ANALYSIS_VISITOR_HPP
@@ -17,9 +41,19 @@ namespace TL
         Node* _node;
         
         //! State of the traversal
-        //! This value will be true when the actual expression is a defined value
-        //! Otherwise, when the value is just used, the value will be false
+        /*! 
+         * This value will be true when the actual expression is a defined value
+         * Otherwise, when the value is just used, the value will be false
+         * By default this value will be false. Each time we change the value to true for any definition, 
+         * at the end of the recursion, we turn back the value to false
+         */
         bool _define;
+        
+        //! Nodecl we are traversing actually
+        /*!
+         * This attribute stores the actual nodecl when we are traversing a class member access or a reference/dereference
+         */
+        Nodecl::NodeclBase _actual_nodecl;
 
     private:
         //! This method implements the visitor for any Literal
@@ -48,6 +82,10 @@ namespace TL
         template<typename T>
         Ret nested_visit(const T& n);
         
+        //! This method implements the visitor for all Function Call, virtual or not
+        template <typename T>
+        Ret func_call(const T& n);
+        
     public:
         // Constructors
         CfgAnalysisVisitor(Node* n);
@@ -61,6 +99,7 @@ namespace TL
         Ret visit(const Nodecl::ParenthesizedExpression& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::ArraySection& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);    
         Ret visit(const Nodecl::Concat& n);
         Ret visit(const Nodecl::New& n);
@@ -83,6 +122,8 @@ namespace TL
         Ret visit(const Nodecl::ReturnStatement& n);  
         Ret visit(const Nodecl::GotoStatement& n);
         Ret visit(const Nodecl::LabeledStatement& n);
+        Ret visit(const Nodecl::ContinueStatement& n);
+        Ret visit(const Nodecl::BreakStatement& n);        
         Ret visit(const Nodecl::Assignment& n);
         Ret visit(const Nodecl::AddAssignment& n);
         Ret visit(const Nodecl::SubAssignment& n);
@@ -125,6 +166,7 @@ namespace TL
         Ret visit(const Nodecl::Reference& n);
         Ret visit(const Nodecl::Text& n);
         Ret visit(const Nodecl::Comma& n);
+        Ret visit(const Nodecl::Conversion& n);
     };
 }
     

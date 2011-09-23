@@ -31,7 +31,7 @@ Cambridge, MA 02139, USA.
 #include "tl-symbol.hpp"
 
 namespace TL
-{    
+{  
     /*!
       This class is used to stored extended information of a Symbol.
       It can express:
@@ -72,13 +72,9 @@ namespace TL
             
             //! Returns the type of the wrapped symbol.
             Type get_type() const;
-            
-            //! Returns the IdExpression of the wrapped member.
-            /*!
-              If the ExtensibleSymbol does not represents a member, then returns an empty
-              IdExpression.
-             */
-            Nodecl::NodeclBase get_nodecl() const;
+
+            //! Returns the nodecl associated with the wrapped symbol.
+            Nodecl::NodeclBase get_nodecl() const;           
 
             //! Returns true when the extensible symbol contains a symbols which do not represents
             //! neither an array access nor a member access, but a symbol.
@@ -96,10 +92,26 @@ namespace TL
              */            
             bool is_member_access() const;
             
+            //! Returns the symbol wrapped in the Extended Symbol
+            Symbol get_symbol() const;
+            
+            //! Compares the content of two AST nodes
+            bool equal_ast_nodes(nodecl_t t1, nodecl_t t2) const;
+            
+            //! Compares the one to one the nodes from two roots
+            bool equal_trees_rec(nodecl_t t1, nodecl_t t2) const;
+            
+            //! Returns equals when the two nodes are the same
+            /*!
+             * Be the same here means that the two nodes have exactly the same nodes 
+             * organized in the same way and containing the same symbols inside.
+             * FIXME This comparison should compare canonical version of expressions
+             */
+            bool equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2) const;
             
             // *** Overloaded methods *** //
-            bool operator==(const ExtensibleSymbol &cfgs) const;
-            bool operator<(const ExtensibleSymbol &cfgs) const;
+            bool operator==(const ExtensibleSymbol &es) const;
+            bool operator<(const ExtensibleSymbol &es) const;
     };
     
     
@@ -109,12 +121,13 @@ namespace TL
      */
     struct ExtensibleSymbol_comp
     {
-        bool operator() (const ExtensibleSymbol& cfgs1, 
-                         const ExtensibleSymbol& cfgs2) const
+        bool operator() (const ExtensibleSymbol& es1, const ExtensibleSymbol& es2) const
         { 
-            return cfgs1 < cfgs2; 
+            return es1 < es2; 
         }
     };
+    
+    typedef std::set<ExtensibleSymbol, ExtensibleSymbol_comp> ext_sym_set;
 }
 
 #endif // EXTENSIBLE_SYMBOL_HPP

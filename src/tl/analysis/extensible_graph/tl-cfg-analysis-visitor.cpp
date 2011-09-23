@@ -30,13 +30,12 @@ Cambridge, MA 02139, USA.
 namespace TL
 {
     CfgAnalysisVisitor::CfgAnalysisVisitor(Node* n)
-        : _node(n)
+        : _node(n), _define(false), _actual_nodecl(Nodecl::NodeclBase::null())
     {}
 
     CfgAnalysisVisitor::CfgAnalysisVisitor(const CfgAnalysisVisitor& v)
-    {
-        _node = v._node;
-    }
+        : _node(v._node), _define(v._define), _actual_nodecl(v._actual_nodecl)
+    {}
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
@@ -46,12 +45,21 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Symbol& n)
     {
-        _node->fill_use_def_sets(n.get_symbol(), _define);
+        _node->fill_use_def_sets(n.get_symbol(), _define, _actual_nodecl);
+        _actual_nodecl = Nodecl::NodeclBase::null();
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Text& n)
     {   // do nothing
     }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ContinueStatement& n)
+    {   // do nothing
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::BreakStatement& n)
+    {   // do nothing
+    }    
     
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::literal_visit(const T& n)
@@ -84,42 +92,141 @@ namespace TL
     }
 
     // TODO
+    template <typename T>
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::func_call(const T& n)
+    {
+        
+//         CfgArgumentVisitor new_visitor();
+//         new_visitor.walk(n);
+        
+        /*Type t = n.get_type();
+        
+        bool has_ellipsis;
+        ObjectList<Type> parameters_types = t.parameters(has_ellipsis);
+        Nodecl::List arguments(n.get_internal_nodecl());*/        
+        
+//         ObjectList<Nodecl::NodeclBase>::iterator ita = arguments.begin();
+//         for (ObjectList<Type>::iterator itp = parameters_types.begin();
+//             itp != parameters_types.end();
+//             ++itp, ++ita)
+//         {   // While we can use the parameters (arguments that are not ellipsis), we do
+//             // FIXME Escape analysis??
+//             if (itp->is_reference() || itp->is_pointer())
+//             {
+//                 ObjectList<Symbol> syms = (*ita).get_symbols();
+//                 if (!syms.empty())
+//                 {
+//                     for (ObjectList<Symbol>::iterator its = syms.begin();
+//                         it != syms.end();
+//                         ++it)
+//                     {
+//                         _node->fill_use_def_sets(ita.get_symbol(), false);
+//                         _node->fill_use_def_sets(ita.get_symbol(), true);
+//                     }
+//                 }
+//             }
+//         }
+        
+//         if (has_ellipsis)
+//         {
+//             for(; ita != arguments.end(); ++ita)
+//             {
+//                 // FIXME get_type will not work if Fortran when argument is 'named-pair' or 'alt-return'
+//                 if (ita->is_reference() || ita->is_pointer())
+//                 {
+//                     _node->fill_use_def_sets(ita.get_symbol(), false);
+//                     _node->fill_use_def_sets(ita.get_symbol(), true);
+//                 }
+//             }
+//         }
+             
+        //         else if (e.is_function_call())
+//         {
+//             Expression called_expression = e.get_called_expression();
+//             Type type = called_expression.get_type();
+//             ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
+//             
+//             ObjectList<Expression> args = e.get_argument_list();
+//             ObjectList<Type>::iterator itp = parameter_types.begin();
+//             ObjectList<Expression>::iterator ita = args.begin();
+//             for(; itp != parameter_types.end(); ita++, itp++)
+//             {
+//                 // Regarding the parameter, if possible (arguments that are not in ellipsis)
+//                 if ((itp->is_pointer() && !itp->points_to().is_const()) || 
+//                     (itp->is_reference() && !itp->references_to().is_const()))
+//                 {
+// //                     std::cerr << "Parameter " << ita->prettyprint() 
+// //                               << " is pointer and not const" << std::endl;
+//                     // Assuming that the argument is used and defined, in this order
+//                     set_live_initial_expression_information(*ita, /* Defined */ false);
+//                     set_live_initial_expression_information(*ita, /* Defined */ true);
+//                 }
+//                 else
+//                 {
+// //                     std::cerr << "Parameter " << ita->prettyprint() 
+// //                               << " is not pointer or const" << std::endl;
+//                     set_live_initial_expression_information(*ita, /* Defined */ false);
+//                 }
+//             }
+//             if (has_ellipsis)
+//             {
+//                 // There are more arguments than parameters, so we must regard the argument
+//                 for(; ita != args.end(); ita++)
+//                 {
+//                     if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
+//                         (ita->get_type().is_reference() && 
+//                              !ita->get_type().references_to().is_const()))
+//                     {
+// //                         std::cerr << "Argument " << ita->prettyprint() 
+// //                                   << " is pointer and not const" << std::endl;
+//                         // Assuming that the argument is used and defined, in this order
+//                         set_live_initial_expression_information(*ita, /* Defined */ false);
+//                         set_live_initial_expression_information(*ita, /* Defined */ true);
+//                     }
+//                     else
+//                     {    
+// //                         std::cerr << "Argument " << ita->prettyprint() 
+// //                                   << " is not pointer or const" << std::endl;
+//                         set_live_initial_expression_information(*ita, /* Defined */ false);
+//                     }
+//                 }
+//             }
+//         }        
+        
+    }
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
     {
-        unhandled_node(n);
+        func_call(n);
     }
-    
-    // TODO
+   
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
     {
-        Type t = n.get_type();
-        
+        func_call(n);
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
         _node->fill_use_def_sets(n.get_symbol(), true);
-        _define = false;
         walk(n.get_init_expr());
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)
     {
+        walk(n.get_rhs());
         _define = true;
         walk(n.get_lhs());
         _define = false;
-        walk(n.get_rhs());
     }
     
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::binary_assignment(const T& n)
     {
-        _define = false;
+        walk(n.get_rhs());        
         walk(n.get_lhs());
         _define = true;
         walk(n.get_lhs());
         _define = false;
-        walk(n.get_rhs());
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::AddAssignment& n)
@@ -174,14 +281,12 @@ namespace TL
         
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Throw& n)
     {
-        _define = false;
         walk(n.get_rhs());
     }
     
     template<typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::nested_visit(const T& n)
     {
-        _define = false;
         walk(n.get_nest());
     }
     
@@ -356,11 +461,21 @@ namespace TL
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Derreference& n)
     {
+        if (_actual_nodecl.is_null())
+        {    
+            _actual_nodecl = n;
+        }
+        
         unary_visit(n);
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Reference& n)
     {
+        if (_actual_nodecl.is_null())
+        {    
+            _actual_nodecl = n;
+        }
+        
         unary_visit(n);
     }
     
@@ -369,10 +484,20 @@ namespace TL
         walk(n.get_subscripted());
         walk(n.get_subscripts());
     }
+   
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySection& n)
+    {
+        unhandled_node(n);
+    }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
-        walk(n.get_lhs());
+        if (_actual_nodecl.is_null())
+        {    
+            _actual_nodecl = n;
+        }
+        
+        // walk(n.get_lhs());  // In a member access, the use/definition is always of the member, not the base
         walk(n.get_member());
     }
     
@@ -422,7 +547,6 @@ namespace TL
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ReturnStatement& n)
     {
-        _define = false;
         walk(n.get_value());
     }
     
@@ -432,7 +556,11 @@ namespace TL
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::LabeledStatement& n)
     {
-        _define = false;
         walk(n.get_statement());
+    }
+    
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Conversion& n)
+    {
+        walk(n.get_nest());
     }
 }

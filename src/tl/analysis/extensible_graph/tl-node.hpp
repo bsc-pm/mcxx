@@ -67,18 +67,22 @@ namespace TL
             Node* back_over_non_statement_nodes();
             
             //! Returns the list of live in variables in the node (Used in composite nodes)
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_live_in_over_nodes();
+            ext_sym_set get_live_in_over_nodes();
             
             //! Returns the list of live out variables in the node (Used in composite nodes)
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_live_out_over_nodes();
+            ext_sym_set get_live_out_over_nodes();
            
             //! Sets the variable represented by a symbol as a killed or an upper exposed variable 
             //! depending on @defined attribute
             /*!
-              A variable is killed when it is defined or redefined
-              A variable is upper exposed when it is used before of being killed
+             * A variable is killed when it is defined or redefined
+             * A variable is upper exposed when it is used before of being killed
+             * \param s Symbol been used or defined
+             * \param defined Action performed over the symbol: 1 if defined, 0 if not
+             * \param n Nodecl containg the whole expression about the use/definition
+             *          It will not be null when the action is a member access or a reference/dereference
              */
-            void fill_use_def_sets(Symbol s, bool defined);
+            void fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
             
         public:
             // *** Constructors *** //
@@ -116,6 +120,7 @@ namespace TL
             Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
             
             Node(const Node& n);
+            
             
             // *** Modifiers *** //
             
@@ -207,7 +212,24 @@ namespace TL
             
             //! Returns true when the node is in its children list
             bool has_child(Node* n);
-           
+            
+            //! Returns true if the node has the same identifier and the same entries and exits
+            bool operator==(const Node* &n) const;
+            
+            //! Returns the list of nodes contained inside a node with type graph
+            /*!
+             * When the node is not a GRAPH_NODE, the list is empty.
+             * Otherwise, returns all nodes in the graph node that have statements: 
+             * BASIC_NORMAL_NODE, BASIC_LABELED_NODE, BASIC_FUNCTION_CALL_NODE
+             */
+            ObjectList<Node*> get_inner_nodes();
+            
+            //! Recursive method to store a chain of nodes into a list
+            /*!
+             * \param node_l list where the nodes are stored
+             */
+            void get_inner_nodes_rec(ObjectList<Node*>& node_l);
+            
             
             // *** Analysis *** //
             
@@ -227,7 +249,7 @@ namespace TL
             void set_graph_node_liveness();
             
             //! Returns the set of variables that are alive at the entry of the node.
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_live_in_vars();
+            ext_sym_set get_live_in_vars();
             
             //! Adds a new live in variable to the node.
             void set_live_in(ExtensibleSymbol new_live_in_var);
@@ -236,10 +258,10 @@ namespace TL
             /*!
               If there was any other data in the list, it is removed.
              */
-            void set_live_in(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> new_live_in_set);
+            void set_live_in(ext_sym_set new_live_in_set);
             
             //! Returns the set of variables that are alive at the exit of the node.
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_live_out_vars();
+            ext_sym_set get_live_out_vars();
             
             //! Adds a new live out variable to the node.
             void set_live_out(ExtensibleSymbol new_live_out_var);
@@ -248,19 +270,28 @@ namespace TL
             /*!
               If there was any other data in the list, it is removed.
              */
-            void set_live_out(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> new_live_out_set);
+            void set_live_out(ext_sym_set new_live_out_set);
             
             //! Returns the list of upper exposed variables of the node
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_ue_vars();
+            ext_sym_set get_ue_vars();
             
             //! Adds a new upper exposed variable to the node
             void set_ue_var(ExtensibleSymbol new_ue_var);
             
             //! Returns the list of killed variables of the node
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> get_killed_vars();
+            ext_sym_set get_killed_vars();
             
             //! Adds a new killed variable to the node
             void set_killed_var(ExtensibleSymbol new_killed_var);
+            
+            //! Returns the list of input dependences of a task node
+            ext_sym_set get_input_deps();
+            
+            //! Returns the list of output dependences of a task node
+            ext_sym_set get_output_deps();
+            
+            //! Returns the list of inout dependences of a task node
+            ext_sym_set get_inout_deps();
             
         friend class CfgAnalysisVisitor;
     };

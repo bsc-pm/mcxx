@@ -30,14 +30,21 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    struct loop_control_nodes {
+    struct loop_control_nodes_t {
         Node* init;
         Node* cond;
         Node* next;
         
-        loop_control_nodes() 
+        loop_control_nodes_t() 
             : init(NULL), cond(NULL), next(NULL)
         {}
+        
+        loop_control_nodes_t(const loop_control_nodes_t& loop_control)
+        {
+            init = loop_control.init;
+            cond = loop_control.cond;
+            next = loop_control.next;
+        }
         
         void clear()
         {
@@ -52,14 +59,20 @@ namespace TL
         }
     };
     
-    struct try_block_nodes {
+    struct try_block_nodes_t {
         ObjectList<Node*> handler_parents;
         ObjectList<Node*> handler_exits;
         int nhandlers;
         
-        try_block_nodes()
+        try_block_nodes_t()
             : handler_parents(), handler_exits(), nhandlers(-1)
         {}
+        
+        try_block_nodes_t(const try_block_nodes_t& try_block)
+        {
+            handler_parents = try_block.handler_parents;
+            handler_exits = try_block.handler_exits;
+        }
         
         void clear()
         {
@@ -69,27 +82,42 @@ namespace TL
         }  
     };
     
-    struct omp_clause {
+    struct clause_t {
         std::string clause;
         ObjectList<Nodecl::NodeclBase> args;
-        omp_clause()
+        
+        clause_t()
             : clause(), args()
         {}
-        omp_clause(std::string s)
+        
+        clause_t(std::string s)
             : clause(s), args()
         {}
+        
+        clause_t(const clause_t& c)
+        {
+            clause = c.clause;
+            args = c.args;
+        }
     };    
     
-    struct omp_pragma {
+    struct pragma_t {
         ObjectList<Nodecl::NodeclBase> params;
-        ObjectList<struct omp_clause> clauses;
-        omp_pragma()
+        ObjectList<struct clause_t> clauses;
+        
+        pragma_t()
             : params(), clauses()
         {}
         
+        pragma_t(const pragma_t& p)
+        {
+            params = p.params;
+            clauses = p.clauses;
+        }
+        
         bool has_clause(std::string s)
         {
-            for (ObjectList<struct omp_clause>::iterator it = clauses.begin();
+            for (ObjectList<struct clause_t>::iterator it = clauses.begin();
                 it != clauses.end();
                 ++it)
             {
@@ -100,7 +128,20 @@ namespace TL
         }
     };
     
-    
+    struct omp_pragma_sections_t {
+        ObjectList<Node*> section_parents;
+        ObjectList<Node*> sections_exits;
+        
+        omp_pragma_sections_t(ObjectList<Node*> parents)
+            : section_parents(parents), sections_exits()
+        {}
+        
+        omp_pragma_sections_t(const omp_pragma_sections_t& sections)
+        {
+            section_parents = sections.section_parents;
+            sections_exits = sections.sections_exits;
+        }
+    };
     
     class LIBTL_CLASS CfgVisitor : public Nodecl::NodeclVisitor<Node*>
     {
@@ -109,16 +150,18 @@ namespace TL
         
         ObjectList<ExtensibleGraph*> _cfgs;
         
-        struct loop_control_nodes _actual_loop_info;
+        struct loop_control_nodes_t _actual_loop_info;
         
         //! List with the struct containing information about the try hierarchy we are
         /*!
          * This member is a list because we need to access the different levels without deleting them
          * in the case we detect a Throw, we want to connect it to any catch of any try level of hierarchy
          */
-        ObjectList<struct try_block_nodes> _actual_try_info;
+        ObjectList<struct try_block_nodes_t> _actual_try_info;
         
-        std::stack<struct omp_pragma> _omp_pragma_info_s;
+        std::stack<struct pragma_t> _pragma_info_s;
+       
+        std::stack<struct omp_pragma_sections_t> _omp_sections_info;
         
         std::stack<Node*> _switch_cond_s;
         
@@ -176,6 +219,14 @@ namespace TL
         template <typename T>
         Ret function_call_visit(const T& n);
         
+        //! This method build the graph node containing the CFG of a task
+        /*!
+         * The method stores the graph node into the list #_task_graphs_l
+         * We can place the task any where in the graph taking into account that the position must 
+         * respect the initial dependences
+         */
+        Ret create_task_graph(const Nodecl::PragmaCustomConstruct& n);
+        
     public:
         //! Empty constructor
         /*!
@@ -221,6 +272,7 @@ namespace TL
         Ret visit(const Nodecl::ParenthesizedExpression& n);
         Ret visit(const Nodecl::ObjectInit& n);
         Ret visit(const Nodecl::ArraySubscript& n);
+        Ret visit(const Nodecl::ArraySection& n);
         Ret visit(const Nodecl::ClassMemberAccess& n);
         Ret visit(const Nodecl::FortranNamedPairSpec& n);
         Ret visit(const Nodecl::Concat& n);
@@ -231,6 +283,7 @@ namespace TL
         Ret visit(const Nodecl::Type& n);
         Ret visit(const Nodecl::Typeid& n);
         Ret visit(const Nodecl::Cast& n);
+        Ret visit(const Nodecl::Alignof& n);
         Ret visit(const Nodecl::Offset& n);
         Ret visit(const Nodecl::VirtualFunctionCall& n);
         Ret visit(const Nodecl::FunctionCall& n);

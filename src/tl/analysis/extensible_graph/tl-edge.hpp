@@ -69,6 +69,9 @@ namespace TL
             //! Returns the type of the edge
             Edge_type get_type();
             
+            //! Returns a string with the type of the node
+            std::string get_type_as_string();
+            
             //! Returns the label of the edge. 
             /*!
               \return When the label is empty, meaning the edge is always taken, an empty string

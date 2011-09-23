@@ -22,31 +22,26 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
+#include "tl-cfg-analysis-visitor.hpp"
+
 #include "tl-extensible-graph.hpp"
 #include "tl-extensible-symbol.hpp"
-
-#include "tl-cfg-analysis-visitor.hpp"
 
 namespace TL
 {
     //! This function returns the set which is the union of the two input sets
-    static std::set<ExtensibleSymbol, 
-                    ExtensibleSymbol_comp> sets_union(std::set<ExtensibleSymbol,
-                                                               ExtensibleSymbol_comp> set1,
-                                                      std::set<ExtensibleSymbol,
-                                                               ExtensibleSymbol_comp> set2);
+    static ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2);
+    
+    //! This function returns the set which is the subtraction of @set1 less @set2
+    static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2);
+    
+    //! This function returns the set which is the intersection of the two input sets
+    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2);
     
     //! This function returns true if the two sets contain the same elements
-    static bool sets_equals(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> set1, 
-                            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> set2);
-    
-    //! This function substract from @set1 the elements in @set2
-    static std::set<ExtensibleSymbol, 
-                    ExtensibleSymbol_comp> sets_difference(std::set<ExtensibleSymbol,
-                                                                    ExtensibleSymbol_comp> set1,
-                                                           std::set<ExtensibleSymbol,
-                                                                    ExtensibleSymbol_comp> set2);
-    
+    static bool sets_equals(ext_sym_set set1, ext_sym_set set2);
+
+                    
     void ExtensibleGraph::live_variable_analysis()
     {
         Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
@@ -54,11 +49,16 @@ namespace TL
         {
             std::cerr << "=== CFG Function Live Variable analysis ===" << std::endl;
         }
+        
         gather_live_initial_information(entry);
         clear_visits(entry);
-//         solve_live_equations();
+        
+        solve_live_equations();
+        clear_visits(entry);
+        
+        analyse_tasks();
     }
-    
+
     void ExtensibleGraph::gather_live_initial_information(Node* actual)
     {
         Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
@@ -117,9 +117,9 @@ namespace TL
                     if (!actual->has_key(_NODE_LABEL))
                     {
                         internal_error("Graph node '%d' with no specified label."
-                                       "Expecting a Pragma, Function_call, Conditional Espression "
-                                       "or Splitted instruction as a Graph node here",
-                                       actual->get_id());
+                                    "Expecting a Pragma, Function_call, Conditional Espression "
+                                    "or Splitted instruction as a Graph node here",
+                                    actual->get_id());
                     }
                     Node* entry_node = actual->get_data<Node*>(_ENTRY_NODE);
                     solve_live_equations_recursive(entry_node, changed);
@@ -132,11 +132,11 @@ namespace TL
                     
                     if (ntype != BASIC_ENTRY_NODE)
                     {
-                        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> old_live_in = 
+                        ext_sym_set old_live_in = 
                             actual->get_live_in_vars();
-                        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> old_live_out = 
+                        ext_sym_set old_live_out = 
                             actual->get_live_out_vars();
-                        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_out, live_in, 
+                        ext_sym_set live_out, live_in, 
                             aux_live_in, aux;
                         
                         for(ObjectList<Node*>::iterator it = children.begin();
@@ -152,12 +152,12 @@ namespace TL
                                     itic != inner_children.end();
                                     ++itic)
                                 {
-                                    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> aux_set = 
+                                    ext_sym_set aux_set = 
                                         (*itic)->get_live_in_vars();
                                     aux_live_in.insert(aux_set.begin(), aux_set.end());
                                 }
                             }
-                            else if (nt == BASIC_EXIT_NODE /*&& *it != _exit*/)     // Exit ja no existeix així!!
+                            else if (nt == BASIC_EXIT_NODE && (*it)->get_id() != _graph->get_data<Node*>(_EXIT_NODE)->get_id())
                             {
                                 ObjectList<Node*> outer_children = 
                                     (*it)->get_data<Node*>(_OUTER_NODE)->get_children();
@@ -165,7 +165,7 @@ namespace TL
                                     itoc != outer_children.end();
                                     ++itoc)
                                 {
-                                    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> aux_set = 
+                                    ext_sym_set aux_set = 
                                         (*itoc)->get_live_in_vars();
                                     aux_live_in.insert(aux_set.begin(), aux_set.end());
                                 }
@@ -217,151 +217,110 @@ namespace TL
         }
     }
     
-//     void Node::set_live_initial_expression_information(Expression e, bool defined)
-//     {
-//         //         std::cout << "Expression: " << e.prettyprint() << std::endl;
-//         bool has_ellipsis = false;
-//         if (e.is_literal())
-//             return;
-//         if (e.is_id_expression())
-//             fill_use_def_sets(e.get_id_expression().get_symbol(), defined);
-//         else if (e.is_unary_operation() && e.get_operation_kind()==Expression::REFERENCE)
-//             fill_use_def_sets(e.get_unary_operand().get_symbol(), defined);
-//         else if (e.is_member_access() || e.is_pointer_member_access())
-//             fill_use_def_sets(e.get_accessed_entity().get_symbol(), defined);
-//         else if (e.is_assignment())
-//         {
-//             set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
-//             set_live_initial_expression_information(e.get_first_operand(), /* Defined */ true);
-//         }
-//         else if (e.is_binary_operation())
-//         {
-//             if (e.get_operation_kind() == Expression::SHIFT_LEFT)
-//             {
-//                 std::cerr <<" ** static_analysis.cpp :: set_live_initial_expression_information ** "
-//                           << "warning: When shift operation is an overloaded funtion " 
-//                           << " then the left hand operator must be treated as a definition "
-//                           << "but it is done as a use. We must fix that" << std::endl;
-//             }
-//             // FIXME When '<<' is an overloaded function, then the left variable must be defined
-//             set_live_initial_expression_information(e.get_first_operand(), /* Defined */ false);
-//             set_live_initial_expression_information(e.get_second_operand(), /* Defined */ false);
-//         }
-//         else if (e.is_unary_operation())
-//         {
-//             // The symbol will always be read before than written, so it will be Used before Defined
-//             set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ false);
-//             // If the unary operation is an Incr/Decrement, then the symbol will be also Defined
-//             Expression::OperationKind op = e.get_operation_kind();
-//             if ((op == Expression::PREINCREMENT) || (op == Expression::POSTINCREMENT) 
-//                 || (op == Expression::PREDECREMENT) || (op == Expression::POSTDECREMENT))
-//                 set_live_initial_expression_information(e.get_unary_operand(), /* Defined */ true);
-//         }
-//         else if (e.is_casting())
-//         {
-//             set_live_initial_expression_information(e.get_casted_expression(), /* Defined */ false);
-//         }
-//         else if (e.is_array_subscript())
-//         {
-//             set_live_initial_expression_information(e.get_subscript_expression(), 
-//                                                     /* Defined */ false);
-//             set_live_initial_expression_information(e.get_subscripted_expression(), defined);
-//         }
-//         else if (e.is_function_call())
-//         {
-//             Expression called_expression = e.get_called_expression();
-//             Type type = called_expression.get_type();
-//             ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
-//             
-//             ObjectList<Expression> args = e.get_argument_list();
-//             ObjectList<Type>::iterator itp = parameter_types.begin();
-//             ObjectList<Expression>::iterator ita = args.begin();
-//             for(; itp != parameter_types.end(); ita++, itp++)
-//             {
-//                 // Regarding the parameter, if possible (arguments that are not in ellipsis)
-//                 if ((itp->is_pointer() && !itp->points_to().is_const()) || 
-//                     (itp->is_reference() && !itp->references_to().is_const()))
-//                 {
-// //                     std::cout << "Parameter " << ita->prettyprint() 
-// //                               << " is pointer and not const" << std::endl;
-//                     // Assuming that the argument is used and defined, in this order
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     set_live_initial_expression_information(*ita, /* Defined */ true);
-//                 }
-//                 else
-//                 {
-// //                     std::cout << "Parameter " << ita->prettyprint() 
-// //                               << " is not pointer or const" << std::endl;
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                 }
-//             }
-//             if (has_ellipsis)
-//             {
-//                 // There are more arguments than parameters, so we must regard the argument
-//                 for(; ita != args.end(); ita++)
-//                 {
-//                     if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
-//                         (ita->get_type().is_reference() && 
-//                              !ita->get_type().references_to().is_const()))
-//                     {
-// //                         std::cout << "Argument " << ita->prettyprint() 
-// //                                   << " is pointer and not const" << std::endl;
-//                         // Assuming that the argument is used and defined, in this order
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                         set_live_initial_expression_information(*ita, /* Defined */ true);
-//                     }
-//                     else
-//                     {    
-// //                         std::cout << "Argument " << ita->prettyprint() 
-// //                                   << " is not pointer or const" << std::endl;
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     }
-//                 }
-//             }
-//         }
-//         else if (e.is_conditional())
-//         {
-//             set_live_initial_expression_information(e.get_condition_expression(), 
-//                                                     /* Defined */ false);
-//             set_live_initial_expression_information(e.get_true_expression(), /* Defined */ false);
-//             set_live_initial_expression_information(e.get_false_expression(), /* Defined */ false);
-//         }
-//         else if (e.is_throw_expression())
-//         {
-//             set_live_initial_expression_information(e.get_throw_expression(), /* Defined */ false);
-//         }
-//         else
-//         {
-//             internal_error("Unexpected expression '%s' when computing the live variable analysis\n",
-//                            e.prettyprint().c_str());
-//         }
-//     }
-    
-    void Node::fill_use_def_sets(Symbol s, bool defined)
+    void Node::fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n)
     {
         if (defined)
         {
-            set_killed_var(ExtensibleSymbol(s));
+            set_killed_var(ExtensibleSymbol(s, n));
         }
         else
         {
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> killed_vars = get_killed_vars();
+            ext_sym_set killed_vars = get_killed_vars();
             if (killed_vars.find(ExtensibleSymbol(s)) == killed_vars.end())
             {
-                set_ue_var(ExtensibleSymbol(s));
+                set_ue_var(ExtensibleSymbol(s, n));
             }
         }
     }
-   
-    static std::set<ExtensibleSymbol, 
-                    ExtensibleSymbol_comp> sets_union(std::set<ExtensibleSymbol,
-                                                               ExtensibleSymbol_comp> set1, 
-                                                      std::set<ExtensibleSymbol,
-                                                               ExtensibleSymbol_comp> set2)
+
+    void ExtensibleGraph::analyse_tasks()
+    {
+        for (ObjectList<Node*>::iterator it = _task_nodes_l.begin();
+            it != _task_nodes_l.end();
+            ++it)
+        {
+            analyse_task(*it);
+            clear_visits(*it);
+        }
+    }
+    
+    // FIXME For the moment we assume the user has used the 'auto-deps' clause
+    void ExtensibleGraph::analyse_task(Node* task_node)
+    {
+        Node* entry = task_node->get_data<Node*>(_ENTRY_NODE);
+      
+        ObjectList<Node*> node_l = task_node->get_inner_nodes();
+        
+//         // Compute the actions performed over the symbols in all nodes
+        ObjectList<sym_info_t*> symbols;
+        ext_sym_set li_vars = task_node->get_data<ext_sym_set>(_LIVE_IN);
+        for(ObjectList<Node*>::iterator it = node_l.begin(); it != node_l.end(); ++it)
+        {
+            ext_sym_set ue_vars = (*it)->get_data<ext_sym_set>(_UPPER_EXPOSED);
+            ext_sym_set shared_ue_vars = sets_intersection(ue_vars, li_vars);
+            for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
+            {
+                sym_info_t* s = new sym_info_t(*it_ue);
+                if (symbols.contains(s))
+                {
+                    sym_info_t* sym_info = symbols.find(s)[0];  // The element will appear only once in the list
+                    sym_info->_different_action = '1';
+                }
+                else
+                {
+                    sym_info_t* sym_info = new sym_info_t(*it_ue, '0', '0');
+                    symbols.insert(sym_info);
+                }
+            }
+                
+            ext_sym_set kill_vars = (*it)->get_data<ext_sym_set>(_KILLED);
+            for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
+            {
+                sym_info_t* s = new sym_info_t(*it_kill);
+                if (symbols.contains(s))
+                {
+                    sym_info_t* sym_info = symbols.find(s)[0];  // The element will appear only once in the list
+                    sym_info->_different_action = '1';
+                }
+                else
+                {
+                    // do nothing: When the first action over a Symbol is its definition, the it can only has an 'output' dependence
+                    sym_info_t* sym_info = new sym_info_t(*it_kill, '1', '0');
+                    symbols.insert(sym_info);
+                }
+            }            
+        }
+//         Compute auto-deps
+        ext_sym_set input_deps, output_deps, inout_deps;
+        for (ObjectList<sym_info_t*>::iterator it = symbols.begin(); it != symbols.end(); ++it)
+        {
+            if ((*it)->_first_action == '0')
+            {
+                if ((*it)->_different_action == '0')
+                {
+                    input_deps.insert((*it)->_sym);
+                }
+                else
+                {
+                    inout_deps.insert((*it)->_sym);
+                }
+            }
+            else
+            {
+                output_deps.insert((*it)->_sym);
+            }
+        }
+        
+        task_node->set_data(_IN_DEPS, input_deps);
+        task_node->set_data(_OUT_DEPS, output_deps);
+        task_node->set_data(_INOUT_DEPS, inout_deps);
+    }
+    
+    static ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
     {
         std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
         std::vector<ExtensibleSymbol>::iterator it;
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> result;
+        ext_sym_set result;
         
         it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
         
@@ -372,9 +331,41 @@ namespace TL
         
         return result;
     }
+
    
-    static bool sets_equals(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> set1, 
-                            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> set2)
+    static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2)
+    {
+        std::vector<ExtensibleSymbol> v_result(set1.size());
+        std::vector<ExtensibleSymbol>::iterator it;
+        ext_sym_set result;
+        
+        it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+        
+        for(int i=0; i<int(it-v_result.begin()); i++)
+        {    
+            result.insert(v_result.at(i));
+        }
+        
+        return result;
+    }
+    
+    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2)
+    {
+        std::vector<ExtensibleSymbol> v_result(set1.size());
+        std::vector<ExtensibleSymbol>::iterator it;
+        ext_sym_set result;
+        
+        it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+        
+        for(int i=0; i<int(it-v_result.begin()); i++)
+        {    
+            result.insert(v_result.at(i));
+        }
+        
+        return result;        
+    }
+
+    static bool sets_equals(ext_sym_set set1, ext_sym_set set2)
     {
         if (set1.size() == set2.size())
         {
@@ -389,25 +380,5 @@ namespace TL
         {    
             return false;
         }
-    }
-   
-    static std::set<ExtensibleSymbol, 
-                    ExtensibleSymbol_comp> sets_difference(std::set<ExtensibleSymbol,
-                                                                    ExtensibleSymbol_comp> set1, 
-                                                           std::set<ExtensibleSymbol,
-                                                                    ExtensibleSymbol_comp> set2)
-    {
-        std::vector<ExtensibleSymbol> v_result(set1.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> result;
-        
-        it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
-        
-        return result;
     }
 }

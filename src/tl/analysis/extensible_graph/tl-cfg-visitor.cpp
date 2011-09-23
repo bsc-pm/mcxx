@@ -32,7 +32,8 @@ namespace TL
     CfgVisitor::CfgVisitor()
         : _actual_cfg(NULL), _cfgs(),
           _actual_loop_info(), _actual_try_info(), 
-           _omp_pragma_info_s(),  _switch_cond_s()
+           _pragma_info_s(), _omp_sections_info(), 
+           _switch_cond_s()
     {}
     
     CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
@@ -41,7 +42,8 @@ namespace TL
         _cfgs = visitor._cfgs;
         _actual_loop_info = visitor._actual_loop_info;
         _actual_try_info = visitor._actual_try_info;
-         _omp_pragma_info_s = visitor._omp_pragma_info_s; 
+        _pragma_info_s = visitor._pragma_info_s;
+        _omp_sections_info = visitor._omp_sections_info;
         _switch_cond_s = visitor._switch_cond_s;
     }
     
@@ -64,14 +66,10 @@ namespace TL
             // Connect the exit nodes to the Exit node of the master graph
             Node* graph_exit = _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE);
             graph_exit->set_id(++_actual_cfg->_nid);
-                    
+            
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
             
-            // Remove the unnecessary nodes and join these ones that are always executed consecutively
-            _actual_cfg->clear_unnecessary_nodes();
-            
-            // Walk the whole graph concatenating those nodes that are a Basic Block
-            _actual_cfg->concat_sequential_nodes();
+            _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
         }
@@ -101,40 +99,29 @@ namespace TL
         std::string nom = s.get_name();
        
         // Create a new graph for the current function
-        _actual_cfg = new ExtensibleGraph(s.get_name());
+        ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name());
+        _actual_cfg = actual_cfg;
         
         ObjectList<Node*> func_stmts = walk(n.get_statements());
-    
-        // Task subgrpahs must be appended, conservatively, at the end of the master graph
-        // FIXME Before or after the Return ??
-//         for (ObjectList<Node*>::iterator it = cfg._tasks_node_list.begin();
-//             it != cfg._tasks_node_list.end();
-//             ++it)
-//         {
-//             cfg->connect_nodes(cfg._last_nodes[0], *it);
-//             cfg->_last_nodes[0] = *it;
-//         }
-
-        // Connect the exit nodes to the Exit node of the master graph
+        
+        // Complete the exit node
         Node* graph_exit = _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE);
         graph_exit->set_id(++_actual_cfg->_nid);
-                
+            
+        // Connect the exit nodes to the Exit node of the master graph   
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
         
-        // Remove the unnecessary nodes and join these ones that are always executed consecutively
-        _actual_cfg->clear_unnecessary_nodes();
-
-        // Walk the whole graph concatenating those nodes that are a Basic Block
-        _actual_cfg->concat_sequential_nodes();
+        _actual_cfg->dress_up_graph();
         
         _cfgs.append(_actual_cfg);
+        _actual_cfg = NULL;
         
-        return ObjectList<Node*>(1, _actual_cfg->_graph);
+        return ObjectList<Node*>(1, actual_cfg->_graph);
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::TryBlock& n)
     {
-        struct try_block_nodes new_try_block;
+        struct try_block_nodes_t new_try_block;
         _actual_try_info.append(new_try_block);
         ObjectList<Node*> try_parents = _actual_cfg->_last_nodes;
         ObjectList<Node*> try_stmts = walk(n.get_statement());
@@ -147,7 +134,7 @@ namespace TL
         
         // Process the ellipsis
         ObjectList<Node*> ellipsis_parents = _actual_cfg->_last_nodes;
-        struct try_block_nodes* actual_try_info = &_actual_try_info.back();
+        struct try_block_nodes_t* actual_try_info = &_actual_try_info.back();
         _actual_cfg->_last_nodes = actual_try_info->handler_parents;
         ObjectList<Node*> ellipsis_l = walk(n.get_any());
         if (!ellipsis_l.empty())
@@ -180,7 +167,7 @@ namespace TL
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::CatchHandler& n)
     {
-        struct try_block_nodes* actual_try_info = &_actual_try_info.back();
+        struct try_block_nodes_t* actual_try_info = &_actual_try_info.back();
         actual_try_info->nhandlers++;
         
         // Build the handler nodes
@@ -226,7 +213,7 @@ namespace TL
 
         if (!_actual_try_info.empty())
         {   
-            for (ObjectList<struct try_block_nodes>::reverse_iterator it = _actual_try_info.rbegin();
+            for (ObjectList<struct try_block_nodes_t>::reverse_iterator it = _actual_try_info.rbegin();
                 it != _actual_try_info.rend();
                 ++it)
             {
@@ -287,7 +274,7 @@ namespace TL
                 }
                 if (!expr_last_nodes.empty())
                 {   // This will be empty when last statement visited was a Break Statement
-                    int n_connects = (expr_first_nodes.size() > expr_last_nodes.size()) ? expr_first_nodes.size() : expr_last_nodes.size();
+                    int n_connects = expr_first_nodes.size() * expr_last_nodes.size();
                     if (n_connects != 0)
                     {
                         _actual_cfg->connect_nodes(expr_last_nodes, expr_first_nodes, 
@@ -325,20 +312,23 @@ namespace TL
         Symbol s = n.get_symbol();
         nodecl_t n_sym = nodecl_make_symbol(s.get_internal_symbol(), n.get_filename().c_str(), n.get_line());
         Nodecl::Symbol nodecl_symbol(n_sym);
-      
-        ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
-        ObjectList<Node*> init_sym = walk(nodecl_symbol);
-        _actual_cfg->_last_nodes.clear();
-        ObjectList<Node*> init_expr = walk(n.get_init_expr());
         
-        
-        if (_actual_cfg == NULL || init_expr.empty())
-        {   // do nothing
-            // We arrive here when a shared variable is declared or the Object Init is not initialized
+        if (_actual_cfg == NULL)
+        {   // do nothing: A shared variable is declared
             return Ret();
         }
         else
         {
+            ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
+            ObjectList<Node*> init_sym = walk(nodecl_symbol);
+            _actual_cfg->_last_nodes.clear();
+            ObjectList<Node*> init_expr = walk(n.get_init_expr());
+        
+            if (init_expr.empty())
+            {   // do nothing: The Object Init is not initialized
+                return Ret();
+            }
+            
             Node* merged_node = merge_nodes(n, init_sym[0], init_expr[0]);
             _actual_cfg->connect_nodes(object_init_last_nodes, merged_node);
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged_node);
@@ -347,8 +337,11 @@ namespace TL
         }
     }
 
+    // FIXME This is not working properly because of the merging method
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySubscript& n)
     {
+        ObjectList<Node*> subscripted_last_nodes = _actual_cfg->_last_nodes;
+        _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> subscripted = walk(n.get_subscripted());
 
         ObjectList<Node*> subscripts_last_nodes = _actual_cfg->_last_nodes;
@@ -364,8 +357,7 @@ namespace TL
         }
         if (!subscripts_last_nodes.empty())
         {   // This will be empty when last statement visited was a Break Statement
-            int n_connects = (subscripts_first_nodes.size() > subscripts_last_nodes.size()) ? 
-                             subscripts_first_nodes.size() : subscripts_last_nodes.size();
+            int n_connects = subscripts_first_nodes.size() * subscripts_last_nodes.size();
             if (n_connects != 0)
             {
                 _actual_cfg->connect_nodes(subscripts_last_nodes, subscripts_first_nodes, 
@@ -379,13 +371,30 @@ namespace TL
 
         return ObjectList<Node*>(1, merged);
     }
+   
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySection& n)
+    {
+        internal_error("ArraySection nodes are not properly built", 0);
+        ObjectList<Node*> subscripted = walk(n.get_subscripted());
+        
+        ObjectList<Node*> lb_last_nodes = _actual_cfg->_last_nodes;
+        _actual_cfg->_last_nodes.clear();
+        ObjectList<Node*> lower = walk(n.get_lower());
+        ObjectList<Node*> upper = walk(n.get_upper());
+        
+        ObjectList<Node*> section = subscripted; section.append(lower); section.append(upper);
+        Node* merged = merge_nodes(n, section);
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged);
 
-    // TODO
+        return ObjectList<Node*>(1, merged);
+    }
+
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ClassMemberAccess& n)
     {
-        walk(n.get_lhs());
-        walk(n.get_member());
-        return Ret();
+        ObjectList<Node*> lhs = walk(n.get_lhs());
+        ObjectList<Node*> member = walk(n.get_member());
+       
+        return ObjectList<Node*>(1, merge_nodes(n, member));
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::New& n)
@@ -422,7 +431,6 @@ namespace TL
     // TODO
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Typeid& n)
     {
-        ObjectList<Node*> arg = walk(n.get_arg());
         internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
         return Ret();
     }
@@ -433,11 +441,17 @@ namespace TL
         return ObjectList<Node*>(1, merge_nodes(n, cast_expr, NULL));
     }
 
-    // TODO
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Alignof& n)
+    {
+        Node* size_type = walk(n.get_size_type())[0];
+        return ObjectList<Node*>(1, merge_nodes(n, size_type, NULL));
+    }
+
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Offset& n)
     {
-        internal_error("Node '%s' not implemented yet. CFG construction failed.", ast_print_node_type(n.get_kind()));
-        return Ret();
+        Node* base = walk(n.get_base())[0];
+        Node* offset = walk(n.get_offset())[0];
+        return ObjectList<Node*>(1, merge_nodes(n, base, offset));
     }
 
     template <typename T>
@@ -451,7 +465,7 @@ namespace TL
             _actual_cfg->_last_nodes.clear();
         }
         _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
-       
+        
         ObjectList<Node*> arguments_l;
         if (n.template is<Nodecl::VirtualFunctionCall>())
         {
@@ -470,18 +484,17 @@ namespace TL
         }
 
         // walk(n.get_called());    // This is not necessary, always return the called function
-        Node* func_node = merge_nodes(n, arguments_l);
-
-        ObjectList<Node*> func_first_nodes = get_first_nodes(func_node);
-        for (ObjectList<Node*>::iterator it = func_first_nodes.begin();
-            it != func_first_nodes.end();
-            ++it)
+        Node* func_node;
+        if (!arguments_l.empty())
         {
-            _actual_cfg->clear_visits(*it);
+            // Method merge_nodes connects properly the nodes created
+            func_node = merge_nodes(n, arguments_l);
         }
-        int n_connections = func_first_nodes.size();
-        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_first_nodes, 
-                                   ObjectList<Edge_type>(n_connections, ALWAYS_EDGE), ObjectList<std::string>(n_connections, ""));
+        else
+        {
+            func_node = new Node(_actual_cfg->_nid, BASIC_FUNCTION_CALL_NODE, func_graph_node, n);
+            _actual_cfg->connect_nodes(func_graph_node->get_data<Node*>(_ENTRY_NODE), func_node);
+        }
 
         Node* graph_exit = func_graph_node->get_data<Node*>(_EXIT_NODE);
         graph_exit->set_id(++_actual_cfg->_nid);
@@ -604,109 +617,209 @@ namespace TL
         return Ret();
     }
 
+    static bool pragma_is_worksharing(std::string pragma)
+    {
+        return (pragma == "parallel" || pragma == "for" || pragma == "parallel|for"
+                || pragma == "workshare" || pragma == "parallel|workshare"
+                || pragma == "sections" || pragma == "parallel|sections"
+                || pragma == "single");
+    }
+
+    CfgVisitor::Ret CfgVisitor::create_task_graph(const Nodecl::PragmaCustomConstruct& n)
+    {
+        ObjectList<Node*> previous_nodes = _actual_cfg->_last_nodes;
+        
+        struct pragma_t actual_pragma;
+        _pragma_info_s.push(actual_pragma);
+        
+        Node* task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "task");
+        int n_connects = previous_nodes.size();
+        _actual_cfg->connect_nodes(previous_nodes, task_graph_node, 
+                                   ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_data<Node*>(_ENTRY_NODE));
+        
+        walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
+                                    // but do not create any additional node
+        
+        walk(n.get_statement());
+        
+        Node* graph_exit = task_graph_node->get_data<Node*>(_EXIT_NODE);
+        graph_exit->set_id(++_actual_cfg->_nid);
+        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+        _actual_cfg->_outer_node.pop();
+        
+        _actual_cfg->_last_nodes = previous_nodes;
+        
+        _actual_cfg->_task_nodes_l.append(task_graph_node);
+        
+        return ObjectList<Node*>(1, task_graph_node);        
+    }
+    
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomConstruct& n)
     {
         // Built a new object in the pragma stack to store its relative info
-        struct omp_pragma actual_omp_pragma;
-        _omp_pragma_info_s.push(actual_omp_pragma);
+        struct pragma_t actual_pragma;
+        _pragma_info_s.push(actual_pragma);
+       
+        std::string pragma = n.get_pragma_line().get_text();
         
-        Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "omp_pragma");
-        if (!_actual_cfg->_last_nodes.empty())
-        {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
-            _actual_cfg->_last_nodes.clear();
-        }
-        _actual_cfg->_last_nodes.append(pragma_graph_node->get_data<Node*>(_ENTRY_NODE));
-      
-        walk(n.get_pragma_line());  // This visit computes information associated to the Pragma node, 
-                                    // but do not create any additional node
-
-        std::string pragma_line = n.get_pragma_line().get_text();
-        if (pragma_line == "parallel" || pragma_line == "parallel|for" 
-            || pragma_line == "parallel|workshare" || pragma_line == "parallel|sections"
-            || pragma_line == "critical" || pragma_line == "atomic" || pragma_line == "ordered"
-            || pragma_line == "task")
+        if (pragma == "task")
         {
-            // We include here a Flush node before the pragma statements
-            // FIXME Review Task here!!
-            Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
-            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
-        }
-        else if (pragma_line == "workshare" || pragma_line == "single" || pragma_line == "master" 
-                || pragma_line == "for" || pragma_line == "section")
-        {   // Nothing to do before building the pragma inner statements
+            return create_task_graph(n);
         }
         else
         {
-            internal_error("Unexpected omp pragma construct '%s' while building the CFG", pragma_line.c_str());
-        }
-       
-        ObjectList<Node*> pragma_statement = walk(n.get_statement());
-        
-        if (pragma_line == "parallel" || pragma_line == "for" || pragma_line == "parallel|for"
-            || pragma_line == "workshare" || pragma_line == "parallel|workshare"
-            || pragma_line == "sections" || pragma_line == "parallel|sections"
-            || pragma_line == "single"
-            /*|| pragma_line == "critical" || pragma_line == "ordered" || pragma_line == "atomic"*/)
-        {   // We include here a Barrier node after the pragma statements
-            if (!_omp_pragma_info_s.top().has_clause("nowait"))
+            if (pragma == "section")
             {
-                _actual_cfg->create_barrier_node(pragma_graph_node);
+                _actual_cfg->_last_nodes = _omp_sections_info.top().section_parents;
+            } 
+            
+            Node* pragma_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "omp_pragma");
+            if (!_actual_cfg->_last_nodes.empty())
+            {   // If there is any node in 'last_nodes' list, then we have to connect the new graph node
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
+                _actual_cfg->_last_nodes.clear();
             }
+            _actual_cfg->_last_nodes.append(pragma_graph_node->get_data<Node*>(_ENTRY_NODE));
+            
+            walk(n.get_pragma_line());  // This visit computes information associated to the Pragma node, 
+                                        // but do not create any additional node
+            
+            if (pragma == "parallel" || pragma == "parallel|for" 
+                || pragma == "parallel|workshare" || pragma == "parallel|sections"
+                || pragma == "critical" || pragma == "atomic" || pragma == "ordered"
+                || pragma == "task")
+            {
+                // We include here a Flush node before the pragma statements
+                // FIXME Review Task here!!
+                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);
+            }
+            else if (pragma == "workshare" || pragma == "single" || pragma == "master" 
+                    || pragma == "for" || pragma == "section")
+            {   // Nothing to do before building the pragma inner statements
+            }
+            else
+            {
+                internal_error("Unexpected omp pragma construct '%s' while building the CFG", pragma.c_str());
+            }
+        
+            if (pragma == "sections" || pragma == "parallel|sections")
+            {   // push a new struct in the stack to store info about entries and exits
+                struct omp_pragma_sections_t actual_sections_info(_actual_cfg->_last_nodes);
+                _omp_sections_info.push(actual_sections_info);
+                
+                // In a sections pragma custom construct, the first statement may not have a sections pragma
+                // In this case, we should wrap the statement within a Sections Pragma
+                Nodecl::List sections_stmt_list = n.get_statement().as<Nodecl::List>(); // This list contains always one
+                Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
+                Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
+                if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomConstruct>())
+                {
+                    const char* text = "section";
+                    const char* filename =  n.get_filename().c_str();
+                    int line = n.get_line();
+                    Nodecl::List empty_nodecl_list(nodecl_null());              
+                    nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
+                                                                            /* clauses */ empty_nodecl_list.get_internal_nodecl(),
+                                                                        text, filename, line);
+                    Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
+                    Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
+                    nodecl_t new_pragma_sections = nodecl_make_pragma_custom_construct(pragma_line,
+                                                                                        stmt_seq.get_internal_nodecl(), 
+                                                                                        text, filename, line);
+                    // Walk the first wrapped node
+                    walk(new_pragma_sections);
+                    
+                    // Walk the rest of nodes
+                    for(std::vector<Nodecl::NodeclBase>::iterator it = sections_stmts.begin()+1;
+                        it != sections_stmts.end();
+                        ++it)
+                    {
+                        walk(*it);
+                    }
+                }
+                else
+                {
+                    walk(n.get_statement());    // We will not use the list result of this walk
+                }
+                
+            }
+            else
+            {
+                walk(n.get_statement());
+            }
+            
+            if (pragma == "section")
+            {
+                _omp_sections_info.top().sections_exits.append(pragma_graph_node);
+            }
+            else if (pragma == "sections" || pragma == "parallel|sections")
+            {
+                _actual_cfg->_last_nodes = _omp_sections_info.top().sections_exits;
+                _omp_sections_info.pop();
+            }
+            
+            if (pragma_is_worksharing(pragma))
+            {   // We include here a Barrier node after the pragma statement
+                if (!_pragma_info_s.top().has_clause("nowait"))
+                {
+                    _actual_cfg->create_barrier_node(pragma_graph_node);
+                }
+            }
+            
+            if (pragma == "parallel" || pragma == "for" || pragma == "parallel|for"
+                || pragma == "workshare" || pragma == "parallel|workshare"
+                || pragma == "sections" || pragma == "parallel|sections"
+                || pragma == "critical" || pragma == "atomic" || pragma == "ordered" || pragma == "single")
+            {   // This constructs add a Flush at the end of the construct
+                // FIXME Atomic construct implies a list of variables to be flushed
+                Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
+                _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
+                _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);    
+            }       
+            
+            Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
+            graph_exit->set_id(++_actual_cfg->_nid);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+            _actual_cfg->_outer_node.pop();
+            _actual_cfg->_last_nodes.clear();
+            _actual_cfg->_last_nodes.append(pragma_graph_node);
+        
+            return ObjectList<Node*>(1, pragma_graph_node);
         }
-        
-        if (pragma_line == "parallel" || pragma_line == "for" || pragma_line == "parallel|for"
-            || pragma_line == "workshare" || pragma_line == "parallel|workshare"
-            || pragma_line == "sections" || pragma_line == "parallel|sections"
-            || pragma_line == "critical" || pragma_line == "atomic" || pragma_line == "ordered" || pragma_line == "single")
-        {   // This constructs add a Flush at the end of the construct
-            // FIXME Atomic construct implies a list of variables to be flushed
-            Node* flush_node = new Node(_actual_cfg->_nid, FLUSH_NODE, pragma_graph_node);
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, flush_node);
-            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);    
-        }        
-        
-        Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
-        graph_exit->set_id(++_actual_cfg->_nid);
-        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
-       
-        _actual_cfg->_outer_node.pop();
-        _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(pragma_graph_node);
-       
-        return ObjectList<Node*>(1, pragma_graph_node);
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
     {
         // Get the empty clause as 'parameters'
-        // We create conservatively an 'omp_clause'. If no arguments has been found, then we remove it
-        struct omp_clause actual_omp_clause(n.get_text());
-        _omp_pragma_info_s.top().clauses.append(actual_omp_clause);
+        // We create conservatively a 'clause_t'. If no arguments has been found, then we remove it
+        struct clause_t actual_clause(n.get_text());
+        _pragma_info_s.top().clauses.append(actual_clause);
         walk(n.get_parameters()); 
-        if (_omp_pragma_info_s.top().clauses.back().args.empty())
+        if (_pragma_info_s.top().clauses.back().args.empty())
         {
-            _omp_pragma_info_s.pop();
+            _pragma_info_s.top().clauses.erase(_pragma_info_s.top().clauses.end()-1);
         }
         
         // Get the rest of clauses
-        walk(n.get_clauses());  // This method fills _omp_pragma_info_s with the clauses of the actual pragma
+        walk(n.get_clauses());  // This method fills _pragma_info_s with the clauses of the actual pragma
         
         return Ret();
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomClause& n)
     {
-        struct omp_clause actual_omp_clause(n.get_text());
-        _omp_pragma_info_s.top().clauses.append(actual_omp_clause);
-        walk(n.get_arguments());    // This call fills _omp_pragma_info_s with the arguments of the actual clause
+        struct clause_t actual_clause(n.get_text());
+        _pragma_info_s.top().clauses.append(actual_clause);
+        walk(n.get_arguments());    // This call fills _pragma_info_s with the arguments of the actual clause
         return Ret();
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaClauseArg& n)
     {
-        _omp_pragma_info_s.top().clauses.back().args.append((Nodecl::NodeclBase)n);
+        _pragma_info_s.top().clauses.back().args.append((Nodecl::NodeclBase)n);
         return Ret();
     }
     
@@ -1637,68 +1750,67 @@ namespace TL
         return actual_parents;
     }
 
+    /*! Elements in the list 'nodes_l' may have relations between them
+     * For example, the statement 'f(b) + g();' will generate:
+     * - two graph nodes which will depend one on the other
+     * - the 'result' node containing the whole expression
+     * This last node must have as parent only the graph node containing 'g'
+     * So, before iterate the list to get the parents of the new merging node
+     * we are going to purge the list deleting those nodes depending on other nodes in the same list
+     */
     Node* CfgVisitor::merge_nodes(Nodecl::NodeclBase n, ObjectList<Node*> nodes_l)
     {
         Node* result;
-        ObjectList<Node*>::iterator it, iit;
+     
+        // Compute the type of node for the new merged node
+        Node_type ntype;
+        if (n.is<Nodecl::FunctionCall>() || n.is<Nodecl::VirtualFunctionCall>())
+        {    
+            ntype = BASIC_FUNCTION_CALL_NODE;
+        }
+        else if (n.is<Nodecl::LabeledStatement>())
+        {
+            ntype = BASIC_LABELED_NODE;
+        }    
+        else
+        {    
+            ntype = BASIC_NORMAL_NODE;
+        }
         
         if (nodes_l.size() > 1)
         {   // There is some node to merge. Otherwise, we only have to create the new node
-           
-            // Elements in the list 'nodes_l' may have relations between them
-            // For example, the statement 'f(b) + g();' will generate:
-            // - two graph nodes which will depend one on the other
-            // - the 'result' node containing the whole expression
-            // This last node must have as parent only the graph node containing 'g'
-            // So, before iterate the list to get the parents of the new merging node
-            // we are going to purge the list deleting those nodes depending on other nodes in the same list
-            ObjectList<Node*> nodes_purged_l;
-            bool found;
-            bool there_is_graph = false;
-            for (it = nodes_l.begin();
-                it != nodes_l.end();
-                ++it)
+            
+            // Check whether we need to build a graph node
+            bool need_graph = false;
+            for (ObjectList<Node*>::iterator it = nodes_l.begin(); it != nodes_l.end(); ++it)
             {
-                ObjectList<Node*> actual_children = (*it)->get_children();
-                found = false;
-                for (iit = nodes_l.begin();
-                    iit != nodes_l.end();
-                    ++iit)
-                {
-                    if (actual_children.contains(*iit))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    nodes_purged_l.append(*it);
-                }
                 if ((*it)->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
                 {
-                    there_is_graph = true;
+                    need_graph = true;
+                    break;
                 }
             }
-          
-            if (there_is_graph)
-            {   // If there exists any graph node in the list, 
-                // then we must create a new graph node containing all nodes
+            
+            if (need_graph)
+            {
+                bool found;
+                
+                // Build the new graph
                 result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "split_stmt");
                 Node* entry = result->get_data<Node*>(_ENTRY_NODE);
                 
-                // Get the children for the Entry node. They will be those nodes which do not have its parents
-                // among the nodes in the list
-                ObjectList<Node*> entry_children;
-                for (it = nodes_l.begin();
-                    it != nodes_l.end();
-                    ++it)
+                // Get parents of the new graph node and delete the old connections
+                // Parents of the nodes in the list without parents within the list will be parents of the new graph
+                // Nodes in the list without parents in the list are disconnected from its parents and connected to the Entry
+                ObjectList<Node*> graph_parents;
+                ObjectList<int> list_pos_to_erase;
+                int i = 0;
+                for (ObjectList<Node*>::iterator it = nodes_l.begin(); it != nodes_l.end(); ++it)
                 {
-                    ObjectList<Node*> actual_parents = (*it)->get_parents();
                     found = false;
-                    for (iit = nodes_l.begin();
-                        iit != nodes_l.end();
-                        ++iit)
+                    ObjectList<Node*> actual_parents = (*it)->get_parents();
+                    ObjectList<Node*>::iterator iit;
+                    for (iit = nodes_l.begin(); iit != nodes_l.end(); ++iit)
                     {
                         if (actual_parents.contains(*iit))
                         {
@@ -1708,60 +1820,100 @@ namespace TL
                     }
                     if (!found)
                     {
-                        entry_children.append(*it);
+                        // add node to the list of graph parent
+                        graph_parents.append((*it)->get_parents());
+                        
+                        // disconnect those nodes of its parents
+                        ObjectList<Node*> aux = (*it)->get_parents();
+                        for (ObjectList<Node*>::iterator iit = aux.begin();
+                            iit != aux.end();
+                            ++iit)
+                        {
+                            (*iit)->erase_exit_edge(*it);
+                            (*it)->erase_entry_edge(*iit);
+                        }
+                        // delete the node if it is not of Graph type, otherwise, connect it to the Entry
+                        if ((*it)->get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
+                        {
+                            list_pos_to_erase.append(i);
+                            delete (*it);
+                        }
+                        else
+                        {
+                            _actual_cfg->connect_nodes(entry, *it);
+                        }
                     }
-                    // Set to all nodes its new outer node
+                    i++;
+                }
+                if (!graph_parents.empty())
+                {
+                    int n_connects = graph_parents.size();
+                    _actual_cfg->connect_nodes(graph_parents, result, ObjectList<Edge_type>(n_connects, ALWAYS_EDGE), 
+                                               ObjectList<std::string>(n_connects, ""));
+                }
+                
+                // Erase those positions in the list that are non-Graph nodes
+                for (ObjectList<int>::reverse_iterator it = list_pos_to_erase.rbegin();
+                    it != list_pos_to_erase.rend(); ++it)
+                {
+                    nodes_l.erase(nodes_l.begin() + (*it));
+                }
+                
+                // New merging node is created and connected with the nodes in the list without children within the list
+                Node* merged_node = new Node(_actual_cfg->_nid, ntype, result, n);
+                ObjectList<Node*> merged_parents;
+                for (ObjectList<Node*>::iterator it = nodes_l.begin(); it != nodes_l.end(); ++it)
+                {
+                    found = false;
+                    ObjectList<Node*> actual_children = (*it)->get_children();
+                    for (ObjectList<Node*>::iterator iit = nodes_l.begin(); iit != nodes_l.end(); ++iit)
+                    {
+                        if (actual_children.contains(*iit))
+                        {
+                            found = true;
+                            break;
+                        }
+                       
+                    }
+                    if (!found)
+                    {
+                        merged_parents.append(*it);
+                    }
+                    
+                    // now, all nodes must have the new Graph node as outer node
                     (*it)->set_data(_OUTER_NODE, result);
                 }
-                int n_connections = entry_children.size();
-                _actual_cfg->connect_nodes(entry, entry_children, ObjectList<Edge_type>(n_connections, ALWAYS_EDGE),
-                                           ObjectList<std::string>(n_connections, ""));
-            }
-            
-            // Delete unnecessary nodes and create the merging node
-            ObjectList<Node*> merged_parents;
-            for (it = nodes_purged_l.begin();                
-                it != nodes_purged_l.end();
-                ++it)
-            {
+                _actual_cfg->connect_nodes(merged_parents, merged_node);         
                 
-                if ((*it)->get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
-                {
-                    ObjectList<Node*> aux = (*it)->get_parents();
-                    for (ObjectList<Node*>::iterator iit = aux.begin();
-                        iit != aux.end();
-                        ++iit)
-                    {
-                        (*iit)->erase_exit_edge(*it);
-                    }
-                    delete (*it);
-                }
-                else
-                {
-                    merged_parents.append(*it);
-                }
-            }
-            
-            if (there_is_graph)
-            {
-                Node* merged_node = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n);
-                if (!merged_parents.empty())
-                {
-                    _actual_cfg->connect_nodes(merged_parents, merged_node);
-                }
+                // Connect merging node with the exit of the graph
                 Node* graph_exit = result->get_data<Node*>(_EXIT_NODE);
                 graph_exit->set_id(++_actual_cfg->_nid);
                 _actual_cfg->connect_nodes(merged_node, graph_exit);
-                _actual_cfg->_outer_node.pop();
+                _actual_cfg->_outer_node.pop();       
             }
             else
             {
-                 result = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n);
+                // Delete the nodes and its connections
+                for (ObjectList<Node*>::iterator it = nodes_l.begin(); it != nodes_l.end(); ++it)
+                {
+                    ObjectList<Node*> aux = (*it)->get_parents();
+                    if (!aux.empty())
+                    {
+                        internal_error("Deleting a non-graph node that have '%d' parents. Those nodes shouldn't have any parent'", 
+                                       aux.size());
+                    }
+
+                    delete (*it);
+                }
+            
+                // Built the new node
+                result = new Node(_actual_cfg->_nid, ntype, _actual_cfg->_outer_node.top(), n); 
             }
         }
         else
         {
-            result = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n);
+            std::cerr << "warning: trying to merge an empty list of nodes. This shouldn't happen'" << std::endl;
+            result = new Node(_actual_cfg->_nid, ntype, _actual_cfg->_outer_node.top(), n);
         }
 
         return result;        
@@ -1778,5 +1930,5 @@ namespace TL
         }
        
         return merge_nodes(n, previous_nodes);
-    }
+    }    
 }

@@ -37,6 +37,33 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
+    struct sym_info_t
+    {
+        ExtensibleSymbol _sym;
+        char _first_action;      /* -1 if UNDEFINED, 0 if USE, 1 if DEFINE */
+        char _different_action;  /* -1 if UNDEFINED, 0 if no different action performed, 1 if performed */
+        
+        sym_info_t(ExtensibleSymbol sym)
+            : _sym(ExtensibleSymbol()), _first_action(-1), _different_action(-1)
+        {}
+        
+        sym_info_t(ExtensibleSymbol s, char fa, char da)
+            : _sym(s), _first_action(fa), _different_action(da)
+        {}
+
+        sym_info_t(const sym_info_t& sym_info)
+        {
+            _sym = sym_info._sym;
+            _first_action = sym_info._first_action;
+            _different_action = sym_info._different_action;
+        }
+        
+        bool operator==(const sym_info_t& sym_info) const
+        {
+            return (_sym == sym_info._sym);
+        }
+    };  
+    
     class LIBTL_CLASS ExtensibleGraph
     {
         protected:
@@ -61,19 +88,26 @@ namespace TL
             //! CfgVisitor will create and destroy this node depending on the statements it is traversing
             std::stack<Node*> _outer_node;
             
-            
+            ObjectList<Node*> _task_nodes_l;
             
             // *** Private methods *** //
-            
-            //! Joins all these statements that form a Basic Block.
-            //! It assumes that there is no node with UNCLASSIFIED_NODE type in the graph
-            //! otherwise, call before to method 'erase_unclassified_nodes'.
-            void join_unhalted_statements(Node* actual, ObjectList<Node*> node_set);
-            void join_node_set(ObjectList<Node*>& node_set);                     
-                                
+                     
             //! Makes up the content of the nodes by deleting the line feeds and escaping all
             //! those symbols that can not be freely write in DOT language.
             void makeup_dot_block(std::string &str);
+            
+            //! This method removes all those nodes that are unreachable and those that were created
+            //! as auxiliary nodes when the graph was created. 
+            //! It also joins those nodes that are always consecutively executed and non of them
+            //! are the target of a jump.
+            void clear_unnecessary_nodes();
+            
+            //! This method concatenates all those nodes that form a Basic Block in one only node.
+            //! It creates a new node containing all the statements and deleted the previous nodes.
+            void concat_sequential_nodes();
+            
+            
+            void concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes);
             
             //! Prints nodes and relations between them in a string in a recursive way.
             /*!
@@ -198,7 +232,7 @@ namespace TL
             //! A set of edge types and labels must be provided. It is assumed that each parent is
             //! connected to all its children with the same type of edge.
             void connect_nodes(ObjectList<Node*> parents, ObjectList<Node*> children, 
-                               ObjectList<Edge_type> etypes, ObjectList<std::string> labels);
+                               ObjectList<Edge_type> etypes, ObjectList<std::string> elabels);
            
             //! Wrapper method for #connect_nodes when a parent must be connected to a set of
             //! children and each connection may be different from the others. 
@@ -215,6 +249,20 @@ namespace TL
             //! only child and the nature of the connection is the same for all of them.
             void connect_nodes(ObjectList<Node*> parents, Node* child, 
                                Edge_type etype = ALWAYS_EDGE, std::string label = "");
+
+            //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
+            void disconnect_nodes(ObjectList<Node*> parents, Node* child);
+            
+            //! Wrapper method for #disconnect_nodes when a set of children is connected to a parent
+            void disconnect_nodes(Node* parent, ObjectList<Node*> children);
+            
+            //! Disconnects two nodes.
+            /*!
+              The method warnings if it is tried to remove an non-existent edge.
+              \param parent Source of the connection to be removed.
+              \param child Target of the connection to be removed.
+             */
+            void disconnect_nodes(Node *parent, Node *child);            
             
             //! Builds a composite node with an entry and an exit node.
             /*!
@@ -252,19 +300,11 @@ namespace TL
              * \param n Pointer to the node to be deleted
              */
             void delete_node(Node* n);
-            
-            //! This method removes all those nodes that are unreachable and those that were created
-            //! as auxiliary nodes when the graph was created. 
-            //! It also joins those nodes that are always consecutively executed and non of them
-            //! are the target of a jump.
-            void clear_unnecessary_nodes();
-            
-            //! This method concatenates all those nodes that form a Basic Block in one only node.
-            //! It creates a new node containing all the statements and deleted the previous nodes.
-            void concat_sequential_nodes();
-            
-            
-            void concat_sequential_nodes_recursive(Node* actual_node, ObjectList<Node*>& last_seq_nodes);
+
+            //! This method traverses the graph and clears all the unreachable nodes and  those nodes created
+            //! during the construction of the graph but do not represent any statement of the code, and also 
+            //! concatenates the nodes that will be executed sequentially for sure (Basic Blocks)
+            void dress_up_graph();
             
             //! This method concatenates a list of nodes into only one
             /*!
@@ -306,17 +346,19 @@ namespace TL
             //! Computes the define-use chain of the cfg
             void live_variable_analysis();            
             
+            //! Computes dependences for all task node in the Extensible Graph
+            void analyse_tasks();
             
+            //! Computes dependences for a node containing a task code
+            void analyse_task(Node* task_node);
             
+            // *** Getters and Setters *** //
             
+            std::string get_name() const;
             
-            
-            
-            
-            
-            // *** Modifiers *** //
 
 
+// OLD method
             
             //! Builds a set of connected nodes that contains a Pragma Construct Statement
             /*!
@@ -341,27 +383,8 @@ namespace TL
             Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
            
            
-
-            
-            // OLD method
-            
-            //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
-            void disconnect_nodes(ObjectList<Node*> parents, Node* child);
-            
-            //! Wrapper method for #disconnect_nodes when a set of children is connected to a parent
-            void disconnect_nodes(Node* parent, ObjectList<Node*> children);
-            
-            //! Disconnects two nodes.
-            /*!
-              The method warnings if it is tried to remove an non-existent edge.
-              \param parent Source of the connection to be removed.
-              \param child Target of the connection to be removed.
-             */
-            void disconnect_nodes(Node *parent, Node *child);
-
-            
+ 
         friend class CfgVisitor;
-        friend class InGraphNodeVisitor;
     };
 }
 
