@@ -24,6 +24,8 @@ Cambridge, MA 02139, USA.
 
 #include <algorithm>
 
+#include "cxx-codegen.h"
+
 #include "tl-extensible-symbol.hpp"
 
 namespace TL
@@ -101,7 +103,8 @@ namespace TL
         if (equal_ast_nodes(n1, n2))
         {
             bool equal = true;
-            for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
+            
+            for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal && !nodecl_is_null(n1) && !nodecl_is_null(n1); i++)
             {
                 equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
             }
