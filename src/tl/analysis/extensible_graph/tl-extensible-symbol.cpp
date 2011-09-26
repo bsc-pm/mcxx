@@ -97,19 +97,31 @@ namespace TL
         }
         return false;
     }
-
+    
     bool ExtensibleSymbol::equal_trees_rec(nodecl_t n1, nodecl_t n2) const
     {
-        if (equal_ast_nodes(n1, n2))
+        if (nodecl_is_null(n1) == nodecl_is_null(n2))
         {
-            bool equal = true;
-            
-            for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal && !nodecl_is_null(n1) && !nodecl_is_null(n1); i++)
+            if (!nodecl_is_null(n1))
             {
-                equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
+                if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
+                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)))
+                {
+                    bool equal = true;
+                    
+                    for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal; i++)
+                    {
+                        equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
+                    }
+                    return equal;
+                }
             }
-            return equal;       
+            else
+            {
+                return true;
+            }
         }
+
         return false;
     }
 
