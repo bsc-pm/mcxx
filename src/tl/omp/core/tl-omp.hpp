@@ -32,16 +32,10 @@
 #include "tl-common.hpp"
 #include "cxx-utils.h"
 
-#include "tl-pragmasupport.hpp"
-#include "tl-ast.hpp"
 #include "tl-scope.hpp"
-#include "tl-scopelink.hpp"
-#include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
-#include "tl-traverse.hpp"
 #include "tl-dto.hpp"
 
-#include "tl-datareference.hpp"
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-omp-deps.hpp"
@@ -56,6 +50,7 @@ namespace TL
     //! All OpenMP related classes are defined in this namespace
     namespace OpenMP
     {
+#if 0
         //! \addtogroup OpenMP OpenMP related classes
         // @{
 #define BITMAP(x) (1<<x)
@@ -476,6 +471,7 @@ namespace TL
         
 
     // @}
+#endif
     }
     
 }

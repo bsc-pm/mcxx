@@ -27,7 +27,6 @@
 
 
 #include "tl-omp-core.hpp"
-#include "tl-langconstruct.hpp"
 #include "tl-source.hpp"
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
@@ -41,7 +40,7 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_counter(0)
+            : /* PragmaCustomCompilerPhase("omp"), */ _new_udr_str(""), _new_udr(true), _udr_counter(0)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -60,8 +59,7 @@ namespace TL
 
         void Core::pre_run(TL::DTO& dto)
         {
-            PragmaCustomCompilerPhase::pre_run(dto);
-
+#if 0
             if (!dto.get_keys().contains("openmp_info"))
             {
                 DataSharingEnvironment* root_data_sharing = new DataSharingEnvironment(NULL);
@@ -88,10 +86,12 @@ namespace TL
                 RefPtr<TL::Bool> should_run(new TL::Bool(true));
                 dto.set_object("openmp_core_should_run", should_run);
             }
+#endif
         }
 
         void Core::run(TL::DTO& dto)
         {
+#if 0
 #ifdef FORTRAN_SUPPORT
             FORTRAN_LANGUAGE()
             {
@@ -141,18 +141,37 @@ namespace TL
             }
 
             // PragmaCustomCompilerPhase::run(dto);
+#endif
+        }
+
+        static void register_directive(const std::string& str)
+        {
+            register_new_directive("omp", str.c_str(), 0, 0);
+        }
+
+        static void register_construct(const std::string& str, bool bound_to_statement = false)
+        {
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                register_new_directive("omp", str.c_str(), 1, bound_to_statement);
+            }
+            else
+            {
+                register_new_directive("omp", str.c_str(), 1, 0);
+            }
         }
 
         void Core::register_omp_constructs()
         {
+                    // on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); 
+                    // on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); 
+
 #define OMP_CONSTRUCT(_directive, _name) \
                 { \
                     if (!_already_registered) \
                     { \
                       register_construct(_directive); \
                     } \
-                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
@@ -160,8 +179,6 @@ namespace TL
                     { \
                       register_directive(_directive); \
                     } \
-                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
                 { \
@@ -169,8 +186,6 @@ namespace TL
                     { \
                       register_construct(_directive, true); \
                     } \
-                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
@@ -179,6 +194,7 @@ namespace TL
             _already_registered = true;
         }
 
+#if 0
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)
@@ -1100,11 +1116,15 @@ namespace TL
         EMPTY_HANDLERS(do)
 #endif
 
+#endif
+
         void openmp_core_run_next_time(DTO& dto)
         {
+#if 0
             // Make openmp core run in the pipeline
             RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
+#endif
         }
 
     }

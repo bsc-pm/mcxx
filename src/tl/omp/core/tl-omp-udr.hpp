@@ -37,6 +37,8 @@ namespace TL
 {
     namespace OpenMP
     {
+#if 0
+
         class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
             public:
@@ -127,6 +129,7 @@ namespace TL
         void initialize_builtin_udr_reductions(Scope global_scope);
         bool udr_is_builtin_operator(const std::string &op_name);
         // }
+#endif
     }
 }
 

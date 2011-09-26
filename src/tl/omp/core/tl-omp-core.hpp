@@ -32,7 +32,6 @@
 #include <stack>
 
 #include "tl-compilerphase.hpp"
-#include "tl-pragmasupport.hpp"
 
 #include "tl-omp.hpp"
 #include "tl-omp-tasks.hpp"
@@ -44,6 +43,7 @@ namespace TL
 {
     namespace OpenMP
     {
+#if 0
     	struct UDRParsedInfo 
 		{
 			Type type;
@@ -53,8 +53,10 @@ namespace TL
 
             UDRParsedInfo() : type(NULL), combine_expression(NULL), in_symbol(NULL), out_symbol(NULL) {}
 		};
+#endif
 
-        class Core : public TL::PragmaCustomCompilerPhase
+        // class Core : public TL::PragmaCustomCompilerPhase
+        class Core : public TL::CompilerPhase
         {
             private:
 
@@ -65,6 +67,8 @@ namespace TL
 
 
                 void register_omp_constructs();
+
+#if 0
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \
@@ -79,12 +83,15 @@ namespace TL
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
+#endif
+                static bool _already_registered;
+
+#if 0
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
-                static bool _already_registered;
 
                 void get_clause_symbols(PragmaCustomClause clause, 
                         ObjectList<DataReference>& sym_list, 
@@ -128,6 +135,7 @@ namespace TL
                 // Temporary hack
                 void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
                 void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
+#endif
 
             public:
                 Core();
