@@ -7,7 +7,7 @@ static void fortran_simplify_tree_program_unit(AST a, AST *out);
 static void fortran_simplify_tree_expression(AST a, AST* out)
 {
     // Nothing to simplify in Fortran
-    *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+    *out = ast_copy(a);
 }
 #endif
 
@@ -40,7 +40,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
         case AST_PRAGMA_CUSTOM_DIRECTIVE:
             {
                 // Simple copy
-                *out = ast_copy_with_scope_link(a, CURRENT_COMPILED_FILE->scope_link);
+                *out = ast_copy(a);
                 break;
             }
         case AST_BLOCK_CONSTRUCT:
@@ -94,7 +94,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 if (new_stmt != NULL)
                 {
                     *out = ASTMake2(AST_LABELED_STATEMENT, 
-                            ast_copy_with_scope_link(label, CURRENT_COMPILED_FILE->scope_link),
+                            ast_copy(label),
                             new_stmt,
                             ASTFileName(a), ASTLine(a), NULL);
                 }
@@ -108,7 +108,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 fortran_simplify_tree_stmt(block, &new_block);
 
                 *out = ASTMake2(AST_SWITCH_STATEMENT,
-                        ast_copy_with_scope_link(ASTSon0(a), CURRENT_COMPILED_FILE->scope_link),
+                        ast_copy(ASTSon0(a)),
                         new_block, 
                         ASTFileName(a), ASTLine(a), NULL);
                 break;
@@ -122,7 +122,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 fortran_simplify_tree_stmt(stmt, &new_stmt);
 
                 *out = ASTMake2(AST_CASE_STATEMENT, 
-                        ast_copy_with_scope_link(expr, CURRENT_COMPILED_FILE->scope_link),
+                        ast_copy(expr),
                         new_stmt,
                         ASTFileName(a), ASTLine(a), NULL);
                 break;
@@ -167,7 +167,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 }
 
                 *out = ASTMake4(AST_IF_ELSE_STATEMENT,
-                        ast_copy_with_scope_link(expr, CURRENT_COMPILED_FILE->scope_link),
+                        ast_copy(expr),
                         new_stmt, new_else_stmt, NULL, 
                         ASTFileName(a), ASTLine(a), NULL);
                 break;
@@ -182,7 +182,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 fortran_simplify_tree_stmt(block, &new_block);
 
                 *out = ASTMake2(AST_WHILE_STATEMENT,
-                        ast_copy_with_scope_link(expr, CURRENT_COMPILED_FILE->scope_link),
+                        ast_copy(expr),
                         new_block,
                         ASTFileName(a), ASTLine(a), NULL);
                 break;
@@ -193,7 +193,7 @@ static void fortran_simplify_tree_stmt(AST a, AST *out)
                 fortran_simplify_tree_stmt(ASTSon1(a), &new_stmt);
 
                 *out = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, 
-                        ast_copy_with_scope_link(ASTSon0(a), CURRENT_COMPILED_FILE->scope_link),
+                        ast_copy(ASTSon0(a)),
                         new_stmt,
                         ASTFileName(a),
                         ASTLine(a),

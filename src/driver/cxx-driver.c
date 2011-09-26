@@ -3015,7 +3015,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+        c_cxx_codegen_translation_unit(prettyprint_file, translation_unit->nodecl);
     }
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
@@ -3028,7 +3028,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
             {
                 running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
             }
-            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+            fortran_codegen_translation_unit(raw_prettyprint_file, translation_unit->nodecl);
             rewind(raw_prettyprint_file);
 
             fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
@@ -3036,7 +3036,7 @@ static const char* codegen_translation_unit(translation_unit_t* translation_unit
         }
         else
         {
-            fortran_codegen_translation_unit(prettyprint_file, translation_unit->nodecl, translation_unit->scope_link);
+            fortran_codegen_translation_unit(prettyprint_file, translation_unit->nodecl);
         }
     }
 #endif
@@ -4496,10 +4496,6 @@ static void print_memory_report(void)
     accounted_memory += scope_used_memory();
     print_human(c, scope_used_memory());
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
-
-    accounted_memory += scopelink_used_memory();
-    print_human(c, scopelink_used_memory());
-    fprintf(stderr, " - Memory usage due to scope links: %s\n", c);
 
     accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());

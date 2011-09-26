@@ -51,6 +51,6 @@ namespace D
     void m()
     {
         A::C<float> c;
-        // c.foo();
+        c.foo();
     }
 }

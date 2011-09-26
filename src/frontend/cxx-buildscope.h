@@ -84,22 +84,6 @@ LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* transl
 LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
 LIBMCXX_EXTERN void build_scope_translation_unit(translation_unit_t* translation_unit);
-LIBMCXX_EXTERN void build_scope_translation_unit_tree_with_global_scope(struct AST_tag* tree, scope_link_t* scope_link, decl_context_t decl_context);
-LIBMCXX_EXTERN void build_scope_declaration_sequence_with_scope_link(struct AST_tag* a, 
-        decl_context_t decl_context, 
-        scope_link_t* scope_link,
-        nodecl_t* nodecl_output);
-LIBMCXX_EXTERN void build_scope_statement_seq_with_scope_link(struct AST_tag* a, 
-        decl_context_t decl_context, 
-        scope_link_t* scope_link,
-        nodecl_t* nodecl_output);
-LIBMCXX_EXTERN void build_scope_member_specification_with_scope_link(
-        decl_context_t class_context,
-        scope_link_t* scope_link,
-        struct AST_tag* member_specification_tree, 
-        access_specifier_t current_access,
-        struct type_tag* simple_type_info,
-        nodecl_t* nodecl_output);
 
 LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
         decl_context_t decl_context, 

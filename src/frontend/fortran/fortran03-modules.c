@@ -370,7 +370,7 @@ static void init_storage(sqlite3* handle)
     }
 
     {
-        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(name, kind, type, file, line, language_dependent_value, value, %s);", attr_field_names);
+        char * create_symbol = sqlite3_mprintf("CREATE TABLE symbol(name, kind, type, file, line, value, %s);", attr_field_names);
         run_query(handle, create_symbol);
         sqlite3_free(create_symbol);
     }
@@ -381,7 +381,7 @@ static void init_storage(sqlite3* handle)
     }
 
     {
-        const char * create_types = "CREATE TABLE type(kind, kind_size, ast0, ast1, ref_type, types, symbols);";
+        const char * create_types = "CREATE TABLE type(kind, cv_qualifier, kind_size, ast0, ast1, ref_type, types, symbols);";
         run_query(handle, create_types);
     }
 
@@ -511,13 +511,75 @@ static sqlite3_int64 oid_already_inserted(sqlite3* handle, const char *table, vo
     return (num_rows != 0);
 }
 
-static sqlite3_int64 insert_type_simple(sqlite3* handle, type_t* t, const char* name, sqlite3_int64 kind_size)
+static const char* _cv_qualifier_map[8] = 
+{
+    // cvr
+    [0] = "",
+    [1] = "const",
+    [2] = "volatile", 
+    [3] = "const volatile",
+    [4] = "restrict",
+    [5] = "restrict const",
+    [6] = "restrict volatile",
+    [7] = "restrict const volatile",
+};
+
+static const char* get_qualifier_name_of_type(type_t* t)
+{
+
+    int k = (is_const_qualified_type(t) | (is_volatile_qualified_type(t) << 1) | (is_restrict_qualified_type(t) << 2)) % 8;
+
+    return _cv_qualifier_map[k];
+}
+
+static type_t* get_qualified_type_with_cv_qualifier_name(type_t* t, const char* name)
+{
+    if (name == NULL
+            || strcmp(name, "") == 0)
+        return t;
+
+    int i;
+    for (i = 0; i < 8; i++)
+    {
+        if (strcmp(name, _cv_qualifier_map[i]) == 0)
+        {
+            char is_restrict = !!(i & (1<<2));
+            char is_volatile = !!(i & (1<<1));
+            char is_const = !!(i & (1<<0));
+
+            if (is_const)
+            {
+                t = get_const_qualified_type(t);
+            }
+            if (is_volatile)
+            {
+                t = get_volatile_qualified_type(t);
+            }
+            if (is_restrict)
+            {
+                t = get_restrict_qualified_type(t);
+            }
+        }
+    }
+
+    return t;
+}
+
+static sqlite3_int64 insert_type_simple(sqlite3* handle, type_t* t, 
+        const char* type_kind_name, 
+        sqlite3_int64 kind_size)
 {
     ERROR_CONDITION(t == NULL, "Invalid type", 0);
     if (oid_already_inserted(handle, "type", t))
         return (sqlite3_int64)(intptr_t)t;
 
-    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, kind_size) VALUES (%lld, " Q ", %lld);", P2LL(t), name, kind_size);
+    const char* qualifier_name = get_qualifier_name_of_type(t);
+
+    char * insert_type_query = sqlite3_mprintf("INSERT INTO type(oid, kind, cv_qualifier, kind_size) VALUES (%lld, " Q ", " Q ", %lld);", 
+            P2LL(t), 
+            type_kind_name, 
+            qualifier_name,
+            kind_size);
     run_query(handle, insert_type_query);
     sqlite3_int64 result = sqlite3_last_insert_rowid(handle);
     sqlite3_free(insert_type_query);
@@ -1111,13 +1173,11 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
     char * attribute_values = symbol_get_attribute_values(handle, symbol);
     sqlite3_int64 type_id = insert_type(handle, symbol->type_information);
 
-    // sqlite3_int64 language_dependent_value_oid = insert_ast(handle, symbol->language_dependent_value);
-    sqlite3_int64 language_dependent_value_oid = 0;
     sqlite3_int64 value_oid = insert_nodecl(handle, symbol->value);
 
     // We should be using UPDATE, but its syntax is so inconvenient here
-    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, language_dependent_value, value, %s) "
-            "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %lld, %lld, %s);",
+    char * update_symbol_query = sqlite3_mprintf("INSERT OR REPLACE INTO symbol(oid, name, kind, type, file, line, value, %s) "
+            "VALUES (%lld, " Q ", %d, %lld, " Q ", %d, %lld, %s);",
             attr_field_names,
             P2LL(symbol), // oid
             symbol->symbol_name, // name
@@ -1125,7 +1185,6 @@ static sqlite3_int64 insert_symbol(sqlite3* handle, scope_entry_t* symbol)
             type_id, // type
             symbol->file, // file
             symbol->line, // line
-            language_dependent_value_oid,
             value_oid,
             attribute_values);
 
@@ -1165,8 +1224,7 @@ static int get_symbol(void *datum,
     sqlite3_int64 type_oid = safe_atoll(values[3]);
     const char* filename = uniquestr(values[4]);
     int line = safe_atoi(values[5]);
-    UNUSED_PARAMETER sqlite3_int64 language_dependent_value_oid = safe_atoll(values[6]);
-    sqlite3_int64 value_oid = safe_atoll(values[7]);
+    sqlite3_int64 value_oid = safe_atoll(values[6]);
 
     (*result) = calloc(1, sizeof(**result));
     insert_map_ptr(handle, oid, *result);
@@ -1467,12 +1525,13 @@ static int get_type(void *datum,
 
     sqlite3_int64 current_oid = safe_atoll(values[0]);
     const char* kind = values[1];
-    int kind_size = safe_atoi(values[2]);
-    sqlite3_int64 ast0 = safe_atoll(values[3]);
-    sqlite3_int64 ast1 = safe_atoll(values[4]);
-    sqlite3_int64 ref = safe_atoll(values[5]);
-    const char* types = values[6];
-    const char* symbols = values[7];
+    const char* cv_qualifier_name = values[2];
+    int kind_size = safe_atoi(values[3]);
+    sqlite3_int64 ast0 = safe_atoll(values[4]);
+    sqlite3_int64 ast1 = safe_atoll(values[5]);
+    sqlite3_int64 ref = safe_atoll(values[6]);
+    const char* types = values[7];
+    const char* symbols = values[8];
 
     nodecl_t nodecl_fake = nodecl_make_text("", NULL, 0);
 
@@ -1597,6 +1656,8 @@ static int get_type(void *datum,
         internal_error("Invalid type '%s'\n", kind);
     }
 
+    *pt = get_qualified_type_with_cv_qualifier_name(*pt, cv_qualifier_name);
+
     return 0;
 }
 
@@ -1618,7 +1679,8 @@ static type_t* load_type(sqlite3* handle, sqlite3_int64 oid)
     type_handle.handle = handle;
 
     char* errmsg = NULL;
-    char * select_type_query = sqlite3_mprintf("SELECT oid, kind, kind_size, ast0, ast1, ref_type, types, symbols FROM type WHERE oid = %lld;", oid);
+    char * select_type_query = sqlite3_mprintf("SELECT oid, kind, cv_qualifier, kind_size, ast0, ast1, ref_type, "
+            "types, symbols FROM type WHERE oid = %lld;", oid);
     if (run_select_query(handle, select_type_query, get_type, &type_handle, &errmsg) != SQLITE_OK)
     {
         running_error("Error while running query: %s\n", errmsg);

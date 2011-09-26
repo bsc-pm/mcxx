@@ -40,11 +40,9 @@
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
-#include "cxx-scopelink.h"
 
 // We need this to fix nodes
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 
 // Definition of the type
 struct AST_tag
@@ -909,12 +907,6 @@ void ast_free(AST a)
 {
     if (a != NULL)
     {
-        if (CURRENT_COMPILED_FILE != NULL
-                && CURRENT_COMPILED_FILE->scope_link != NULL)
-        {
-            scope_link_unset(CURRENT_COMPILED_FILE->scope_link, a);
-        }
-
         if (ast_get_type(a) == AST_AMBIGUITY)
         {
             int i;
@@ -1013,57 +1005,6 @@ const char *ast_get_filename(const_AST a)
 void ast_set_filename(AST a, const char* str)
 {
     a->filename = str;
-}
-
-/*
- * This functions give an additional support to scopelink
- *
- * This function assumes that no ambiguities are found
- */
-static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
-{
-    if (a == NULL)
-        return NULL;
-
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
-
-    ast_copy_one_node(result, a);
-
-    // Update the scope_link
-    decl_context_t decl_context;
-    if (scope_link_direct_get_scope(sl, a, &decl_context))
-    {
-        scope_link_set(sl, result, decl_context);
-    }
-
-    int i;
-    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-    {
-        ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), sl));
-    }
-
-    if (ASTText(a) != NULL)
-    {
-        ast_set_text(result, uniquestr(ASTText(a)));
-    }
-    ast_set_parent(result, NULL);
-
-    ast_copy_extended_data(result, a);
-    ast_fix_extended_data(result, a);
-
-    return result;
-}
-
-
-AST ast_copy_with_scope_link(AST a, scope_link_t* sl)
-{
-    // This scope must be always available
-    AST result = ast_copy_with_scope_link_rec(a, sl);
-
-    decl_context_t decl_context = scope_link_get_decl_context(sl, a);
-    scope_link_set(sl, result, decl_context);
-
-    return result;
 }
 
 int ast_node_size(void)

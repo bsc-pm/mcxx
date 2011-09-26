@@ -39,7 +39,6 @@
 #include "cxx-ast-decls.h"
 #include "cxx-asttype.h"
 #include "cxx-type-decls.h"
-#include "cxx-scopelink-decls.h"
 #include "cxx-limits.h"
 
 MCXX_BEGIN_DECLS
@@ -176,9 +175,6 @@ LIBMCXX_EXTERN AST ast_get_ambiguity(const_AST a, int num);
 // used when solving ambiguities
 LIBMCXX_EXTERN void ast_replace_with_ambiguity(AST a, int num);
 
-// ScopeLink function
-LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
-
 // Extensible struct
 LIBMCXX_EXTERN void ast_set_field(AST a, const char* name, void *data);
 LIBMCXX_EXTERN void* ast_get_field(AST a, const char* name);
@@ -237,23 +233,6 @@ LIBMCXX_EXTERN extensible_struct_t* ast_get_initalized_extensible_struct(AST a);
 
 #define ASTListLeaf(a) ast_list_leaf(a)
 #define ASTList(list, element) ast_list(list,element)
-
-// Extensible structure function
-#define ASTAttrValue(_a, _name) \
-    ast_get_field((_a), (_name))
-
-#define ASTAttrValueType(_a, _name, _type) \
-    (_type*)ast_get_field((_a), (_name))
-
-#define ASTAttrSetValueType(_a, _name, _type, _value) \
-    do { _type *_t = ast_get_field(_a, _name); \
-        if (_t == NULL) \
-        { \
-            _t = calloc(1, sizeof(*_t)); \
-            ast_set_field(_a, _name, _t); \
-        } \
-        *_t = _value; \
-    } while (0)
 
 #define ASTCheck ast_check
 

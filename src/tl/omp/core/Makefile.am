@@ -29,10 +29,10 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libtlomp-core.la
 
 libtlomp_core_la_CFLAGS = $(tl_cflags)
-libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt
+libtlomp_core_la_CXXFLAGS = $(tl_cflags) 
 
 libtlomp_core_la_LDFLAGS = $(tl_ldflags)
-libtlomp_core_la_LIBADD = $(tl_libadd) ../../hlt/libtl-hlt.la
+libtlomp_core_la_LIBADD = $(tl_libadd) 
 
 END=
 
@@ -43,17 +43,23 @@ EXTRA_DIST += tl-omp-constructs.def
 libtlomp_core_la_SOURCES = \
    tl-omp-core.hpp \
    tl-omp-core.cpp \
-   tl-omp.cpp \
    tl-omp.hpp \
-   tl-omp-udr.hpp \
-   tl-omp-udr.cpp \
-   tl-omp-udr_2.hpp \
-   tl-omp-udr_2.cpp \
-   tl-omp-deps.hpp \
-   tl-omp-deps.cpp \
-   tl-omp-tasks.hpp \
-   tl-omp-tasks.cpp \
-   tl-omp-target.hpp \
-   tl-omp-target.cpp \
-   tl-omp-collapse.cpp \
    $(END)
+
+# libtlomp_core_la_SOURCES = \
+#    tl-omp-core.hpp \
+#    tl-omp-core.cpp \
+#    tl-omp.cpp \
+#    tl-omp.hpp \
+#    tl-omp-udr.hpp \
+#    tl-omp-udr.cpp \
+#    tl-omp-udr_2.hpp \
+#    tl-omp-udr_2.cpp \
+#    tl-omp-deps.hpp \
+#    tl-omp-deps.cpp \
+#    tl-omp-tasks.hpp \
+#    tl-omp-tasks.cpp \
+#    tl-omp-target.hpp \
+#    tl-omp-target.cpp \
+#    tl-omp-collapse.cpp \
+#    $(END)

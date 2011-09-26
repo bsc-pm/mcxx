@@ -9,12 +9,10 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
-#include "cxx-scopelink.h"
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include "cxx-limits.h"
@@ -54,10 +52,8 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
     // Technically Fortran does not have a global scope but it is convenient to have one
-    decl_context_t decl_context 
-        = scope_link_get_global_decl_context(translation_unit->scope_link);
+    decl_context_t decl_context = translation_unit->global_decl_context;
 
-    scope_link_set(translation_unit->scope_link, a, decl_context);
 
     nodecl_t nodecl_program_units = nodecl_null();
     AST list = ASTSon0(a);
@@ -323,7 +319,6 @@ void build_scope_program_unit(AST program_unit,
     decl_context_t program_unit_context = new_context(decl_context);
 
     scope_entry_t* _program_unit_symbol = NULL;
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, program_unit, program_unit_context);
 
     switch (ASTType(program_unit))
     {
@@ -423,9 +418,6 @@ static void build_scope_main_program_unit(AST program_unit,
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MAIN_PROGRAM, tl_type_t, tl_bool(1));
-        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -434,12 +426,17 @@ static void build_scope_main_program_unit(AST program_unit,
 
     }
 
-    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
-            nodecl_body,
-            /* initializers */ nodecl_null(),
-            nodecl_internal_subprograms,
-            program_sym,
-            ASTFileName(program_unit), ASTLine(program_unit)));
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_body,
+                    program_unit_context,
+                    ASTFileName(program_unit), 
+                    ASTLine(program_unit)),
+                /* initializers */ nodecl_null(),
+                nodecl_internal_subprograms,
+                program_sym,
+                ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_function_program_unit(AST program_unit, 
@@ -479,9 +476,6 @@ static void build_scope_function_program_unit(AST program_unit,
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_FUNCTION, tl_type_t, tl_bool(1));
-        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -502,12 +496,17 @@ static void build_scope_function_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
-            nodecl_body,
-            /* initializers */ nodecl_null(),
-            nodecl_internal_subprograms,
-            new_entry,
-            ASTFileName(program_unit), ASTLine(program_unit)));
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_body,
+                    program_unit_context,
+                    ASTFileName(program_unit), 
+                    ASTLine(program_unit)),
+                /* initializers */ nodecl_null(),
+                nodecl_internal_subprograms,
+                new_entry,
+                ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_subroutine_program_unit(AST program_unit, 
@@ -558,9 +557,6 @@ static void build_scope_subroutine_program_unit(AST program_unit,
     {
         build_scope_program_body(program_body, program_unit_context, allow_all_statements, &nodecl_body, &nodecl_internal_subprograms);
 
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_SUBROUTINE, tl_type_t, tl_bool(1));
-        ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, program_body);
     }
 
     if (nodecl_is_null(nodecl_body))
@@ -581,12 +577,17 @@ static void build_scope_subroutine_program_unit(AST program_unit,
         }
     }
 
-    *nodecl_output = nodecl_make_list_1(nodecl_make_function_code(
-            nodecl_body,
-            /* initializers */ nodecl_null(),
-            nodecl_internal_subprograms,
-            new_entry,
-            ASTFileName(program_unit), ASTLine(program_unit)));
+    *nodecl_output = nodecl_make_list_1(
+            nodecl_make_function_code(
+                nodecl_make_context(
+                    nodecl_body,
+                    program_unit_context,
+                    ASTFileName(program_unit), 
+                    ASTLine(program_unit)),
+                /* initializers */ nodecl_null(),
+                nodecl_internal_subprograms,
+                new_entry,
+                ASTFileName(program_unit), ASTLine(program_unit)));
 }
 
 static void build_scope_module_program_unit(AST program_unit, 
@@ -649,9 +650,6 @@ static void build_scope_module_program_unit(AST program_unit,
         }
     }
 
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_MODULE, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(program_unit, LANG_FORTRAN_PROGRAM_UNIT_BODY, module_body);
 
     // Keep the module in the file's module cache
     if (!CURRENT_CONFIGURATION->debug_options.disable_module_cache)
@@ -675,8 +673,6 @@ static void build_scope_block_data_program_unit(AST program_unit,
         fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
     }
 
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_PROGRAM_UNIT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(program_unit, LANG_IS_FORTRAN_BLOCK_DATA, tl_type_t, tl_bool(1));
 
     internal_error("BLOCK DATA not yet implemented", 0);
 }
@@ -984,8 +980,6 @@ static void build_scope_program_body_module(AST program_body, decl_context_t dec
 
     clear_unknown_symbols(decl_context);
 
-    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, program_unit_stmts);
-    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, internal_subprograms);
 }
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context,
@@ -1049,8 +1043,6 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         seen_internal_subprograms = 1;
     }
 
-    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_STATEMENTS, program_unit_stmts);
-    ast_set_link_to_child(program_body, LANG_FORTRAN_PROGRAM_UNIT_INTERNAL_SUBPROGRAMS, internal_subprograms);
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t, nodecl_t* nodecl_output);
@@ -1163,7 +1155,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_WRITE_STATEMENT,              build_scope_write_stmt,            kind_executable_0    ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT,      build_scope_pragma_custom_ctr,     kind_executable_0  ) \
  STATEMENT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE,      build_scope_pragma_custom_dir,     kind_executable_0  ) \
- STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_continue_stmt,         kind_nonexecutable_0  ) \
+ STATEMENT_HANDLER(AST_UNKNOWN_PRAGMA,               build_scope_unknown_pragma,        kind_nonexecutable_0  ) \
 
 // Prototypes
 #define STATEMENT_HANDLER(_kind, _handler, _) \
@@ -2105,7 +2097,6 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context, nodecl_t
             }
         }
     }
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_dimension_decl(AST a, decl_context_t decl_context)
@@ -2156,7 +2147,6 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
         entry->type_information = get_lvalue_reference_type(entry->type_information);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -2205,7 +2195,6 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context, nod
         entry->entity_specs.is_allocatable = 1;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_allocate_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2332,10 +2321,6 @@ static void build_scope_expression_stmt(AST a, decl_context_t decl_context, node
         nodecl_expr_set_is_lvalue(*nodecl_output, nodecl_expr_is_lvalue(nodecl_expr));
     }
 
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_EXPRESSION_NESTED, expr);
 
 }
 
@@ -2428,7 +2413,6 @@ static void build_scope_bind_stmt(AST a UNUSED_PARAMETER,
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_block_construct(AST a, 
@@ -2443,14 +2427,11 @@ static void build_scope_block_construct(AST a,
 
     if (block != NULL)
     {
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, block, new_context);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, ASTSon0(a));
 
     *nodecl_output = nodecl_make_compound_statement(nodecl_body, nodecl_null(),
-            new_scope_symbol(new_context), ASTFileName(a), ASTLine(a));
+            ASTFileName(a), ASTLine(a));
 }
 
 static void build_scope_case_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2464,9 +2445,6 @@ static void build_scope_case_construct(AST a, decl_context_t decl_context, nodec
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
-    ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_CONDITION, expr);
-    ast_set_link_to_child(a, LANG_SWITCH_STATEMENT_BODY, statement);
 
     *nodecl_output = nodecl_make_switch_statement(
             nodecl_expr,
@@ -2526,9 +2504,6 @@ static void build_scope_case_statement(AST a, decl_context_t decl_context, nodec
         nodecl_statement = nodecl_make_list_1(nodecl_statement);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_CASE_EXPRESSION, case_selector);
-    ast_set_link_to_child(a, LANG_CASE_STATEMENT_BODY, statement);
 
     *nodecl_output = nodecl_make_case_statement(nodecl_expr_list, nodecl_statement, ASTFileName(a), ASTLine(a));
 }
@@ -2564,8 +2539,6 @@ static void build_scope_compound_statement(AST a, decl_context_t decl_context, n
         nodecl_list = nodecl_append_to_list(nodecl_list, nodecl_statement);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_COMPOUND_STATEMENT_LIST, list);
 
     *nodecl_output = nodecl_list;
 }
@@ -2681,7 +2654,6 @@ static void build_scope_common_stmt(AST a,
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -2812,9 +2784,6 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(statement, decl_context, &nodecl_statement);
 
-    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_STATEMENT_LABEL, label);
-    ast_set_link_to_child(a, LANG_LABELED_STATEMENT, statement);
 
     if (!nodecl_is_null(nodecl_statement))
     {
@@ -2830,7 +2799,6 @@ static void build_scope_labeled_stmt(AST a, decl_context_t decl_context, nodecl_
 static void build_scope_continue_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for continue
-    ASTAttrSetValueType(a, LANG_IS_EMPTY_STATEMENT, tl_type_t, tl_bool(1));
     *nodecl_output = nodecl_make_empty_statement(ASTFileName(a), ASTLine(a));
 }
 
@@ -2844,7 +2812,6 @@ static void build_scope_critical_construct(AST a,
 static void build_scope_cycle_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for cycle
-    ASTAttrSetValueType(a, LANG_IS_CONTINUE_STATEMENT, tl_type_t, tl_bool(1));
     *nodecl_output = nodecl_make_continue_statement(ASTFileName(a), ASTLine(a));
 }
 
@@ -2887,7 +2854,6 @@ static void generic_implied_do_handler(AST a, decl_context_t decl_context,
         running_error("%s: error: invalid name '%s' for io-implied-do\n", ast_location(io_do_variable), ASTText(io_do_variable));
     }
 
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, implied_do_object_list, decl_context);
 
     nodecl_t nodecl_rec = nodecl_null();
     rec_handler(implied_do_object_list, decl_context, &nodecl_rec);
@@ -2982,7 +2948,6 @@ static void build_scope_data_stmt(AST a, decl_context_t decl_context, nodecl_t* 
                 nodecl_make_fortran_data(nodecl_item_set, nodecl_data_set, ASTFileName(data_stmt_set), ASTLine(data_stmt_set)));
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_deallocate_stmt(AST a, 
@@ -3162,8 +3127,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
 
     if (component_part != NULL)
     {
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, component_part, inner_decl_context);
-
         for_each_element(component_part, it)
         {
             AST component_def_stmt = ASTSon1(it);
@@ -3300,7 +3263,6 @@ static void build_scope_derived_type_def(AST a, decl_context_t decl_context, nod
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 
     if (decl_context.current_scope->related_entry != NULL
             && decl_context.current_scope->related_entry->kind == SK_MODULE)
@@ -3367,7 +3329,6 @@ static void build_scope_dimension_stmt(AST a, decl_context_t decl_context, nodec
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -3408,10 +3369,6 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_DO_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_FORTRAN_DO_INIT, assig);
-    ast_set_link_to_child(a, LANG_FORTRAN_DO_UPPER, upper);
-    ast_set_link_to_child(a, LANG_FORTRAN_DO_STRIDE, stride);
 
     *nodecl_output = nodecl_make_for_statement(
             nodecl_make_loop_control(nodecl_lower, 
@@ -3419,7 +3376,6 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context, nodecl_
                 nodecl_stride, 
                 ASTFileName(loop_control), ASTLine(loop_control)),
             nodecl_statement,
-            new_scope_symbol(decl_context),
             ASTFileName(a), ASTLine(a));
 }
 
@@ -3482,13 +3438,11 @@ static void build_scope_equivalence_stmt(AST a,
                 nodecl_equivalence);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_exit_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
 {
     // Do nothing for exit
-    ASTAttrSetValueType(a, LANG_IS_BREAK_STATEMENT, tl_type_t, tl_bool(1));
     *nodecl_output = nodecl_make_break_statement(ASTFileName(a), ASTLine(a));
 }
 
@@ -3526,7 +3480,6 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context, nodecl
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_forall_header(AST a, decl_context_t decl_context, 
@@ -3635,7 +3588,6 @@ static void build_scope_format_stmt(AST a,
         decl_context_t decl_context, 
         nodecl_t* nodecl_output UNUSED_PARAMETER)
 {
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 
     AST label = ASTSon0(a);
     AST format = ASTSon1(a);
@@ -3670,10 +3622,6 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
         fortran_build_scope_statement(else_statement, decl_context, &nodecl_else);
     }
 
-    ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_IF_STATEMENT_CONDITION, logical_expr);
-    ast_set_link_to_child(a, LANG_IF_STATEMENT_THEN_BODY, then_statement);
-    ast_set_link_to_child(a, LANG_IF_STATEMENT_ELSE_BODY, else_statement);
 
     if (!nodecl_is_list(nodecl_then))
     {
@@ -3689,7 +3637,6 @@ static void build_scope_if_construct(AST a, decl_context_t decl_context, nodecl_
             nodecl_logical_expr,
             nodecl_then,
             nodecl_else,
-            new_scope_symbol(decl_context),
             ASTFileName(a),
             ASTLine(a));
 }
@@ -3778,7 +3725,6 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context, nodecl
     }
     update_unknown_symbols(decl_context);
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -3821,7 +3767,6 @@ static void build_scope_intent_stmt(AST a, decl_context_t decl_context,
 
         entry->entity_specs.intent_kind = attr_spec.intent_kind;
     }
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_interface_block(AST a, decl_context_t decl_context, 
@@ -3958,7 +3903,6 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -3981,7 +3925,6 @@ static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER, 
@@ -4028,7 +3971,6 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context,
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_nullify_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4087,7 +4029,6 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context, nodecl
         entry->entity_specs.is_optional = 1;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4122,7 +4063,6 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context, nodec
         entry->value = nodecl_constant;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_cray_pointer_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4260,7 +4200,6 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context, nodecl_
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_input_output_item(AST input_output_item, decl_context_t decl_context, nodecl_t* nodecl_output)
@@ -4400,7 +4339,6 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
         entry->entity_specs.is_static = 1;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_select_type_construct(AST a, 
@@ -4478,7 +4416,6 @@ static void build_scope_stmt_function_stmt(AST a, decl_context_t decl_context,
 
     fortran_check_expression(expr, decl_context, &entry->value);
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_stop_stmt(AST a, decl_context_t decl_context, 
@@ -4491,7 +4428,6 @@ static void build_scope_stop_stmt(AST a, decl_context_t decl_context,
         fortran_check_expression(stop_code, decl_context, &nodecl_stop_code);
     }
     
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_STOP_STATEMENT, tl_type_t, tl_bool(1));
 
     *nodecl_output = nodecl_make_fortran_stop_statement(nodecl_stop_code, ASTFileName(a), ASTLine(a));
 }
@@ -4589,7 +4525,6 @@ static void build_scope_target_stmt(AST a, decl_context_t decl_context, nodecl_t
         entry->entity_specs.is_target = 1;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -4859,7 +4794,6 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5152,7 +5086,6 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context, nodecl_t*
         entry->entity_specs.is_value = 1;
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5190,7 +5123,6 @@ static void build_scope_volatile_stmt(AST a, decl_context_t decl_context, nodecl
         }
     }
 
-    ASTAttrSetValueType(a, LANG_IS_FORTRAN_SPECIFICATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output UNUSED_PARAMETER)
@@ -5320,13 +5252,9 @@ static void build_scope_while_stmt(AST a, decl_context_t decl_context, nodecl_t*
     nodecl_t nodecl_statement = nodecl_null();
     fortran_build_scope_statement(block, decl_context, &nodecl_statement);
 
-    ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
-    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_CONDITION, expr);
-    ast_set_link_to_child(a, LANG_WHILE_STATEMENT_BODY, block);
 
     *nodecl_output = nodecl_make_while_statement(nodecl_expr,
             nodecl_statement, 
-            new_scope_symbol(decl_context),
             ASTFileName(a), ASTLine(a));
 }
 
@@ -5357,13 +5285,23 @@ static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context, no
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
     common_build_scope_pragma_custom_construct(a, decl_context, nodecl_output, &nodecl_pragma_line, fortran_build_scope_statement_pragma, NULL);
-    ast_set_link_to_child(a, LANG_PRAGMA_CUSTOM_STATEMENT, ASTSon1(a));
 }
 
 static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     // Do nothing for directives
     common_build_scope_pragma_custom_directive(a, decl_context, nodecl_output);
+}
+
+static void build_scope_unknown_pragma(AST a, decl_context_t decl_context UNUSED_PARAMETER, nodecl_t* nodecl_output)
+{
+    *nodecl_output = 
+        nodecl_make_builtin_decl(
+                nodecl_make_any_list(
+                    nodecl_make_list_1(
+                        nodecl_make_text(ASTText(a), ASTFileName(a), ASTLine(a))), 
+                    ASTFileName(a), ASTLine(a)),
+                "unknown-pragma", ASTFileName(a), ASTLine(a));
 }
 
 typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t, nodecl_t*);

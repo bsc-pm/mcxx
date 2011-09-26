@@ -825,7 +825,6 @@ static void declare_symbols_rec(nodecl_codegen_visitor_t* visitor, nodecl_t node
 
     scope_entry_t* entry = nodecl_get_symbol(node);
     if (entry != NULL
-            && entry->kind != SK_SCOPE
             && !entry->entity_specs.from_module)
     {
         declare_symbol(visitor, entry);
@@ -874,8 +873,7 @@ static void declare_symbols_from_modules_rec(nodecl_codegen_visitor_t* visitor, 
     }
 
     scope_entry_t* entry = nodecl_get_symbol(node);
-    if (entry != NULL
-            && entry->kind != SK_SCOPE)
+    if (entry != NULL)
     {
         if (is_class_type(entry->type_information))
         {
@@ -1347,10 +1345,16 @@ static void codegen_floating_literal(nodecl_codegen_visitor_t* visitor, nodecl_t
 #endif
 }
 
+static void codegen_context(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+}
+
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
+    nodecl_t context = nodecl_get_child(node, 0);
+    nodecl_t statement_seq = nodecl_get_child(context, 0);
     nodecl_t internal_subprograms = nodecl_get_child(node, 2);
 
     // Module procedures are only printed if we are in the current module
@@ -1829,6 +1833,24 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     codegen_walk(visitor, nodecl_get_child(node, 0));
 }
 
+static void codegen_builtin_decl(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    const char* builtin_name = nodecl_get_text(node);
+    nodecl_t any_list_holder = nodecl_get_child(node, 0);
+    nodecl_t any_list = nodecl_get_child(any_list_holder, 0);
+
+    if (strcasecmp(builtin_name, "unknown-pragma") == 0)
+    {
+        // fprintf(visitor->file, "!");
+        codegen_walk(visitor, any_list);
+        fprintf(visitor->file, "\n");
+    }
+    else
+    {
+        internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));
+    }
+}
+
 static void codegen_conversion(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     // Do nothing
@@ -1850,6 +1872,7 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 
     NODECL_VISITOR(codegen_visitor)->visit_top_level = codegen_visitor_fun(codegen_top_level);
     NODECL_VISITOR(codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
+    NODECL_VISITOR(codegen_visitor)->visit_context = codegen_visitor_fun(codegen_context);
     NODECL_VISITOR(codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);
     NODECL_VISITOR(codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
@@ -1915,16 +1938,13 @@ static void fortran_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_fortran_where = codegen_visitor_fun(codegen_where);
 
     NODECL_VISITOR(codegen_visitor)->visit_conversion = codegen_visitor_fun(codegen_conversion);
+
+    NODECL_VISITOR(codegen_visitor)->visit_builtin_decl = codegen_visitor_fun(codegen_builtin_decl);
 }
 
-void fortran_codegen_translation_unit(FILE* f UNUSED_PARAMETER, nodecl_t node, scope_link_t* sl UNUSED_PARAMETER)
+void fortran_codegen_translation_unit(FILE* f, nodecl_t node)
 {
     nodecl_codegen_visitor_t codegen_visitor;
-
-    if (sl == NULL)
-    {
-        sl = CURRENT_COMPILED_FILE->scope_link;
-    }
 
     fortran_codegen_init(&codegen_visitor);
     

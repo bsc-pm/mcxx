@@ -31,6 +31,7 @@
 #endif
 
 #include <cstdio>
+#include <cstring>
 #include <vector>
 #ifndef WIN32_BUILD
   #include <dlfcn.h>
@@ -42,8 +43,6 @@
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-setdto-phase.hpp"
-#include "tl-ast.hpp"
-#include "tl-scopelink.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-refptr.hpp"
 #include "tl-nodecl.hpp"
@@ -86,17 +85,10 @@ namespace TL
                 TL::DTO &dto = *(new TL::DTO());
                 translation_unit->dto = &dto;
 
-                RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
-                dto.set_object("translation_unit", ast);
-
-                RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
-                dto.set_object("scope_link", scope);
-
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "[DTO] Initialized\n");
                 }
-
 
                 compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
 

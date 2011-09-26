@@ -31,7 +31,6 @@
 
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
-#include "cxx-scopelink-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-nodecl-decls.h"
 #include <stddef.h>
@@ -95,7 +94,6 @@ typedef struct translation_unit_tag
     struct AST_tag* parsed_tree;
     nodecl_t nodecl;
     decl_context_t global_decl_context;
-    scope_link_t* scope_link;
 
     int num_top_level_includes;
     top_level_include_t **top_level_include_list;
@@ -322,10 +320,6 @@ typedef struct compilation_configuration_tag
     
     // Source language information
     source_language_t source_language;
-
-    // This makes things non reentrant (but globally accessable without
-    // parameter cluttering)
-    scope_link_t* scope_link;
 
     // Output filename
     const char* linked_output_filename;

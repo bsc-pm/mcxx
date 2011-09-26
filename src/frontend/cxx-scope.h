@@ -79,11 +79,12 @@ LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_flags(decl_context_t decl_c
 #define query_nodecl_name(_decl_context, _nodecl_simple_name) \
     query_nodecl_name_flags(_decl_context, _nodecl_simple_name, DF_NONE)
 
-LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(scope_entry_t* class_symbol,
+LIBMCXX_EXTERN scope_entry_list_t* query_nodecl_name_in_class_flags(
+        decl_context_t decl_context,
+        scope_entry_t* class_symbol,
         nodecl_t nodecl_name, decl_flags_t decl_flags);
-
-#define query_nodecl_name_in_class(_decl_context, _nodecl_simple_name) \
-    query_nodecl_name_in_class_flags(_decl_context, _nodecl_simple_name, DF_NONE)
+#define query_nodecl_name_in_class(_decl_context, _class_symbol, _nodecl_simple_name) \
+    query_nodecl_name_in_class_flags(_decl_context, _class_symbol, _nodecl_simple_name, DF_NONE)
 
 // There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
 // and nested_name == NULL
@@ -185,9 +186,6 @@ LIBMCXX_EXTERN void scope_for_each_entity(scope_t* sc, void *data, void (fun)(sc
 
 // Internal use only
 LIBMCXX_EXTERN scope_t* _new_scope(void);
-
-// Fake symbol representing a scope
-LIBMCXX_EXTERN scope_entry_t* new_scope_symbol(decl_context_t decl_context);
 
 // Debug functions
 LIBMCXX_EXTERN const char* symbol_kind_name(scope_entry_t* entry);

@@ -40,7 +40,6 @@
 #include "cxx-driver.h"
 #include "cxx-ambiguity.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-entrylist.h"
 #include "cxx-codegen.h"
 
@@ -1922,7 +1921,20 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
-    original = advance_over_typedefs_with_cv_qualif(original, NULL);
+
+    cv_qualifier_t old_cv_qualifier = CV_NONE;
+    type_t* unchanged_type = original;
+
+    original = advance_over_typedefs_with_cv_qualif(original, &old_cv_qualifier);
+    
+    // Try hard to preserve the type
+    if (cv_qualification == old_cv_qualifier)
+        return unchanged_type;
+
+    // If we are just adding qualifiers, we can use the unchanged type
+    if (original->kind != TK_ARRAY
+            && is_more_cv_qualified(cv_qualification, old_cv_qualifier))
+        original = unchanged_type;
 
     ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
@@ -2309,14 +2321,6 @@ static type_t* _get_array_type(type_t* element_type,
     ERROR_CONDITION(!nodecl_is_null(whole_size)
             && (nodecl_is_null(lower_bound) || nodecl_is_null(upper_bound)),
             "Invalid definition of boundaries for array", 0);
-
-        // Properly set the scope links, as if the expressions belonged to decl_context
-    if (!nodecl_is_null(lower_bound))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(lower_bound), decl_context);
-    if (!nodecl_is_null(upper_bound))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(upper_bound), decl_context);
-    if (!nodecl_is_null(whole_size))
-        scope_link_set(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(whole_size), decl_context);
 
     char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;

@@ -27,12 +27,11 @@
 
 
 #include "tl-source.hpp"
+#include "tl-scope.hpp"
+#include "tl-nodecl.hpp"
+
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
-#include <iostream>
-#include <sstream>
-#include <iomanip>
-#include <cstring>
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
 #include "cxx-parser.h"
@@ -44,8 +43,28 @@
 #include "fortran03-exprtype.h"
 #endif
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <cstring>
+
 namespace TL
 {
+    Source::ReferenceScope::ReferenceScope(Scope sc)
+        : _scope(sc)
+    {
+    }
+
+    Source::ReferenceScope::ReferenceScope(Nodecl::NodeclBase n)
+        : _scope(n.retrieve_context())
+    {
+    }
+
+    Scope Source::ReferenceScope::get_scope() const
+    {
+        return _scope;
+    }
+
     std::string SourceRef::get_source() const
     {
         return _src->get_source(false);
@@ -216,10 +235,182 @@ namespace TL
         return result;
     }
 
-    AST_t Source::parse_global(AST_t ref_tree, TL::ScopeLink scope_link)
+    bool Source::operator==(const Source& src) const
     {
-        AST_t global_tree = ref_tree.get_translation_unit();
+        return this->get_source() == src.get_source();
+    }
 
+    bool Source::operator!=(const Source &src) const
+    {
+        return !(this->operator==(src));
+    }
+
+    bool Source::operator<(const Source &src) const
+    {
+        return this->get_source() < src.get_source();
+    }
+
+    Source& Source::operator=(const Source& src)
+    {
+        if (this != &src)
+        {
+            // The same as *(_chunk_list.operator->()) = *(src._chunk_list.operator->()); but clearer
+            _chunk_list->clear();
+            for(ObjectList<SourceChunkRef>::const_iterator it = src._chunk_list->begin();
+                    it != src._chunk_list->end();
+                    it++)
+            {
+                _chunk_list->push_back(*it);
+            }
+        }
+        return (*this);
+    }
+
+    static bool string_is_blank(const std::string& src)
+    {
+        for (std::string::const_iterator it = src.begin();
+                it != src.end();
+                it++)
+        {
+            if (*it != ' '
+                    || *it != '\t')
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    Source& Source::append_with_separator(const std::string& src, const std::string& separator)
+    {
+        if (!string_is_blank(src))
+        {
+            if (all_blanks())
+            {
+                append_text_chunk(src);
+            }
+            else
+            {
+                append_text_chunk(separator + src);
+            }
+        }
+
+        return (*this);
+    }
+
+    Source& Source::append_with_separator(Source& src, const std::string& separator)
+    {
+        if (!src.all_blanks())
+        {
+            if (!all_blanks())
+            {
+                append_text_chunk(separator);
+            }
+            RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
+            append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
+        }
+
+        return (*this);
+    }
+
+    bool Source::empty() const
+    {
+        return all_blanks();
+    }
+
+    bool Source::all_blanks() const
+    {
+        if (_chunk_list->empty())
+            return true;
+
+        std::string str = this->get_source();
+        return string_is_blank(str);
+    }
+
+    std::string comment(const std::string& str)
+    {
+        std::string result;
+
+        result = "@-C-@" + str + "@-CC-@";
+        return result;
+    }
+
+    std::string line_marker(const std::string& filename, int line)
+    {
+        std::stringstream ss;
+
+       ss << "#line " << line;
+
+       if (filename == "")
+       {
+           ss << "\n";
+       }
+       else
+       {
+           ss << "\"" << filename << "\"\n";
+       }
+       
+       return ss.str();
+    }
+    
+    // This is quite inefficient but will do
+    std::string Source::format_source(const std::string& src)
+    {
+        int line = 1;
+
+        std::stringstream ss;
+
+        ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
+
+
+        for (std::string::const_iterator it = src.begin();
+                it != src.end();
+                it++)
+        {
+            ss << *it;
+            if (*it == '\n')
+            {
+                line++;
+                ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
+            }
+        }
+
+        return ss.str();
+    }
+
+    Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
+            ParseFlags parse_flags,
+            const std::string& subparsing_prefix,
+            prepare_lexer_fun_t prepare_lexer,
+            parse_fun_t parse,
+            compute_nodecl_fun_t compute_nodecl)
+    {
+        std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
+
+        prepare_lexer(mangled_text.c_str());
+
+        int parse_result = 0;
+        AST a = NULL;
+
+        parse_result = parse(&a);
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse source\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
+        }
+
+        decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+
+        nodecl_t nodecl_output = nodecl_null();
+        compute_nodecl(decl_context, a, &nodecl_output);
+
+        return nodecl_output;
+    }
+
+#if 0
+    Nodecl::NodeclBase Source::parse_global(ReferenceScope scope, TL::ScopeLink scope_link)
+    {
         return parse_declaration(global_tree, scope_link);
     }
 
@@ -807,142 +998,12 @@ namespace TL
 #endif
     }
 
-    bool Source::operator==(const Source& src) const
-    {
-        return this->get_source() == src.get_source();
-    }
-
-    bool Source::operator!=(const Source &src) const
-    {
-        return !(this->operator==(src));
-    }
-
-    bool Source::operator<(const Source &src) const
-    {
-        return this->get_source() < src.get_source();
-    }
-
-    Source& Source::operator=(const Source& src)
-    {
-        if (this != &src)
-        {
-            // The same as *(_chunk_list.operator->()) = *(src._chunk_list.operator->()); but clearer
-            _chunk_list->clear();
-            for(ObjectList<SourceChunkRef>::const_iterator it = src._chunk_list->begin();
-                    it != src._chunk_list->end();
-                    it++)
-            {
-                _chunk_list->push_back(*it);
-            }
-        }
-        return (*this);
-    }
-
-    static bool string_is_blank(const std::string& src)
-    {
-        for (std::string::const_iterator it = src.begin();
-                it != src.end();
-                it++)
-        {
-            if (*it != ' '
-                    || *it != '\t')
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    Source& Source::append_with_separator(const std::string& src, const std::string& separator)
-    {
-        if (!string_is_blank(src))
-        {
-            if (all_blanks())
-            {
-                append_text_chunk(src);
-            }
-            else
-            {
-                append_text_chunk(separator + src);
-            }
-        }
-
-        return (*this);
-    }
-
-    Source& Source::append_with_separator(Source& src, const std::string& separator)
-    {
-        if (!src.all_blanks())
-        {
-            if (!all_blanks())
-            {
-                append_text_chunk(separator);
-            }
-            RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
-            append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
-        }
-
-        return (*this);
-    }
-
-    bool Source::empty() const
-    {
-        return all_blanks();
-    }
-
-    bool Source::all_blanks() const
-    {
-        if (_chunk_list->empty())
-            return true;
-
-        std::string str = this->get_source();
-        return string_is_blank(str);
-    }
-
-    std::string comment(const std::string& str)
-    {
-        std::string result;
-
-        result = "@-C-@" + str + "@-CC-@";
-        return result;
-    }
-
-    std::string line_marker(const std::string& filename, int line)
-    {
-        std::stringstream ss;
-
-       ss << "#line " << line;
-
-       if (filename == "")
-       {
-           ss << "\n";
-       }
-       else
-       {
-           ss << "\"" << filename << "\"\n";
-       }
-       
-       return ss.str();
-    }
-
     std::string preprocessor_line(const std::string& str)
     {
         std::string result;
 
         result = "@-P-@" + str + "@-PP-@";
         return result;
-    }
-
-    std::string statement_placeholder(AST_t& placeholder)
-    {
-        // This code violates all aliasing assumptions since we are codifying
-        // an address into a string and using it later to get the original
-        // address. This is kind of a hack.
-        AST* ast_field_ptr = placeholder.get_internal_ast_field_ptr();
-        char c[256];
-        snprintf(c, 255, "@STATEMENT-PH::%p@", (void*)ast_field_ptr);
-        c[255] = '\0';
-        return std::string(c);
     }
 
     std::string to_string(const ObjectList<std::string>& t, const std::string& separator)
@@ -964,28 +1025,6 @@ namespace TL
         return result;
     }
 
-    // This is quite inefficient but will do
-    std::string Source::format_source(const std::string& src)
-    {
-        int line = 1;
+#endif
 
-        std::stringstream ss;
-
-        ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
-
-
-        for (std::string::const_iterator it = src.begin();
-                it != src.end();
-                it++)
-        {
-            ss << *it;
-            if (*it == '\n')
-            {
-                line++;
-                ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
-            }
-        }
-
-        return ss.str();
-    }
 }

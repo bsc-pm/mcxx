@@ -2587,7 +2587,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        conversors[i] = augmented_conversors[i+1];
+        conversors[i] = augmented_conversors[i];
     }
 
     return overload_resolution;

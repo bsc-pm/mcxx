@@ -75,7 +75,6 @@ MCXX_BEGIN_DECLS
 // DF_DEPENDENT_TYPENAME
 // DF_ELABORATED_NAME
 // DF_LABEL
-// DF_NO_INJECTED_CLASS_NAME
 // DF_ONLY_CURRENT_SCOPE
 
 typedef 
@@ -97,8 +96,6 @@ enum decl_flags_tag
     DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
     DF_ELABORATED_NAME = BITMAP(9),
-    // States that the lookup should ignore injected class-names
-    DF_NO_INJECTED_CLASS_NAME = BITMAP(11),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
     DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(12),
@@ -159,7 +156,6 @@ struct decl_context_tag
     SYMBOL_KIND(SK_DEPENDENT_ENTITY, "template dependent name") \
     SYMBOL_KIND(SK_DEPENDENT_FRIEND, "dependent friend name") \
     SYMBOL_KIND(SK_USING, "using declared name") \
-    SYMBOL_KIND(SK_SCOPE, "<<scoping symbol>>")  \
     SYMBOL_KIND(SK_OTHER, "<<internal symbol>>") 
 
 #ifdef FORTRAN_SUPPORT

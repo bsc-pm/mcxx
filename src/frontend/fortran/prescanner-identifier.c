@@ -588,7 +588,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 	   The finite state machine is in general very simple.
 	   When we see something that only can be a declaration or an executable
 	   statement we change the state (we may remain in the same). Why, then
-	   do we have into account this two, apparently, unnecessary states ? 
+	   do we have into account these two, apparently, unnecessary states ? 
 
 	   When reading something that looks like a ST_FUNCTION we must check with the previous state
 	   because we want to distinguish between as they can be interpreted in several funny ways

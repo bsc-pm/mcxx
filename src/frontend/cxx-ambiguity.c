@@ -30,7 +30,6 @@
 #include <string.h>
 #include "extstruct.h"
 #include "cxx-ast.h"
-#include "cxx-attrnames.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
@@ -1947,7 +1946,7 @@ char checking_ambiguity(void)
     return (_ambiguity_testing != 0);
 }
 
-char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context)
+void solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(ASTType(ambig_expression) != AST_AMBIGUITY,
             "Must be ambiguous node", 0);
@@ -1967,6 +1966,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             if (correct_choice < 0)
             {
                 correct_choice = i;
+                *nodecl_output = nodecl_dummy;
             }
             else
             {
@@ -2005,6 +2005,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                     if (either < 0)
                     {
                         correct_choice = i;
+                        *nodecl_output = nodecl_dummy;
                     }
                 }
                 // This one covers cases like this one
@@ -2033,6 +2034,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                     if (either < 0)
                     {
                         correct_choice = i;
+                        *nodecl_output = nodecl_dummy;
                     }
                 }
                 // If we see this is a valid function call forget anything about
@@ -2056,6 +2058,7 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                     if (either < 0)
                     {
                         correct_choice = i;
+                        *nodecl_output = nodecl_dummy;
                     }
                 }
                 else
@@ -2068,8 +2071,6 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             }
         }
     }
-
-    char result = 0;
 
     if (correct_choice < 0)
     {
@@ -2094,17 +2095,18 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
             {
                 choose_option(ambig_expression, 0);
             }
+
+            check_expression(ambig_expression, decl_context, nodecl_output);
         }
-        result = 0;
+        else
+        {
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(ambig_expression), ASTLine(ambig_expression));
+        }
     }
     else
     {
-        // Choose the option and state that this can be valid
         choose_option(ambig_expression, correct_choice);
-        result = 1;
     }
-    
-    return result;
 }
 
 static char check_function_definition_declarator(AST declarator, decl_context_t decl_context)

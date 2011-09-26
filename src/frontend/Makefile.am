@@ -106,8 +106,6 @@ libmcxx_la_SOURCES = \
   cxx-entrylist.h \
   cxx-scope-fwd.h \
   cxx-scope-decls.h \
-  cxx-attrnames.h \
-  cxx-attrnames.c \
   cxx-buildscope-decls.h \
   cxx-buildscope.c \
   cxx-buildscope.h \
@@ -141,9 +139,6 @@ libmcxx_la_SOURCES = \
   cxx-dyninit.h \
   cxx-tltype.h \
   cxx-tltype.c \
-  cxx-scopelink.c \
-  cxx-scopelink-decls.h \
-  cxx-scopelink.h \
   cxx-exprtype-decls.h \
   cxx-exprtype.h \
   cxx-exprtype.c \
@@ -223,8 +218,6 @@ AST_NODE_TYPE_FILES_GEN += cxx-asttype-nodecl.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES) $(AST_NODE_TYPE_FILES_GEN)
 
-EXTRA_DIST += cxx-attrnames.def
-
 EXTRA_DIST += c99.l
 EXTRA_DIST += c99.y
 EXTRA_DIST += c99.y.in
@@ -253,8 +246,6 @@ EXTRA_DIST += cxx-gccspubuiltins.def
 
 # Built sources, they are built the first
 # otherwise parallel compilation is likely to fail
-BUILT_SOURCES += cxx-attrnames.h
-BUILT_SOURCES += cxx-attrnames.c
 
 BUILT_SOURCES += cxx-asttype.def
 BUILT_SOURCES += cxx-asttype.c
@@ -331,34 +322,6 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 CLEANFILES += cxx-asttype.def
 cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES)) $(AST_NODE_TYPE_FILES_GEN)
 	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) -I $(builddir) $(srcdir)/cxx-asttype-all.def
-
-CLEANFILES += cxx-attrnames.h
-cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
-	$(AM_V_GEN)( \
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.h; \
-	echo "#ifndef CXX_ATTRNAMES_H" > cxx-attrnames.h; \
-	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
-	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h; \
-	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h; \
-	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
-    echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
-	$(SED) -e "s/^\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
-	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
-	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
-    )
-
-CLEANFILES += cxx-attrnames.c
-cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
-	$(AM_V_GEN)( \
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.c; \
-	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c; \
-	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c; \
-	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c; \
-	echo "#include \"cxx-exprtype.h\"" >> cxx-attrnames.c; \
-    echo "char LANG_EXPRESSION_INFO[] = \"LANG_EXPRESSION_INFO\";" >> cxx-attrnames.c; \
-	$(SED) -e "s/^\([^[:blank:]]*\)/char \1[] = \"\1\";/" < $< >> cxx-attrnames.c; \
-	echo "/* AST attributes */" >> cxx-attrnames.c; \
-	)
 
 if FLEX_BUILDING
 CLEANFILES += cxx-scanner.c

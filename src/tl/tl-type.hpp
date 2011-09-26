@@ -32,19 +32,15 @@
 #include "tl-common.hpp"
 #include <string>
 #include "tl-object.hpp"
-#include "tl-symbol.hpp"
-#include "tl-ast.hpp"
-#include "tl-scope.hpp"
-#include "tl-templates.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-symbol-fwd.hpp"
+#include "tl-scope-fwd.hpp"
+#include "tl-nodecl-fwd.hpp"
+
 #include "cxx-scope.h"
 
 namespace TL
 {
-    class Scope;
-    class Symbol;
-    class TemplateParameter;
-    class TemplateArgument;
-    
     //! \addtogroup Wrap
     //! @{
     
@@ -183,7 +179,7 @@ namespace TL
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
              * \param scope Scope of \a expression_array
              */
-            Type get_array_to(AST_t expression_array, Scope scope);
+            Type get_array_to(Nodecl::NodeclBase expression_array, Scope scope);
 
             //! Returns an array to the current type
             /*! 
@@ -206,7 +202,7 @@ namespace TL
              * \param upper_bound The upper bound expression of the array. 
              * \param scope Scope of \a lower_bound and \a upper_bound
              */
-            Type get_array_to(AST_t lower_bound, AST_t upper_bound, Scope scope);
+            Type get_array_to(Nodecl::NodeclBase lower_bound, Nodecl::NodeclBase upper_bound, Scope scope);
 
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
@@ -412,7 +408,7 @@ namespace TL
             DEPRECATED bool explicit_array_dimension() const;
 
             //! Returns the expression of the array dimension
-            AST_t array_get_size() const; 
+            Nodecl::NodeclBase array_get_size() const; 
 
             //! Return the number of dimensions for an array type or 0 for the rest of types
             int get_num_dimensions() const;
@@ -427,17 +423,17 @@ namespace TL
               and an upper of N-1 where N is the size of the array as returned
               by array_get_size
               */
-            void array_get_bounds(AST_t& lower, AST_t& upper) const;
+            void array_get_bounds(Nodecl::NodeclBase& lower, Nodecl::NodeclBase& upper) const;
 
             //! States that this array type has region attached to it
             bool array_is_region() const;
 
             //! This returns the bounds of the array region 
-            /*! See array_get_bounds for an explanation of the returned AST_t */
-            void array_get_region_bounds(AST_t& region_lower, AST_t& region_upper) const;
+            /*! See array_get_bounds for an explanation of the returned Nodecl::NodeclBase */
+            void array_get_region_bounds(Nodecl::NodeclBase& region_lower, Nodecl::NodeclBase& region_upper) const;
 
             //! This returns the expression of the array region size 
-            AST_t array_get_region_size() const;
+            Nodecl::NodeclBase array_get_region_size() const;
             
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
@@ -557,13 +553,6 @@ namespace TL
             //! This is always a named type, so you can get a symbol after it
             Type get_primary_template() const;
 
-            //! Returns the template parameters of a template type
-            /*!
-              This function can be used both in template types and in template 
-              specialized types
-              */
-            ObjectList<TemplateParameter> get_template_parameters() const;
-
             //! States whether the type is a template specialized one
             /*!
               A template specialized type is a type which was created
@@ -571,8 +560,6 @@ namespace TL
               a template type.
             */
             bool is_template_specialized_type() const;
-            //! Returns the template arguments of a specialized template type
-            ObjectList<TemplateArgument> get_template_arguments() const;
 
             //! Returns the related template type of a specialized template type
             /*!

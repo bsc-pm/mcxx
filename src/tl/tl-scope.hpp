@@ -30,21 +30,22 @@
 #define TL_SCOPE_HPP
 
 #include "tl-common.hpp"
+#include "tl-object.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-symbol-fwd.hpp"
+#include "tl-type-fwd.hpp"
+#include "tl-source-fwd.hpp"
+
+#include "cxx-scope.h"
+#include "cxx-buildscope.h"
+
 #include <string>
 #include <cstring>
 #include <vector>
 #include <map>
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
-#include "tl-object.hpp"
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
-#include "tl-ast.hpp"
-#include "tl-templates.hpp"
 
 namespace TL
 {
-    class Symbol;
     class TemplateParameter;
     
     //! \addtogroup Wrap 
@@ -202,19 +203,6 @@ namespace TL
             //! Convenience function where only one symbol is expected
             Symbol get_symbol_from_name(const std::string& str) const;
             
-            //! Get a list of symbols denoted by the id-expression in \a ast
-            /*!
-             * \param ast A tree representing an id-expression
-             * \param examine_uninstantiated Uninstantiated contexts will be examined. 
-                      If false any dependent context will return a dependent entity
-             */
-            ObjectList<Symbol> get_symbols_from_id_expr(TL::AST_t ast, 
-                    bool examine_uninstantiated = true) const;
-
-            //! Convenience function where only one symbol is expected
-            Symbol get_symbol_from_id_expr(TL::AST_t ast, 
-                    bool examine_uninstantiated = true) const;
-
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
 
@@ -275,25 +263,6 @@ namespace TL
               */
             Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
 
-            //! Do Koenig lookup of a name using the current Scope and a list of argument types
-            /*!
-                This function performs a Koenig lookup. Koenig lookup is similar to a plain lookup of \a id_expr
-                but additional scopes may be considered depending on the exact types in \a arguments list
-
-                \param arguments List of arguments that may cause additional scopes be examined
-                \param id_expr AST_t actually looked up. Most of the times this 
-                 should be an unqualified id-expression though the implementation does not enforce this
-            */
-            ObjectList<Symbol> koenig_lookup(ObjectList<Type> arguments, AST_t id_expr);
-
-            //! Convenience functions when it is not possible to create a symbol tree by other means
-			/*!
-				This function returns an AST_t of an unqualified symbol whose text is 'str'. Use this
-				function when syntactically it is impossible to create a symbol with that name but it is
-				used for lookups.
-			*/
-			static AST_t wrap_symbol_name(const std::string& str);
-
             //! Convenience function
             static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
 
@@ -305,7 +274,6 @@ namespace TL
             friend class Symbol;
             friend class Type;
             friend class Source;
-            friend class Expression;
     };
 
 

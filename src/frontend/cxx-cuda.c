@@ -8,7 +8,6 @@
 #include "cxx-prettyprint.h"
 #include "cxx-entrylist.h"
 #include "cxx-tltype.h"
-#include "cxx-attrnames.h"
 #include "cxx-diagnostic.h"
 #include "cxx-codegen.h"
 
@@ -37,7 +36,7 @@ static type_t* cuda_get_dim3_type(void)
     static type_t* dim3_type = NULL;
     if (dim3_type == NULL)
     {
-        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
 
         scope_entry_t* new_class_sym = NULL; 
         C_LANGUAGE()
@@ -89,7 +88,7 @@ static type_t* cuda_get_uint3_type(void)
     static type_t* uint3_type = NULL;
     if (uint3_type == NULL)
     {
-        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
 
         scope_entry_t* new_class_sym = NULL; 
         C_LANGUAGE()
@@ -138,7 +137,7 @@ static type_t* cuda_get_cudaStream_t_type(void)
     static type_t* cudaStream_t_type = NULL;
     if (cudaStream_t_type == NULL)
     {
-        decl_context_t global_decl_context = scope_link_get_global_decl_context(CURRENT_COMPILED_FILE->scope_link);
+        decl_context_t global_decl_context = CURRENT_COMPILED_FILE->global_decl_context;
 
         // typedef struct CUstream_st *cudaStream_t;
         scope_entry_t* new_class_sym = new_symbol(global_decl_context, global_decl_context.current_scope, "struct CUstream_st");

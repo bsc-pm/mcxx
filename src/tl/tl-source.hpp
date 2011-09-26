@@ -29,14 +29,17 @@
 #ifndef TL_SOURCE_T_HPP
 #define TL_SOURCE_T_HPP
 
+#include "tl-source-fwd.hpp"
 #include "tl-common.hpp"
-#include <string>
 #include "tl-object.hpp"
-#include "tl-type.hpp"
-#include "tl-ast.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-type-fwd.hpp"
+#include "tl-nodecl-fwd.hpp"
 #include "tl-scope.hpp"
-#include "tl-scopelink.hpp"
 #include "tl-refptr.hpp"
+
+#include <string>
+
 #include "cxx-lexer.h"
 #include "cxx-driver.h"
 #include "cxx-scope.h"
@@ -44,9 +47,6 @@
 
 namespace TL
 {
-    class Type;
-    class Source;
-
     //! Auxiliar class used by Source
     class LIBTL_CLASS SourceChunk
     {
@@ -139,6 +139,17 @@ namespace TL
                 //! Does not check an expression
                 DO_NOT_CHECK_EXPRESSION = 1 << 2,
             };
+
+            struct ReferenceScope
+            {
+                private:
+                    Scope _scope;
+                public:
+                    ReferenceScope(Scope sc);
+                    ReferenceScope(Nodecl::NodeclBase nodecl);
+
+                    Scope get_scope() const;
+            };
         private:
             chunk_list_ref_t _chunk_list;
 
@@ -147,39 +158,17 @@ namespace TL
 
             bool all_blanks() const;
 
-            //! Parses a member declaration
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param class_type Class type where this member should belong to. Make sure this is a named type!
-             */
-            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
-
             typedef int (*prepare_lexer_fun_t)(const char*);
             typedef int (*parse_fun_t)(AST*);
-            template <typename T>
-            struct FinishParseFun
-            { 
-                typedef T (*Type)(ParseFlags, decl_context_t, scope_link_t*, AST);
-            };
+            typedef void (*compute_nodecl_fun_t)(decl_context_t, AST, nodecl_t*);
 
-            template <typename T>
-            T parse_generic(AST_t ref_tree, 
-                    TL::ScopeLink scope_link, 
+            Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
                     ParseFlags parse_flags,
-                    const std::string& subparsing_prefix,
+                    const std::string& substring_prefix,
                     prepare_lexer_fun_t prepare_lexer,
-                    parse_fun_t parse_function,
-                    typename FinishParseFun<T>::Type finish_parse
-                    );
+                    parse_fun_t parse,
+                    compute_nodecl_fun_t compute_nodecl);
 
-            template <typename T>
-            T parse_generic_lang(AST_t ref_tree, 
-                    TL::ScopeLink scope_link, 
-                    ParseFlags parse_flags,
-                    const std::string& subparsing_prefix,
-                    typename FinishParseFun<T>::Type finish_parse
-                    );
         public:
             //! Constructor
             /*!
@@ -227,8 +216,6 @@ namespace TL
                     // Share the list
                     _chunk_list = cast->_chunk_list;
                 }
-
-                // ---
             }
 
             //! Copy-constructor
@@ -283,119 +270,43 @@ namespace TL
             //! Appends a reference to Source
             Source& operator<<(RefPtr<Source>);
 
-            // These should work correctly in C++ as they are able to get the exact
-            // declaration context of the reference tree (ref_tree)
-            //! Parses a top-level declaration in context of global scope
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             *
-             * This function is only for C/C++
-             */
-            AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
-            //! Parses a statement
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             */
-            AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
-            //! Parses an expression
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function can be used in C/C++ and Fortran
-             */
-            AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
-            //! Parses an expression list
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function can be used in C/C++ and Fortran
-             */
-            AST_t parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
-
-            //! Parses an id-expression
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function is only for C/C++
-             */
-            AST_t parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
-
-            //! Parses an id-expression
+            //! Parsing at global level
             /*
-             * \param scope Scope used to parse this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function is only for C/C++
+             * In C/C++ this means parsing at file-scope/global namespace scope
+             * In Fortran this means parsing a program unit
              */
-            AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            Nodecl::NodeclBase parse_global(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
-            //! Parses an id-expression without checking the expression
-            /*!
-             * \param scope Scope used to parse this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function is only for C/C++
+            //! Parsing a declaration at namespace scope
+            /*
+             * In C/C++ this means parsing at namespace scope level
+             * In Fortran this function behaves like parse_global
              */
-            AST_t parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            Nodecl::NodeclBase parse_declaration(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
-            //! Parses a declaration
+            //! Parse a statement
             /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param parse_flags Parsing flags
-             *
-             * This function is only for C/C++
+             * Scope should be a block scope
              */
-            AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            Nodecl::NodeclBase parse_statement(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
-            //! Parses a member declaration
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param class_symbol Class symbol where this member should belong to
-             *
-             * This function is only for C/C++
-             */
-            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symbol);
-            //! Convenience function to parse a type and synthesize it
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \return The synthesized type
-             *
-             * This function is only for C/C++
-             */
-            Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
-            //! Convenience function to parse a comma separated list of types and synthesize them
-            /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \return The synthesized type
-             *
-             * This function is only for C/C++
-             */
-            ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
+            //! Parse an expression
+            Nodecl::NodeclBase parse_expression(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
-            //! Parses a Fortran program unit
+            //! Parse an member declaration
             /*!
-             * \param ref_tree Reference tree used when parsing this code
-             * \param scope_link Scope link used to get the scope of \a ref_tree
-             *
-             * This function is only for Fortran
-             *
+             * This is C++ only. This parses a new member declaration
+             * Scope should be class scope
              */
-            AST_t parse_program_unit(AST_t ref_tree, ScopeLink scope_link);
+            Nodecl::NodeclBase parse_member(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
+            //! Parse some code
+            /*! 
+             * Except for parse_expression this routine can be used instead of 
+             * parse_global, parse_declaration, parse_statement and parse_membe. The
+             * current context of the ReferenceScope is used to determine the exact parsing
+             */
+            Nodecl::NodeclBase parse(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
             // Format string for debugging
             static std::string format_source(const std::string&);
@@ -407,6 +318,7 @@ namespace TL
             bool operator!=(const Source& src) const;
             bool operator<(const Source& src) const;
             Source& operator=(const Source& src);
+
     };
 
     //! Creates an inner comment in the code
@@ -422,14 +334,14 @@ namespace TL
      */
     LIBTL_EXTERN std::string preprocessor_line(const std::string& str);
 
-    //! Creates a placeholder for the given AST_t
+    //! Creates a placeholder for the given Nodecl::NodeclBase
     /*!
      * This function creates a placeholder for statements. Once parsed, \a
      * placeholder can be used as a reference tree for further parsings and can
      * be replaced. If it is not replaced it will default to an empty
      * statement.
      */
-    LIBTL_EXTERN std::string statement_placeholder(AST_t& placeholder);
+    LIBTL_EXTERN std::string statement_placeholder(Nodecl::NodeclBase& placeholder);
 
     //! Creates a #line marker
     /*!

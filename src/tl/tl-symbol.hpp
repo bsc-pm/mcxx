@@ -33,9 +33,9 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include "tl-ast.hpp"
 #include "tl-object.hpp"
-#include "tl-type.hpp"
+#include "tl-nodecl-fwd.hpp"
+#include "tl-type-fwd.hpp"
 #include "cxx-scope.h"
 
 namespace TL
@@ -161,22 +161,10 @@ namespace TL
             //! Returns the class to which this member belongs
             Type get_class_type() const;
 
-            //! Returns the point where this symbol was declared
-            AST_t get_point_of_declaration() const;
-
-            //! Returns the point where this symbol was declared
-            /*!
-              If is_defined returns false this function will return an invalid tree.
-              If is_defined returns ture, this function might or might not return a valid tree.
-              If a tree is returned it always will be the enclosing declaration where the
-              symbol was defined, so it can be safely wrapped into a Declaration
-             */
-            AST_t get_point_of_definition() const;
-
             //! States whether this symbol has been initialized
             bool has_initialization() const;
             //! Returns the initialization tree
-            AST_t get_initialization() const;
+            Nodecl::NodeclBase get_initialization() const;
 
             //! States whether this symbol is static
             bool is_static() const;
@@ -260,13 +248,13 @@ namespace TL
               For functions it returns the function definition. For classes the
               class specifier.
              */
-            AST_t get_definition_tree() const;
+            Nodecl::NodeclBase get_definition_tree() const;
 
             //! States whether the symbol has a given gcc attribute
             bool has_gcc_attribute(const std::string &str) const;
             
             //! Returns the associated argument of a gcc attribute
-            AST_t get_argument_of_gcc_attribute(const std::string &str) const;
+            Nodecl::NodeclBase get_argument_of_gcc_attribute(const std::string &str) const;
 
             // States whether the symbol is defined 
             /*! This function might not make sense for all kind of symbols

@@ -1042,7 +1042,9 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             // Here we would see that 'unsigned int' (argument type) is not exactly 'int' (parameter type)
             // and fail. So if the parameter type (original_parameter) is not dependent, allow this case
 
-            if (!is_dependent_type(original_parameter))
+            if (!is_dependent_type(original_parameter)
+                    // Nothing can be deduced from a dependent typename either
+                    || is_dependent_typename_type(original_parameter))
             {
                 DEBUG_CODE()
                 {

@@ -30,12 +30,10 @@ struct nodecl_codegen_visitor_tag
     scope_entry_t* global_namespace;
     scope_entry_t* opened_namespace;
 
-    scope_t* current_scope;
+    decl_context_t decl_context;
 
     char in_condition;
     nodecl_t condition_top;
-    char in_copy_initializer;
-    char in_direct_initializer;
     char inside_structured_value;
     char mem_init_list;
 
@@ -320,6 +318,21 @@ static void walk_type_for_symbols(
         entry_list_iterator_free(it);
         entry_list_free(unresolved_set);
     }
+    else if (is_dependent_typename_type(t))
+    {
+        nodecl_t nodecl_parts = nodecl_null();
+        scope_entry_t* dependent_entry = NULL;
+        dependent_typename_get_components(t, &dependent_entry, &nodecl_parts);
+
+        if (needs_def)
+        {
+            symbol_to_define(visitor, dependent_entry);
+        }
+        else
+        {
+            symbol_to_declare(visitor, dependent_entry);
+        }
+    }
     else
     {
         // Do nothing as it will be a builtin type
@@ -344,7 +357,6 @@ static void define_nonlocal_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_
 static void define_all_entities_in_trees(nodecl_codegen_visitor_t*, nodecl_t);
 
 static void add_to_clear_list(scope_entry_t* entry);
-
 
 static void define_generic_entities(nodecl_codegen_visitor_t* visitor, nodecl_t node,
         void decl_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol),
@@ -446,8 +458,8 @@ static void define_generic_entities(nodecl_codegen_visitor_t* visitor, nodecl_t 
             else if (is_pointer_to_member_type(no_ref(dest_type))
                     && is_pointer_to_member_type(no_ref(source_type)))
             {
-                base_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(source_type)));
-                derived_class = pointer_type_get_pointee_type(pointer_to_member_type_get_class_type(no_ref(dest_type)));
+                base_class = pointer_to_member_type_get_class_type(no_ref(source_type));
+                derived_class = pointer_to_member_type_get_class_type(no_ref(dest_type));
             }
             else
             {
@@ -482,7 +494,7 @@ static void entry_local_definition(nodecl_codegen_visitor_t *visitor,
         void def_sym_fun(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol) 
         )
 {
-    if (visitor->current_scope == entry->decl_context.current_scope)
+    if (visitor->decl_context.current_scope == entry->decl_context.current_scope)
     {
         if (nodecl_get_kind(node) != NODECL_OBJECT_INIT)
         {
@@ -575,9 +587,7 @@ static char symbol_is_same_or_nested_in(scope_entry_t* symbol, scope_entry_t* cl
     }
 }
 
-
-
-// Classes are so complex that they reserve a whole routine for them
+// Classes are so complex that they deserve a whole routine for them
 static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t* visitor, scope_entry_t* symbol)
 {
     static int _num_being_checked_for_required = 0;
@@ -646,6 +656,7 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
                 {
                     define_nonnested_entities_in_trees(visitor, member->value);
                 }
+
                 walk_type_for_symbols(visitor, member->type_information, /* needs_def */ 1, 
                         declare_symbol_if_nonnested, 
                         define_symbol_if_nonnested,
@@ -684,7 +695,8 @@ static scope_entry_list_t* define_required_before_class(nodecl_codegen_visitor_t
         entry_list_free(friends);
     }
     else if (symbol->kind == SK_ENUM
-             || symbol->kind == SK_ENUMERATOR)
+             || symbol->kind == SK_ENUMERATOR
+             || symbol->kind == SK_TYPEDEF)
     {
         walk_type_for_symbols(visitor, symbol->type_information, /* needs_def */ 0, 
                 declare_symbol_if_nonnested, 
@@ -1070,13 +1082,12 @@ static void define_class_symbol_aux(nodecl_codegen_visitor_t* visitor, scope_ent
                         char is_primary_template = (named_type_get_symbol(primary_template) == member);
 
                         // C++ has a problem here: we cannot explicitly
-                        // specialize a member template class in non
-                        // namespace scope but we need the definition, here
-                        // EXCEPTIONALLY we will emit dependent code
-                        // because this language quirk. Other solutions
-                        // (like flattening the members) are more
-                        // cumbersome, more painstaking and more
-                        // painstaking than this one.
+                        // specialize a member template class in non namespace
+                        // scope but we need the definition, here EXCEPTIONALLY
+                        // we will emit dependent code because this language
+                        // quirk. Other solutions (like flattening the members)
+                        // are more cumbersome and more painstaking than this
+                        // one.
                         if (is_primary_template)
                         {
                             // Check every complete specialization
@@ -1429,7 +1440,11 @@ static void define_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symb
             }
         case SK_DEPENDENT_ENTITY:
             {
-                declare_symbol(visitor, symbol);
+                scope_entry_t* entry = NULL;
+                nodecl_t dependent_parts = nodecl_null();
+                dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
+
+                declare_symbol(visitor, entry);
                 break;
             }
         default:
@@ -1519,6 +1534,35 @@ static void codegen_template_parameters(nodecl_codegen_visitor_t* visitor, templ
 }
 
 static void walk_expression_list(nodecl_codegen_visitor_t *visitor, nodecl_t node);
+
+static char nodecl_calls_to_constructor(nodecl_t node, type_t* of_type)
+{
+    if (nodecl_get_kind(node) == NODECL_FUNCTION_CALL)
+    {
+        scope_entry_t* called_sym = nodecl_get_symbol(nodecl_get_child(node, 0));
+
+        if (called_sym != NULL
+                && called_sym->entity_specs.is_constructor)
+        {
+            return (of_type == NULL) 
+                || equivalent_types(get_unqualified_type(called_sym->entity_specs.class_type), 
+                        get_unqualified_type(no_ref(of_type)));
+        }
+    }
+    return 0;
+}
+
+static char nodecl_is_zero_args_call_to_constructor(nodecl_t node)
+{
+    return (nodecl_calls_to_constructor(node, NULL)
+            && (nodecl_list_length(nodecl_get_child(node, 1)) == 0));
+}
+
+static char nodecl_is_zero_args_structured_value(nodecl_t node)
+{
+    return (nodecl_get_kind(node) == NODECL_STRUCTURED_VALUE
+            && (nodecl_list_length(nodecl_get_child(node, 0)) == 0));
+}
 
 static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* symbol)
 {
@@ -1623,6 +1667,7 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 if (emit_initializer)
                 {
                     char equal_is_needed = 0;
+                    char is_call_to_self_constructor = 0;
                     C_LANGUAGE()
                     {
                         equal_is_needed = 1;
@@ -1633,16 +1678,51 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                         // We only need = if the initializer is a structured one
                         // and this is C++03, in C++1x syntax { } is always allowed
                         equal_is_needed = 1;
-                        if (nodecl_get_kind(symbol->value) == NODECL_FUNCTION_CALL)
+
+                        if (nodecl_calls_to_constructor(symbol->value, symbol->type_information))
                         {
-                            scope_entry_t* called_sym = nodecl_get_symbol(nodecl_get_child(symbol->value, 0));
-                            nodecl_t arguments = nodecl_get_child(symbol->value, 1);
-                            if (!nodecl_is_null(arguments)
-                                    && called_sym->entity_specs.is_constructor
-                                    && equivalent_types(get_unqualified_type(called_sym->entity_specs.class_type), 
-                                        get_unqualified_type(no_ref(symbol->type_information))))
+                            equal_is_needed = 0;
+                            is_call_to_self_constructor = 1;
+
+                            // But it might happen the user wrote
+                            //
+                            // A a = A(); which looks like A a(A()); and it will be parsed as a function declarator
+                            nodecl_t nodecl_args = nodecl_get_child(symbol->value, 1);
+
+                            int num_args = 0;
+                            nodecl_t* list = nodecl_unpack_list(nodecl_args, &num_args);
+
+                            char zero_arg_types = 1;
+                            
+                            int i;
+                            for (i = 0; i < num_args && zero_arg_types; i++)
                             {
-                                equal_is_needed = 0;
+                                nodecl_t current = list[i];
+                                if (nodecl_get_kind(current) == NODECL_CONVERSION)
+                                    current = nodecl_get_child(current, 0);
+
+                                if (!nodecl_is_zero_args_call_to_constructor(current)
+                                        && !nodecl_is_zero_args_structured_value(current))
+                                {
+                                    zero_arg_types = 0;
+                                }
+                            }
+
+                            free(list);
+
+                            // In this case, to avoid printing something like
+                            //
+                            // A a(A(), B(), C());
+                            //
+                            // where A, B and C are types
+                            //
+                            // we mandate an equal so it looks like
+                            //
+                            // A a = A(A(), B(), C());
+                            if (num_args != 0
+                                    && zero_arg_types)
+                            {
+                                equal_is_needed = 1;
                             }
                         }
                     }
@@ -1651,25 +1731,70 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                     {
                         fprintf(visitor->file, "%s", " = ");
 
-                        char old_in_initializer = visitor->in_copy_initializer;
-                        visitor->in_copy_initializer = 1;
+                        if (is_call_to_self_constructor)
+                        {
+                            // Ignore the top constructor call
+                            nodecl_t nodecl_args = nodecl_get_child(symbol->value, 1);
 
-                        codegen_walk(visitor, symbol->value);
+                            if (nodecl_list_length(nodecl_args) > 0)
+                            {
+                                walk_expression_list(visitor, nodecl_args);
+                            }
+                        }
+                        else if (nodecl_get_kind(symbol->value) == NODECL_STRUCTURED_VALUE)
+                        {
+                            if (!is_aggregate_type(symbol->type_information)
+                                    && nodecl_list_length(nodecl_get_child(symbol->value, 0)) == 1)
+                            {
+                                // We can ignore '{' and '}'
+                                walk_expression_list(visitor, nodecl_get_child(symbol->value, 0));
+                            }
+                            else
+                            {
+                                char old_inside_struct = visitor->inside_structured_value;
+                                visitor->inside_structured_value = 1;
 
-                        visitor->in_copy_initializer = old_in_initializer;
+                                codegen_walk(visitor, symbol->value);
+
+                                visitor->inside_structured_value = old_inside_struct;
+                            }
+                        }
+                        else
+                        {
+                            char top_is_comma = (nodecl_get_kind(symbol->value) == NODECL_COMMA);
+
+                            if (top_is_comma)
+                            {
+                                fprintf(visitor->file, "(");
+                            }
+
+                            codegen_walk(visitor, symbol->value);
+
+                            if (top_is_comma)
+                            {
+                                fprintf(visitor->file, ")");
+                            }
+                        }
                     }
                     else
                     {
-                        char old_in_initializer = visitor->in_direct_initializer;
-                        visitor->in_direct_initializer = 1;
+                        if (is_call_to_self_constructor)
+                        {
+                            // Do not print the top constructor call
+                            nodecl_t nodecl_args = nodecl_get_child(symbol->value, 1);
 
-                        fprintf(visitor->file, "(");
-                        codegen_walk(visitor, symbol->value);
-                        fprintf(visitor->file, ")");
-
-                        visitor->in_direct_initializer = old_in_initializer;
+                            if (nodecl_list_length(nodecl_args) > 0)
+                            {
+                                fprintf(visitor->file, "(");
+                                walk_expression_list(visitor, nodecl_args);
+                                fprintf(visitor->file, ")");
+                            }
+                        }
+                        else
+                        {
+                            codegen_walk(visitor, symbol->value);
+                        }
                     }
-
                 }
 
                 if (!visitor->in_condition)
@@ -1866,22 +1991,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             is_primary_template = 1;
                         }
                     }
-
-                    // Default arguments
-                    //
-                    // int i;
-                    // int num_param_types = function_type_get_num_parameters(symbol->type_information);
-                    // char has_ellipsis = function_type_get_has_ellipsis(symbol->type_information);
-                    // if (has_ellipsis)
-                    //     num_param_types--;
-                    // for (i = 0; i < num_param_types; i++)
-                    // {
-                    //     if (symbol->entity_specs.default_argument_info != NULL 
-                    //             && symbol->entity_specs.default_argument_info[i] != NULL)
-                    //     {
-                    //         define_all_entities_in_trees(visitor, symbol->entity_specs.default_argument_info[i]->argument);
-                    //     }
-                    // }
                 }
 
                 const char* decl_spec_seq = "";
@@ -1975,49 +2084,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                             get_template_arguments_str(symbol, symbol->decl_context));
                 }
 
-#if 0
-                const char *declarator = print_type_str(function_type_get_return_type(real_type),
-                        symbol->decl_context);
-
-                declarator = strappend(declarator, " ");
-                declarator = strappend(declarator, function_name);
-
-                declarator = strappend(declarator, "(");
-
-                int num_param_types = function_type_get_num_parameters(real_type);
-                char has_ellipsis = function_type_get_has_ellipsis(real_type);
-                if (has_ellipsis)
-                    num_param_types--;
-                for (i = 0; i < num_param_types; i++)
-                {
-                    if (i > 0)
-                    {
-                        declarator = strappend(declarator, ", ");
-                    }
-
-                    declarator = strappend(declarator, 
-                            print_type_str(function_type_get_parameter_type_num(real_type, i), symbol->decl_context));
-
-                    if (symbol->entity_specs.default_argument_info != NULL 
-                            && symbol->entity_specs.default_argument_info[i] != NULL)
-                    {
-                        declarator = strappend(declarator, " = ");
-                        declarator = strappend(declarator, 
-                                c_cxx_codegen_to_str(symbol->entity_specs.default_argument_info[i]->argument));
-                    }
-                }
-
-                declarator = strappend(declarator, ")");
-
-                if (is_const_qualified_type(real_type))
-                {
-                    declarator = strappend(declarator, " const");
-                }
-                if (is_volatile_qualified_type(real_type))
-                {
-                    declarator = strappend(declarator, " volatile");
-                }
-#endif
                 const char* declarator = print_decl_type_str(real_type,
                         symbol->decl_context,
                         function_name);
@@ -2058,12 +2124,6 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 dependent_typename_get_components(symbol->type_information, &entry, &dependent_parts);
 
                 declare_symbol(visitor, entry);
-                // fprintf(visitor->file, "%s", get_qualified_symbol_name(entry, entry->decl_context));
-                // if (!nodecl_is_null(dependent_parts))
-                // {
-                //     fprintf(visitor->file, "::");
-                //     codegen_walk(visitor, dependent_parts);
-                // }
                 break;
             }
         default:
@@ -2257,22 +2317,6 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
     CXX_LANGUAGE()
     {
-        // dependent_name_part_t* dependent_parts = NULL;
-        // if (entry->kind == SK_DEPENDENT_ENTITY)
-        // {
-        //     dependent_typename_get_components(entry->type_information, &entry, &dependent_parts);
-        //     dependent_name_part_t* it_dependent_parts = dependent_parts;
-
-        //     while (it_dependent_parts != NULL)
-        //     {
-        //         if (it_dependent_parts->template_arguments != NULL)
-        //         {
-        //             declare_all_in_template_arguments(visitor, it_dependent_parts->template_arguments);
-        //         }
-        //         it_dependent_parts = it_dependent_parts->next;
-        //     }
-        // }
-        
         if (!entry->entity_specs.is_template_parameter
                 && !entry->entity_specs.is_builtin)
         {
@@ -2282,20 +2326,6 @@ static void codegen_symbol(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         {
             fprintf(visitor->file, "%s", entry->symbol_name);
         }
-
-        // while (dependent_parts != NULL)
-        // {
-        //     if (dependent_parts->template_arguments != NULL)
-        //     {
-        //         fprintf(visitor->file, "::template %s<%s>", dependent_parts->name, 
-        //                 template_arguments_to_str(dependent_parts->template_arguments, entry->decl_context));
-        //     }
-        //     else
-        //     {
-        //         fprintf(visitor->file, "::%s", dependent_parts->name);
-        //     }
-        //     dependent_parts = dependent_parts->next;
-        // }
     }
     C_LANGUAGE()
     {
@@ -2708,6 +2738,18 @@ static char is_bitwise_bin_operator(node_t n)
         || n == NODECL_BITWISE_XOR;
 }
 
+static char is_shift_bin_operator(node_t n)
+{
+    return n == NODECL_SHL
+        || n == NODECL_SHR;
+}
+
+static char is_additive_bin_operator(node_t n)
+{
+    return n == NODECL_ADD
+        || n == NODECL_MINUS;
+}
+
 
 // We do not keep parentheses in C/C++ so we may need to restore some of them
 static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t operand)
@@ -2719,11 +2761,15 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     node_t current_kind = nodecl_get_kind(current_operator);
     node_t operand_kind = nodecl_get_kind(operand);
 
-    if (is_bitwise_bin_operator(current_kind) // &
-            && is_bitwise_bin_operator(operand_kind)) // |
+    // For the sake of clarity
+    // a | b & c  -> a | (b & c)
+    // a << b - c   -> a << (b - c)
+    if ((is_bitwise_bin_operator(current_kind)
+                && is_bitwise_bin_operator(operand_kind))
+            || (is_shift_bin_operator(current_kind) 
+                && is_additive_bin_operator(operand_kind))
+       )
     {
-        // For the sake of clarity
-        // a | b & c  -> a | (b & c)
         return 1;
     }
 
@@ -2777,7 +2823,7 @@ static char operand_has_lower_priority(nodecl_t current_operator, nodecl_t opera
     BINARY_EXPRESSION_ASSIG(bitwise_xor_assignment, " ^= ") \
     BINARY_EXPRESSION_ASSIG(mod_assignment, " %= ") \
     BINARY_EXPRESSION(offset, ".*") \
-    BINARY_EXPRESSION(comma, ", ") 
+    BINARY_EXPRESSION(comma, ", ") \
 
 // BINARY_EXPRESSION(class_member_access, ".") 
 
@@ -2881,6 +2927,7 @@ OPERATOR_TABLE
 #undef PREFIX_UNARY_EXPRESSION
 #undef BINARY_EXPRESSION
 #undef BINARY_EXPRESSION_ASSIG
+
 
 static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodecl_t node) 
 {
@@ -2987,30 +3034,35 @@ static void codegen_type(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 
 static void codegen_compound_statement_for_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
+    decl_context_t old_context = visitor->decl_context;
+    visitor->decl_context = nodecl_get_decl_context(node);
+
     fprintf(visitor->file, "{\n");
     visitor->indent_level++;
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
 
-    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
-    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
 
-    visitor->current_scope = scope_symbol->decl_context.current_scope;
-    define_local_entities_in_trees(visitor, statement_seq);
-    visitor->current_scope = NULL;
+    nodecl_t nodecl_statement_seq = nodecl_get_child(node, 0);
+    nodecl_t nodecl_first_statement = nodecl_list_head(nodecl_statement_seq);
 
-    codegen_walk(visitor, statement_seq);
+    nodecl_t compound_statement_seq = nodecl_get_child(nodecl_first_statement, 0);
+
+    define_local_entities_in_trees(visitor, compound_statement_seq);
+
+    codegen_walk(visitor, compound_statement_seq);
 
     visitor->indent_level--;
     indent(visitor);
     fprintf(visitor->file, "}");
+
+    visitor->decl_context = old_context;
 }
 
 static void codegen_compound_expression(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     fprintf(visitor->file, "(");
 
-    nodecl_t compound = nodecl_get_child(node, 0);
-    codegen_compound_statement_for_compound_expression(visitor, compound);
+    nodecl_t context = nodecl_get_child(node, 0);
+    codegen_compound_statement_for_compound_expression(visitor, context);
 
     fprintf(visitor->file, ")");
 }
@@ -3049,10 +3101,15 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     {
         fprintf(visitor->file, "(");
 
-        int old_initializer = visitor->in_direct_initializer;
-        visitor->in_direct_initializer = 1;
-        codegen_walk(visitor, initializer);
-        visitor->in_direct_initializer = old_initializer;
+        // FIXME - Maybe this is a call to a constructor
+        if (nodecl_calls_to_constructor(initializer, t))
+        {
+            walk_expression_list(visitor, nodecl_get_child(initializer, 1));
+        }
+        else
+        {
+            codegen_walk(visitor, initializer);
+        }
 
         fprintf(visitor->file, ")");
     }
@@ -3235,20 +3292,14 @@ static void codegen_function_call_(nodecl_codegen_visitor_t* visitor, nodecl_t n
             {
                 // Do not print what is being called
                 // if we are in an initializer
-                if (!visitor->in_direct_initializer)
-                {
-                    scope_entry_t* class_symbol = named_type_get_symbol(called_symbol->entity_specs.class_type);
-                    fprintf(visitor->file, "%s", get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
-                    fprintf(visitor->file, "(");
-                }
-                char old_initializer = visitor->in_direct_initializer;
-                visitor->in_direct_initializer = 0;
+
+                scope_entry_t* class_symbol = named_type_get_symbol(called_symbol->entity_specs.class_type);
+                fprintf(visitor->file, "%s", get_qualified_symbol_name(class_symbol, class_symbol->decl_context));
+                fprintf(visitor->file, "(");
+
                 walk_expression_list(visitor, arguments);
-                visitor->in_direct_initializer = old_initializer;
-                if (!visitor->in_direct_initializer)
-                {
-                    fprintf(visitor->file, ")");
-                }
+
+                fprintf(visitor->file, ")");
                 break;
             }
         default:
@@ -3392,7 +3443,8 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
     {
         if ((nodecl_is_null(items)
                     || (nodecl_list_length(items) == 1))
-                && (is_named_type(type) || is_builtin_type(no_ref(type))))
+                && (is_named_type(type) 
+                    || is_builtin_type(no_ref(type))))
         {
             kind = CXX03_EXPLICIT;
         }
@@ -3433,18 +3485,10 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
         // (T) { expr-list }
         case GCC_POSTFIX:
             {
-                if (!visitor->in_copy_initializer
-                        && !visitor->in_direct_initializer
-                        && !visitor->inside_structured_value)
+                if (!visitor->inside_structured_value)
                 {
                     fprintf(visitor->file, "(%s)", print_type_str(type, visitor->current_sym->decl_context));
                 }
-
-                char old_in_direct_initializer = visitor->in_direct_initializer;
-                char old_in_copy_initializer = visitor->in_copy_initializer;
-
-                visitor->in_copy_initializer = 0;
-                visitor->in_direct_initializer = 0;
 
                 char inside_structured_value = visitor->inside_structured_value;
                 visitor->inside_structured_value = 1;
@@ -3454,26 +3498,12 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
                 fprintf(visitor->file, " }");
 
                 visitor->inside_structured_value = inside_structured_value;
-                visitor->in_copy_initializer = old_in_copy_initializer;
-                visitor->in_direct_initializer = old_in_direct_initializer;
                 break;
             }
+            // T(expr-list)
         case CXX03_EXPLICIT:
             {
-                if (!visitor->in_direct_initializer
-                        || nodecl_is_null(items))
-                {
-                    fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
-                }
-
-                char old_in_direct_initializer = visitor->in_direct_initializer;
-                char old_in_copy_initializer = visitor->in_copy_initializer;
-
-                visitor->in_copy_initializer = 0;
-                visitor->in_direct_initializer = 0;
-
-                char inside_structured_value = visitor->inside_structured_value;
-                visitor->inside_structured_value = 0;
+                fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
 
                 if (nodecl_is_null(items))
                 {
@@ -3481,35 +3511,24 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
                 }
                 else
                 {
-                    if (!visitor->in_copy_initializer)
-                    {
-                        fprintf(visitor->file, "(");
-                    }
+                    fprintf(visitor->file, "(");
+
+                    char inside_structured_value = visitor->inside_structured_value;
+                    visitor->inside_structured_value = 0;
+
                     walk_expression_list(visitor, items);
-                    if (!visitor->in_copy_initializer)
-                    {
-                        fprintf(visitor->file, ")");
-                    }
+
+                    visitor->inside_structured_value = inside_structured_value;
+
+                    fprintf(visitor->file, ")");
                 }
 
-                visitor->inside_structured_value = inside_structured_value;
-                visitor->in_copy_initializer = old_in_copy_initializer;
-                visitor->in_direct_initializer = old_in_direct_initializer;
-                break;
                 break;
             }
+            // T{expr-list}
         case CXX1X_EXPLICIT:
             {
-                if (!visitor->in_direct_initializer)
-                {
-                    fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
-                }
-
-                char old_in_direct_initializer = visitor->in_direct_initializer;
-                char old_in_copy_initializer = visitor->in_copy_initializer;
-
-                visitor->in_copy_initializer = 0;
-                visitor->in_direct_initializer = 0;
+                fprintf(visitor->file, "%s", print_type_str(type, visitor->current_sym->decl_context));
 
                 char inside_structured_value = visitor->inside_structured_value;
                 visitor->inside_structured_value = 1;
@@ -3519,8 +3538,6 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
                 fprintf(visitor->file, " }");
 
                 visitor->inside_structured_value = inside_structured_value;
-                visitor->in_copy_initializer = old_in_copy_initializer;
-                visitor->in_direct_initializer = old_in_direct_initializer;
                 break;
             }
         default:
@@ -3953,12 +3970,7 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
     visitor->indent_level++;
     nodecl_t statement_seq = nodecl_get_child(node, 0);
 
-    scope_entry_t* scope_symbol = nodecl_get_symbol(node);
-    ERROR_CONDITION(scope_symbol == NULL || scope_symbol->kind != SK_SCOPE, "Invalid scoping symbol", 0);
-
-    visitor->current_scope = scope_symbol->decl_context.current_scope;
     define_local_entities_in_trees(visitor, statement_seq);
-    visitor->current_scope = NULL;
 
     codegen_walk(visitor, statement_seq);
 
@@ -3994,14 +4006,21 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
         entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
         define_symbol(visitor, entry);
     }
-    else
+    else // visitor->mem_init_list && !visitor->do_not_emit_declarations
     {
 
         fprintf(visitor->file, "%s(", entry->symbol_name);
-        char in_direct_initializer = visitor->in_direct_initializer;
-        visitor->in_direct_initializer = 1;
-        codegen_walk(visitor, nodecl_init_expr);
-        visitor->in_direct_initializer = in_direct_initializer;
+
+        if (nodecl_calls_to_constructor(nodecl_init_expr, entry->type_information))
+        {
+            // Ignore top level constructor
+            walk_expression_list(visitor, nodecl_get_child(nodecl_init_expr, 1));
+        }
+        else
+        {
+            codegen_walk(visitor, nodecl_init_expr);
+        }
+
         fprintf(visitor->file, ")");
     }
 }
@@ -4009,7 +4028,8 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
 // Function code
 static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t statement_seq = nodecl_get_child(node, 0);
+    nodecl_t context = nodecl_get_child(node, 0);
+    nodecl_t statement_seq = nodecl_get_child(context, 0);
     nodecl_t initializers = nodecl_get_child(node, 1);
     nodecl_t internal_functions = nodecl_get_child(node, 2);
 
@@ -4242,7 +4262,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
         fprintf(visitor->file, "\n");
     }
 
-    codegen_walk(visitor, statement);
+    codegen_walk(visitor, context);
 }
 
 static void codegen_c99_field_designator(nodecl_codegen_visitor_t* visitor, nodecl_t node)
@@ -4371,11 +4391,26 @@ static void codegen_top_level(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     codegen_walk(visitor, list);
 }
 
+// Context
+static void codegen_context(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    decl_context_t old_context = visitor->decl_context;
+
+    visitor->decl_context = nodecl_get_decl_context(node);
+
+    codegen_walk(visitor, nodecl_get_child(node, 0));
+
+    visitor->decl_context = old_context;
+}
+
 static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 {
     nodecl_init_walker((nodecl_external_visitor_t*)codegen_visitor, not_implemented_yet);
 
     NODECL_VISITOR(codegen_visitor)->visit_top_level = codegen_visitor_fun(codegen_top_level);
+
+    NODECL_VISITOR(codegen_visitor)->visit_context = codegen_visitor_fun(codegen_context);
+
     NODECL_VISITOR(codegen_visitor)->visit_function_code = codegen_visitor_fun(codegen_function_code);
     NODECL_VISITOR(codegen_visitor)->visit_compound_statement = codegen_visitor_fun(codegen_compound_statement);
     NODECL_VISITOR(codegen_visitor)->visit_expression_statement = codegen_visitor_fun(codegen_expression_statement);
@@ -4467,21 +4502,17 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
 }
 
 // External interface
-void c_cxx_codegen_translation_unit(FILE *f, nodecl_t node, scope_link_t* sl)
+void c_cxx_codegen_translation_unit(FILE *f, nodecl_t node)
 {
     nodecl_codegen_visitor_t codegen_visitor;
     memset(&codegen_visitor, 0, sizeof(codegen_visitor));
-
-    if (sl == NULL)
-    {
-        sl = CURRENT_COMPILED_FILE->scope_link;
-    }
 
     c_cxx_codegen_init(&codegen_visitor);
     
     codegen_visitor.file = f;
     codegen_visitor.indent_level = 0;
-    decl_context_t global_context = scope_link_get_decl_context(sl, nodecl_get_ast(node));
+
+    decl_context_t global_context = nodecl_retrieve_context(node);
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;
@@ -4508,7 +4539,7 @@ char* c_cxx_codegen_to_str(nodecl_t node)
 
     codegen_visitor.file = temporal_stream;
     codegen_visitor.indent_level = 0;
-    decl_context_t global_context = scope_link_get_decl_context(CURRENT_COMPILED_FILE->scope_link, nodecl_get_ast(node));
+    decl_context_t global_context = CURRENT_COMPILED_FILE->global_decl_context;
     codegen_visitor.current_sym = global_context.global_scope->related_entry;
     codegen_visitor.global_namespace = codegen_visitor.current_sym;
     codegen_visitor.opened_namespace = codegen_visitor.global_namespace;
