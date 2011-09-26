@@ -2936,7 +2936,8 @@ static void codegen_class_member_access(nodecl_codegen_visitor_t* visitor, nodec
 
     scope_entry_t* sym = nodecl_get_symbol(rhs);
 
-    char is_anonymous = is_named_class_type(sym->type_information)
+    char is_anonymous = sym!= NULL
+        && is_named_class_type(sym->type_information)
         && named_type_get_symbol(sym->type_information)->entity_specs.is_anonymous_union;
 
     char needs_parentheses = operand_has_lower_priority(node, lhs); 
