@@ -3719,6 +3719,7 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
         SK_TEMPLATE_TEMPLATE_PARAMETER,
         SK_TEMPLATE,
         SK_USING,
+        SK_DEPENDENT_ENTITY
     };
 
     entry_list = filter_symbol_kind_set(entry_list, 
@@ -3729,6 +3730,29 @@ scope_entry_list_t* query_nodecl_template_id(decl_context_t decl_context,
         return NULL;
 
     scope_entry_t* template_symbol = entry_advance_aliases(entry_list_head(entry_list));
+
+    if (template_symbol->kind == SK_DEPENDENT_ENTITY)
+    {
+        scope_entry_t* dependent_entity = NULL;
+        nodecl_t nodecl_parts = nodecl_null();
+        dependent_typename_get_components(template_symbol->type_information, &dependent_entity, &nodecl_parts);
+        // nodecl_parts here lacks the template-id part
+
+        scope_entry_t* new_sym = counted_calloc(1, sizeof(*new_sym), &_bytes_used_scopes);
+        new_sym->kind = SK_DEPENDENT_ENTITY;
+        new_sym->file = nodecl_get_filename(nodecl_name);
+        new_sym->line = nodecl_get_line(nodecl_name);
+        new_sym->symbol_name = dependent_entity->symbol_name;
+        new_sym->decl_context = decl_context;
+        new_sym->type_information = build_dependent_typename_for_entry(
+            dependent_entity,
+            nodecl_name,
+            nodecl_get_filename(nodecl_name), 
+            nodecl_get_line(nodecl_name));
+
+        entry_list_free(entry_list);
+        return entry_list_new(new_sym);
+    }
 
     type_t* generic_type = template_symbol->type_information;
 
