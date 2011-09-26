@@ -416,6 +416,7 @@ namespace TL
         {
             private:
                 Symbol _sym;
+
                 ObjectList<FunctionTaskDependency> _parameters;
 
                 typedef std::map<std::string, Symbol> implementation_table_t;
@@ -424,11 +425,24 @@ namespace TL
                 FunctionTaskTargetInfo _target_info;
                 
                 RealTimeInfo _real_time_info;
+
+                Expression *_if_clause_cond_expr;
+
+                Symbol get_symbol() const;
+
+                implementation_table_t get_implementation_table() const;
+
             public:
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
-
+                
+                ~FunctionTaskInfo();
+                
+                FunctionTaskInfo(const FunctionTaskInfo & ft_copy);
+                
+                FunctionTaskInfo & operator=(const FunctionTaskInfo & ft_copy);
+                
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
@@ -436,6 +450,7 @@ namespace TL
                 FunctionTaskTargetInfo get_target_info() const;
 
                 void add_device(const std::string& device_name);
+                
                 void add_device_with_implementation(
                         const std::string& device_name,
                         Symbol implementor_symbol);
@@ -449,6 +464,13 @@ namespace TL
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
                 RealTimeInfo get_real_time_info();
+                
+                bool has_if_clause() const;
+
+                void set_if_clause_conditional_expression(Expression expr);
+                
+                Expression get_if_clause_conditional_expression() const;
+
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object

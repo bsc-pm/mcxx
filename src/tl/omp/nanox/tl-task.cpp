@@ -274,7 +274,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if (if_clause.is_defined())
     {
         ObjectList<Expression> expr_list = if_clause.get_expression_list();
-
         if (expr_list.size() != 1)
         {
             running_error("%s: error: clause 'if' requires just one argument\n",

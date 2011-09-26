@@ -121,10 +121,62 @@ namespace TL
             : _sym(sym),
             _parameters(parameter_info),
             _implementation_table(),
-            _target_info(target_info)
+            _target_info(target_info),
+            _if_clause_cond_expr(NULL)
         {
         }
 
+        FunctionTaskInfo::~FunctionTaskInfo() 
+        {
+            if(_if_clause_cond_expr != NULL)
+            {
+                delete _if_clause_cond_expr;
+            }
+        }
+        
+        FunctionTaskInfo::FunctionTaskInfo(const FunctionTaskInfo & ft_copy) :
+            _sym(ft_copy._sym), _parameters(ft_copy._parameters), 
+            _implementation_table(ft_copy._implementation_table), 
+            _target_info(ft_copy._target_info), _if_clause_cond_expr(NULL)
+        {
+            if(ft_copy.has_if_clause()) 
+            {
+                _if_clause_cond_expr = 
+                    new Expression(ft_copy.get_if_clause_conditional_expression());
+            }
+        }
+                
+        FunctionTaskInfo & FunctionTaskInfo::operator=(const FunctionTaskInfo & ft_copy) 
+        {
+            if(this != &ft_copy)
+            {
+                if(_if_clause_cond_expr != NULL) delete _if_clause_cond_expr;
+
+                _sym = ft_copy.get_symbol();
+                _parameters = ft_copy.get_parameter_info();
+                _target_info = ft_copy.get_target_info();
+                _implementation_table = ft_copy.get_implementation_table();
+
+                _if_clause_cond_expr = NULL;
+                if(ft_copy.has_if_clause()) 
+                {
+                   _if_clause_cond_expr = 
+                       new Expression(ft_copy.get_if_clause_conditional_expression());
+                }
+            }
+            return *this;
+        }
+
+        Symbol FunctionTaskInfo::get_symbol() const
+        {
+            return _sym;
+        }
+
+        FunctionTaskInfo::implementation_table_t FunctionTaskInfo::get_implementation_table() const
+        {
+           return _implementation_table;
+        }
+        
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
@@ -199,6 +251,26 @@ namespace TL
         {
             return _real_time_info;
         }
+        
+        bool FunctionTaskInfo::has_if_clause() const 
+        {
+            return (_if_clause_cond_expr != NULL);
+        }
+
+        void FunctionTaskInfo::set_if_clause_conditional_expression(Expression expr)
+        {
+            if(_if_clause_cond_expr != NULL) 
+            {
+                delete _if_clause_cond_expr;
+            }
+            _if_clause_cond_expr = new Expression(expr);
+        }
+        
+        Expression FunctionTaskInfo::get_if_clause_conditional_expression() const
+        {
+            return (*_if_clause_cond_expr);
+        }
+
 
 
         FunctionTaskSet::FunctionTaskSet()
@@ -518,6 +590,21 @@ namespace TL
 
             //adding real time information to the task
             task_info.set_real_time_info(rt_info);
+            
+            // Support if clause 
+            PragmaCustomClause if_clause = construct.get_clause("if");
+            if (if_clause.is_defined())
+            {
+                ObjectList<std::string> expr_list = if_clause.get_arguments();
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: clause 'if' requires just one argument\n",
+                            construct.get_ast().get_locus().c_str());
+                }
+                TL::AST_t expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
+                Expression cond_expr = Expression(expr_tree, construct.get_scope_link());
+                task_info.set_if_clause_conditional_expression(cond_expr);
+            }
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
