@@ -205,7 +205,8 @@ namespace TL
         }
     }
 
-    Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, std::string graph_type)
+    Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
+                                             std::string graph_type, Nodecl::NodeclBase context)
     {
         Node* result = new Node(_nid, GRAPH_NODE, outer_node);
         
@@ -216,6 +217,10 @@ namespace TL
     
         result->set_data(_NODE_LABEL, label);
         result->set_data(_GRAPH_TYPE, graph_type);
+        if (graph_type == "task")
+        {    
+            result->set_data(_TASK_CONTEXT, context);
+        }
         
         _outer_node.push(result);
         

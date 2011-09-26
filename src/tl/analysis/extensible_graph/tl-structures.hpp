@@ -113,6 +113,12 @@ namespace TL
      */    
     #define _GRAPH_TYPE     "graph_type"
     
+    /*!
+     * Nodecl containing the context associated to a task
+     * Mandatory and only available in composite nodes with _GRAPH_TYPE "task"
+     */
+    #define _TASK_CONTEXT   "task_context"
+    
     /*! \def _LIVE_IN
      * Set of variables that are alive at the entry point of a node.
      * Available in all nodes (Mandatory once the Liveness analysis is performed).

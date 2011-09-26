@@ -43,10 +43,16 @@ namespace TL
         
         // TODO with the list of functions with its correspondent list of graphs in @cfgs
         // now we can perform some kind of inter-procedural analysis
-        
-        
-        // Perform Live Variable Analysis and Print the Graph to a dot file
         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
+//         ObjectList<ExtensibleGraph*> ipa_cfgs;
+//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
+//             it != cfgs.end(); 
+//             ++it)
+//         {
+//             
+//         }
+//         
+//         // Perform Live Variable Analysis and Print the Graph to a dot file        
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
             it != cfgs.end(); 
             ++it)

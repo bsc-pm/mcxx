@@ -30,7 +30,7 @@ Cambridge, MA 02139, USA.
 namespace TL
 {
     CfgVisitor::CfgVisitor()
-        : _actual_cfg(NULL), _cfgs(),
+        : _actual_cfg(NULL), _cfgs(), _context_s(),
           _actual_loop_info(), _actual_try_info(), 
            _pragma_info_s(), _omp_sections_info(), 
            _switch_cond_s()
@@ -40,6 +40,7 @@ namespace TL
     {
         _actual_cfg = visitor._actual_cfg;
         _cfgs = visitor._cfgs;
+        _context_s = visitor._context_s;
         _actual_loop_info = visitor._actual_loop_info;
         _actual_try_info = visitor._actual_try_info;
         _pragma_info_s = visitor._pragma_info_s;
@@ -80,6 +81,12 @@ namespace TL
         std::cerr << "Unhandled node during CFG construction '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
         return Ret();
+    }
+
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Context& n)
+    {
+        _context_s.push(n);
+        return walk(n.get_in_context());
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::TopLevel& n)
@@ -339,7 +346,6 @@ namespace TL
         }
     }
 
-    // FIXME This is not working properly because of the merging method
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ArraySubscript& n)
     {
         ObjectList<Node*> subscripted_last_nodes = _actual_cfg->_last_nodes;
@@ -634,7 +640,8 @@ namespace TL
         struct pragma_t actual_pragma;
         _pragma_info_s.push(actual_pragma);
         
-        Node* task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "task");
+        Node* task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "task", 
+                                                               _context_s.top());
         int n_connects = previous_nodes.size();
         _actual_cfg->connect_nodes(previous_nodes, task_graph_node, 
                                    ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
