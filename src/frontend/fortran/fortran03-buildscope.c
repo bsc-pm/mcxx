@@ -5284,7 +5284,7 @@ void fortran_build_scope_statement_pragma(AST a,
 static void build_scope_pragma_custom_ctr(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_construct(a, decl_context, nodecl_output, &nodecl_pragma_line, fortran_build_scope_statement_pragma, NULL);
+    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, fortran_build_scope_statement_pragma, NULL);
 }
 
 static void build_scope_pragma_custom_dir(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)

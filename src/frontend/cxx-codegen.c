@@ -3664,7 +3664,20 @@ static void codegen_try_block(nodecl_codegen_visitor_t* visitor, nodecl_t node)
     }
 }
 
-static void codegen_pragma_custom_construct(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+static void codegen_pragma_custom_declaration(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    nodecl_t pragma_line = nodecl_get_child(node, 0);
+    // scope_entry_t* symbol = nodecl_get_symbol(node);
+
+    indent(visitor);
+
+    // FIXME  parallel|for must be printed as parallel for
+    fprintf(visitor->file, "#pragma %s ", nodecl_get_text(node));
+    codegen_walk(visitor, pragma_line);
+    fprintf(visitor->file, "\n");
+}
+
+static void codegen_pragma_custom_statement(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     nodecl_t pragma_line = nodecl_get_child(node, 0);
     nodecl_t statement = nodecl_get_child(node, 1);
@@ -4438,7 +4451,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_return_statement = codegen_visitor_fun(codegen_return_statement);
     NODECL_VISITOR(codegen_visitor)->visit_goto_statement = codegen_visitor_fun(codegen_goto_statement);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_directive = codegen_visitor_fun(codegen_pragma_custom_directive);
-    NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_construct = codegen_visitor_fun(codegen_pragma_custom_construct);
+    NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_statement = codegen_visitor_fun(codegen_pragma_custom_statement);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_clause = codegen_visitor_fun(codegen_pragma_custom_clause);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_clause_arg = codegen_visitor_fun(codegen_pragma_clause_arg);
     NODECL_VISITOR(codegen_visitor)->visit_pragma_custom_line = codegen_visitor_fun(codegen_pragma_custom_line);

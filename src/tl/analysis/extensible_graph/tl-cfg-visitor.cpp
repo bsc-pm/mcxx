@@ -625,7 +625,7 @@ namespace TL
                 || pragma == "single");
     }
 
-    CfgVisitor::Ret CfgVisitor::create_task_graph(const Nodecl::PragmaCustomConstruct& n)
+    CfgVisitor::Ret CfgVisitor::create_task_graph(const Nodecl::PragmaCustomStatement& n)
     {
         ObjectList<Node*> previous_nodes = _actual_cfg->_last_nodes;
         
@@ -655,7 +655,7 @@ namespace TL
         return ObjectList<Node*>(1, task_graph_node);        
     }
     
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomConstruct& n)
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomStatement& n)
     {
         // Built a new object in the pragma stack to store its relative info
         struct pragma_t actual_pragma;
@@ -715,7 +715,7 @@ namespace TL
                 Nodecl::List sections_stmt_list = n.get_statement().as<Nodecl::List>(); // This list contains always one
                 Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
                 Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
-                if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomConstruct>())
+                if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
                 {
                     const char* text = "section";
                     const char* filename =  n.get_filename().c_str();
@@ -726,7 +726,7 @@ namespace TL
                                                                         text, filename, line);
                     Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
                     Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
-                    nodecl_t new_pragma_sections = nodecl_make_pragma_custom_construct(pragma_line,
+                    nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
                                                                                         stmt_seq.get_internal_nodecl(), 
                                                                                         text, filename, line);
                     // Walk the first wrapped node

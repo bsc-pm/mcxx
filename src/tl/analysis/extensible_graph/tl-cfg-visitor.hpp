@@ -225,7 +225,7 @@ namespace TL
          * We can place the task any where in the graph taking into account that the position must 
          * respect the initial dependences
          */
-        Ret create_task_graph(const Nodecl::PragmaCustomConstruct& n);
+        Ret create_task_graph(const Nodecl::PragmaCustomStatement& n);
         
     public:
         //! Empty constructor
@@ -298,7 +298,7 @@ namespace TL
         Ret visit(const Nodecl::BuiltinExpr& n);
         Ret visit(const Nodecl::BuiltinDecl& n);
         Ret visit(const Nodecl::PragmaCustomDirective& n);
-        Ret visit(const Nodecl::PragmaCustomConstruct& n);
+        Ret visit(const Nodecl::PragmaCustomStatement& n);
         Ret visit(const Nodecl::PragmaCustomClause& n);
         Ret visit(const Nodecl::PragmaCustomLine& n);
         Ret visit(const Nodecl::PragmaClauseArg& n);

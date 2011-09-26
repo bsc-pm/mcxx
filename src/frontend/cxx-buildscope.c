@@ -11223,7 +11223,7 @@ static void build_scope_pragma_custom_construct_statement(AST a,
         nodecl_t* nodecl_output)
 {
     nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_construct(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
+    common_build_scope_pragma_custom_statement(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_statement_pragma, NULL);
 }
 
 static void build_scope_declaration_pragma(AST a,
@@ -11234,27 +11234,63 @@ static void build_scope_declaration_pragma(AST a,
     build_scope_declaration(a, decl_context, nodecl_output, (scope_entry_list_t**)p);
 }
 
+static void finish_pragma_declaration(
+        scope_entry_list_t* declared_symbols,
+        nodecl_t nodecl_pragma_line,
+        nodecl_t nodecl_decl,
+        const char* text,
+        const char* filename,
+        int line,
+        nodecl_t *nodecl_output)
+{
+    if (entry_list_size(declared_symbols) == 1)
+    {
+        *nodecl_output = nodecl_append_to_list(
+                *nodecl_output,
+                nodecl_make_pragma_custom_declaration(
+                    nodecl_pragma_line,
+                    entry_list_head(declared_symbols), 
+                    text, filename, line));
+    }
+    else
+    {
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(declared_symbols);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
+            *nodecl_output = nodecl_append_to_list(
+                    *nodecl_output,
+                    nodecl_make_pragma_custom_declaration(
+                        nodecl_copy(nodecl_pragma_line), 
+                        entry, 
+                        text, filename, line));
+        }
+        nodecl_free(nodecl_pragma_line);
+    }
+    entry_list_free(declared_symbols);
+
+    *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_decl);
+}
+
 static void build_scope_pragma_custom_construct_declaration(AST a, 
         decl_context_t decl_context, 
         nodecl_t *nodecl_output)
 {
-    nodecl_t nodecl_pragma_line = nodecl_null();
     scope_entry_list_t* declared_symbols = NULL;
-    common_build_scope_pragma_custom_construct(a, decl_context, 
-            nodecl_output, &nodecl_pragma_line, build_scope_declaration_pragma, &declared_symbols);
 
-    scope_entry_list_iterator_t* it = entry_list_iterator_begin(declared_symbols);
-    while (!entry_list_iterator_end(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
+    nodecl_t nodecl_pragma_line = nodecl_null();
+    nodecl_t nodecl_decl = nodecl_null();
+    common_build_scope_pragma_custom_declaration(a, decl_context, 
+            &nodecl_pragma_line, &nodecl_decl,
+            build_scope_declaration_pragma, &declared_symbols);
 
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line);
-
-        entry_list_iterator_next(it);
-    }
-
-    entry_list_iterator_free(it);
-    entry_list_free(declared_symbols);
+    finish_pragma_declaration(declared_symbols, 
+            nodecl_pragma_line, nodecl_decl,
+            ASTText(a), ASTFileName(a), ASTLine(a),
+            nodecl_output);
 }
 
 struct declaration_pragma_member_info_tag
@@ -11277,27 +11313,24 @@ static void build_scope_pragma_custom_construct_member_declaration(AST a,
         nodecl_t* nodecl_output)
 {
     scope_entry_list_t* declared_symbols = NULL;
-    struct declaration_pragma_member_info_tag mem = { 
+    struct declaration_pragma_member_info_tag mem_info = { 
         .class_info = class_info, 
         .current_access = current_access, 
         .declared_symbols = &declared_symbols 
     };
 
     nodecl_t nodecl_pragma_line = nodecl_null();
-    common_build_scope_pragma_custom_construct(a, decl_context, nodecl_output, &nodecl_pragma_line, build_scope_member_declaration_pragma, &mem);
+    nodecl_t nodecl_member_decl = nodecl_null();
+    common_build_scope_pragma_custom_declaration(a, decl_context, 
+            &nodecl_pragma_line, &nodecl_member_decl,
+            build_scope_member_declaration_pragma, &mem_info);
 
-    scope_entry_list_iterator_t* it = entry_list_iterator_begin(declared_symbols);
-    while (!entry_list_iterator_end(it))
-    {
-        scope_entry_t* entry = entry_list_iterator_current(it);
-
-        P_LIST_ADD(entry->entity_specs.pragmas, entry->entity_specs.num_pragmas, nodecl_pragma_line);
-
-        entry_list_iterator_next(it);
-    }
-    entry_list_iterator_free(it);
-
+    finish_pragma_declaration(declared_symbols,
+            nodecl_pragma_line, nodecl_member_decl,
+            ASTText(a), ASTFileName(a), ASTLine(a),
+            nodecl_output);
 }
+
 
 static void build_scope_upc_synch_statement(AST a, 
         decl_context_t decl_context, 
