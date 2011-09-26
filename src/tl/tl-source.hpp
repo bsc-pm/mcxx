@@ -34,8 +34,8 @@
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-type-fwd.hpp"
-#include "tl-scope-fwd.hpp"
 #include "tl-nodecl-fwd.hpp"
+#include "tl-scope.hpp"
 #include "tl-refptr.hpp"
 
 #include <string>
@@ -139,6 +139,17 @@ namespace TL
                 //! Does not check an expression
                 DO_NOT_CHECK_EXPRESSION = 1 << 2,
             };
+
+            struct ReferenceScope
+            {
+                private:
+                    Scope _scope;
+                public:
+                    ReferenceScope(Scope sc);
+                    ReferenceScope(Nodecl::NodeclBase nodecl);
+
+                    Scope get_scope() const;
+            };
         private:
             chunk_list_ref_t _chunk_list;
 
@@ -149,38 +160,16 @@ namespace TL
 
             typedef int (*prepare_lexer_fun_t)(const char*);
             typedef int (*parse_fun_t)(AST*);
-            template <typename T>
-            struct FinishParseFun
-            { 
-                typedef T (*Type)(ParseFlags, decl_context_t, AST);
-            };
+            typedef void (*compute_nodecl_fun_t)(decl_context_t, AST, nodecl_t*);
 
-            template <typename T>
-            T parse_generic(
-                    TL::Scope scope, 
+            Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
                     ParseFlags parse_flags,
-                    const std::string& subparsing_prefix,
+                    const std::string& substring_prefix,
                     prepare_lexer_fun_t prepare_lexer,
-                    parse_fun_t parse_function,
-                    typename FinishParseFun<T>::Type finish_parse
-                    );
+                    parse_fun_t parse,
+                    compute_nodecl_fun_t compute_nodecl);
 
-            template <typename T>
-            T parse_generic_lang(
-                    TL::Scope scope, 
-                    ParseFlags parse_flags,
-                    const std::string& subparsing_prefix,
-                    typename FinishParseFun<T>::Type finish_parse
-                    );
         public:
-            struct ReferenceScope
-            {
-                ReferenceScope(Scope sc);
-                ReferenceScope(Nodecl::NodeclBase nodecl);
-
-                Scope get_scope() const;
-            };
-
             //! Constructor
             /*!
              * Creates an empty source
@@ -227,8 +216,6 @@ namespace TL
                     // Share the list
                     _chunk_list = cast->_chunk_list;
                 }
-
-                // ---
             }
 
             //! Copy-constructor
@@ -313,6 +300,14 @@ namespace TL
              */
             Nodecl::NodeclBase parse_member(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
+            //! Parse some code
+            /*! 
+             * Except for parse_expression this routine can be used instead of 
+             * parse_global, parse_declaration, parse_statement and parse_membe. The
+             * current context of the ReferenceScope is used to determine the exact parsing
+             */
+            Nodecl::NodeclBase parse(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
             // Format string for debugging
             static std::string format_source(const std::string&);
 
@@ -339,7 +334,7 @@ namespace TL
      */
     LIBTL_EXTERN std::string preprocessor_line(const std::string& str);
 
-    //! Creates a placeholder for the given AST_t
+    //! Creates a placeholder for the given Nodecl::NodeclBase
     /*!
      * This function creates a placeholder for statements. Once parsed, \a
      * placeholder can be used as a reference tree for further parsings and can

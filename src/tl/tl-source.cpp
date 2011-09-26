@@ -27,12 +27,11 @@
 
 
 #include "tl-source.hpp"
+#include "tl-scope.hpp"
+#include "tl-nodecl.hpp"
+
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
-#include <iostream>
-#include <sstream>
-#include <iomanip>
-#include <cstring>
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
 #include "cxx-parser.h"
@@ -44,8 +43,28 @@
 #include "fortran03-exprtype.h"
 #endif
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <cstring>
+
 namespace TL
 {
+    Source::ReferenceScope::ReferenceScope(Scope sc)
+        : _scope(sc)
+    {
+    }
+
+    Source::ReferenceScope::ReferenceScope(Nodecl::NodeclBase n)
+        : _scope(n.retrieve_context())
+    {
+    }
+
+    Scope Source::ReferenceScope::get_scope() const
+    {
+        return _scope;
+    }
+
     std::string SourceRef::get_source() const
     {
         return _src->get_source(false);
@@ -357,6 +376,36 @@ namespace TL
         }
 
         return ss.str();
+    }
+
+    Nodecl::NodeclBase Source::parse_generic(ReferenceScope ref_scope,
+            ParseFlags parse_flags,
+            const std::string& subparsing_prefix,
+            prepare_lexer_fun_t prepare_lexer,
+            parse_fun_t parse,
+            compute_nodecl_fun_t compute_nodecl)
+    {
+        std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
+
+        prepare_lexer(mangled_text.c_str());
+
+        int parse_result = 0;
+        AST a = NULL;
+
+        parse_result = parse(&a);
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse source\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
+        }
+
+        decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
+
+        nodecl_t nodecl_output = nodecl_null();
+        compute_nodecl(decl_context, a, &nodecl_output);
+
+        return nodecl_output;
     }
 
 #if 0

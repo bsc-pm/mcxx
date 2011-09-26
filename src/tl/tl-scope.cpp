@@ -27,6 +27,7 @@
 
 
 #include "tl-scope.hpp"
+#include "tl-symbol.hpp"
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"

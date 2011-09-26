@@ -90,6 +90,7 @@ libtl_la_SOURCES = \
     tl-nodecl-visitor.hpp \
     tl-nodecl-visitor.cpp \
     tl-nodecl-fwd.hpp \
+    tl-nodecl-base.hpp \
     tl-nodecl.hpp \
     tl-nodecl.cpp \
     tl-scope.hpp \

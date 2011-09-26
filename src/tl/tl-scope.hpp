@@ -30,19 +30,22 @@
 #define TL_SCOPE_HPP
 
 #include "tl-common.hpp"
+#include "tl-object.hpp"
+#include "tl-objectlist.hpp"
+#include "tl-symbol-fwd.hpp"
+#include "tl-type-fwd.hpp"
+#include "tl-source-fwd.hpp"
+
+#include "cxx-scope.h"
+#include "cxx-buildscope.h"
+
 #include <string>
 #include <cstring>
 #include <vector>
 #include <map>
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
-#include "tl-object.hpp"
-#include "tl-objectlist.hpp"
-#include "tl-symbol.hpp"
 
 namespace TL
 {
-    class Symbol;
     class TemplateParameter;
     
     //! \addtogroup Wrap 
@@ -271,7 +274,6 @@ namespace TL
             friend class Symbol;
             friend class Type;
             friend class Source;
-            friend class Expression;
     };
 
 
