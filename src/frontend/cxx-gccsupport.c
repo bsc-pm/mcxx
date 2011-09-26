@@ -1030,29 +1030,67 @@ gxx_type_traits_fun_type_t type_traits_fun_list[] =
     {NULL, NULL},
 };
 
-char check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
+void check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     AST first_type_id = ASTSon0(expression);
+    type_t* first_type = NULL;
 
-    if (!check_type_id_tree(first_type_id, decl_context))
+    first_type = compute_type_for_type_id_tree(first_type_id, decl_context);
+    if (is_error_type(first_type))
     {
-        return 0;
+        *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+        return;
     }
 
     AST second_type_id = ASTSon1(expression);
+    type_t* second_type = NULL;
 
-    if (second_type_id != NULL
-            && !check_type_id_tree(second_type_id, decl_context))
+    if (second_type_id != NULL)
     {
-        return 0;
+        second_type = compute_type_for_type_id_tree(second_type_id, decl_context);
+
+        if (is_error_type(second_type))
+        {
+            *nodecl_output = nodecl_make_err_expr(ASTFileName(expression), ASTLine(expression));
+            return;
+        }
     }
 
     const char* trait_name = ASTText(expression);
 
-    expression_set_type(expression, get_bool_type());
-    expression_set_is_lvalue(expression, 0);
+    if (is_dependent_type(first_type)
+            || (second_type_id != NULL
+                && is_dependent_type(second_type)))
+    {
+        if (second_type_id != NULL)
+        {
+            *nodecl_output = nodecl_make_builtin_expr(
+                    nodecl_make_any_list(
+                        nodecl_make_list_3(
+                            nodecl_make_text(trait_name, ASTFileName(expression), ASTLine(expression)),
+                            nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression)),
+                            nodecl_make_type(second_type, ASTFileName(expression), ASTLine(expression))),
+                        ASTFileName(expression), ASTLine(expression)),
+                    get_bool_type(),
+                    "gxx-trait",
+                    ASTFileName(expression), ASTLine(expression));
+        }
+        else
+        {
+            *nodecl_output = nodecl_make_builtin_expr(
+                    nodecl_make_any_list(
+                        nodecl_make_list_2(
+                            nodecl_make_text(trait_name, ASTFileName(expression), ASTLine(expression)),
+                            nodecl_make_type(first_type, ASTFileName(expression), ASTLine(expression))),
+                        ASTFileName(expression), ASTLine(expression)),
+                    get_bool_type(),
+                    "gxx-trait",
+                    ASTFileName(expression), ASTLine(expression));
+        }
+        // This is like a constant expression with a dependent value
+        nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+        return;
+    }
 
     int i = 0;
     char found = 0;
@@ -1077,41 +1115,23 @@ char check_gxx_type_traits(AST expression, decl_context_t decl_context, nodecl_t
     }
     else
     {
-        type_t* first_type = NULL;
-        type_t* second_type = NULL;
+        type_t* t = get_bool_type();
 
-        first_type = compute_type_for_type_id_tree(first_type_id, decl_context);
-
-        if (is_dependent_type(first_type))
-        {
-            expression_set_is_value_dependent(expression, 1, decl_context);
-            return 1;
-        }
-
-        if (ASTSon1(expression) != NULL)
-        {
-            second_type = compute_type_for_type_id_tree(second_type_id, decl_context);
-
-            if (is_dependent_type(second_type))
-            {
-                expression_set_is_value_dependent(expression, 1, decl_context);
-                return 1;
-            }
-        }
+        const_value_t* val = NULL;
 
         if ((type_traits_fun_list[i].trait_calculus)(first_type, second_type, decl_context))
         {
-            expression_set_constant(expression,
-                    const_value_get_one(/*bytes*/ 1, /*sign*/ 0));
+            // true
+            val = const_value_get_one(type_get_size(t), 0);
         }
         else
         {
-            expression_set_constant(expression,
-                    const_value_get_zero(/*bytes*/ 1, /*sign*/ 0));
+            // false
+            val = const_value_get_zero(type_get_size(t), 0);
         }
+        *nodecl_output = nodecl_make_boolean_literal(t, val, ASTFileName(expression), ASTLine(expression));
     }
 
-    return 1;
-#endif
+    return;
 }
 

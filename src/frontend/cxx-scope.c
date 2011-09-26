@@ -2768,23 +2768,26 @@ static template_parameter_list_t* complete_template_parameters_of_template_class
                     // would mean executing user code at compile time, which is
                     // not possible, so we check for a SCS.
                     //
-                    standard_conversion_t scs_conv;
-                    if (!standard_conversion_between_types(&scs_conv, arg_type, dest_type))
+                    if (!is_dependent_type(arg_type))
                     {
-                        DEBUG_CODE()
+                        standard_conversion_t scs_conv;
+                        if (!standard_conversion_between_types(&scs_conv, arg_type, dest_type))
                         {
-                            fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "SCOPE: Cannot convert template argument expression to the type of the template parameter\n");
+                            }
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s:%d: error: cannot convert type '%s' of template argument type %d to "
+                                        "the type '%s' of its template parameter\n",
+                                        filename, line, 
+                                        print_type_str(arg_type, template_name_context),
+                                        i,
+                                        print_type_str(dest_type, template_name_context));
+                            }
+                            return NULL;
                         }
-                        if (!checking_ambiguity())
-                        {
-                            error_printf("%s:%d: error: cannot convert type '%s' of template argument type %d to "
-                                    "the type '%s' of its template parameter",
-                                    filename, line, 
-                                    print_type_str(arg_type, template_name_context),
-                                    i,
-                                    print_type_str(dest_type, template_name_context));
-                        }
-                        return NULL;
                     }
                 }
             }

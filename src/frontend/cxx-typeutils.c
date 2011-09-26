@@ -72,7 +72,6 @@ enum type_kind
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
     TK_BRACED_LIST,        // 12
-    TK_TYPE_DEP_EXPR,      // 13
     TK_ERROR,
 };
 
@@ -105,7 +104,8 @@ enum simple_type_kind_tag
     STK_TEMPLATE_DEPENDENT_TYPE, // [6]
     // GCC Extensions
     STK_VA_LIST, // [7] __builtin_va_list {identifier};
-    STK_TYPEOF  // [8] __typeof__(int) {identifier};
+    STK_TYPEOF,  // [8] __typeof__(int) {identifier};
+    STK_TYPE_DEP_EXPR,      // [9]
 } simple_type_kind_t;
 
 // Information of enums
@@ -4011,7 +4011,6 @@ char equivalent_types(type_t* t1, type_t* t2)
             result = 1;
             break;
         case TK_OVERLOAD:
-        case TK_TYPE_DEP_EXPR:
             // These are always false
             break;
         default :
@@ -4091,6 +4090,10 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             break;
         case STK_COMPLEX:
             return equivalent_types(t1->complex_element, t2->complex_element);
+            break;
+        case STK_TYPE_DEP_EXPR:
+            // Always different
+            return 0;
             break;
         default :
             internal_error("Unknown simple type kind (%d)", t1->kind);
@@ -6145,6 +6148,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 result = get_simple_type_name_string(decl_context, simple_type->primary_specialization);
                 break;
             }
+        case STK_TYPE_DEP_EXPR:
+            {
+                result = "< type dependent expression type >";
+                break;
+            }
         default:
             {
                 internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
@@ -6977,7 +6985,8 @@ type_t* get_unknown_dependent_type(void)
     if (_dependent_type == NULL)
     {
         _dependent_type = get_simple_type();
-        _dependent_type->kind = TK_TYPE_DEP_EXPR;
+        _dependent_type->type->kind = STK_TYPE_DEP_EXPR;
+        _dependent_type->info->is_dependent = 1;
     }
     return _dependent_type;
 }
@@ -9482,6 +9491,10 @@ type_t* get_foundation_type(type_t* t)
     else if (is_error_type(t))
     {
         return _error_type;
+    }
+    else if (is_unknown_dependent_type(t))
+    {
+        return _dependent_type;
     }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }

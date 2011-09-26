@@ -3414,6 +3414,23 @@ static void codegen_builtin(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         codegen_walk(visitor, any_list);
         fprintf(visitor->file, "\n");
     }
+    else if (strcmp(builtin_name, "gxx-trait") == 0)
+    {
+        int num_items = 0;
+        nodecl_t* unpacked_list = nodecl_unpack_list(any_list, &num_items);
+
+        fprintf(visitor->file, "%s(", nodecl_get_text(unpacked_list[0]));
+
+        fprintf(visitor->file, "%s", print_type_str(nodecl_get_type(unpacked_list[1]), visitor->decl_context));
+
+        if (num_items == 3)
+        {
+            fprintf(visitor->file, ", %s", print_type_str(nodecl_get_type(unpacked_list[2]), visitor->decl_context));
+        }
+
+        fprintf(visitor->file, ")");
+        free(unpacked_list);
+    }
     else
     {
         internal_error("Unhandled '%s' builtin at %s\n", builtin_name, nodecl_get_locus(node));

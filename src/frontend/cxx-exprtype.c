@@ -500,7 +500,7 @@ static void check_expression_impl_(AST expression, decl_context_t decl_context, 
                         nodecl_set_type(*nodecl_output, lvalue_ref(entry->type_information));
                         if (is_dependent_type(entry->type_information))
                         {
-                            nodecl_expr_set_is_value_dependent(*nodecl_output, 1);
+                            nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
                         }
                         nodecl_expr_set_is_lvalue(*nodecl_output, 1);
                     }
@@ -4201,9 +4201,10 @@ static void compute_unary_operator_generic(
     {
         *nodecl_output = nodecl_unary_fun(*op, get_unknown_dependent_type(), filename, line);
         nodecl_expr_set_is_type_dependent(*nodecl_output, 1);
+
+        nodecl_expr_set_is_value_dependent(*nodecl_output, nodecl_expr_is_value_dependent(*op));
         return;
     }
-
 
     char requires_overload = 0;
     CXX_LANGUAGE()
@@ -4852,6 +4853,21 @@ static void compute_operator_reference_type(nodecl_t* op,
     }
     else
     {
+        // This one is special
+        if (is_unresolved_overloaded_type(nodecl_get_type(*op)))
+        {
+            scope_entry_t* entry = unresolved_overloaded_type_simplify(
+                    nodecl_get_type(*op),
+                    decl_context,
+                    filename, line);
+            if (entry != NULL)
+            {
+                *op = nodecl_make_symbol(entry, filename, line);
+                nodecl_set_type(*op, entry->type_information);
+                nodecl_expr_set_is_lvalue(*op, 1);
+            }
+        }
+
         compute_unary_operator_generic(op, 
                 operation_tree, decl_context,
                 operand_is_class_or_enum,
@@ -5300,6 +5316,8 @@ static void cxx_compute_name_from_entry_list(nodecl_t nodecl_name,
             }
             entry_list_free(this_symbol_list);
         }
+
+        nodecl_expr_set_is_lvalue(*nodecl_output, 1);
 
         if (!entry->entity_specs.is_parameter
                 && is_const_qualified_type(no_ref(entry->type_information))

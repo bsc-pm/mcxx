@@ -36,8 +36,11 @@ top-level : function-code
 name : NODECL_SYMBOL() symbol
 type : NODECL_TYPE() type
 
-function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]object-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
+function-code : NODECL_FUNCTION_CODE([statements]context, [initializers]mem-init-seq-opt, [internal_functions]function-code-seq-opt) symbol
 object-init : NODECL_OBJECT_INIT([init_expr]expression-opt) symbol
+
+mem-init: object-init
+          | cxx-mem-init
 
 statement : statement-but-object-init
           | object-init
@@ -252,6 +255,9 @@ cxx-dependent-expressions: NODECL_CXX_ARROW([lhs]expression, [member]expression)
     | NODECL_CXX_ARRAY_SECTION_SIZE([postfix] expression, [start] expression-opt, [num_items] expression-opt]) type
 # T(expr-list)
     | NODECL_CXX_EXPLICIT_TYPE_CAST([init_list]cxx-dependent-initializer) type
+
+# id-expr(expr) in a member initializer
+cxx-mem-init: NODECL_CXX_MEMBER_INIT([name]cxx-dependent-name, [initializer]expression) type
 
 cuda-expressions : NODECL_CUDA_KERNEL_CALL([kernel_config] expression-seq, [function_call] expression) type
 
