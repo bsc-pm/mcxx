@@ -246,11 +246,16 @@ namespace TL
              */
             void insert_symbol(Symbol sym);
 
+            //! States if the current scope is enclosed into a potential encloser scope
+            /*! When both scopes are the same, the method returns false
+             */
+            bool scope_is_enclosed_by(Scope potential_encloser) const;
+            
             //! Creates an artificial symbol
             /*!
-              This function is used to create an artifical symbol. Artificial
+              This function is used to create an artificial symbol. Artificial
               symbols are useful when some information must be stored scope-wise.
-              These symbols should have a name that is not language-accesible, this
+              These symbols should have a name that is not language-accessible, this
               is, its name it is not possible to be referenced in the program under
               the syntax of the language (for instance a symbol like ".foo").
 
