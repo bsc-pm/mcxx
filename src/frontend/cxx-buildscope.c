@@ -93,12 +93,13 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
 
 static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
-        nodecl_t* nodecl_output,
-        scope_entry_list_t** declared_symbols);
+        scope_entry_list_t** declared_symbols,
+        nodecl_t* nodecl_output);
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
         char is_template,
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output);
 static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, 
         AST a, access_specifier_t current_access, type_t* class_info,
@@ -158,8 +159,10 @@ static void build_scope_linkage_specifier_declaration(AST a,
 static void build_scope_template_declaration(AST a, 
         AST top_template_decl, 
         decl_context_t decl_context, 
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output);
-static void build_scope_explicit_template_specialization(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
+static void build_scope_explicit_template_specialization(AST a, decl_context_t decl_context, 
+        scope_entry_list_t** declared_symbols, nodecl_t* nodecl_output);
 
 static void build_scope_statement_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_statement_seq(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -193,10 +196,12 @@ static void build_scope_template_template_parameter(AST a,
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output);
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info,
         char is_explicit_instantiation,
+        scope_entry_list_t** entry_list,
         nodecl_t* nodecl_output);
 
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context, AST a,
@@ -215,7 +220,8 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context, ac
 static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context, access_specifier_t, nodecl_t* nodecl_output);
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
-        char is_explicit_instantiation, nodecl_t* nodecl_output);
+        char is_explicit_instantiation, scope_entry_list_t** declared_symbols,
+        nodecl_t* nodecl_output);
 
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 
@@ -227,7 +233,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t template_context, 
-        char is_explicit_instantiation, nodecl_t* nodecl_output);
+        char is_explicit_instantiation, scope_entry_list_t** declared_symbols, nodecl_t* nodecl_output);
 
 static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_asm_definition(AST a, decl_context_t decl_context, nodecl_t* nodecl_output);
@@ -527,7 +533,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 //     ...
                 //   }
                 build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
-                        /* is_template */ 0, /* is_explicit_instantiation */ 0, nodecl_output);
+                        /* is_template */ 0, /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
                 break;
             }
         case AST_DELETED_FUNCTION_DEFINITION :
@@ -558,7 +564,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
                 // [export] template<typename _T> struct A;
                 // [export] template<typename _T> struct A { };
                 // [export] template<typename _T> void f(_T t);
-                build_scope_template_declaration(a, a, decl_context, nodecl_output);
+                build_scope_template_declaration(a, a, decl_context, declared_symbols, nodecl_output);
                 break;
             }
         case AST_EXPLICIT_INSTANTIATION :
@@ -570,7 +576,8 @@ static void build_scope_declaration(AST a, decl_context_t decl_context,
         case AST_EXPLICIT_SPECIALIZATION :
             {
                 // template<> struct A<int> { };
-                build_scope_explicit_template_specialization(a, decl_context, nodecl_output);
+                build_scope_explicit_template_specialization(a, decl_context, 
+                        declared_symbols, nodecl_output);
                 break;
             }
         case AST_USING_NAMESPACE_DIRECTIVE:
@@ -4607,7 +4614,7 @@ static void build_scope_delayed_functions(nodecl_t* nodecl_output)
 
         nodecl_t nodecl_funct_def = nodecl_null();
         build_scope_function_definition(function_def, previous_symbol, decl_context, 
-                is_template, is_explicit_instantiation, &nodecl_funct_def);
+                is_template, is_explicit_instantiation, /* declared_symbols */ NULL, &nodecl_funct_def);
         *nodecl_output = nodecl_concat_lists(*nodecl_output, nodecl_funct_def);
     }
     build_scope_delayed_clear_pending();
@@ -5372,7 +5379,7 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
             // This is a simple member_declaration
             build_scope_member_declaration(inner_decl_context, member_specification,
                     current_access, type_info, 
-                    nodecl_output, declared_symbols);
+                    declared_symbols, nodecl_output);
         }
     }
 }
@@ -7394,6 +7401,7 @@ static void build_scope_linkage_specifier_declaration(AST a,
 static void build_scope_template_declaration(AST a, 
         AST top_template_decl, 
         decl_context_t decl_context,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     /*
@@ -7443,20 +7451,20 @@ static void build_scope_template_declaration(AST a,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_template_function_definition(templated_decl, template_context, 
-                        /* is_explicit_instantiation */ 0, nodecl_output);
+                        /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
 
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_template_simple_declaration(templated_decl, template_context, 
-                        /* is_explicit_instantiation */ 0, nodecl_output);
+                        /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
 
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
             {
-                build_scope_template_declaration(templated_decl, top_template_decl, template_context, nodecl_output);
+                build_scope_template_declaration(templated_decl, top_template_decl, template_context, declared_symbols, nodecl_output);
                 break;
             }
         default :
@@ -7488,6 +7496,7 @@ void build_scope_template_header(AST template_parameter_list,
  */
 static void build_scope_explicit_template_specialization(AST a, 
         decl_context_t decl_context, 
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     template_parameter_list_t *tpl_param_list = counted_calloc(1, sizeof(*tpl_param_list), &_bytes_used_buildscope);
@@ -7578,23 +7587,23 @@ static void build_scope_explicit_template_specialization(AST a,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_template_function_definition(ASTSon0(a), template_context, 
-                        /* is_explicit_instantiation */ 1, nodecl_output);
+                        /* is_explicit_instantiation */ 1, declared_symbols, nodecl_output);
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_template_simple_declaration(ASTSon0(a), template_context, 
-                        /* is_explicit_instantiation */ 1, nodecl_output);
+                        /* is_explicit_instantiation */ 1, declared_symbols, nodecl_output);
                 break;
             }
         case AST_EXPLICIT_SPECIALIZATION :
             {
-                build_scope_explicit_template_specialization(ASTSon0(a), template_context, nodecl_output);
+                build_scope_explicit_template_specialization(ASTSon0(a), template_context, declared_symbols, nodecl_output);
                 break;
             }
         case AST_TEMPLATE_DECLARATION:
             {
-                build_scope_template_declaration(ASTSon0(a), a, template_context, nodecl_output);
+                build_scope_template_declaration(ASTSon0(a), a, template_context, declared_symbols, nodecl_output);
                 break;
             }
         default :
@@ -7605,14 +7614,15 @@ static void build_scope_explicit_template_specialization(AST a,
 }
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context, 
-        char is_explicit_instantiation, nodecl_t* nodecl_output)
+        char is_explicit_instantiation, scope_entry_list_t** declared_symbols, nodecl_t* nodecl_output)
 {
     /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context, 
-            /* is_template */ 1, is_explicit_instantiation, nodecl_output);
+            /* is_template */ 1, is_explicit_instantiation, declared_symbols, nodecl_output);
 }
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context, 
         char is_explicit_instantiation, 
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     /*
@@ -7679,6 +7689,12 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
             solve_ambiguous_init_declarator(init_declarator, decl_context);
         }
 
+        if (ASTSon0(init_declarator_list) != NULL)
+        {
+            error_printf("%s: error: too many declarators in template declaration\n",
+                    ast_location(init_declarator));
+        }
+
         AST declarator = ASTSon0(init_declarator);
         AST initializer = ASTSon1(init_declarator);
 
@@ -7712,6 +7728,11 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
                 new_decl_context, nodecl_output);
         scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
                 &gather_info, new_decl_context, nodecl_output);
+
+        if (declared_symbols != NULL)
+        {
+            *declared_symbols = entry_list_new(entry);
+        }
 
         // This is a simple declaration, thus if it does not declare an
         // extern variable or function, the symbol is already defined here
@@ -8551,6 +8572,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         decl_context_t decl_context, 
         char is_template,
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
@@ -8654,6 +8676,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                         prettyprint_in_buffer(get_declarator_name(ASTSon1(function_header), new_decl_context))));
         }
         return NULL;
+    }
+
+    if (declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_new(entry);
     }
 
     // Set the related entry
@@ -8958,8 +8985,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, 
         type_t* class_info,
-        nodecl_t* nodecl_output,
-        scope_entry_list_t** declared_symbols)
+        scope_entry_list_t** declared_symbols,
+        nodecl_t* nodecl_output)
 {
     DEBUG_CODE()
     {
@@ -8979,6 +9006,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             {
                 build_scope_member_function_definition(inner_decl_context, a, current_access, class_info, 
                         /* is_template */ 0, /* is_explicit_instantiation */ 0,
+                        declared_symbols,
                         nodecl_output);
                 break;
             }
@@ -8990,15 +9018,15 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             }
         case AST_GCC_EXTENSION : // __extension__
             {
-                build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info, nodecl_output, 
-                        declared_symbols);
+                build_scope_member_declaration(inner_decl_context, ASTSon0(a), current_access, class_info, 
+                        declared_symbols, nodecl_output);
                 // FIXME Enable a gcc_extension bit for these symbols
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
             {
                 build_scope_member_template_declaration(inner_decl_context, a, current_access, 
-                        class_info, /* is_explicit_instantiation */ 0, nodecl_output);
+                        class_info, /* is_explicit_instantiation */ 0, declared_symbols, nodecl_output);
                 break;
             }
         case AST_USING_DECLARATION :
@@ -9021,7 +9049,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
             {
                 solve_ambiguous_declaration(a, inner_decl_context);
                 // Restart
-                build_scope_member_declaration(inner_decl_context, a, current_access, class_info, nodecl_output, declared_symbols);
+                build_scope_member_declaration(inner_decl_context, a, current_access, class_info, declared_symbols, nodecl_output);
                 break;
             }
         case AST_EMPTY_DECL :
@@ -9063,6 +9091,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
 static void build_scope_member_template_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info,
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output
         )
 {
@@ -9113,7 +9142,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_member_template_function_definition(template_context, ASTSon1(a), current_access, class_info, 
-                        is_explicit_instantiation, nodecl_output);
+                        is_explicit_instantiation, declared_symbols, nodecl_output);
             }
             break;
         case AST_SIMPLE_DECLARATION :
@@ -9131,12 +9160,13 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
 static void build_scope_member_template_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info, 
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     // Define the function within st scope but being visible template_scope
     build_scope_member_function_definition(decl_context, a, current_access, class_info, 
             /* is_template */ 1, is_explicit_instantiation,
-            nodecl_output);
+            declared_symbols, nodecl_output);
 }
 
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context,
@@ -9429,6 +9459,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         type_t* class_info,
         char is_template,
         char is_explicit_instantiation,
+        scope_entry_list_t** declared_symbols,
         nodecl_t* nodecl_output)
 {
     type_t* class_type = NULL;
@@ -9519,6 +9550,11 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
+
+    if (declared_symbols != NULL)
+    {
+        *declared_symbols = entry_list_new(entry);
+    }
 
     // This function might be hiding using declarations, remove those
     hide_using_declarations(class_info, entry);
@@ -11303,7 +11339,7 @@ struct declaration_pragma_member_info_tag
 static void build_scope_member_declaration_pragma(AST a, decl_context_t decl_context, nodecl_t* nodecl_output, void* info)
 {
     struct declaration_pragma_member_info_tag* mem = (struct declaration_pragma_member_info_tag*)info;
-    build_scope_member_declaration(decl_context, a, mem->current_access, mem->class_info, nodecl_output, mem->declared_symbols);
+    build_scope_member_declaration(decl_context, a, mem->current_access, mem->class_info, mem->declared_symbols, nodecl_output);
 }
 
 static void build_scope_pragma_custom_construct_member_declaration(AST a, 
