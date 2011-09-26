@@ -31,9 +31,6 @@ Cambridge, MA 02139, USA.
 #include "cxx-utils.h"
 #include "tl-node.hpp"
 #include "tl-nodecl.hpp"
-#include "tl-fortran.hpp"
-#include "tl-scopelink.hpp"
-#include "tl-statement.hpp"
 
 namespace TL
 {
@@ -369,8 +366,8 @@ namespace TL
                                  It must be a Composite node.
               \return Composite node containing the set of pragma statements nodes.
             */             
-            Node* build_pragma_construct(Node* parent, Statement pragma_stmt, 
-                                         Node* outer_graph = NULL);
+            // Node* build_pragma_construct(Node* parent, Statement pragma_stmt, 
+            //                              Node* outer_graph = NULL);
             
             //! Builds a set of connected nodes that contains an omp sections statement
             /*!
@@ -380,7 +377,7 @@ namespace TL
                                  It must be a Composite node.
               \return Composite node containing the set of statements of the directive.
             */                       
-            Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
+            // Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
            
            
  

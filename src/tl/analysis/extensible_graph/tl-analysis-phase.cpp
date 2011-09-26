@@ -24,7 +24,6 @@ Cambridge, MA 02139, USA.
 #include "cxx-utils.h"
 #include "tl-analysis-phase.hpp"
 #include "tl-cfg-visitor.hpp"
-#include "tl-scopelink.hpp"
 
 
 namespace TL

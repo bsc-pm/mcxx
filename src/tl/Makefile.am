@@ -26,7 +26,7 @@
 
 # SUBDIRS = . hlt analysis manip @TL_EXTENSIONS@ 
 
-SUBDIRS = .
+SUBDIRS = . analysis
 
 END=
 
