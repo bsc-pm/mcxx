@@ -1407,7 +1407,7 @@ struct associated_namespace_tag
 
 typedef struct associated_namespace_tag associated_namespace_t;
 
-static char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
+char scope_is_enclosed_by(scope_t* scope, scope_t* potential_enclosing)
 {
     while (scope != NULL)
     {
