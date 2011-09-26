@@ -38,7 +38,10 @@ namespace TL
     Node::Node(int& id, Node_type ntype, Node* outer_graph)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
-//         std::cerr << "Created node " << _id << std::endl;
+//         int id_ = -1;
+//         if (outer_graph != NULL)
+//             id_ = outer_graph->get_id();
+//         std::cerr << "Created node " << _id << " with outer node" << id_ << std::endl;
         set_data(_NODE_TYPE, ntype);
         
         if (outer_graph != NULL)
@@ -56,9 +59,13 @@ namespace TL
     Node::Node(int& id, Node_type type, Node* outer_graph, ObjectList<Nodecl::NodeclBase> nodecls)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
+//         int id_ = -1;
+//         if (outer_graph != NULL)
+//             id_ = outer_graph->get_id();        
 //         std::cerr << "Created node " << _id << " with nodecl " 
 //                   << c_cxx_codegen_to_str(((Nodecl::NodeclBase)nodecls[0]).get_internal_nodecl()) 
-//                   << std::endl;
+//                   << " and outer node " << id_ << std::endl;
+                  
         set_data(_NODE_TYPE, type);
         
         if (outer_graph != NULL)
@@ -72,11 +79,12 @@ namespace TL
     Node::Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl)
         : _id(++id), _entry_edges(), _exit_edges(), _visited(false)
     {
-//         Node(id, type, outer_graph, ObjectList<Nodecl::NodeclBase>(1, nodecl));
-
+//         int id_ = -1;
+//         if (outer_graph != NULL)
+//             id_ = outer_graph->get_id();
 //         std::cerr << "Created node " << _id << " with nodecl " 
 //                   << c_cxx_codegen_to_str(((Nodecl::NodeclBase)nodecl).get_internal_nodecl())
-//                   << std::endl;
+//                   << " and outer node " << id_ << std::endl;
                   
         set_data(_NODE_TYPE, type);
         
@@ -379,6 +387,72 @@ namespace TL
         return result;
     }
 
+    bool Node::operator==(const Node* &n) const
+    {
+        return ((_id == n->_id) && (_entry_edges == n->_entry_edges) && (_exit_edges == n->_exit_edges));
+    }
+
+    ObjectList<Node*> Node::get_inner_nodes()
+    {
+        if (get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
+        {
+            return ObjectList<Node*>();
+        }
+        else
+        {
+            ObjectList<Node*> node_l;
+            get_inner_nodes_rec(node_l);
+            
+            return node_l;
+        }
+    }
+
+    void Node::get_inner_nodes_rec(ObjectList<Node*>& node_l)
+    {
+        
+        if (!_visited)
+        {
+            set_visited(true);
+            
+            Node* actual = this;
+            Node_type ntype = get_data<Node_type>(_NODE_TYPE);
+            if (ntype == GRAPH_NODE)
+            {
+                // Get the nodes inside the graph
+                Node* entry = get_data<Node*>(_ENTRY_NODE);
+                entry->set_visited(true);
+                actual = entry;
+            }
+            else if (ntype == BASIC_EXIT_NODE)
+            {
+                return;
+            }
+            else if ((ntype == BASIC_NORMAL_NODE) || (ntype == BASIC_LABELED_NODE) || (ntype == BASIC_FUNCTION_CALL_NODE))
+            {
+                // Include the node into the list
+                node_l.insert(this);
+            }
+            else if ((ntype == BASIC_GOTO_NODE) || (ntype == BASIC_BREAK_NODE) 
+                     || (ntype == FLUSH_NODE) || (ntype == BARRIER_NODE) || (ntype == BASIC_PRAGMA_DIRECTIVE_NODE))
+            {   // do nothing
+            }
+            else
+            {
+                internal_error("Unexpected kind of node '%s'", get_node_type_as_string().c_str());
+            }
+            
+            ObjectList<Node*> next_nodes = actual->get_children();
+            for (ObjectList<Node*>::iterator it = next_nodes.begin();
+                it != next_nodes.end();
+                ++it)
+            {
+                (*it)->get_inner_nodes_rec(node_l);
+            }            
+        }
+        
+        return;
+    }
+
     Node* Node::advance_over_non_statement_nodes()
     {
         ObjectList<Node*> children = get_children();
@@ -450,9 +524,9 @@ namespace TL
         return result;
     }
 
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_live_in_over_nodes()
+    ext_sym_set Node::get_live_in_over_nodes()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_in_vars;
+        ext_sym_set live_in_vars;
         
         // Advance over non-statements nodes while the path is unique
         Node* actual = advance_over_non_statement_nodes();
@@ -465,7 +539,7 @@ namespace TL
         else
         {   // Node has more than one child
             ObjectList<Node*> actual_children = actual->get_children();
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_in_aux;
+            ext_sym_set live_in_aux;
             Node_type ntype;
             
             for(ObjectList<Node*>::iterator it = actual_children.begin();
@@ -492,9 +566,9 @@ namespace TL
         return live_in_vars;
     }
     
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_live_out_over_nodes()
+    ext_sym_set Node::get_live_out_over_nodes()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_out_vars;
+        ext_sym_set live_out_vars;
 
         // Back over non-statements nodes while the path is unique
         Node* actual = back_over_non_statement_nodes();
@@ -508,7 +582,7 @@ namespace TL
         {   // Node has more than one parent
             ObjectList<Node*> actual_parents = actual->get_parents();
             
-            std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_out_aux;
+            ext_sym_set live_out_aux;
             for(ObjectList<Node*>::iterator it = actual_parents.begin();
                 it != actual_parents.end();
                 ++it)
@@ -552,13 +626,13 @@ namespace TL
         }
     }
     
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_live_in_vars()
+    ext_sym_set Node::get_live_in_vars()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_in_vars;
+        ext_sym_set live_in_vars;
         
         if (has_key(_LIVE_IN))
         {
-            live_in_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_LIVE_IN);
+            live_in_vars = get_data<ext_sym_set >(_LIVE_IN);
         }
 
         return live_in_vars;
@@ -566,29 +640,29 @@ namespace TL
     
     void Node::set_live_in(ExtensibleSymbol new_live_in_var)
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_in_vars;
+        ext_sym_set live_in_vars;
         
         if (has_key(_LIVE_IN))
         {
-            live_in_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_LIVE_IN);
+            live_in_vars = get_data<ext_sym_set >(_LIVE_IN);
         }        
         live_in_vars.insert(new_live_in_var);
 
         set_data(_LIVE_IN, live_in_vars);
     }
     
-    void Node::set_live_in(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> new_live_in_set)
+    void Node::set_live_in(ext_sym_set new_live_in_set)
     {
         set_data(_LIVE_IN, new_live_in_set);
     }
     
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_live_out_vars()
+    ext_sym_set Node::get_live_out_vars()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_out_vars;
+        ext_sym_set live_out_vars;
         
         if (has_key(_LIVE_OUT))
         {
-            live_out_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_LIVE_OUT);
+            live_out_vars = get_data<ext_sym_set >(_LIVE_OUT);
         }
         
         return live_out_vars;
@@ -596,29 +670,29 @@ namespace TL
     
     void Node::set_live_out(ExtensibleSymbol new_live_out_var)
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> live_out_vars;
+        ext_sym_set live_out_vars;
         
         if (has_key(_LIVE_OUT))
         {
-            live_out_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_LIVE_OUT);
+            live_out_vars = get_data<ext_sym_set >(_LIVE_OUT);
         }
         live_out_vars.insert(new_live_out_var);
         
         set_data(_LIVE_OUT, live_out_vars);
     }
     
-    void Node::set_live_out(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> new_live_out_set)
+    void Node::set_live_out(ext_sym_set new_live_out_set)
     {
         set_data(_LIVE_OUT, new_live_out_set);
     }
     
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_ue_vars()
+    ext_sym_set Node::get_ue_vars()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> ue_vars;
+        ext_sym_set ue_vars;
         
         if (has_key(_UPPER_EXPOSED))
         {
-            ue_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_UPPER_EXPOSED);
+            ue_vars = get_data<ext_sym_set >(_UPPER_EXPOSED);
         }
         
         return ue_vars;
@@ -626,24 +700,24 @@ namespace TL
     
     void Node::set_ue_var(ExtensibleSymbol new_ue_var)
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> ue_vars;
+        ext_sym_set ue_vars;
         
         if (this->has_key(_UPPER_EXPOSED))
         {
-            ue_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_UPPER_EXPOSED);
+            ue_vars = get_data<ext_sym_set >(_UPPER_EXPOSED);
         }
         ue_vars.insert(new_ue_var);
         
-        set_data(_UPPER_EXPOSED, ue_vars);        
+        set_data(_UPPER_EXPOSED, ue_vars);
     }
     
-    std::set<ExtensibleSymbol, ExtensibleSymbol_comp> Node::get_killed_vars()
+    ext_sym_set Node::get_killed_vars()
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> killed_vars;
+        ext_sym_set killed_vars;
         
         if (has_key(_KILLED))
         {
-            killed_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_KILLED);
+            killed_vars = get_data<ext_sym_set >(_KILLED);
         }
         
         return killed_vars;
@@ -651,14 +725,50 @@ namespace TL
     
     void Node::set_killed_var(ExtensibleSymbol new_killed_var)
     {
-        std::set<ExtensibleSymbol, ExtensibleSymbol_comp> killed_vars;
+        ext_sym_set killed_vars;
         
         if (has_key(_KILLED))
         {
-            killed_vars = get_data<std::set<ExtensibleSymbol, ExtensibleSymbol_comp> >(_KILLED);
+            killed_vars = get_data<ext_sym_set >(_KILLED);
         }
         killed_vars.insert(new_killed_var);
         
         set_data(_KILLED, killed_vars);
     }
+    
+    ext_sym_set Node::get_input_deps()
+    {
+        ext_sym_set input_deps;
+        
+        if (has_key(_IN_DEPS))
+        {
+            input_deps = get_data<ext_sym_set>(_IN_DEPS);
+        }
+        
+        return input_deps;
+    }    
+
+    ext_sym_set Node::get_output_deps()
+    {
+        ext_sym_set output_deps;
+        
+        if (has_key(_OUT_DEPS))
+        {
+            output_deps = get_data<ext_sym_set>(_OUT_DEPS);
+        }
+        
+        return output_deps;
+    }  
+    
+    ext_sym_set Node::get_inout_deps()
+    {
+        ext_sym_set inout_deps;
+        
+        if (has_key(_INOUT_DEPS))
+        {
+            inout_deps = get_data<ext_sym_set>(_INOUT_DEPS);
+        }
+        
+        return inout_deps;
+    }      
 }

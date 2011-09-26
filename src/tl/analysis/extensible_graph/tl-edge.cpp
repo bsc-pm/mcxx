@@ -55,6 +55,41 @@ namespace TL
         }
     }
 
+    std::string Edge::get_type_as_string()
+    {
+        std::string result = "";
+        
+        if (has_key(_EDGE_TYPE))
+        {
+            Edge_type etype = get_data<Edge_type>((const std::string) _EDGE_TYPE);
+            
+            switch(etype)
+            {
+                case TRUE_EDGE:     result = "TRUE_EDGE";
+                break;
+                case FALSE_EDGE:    result = "FALSE_EDGE";
+                break;
+                case ALWAYS_EDGE:   result = "ALWAYS_EDGE";
+                break;
+                case CASE_EDGE:     result = "CASE_EDGE";
+                break;
+                case CATCH_EDGE:    result = "CATCH_EDGE";
+                break;
+                case GOTO_EDGE:     result = "GOTO_EDGE";
+                break;
+                case TASK_EDGE:     result = "TASK_EDGE";
+                break;
+                case UNCLASSIFIED_EDGE: result = "UNCLASSIFIED_EDGE";
+                break;
+                default:            std::cerr << " ** Edge.cpp :: get_label() ** "
+                                   << "warning: Unexpected type '" << etype << "' while getting "
+                                   << "the Edge type as a string" << std::endl;
+            }
+        }
+        
+        return result;
+    }
+
     std::string Edge::get_label()
     {
         std::string label = "";
@@ -69,6 +104,7 @@ namespace TL
                 break;
                 case FALSE_EDGE:    label = "False";
                 break;
+                case TASK_EDGE:
                 case ALWAYS_EDGE:   label = "";
                 break;
                 case CASE_EDGE:     {

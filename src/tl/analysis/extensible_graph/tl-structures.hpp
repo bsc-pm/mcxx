@@ -55,85 +55,128 @@ namespace TL
         ALWAYS_EDGE,            //! Always taken edge
         CASE_EDGE,              //! Edge within a Switch statement representing a case/default stmt
         CATCH_EDGE,             //! Handler edge for a Try/Catch statement
-        GOTO_EDGE               //! Edge between a GotoNode and a LabeledNode containing the label
+        GOTO_EDGE,              //! Edge between a GotoNode and a LabeledNode containing the label
+        TASK_EDGE               //! Control edge defining the point of definition of a task
     };
     
     //! Definitions of the different node attributes
     /*! \def _NODE_TYPE
-      Type of a node. This will be a value of the enumeration Node_type.
-      Mandatory in all nodes.
+     * Type of a node. This will be a value of the enumeration Node_type.
+     * Mandatory in all nodes.
      */
     #define _NODE_TYPE      "node_type"
+    
     /*! \def _OUTER_NODE
-      Pointer to the node which contains a node. 
-      Only the nodes that are within other nodes has this value set.
-      Available in all type of nodes.
+     * Pointer to the node which contains a node. 
+     * Only the nodes that are within other nodes has this value set.
+     * Mandatory in all nodes.
      */
     #define _OUTER_NODE    "outer_node"
+    
     /*! \def _NODE_LABEL
-      String containing the label of a node.
-      It may have different meanings depending on the node type:
-        - Composite: is the Statement that defines the composition.
-        - Goto / Label: label that identifies the source or target of the Statement contained.
-      Available and mandatory in 'Composite', 'Labeled' or 'Goto' nodes.
+     * String containing the label of a node.
+     * It may have different meanings depending on the node type:
+     *   - Composite: is the Statement that defines the composition.
+     *   - Goto / Label: label that identifies the source or target of the Statement contained.
+     * Mandatory and only available in 'Composite', 'Labeled' or 'Goto' nodes.
      */    
     #define _NODE_LABEL     "node_label"
-    /*! \def _LIVE_IN
-      Set of variables that are alive at the entry point of a node.
-      Available in all nodes (Mandatory once the Liveness analysis is performed).
-     */   
-    #define _LIVE_IN        "live_in_vars"
-    /*! \def _LIVE_OUT
-      Set of variables that are alive at the exit point of a node.
-      Available in all nodes (Mandatory once the Liveness analysis is performed).
-     */       
-    #define _LIVE_OUT       "live_out_vars"
-    /*! \def _UPPER_EXPOSED
-      Set of upper exposed variables within a node.
-      Available in all nodes (Mandatory once the Liveness analysis is performed).
-     */ 
-    #define _UPPER_EXPOSED  "ue_vars"
-    /*! \def _KILLED
-      Set of killed variables within a node.
-      Available in all nodes (Mandatory once the Liveness analysis is performed).
-     */ 
-    #define _KILLED         "killed_vars"
+    
     /*! \def _NODE_STMTS
-      List of Statements within the Basic Bloc contained in a node.
-      Available and mandatory in basic normal nodes.
+     * List of Statements within the Basic Bloc contained in a node.
+     * Mandatory and only available in basic normal nodes.
      */
     #define _NODE_STMTS     "statements"
+    
     /*!  \def _ENTRY_NODE
-      Node which is the entry point of a composite node. 
-      All paths will cross this point when traversing the outer composite node.
-      Available and mandatory in composite nodes.
+     * Node which is the entry point of a composite node. 
+     * All paths will cross this point when traversing the outer composite node.
+     * Mandatory and only available in composite nodes.
      */
     #define _ENTRY_NODE     "entry"
+    
     /*! \def _EXIT_NODE
-      Node which is the exit point of a composite node. 
-      All paths will cross this point when traversing the outer composite node.
-      Available and mandatory in composite nodes.
-    */
+     * Node which is the exit point of a composite node. 
+     * All paths will cross this point when traversing the outer composite node.
+     * Mandatory and only available in composite nodes.
+     */
     #define _EXIT_NODE      "exit"
+    
     /*! \def _GRAPH_TYPE
-      String containing the type of a composite node. The possible values are:
-        - splitted_instruction
-        - function_call
-        - conditional_expression
-        - omp_pragma
-      Available only in composite nodes.
-    */    
+     * String containing the type of a composite node. The possible values are:
+     *   - split_stmt
+     *   - function_call
+     *   - conditional_expression
+     *   - omp_pragma
+     *   - task
+     * Mandatory and only available in composite nodes.
+     */    
     #define _GRAPH_TYPE     "graph_type"
-                                            
+    
+    /*! \def _LIVE_IN
+     * Set of variables that are alive at the entry point of a node.
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */   
+    #define _LIVE_IN        "live_in_vars"
+    
+    /*! \def _LIVE_OUT
+     * Set of variables that are alive at the exit point of a node.
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */       
+    #define _LIVE_OUT       "live_out_vars"
+    
+    /*! \def _UPPER_EXPOSED
+     * Set of upper exposed variables within a node.
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _UPPER_EXPOSED  "ue_vars"
+    
+    /*! \def _KILLED
+     * Set of killed variables within a node.
+     * Available in all nodes (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _KILLED         "killed_vars"
+
+    /*! \def _IN_DEPS
+     * Set of symbols with input dependence in a task
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _IN_DEPS         "input_deps"
+    
+    /*! \def _OUT_DEPS
+     * Set of symbols with output dependence in a task
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _OUT_DEPS         "output_deps"    
+
+    /*! \def _INOUT_DEPS
+     * Set of symbols with inout dependence in a task
+     * Available Graph nodes with 'task' _GRAPH_TYPE (Mandatory once the Liveness analysis is performed).
+     */ 
+    #define _INOUT_DEPS         "inout_deps"   
+
+    /*! \def _CLAUSES
+     * Set of clauses associated to a pragma
+     * Available in Graph nodes of type 'omp_pragma' and 'task' but not mandat
+     */ 
+    #define _CLAUSES        "clauses"
+    
+    /*! \def _ARGS
+     * Empty clause associated to a pragma
+     * Available in Graph nodes of type 'omp_pragma' and 'task'.
+     */ 
+    #define _CLAUSES        "clauses"
+    
     //! Definitions of the different edge attributes
     /*! \def _EDGE_TYPE
-      Type of the edge. This will be a value of the enumeration Edge_type.
-      Mandatory in all edges.
+     * Type of the edge. This will be a value of the enumeration Edge_type.
+     * Mandatory in all edges.
      */
     #define _EDGE_TYPE      "edge_type"
+    
     /*! \def _EDGE_LABEL
-      String containing the label of an edge.
-      Available and mandatory in all edges but those with 'Always' type.
+     * String containing the label of an edge.
+     * Available and mandatory in all edges but those with 'Always' type.
      */
     #define _EDGE_LABEL     "edge_label"
 }

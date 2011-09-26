@@ -31,7 +31,8 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    static std::string prettyprint_set(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> s);
+    static std::string prettyprint_ext_sym_set(ext_sym_set s);
+    static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
     void ExtensibleGraph::makeup_dot_block(std::string &str)
     {
@@ -156,8 +157,17 @@ namespace TL
                 {
                     subgraph_label += actual_label.get_text();
                 }
-                std::string subgr_liveness = "LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + "\\n" +
-                                             "LO: " + prettyprint_set(actual_node->get_live_out_vars());
+                std::string subgr_liveness = "LI: " + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + "\\n" +
+                                             "LO: " + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+                std::string task_deps = "";
+                if (actual_node->get_data<std::string>(_GRAPH_TYPE) == "task")
+                {
+                    task_deps = "\\n"
+                                "input: "  + prettyprint_ext_sym_set(actual_node->get_input_deps()) + "\\n" +
+                                "output: " + prettyprint_ext_sym_set(actual_node->get_output_deps()) + "\\n" +
+                                "inout: "  + prettyprint_ext_sym_set(actual_node->get_inout_deps());                       
+                }
+                
                 dot_graph += indent + "subgraph cluster" + ssgid.str() + "{\n";
                 
                 makeup_dot_block(subgraph_label);
@@ -168,7 +178,7 @@ namespace TL
                 std::vector<Node*> new_outer_nodes;
                 get_dot_subgraph(actual_node, dot_graph, new_outer_edges, new_outer_nodes, indent, subgraph_id);              
                 std::stringstream ss; ss << actual_node->get_id();
-                dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + "\", shape=box]\n";
+                dot_graph += indent + "\t-" + ss.str() + "[label=\"" + subgr_liveness + task_deps + " \", shape=box]\n";
                 dot_graph += indent + "}\n";
                 
                 for(std::vector<Node*>::iterator it = new_outer_nodes.begin();
@@ -247,10 +257,16 @@ namespace TL
                             direction = ", headport=n, tailport=s";
                         }
                         
+                        std::string extra_edge_attrs = "";
+                        if ((*it)->get_data<Edge_type>(_EDGE_TYPE) == TASK_EDGE)
+                        {
+                            extra_edge_attrs = ", style=dotted";
+                        }
+                        
                         if (belongs_to_the_same_graph(*it))
                         {
-                            dot_graph += indent + sss.str() + " -> " + sst.str() + 
-                                         " [label=\"" + (*it)->get_label() + "\"" + direction +"];\n";
+                            dot_graph += indent + sss.str() + " -> " + sst.str() +
+                                         " [label=\"" + (*it)->get_label() + "\"" + direction + extra_edge_attrs + "];\n";
                             actual_node = get_nodes_dot_data((*it)->get_target(), dot_graph, 
                                                              outer_edges, outer_nodes, 
                                                              indent, subgraph_id);
@@ -260,7 +276,7 @@ namespace TL
                             if (ntype != GRAPH_NODE)
                                 get_node_dot_data(actual_node, dot_graph, indent);
                             std::string mes = sss.str() + " -> " + sst.str() + 
-                                              " [label=\"" + (*it)->get_label() + "\"" + direction + "];\n";
+                                              " [label=\"" + (*it)->get_label() + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back(mes);
                             outer_nodes.push_back((*it)->get_target());
                         }
@@ -284,6 +300,9 @@ namespace TL
     {
         std::string basic_block = "";
         std::stringstream ss; ss << actual_node->get_id();
+//         std::stringstream aux;
+//             aux << ss.str();
+//             aux << ", visit=" << (actual_node->is_visited()) << ". ";
         std::stringstream ss2; 
         if (actual_node->has_key(_OUTER_NODE))
             ss2 << actual_node->get_data<Node*>(_OUTER_NODE)->get_id();
@@ -339,12 +358,12 @@ namespace TL
                 basic_block += aux_str + "\\n";
             }
             basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-           
+          
             dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
-                            " | LI: "   + prettyprint_set(actual_node->get_live_in_vars()) + 
-                            " | KILL: " + prettyprint_set(actual_node->get_killed_vars()) +
-                            " | UE: "   + prettyprint_set(actual_node->get_ue_vars()) +
-                            " | LO: "   + prettyprint_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";
+                            " | LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
+                            " | KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
+                            " | UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
+                            " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";
         }
         else if (nt == UNCLASSIFIED_NODE)
         {
@@ -357,11 +376,33 @@ namespace TL
         }
     }
     
-    static std::string prettyprint_set(std::set<ExtensibleSymbol, ExtensibleSymbol_comp> s)
+    static std::string prettyprint_ext_sym_set(ext_sym_set s)
     {
         std::string result;
         
-        for(std::set<ExtensibleSymbol, ExtensibleSymbol_comp>::iterator it = s.begin();
+        for(ext_sym_set::iterator it = s.begin();
+                it != s.end();
+                ++it)
+        {
+            if (it->get_nodecl().is_null())
+            {
+                result += it->get_name() + ", ";
+            }
+            else
+            {
+                std::string nodecl_string(c_cxx_codegen_to_str(it->get_nodecl().get_internal_nodecl()));
+                result += nodecl_string + ", ";
+            }
+        }
+        
+        return result.substr(0, result.size()-2);
+    }
+    
+    static std::string prettyprint_sym_list(ObjectList<Symbol> s)
+    {
+        std::string result;
+        
+        for(ObjectList<Symbol>::iterator it = s.begin();
                 it != s.end();
                 ++it)
         {
@@ -369,5 +410,5 @@ namespace TL
         }
         
         return result.substr(0, result.size()-2);
-    }
+    }    
 }

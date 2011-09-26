@@ -24,6 +24,8 @@ Cambridge, MA 02139, USA.
 
 #include <algorithm>
 
+#include "cxx-codegen.h"
+
 #include "tl-extensible-symbol.hpp"
 
 namespace TL
@@ -51,6 +53,11 @@ namespace TL
         return _sym.get_type();
     }
     
+    Nodecl::NodeclBase ExtensibleSymbol::get_nodecl() const
+    {
+        return _n;
+    }
+    
     bool ExtensibleSymbol::is_simple_symbol() const
     {
         return (_n.is_null());
@@ -66,30 +73,80 @@ namespace TL
         return (_n.is<Nodecl::ClassMemberAccess>() || _n.is<Nodecl::PointerToMember>());
     }
 
-    bool ExtensibleSymbol::operator==(const ExtensibleSymbol &cfgs) const
+    Symbol ExtensibleSymbol::get_symbol() const
     {
-//         std::vector<int> v(this->_array_accessed_pos.size() + _array_accessed_pos.size());
-//         std::vector<int>::iterator it = std::set_difference(this->_array_accessed_pos.begin(), 
-//                                                             this->_array_accessed_pos.end(),
-//                                                             _array_accessed_pos.begin(),
-//                                                             _array_accessed_pos.end(),
-//                                                             v.begin());
-//         
-//         return ( (this->_sym == cfgs._sym) && (this->_member.get_ast() == cfgs._member.get_ast()) &&
-//                  (this->_member.get_scope_link() == cfgs._member.get_scope_link() ) &&
-//                  (int(it - v.begin()) == 0) );
-    // FIXME
+        return _sym;
+    }
+
+    bool ExtensibleSymbol::equal_ast_nodes(nodecl_t n1, nodecl_t n2) const
+    {
+        if (nodecl_is_null(n1) == nodecl_is_null(n2))
+        {
+            if (!nodecl_is_null(n1))
+            {
+                if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
+                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)))
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
         return false;
     }
-    
-    bool ExtensibleSymbol::operator<(const ExtensibleSymbol &cfgs) const
+
+    bool ExtensibleSymbol::equal_trees_rec(nodecl_t n1, nodecl_t n2) const
     {
-//         if (_sym < cfgs._sym)
-//             return true;
-//         else
-//             return false;
+        if (equal_ast_nodes(n1, n2))
+        {
+            bool equal = true;
+            
+            for (int i = 0; i < MCXX_MAX_AST_CHILDREN && equal && !nodecl_is_null(n1) && !nodecl_is_null(n1); i++)
+            {
+                equal = equal_trees_rec(nodecl_get_child(n1, i), nodecl_get_child(n2, i));
+            }
+            return equal;       
+        }
+        return false;
+    }
+
+    bool ExtensibleSymbol::equal_nodecls(Nodecl::NodeclBase n1, Nodecl::NodeclBase n2) const
+    {
+        nodecl_t n1_ = n1.get_internal_nodecl();
+        nodecl_t n2_ = n2.get_internal_nodecl();
+
+        if (nodecl_is_list(n1_) || nodecl_is_list(n2_))
+        {
+            std::cerr << "warning: method 'equal_nodecls' is implemented to compare nodecls containing trees with "
+                      << " no lists inside. The method returns false but they can be the same tree" << std::endl;
+            return false;
+        }
+
+        return equal_trees_rec(n1_, n2_);
+    }
+
+    bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
+    {
+        return ( (_sym == es._sym) && equal_nodecls(_n, es._n));
+    }
     
-    // FIXME
+    bool ExtensibleSymbol::operator<(const ExtensibleSymbol& es) const
+    {
+        // a < b -> ¬ (b > a)
+        // a == b <=> ¬(a < b) /\ ¬(b < a)
+        if (_sym < es._sym)
+            return true;
+        if (_sym == es._sym)
+        {
+            if (equal_nodecls(_n, es._n))
+                return false;
+            else
+                return nodecl_get_ast(_n.get_internal_nodecl()) < nodecl_get_ast(es._n.get_internal_nodecl());
+        }
+        // _sym > es._sym
         return false;
     }
 }
