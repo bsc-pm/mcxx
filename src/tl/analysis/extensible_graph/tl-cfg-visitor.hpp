@@ -150,6 +150,8 @@ namespace TL
         
         ObjectList<ExtensibleGraph*> _cfgs;
         
+        std::stack<Nodecl::NodeclBase> _context_s;
+        
         struct loop_control_nodes_t _actual_loop_info;
         
         //! List with the struct containing information about the try hierarchy we are
@@ -260,6 +262,7 @@ namespace TL
         // Visiting methods
         
         Ret unhandled_node(const Nodecl::NodeclBase& n);
+        Ret visit(const Nodecl::Context& n);
         Ret visit(const Nodecl::TopLevel& n);
         Ret visit(const Nodecl::FunctionCode& n);
         Ret visit(const Nodecl::TryBlock& n);

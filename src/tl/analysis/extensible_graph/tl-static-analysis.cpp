@@ -244,7 +244,7 @@ namespace TL
         }
     }
     
-    // FIXME For the moment we assume the user has used the 'auto-deps' clause
+    // FIXME For the moment we assume the user has used the 'auto-deps' clause  
     void ExtensibleGraph::analyse_task(Node* task_node)
     {
         Node* entry = task_node->get_data<Node*>(_ENTRY_NODE);
@@ -252,7 +252,8 @@ namespace TL
         ObjectList<Node*> node_l = task_node->get_inner_nodes();
         
 //         // Compute the actions performed over the symbols in all nodes
-        ObjectList<sym_info_t*> symbols;
+        ObjectList<ExtensibleSymbol> in_symbols;
+        ObjectList<ExtensibleSymbol> out_symbols;
         ext_sym_set li_vars = task_node->get_data<ext_sym_set>(_LIVE_IN);
         for(ObjectList<Node*>::iterator it = node_l.begin(); it != node_l.end(); ++it)
         {
@@ -260,54 +261,43 @@ namespace TL
             ext_sym_set shared_ue_vars = sets_intersection(ue_vars, li_vars);
             for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
             {
-                sym_info_t* s = new sym_info_t(*it_ue);
-                if (symbols.contains(s))
+                if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
+                    task_node->get_data<Nodecl::NodeclBase>(_TASK_CONTEXT).retrieve_context())
+                    && !in_symbols.contains(*it_ue))
                 {
-                    sym_info_t* sym_info = symbols.find(s)[0];  // The element will appear only once in the list
-                    sym_info->_different_action = '1';
-                }
-                else
-                {
-                    sym_info_t* sym_info = new sym_info_t(*it_ue, '0', '0');
-                    symbols.insert(sym_info);
+                    in_symbols.insert(*it_ue);
                 }
             }
                 
             ext_sym_set kill_vars = (*it)->get_data<ext_sym_set>(_KILLED);
             for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
             {
-                sym_info_t* s = new sym_info_t(*it_kill);
-                if (symbols.contains(s))
+                if (!it_kill->get_symbol().get_scope().scope_is_enclosed_by(
+                    task_node->get_data<Nodecl::NodeclBase>(_TASK_CONTEXT).retrieve_context())
+                    && !out_symbols.contains(*it_kill))
                 {
-                    sym_info_t* sym_info = symbols.find(s)[0];  // The element will appear only once in the list
-                    sym_info->_different_action = '1';
+                    out_symbols.insert(*it_kill);
                 }
-                else
-                {
-                    // do nothing: When the first action over a Symbol is its definition, the it can only has an 'output' dependence
-                    sym_info_t* sym_info = new sym_info_t(*it_kill, '1', '0');
-                    symbols.insert(sym_info);
-                }
-            }            
+            }          
         }
 //         Compute auto-deps
         ext_sym_set input_deps, output_deps, inout_deps;
-        for (ObjectList<sym_info_t*>::iterator it = symbols.begin(); it != symbols.end(); ++it)
+        for (ObjectList<ExtensibleSymbol>::iterator it = in_symbols.begin(); it != in_symbols.end(); ++it)
         {
-            if ((*it)->_first_action == '0')
+            if (out_symbols.contains(*it))
             {
-                if ((*it)->_different_action == '0')
-                {
-                    input_deps.insert((*it)->_sym);
-                }
-                else
-                {
-                    inout_deps.insert((*it)->_sym);
-                }
+                inout_deps.insert(*it);
             }
             else
             {
-                output_deps.insert((*it)->_sym);
+                input_deps.insert(*it);
+            }
+        }
+        for (ObjectList<ExtensibleSymbol>::iterator it = out_symbols.begin(); it != out_symbols.end(); ++it)
+        {
+            if (!in_symbols.contains(*it))
+            {
+                output_deps.insert(*it);
             }
         }
         

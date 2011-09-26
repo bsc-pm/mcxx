@@ -34,33 +34,6 @@ Cambridge, MA 02139, USA.
 
 namespace TL
 {
-    struct sym_info_t
-    {
-        ExtensibleSymbol _sym;
-        char _first_action;      /* -1 if UNDEFINED, 0 if USE, 1 if DEFINE */
-        char _different_action;  /* -1 if UNDEFINED, 0 if no different action performed, 1 if performed */
-        
-        sym_info_t(ExtensibleSymbol sym)
-            : _sym(ExtensibleSymbol()), _first_action(-1), _different_action(-1)
-        {}
-        
-        sym_info_t(ExtensibleSymbol s, char fa, char da)
-            : _sym(s), _first_action(fa), _different_action(da)
-        {}
-
-        sym_info_t(const sym_info_t& sym_info)
-        {
-            _sym = sym_info._sym;
-            _first_action = sym_info._first_action;
-            _different_action = sym_info._different_action;
-        }
-        
-        bool operator==(const sym_info_t& sym_info) const
-        {
-            return (_sym == sym_info._sym);
-        }
-    };  
-    
     class LIBTL_CLASS ExtensibleGraph
     {
         protected:
@@ -270,9 +243,12 @@ namespace TL
              * \param graph_type Type of the composite node. 
              *                   It must be some of these values: 'split_stmt',
              *                   'function_call', 'conditional_expression', 'omp_pragma'.
+             * \param context Nodecl containing the context of the graph
+             *                It is only not null for graph nodes containing tasks
              * \return The new composite node.
              */
-            Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, std::string graph_type);            
+            Node* create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
+                                    std::string graph_type, Nodecl::NodeclBase context = Nodecl::NodeclBase::null());
             
             //! Builds a Barrier node with its corresponding Flush nodes and connects it with the existent graph
             /*!
