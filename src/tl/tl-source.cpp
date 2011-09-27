@@ -50,6 +50,8 @@
 
 namespace TL
 {
+    SourceLanguage Source::source_language;
+
     Source::ReferenceScope::ReferenceScope(Scope sc)
         : _scope(sc)
     {
@@ -403,599 +405,138 @@ namespace TL
         decl_context_t decl_context = ref_scope.get_scope().get_decl_context();
 
         nodecl_t nodecl_output = nodecl_null();
-        compute_nodecl(decl_context, a, &nodecl_output);
+        compute_nodecl(a, decl_context, &nodecl_output);
 
         return nodecl_output;
     }
 
-#if 0
-    Nodecl::NodeclBase Source::parse_global(ReferenceScope scope, TL::ScopeLink scope_link)
+    Nodecl::NodeclBase Source::parse_declaration(ReferenceScope ref_scope, ParseFlags parse_flags)
     {
-        return parse_declaration(global_tree, scope_link);
-    }
-
-    template <typename T>
-    T Source::parse_generic(AST_t ref_tree, 
-            TL::ScopeLink scope_link, 
-            ParseFlags parse_flags,
-            const std::string& subparsing_prefix,
-            prepare_lexer_fun_t prepare_lexer,
-            parse_fun_t parse_function,
-            typename FinishParseFun<T>::Type finish_parse
-            )
-    {
-        std::string mangled_text = subparsing_prefix + " " + this->get_source(true);
-        prepare_lexer(mangled_text.c_str());
-
-        int parse_result = 0;
-        AST a;
-
-        parse_result = parse_function(&a);
-
-        if (parse_result != 0)
+        switch ((int)this->source_language.get_language())
         {
-            running_error("Could not parse source\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
-
-        return finish_parse(parse_flags, 
-                decl_context,
-                scope_link._scope_link,
-                a);
-    }
-
-    template <typename T>
-    T Source::parse_generic_lang(AST_t ref_tree, 
-            TL::ScopeLink scope_link, 
-            ParseFlags parse_flags,
-            const std::string& subparsing_prefix,
-            typename FinishParseFun<T>::Type finish_parse
-            )
-    {
-        prepare_lexer_fun_t prepare_lexer = NULL;
-        parse_fun_t parse_function = NULL;
-        C_LANGUAGE()
-        {
-            prepare_lexer = mc99_prepare_string_for_scanning;
-            parse_function = mc99parse;
-        }
-        CXX_LANGUAGE()
-        {
-            prepare_lexer = mcxx_prepare_string_for_scanning;
-            parse_function = mcxxparse;
-        }
+            case SourceLanguage::C :
+            {
+                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        build_scope_declaration_sequence);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_generic(ref_scope, parse_flags, "@DECLARATION@", 
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        build_scope_declaration_sequence);
+                break;
+            }
 #ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            prepare_lexer = mf03_prepare_string_for_scanning;
-            parse_function = mf03parse;
-        }
+            case SourceLanguage::Fortran :
+            {
+                return parse_generic(ref_scope, parse_flags, "@PROGRAM-UNIT@", 
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        build_scope_program_unit
+                        );
+                break;
+            }
 #endif
-
-        return parse_generic<T>(ref_tree, scope_link, parse_flags, 
-                subparsing_prefix, prepare_lexer, parse_function, finish_parse);
-    }
-
-    static AST_t finish_parse_statement_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
-    {
-        bool do_not_check_expression = false;
-        int parse_flags_int = (int)parse_flags;
-        if ((parse_flags_int & Source::DO_NOT_CHECK_EXPRESSION) 
-                == Source::DO_NOT_CHECK_EXPRESSION)
-        {
-            do_not_check_expression = true;
-        }
-        
-        if (a != NULL)
-        {
-            if (do_not_check_expression)
+            default:
             {
-                enter_test_expression();
-                // As a gotcha, ambiguous decl-expr are defaulted to
-                // expressions if they could not be properly checked
-                decl_context.decl_flags = (decl_flags_t)(decl_context.decl_flags | DF_AMBIGUITY_FALLBACK_TO_EXPR);
-            }
-            if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
-            {
-                decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
-            }
-            nodecl_t dummy_nodecl_output = { NULL };
-            build_scope_statement_seq_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
-            if (do_not_check_expression)
-            {
-                leave_test_expression();
+                internal_error("Code unreachable", 0);
             }
         }
 
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
+        return Nodecl::NodeclBase::null();
     }
 
-#ifdef FORTRAN_SUPPORT
-    static AST_t finish_parse_block_fortran(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
+    Nodecl::NodeclBase Source::parse_statement(ReferenceScope ref_scope, ParseFlags parse_flags)
     {
-        nodecl_t nodecl_output = nodecl_null();
-        fortran_build_scope_statement(a, decl_context, &nodecl_output);
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
-    }
-#endif
-
-    AST_t Source::parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        FinishParseFun<AST_t>::Type finish_parse = NULL;
-        C_LANGUAGE()
+        switch ((int)this->source_language.get_language())
         {
-            finish_parse = finish_parse_statement_c_cxx;
-        }
-        CXX_LANGUAGE()
-        {
-            finish_parse = finish_parse_statement_c_cxx;
-        }
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            finish_parse = finish_parse_block_fortran;
-        }
-#endif
-
-        return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags, 
-                "@STATEMENT@", finish_parse);
-    }
-
-    static AST_t finish_parse_expression_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
-    {
-        bool do_not_check_expression = false;
-        int parse_flags_int = (int)parse_flags;
-        if ((parse_flags_int & Source::DO_NOT_CHECK_EXPRESSION) 
-                == Source::DO_NOT_CHECK_EXPRESSION)
-        {
-            do_not_check_expression = true;
-        }
-
-        // Get the scope and declarating context of the reference tree
-        CURRENT_CONFIGURATION->scope_link = scope_link;
-        if (a != NULL)
-        {
-            enter_test_expression();
-            nodecl_t nodecl_dummy = nodecl_null();
-            char c = check_expression(a, decl_context, &nodecl_dummy);
-            leave_test_expression();
-
-            if (!c && !do_not_check_expression)
+            case SourceLanguage::C :
             {
-                if (CURRENT_CONFIGURATION->strict_typecheck)
-                {
-                    internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(a));
-                }
-                else
-                {
-                    std::cerr << ast_location(a)
-                        << ": warning: internally generated expression '" 
-                        << prettyprint_in_buffer(a) 
-                        <<  "' is bad" 
-                        << std::endl;
-                }
+                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        build_scope_declaration_sequence);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        build_scope_declaration_sequence);
+                break;
+            }
+#ifdef FORTRAN_SUPPORT
+            case SourceLanguage::Fortran :
+            {
+                return parse_generic(ref_scope, parse_flags, "@STATEMENT@", 
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        fortran_build_scope_statement
+                        );
+                break;
+            }
+#endif
+            default:
+            {
+                internal_error("Code unreachable", 0);
             }
         }
 
-        CURRENT_CONFIGURATION->scope_link = NULL;
-
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
+        return Nodecl::NodeclBase::null();
     }
 
-#ifdef FORTRAN_SUPPORT
-    static AST_t finish_parse_expression_fortran(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
+    static void c_cxx_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
-        nodecl_t nodecl_dummy = nodecl_null();
-        fortran_check_expression(a, decl_context, &nodecl_dummy);
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
-    }
-#endif
-
-    AST_t Source::parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        FinishParseFun<AST_t>::Type finish_parse = NULL;
-        C_LANGUAGE()
-        {
-            finish_parse = finish_parse_expression_c_cxx;
-        }
-        CXX_LANGUAGE()
-        {
-            finish_parse = finish_parse_expression_c_cxx;
-        }
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            finish_parse = finish_parse_expression_fortran;
-        }
-#endif
-
-        return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags, 
-                "@EXPRESSION@", finish_parse);
+        ::check_expression(a, decl_context, nodecl_output);
     }
 
-    static AST_t finish_parse_expression_list_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
+    static void fortran_check_expression_adaptor_(AST a, decl_context_t decl_context, nodecl_t* nodecl_output)
     {
-        bool do_not_check_expression = false;
-        int parse_flags_int = (int)parse_flags;
-        if ((parse_flags_int & Source::DO_NOT_CHECK_EXPRESSION) 
-                == Source::DO_NOT_CHECK_EXPRESSION)
-        {
-            do_not_check_expression = true;
-        }
+        ::fortran_check_expression(a, decl_context, nodecl_output);
+    }
 
-        if (a != NULL)
+    Nodecl::NodeclBase Source::parse_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
+    {
+        switch ((int)this->source_language.get_language())
         {
-            enter_test_expression();
-            nodecl_t nodecl_dummy = nodecl_null();
-            char c = check_expression_list(a, decl_context, &nodecl_dummy);
-            leave_test_expression();
-
-            if (!c && !do_not_check_expression)
+            case SourceLanguage::C :
             {
-                if (CURRENT_CONFIGURATION->strict_typecheck)
-                {
-                    internal_error("Could not check expression-list '%s'\n", list_handler_in_buffer(a));
-                }
-                else
-                {
-                    std::cerr << ast_location(a)
-                        << ": warning: internally generated expression list '" 
-                        << list_handler_in_buffer(a) 
-                        <<  "' is bad" 
-                        << std::endl;
-                }
+                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                        mc99_prepare_string_for_scanning,
+                        mc99parse,
+                        c_cxx_check_expression_adaptor_);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                        mcxx_prepare_string_for_scanning,
+                        mcxxparse,
+                        c_cxx_check_expression_adaptor_);
+                break;
+            }
+#ifdef FORTRAN_SUPPORT
+            case SourceLanguage::Fortran :
+            {
+                return parse_generic(ref_scope, parse_flags, "@EXPRESSION@", 
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        fortran_check_expression_adaptor_);
+                break;
+            }
+#endif
+            default:
+            {
+                internal_error("Code unreachable", 0);
             }
         }
 
-        CURRENT_CONFIGURATION->scope_link = NULL;
-
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
-    }
-
-    AST_t Source::parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif
-
-        return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags,
-                "@EXPRESSION-LIST@", finish_parse_expression_list_c_cxx);
-    }
-
-    static AST_t finish_parse_declaration_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
-    {
-        int parse_flags_int = (int)parse_flags;
-        if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
-        {
-            decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
-        }
-
-        if (a != NULL)
-        {
-            nodecl_t dummy_nodecl_output = { NULL };
-            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link, &dummy_nodecl_output);
-        }
-
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link, a, decl_context);
-
-        return AST_t(a);
-    }
-
-    AST_t Source::parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif
-
-        return parse_generic_lang<AST_t>(ref_tree, scope_link, parse_flags,
-                "@DECLARATION@", finish_parse_declaration_c_cxx);
-    }
-
-    AST_t Source::parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symb)
-    {
-        type_t* t = get_user_defined_type(class_symb.get_internal_symbol());
-
-        return parse_member(ref_tree, scope_link, t);
-    }
-
-    AST_t Source::parse_member(AST_t /* ref_tree */, TL::ScopeLink scope_link, Type class_type)
-    {
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif 
-        // This is a special case
-        std::string mangled_text = "@MEMBER@ " + this->get_source(true);
-
-        mcxx_prepare_string_for_scanning(mangled_text.c_str());
-
-        int parse_result = 0;
-        AST a;
-        parse_result = mcxxparse(&a);
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse member declaration\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-        
-        // Fix the context for the user (the reference tree is unused in this function actually...)
-        nodecl_t dummy_nodecl_output = { NULL };
-        decl_context_t decl_context = class_type_get_inner_context(get_actual_class_type(class_type._type_info));
-        build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
-                class_type._type_info, &dummy_nodecl_output);
-
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link._scope_link, a, decl_context);
-
-        return AST_t(a);
-    }
-
-    AST_t Source::parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        std::string mangled_text = "@ID_EXPRESSION@ " + this->get_source(true);
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(mangled_text.c_str());
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(mangled_text.c_str());
-        }
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif 
-
-        int parse_result = 0;
-        AST a;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse id-expression\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-        
-        // Get the scope and declarating context of the reference tree
-        decl_context_t decl_context = scope.get_decl_context();
-
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link._scope_link, a, decl_context);
-
-        AST_t result(a);
-        return result;
-    }
-
-    AST_t Source::parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        std::string mangled_text = "@ID_EXPRESSION@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(str);
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(str);
-        }
-
-        int parse_result = 0;
-        AST a;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse id-expression\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-        
-        // Get the scope and declarating context of the reference tree
-        decl_context_t decl_context = scope.get_decl_context();
-
-        enter_test_expression();
-        nodecl_t nodecl_dummy = nodecl_null();
-        check_expression(a, decl_context, &nodecl_dummy);
-        leave_test_expression();
-
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link._scope_link, a, decl_context);
-
-        AST_t result(a);
-        return result;
-    }
-
-    AST_t Source::parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        Scope scope = scope_link.get_scope(ref_tree);
-        return parse_id_expression(scope, scope_link, parse_flags);
-    }
-
-    static Type finish_parse_type_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST type_id)
-    {
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link, type_id, decl_context);
-
-        type_t* type_info = NULL;
-        gather_decl_spec_t gather_info;
-        memset(&gather_info, 0, sizeof(gather_info));
-
-        AST type_specifier_seq = ASTSon0(type_id);
-        AST abstract_decl = ASTSon1(type_id);
-
-        nodecl_t dummy_nodecl_output = { NULL };
-        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
-                decl_context, &dummy_nodecl_output);
-
-        type_t* declarator_type = type_info;
-        compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
-                decl_context, &dummy_nodecl_output);
-
-        return Type(declarator_type);
-    }
-
-    Type Source::parse_type(AST_t ref_tree, TL::ScopeLink scope_link)
-    {
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif 
-
-        return parse_generic_lang<Type>(ref_tree, scope_link, Source::DEFAULT,
-                "@TYPE@", finish_parse_type_c_cxx);
-    }
-
-    static ObjectList<Type> finish_parse_type_list_c_cxx(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST type_specifier_seq_list)
-    {
-        ObjectList<Type> result;
-
-        // Set properly the context of the reference tree
-        scope_link_set(scope_link, type_specifier_seq_list, decl_context);
-
-        AST iter, list = type_specifier_seq_list;
-
-        for_each_element(list, iter)
-        {
-            AST type_spec = ASTSon1(iter);
-
-            type_t* type_info = NULL;
-            gather_decl_spec_t gather_info;
-            memset(&gather_info, 0, sizeof(gather_info));
-
-            nodecl_t dummy_nodecl_output = { NULL };
-            build_scope_decl_specifier_seq(type_spec, &gather_info, &type_info,
-                    decl_context, &dummy_nodecl_output);
-
-            result.append(Type(type_info));
-        }
-
-        return result;
-    }
-
-    ObjectList<Type> Source::parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link)
-    {
-#ifdef FORTRAN_SUPPORT
-        FORTRAN_LANGUAGE()
-        {
-            internal_error("This function cannot be called in Fortran", 0);
-        }
-#endif 
-
-        return parse_generic_lang<ObjectList<Type> >(ref_tree, scope_link, Source::DEFAULT,
-                "@TYPE-LIST@", finish_parse_type_list_c_cxx);
-    }
-
-#ifdef FORTRAN_SUPPORT
-    static AST_t finish_parse_program_unit_fortran(
-            Source::ParseFlags parse_flags, 
-            decl_context_t decl_context,
-            scope_link_t* scope_link,
-            AST a)
-    {
-        decl_context_t (*new_context_fun)(decl_context_t) = NULL;
-
-        nodecl_t nodecl_output = nodecl_null();
-        build_scope_program_unit(a, 
-                decl_context, 
-                new_context_fun,
-                NULL,
-                &nodecl_output);
-
-        return AST_t(a);
-    }
-#endif
-
-    AST_t Source::parse_program_unit(AST_t ref_tree, TL::ScopeLink scope_link)
-    {
-#ifdef FORTRAN_SUPPORT
-        if (IS_C_LANGUAGE
-                || IS_CXX_LANGUAGE)
-#endif
-        { 
-            internal_error("This function can only be called in Fortran", 0); 
-        }
-#ifdef FORTRAN_SUPPORT
-        return parse_generic_lang<AST_t>(ref_tree, scope_link, Source::DEFAULT,
-                "@PROGRAM-UNIT@", finish_parse_program_unit_fortran);
-#else
-        return AST_t();
-#endif
+        return Nodecl::NodeclBase::null();
     }
 
     std::string preprocessor_line(const std::string& str)
@@ -1024,7 +565,5 @@ namespace TL
 
         return result;
     }
-
-#endif
 
 }

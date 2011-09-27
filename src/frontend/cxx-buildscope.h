@@ -84,6 +84,9 @@ LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* transl
 LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
 LIBMCXX_EXTERN void build_scope_translation_unit(translation_unit_t* translation_unit);
+LIBMCXX_EXTERN void build_scope_declaration_sequence(AST list, 
+        decl_context_t decl_context, 
+        nodecl_t* nodecl_output_list);
 
 LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, 
         decl_context_t decl_context, 

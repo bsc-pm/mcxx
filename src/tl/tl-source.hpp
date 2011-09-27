@@ -41,7 +41,7 @@
 #include <string>
 
 #include "cxx-lexer.h"
-#include "cxx-driver.h"
+#include "cxx-utils.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
 
@@ -125,6 +125,69 @@ namespace TL
 
     typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
 
+
+    struct SourceLanguage
+    {
+        enum L
+        {
+            Current = 0, 
+            // Forced languages
+            C,
+            CPlusPlus,
+            Fortran
+        };
+
+        SourceLanguage() : _l(Current) { }
+
+        SourceLanguage(L l) : _l(l) { }
+        SourceLanguage(const SourceLanguage& s) : _l(s._l) { }
+        SourceLanguage& operator=(const SourceLanguage& s)
+        {
+            if (this != &s)
+            {
+                this->_l = s._l;
+            }
+            return *this;
+        }
+
+        L get_language() const
+        {
+            if (_l != Current)
+            {
+                return _l;
+            }
+            else
+            {
+                if (IS_C_LANGUAGE)
+                    return C;
+                if (IS_CXX_LANGUAGE)
+                    return CPlusPlus;
+                if (IS_FORTRAN_LANGUAGE)
+                    return Fortran;
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        bool operator==(const L& l) const
+        {
+            return (_l == l);
+        }
+
+        bool operator!=(const L& l) const
+        {
+            return !this->operator==(l);
+        }
+
+        SourceLanguage& operator=(const L& l)
+        {
+            this->_l = l;
+            return *this;
+        }
+        
+        private:
+        L _l;
+    };
+
     //! A class used to generate in, a convenient way, code in the compiler
     class LIBTL_CLASS Source : public Object
     {
@@ -150,6 +213,9 @@ namespace TL
 
                     Scope get_scope() const;
             };
+
+            static SourceLanguage source_language;
+
         private:
             chunk_list_ref_t _chunk_list;
 
@@ -160,7 +226,7 @@ namespace TL
 
             typedef int (*prepare_lexer_fun_t)(const char*);
             typedef int (*parse_fun_t)(AST*);
-            typedef void (*compute_nodecl_fun_t)(decl_context_t, AST, nodecl_t*);
+            typedef void (*compute_nodecl_fun_t)(AST, decl_context_t, nodecl_t*);
 
             Nodecl::NodeclBase parse_generic(ReferenceScope ref_scope,
                     ParseFlags parse_flags,

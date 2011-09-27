@@ -95,6 +95,9 @@ decl_context_t nodecl_retrieve_context(nodecl_t);
 decl_context_t nodecl_get_decl_context(nodecl_t n);
 void nodecl_set_decl_context(nodecl_t, decl_context_t);
 
+// Replace
+void nodecl_exchange(nodecl_t old_nod, nodecl_t new_node);
+
 MCXX_END_DECLS
 
 #endif // CXX_NODECL_H

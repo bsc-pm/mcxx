@@ -48,8 +48,6 @@ LIBMF03_EXTERN type_t* choose_logical_type_from_kind(nodecl_t expr, int kind_siz
 
 LIBMF03_EXTERN void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context,
-        decl_context_t (*new_context)(decl_context_t),
-        scope_entry_t** program_unit_symbol,
         nodecl_t* nodecl_output);
 
 LIBMF03_EXTERN scope_entry_t* function_get_result_symbol(scope_entry_t* entry);

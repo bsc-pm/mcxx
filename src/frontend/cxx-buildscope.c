@@ -72,8 +72,6 @@
 
 static void build_scope_declaration(AST a, decl_context_t decl_context, 
         nodecl_t* output, scope_entry_list_t** declared_symbols);
-static void build_scope_declaration_sequence(AST a, 
-        decl_context_t decl_context, nodecl_t* nodecl_output);
 static void build_scope_simple_declaration(AST a, decl_context_t decl_context, 
         char is_template,
         char is_explicit_instantiation,
@@ -467,7 +465,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     }
 }
 
-static void build_scope_declaration_sequence(AST list, 
+void build_scope_declaration_sequence(AST list, 
         decl_context_t decl_context, 
         nodecl_t* nodecl_output_list)
 {

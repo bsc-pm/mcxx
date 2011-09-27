@@ -464,3 +464,31 @@ decl_context_t nodecl_retrieve_context(nodecl_t n)
 
     return nodecl_retrieve_context_rec(n);
 }
+
+static void nodecl_set_parent(nodecl_t node, nodecl_t parent)
+{
+    ast_set_parent(nodecl_get_ast(node), nodecl_get_ast(parent));
+}
+
+void nodecl_exchange(nodecl_t old_node, nodecl_t new_node)
+{
+    ERROR_CONDITION(nodecl_is_null(old_node), "Old node cannot be null", 0);
+    ERROR_CONDITION(nodecl_is_null(new_node), "Old node cannot be null", 0);
+
+    nodecl_t parent_of_old = nodecl_get_parent(old_node);
+
+    ERROR_CONDITION(nodecl_is_null(parent_of_old), "Without parent, exchange is not possible", 0);
+
+    int i = 0;
+    for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+    {
+        if (nodecl_get_ast(nodecl_get_child(parent_of_old, i)) == nodecl_get_ast(old_node))
+        {
+            nodecl_set_child(parent_of_old, i, new_node);
+            nodecl_set_parent(old_node, nodecl_null());
+            return;
+        }
+    }
+
+    internal_error("Old node was not properly chained to its parent", 0);
+}

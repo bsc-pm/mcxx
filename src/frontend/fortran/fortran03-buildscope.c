@@ -65,6 +65,23 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
     translation_unit->nodecl = nodecl_make_top_level(nodecl_program_units, ASTFileName(a), ASTLine(a));
 }
 
+static void build_scope_program_unit_internal(AST program_unit, 
+        decl_context_t decl_context,
+        decl_context_t (*new_context)(decl_context_t),
+        scope_entry_t** program_unit_symbol,
+        nodecl_t* nodecl_output);
+
+void build_scope_program_unit(AST program_unit, 
+        decl_context_t decl_context,
+        nodecl_t* nodecl_output)
+{
+    build_scope_program_unit_internal(program_unit,
+            decl_context, 
+            new_program_unit_context,
+            /* program_unit symbol */ NULL, 
+            nodecl_output);
+}
+
 static void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
@@ -73,7 +90,7 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
     for_each_element(program_unit_seq, it)
     {
         nodecl_t nodecl_top_level_items = nodecl_null();
-        build_scope_program_unit(ASTSon1(it), 
+        build_scope_program_unit_internal(ASTSon1(it), 
                 decl_context, 
                 new_program_unit_context,
                 NULL, &nodecl_top_level_items);
@@ -310,7 +327,7 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
         decl_context_t decl_context,
         nodecl_t* nodecl_output);
 
-void build_scope_program_unit(AST program_unit, 
+static void build_scope_program_unit_internal(AST program_unit, 
         decl_context_t decl_context,
         decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol,
@@ -911,7 +928,7 @@ static void build_scope_internal_subprograms(AST internal_subprograms,
         AST internal_subprogram = ASTSon1(it);
         scope_entry_t* subprogram_sym = NULL;
         nodecl_t nodecl_internal_program = nodecl_null();
-        build_scope_program_unit(internal_subprogram, 
+        build_scope_program_unit_internal(internal_subprogram, 
                 decl_context, 
                 new_internal_program_unit_context,
                 &subprogram_sym,
@@ -3830,7 +3847,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context,
             {
                 nodecl_t nodecl_program_unit = nodecl_null();
                 scope_entry_t* procedure_sym = NULL;
-                build_scope_program_unit(interface_specification, 
+                build_scope_program_unit_internal(interface_specification, 
                         decl_context, 
                         new_program_unit_context, 
                         &procedure_sym,
