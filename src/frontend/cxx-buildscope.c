@@ -4783,7 +4783,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: friend applied to class-definition\n",
+            error_printf("%s: error: friend applied to class definition\n",
                     ast_location(a));
         }
         *type_info = get_error_type();
@@ -6913,7 +6913,16 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         {
             // Create the symbol as a normal function type
 
-            new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+            if (!gather_info->is_friend)
+            {
+                new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+            }
+            // If it is friend it must be signed in in the enclosing namespace
+            else
+            {
+                new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
+            }
+
             new_entry->type_information = declarator_type;
 
             new_entry->kind = SK_FUNCTION;
@@ -6948,7 +6957,16 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                     ASTLine(declarator_id),
                     ASTFileName(declarator_id));
 
-            new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+            if (!gather_info->is_friend)
+            {
+                new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
+            }
+            // If it is friend it must be signed in in the enclosing namespace
+            else
+            {
+                new_entry = new_symbol(decl_context, decl_context.namespace_scope, function_name);
+            }
+
             new_entry->type_information = template_type;
 
             // This is a template, not a plain function
@@ -9652,9 +9670,13 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type, 
         AST declarator)
 {
-    nodecl_t nodecl_output = nodecl_null();
+    if (gather_info->is_template)
+    {
+        warn_printf("%s: warning: friend template functions are not fully supported for the moment\n",
+                ast_location(declarator));
+    }
 
-    decl_context.current_scope = decl_context.namespace_scope;
+    nodecl_t nodecl_output = nodecl_null();
 
     type_t* declarator_type = NULL;
     compute_declarator_type(declarator, gather_info, 
