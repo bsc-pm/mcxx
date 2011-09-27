@@ -31,9 +31,7 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#include<iostream>
 #include<assert.h>
-using namespace std;
 struct A
 {
     int m,n;
@@ -62,17 +60,9 @@ void foo()
 {
     A a(1, 2);
     int n1 = 3, m1 = 4;
-    cout << "n1: "<< n1<<endl;
-    cout << "m1: "<< m1<<endl;
-    cout << "a.n: "<< a.n<<endl;
-    cout << "a.m: "<< a.m<<endl;
     
     a.bar(n1, m1);
     #pragma omp taskwait
-    cout << "n1: "<< n1<<endl;
-    cout << "m1: "<< m1<<endl;
-    cout << "a.n: "<< a.n<<endl;
-    cout << "a.m: "<< a.m<<endl;
     assert(n1 == 3);
     assert(m1 == 4);
     assert(a.n == 2);

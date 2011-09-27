@@ -32,9 +32,7 @@ test_generator=config/mercurium-nanox
 */
 
 
-#include<iostream>
-
-using namespace std;
+#include<assert.h>
 
 struct B
 {
@@ -62,9 +60,9 @@ int main()
     a.n = 1;
     a.b = &b;
     b.n = 2;
-    cout<<a.n<<" "<<a.b->n<<endl;
     A *ptrA = & a;
+    assert(a.n == 1 && a.b->n == 2);
     ptrA->f();
     #pragma omp taskwait
-    cout<<a.n<<" "<<a.b->n<<endl;
+    assert(a.n == 2 && a.b->n == 3);
 }

@@ -33,9 +33,7 @@ test_exec_faulty=config/mercurium-nanox
 */
 
 
-#include<iostream>
 #include<assert.h>
-using namespace std;
 
 struct C
 {

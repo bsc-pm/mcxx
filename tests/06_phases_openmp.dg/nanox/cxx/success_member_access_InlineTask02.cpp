@@ -31,7 +31,6 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-#include<iostream>
 #include<assert.h>
 
 
