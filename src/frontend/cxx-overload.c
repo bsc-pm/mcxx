@@ -1870,10 +1870,14 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
                         {
                             fprintf(stderr, "[[implicit argument]] ");
                         }
-                        ERROR_CONDITION(it->args[j] == NULL, "Invalid argument %d type!\n", j);
-
-                        fprintf(stderr, "%s", print_declarator(it->args[j]) );
-
+                        if (it->args[j] != NULL)
+                        {
+                            fprintf(stderr, "%s", print_declarator(it->args[j]) );
+                        }
+                        else
+                        {
+                            fprintf(stderr, "<<NULL>>");
+                        }
                         if ((j + 1) != it->num_args)
                         {
                             fprintf(stderr, ", ");
