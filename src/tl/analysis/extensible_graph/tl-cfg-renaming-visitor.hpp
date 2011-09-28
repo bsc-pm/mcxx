@@ -33,8 +33,11 @@ namespace TL
 {
     //! This class traverses a Nodecl and creates a new Nodecl renaming the symbols inside
     //! depending on the renaming map. 
-    //! The list contains always zero or one nodecls. If zero, no renames has been performed. 
-    //! If one, the list contains the new renamed nodecl 
+    /*!
+     * The list may contain:
+     * - Zero elements: no renames has been performed
+     * - More element: renamed nodecls
+     */
     class LIBTL_CLASS CfgRenamingVisitor : public Nodecl::NodeclVisitor<Nodecl::NodeclBase>
     {
         private:
@@ -51,78 +54,78 @@ namespace TL
             
             // *** Visitors *** //
             Ret unhandled_node(const Nodecl::NodeclBase& n);
-            Ret visit(const Nodecl::Throw& n);
             Ret visit(const Nodecl::Symbol& n);
             Ret visit(const Nodecl::ExpressionStatement& n);        
             Ret visit(const Nodecl::ParenthesizedExpression& n);
             Ret visit(const Nodecl::ObjectInit& n);
+            Ret visit(const Nodecl::Throw& n);
             Ret visit(const Nodecl::ArraySubscript& n);
             Ret visit(const Nodecl::ArraySection& n);
             Ret visit(const Nodecl::ClassMemberAccess& n);    
-            Ret visit(const Nodecl::Concat& n);
-            Ret visit(const Nodecl::New& n);
-            Ret visit(const Nodecl::Delete& n);
-            Ret visit(const Nodecl::DeleteArray& n);
-            Ret visit(const Nodecl::Sizeof& n);
-            Ret visit(const Nodecl::Type& n);
-            Ret visit(const Nodecl::Typeid& n);
-            Ret visit(const Nodecl::Cast& n);
-            Ret visit(const Nodecl::Offset& n);
-            Ret visit(const Nodecl::StringLiteral& n);
-            Ret visit(const Nodecl::BooleanLiteral& n);
-            Ret visit(const Nodecl::IntegerLiteral& n);
-            Ret visit(const Nodecl::ComplexLiteral& n);
-            Ret visit(const Nodecl::FloatingLiteral& n);
-            Ret visit(const Nodecl::StructuredValue& n);
-            Ret visit(const Nodecl::EmptyStatement& n);
-            Ret visit(const Nodecl::ReturnStatement& n);  
-            Ret visit(const Nodecl::GotoStatement& n);
-            Ret visit(const Nodecl::LabeledStatement& n);
-            Ret visit(const Nodecl::ContinueStatement& n);
-            Ret visit(const Nodecl::BreakStatement& n);        
-            Ret visit(const Nodecl::Assignment& n);
-            Ret visit(const Nodecl::AddAssignment& n);
-            Ret visit(const Nodecl::SubAssignment& n);
-            Ret visit(const Nodecl::DivAssignment& n);
-            Ret visit(const Nodecl::MulAssignment& n);
-            Ret visit(const Nodecl::ModAssignment& n);
-            Ret visit(const Nodecl::BitwiseAndAssignment& n);
-            Ret visit(const Nodecl::BitwiseOrAssignment& n);
-            Ret visit(const Nodecl::BitwiseXorAssignment& n);
-            Ret visit(const Nodecl::ShrAssignment& n);
-            Ret visit(const Nodecl::ShlAssignment& n);
-            Ret visit(const Nodecl::Add& n);
-            Ret visit(const Nodecl::Minus& n);
-            Ret visit(const Nodecl::Mul& n);
-            Ret visit(const Nodecl::Div& n);
-            Ret visit(const Nodecl::Mod& n);
-            Ret visit(const Nodecl::Power& n);
-            Ret visit(const Nodecl::LogicalAnd& n);
-            Ret visit(const Nodecl::LogicalOr& n);
-            Ret visit(const Nodecl::BitwiseAnd& n);
-            Ret visit(const Nodecl::BitwiseOr& n);
-            Ret visit(const Nodecl::BitwiseXor& n);
-            Ret visit(const Nodecl::Equal& n);
-            Ret visit(const Nodecl::Different& n);
-            Ret visit(const Nodecl::LowerThan& n);
-            Ret visit(const Nodecl::GreaterThan& n);
-            Ret visit(const Nodecl::LowerOrEqualThan& n);
-            Ret visit(const Nodecl::GreaterOrEqualThan& n);
-            Ret visit(const Nodecl::Shr& n);
-            Ret visit(const Nodecl::Shl& n);
-            Ret visit(const Nodecl::Predecrement& n);
-            Ret visit(const Nodecl::Postdecrement& n);
-            Ret visit(const Nodecl::Preincrement& n);
-            Ret visit(const Nodecl::Postincrement& n);
-            Ret visit(const Nodecl::Plus& n);
-            Ret visit(const Nodecl::Neg& n);     
-            Ret visit(const Nodecl::BitwiseNot& n);
-            Ret visit(const Nodecl::LogicalNot& n);
-            Ret visit(const Nodecl::Derreference& n);
-            Ret visit(const Nodecl::Reference& n);
-            Ret visit(const Nodecl::Text& n);
-            Ret visit(const Nodecl::Comma& n);
-            Ret visit(const Nodecl::Conversion& n);
+//             Ret visit(const Nodecl::Concat& n);
+//             Ret visit(const Nodecl::New& n);
+//             Ret visit(const Nodecl::Delete& n);
+//             Ret visit(const Nodecl::DeleteArray& n);
+//             Ret visit(const Nodecl::Sizeof& n);
+//             Ret visit(const Nodecl::Type& n);
+//             Ret visit(const Nodecl::Typeid& n);
+//             Ret visit(const Nodecl::Cast& n);
+//             Ret visit(const Nodecl::Offset& n);
+//             Ret visit(const Nodecl::StringLiteral& n);
+//             Ret visit(const Nodecl::BooleanLiteral& n);
+//             Ret visit(const Nodecl::IntegerLiteral& n);
+//             Ret visit(const Nodecl::ComplexLiteral& n);
+//             Ret visit(const Nodecl::FloatingLiteral& n);
+//             Ret visit(const Nodecl::StructuredValue& n);
+//             Ret visit(const Nodecl::EmptyStatement& n);
+//             Ret visit(const Nodecl::ReturnStatement& n);  
+//             Ret visit(const Nodecl::GotoStatement& n);
+//             Ret visit(const Nodecl::LabeledStatement& n);
+//             Ret visit(const Nodecl::ContinueStatement& n);
+//             Ret visit(const Nodecl::BreakStatement& n);        
+//             Ret visit(const Nodecl::Assignment& n);
+//             Ret visit(const Nodecl::AddAssignment& n);
+//             Ret visit(const Nodecl::SubAssignment& n);
+//             Ret visit(const Nodecl::DivAssignment& n);
+//             Ret visit(const Nodecl::MulAssignment& n);
+//             Ret visit(const Nodecl::ModAssignment& n);
+//             Ret visit(const Nodecl::BitwiseAndAssignment& n);
+//             Ret visit(const Nodecl::BitwiseOrAssignment& n);
+//             Ret visit(const Nodecl::BitwiseXorAssignment& n);
+//             Ret visit(const Nodecl::ShrAssignment& n);
+//             Ret visit(const Nodecl::ShlAssignment& n);
+//             Ret visit(const Nodecl::Add& n);
+//             Ret visit(const Nodecl::Minus& n);
+//             Ret visit(const Nodecl::Mul& n);
+//             Ret visit(const Nodecl::Div& n);
+//             Ret visit(const Nodecl::Mod& n);
+//             Ret visit(const Nodecl::Power& n);
+//             Ret visit(const Nodecl::LogicalAnd& n);
+//             Ret visit(const Nodecl::LogicalOr& n);
+//             Ret visit(const Nodecl::BitwiseAnd& n);
+//             Ret visit(const Nodecl::BitwiseOr& n);
+//             Ret visit(const Nodecl::BitwiseXor& n);
+//             Ret visit(const Nodecl::Equal& n);
+//             Ret visit(const Nodecl::Different& n);
+//             Ret visit(const Nodecl::LowerThan& n);
+//             Ret visit(const Nodecl::GreaterThan& n);
+//             Ret visit(const Nodecl::LowerOrEqualThan& n);
+//             Ret visit(const Nodecl::GreaterOrEqualThan& n);
+//             Ret visit(const Nodecl::Shr& n);
+//             Ret visit(const Nodecl::Shl& n);
+//             Ret visit(const Nodecl::Predecrement& n);
+//             Ret visit(const Nodecl::Postdecrement& n);
+//             Ret visit(const Nodecl::Preincrement& n);
+//             Ret visit(const Nodecl::Postincrement& n);
+//             Ret visit(const Nodecl::Plus& n);
+//             Ret visit(const Nodecl::Neg& n);     
+//             Ret visit(const Nodecl::BitwiseNot& n);
+//             Ret visit(const Nodecl::LogicalNot& n);
+//             Ret visit(const Nodecl::Derreference& n);
+//             Ret visit(const Nodecl::Reference& n);
+//             Ret visit(const Nodecl::Text& n);
+//             Ret visit(const Nodecl::Comma& n);
+//             Ret visit(const Nodecl::Conversion& n);
     };
 }
 

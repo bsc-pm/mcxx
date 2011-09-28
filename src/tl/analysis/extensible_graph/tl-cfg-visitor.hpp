@@ -339,6 +339,7 @@ namespace TL
         Ret visit(const Nodecl::BuiltinDecl& n);
         Ret visit(const Nodecl::PragmaCustomDirective& n);
         Ret visit(const Nodecl::PragmaCustomStatement& n);
+        Ret visit(const Nodecl::PragmaCustomDeclaration& n);
         Ret visit(const Nodecl::PragmaCustomClause& n);
         Ret visit(const Nodecl::PragmaCustomLine& n);
         Ret visit(const Nodecl::PragmaClauseArg& n);

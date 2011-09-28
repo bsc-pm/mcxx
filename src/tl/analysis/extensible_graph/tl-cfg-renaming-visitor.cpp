@@ -40,11 +40,11 @@ namespace TL
         _line = sym_v._line;
     }
     
-    CfgRenamingVisitor::Ret unhandled_node(const Nodecl::NodeclBase& n)
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
         std::cerr << "Unhandled node during CFG construction '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
-        return CfgRenamingVisitor::Ret();
+        return Ret();
     }
     
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Symbol& n)
@@ -73,11 +73,11 @@ namespace TL
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ObjectInit& n)
     {
         // The symbol of an ObjectInit will never be renamed!!
-        ObjectList<Nodecl::NodeclBase> init_expr = walk(n.get_init_expr());
+        ObjectList<Nodecl::NodeclBase> init_expr = walk(n.get_symbol().get_initialization());
         if (!init_expr.empty())
         {
-            nodecl_t renamed_object_init = nodecl_make_object_init(init_expr[0].get_internal_nodecl(), 
-                                                                   n.get_symbol().get_internal_symbol(),
+            // TODO Make new Symbol with the new init_expr
+            nodecl_t renamed_object_init = nodecl_make_object_init(n.get_symbol().get_internal_symbol(),
                                                                    _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed_object_init);
         }
@@ -88,37 +88,120 @@ namespace TL
     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Throw& n)
     {
         ObjectList<Nodecl::NodeclBase> rhs = walk(n.get_rhs());
-        if (rhs.empty())
-        {
-            return rhs;
-        }
-        else
+        if (!rhs.empty())
         {
             nodecl_t renamed_throw = nodecl_make_throw(rhs[0].get_internal_nodecl(), 
                                                        n.get_type().get_internal_type(), 
                                                        _filename, _line);
             return ObjectList<Nodecl::NodeclBase>(1, renamed_throw);
         }
+        
+        return ObjectList<Nodecl::NodeclBase>();
     }    
     
-//     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySubscript& n)
-//     {
-//         walk(n.get_subscripted());
-//         walk(n.get_subscripts());
-//     }
-//     
-//     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySection& n)
-//     {
-//         walk(n.get_subscripted());
-//         walk(n.get_lower());
-//         walk(n.get_upper());
-//     }
-//     
-//     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ClassMemberAccess& n)
-//     {
-//         walk(n.get_lhs());
-//         walk(n.get_member());
-//     }
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySubscript& n)
+    {
+        ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(n.get_subscripted());
+        ObjectList<Nodecl::NodeclBase> renamed_subscripts = walk(n.get_subscripts());
+        
+        if (!renamed_subscripted.empty() || !renamed_subscripts.empty())
+        {
+            Nodecl::NodeclBase subscripted = renamed_subscripted[0];
+            if (renamed_subscripted.empty())
+            {
+                subscripted = n.get_subscripted();
+            }
+            
+            Nodecl::NodeclBase subscripts;
+            if (renamed_subscripts.empty())
+            {
+                subscripted = n.get_subscripts();
+            }
+            else
+            {
+                nodecl_t subscripts_l = nodecl_null();
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = renamed_subscripts.begin();
+                    it != renamed_subscripts.end();
+                    ++it)
+                {
+                    subscripts_l = nodecl_append_to_list(subscripts_l, it->get_internal_nodecl());
+                }
+                subscripts = Nodecl::NodeclBase(subscripts_l);
+            }
+            
+            nodecl_t renamed_array_subscript = nodecl_make_array_subscript(subscripted.get_internal_nodecl(), 
+                                                                           subscripts.get_internal_nodecl(),
+                                                                           n.get_type().get_internal_type(), 
+                                                                           _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed_array_subscript);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ArraySection& n)
+    {
+        ObjectList<Nodecl::NodeclBase> renamed_subscripted = walk(n.get_subscripted());
+        ObjectList<Nodecl::NodeclBase> renamed_lower = walk(n.get_lower());
+        ObjectList<Nodecl::NodeclBase> renamed_upper = walk(n.get_upper());
+        
+        if (!renamed_subscripted.empty() || !renamed_lower.empty() || !renamed_upper.empty())
+        {
+            Nodecl::NodeclBase subscripted = renamed_subscripted[0];
+            if (renamed_subscripted.empty())
+            {
+                subscripted = n.get_subscripted();
+            }
+            
+            Nodecl::NodeclBase lower = renamed_lower[0];
+            if (renamed_lower.empty())
+            {
+                lower = n.get_lower();
+            }
+
+            Nodecl::NodeclBase upper = renamed_upper[0];
+            if (renamed_upper.empty())
+            {
+                upper = n.get_upper();
+            }
+            
+            nodecl_t renamed_array_section = nodecl_make_array_section(subscripted.get_internal_nodecl(), 
+                                                                       lower.get_internal_nodecl(), upper.get_internal_nodecl(),
+                                                                       n.get_type().get_internal_type(), 
+                                                                       _filename, _line);       
+            return ObjectList<Nodecl::NodeclBase>(1, renamed_array_section);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }
+    
+    CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::ClassMemberAccess& n)
+    {
+        ObjectList<Nodecl::NodeclBase> renamed_lhs = walk(n.get_lhs());
+        ObjectList<Nodecl::NodeclBase> renamed_member = walk(n.get_member());
+        
+        if (!renamed_lhs.empty() || !renamed_member.empty())
+        {
+            Nodecl::NodeclBase lhs = renamed_lhs[0];
+            if (renamed_lhs.empty())
+            {
+                lhs = n.get_lhs();
+            }
+
+            Nodecl::NodeclBase member = renamed_member[0];
+            if (renamed_member.empty())
+            {
+                member = n.get_member();
+            }
+
+            nodecl_t renamed_class_member = nodecl_make_class_member_access(lhs.get_internal_nodecl(), member.get_internal_nodecl(), 
+                                                                            n.get_type().get_internal_type(),
+                                                                            _filename, _line);
+            return ObjectList<Nodecl::NodeclBase>(1, renamed_class_member);
+        }
+        
+        return ObjectList<Nodecl::NodeclBase>();
+    }
    
 //     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::Concat& n);
 //     CfgRenamingVisitor::Ret CfgRenamingVisitor::visit(const Nodecl::New& n);

@@ -23,7 +23,6 @@ Cambridge, MA 02139, USA.
 
 
 #include "tl-cfg-analysis-visitor.hpp"
-
 #include "tl-cfg-renaming-visitor.hpp"
 #include "tl-cfg-visitor.hpp"
 #include "tl-extensible-graph.hpp"
@@ -494,8 +493,7 @@ namespace TL
 //                 new_sym->defined = 1;                                   // ?
                 new_sym->value = it->get_internal_nodecl();
             
-            nodecl_t tmp_arg = nodecl_make_object_init(nodecl_null(),
-                                                       new_sym, 
+            nodecl_t tmp_arg = nodecl_make_object_init(new_sym, 
                                                        filename, line);
             Nodecl::ObjectInit new_obj_init(tmp_arg);
             std::cerr << "Object init '" << c_cxx_codegen_to_str(new_obj_init.get_internal_nodecl()) << "', value: "

@@ -50,7 +50,7 @@ libextensible_graph_la_SOURCES = \
    tl-cfg-analysis-visitor.hpp \
    tl-cfg-analysis-visitor.cpp \
    tl-cfg-renaming-visitor.hpp \
-   tl-cfg-renaming-visitor.cpp \   
+   tl-cfg-renaming-visitor.cpp \
    tl-analysis-phase.hpp \
    tl-analysis-phase.cpp \
    $(END)

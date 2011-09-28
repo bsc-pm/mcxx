@@ -320,9 +320,6 @@ namespace TL
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ObjectInit& n)
     {
         std::cerr << "ObjectInit in visit: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
-        Symbol s = n.get_symbol();
-        nodecl_t n_sym = nodecl_make_symbol(s.get_internal_symbol(), n.get_filename().c_str(), n.get_line());
-        Nodecl::Symbol nodecl_symbol(n_sym);
         
         if (_actual_cfg == NULL)
         {   // do nothing: A shared variable is declared
@@ -331,11 +328,10 @@ namespace TL
         else
         {
             ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
+            nodecl_t n_sym = nodecl_make_symbol(n.get_symbol().get_internal_symbol(), n.get_filename().c_str(), n.get_line());
+            Nodecl::Symbol nodecl_symbol(n_sym);
             ObjectList<Node*> init_sym = walk(nodecl_symbol);
-            _actual_cfg->_last_nodes.clear();
-
-            Symbol sym = nodecl_symbol.get_symbol();
-            ObjectList<Node*> init_expr = walk(sym.get_initialization());
+            ObjectList<Node*> init_expr = walk(n.get_symbol().get_initialization());
         
             if (init_expr.empty())
             {   // do nothing: The Object Init is not initialized
@@ -346,7 +342,6 @@ namespace TL
             _actual_cfg->connect_nodes(object_init_last_nodes, merged_node);
             _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(merged_node);
             return ObjectList<Node*>(1, merged_node);
-            return Ret();
         }
     }
 
@@ -640,6 +635,7 @@ namespace TL
                 || pragma == "single");
     }
 
+    // FIXME This function should be templated because we have two cases: PragmaCustomStatement and PragmaCustomDeclaration
     CfgVisitor::Ret CfgVisitor::create_task_graph(const Nodecl::PragmaCustomStatement& n)
     {
         ObjectList<Node*> previous_nodes = _actual_cfg->_last_nodes;
@@ -744,8 +740,8 @@ namespace TL
                     Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
                     Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
                     nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
-                                                                                        stmt_seq.get_internal_nodecl(), 
-                                                                                        text, filename, line);
+                                                                                       stmt_seq.get_internal_nodecl(), 
+                                                                                       text, filename, line);
                     // Walk the first wrapped node
                     walk(new_pragma_sections);
                     
@@ -806,6 +802,11 @@ namespace TL
         
             return ObjectList<Node*>(1, pragma_graph_node);
         }
+    }
+
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomDeclaration& n)
+    {
+        unhandled_node(n);
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
