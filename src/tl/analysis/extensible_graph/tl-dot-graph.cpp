@@ -139,14 +139,14 @@ namespace TL
     }
 
     // Preorder traversal 
-    Node* ExtensibleGraph::get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
-                                              std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes, 
-                                              std::string indent, int& subgraph_id)
+    void ExtensibleGraph::get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
+                                             std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes, 
+                                             std::string indent, int& subgraph_id)
     {
         if (!actual_node->is_visited())
         {
             actual_node->set_visited(true);
-            Node_type ntype = actual_node->get_data <Node_type> (_NODE_TYPE);
+            Node_type ntype = actual_node->get_data<Node_type>(_NODE_TYPE);
             if (ntype == GRAPH_NODE)
             {
                 std::stringstream ssgid; ssgid << subgraph_id;
@@ -196,13 +196,13 @@ namespace TL
                     dot_graph += indent + (*it);
                 }
             }
-            
+           
             if (ntype == BASIC_EXIT_NODE)
             {   // Ending the graph traversal, either the master graph or any subgraph
                 get_node_dot_data(actual_node, dot_graph, indent);
             }
             else
-            {
+            {          
                 bool must_print_following = true;
                 std::stringstream sss;
                 if (ntype != GRAPH_NODE)
@@ -233,24 +233,23 @@ namespace TL
                         must_print_following = false;
                     }
                 }
-                
+            
                 if (must_print_following)
                 {
-                    ObjectList<Edge*> exit_edges = actual_node->get_exit_edges();
+                    ObjectList<Edge*> exit_edges = actual_node->get_exit_edges();                        
                     for(ObjectList<Edge*>::iterator it = exit_edges.begin();
                             it != exit_edges.end();
                             ++it)
-                    {
+                    {                           
                         std::stringstream sst; 
                         if ((*it)->get_target()->get_node_type() == GRAPH_NODE)
-                        {
+                        {    
                             sst << (*it)->get_target()->get_data<Node*>(_ENTRY_NODE)->get_id();
                         }
                         else
-                        {
+                        {                        
                             sst << (*it)->get_target()->get_id();
-                        }
-                        
+                        }                          
                         std::string direction = "";
                         if (sss.str() == sst.str())
                         {
@@ -261,20 +260,21 @@ namespace TL
                         if ((*it)->get_data<Edge_type>(_EDGE_TYPE) == TASK_EDGE)
                         {
                             extra_edge_attrs = ", style=dotted";
-                        }
-                        
+                        }                 
                         if (belongs_to_the_same_graph(*it))
                         {
                             dot_graph += indent + sss.str() + " -> " + sst.str() +
                                          " [label=\"" + (*it)->get_label() + "\"" + direction + extra_edge_attrs + "];\n";
-                            actual_node = get_nodes_dot_data((*it)->get_target(), dot_graph, 
-                                                             outer_edges, outer_nodes, 
-                                                             indent, subgraph_id);
+                            get_nodes_dot_data((*it)->get_target(), dot_graph, 
+                                               outer_edges, outer_nodes, 
+                                               indent, subgraph_id);
                         }
                         else
                         {
                             if (ntype != GRAPH_NODE)
+                            {  
                                 get_node_dot_data(actual_node, dot_graph, indent);
+                            }
                             std::string mes = sss.str() + " -> " + sst.str() + 
                                               " [label=\"" + (*it)->get_label() + "\"" + direction + extra_edge_attrs + "];\n";
                             outer_edges.push_back(mes);
@@ -282,10 +282,8 @@ namespace TL
                         }
                     }
                 }
-            }            
+            }
         }
-
-        return actual_node;
     }
 
     void ExtensibleGraph::get_dot_subgraph(Node* actual_node, std::string& dot_graph, 
@@ -297,7 +295,7 @@ namespace TL
     }
 
     void ExtensibleGraph::get_node_dot_data(Node* actual_node, std::string& dot_graph, std::string indent)
-    {
+    {     
         std::string basic_block = "";
         std::stringstream ss; ss << actual_node->get_id();
 //         std::stringstream aux;
@@ -308,72 +306,63 @@ namespace TL
             ss2 << actual_node->get_data<Node*>(_OUTER_NODE)->get_id();
         else ss2 << "0";
         
-        Node_type nt = actual_node->get_data <Node_type> (_NODE_TYPE);
-        
-        if (nt == BASIC_ENTRY_NODE)
+        switch(actual_node->get_data <Node_type> (_NODE_TYPE))
         {
-            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
-        }
-        else if (nt == BASIC_EXIT_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
-        }
-        else if (nt == UNCLASSIFIED_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # UNCLASSIFIED_NODE}\"]\n";
-        }
-        else if (nt == BARRIER_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BARRIER\", shape=diamond]\n";
-        }  
-        else if (nt == FLUSH_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # FLUSH\", shape=ellipse]\n";
-        }
-        else if (nt == BASIC_PRAGMA_DIRECTIVE_NODE)
-        {
-            internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
-                           actual_node->get_node_type_as_string().c_str());
-        }
-        else if (nt == BASIC_BREAK_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BREAK\", shape=diamond]\n";
-        }
-        else if (nt == BASIC_CONTINUE_NODE)
-        {
-            dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # CONTINUE\", shape=diamond]\n";
-        }               
-        else if (nt == BASIC_NORMAL_NODE || nt == BASIC_LABELED_NODE || nt == BASIC_GOTO_NODE
-                || nt == BASIC_FUNCTION_CALL_NODE)
-        {
-            // Get the Statements within the BB
-            ObjectList<Nodecl::NodeclBase> node_block = actual_node->get_data <ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-            std::string aux_str = "";
-            for (ObjectList<Nodecl::NodeclBase>::iterator it = node_block.begin();
-                    it != node_block.end();
-                    it++)
+            case BASIC_ENTRY_NODE: 
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
+                break;
+            case BASIC_EXIT_NODE:
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # EXIT}\", shape=box, fillcolor=lightgray, style=filled];\n";
+                break;
+            case UNCLASSIFIED_NODE:
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # UNCLASSIFIED_NODE}\"]\n";
+                break;
+            case BARRIER_NODE:
+                dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BARRIER\", shape=diamond]\n";
+                break;
+            case FLUSH_NODE:
+                dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # FLUSH\", shape=ellipse]\n";
+                break;
+            case BASIC_PRAGMA_DIRECTIVE_NODE:
+                internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
+                               actual_node->get_node_type_as_string().c_str());
+                break;
+            case BASIC_BREAK_NODE:
+                dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BREAK\", shape=diamond]\n";
+                break;
+            case BASIC_CONTINUE_NODE:
+                dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # CONTINUE\", shape=diamond]\n";
+                break;
+            case BASIC_GOTO_NODE:
+            case BASIC_NORMAL_NODE:
+            case BASIC_LABELED_NODE:
+            case BASIC_FUNCTION_CALL_NODE:
             {
-                aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
-                makeup_dot_block(aux_str);
-                basic_block += aux_str + "\\n";
+                // Get the Statements within the BB
+                ObjectList<Nodecl::NodeclBase> node_block = actual_node->get_data <ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+                std::string aux_str = "";
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = node_block.begin();
+                        it != node_block.end();
+                        it++)
+                {
+                    aux_str = c_cxx_codegen_to_str(it->get_internal_nodecl());
+                    makeup_dot_block(aux_str);
+                    basic_block += aux_str + "\\n";
+                }
+                basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
+            
+                dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
+                                " | LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
+                                " | KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
+                                " | UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
+                                " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";          
+    
+                break;
             }
-            basic_block = basic_block.substr(0, basic_block.size()-2);   // Remove the last back space
-          
-            dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # " + basic_block +
-                            " | LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + 
-                            " | KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) +
-                            " | UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) +
-                            " | LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars()) + "}\", shape=record];\n";
-        }
-        else if (nt == UNCLASSIFIED_NODE)
-        {
-            internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
-                           actual_node->get_node_type_as_string().c_str());
-        }
-        else
-        {
-            internal_error("Undefined type of node '%s' founded while printing the graph.", actual_node->get_node_type_as_string().c_str());
-        }
+            default:
+                internal_error("Undefined type of node '%s' founded while printing the graph.", 
+                               actual_node->get_node_type_as_string().c_str());
+        };
     }
     
     static std::string prettyprint_ext_sym_set(ext_sym_set s)

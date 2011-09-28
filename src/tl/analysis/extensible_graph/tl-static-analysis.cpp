@@ -24,6 +24,8 @@ Cambridge, MA 02139, USA.
 
 #include "tl-cfg-analysis-visitor.hpp"
 
+#include "tl-cfg-renaming-visitor.hpp"
+#include "tl-cfg-visitor.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-extensible-symbol.hpp"
 
@@ -41,7 +43,108 @@ namespace TL
     //! This function returns true if the two sets contain the same elements
     static bool sets_equals(ext_sym_set set1, ext_sym_set set2);
 
-                    
+    static ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
+    {
+        std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
+        std::vector<ExtensibleSymbol>::iterator it;
+        ext_sym_set result;
+        
+        it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+        
+        for(int i=0; i<int(it-v_result.begin()); i++)
+        {    
+            result.insert(v_result.at(i));
+        }
+        
+        return result;
+    }
+   
+    static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2)
+    {
+        std::vector<ExtensibleSymbol> v_result(set1.size());
+        std::vector<ExtensibleSymbol>::iterator it;
+        ext_sym_set result;
+        
+        it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+        
+        for(int i=0; i<int(it-v_result.begin()); i++)
+        {    
+            result.insert(v_result.at(i));
+        }
+        
+        return result;
+    }
+    
+    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2)
+    {
+        std::vector<ExtensibleSymbol> v_result(set1.size());
+        std::vector<ExtensibleSymbol>::iterator it;
+        ext_sym_set result;
+        
+        it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+        
+        for(int i=0; i<int(it-v_result.begin()); i++)
+        {    
+            result.insert(v_result.at(i));
+        }
+        
+        return result;        
+    }
+
+    static bool sets_equals(ext_sym_set set1, ext_sym_set set2)
+    {
+        if (set1.size() == set2.size())
+        {
+            std::vector<ExtensibleSymbol>::iterator it;
+            std::vector<ExtensibleSymbol> v_result(set1.size());
+            
+            it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
+            
+            return (int(it-v_result.begin()) == set1.size());
+        }
+        else
+        {    
+            return false;
+        }
+    }    
+    
+    
+    // *** NODE *** //
+    
+    void Node::fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n)
+    {
+        if (defined)
+        {
+            set_killed_var(ExtensibleSymbol(s, n));
+        }
+        else
+        {
+            ext_sym_set killed_vars = get_killed_vars();
+            if (killed_vars.find(ExtensibleSymbol(s)) == killed_vars.end())
+            {
+                set_ue_var(ExtensibleSymbol(s, n));
+            }
+        }
+    }    
+    
+    void Node::set_live_initial_information()
+    {
+        if (has_key(_NODE_STMTS)) 
+        {
+            ObjectList<Nodecl::NodeclBase> basic_block = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = basic_block.begin();
+                    it != basic_block.end();
+                    ++it)
+            {
+                CfgAnalysisVisitor cfg_analysis_visitor(this);
+                cfg_analysis_visitor.walk(*it);
+            }
+        }
+    }
+    
+    
+    // *** EXTENSIBLE_GRAPH *** //
+    
     void ExtensibleGraph::live_variable_analysis()
     {
         Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
@@ -201,37 +304,6 @@ namespace TL
             return;
         }
     }
-    
-    void Node::set_live_initial_information()
-    {
-        if (has_key(_NODE_STMTS)) 
-        {
-            ObjectList<Nodecl::NodeclBase> basic_block = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
-            for (ObjectList<Nodecl::NodeclBase>::iterator it = basic_block.begin();
-                    it != basic_block.end();
-                    ++it)
-            {
-                CfgAnalysisVisitor cfg_analysis_visitor(this);
-                cfg_analysis_visitor.walk(*it);
-            }
-        }
-    }
-    
-    void Node::fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n)
-    {
-        if (defined)
-        {
-            set_killed_var(ExtensibleSymbol(s, n));
-        }
-        else
-        {
-            ext_sym_set killed_vars = get_killed_vars();
-            if (killed_vars.find(ExtensibleSymbol(s)) == killed_vars.end())
-            {
-                set_ue_var(ExtensibleSymbol(s, n));
-            }
-        }
-    }
 
     void ExtensibleGraph::analyse_tasks()
     {
@@ -244,7 +316,7 @@ namespace TL
         }
     }
     
-    // FIXME For the moment we assume the user has used the 'auto-deps' clause  
+    // FIXME For the moment we assume the user has used the 'auto-deps' clause
     void ExtensibleGraph::analyse_task(Node* task_node)
     {
         Node* entry = task_node->get_data<Node*>(_ENTRY_NODE);
@@ -306,69 +378,191 @@ namespace TL
         task_node->set_data(_INOUT_DEPS, inout_deps);
     }
     
-    static ext_sym_set sets_union(ext_sym_set set1, ext_sym_set set2)
+    
+    // *** CFG_VISITOR *** //
+    
+    void CfgVisitor::inline_functions_for_ipa()
     {
-        std::vector<ExtensibleSymbol> v_result(set1.size() + set2.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        ext_sym_set result;
-        
-        it = set_union(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
-        
-        return result;
-    }
-
-   
-    static ext_sym_set sets_difference(ext_sym_set set1, ext_sym_set set2)
-    {
-        std::vector<ExtensibleSymbol> v_result(set1.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        ext_sym_set result;
-        
-        it = set_difference(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
-        
-        return result;
+        ObjectList<ExtensibleGraph*> ipa_cfgs;
+        for (ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin();
+            it != _cfgs.end(); 
+            ++it)
+        {
+            _actual_cfg = *it;
+            std::cerr << "IPA for graph '" << _actual_cfg->get_name() << "'" << std::endl;
+            ObjectList<Node*> actual_function_calls = _actual_cfg->get_function_calls();
+            
+            for (ObjectList<Node*>::iterator its = actual_function_calls.begin();
+                its != actual_function_calls.end(); 
+                ++its)
+            {
+                std::cerr << "It has function call to symbol '" << (*its)->get_function_node_symbol().get_name() << "'" << std::endl;
+                // Search the function in our list of graphs
+                find_function_for_inline(*its);
+            }
+        }        
     }
     
-    static ext_sym_set sets_intersection(ext_sym_set set1, ext_sym_set set2)
+    void CfgVisitor::find_function_for_inline(Node* function_call)
     {
-        std::vector<ExtensibleSymbol> v_result(set1.size());
-        std::vector<ExtensibleSymbol>::iterator it;
-        ext_sym_set result;
-        
-        it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-        
-        for(int i=0; i<int(it-v_result.begin()); i++)
-        {    
-            result.insert(v_result.at(i));
-        }
-        
-        return result;        
-    }
-
-    static bool sets_equals(ext_sym_set set1, ext_sym_set set2)
-    {
-        if (set1.size() == set2.size())
+        for (ObjectList<ExtensibleGraph*>::iterator itg = _cfgs.begin();
+            itg != _cfgs.end(); 
+            ++itg)
         {
-            std::vector<ExtensibleSymbol>::iterator it;
-            std::vector<ExtensibleSymbol> v_result(set1.size());
-            
-            it = set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), v_result.begin());
-            
-            return (int(it-v_result.begin()) == set1.size());
+            Symbol actual_sym = (*itg)->get_function_symbol();
+            if (actual_sym.is_valid() && function_call->get_function_node_symbol() == actual_sym)
+            {
+                std::cerr << "Going to inline function " << std::endl;
+                // Inline the function into the graph
+                inline_function_in_graph(function_call, *itg);
+            }
+        }
+    }
+    
+    void CfgVisitor::inline_function_in_graph(Node* function_call, 
+                                              ExtensibleGraph* inlined_func_graph)
+    {
+        Nodecl::NodeclBase func_nodecl_base = function_call->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
+        std::vector<Nodecl::NodeclBase> args;
+        if (func_nodecl_base.is<Nodecl::FunctionCall>())
+        {
+            Nodecl::FunctionCall func_nodecl = func_nodecl_base.as<Nodecl::FunctionCall>();
+            args = func_nodecl.get_arguments().as<Nodecl::List>(); // This list contains always one
         }
         else
-        {    
-            return false;
+        {   // is VirtualFunctionCall
+            Nodecl::VirtualFunctionCall func_nodecl = func_nodecl_base.as<Nodecl::VirtualFunctionCall>();
+            args = func_nodecl.get_arguments().as<Nodecl::List>(); // This list contains always one
+        }
+        
+        // Rename arguments
+        ObjectList<Nodecl::NodeclBase> tmp_args_l = rename_arguments(func_nodecl_base, args);
+        Node* args_rename_node = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, function_call->get_data<Node*>(_OUTER_NODE), tmp_args_l);
+        
+        // Create a map between the argument symbol, and the temporary symbol
+        std::vector<Nodecl::NodeclBase>::iterator it_args; ObjectList<Nodecl::NodeclBase>::iterator it_params;
+        for(it_args = args.begin(), it_params = tmp_args_l.begin(); 
+            it_args != args.end(), it_params != tmp_args_l.end();
+            ++it_args, ++it_params)
+        {
+            _tmp_args_map[it_args->get_symbol()] = *it_params;
+        }
+        
+        // Propagate argument new values
+        propagate_tmp_args(inlined_func_graph);
+    }
+    
+    ObjectList<Nodecl::NodeclBase> CfgVisitor::rename_arguments(Nodecl::NodeclBase func_nodecl_base, 
+                                                                std::vector<Nodecl::NodeclBase> args)
+    {
+        // Create one nodecl containing a new temporary variable and its initialization with the argument value
+        ObjectList<Nodecl::NodeclBase> tmp_args_l;
+        int i = 0;
+        for (std::vector<Nodecl::NodeclBase>::iterator it = args.begin();
+            it != args.end(); 
+            ++it)
+        {
+            const char* filename =  func_nodecl_base.get_filename().c_str();
+            int line = func_nodecl_base.get_line();
+          
+            // Build a new symbol 
+            Symbol called_symbol;
+            if (func_nodecl_base.is<Nodecl::FunctionCall>())
+            {
+                Nodecl::FunctionCall aux = func_nodecl_base.as<Nodecl::FunctionCall>();
+                called_symbol = aux.get_called().get_symbol();
+            }
+            else 
+            {   // VirtualFunctionCall
+                Nodecl::VirtualFunctionCall aux = func_nodecl_base.as<Nodecl::VirtualFunctionCall>();
+                called_symbol = aux.get_called().get_symbol();
+            }
+
+            // FIXME When ellipsis, i > called_symbol_->entity_specs.num_related_symbols
+            // We must control that and, in that case, get the type from the argument and not from the parameter
+            std::stringstream ss; ss << i;
+            std::string sym_name = "_tmp_" + ss.str();
+            decl_context_t sym_context = func_nodecl_base.retrieve_context().get_decl_context();
+            scope_entry_t* new_sym = new_symbol(sym_context, sym_context.current_scope, sym_name.c_str());
+                new_sym->kind = SK_VARIABLE;
+            scope_entry_t* called_symbol_ = called_symbol.get_internal_symbol();
+            scope_entry_t* param = called_symbol_->entity_specs.related_symbols[i];
+//                 new_sym->file = filename;                               // ?
+//                 new_sym->line = line;                                   // ?
+//                 new_sym->entity_specs = called_symbol_->entity_specs;   // ?
+                new_sym->type_information = param->type_information;
+//                 new_sym->defined = 1;                                   // ?
+                new_sym->value = it->get_internal_nodecl();
+            
+            nodecl_t tmp_arg = nodecl_make_object_init(nodecl_null(),
+                                                       new_sym, 
+                                                       filename, line);
+            Nodecl::ObjectInit new_obj_init(tmp_arg);
+            std::cerr << "Object init '" << c_cxx_codegen_to_str(new_obj_init.get_internal_nodecl()) << "', value: "
+                      << c_cxx_codegen_to_str(new_sym->value) << std::endl;
+            
+            tmp_args_l.append(new_obj_init);
+             ++i;
+        }
+        
+        return tmp_args_l;
+    }
+    
+    void CfgVisitor::propagate_tmp_args(ExtensibleGraph* inlined_func_graph)
+    {
+        propagate_tmp_args_rec(inlined_func_graph->_graph);
+        inlined_func_graph->clear_visits(inlined_func_graph->_graph);
+    }
+    
+    void CfgVisitor::propagate_tmp_args_rec(Node* actual_node)
+    {
+        if (!actual_node->is_visited())
+        {
+            actual_node->set_visited(true);
+            
+            switch(actual_node->get_data<Node_type>(_NODE_TYPE))
+            {
+                case GRAPH_NODE:                propagate_tmp_args_rec(actual_node->get_data<Node*>(_ENTRY_NODE));
+                                                break;
+                case BASIC_BREAK_NODE:
+                case BASIC_ENTRY_NODE:  
+                case FLUSH_NODE:
+                case BARRIER_NODE:
+                case BASIC_PRAGMA_DIRECTIVE_NODE:
+                                                break; // nothing to do
+                case BASIC_EXIT_NODE:           return;
+                                                break;
+                case BASIC_FUNCTION_CALL_NODE:  find_function_for_inline(actual_node);
+                                                break;
+                case BASIC_NORMAL_NODE:
+                case BASIC_LABELED_NODE:         // The node contains statements, check the symbols inside
+                                                // TODO
+                {
+                    ObjectList<Nodecl::NodeclBase> stmts = actual_node->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+                    ObjectList<Nodecl::NodeclBase> renamed_stmts;
+                    for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin();
+                        it != stmts.end();
+                        ++it)
+                    {
+                        Nodecl::NodeclBase renamed_nodecl(*it);
+                        CfgRenamingVisitor rename_v(_tmp_args_map, it->get_filename().c_str(), it->get_line());
+                        rename_v.walk(*it);
+                        renamed_stmts.append(renamed_nodecl);
+                    }
+                    actual_node->set_data(_NODE_STMTS, renamed_stmts);
+                    break;
+                }
+                default:                        internal_error("Unexpected type of node '%s' while inlining function",
+                                                               actual_node->get_node_type_as_string().c_str());
+            }
+
+            ObjectList<Node*> actual_children = actual_node->get_children();
+            for (ObjectList<Node*>::iterator it = actual_children.begin();
+                it != actual_children.end();
+                ++it)
+            {
+                propagate_tmp_args_rec(*it);
+            }
         }
     }
 }

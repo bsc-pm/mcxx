@@ -201,7 +201,7 @@ namespace TL
             
             //! Returns a string representing the node type of the node.
             std::string get_node_type_as_string();
-            
+           
             //! Returns true when the node is not a composite node (does not contain nodes inside).
             bool is_basic_node();
             
@@ -227,6 +227,10 @@ namespace TL
              * \param node_l list where the nodes are stored
              */
             void get_inner_nodes_rec(ObjectList<Node*>& node_l);
+            
+            //! Returns the symbol of the function call contained in the node
+            //! This method only works for composite nodes of type "function_call"
+            Symbol get_function_node_symbol();
             
             
             // *** Analysis *** //

@@ -26,8 +26,10 @@ Cambridge, MA 02139, USA.
 #define EXTENSIBLE_GRAPH_HPP
 
 #include <algorithm>
+#include <map>
 #include <stack>
 
+#include "cxx-codegen.h"
 #include "cxx-utils.h"
 #include "tl-node.hpp"
 #include "tl-nodecl.hpp"
@@ -58,10 +60,19 @@ namespace TL
             //! CfgVisitor will create and destroy this node depending on the statements it is traversing
             std::stack<Node*> _outer_node;
             
+            //! List of nodes containing task's code
             ObjectList<Node*> _task_nodes_l;
             
-            // *** Private methods *** //
-                     
+            //! Symbol of the function is contained in the graph.
+            /*! This symbol is empty when the code contained in the graph do not correspond to a function
+             */
+            Symbol _function_sym;
+            
+            //! List of nodes containing a function call
+            ObjectList<Node*> _function_calls;
+            
+            
+    private:         
             //! Makes up the content of the nodes by deleting the line feeds and escaping all
             //! those symbols that can not be freely write in DOT language.
             void makeup_dot_block(std::string &str);
@@ -87,12 +98,11 @@ namespace TL
               \param outer_nodes Set of nodes that must be printed in an outer DOT cluster.
               \param indent Indentation for the actual node when it is printed.
               \param subgraph_id Identifier for the actual cluster.
-              \return Last node printed.
              */
-            Node* get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
-                                     std::vector<std::string>& outer_edges, 
-                                     std::vector<Node*>& outer_nodes,
-                                     std::string indent, int& subgraph_id);
+            void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
+                                    std::vector<std::string>& outer_edges, 
+                                    std::vector<Node*>& outer_nodes,
+                                    std::string indent, int& subgraph_id);
                                      
             //! Prints both nodes and edges within a cfg subgraph
                         //! Prints nodes and relations between them in a string in a recursive way.
@@ -142,6 +152,7 @@ namespace TL
              */
             void solve_live_equations_recursive(Node* actual, bool& changed);
             
+            
         public:
             // *** Constructors *** //
             
@@ -156,7 +167,7 @@ namespace TL
             
            
             // *** Modifiers *** //
-           
+
             //! This method creates a new node containing a Basic Block and connects it to its
             //! parent node with a new edge.
             /*!
@@ -324,39 +335,20 @@ namespace TL
             
             //! Computes dependences for a node containing a task code
             void analyse_task(Node* task_node);
+           
             
             // *** Getters and Setters *** //
             
+            //! Returns the name of the graph
             std::string get_name() const;
             
-
-
-// OLD method
+            //! Returns the symbol of the function contained in the graph
+            //! It is null when the graph do not corresponds to a function code
+            Symbol get_function_symbol() const;
             
-            //! Builds a set of connected nodes that contains a Pragma Construct Statement
-            /*!
-              When a non-omp pragma is founded, then the method don't do anything.
-              \param parent Parent of the first of the new nodes to be built.
-              \param pragma_stmt Pragma Construct Statement to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Composite node containing the set of pragma statements nodes.
-            */             
-            // Node* build_pragma_construct(Node* parent, Statement pragma_stmt, 
-            //                              Node* outer_graph = NULL);
-            
-            //! Builds a set of connected nodes that contains an omp sections statement
-            /*!
-              \param parent Parent of the first of the new nodes to be built.
-              \param pragma_stmt Omp Sections Directive to be parsed.
-              \param outer_graph Node to which the new structure will belong to.
-                                 It must be a Composite node.
-              \return Composite node containing the set of statements of the directive.
-            */                       
-            // Node* build_sections_node(Node* parent, Statement pragma_stmt, Node* outer_graph);
-           
-           
- 
+            //! Returns a list with all the function call symbols contained in the graph
+            ObjectList<Node*> get_function_calls() const;
+
         friend class CfgVisitor;
     };
 }

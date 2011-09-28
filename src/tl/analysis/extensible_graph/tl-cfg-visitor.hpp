@@ -167,6 +167,15 @@ namespace TL
         
         std::stack<Node*> _switch_cond_s;
         
+            
+        //! Map used in IPA analysis containing the mapping between function arguments and 
+        //! the new temporary symbols created in the renaming method
+        /*!
+            * This value is empty is there is no function call. 
+            * The value will change for every function call founded
+            */
+        std::map<Symbol, Nodecl::NodeclBase> _tmp_args_map;
+        
     private:
        
         
@@ -229,6 +238,16 @@ namespace TL
          */
         Ret create_task_graph(const Nodecl::PragmaCustomStatement& n);
         
+               
+        // *** IPA *** //
+        
+        ObjectList<Nodecl::NodeclBase> rename_arguments(Nodecl::NodeclBase func_nodecl_base, 
+                                                        std::vector<Nodecl::NodeclBase> args);
+        
+        void propagate_tmp_args_rec(Node* actual_node);
+        
+        void propagate_tmp_args(ExtensibleGraph* inlined_func_graph);        
+        
     public:
         //! Empty constructor
         /*!
@@ -246,7 +265,7 @@ namespace TL
         //! Copy constructor
         CfgVisitor(const CfgVisitor& visitor);
         
-        // Non visiting methods
+        // *** Non visiting methods *** //
         
         //! This method returns the list of extensible graphs generated while visiting a Nodecl
         ObjectList<ExtensibleGraph*> get_cfgs() const;
@@ -259,7 +278,25 @@ namespace TL
          */
         void build_cfg(RefPtr<Nodecl::NodeclBase> nodecl, std::string graph_name);
         
-        // Visiting methods
+        // *** IPA *** //
+        
+        //! The method searches graphs generated previously for every function call founded in those graphs.
+        //! If there is a match, then the function is inlined renaming the parameters with temporary variables
+        void inline_functions_for_ipa();
+        
+        //! The method inlines, if possible, the code corresponding to the function call
+        void find_function_for_inline(Node* function_call);
+        
+        //! The method replaces a function call by the code of the called function, as inline
+        /*! It performs renaming of the variables
+            * \param function_call Pointer to the node containing the Function Call to be substituted
+            * \param inlined_func_graph Graph containing the code of the Function to be substituted
+            */
+        void inline_function_in_graph(Node* function_call, 
+                                      ExtensibleGraph* inlined_func_graph);
+
+        
+        // *** Visiting methods *** //
         
         Ret unhandled_node(const Nodecl::NodeclBase& n);
         Ret visit(const Nodecl::Context& n);

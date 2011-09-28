@@ -453,6 +453,30 @@ namespace TL
         return;
     }
 
+    Symbol Node::get_function_node_symbol()
+    {
+       
+        if (get_data<Node_type>(_NODE_TYPE) != BASIC_FUNCTION_CALL_NODE)
+        {
+            return Symbol();
+        }
+        
+        Nodecl::NodeclBase stmt = get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
+        Symbol s;
+        if (stmt.is<Nodecl::FunctionCall>())
+        {
+            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
+            s = f.get_called().get_symbol();
+        }
+        else if (stmt.is<Nodecl::VirtualFunctionCall>())
+        {
+            Nodecl::FunctionCall f = stmt.as<Nodecl::FunctionCall>();
+            s = f.get_called().get_symbol();
+        }
+        
+        return s;
+    }
+
     Node* Node::advance_over_non_statement_nodes()
     {
         ObjectList<Node*> children = get_children();

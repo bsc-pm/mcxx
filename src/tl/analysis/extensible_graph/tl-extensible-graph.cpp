@@ -26,15 +26,13 @@ Cambridge, MA 02139, USA.
 // #include "tl-pragmasupport.hpp"
 
 namespace TL
-{   
-    static bool is_worksharing(std::string directive);
-    static bool is_combined_worksharing(std::string directive);
-    
+{  
     ExtensibleGraph::ExtensibleGraph(std::string name)
         : _graph(NULL), _name(name), _nid(-1),
           _continue_stack(), _break_stack(),
           _labeled_node_l(), _goto_node_l(), _tasks_node_l(),
-          _last_nodes(), _outer_node(), _task_nodes_l()
+          _last_nodes(), _outer_node(), _task_nodes_l(), 
+          _function_sym(NULL), _function_calls()
     {
         _graph = create_graph_node(NULL, Nodecl::NodeclBase::null(), "extensible_graph");
         _last_nodes.append(_graph->get_data<Node*>(_ENTRY_NODE));
@@ -53,6 +51,8 @@ namespace TL
         _last_nodes = graph._last_nodes;
         _outer_node = graph._outer_node;
         _task_nodes_l = graph._task_nodes_l;
+        _function_sym = graph._function_sym;
+        _function_calls = graph._function_calls;
     }
 
     Node* ExtensibleGraph::append_new_node_to_parent(ObjectList<Node*> parents, ObjectList<Nodecl::NodeclBase> nodecls,
@@ -203,6 +203,32 @@ namespace TL
         {
             connect_nodes(*it, child, etype, label);         
         }
+    }
+
+    void ExtensibleGraph::disconnect_nodes(ObjectList<Node*> parents, Node* child)
+    {
+        for(ObjectList<Node*>::iterator it = parents.begin();
+                it != parents.end();
+                ++it)
+        {
+            disconnect_nodes(*it, child);
+        }
+    }    
+
+    void ExtensibleGraph::disconnect_nodes(Node* parent, ObjectList<Node*> children)
+    {
+        for(ObjectList<Node*>::iterator it = children.begin();
+                it != children.end();
+                ++it)
+        {
+            disconnect_nodes(parent, *it);
+        }
+    }
+
+    void ExtensibleGraph::disconnect_nodes(Node *parent, Node *child)
+    {
+        parent->erase_exit_edge(child);
+        child->erase_entry_edge(parent);
     }
 
     Node* ExtensibleGraph::create_graph_node(Node* outer_node, Nodecl::NodeclBase label, 
@@ -577,66 +603,8 @@ namespace TL
                 }
             }
         }
-    }    
+    }   
     
-    std::string ExtensibleGraph::get_name() const
-    {
-        return _name;
-    }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-    void ExtensibleGraph::disconnect_nodes(ObjectList<Node*> parents, Node* child)
-    {
-        for(ObjectList<Node*>::iterator it = parents.begin();
-                it != parents.end();
-                ++it)
-        {
-            disconnect_nodes(*it, child);
-        }
-    }    
-
-    void ExtensibleGraph::disconnect_nodes(Node* parent, ObjectList<Node*> children)
-    {
-        for(ObjectList<Node*>::iterator it = children.begin();
-                it != children.end();
-                ++it)
-        {
-            disconnect_nodes(parent, *it);
-        }
-    }
-
-    void ExtensibleGraph::disconnect_nodes(Node *parent, Node *child)
-    {
-        parent->erase_exit_edge(child);
-        child->erase_entry_edge(parent);
-    }
-
-    static bool is_worksharing(std::string directive)
-    {
-        return (directive == "for" || directive == "do" ||
-            directive == "workshare" || directive == "sections" ||
-            directive == "single");
-    }
-
-    static bool is_combined_worksharing(std::string directive)
-    {
-        return (directive == "parallel|for" || directive == "parallel|do" ||
-                directive == "parallel|workshare" || directive == "parallel|sections");
-    }
-
     bool ExtensibleGraph::belongs_to_the_same_graph(Edge* edge)
     {
         Node* source = edge->get_source();
@@ -700,4 +668,19 @@ namespace TL
             }
         }
     }
+    
+    std::string ExtensibleGraph::get_name() const
+    {
+        return _name;
+    }
+    
+    Symbol ExtensibleGraph::get_function_symbol() const
+    {
+        return _function_sym;
+    }
+    
+    ObjectList<Node*> ExtensibleGraph::get_function_calls() const
+    {
+        return _function_calls;
+    }    
 }

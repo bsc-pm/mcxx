@@ -22,18 +22,19 @@ Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
 
-#include "cxx-codegen.h"
 #include "cxx-process.h"
 
 #include "tl-cfg-visitor.hpp"
 
 namespace TL
 {
+    static bool pragma_is_worksharing(std::string pragma);
+    
     CfgVisitor::CfgVisitor()
         : _actual_cfg(NULL), _cfgs(), _context_s(),
           _actual_loop_info(), _actual_try_info(), 
            _pragma_info_s(), _omp_sections_info(), 
-           _switch_cond_s()
+           _switch_cond_s(), _tmp_args_map()
     {}
     
     CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
@@ -46,6 +47,7 @@ namespace TL
         _pragma_info_s = visitor._pragma_info_s;
         _omp_sections_info = visitor._omp_sections_info;
         _switch_cond_s = visitor._switch_cond_s;
+        _tmp_args_map = visitor._tmp_args_map;
     }
     
     ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
@@ -70,7 +72,7 @@ namespace TL
             
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
             
-            _actual_cfg->dress_up_graph();
+//             _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
         }
@@ -96,7 +98,7 @@ namespace TL
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::FunctionCode& n)
     {
-        TL::Symbol s = n.get_symbol();
+        Symbol s = n.get_symbol();
         std::string func_decl = s.get_type().get_declaration(s.get_scope(), s.get_name());
         DEBUG_CODE()
         {
@@ -109,6 +111,7 @@ namespace TL
         ExtensibleGraph* actual_cfg = new ExtensibleGraph(s.get_name());
         _actual_cfg = actual_cfg;
         
+        _actual_cfg->_function_sym = s;
         ObjectList<Node*> func_stmts = walk(n.get_statements());
         
         // Complete the exit node
@@ -118,7 +121,7 @@ namespace TL
         // Connect the exit nodes to the Exit node of the master graph   
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
         
-        _actual_cfg->dress_up_graph();
+//         _actual_cfg->dress_up_graph();
         
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
@@ -316,6 +319,7 @@ namespace TL
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::ObjectInit& n)
     {
+        std::cerr << "ObjectInit in visit: " << c_cxx_codegen_to_str(n.get_internal_nodecl()) << std::endl;
         Symbol s = n.get_symbol();
         nodecl_t n_sym = nodecl_make_symbol(s.get_internal_symbol(), n.get_filename().c_str(), n.get_line());
         Nodecl::Symbol nodecl_symbol(n_sym);
@@ -501,8 +505,8 @@ namespace TL
         else
         {
             func_node = new Node(_actual_cfg->_nid, BASIC_FUNCTION_CALL_NODE, func_graph_node, n);
-            _actual_cfg->connect_nodes(func_graph_node->get_data<Node*>(_ENTRY_NODE), func_node);
         }
+        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_node);
 
         Node* graph_exit = func_graph_node->get_data<Node*>(_EXIT_NODE);
         graph_exit->set_id(++_actual_cfg->_nid);
@@ -512,6 +516,9 @@ namespace TL
         _actual_cfg->_last_nodes.clear();
         _actual_cfg->_last_nodes.append(func_graph_node);
        
+        // Add the function node to the list of called functions for later IPA
+        _actual_cfg->_function_calls.append(func_node);
+        
         return ObjectList<Node*>(1, func_graph_node);
     }
 
@@ -714,6 +721,7 @@ namespace TL
                 internal_error("Unexpected omp pragma construct '%s' while building the CFG", pragma.c_str());
             }
         
+            // FIXME When core phase works, this will not be necessary. It will be the phase which will perform this transformation
             if (pragma == "sections" || pragma == "parallel|sections")
             {   // push a new struct in the stack to store info about entries and exits
                 struct omp_pragma_sections_t actual_sections_info(_actual_cfg->_last_nodes);
@@ -1939,5 +1947,5 @@ namespace TL
         }
        
         return merge_nodes(n, previous_nodes);
-    }    
+    }
 }
