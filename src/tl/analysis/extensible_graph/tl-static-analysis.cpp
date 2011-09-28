@@ -315,7 +315,7 @@ namespace TL
         }
     }
     
-    // FIXME For the moment we assume the user has used the 'auto-deps' clause
+    // FIXME For the moment we assume the user has used the 'auto-deps' clause  
     void ExtensibleGraph::analyse_task(Node* task_node)
     {
         Node* entry = task_node->get_data<Node*>(_ENTRY_NODE);

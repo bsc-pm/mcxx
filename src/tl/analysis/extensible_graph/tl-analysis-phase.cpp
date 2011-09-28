@@ -40,13 +40,13 @@ namespace TL
         
         CfgVisitor cfg_visitor;
         cfg_visitor.build_cfg(nodecl, std::string(""));
-        
+       
         // Here we substitute each function call of every graph by the graph 
         // corresponding with the call if we have it in the graphs list
 //         cfg_visitor.inline_functions_for_ipa();
        
-        // Perform Live Variable Analysis and Print the Graph to a dot file        
-        ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
+        // Perform Live Variable Analysis and Print the Graph to a dot file       
+        ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();     
         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
             it != cfgs.end();
             ++it)
