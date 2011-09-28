@@ -1407,7 +1407,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context,
                             *nodecl_output = nodecl_concat_lists(
                                     *nodecl_output,
                                     nodecl_make_list_1(nodecl_make_object_init(
-                                            nodecl_initializer,
                                             entry, 
                                             ASTFileName(init_declarator), ASTLine(init_declarator)))); 
                         }
@@ -3652,7 +3651,7 @@ static void build_scope_ctor_initializer(
                 break;
             }
 
-            nodecl_t nodecl_object_init = nodecl_make_object_init(
+            nodecl_t nodecl_object_init = nodecl_make_member_init(
                     nodecl_init,
                     entry,
                     ASTFileName(id_expression),
@@ -10793,7 +10792,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                 }
             }
 
-            *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
+            *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
         }
         CXX_LANGUAGE()
         {
@@ -10812,7 +10811,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
                     }
                 }
 
-                *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
+                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
                 if (conversor != NULL)
                 {
                     ERROR_CONDITION((conversor->entity_specs.is_conversion),
@@ -10824,7 +10823,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context, nodecl_t* 
             }
             else
             {
-                *nodecl_output = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(initializer), ASTLine(initializer));
+                *nodecl_output = nodecl_make_object_init(entry, ASTFileName(initializer), ASTLine(initializer));
             }
         }
 
@@ -11300,7 +11299,7 @@ static void build_scope_try_block(AST a,
 
                 if (entry != NULL)
                 {
-                    exception_name = nodecl_make_object_init(nodecl_null(), entry, ASTFileName(declarator), ASTLine(declarator));
+                    exception_name = nodecl_make_object_init(entry, ASTFileName(declarator), ASTLine(declarator));
                 }
             }
 

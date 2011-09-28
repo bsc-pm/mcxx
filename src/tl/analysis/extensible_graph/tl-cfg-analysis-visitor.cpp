@@ -208,7 +208,7 @@ namespace TL
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
         _node->fill_use_def_sets(n.get_symbol(), true);
-        walk(n.get_init_expr());
+        walk(n.get_symbol().get_initialization());
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Assignment& n)

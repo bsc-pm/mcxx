@@ -322,7 +322,9 @@ namespace TL
             ObjectList<Node*> object_init_last_nodes = _actual_cfg->_last_nodes;
             ObjectList<Node*> init_sym = walk(nodecl_symbol);
             _actual_cfg->_last_nodes.clear();
-            ObjectList<Node*> init_expr = walk(n.get_init_expr());
+
+            Symbol sym = nodecl_symbol.get_symbol();
+            ObjectList<Node*> init_expr = walk(sym.get_initialization());
         
             if (init_expr.empty())
             {   // do nothing: The Object Init is not initialized

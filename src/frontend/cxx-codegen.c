@@ -35,7 +35,6 @@ struct nodecl_codegen_visitor_tag
     char in_condition;
     nodecl_t condition_top;
     char inside_structured_value;
-    char mem_init_list;
 
     int num_classes_being_defined;
     scope_entry_t* classes_being_defined[MCXX_MAX_SCOPES_NESTING];
@@ -4014,6 +4013,28 @@ static void codegen_compound_statement(nodecl_codegen_visitor_t* visitor, nodecl
 static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
     scope_entry_t* entry = nodecl_get_symbol(node);
+
+    if (visitor->do_not_emit_declarations)
+    {
+        fprintf(visitor->file, "%s", print_decl_type_str(entry->type_information, entry->decl_context, 
+                  get_qualified_symbol_name(entry, entry->decl_context)));
+    }
+    else 
+    {
+        walk_type_for_symbols(visitor, entry->type_information, 
+                /* needs def */ 1,
+                declare_symbol,
+                define_symbol,
+                define_all_entities_in_trees);
+
+        entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
+        define_symbol(visitor, entry);
+    }
+}
+
+static void codegen_member_init(nodecl_codegen_visitor_t* visitor, nodecl_t node)
+{
+    scope_entry_t* entry = nodecl_get_symbol(node);
     nodecl_t nodecl_init_expr = nodecl_get_child(node, 0);
 
     if (visitor->do_not_emit_declarations)
@@ -4026,18 +4047,7 @@ static void codegen_object_init(nodecl_codegen_visitor_t* visitor, nodecl_t node
             codegen_walk(visitor, nodecl_init_expr);
         }
     }
-    else if (!visitor->mem_init_list)
-    {
-        walk_type_for_symbols(visitor, entry->type_information, 
-                /* needs def */ 1,
-                declare_symbol,
-                define_symbol,
-                define_all_entities_in_trees);
-
-        entry->entity_specs.codegen_status = CODEGEN_STATUS_NONE;
-        define_symbol(visitor, entry);
-    }
-    else // visitor->mem_init_list && !visitor->do_not_emit_declarations
+    else // !visitor->do_not_emit_declarations
     {
 
         fprintf(visitor->file, "%s(", entry->symbol_name);
@@ -4283,10 +4293,7 @@ static void codegen_function_code(nodecl_codegen_visitor_t* visitor, nodecl_t no
 
         fprintf(visitor->file, ": ");
 
-        int old_mem_init_list = visitor->mem_init_list;
-        visitor->mem_init_list = 1;
         walk_list(visitor, initializers, ", ");
-        visitor->mem_init_list = old_mem_init_list;
 
         visitor->indent_level--;
 
@@ -4454,6 +4461,7 @@ static void c_cxx_codegen_init(nodecl_codegen_visitor_t* codegen_visitor)
     NODECL_VISITOR(codegen_visitor)->visit_boolean_literal = codegen_visitor_fun(codegen_boolean_literal);
     NODECL_VISITOR(codegen_visitor)->visit_floating_literal = codegen_visitor_fun(codegen_floating_literal);
     NODECL_VISITOR(codegen_visitor)->visit_object_init = codegen_visitor_fun(codegen_object_init);
+    NODECL_VISITOR(codegen_visitor)->visit_member_init = codegen_visitor_fun(codegen_member_init);
     NODECL_VISITOR(codegen_visitor)->visit_if_else_statement = codegen_visitor_fun(codegen_if_else_statement);
     NODECL_VISITOR(codegen_visitor)->visit_for_statement = codegen_visitor_fun(codegen_for_statement);
     NODECL_VISITOR(codegen_visitor)->visit_loop_control = codegen_visitor_fun(codegen_loop_control);
