@@ -31,6 +31,7 @@
 
 #include <stack>
 
+#include "tl-nodecl.hpp"
 #include "tl-compilerphase.hpp"
 
 #include "tl-omp.hpp"
@@ -43,17 +44,15 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
     	struct UDRParsedInfo 
 		{
 			Type type;
-			AST_t combine_expression;
+            Nodecl::NodeclBase combine_expression;
 			Symbol in_symbol;
 			Symbol out_symbol;
 
-            UDRParsedInfo() : type(NULL), combine_expression(NULL), in_symbol(NULL), out_symbol(NULL) {}
+            UDRParsedInfo() : type(NULL), combine_expression(), in_symbol(NULL), out_symbol(NULL) {}
 		};
-#endif
 
         // class Core : public TL::PragmaCustomCompilerPhase
         class Core : public TL::CompilerPhase

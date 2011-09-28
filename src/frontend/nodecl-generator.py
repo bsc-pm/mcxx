@@ -379,6 +379,25 @@ def generate_visitor_class_header(rule_map):
         print "     virtual Ret visit(const Nodecl::%s & n) { return this->unhandled_node(n); }" % (class_name)
     print "   virtual ~NodeclVisitor() { }"
     print "};"
+    print "template <typename _Ret>"
+    print "class ExhaustiveVisitor : public NodeclVisitor<_Ret>"
+    print "{"
+    print "public:"
+    print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
+    classes_and_children = get_all_class_names_and_children_names(rule_map)
+    for (class_name, children_name, tree_kind) in classes_and_children:
+         print "     virtual Ret visit_pre(const Nodecl::%s & n) { return Ret(); }" % (class_name)
+         print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (class_name)
+         print "     virtual Ret visit(const Nodecl::%s & n)" % (class_name)
+         print "     {"
+         print "        this->visit_pre(n);"
+         child_num = 0
+         for child_name in children_name:
+              print "        this->walk(n.get_%s());" % (child_name)
+              child_num = child_num + 1
+         print "        this->visit_post(n);"
+         print "     }"
+    print "};"
     print ""
 
     print "template <typename _Ret>"

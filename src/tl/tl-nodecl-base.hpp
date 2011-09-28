@@ -45,10 +45,10 @@ namespace Nodecl {
             template <typename Ret> friend class BaseNodeclVisitor;
 
             // Sorting of trees by pointer
-            bool operator<(const NodeclBase& n) { return nodecl_get_ast(this->_n) < nodecl_get_ast(n._n); }
+            bool operator<(const NodeclBase& n) const { return nodecl_get_ast(this->_n) < nodecl_get_ast(n._n); }
 
             // Equality by pointer
-            bool operator==(const NodeclBase& n) { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
+            bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
     };
 
     class List : public NodeclBase, public std::vector<NodeclBase>

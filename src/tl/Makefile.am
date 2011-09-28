@@ -129,6 +129,12 @@ libtl_la_SOURCES = \
     tl-functor.cpp \
     tl-handler.hpp \
     tl-handler.cpp \
+    tl-predicateutils.hpp \
+    tl-predicateutils.cpp \
+	tl-clauses-info.hpp \
+	tl-clauses-info.cpp \
+	tl-pragmasupport.hpp \
+	tl-pragmasupport.cpp \
     $(END)
 
 # libtl_la_SOURCES = \
