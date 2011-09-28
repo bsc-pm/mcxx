@@ -906,7 +906,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         scope_entry_t* friend = entry_list_iterator_current(it);
 
-        if (friend->kind == SK_DEPENDENT_FRIEND)
+        if (friend->kind == SK_DEPENDENT_FRIEND_FUNCTION
+                || friend->kind == SK_DEPENDENT_FRIEND_CLASS)
         {
             instantiate_dependent_friend(selected_template, 
                     being_instantiated, 

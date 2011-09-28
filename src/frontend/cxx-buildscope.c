@@ -2127,6 +2127,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         decl_flags |= DF_ELABORATED_NAME;
     }
 
+    char is_friend_class_declaration = 
+        (gather_info->no_declarators && gather_info->is_friend);
+
+    if (is_friend_class_declaration)
+    {
+        decl_flags |= DF_DEPENDENT_TYPENAME;
+    }
+
     CXX_LANGUAGE()
     {
         if (gather_info->no_declarators
@@ -2162,6 +2170,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
     enum cxx_symbol_kind filter_classes[] = 
     {
         SK_CLASS,
+        SK_DEPENDENT_ENTITY,
         SK_TEMPLATE, // For the primary template
     };
 
@@ -2200,10 +2209,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         entry = named_type_get_symbol(primary_template_type);
     }
 
-    char is_friend_class_declaration = 
-        (gather_info->no_declarators && gather_info->is_friend);
-
     decl_context_t orig_decl_context = decl_context;
+
+    if (entry != NULL
+            && is_friend_class_declaration
+            && entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        entry->kind = SK_DEPENDENT_FRIEND_CLASS;
+        scope_entry_t* class_symbol = orig_decl_context.current_scope->related_entry;
+        ERROR_CONDITION(class_symbol->kind != SK_CLASS, "Invalid symbol", 0);
+
+        class_type_add_friend_symbol(class_symbol->type_information, entry);
+        // ???
+        *type_info = get_void_type();
+        return;
+    }
 
     if (entry == NULL)
     {
@@ -2337,7 +2357,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             if (!checking_ambiguity())
             {
-                error_printf("%s: error: class name '%s' not found", ast_location(id_expression), prettyprint_in_buffer(id_expression));
+                error_printf("%s: error: class name '%s' not found\n", 
+                        ast_location(id_expression), 
+                        prettyprint_in_buffer(id_expression));
             }
             *type_info = get_error_type();
             return;
@@ -2372,6 +2394,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a,
         {
             fprintf(stderr, "BUILDSCOPE: Class type found already declared in %s:%d, using it\n", entry->file, entry->line);
         }
+
         ERROR_CONDITION(entry->kind != SK_CLASS, "This must be a class", 0);
 
         class_entry = entry;
@@ -3391,6 +3414,60 @@ static char is_nested_in_class(type_t* class_of_entry, type_t* class_of_construc
             return 0;
         }
     }
+}
+
+typedef
+enum nesting_check_tag
+{
+    NESTING_CHECK_OK,
+    NESTING_CHECK_INVALID,
+    NESTING_CHECK_NOT_A_TEMPLATE,
+} nesting_check_t;
+
+static nesting_check_t check_template_nesting_of_name(scope_entry_t* entry, template_parameter_list_t* template_parameters)
+{
+    if (is_template_specialized_type(entry->type_information))
+    {
+        if (is_dependent_type(entry->type_information))
+        {
+            if (template_parameters == NULL
+                    || template_parameters->num_parameters == 0)
+                return NESTING_CHECK_INVALID;
+        }
+        else
+        {
+            if (template_parameters == NULL
+                    || template_parameters->num_parameters != 0)
+                return NESTING_CHECK_INVALID;
+        }
+
+        if (entry->entity_specs.is_member)
+        {
+            return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type), template_parameters->enclosing);
+        }
+        else
+        {
+            // If this is not a member, but there is still another level of template declarations, there is something amiss
+            if (template_parameters->enclosing != NULL)
+            {
+                return NESTING_CHECK_INVALID;
+            }
+        }
+
+        return NESTING_CHECK_OK;
+    }
+    else
+    {
+        if (entry->entity_specs.is_member)
+        {
+            return check_template_nesting_of_name(named_type_get_symbol(entry->entity_specs.class_type), template_parameters);
+        }
+
+        if (template_parameters != NULL)
+            return NESTING_CHECK_NOT_A_TEMPLATE;
+    }
+
+    return NESTING_CHECK_OK;
 }
 
 static void build_scope_ctor_initializer(
@@ -4946,15 +5023,32 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
-            else if (class_entry->kind == SK_CLASS
-                    && !is_template_specialized_type(class_entry->type_information)
-                    && gather_info->is_template)
+
+            nesting_check_t nest_check = check_template_nesting_of_name(class_entry, decl_context.template_parameters);
+
+            if (nest_check != NESTING_CHECK_OK)
             {
                 if (!checking_ambiguity())
                 {
-                    error_printf("%s: error: '%s' is not a template type\n", 
-                            ast_location(class_id_expression),
-                            get_qualified_symbol_name(class_entry, decl_context));
+                    if (nest_check == NESTING_CHECK_NOT_A_TEMPLATE)
+                    {
+                        error_printf("%s: error: '%s' is not a template type\n", 
+                                ast_location(class_id_expression),
+                                get_qualified_symbol_name(class_entry, decl_context));
+                    }
+                    else if (nest_check == NESTING_CHECK_INVALID)
+                    {
+                        error_printf("%s: error: invalid nesting of template parameters in template declaration\n",
+                                ast_location(class_id_expression));
+                        error_printf("%s: error: there are %d levels of template parameters but the symbol required exactly %d levels\n", 
+                                ast_location(class_id_expression),
+                                get_template_nesting_of_context(decl_context),
+                                get_template_nesting_of_context(class_entry->decl_context));
+                    }
+                    else
+                    {
+                        internal_error("Code unreachable", 0);
+                    }
                 }
                 *type_info = get_error_type();
                 return;
@@ -6404,8 +6498,11 @@ void update_function_default_arguments(scope_entry_t* function_symbol,
         type_t* declarator_type, 
         gather_decl_spec_t* gather_info)
 {
-    if (function_symbol->kind == SK_DEPENDENT_ENTITY)
+    if (function_symbol->kind == SK_DEPENDENT_ENTITY
+            || function_symbol->kind == SK_DEPENDENT_FRIEND_FUNCTION)
         return;
+
+    ERROR_CONDITION(function_symbol->kind != SK_FUNCTION, "Invalid symbol", 0);
 
     if (!is_named_type(declarator_type))
     {
@@ -6495,6 +6592,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 else
                 {
                     scope_entry_t *entry = NULL;
+
                     entry = find_function_declaration(declarator_id, declarator_type, gather_info, decl_context);
 
                     CXX_LANGUAGE()
@@ -7321,7 +7419,44 @@ static scope_entry_t* find_function_declaration(AST declarator_id,
                 get_template_parameters_from_syntax(ASTSon1(considered_tree), decl_context);
         }
     }
+    
+    // Dependent friends are handled first
+    if (templates_available
+            && !gather_info->is_template
+            && gather_info->is_friend
+            && is_dependent_type(declarator_type))
+    {
+        if (!declarator_is_template_id)
+        {
+            // template <typename S> void f();
+            //
+            // template <typename T>
+            // struct A
+            // {
+            //   friend void f(T*);     // ill-formed: it should be 'friend void f<>(T*)'
+            // };
+            if (!checking_ambiguity())
+            {
+                error_printf("%s: error: friend declaration '%s' declares a template function but the declarator is not a template-id\n",
+                        ast_location(declarator_id),
+                        prettyprint_in_buffer(declarator_id));
+            }
+            return NULL;
+        }
 
+        scope_entry_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_buildscope);
+        result->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+        result->file = ASTFileName(declarator_id);
+        result->line = ASTLine(declarator_id);
+
+        nodecl_t nodecl_name = nodecl_null();
+        compute_nodecl_name_from_id_expression(declarator_id, decl_context, &nodecl_name);
+
+        result->value = nodecl_name;
+        result->type_information = declarator_type;
+
+        return result;
+    }
 
     // Second attempt, match a specialization of a template function
     if (templates_available
@@ -9670,11 +9805,11 @@ void build_scope_friend_declarator(decl_context_t decl_context,
         type_t* member_type, 
         AST declarator)
 {
-    if (gather_info->is_template)
-    {
-        warn_printf("%s: warning: friend template functions are not fully supported for the moment\n",
-                ast_location(declarator));
-    }
+    // if (gather_info->is_template)
+    // {
+    //     warn_printf("%s: warning: friend template functions are not fully supported yet\n",
+    //             ast_location(declarator));
+    // }
 
     nodecl_t nodecl_output = nodecl_null();
 
@@ -9690,12 +9825,14 @@ void build_scope_friend_declarator(decl_context_t decl_context,
 
     if (entry == NULL
             || (entry->kind != SK_FUNCTION
+                && entry->kind != SK_DEPENDENT_FRIEND_FUNCTION
                 && entry->kind != SK_DEPENDENT_ENTITY))
     {
         if (!checking_ambiguity())
         {
-            error_printf("%s: error: invalid friend declaration, does not name a function\n",
-                    ast_location(declarator));
+            error_printf("%s: error: friend declaration '%s' does not name a function\n",
+                    ast_location(declarator),
+                    prettyprint_in_buffer(declarator));
         }
         return;
     }
@@ -9703,28 +9840,25 @@ void build_scope_friend_declarator(decl_context_t decl_context,
     if (entry->kind == SK_FUNCTION
             && is_dependent_type(entry->type_information))
     {
-        // Create a dependent friend object since we need to update it later
-        scope_entry_t* new_dependent_friend = counted_calloc(1, sizeof(*new_dependent_friend), &_bytes_used_buildscope);
-        new_dependent_friend->kind = SK_DEPENDENT_FRIEND;
-        new_dependent_friend->decl_context = decl_context;
-        new_dependent_friend->file = entry->file;
-        new_dependent_friend->line = entry->line;
-        // Note that this is not the declarator type but the type-specifier one!
-        new_dependent_friend->type_information = member_type;
-        new_dependent_friend->value = nodecl_make_symbol(entry, entry->file, entry->line);
+        // We should have checked this in find_function_declaration
+        internal_error("Code unreachable", 0);
 
-        entry = new_dependent_friend;
+        // // Create a dependent friend object since we need to update it later
+        // scope_entry_t* new_dependent_friend = counted_calloc(1, sizeof(*new_dependent_friend), &_bytes_used_buildscope);
+        // new_dependent_friend->kind = SK_DEPENDENT_FRIEND_FUNCTION;
+        // new_dependent_friend->decl_context = decl_context;
+        // new_dependent_friend->file = entry->file;
+        // new_dependent_friend->line = entry->line;
+        // new_dependent_friend->type_information = entry->type_information;
+        // new_dependent_friend->value = nodecl_make_symbol(entry, entry->file, entry->line);
+
+        // entry = new_dependent_friend;
     }
     else if (entry->kind == SK_DEPENDENT_ENTITY)
     {
         // Fix the dependent entity here to be a dependent friend
-        entry->kind = SK_DEPENDENT_FRIEND;
-        // Keep the original member type here
-        entry->type_information = member_type;
-
+        entry->kind = SK_DEPENDENT_FRIEND_FUNCTION;
         internal_error("Not yet implemented", 0);
-        // entry->value = 
-        //     nodecl_wrap_cxx_dependent_expr(declarator, decl_context);
     }
 
     class_type_add_friend_symbol(class_type, entry);

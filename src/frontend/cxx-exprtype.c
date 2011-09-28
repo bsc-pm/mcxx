@@ -2345,6 +2345,8 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
             pointer_type = rhs;
         }
 
+        *pointer_type = no_ref(*pointer_type);
+
         if (is_array_type(no_ref(*pointer_type)))
         {
             *pointer_type = get_pointer_type(array_type_get_element_type(no_ref(*pointer_type)));
@@ -2571,7 +2573,7 @@ void compute_bin_operator_generic(
                     print_declarator(nodecl_get_type(*rhs)));
 
             ERROR_CONDITION(!equivalent_types(result, computed_type), 
-                "Mismatch between the types of builtin %s and no overload %s\n",
+                "Mismatch between the types of builtin functions (%s) and result of no overload type (%s)\n",
                 print_declarator(result),
                 print_declarator(computed_type));
 
@@ -8361,21 +8363,21 @@ static void check_nodecl_cast_expr(nodecl_t nodecl_casted_expr,
         is_lvalue = 1;
     }
 
-    if (nodecl_is_constant(nodecl_casted_expr)
-            && is_integral_type(declarator_type))
-    {
-        nodecl_set_constant(nodecl_casted_expr,
-                const_value_cast_to_bytes(
-                    nodecl_get_constant(nodecl_casted_expr),
-                    type_get_size(declarator_type), 
-                    /* sign */ is_signed_integral_type(declarator_type)));
-    }
-
     *nodecl_output = nodecl_make_cast(
             nodecl_casted_expr,
             declarator_type,
             cast_kind,
             filename, line);
+
+    if (nodecl_is_constant(nodecl_casted_expr)
+            && is_integral_type(declarator_type))
+    {
+        nodecl_set_constant(*nodecl_output,
+                const_value_cast_to_bytes(
+                    nodecl_get_constant(nodecl_casted_expr),
+                    type_get_size(declarator_type), 
+                    /* sign */ is_signed_integral_type(declarator_type)));
+    }
 
     if (is_dependent_type(declarator_type))
     {
