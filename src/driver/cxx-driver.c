@@ -2247,7 +2247,6 @@ static void load_configuration(void)
         }
        
         merge_sort_list_str(list_config_files, num_config_files, /* ascendent */ 1);
-        //qsort(list_config_files, num_config_files, sizeof(const char*), (int(*)(const void*, const void*))strcmp_ptr_list);
         
         int i;
         for(i = 0; i < num_config_files; ++i)
