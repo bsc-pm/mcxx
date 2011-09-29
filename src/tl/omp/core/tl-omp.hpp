@@ -36,9 +36,12 @@
 #include "tl-handler.hpp"
 #include "tl-dto.hpp"
 
+#include "tl-pragmasupport.hpp"
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-omp-deps.hpp"
+
+#include "tl-datareference.hpp"
 
 #include <map>
 #include <set>
@@ -50,7 +53,6 @@ namespace TL
     //! All OpenMP related classes are defined in this namespace
     namespace OpenMP
     {
-#if 0
         //! \addtogroup OpenMP OpenMP related classes
         // @{
 #define BITMAP(x) (1<<x)
@@ -205,9 +207,9 @@ namespace TL
                 
             private:
 
-                Expression *_time_deadline;
+                Nodecl::NodeclBase *_time_deadline;
 
-                Expression *_time_release;
+                Nodecl::NodeclBase *_time_release;
                
                 map_error_behavior_t _map_error_behavior;
                 
@@ -222,17 +224,17 @@ namespace TL
                 
                 RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
-                Expression get_time_deadline() const;
+                Nodecl::NodeclBase get_time_deadline() const;
 
-                Expression get_time_release() const;
+                Nodecl::NodeclBase get_time_release() const;
 
                 bool has_deadline_time() const;
 
                 bool has_release_time() const;
 
-                void set_time_deadline(Expression exp);
+                void set_time_deadline(Nodecl::NodeclBase exp);
 
-                void set_time_release(Expression exp);
+                void set_time_release(Nodecl::NodeclBase exp);
                 
                 std::string get_action_error(omp_error_event_t event);
 
@@ -286,7 +288,7 @@ namespace TL
                 /*!
                  * \param sym The symbol to be set the data sharing attribute
                  * \param data_attr The symbol to which the data sharing will be set
-                 * \param data_ref Extended reference of this symbol (other than a plain IdExpression)
+                 * \param data_ref Extended reference of this symbol (other than a plain Nodecl::NodeclBase)
                  */
                 void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
 
@@ -340,24 +342,24 @@ namespace TL
             private:
                 DataSharingEnvironment* _root_data_sharing;
                 DataSharingEnvironment* _current_data_sharing;
-                std::map<AST_t, DataSharingEnvironment*> _map_data_sharing;
+                std::map<Nodecl::NodeclBase, DataSharingEnvironment*> _map_data_sharing;
                 std::stack<DataSharingEnvironment*> _stack_data_sharing;
-                std::map<AST_t, ObjectList<UDRInfoItem2> > _map_udr_info;
+                std::map<Nodecl::NodeclBase, ObjectList<UDRInfoItem2> > _map_udr_info;
 
             public:
                 Info(DataSharingEnvironment* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
                     _current_data_sharing(root_data_sharing) { }
 
-                DataSharingEnvironment& get_new_data_sharing(AST_t);
-                DataSharingEnvironment& get_data_sharing(AST_t);
+                DataSharingEnvironment& get_new_data_sharing(Nodecl::NodeclBase);
+                DataSharingEnvironment& get_data_sharing(Nodecl::NodeclBase);
 
                 DataSharingEnvironment& get_current_data_sharing();
                 DataSharingEnvironment& get_root_data_sharing();
 
-                ObjectList<UDRInfoItem2> get_udr_list(AST_t a);
-                void set_udr_list(AST_t expr, ObjectList<UDRInfoItem2> udr_list);
-                void set_udr_symbols(AST_t a, ObjectList<Symbol>);
+                ObjectList<UDRInfoItem2> get_udr_list(Nodecl::NodeclBase a);
+                void set_udr_list(Nodecl::NodeclBase expr, ObjectList<UDRInfoItem2> udr_list);
+                void set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol>);
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();
@@ -421,7 +423,7 @@ namespace TL
                 
                 RealTimeInfo _real_time_info;
 
-                Expression *_if_clause_cond_expr;
+                Nodecl::NodeclBase *_if_clause_cond_expr;
 
                 Symbol get_symbol() const;
 
@@ -462,9 +464,9 @@ namespace TL
                 
                 bool has_if_clause() const;
 
-                void set_if_clause_conditional_expression(Expression expr);
+                void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
                 
-                Expression get_if_clause_conditional_expression() const;
+                Nodecl::NodeclBase get_if_clause_conditional_expression() const;
 
         };
 
@@ -495,8 +497,7 @@ namespace TL
         class LIBTL_CLASS OpenMPPhase : public PragmaCustomCompilerPhase
         {
             protected:
-                AST_t translation_unit;
-                ScopeLink scope_link;
+                Nodecl::NodeclBase translation_unit;
                 Scope global_scope;
                 bool _disable_clause_warnings;
 
@@ -533,7 +534,6 @@ namespace TL
         
 
     // @}
-#endif
     }
     
 }

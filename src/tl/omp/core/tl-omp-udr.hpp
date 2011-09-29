@@ -37,8 +37,6 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
-
         class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
             public:
@@ -56,7 +54,7 @@ namespace TL
                 bool _is_builtin;
                 std::string _builtin_op;
 
-                IdExpression _op_expr;
+                Nodecl::NodeclBase _op_expr;
 
                 ObjectList<Symbol> _op_symbols;
 
@@ -70,7 +68,7 @@ namespace TL
                 bool _is_commutative;
 
                 bool _has_identity;
-                AST_t _identity;
+                Nodecl::NodeclBase _identity;
 
                 Symbol _deduction_function;
             public:
@@ -83,8 +81,8 @@ namespace TL
                 bool is_builtin_operator() const;
                 std::string get_builtin_operator() const;
 
-                void set_operator(IdExpression id_expr);
-                IdExpression get_operator() const;
+                void set_operator(Nodecl::NodeclBase id_expr);
+                Nodecl::NodeclBase get_operator() const;
 
                 ObjectList<Symbol> get_operator_symbols() const;
                 void set_operator_symbols(const ObjectList<Symbol>& sym_list);
@@ -103,9 +101,9 @@ namespace TL
                 Symbol get_deduction_function();
 
                 bool has_identity() const; 
-                void set_identity(AST_t identity);
-                AST_t get_identity() const;
-                AST_t get_raw_identity() const;
+                void set_identity(Nodecl::NodeclBase identity);
+                Nodecl::NodeclBase get_identity() const;
+                Nodecl::NodeclBase get_raw_identity() const;
                 bool identity_is_constructor() const;
 
                 bool get_is_commutative() const;
@@ -116,7 +114,6 @@ namespace TL
                 // ----
                 // ObjectList<Symbol> lookup_udr(Scope sc);
                 UDRInfoItem lookup_udr(Scope sc, 
-                        ScopeLink scope_link,
                         bool &found, ObjectList<Symbol> &all_viables, 
                         const std::string& filename, int line) const;
                 // ----
@@ -129,7 +126,6 @@ namespace TL
         void initialize_builtin_udr_reductions(Scope global_scope);
         bool udr_is_builtin_operator(const std::string &op_name);
         // }
-#endif
     }
 }
 

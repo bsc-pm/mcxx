@@ -86,56 +86,53 @@ namespace TL
 
                 static bool _already_registered;
 
-#if 0
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
-
                 void get_clause_symbols(PragmaCustomClause clause, 
                         ObjectList<DataReference>& sym_list, 
                         bool allow_extended_references = false);
-                void get_reduction_symbols(PragmaCustomConstruct construct, 
+                void get_reduction_symbols(Nodecl::NodeclBase construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
-                void get_data_explicit_attributes(PragmaCustomConstruct construct, 
+                void get_data_explicit_attributes(Nodecl::NodeclBase construct, 
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes(PragmaCustomConstruct construct, 
+                void get_data_implicit_attributes(Nodecl::NodeclBase construct, 
                         DataSharingAttribute default_data_attr, 
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes_task(PragmaCustomConstruct construct,
+                void get_data_implicit_attributes_task(Nodecl::NodeclBase construct,
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
-                void get_target_info(PragmaCustomConstruct construct, 
+                void get_target_info(Nodecl::NodeclBase construct, 
                         DataSharingEnvironment& data_sharing);
-                void get_dependences_info(PragmaCustomConstruct construct, 
+                void get_dependences_info(Nodecl::NodeclBase construct, 
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);
 
-                DataSharingAttribute get_default_data_sharing(PragmaCustomConstruct construct,
+                DataSharingAttribute get_default_data_sharing(Nodecl::NodeclBase construct,
                         DataSharingAttribute fallback_data_sharing);
 
-                void common_parallel_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
-                void common_for_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
-                void common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
+                void common_parallel_handler(Nodecl::NodeclBase ctr, DataSharingEnvironment& data_sharing);
+                void common_for_handler(Nodecl::NodeclBase ctr, DataSharingEnvironment& data_sharing);
+                void common_workshare_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing);
 
-                void task_function_handler_pre(PragmaCustomConstruct construct);
-      			void task_inline_handler_pre(PragmaCustomConstruct construct);
+                void task_function_handler_pre(Nodecl::NodeclBase construct);
+      			void task_inline_handler_pre(Nodecl::NodeclBase construct);
 
-				RealTimeInfo task_real_time_handler_pre(PragmaCustomConstruct construct);
+				RealTimeInfo task_real_time_handler_pre(Nodecl::NodeclBase construct);
 
-                void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
-                void fix_first_section(PragmaCustomConstruct construct);
+                void common_sections_handler(Nodecl::NodeclBase construct, const std::string& pragma_name);
+                void fix_first_section(Nodecl::NodeclBase construct);
 
-                void collapse_loop_first(PragmaCustomConstruct& construct);
+                void collapse_loop_first(Nodecl::NodeclBase& construct);
 
                 // Temporary hack
-                void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
-                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
-#endif
+                void declare_reduction_handler_pre_2(Nodecl::NodeclBase construct);
+                void declare_reduction_handler_post_2(Nodecl::NodeclBase construct);
 
             public:
                 Core();

@@ -30,6 +30,7 @@
 #include "tl-source.hpp"
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
+#include "tl-builtin.hpp"
 
 #include <algorithm>
 
@@ -59,7 +60,6 @@ namespace TL
 
         void Core::pre_run(TL::DTO& dto)
         {
-#if 0
             if (!dto.get_keys().contains("openmp_info"))
             {
                 DataSharingEnvironment* root_data_sharing = new DataSharingEnvironment(NULL);
@@ -86,12 +86,10 @@ namespace TL
                 RefPtr<TL::Bool> should_run(new TL::Bool(true));
                 dto.set_object("openmp_core_should_run", should_run);
             }
-#endif
         }
 
         void Core::run(TL::DTO& dto)
         {
-#if 0
 #ifdef FORTRAN_SUPPORT
             FORTRAN_LANGUAGE()
             {
@@ -126,22 +124,21 @@ namespace TL
             // Reset any data computed so far
             _openmp_info->reset();
 
-            AST_t translation_unit ( dto["translation_unit"] );
-            ScopeLink scope_link = dto["scope_link"];
+            // FIXME - This is nefarious
+            Nodecl::NodeclBase translation_unit (*(Nodecl::NodeclBase*)dto["nodecl"].get_pointer());
 
-            Scope global_scope = scope_link.get_scope(translation_unit);
+            Scope global_scope = translation_unit.retrieve_context();
 
             if (_new_udr) 
             {
-                initialize_builtin_udr_reductions_2(translation_unit, scope_link);
+                initialize_builtin_udr_reductions_2(translation_unit);
             }
             else 
             {
                 initialize_builtin_udr_reductions(global_scope);
             }
 
-            // PragmaCustomCompilerPhase::run(dto);
-#endif
+            PragmaCustomCompilerPhase::run(dto);
         }
 
         static void register_directive(const std::string& str)
@@ -196,17 +193,16 @@ namespace TL
             _already_registered = true;
         }
 
-#if 0
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)
         {
-            ObjectList<Expression> expr_list;
+            ObjectList<Nodecl::NodeclBase> expr_list;
             if (clause.is_defined())
             {
-                expr_list = clause.get_expression_list();
+                expr_list = clause.get_arguments_as_expressions();
 
-                for (ObjectList<Expression>::iterator it = expr_list.begin();
+                for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
                         it != expr_list.end(); 
                         it++)
                 {
@@ -214,10 +210,10 @@ namespace TL
 
                     std::string warning;
                     if (!data_ref.is_valid(warning)
-                            || (!allow_extended_references && !it->is_id_expression()))
+                            || (!allow_extended_references && !it->has_symbol()))
                     {
                         std::cerr << warning;
-                        std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
+                        std::cerr << data_ref.get_locus() << ": warning: '" << data_ref.prettyprint()
                             << "' is not a valid name for data sharing" << std::endl;
                     }
                     else
@@ -227,7 +223,7 @@ namespace TL
                         if (base_sym.is_member()
                                 && !base_sym.is_static())
                         {
-                            std::cerr << data_ref.get_ast().get_locus() << ": ignoring: '" << data_ref 
+                            std::cerr << data_ref.get_locus() << ": ignoring: '" << data_ref.prettyprint()
                                 << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
                             continue;
                         }
@@ -239,13 +235,14 @@ namespace TL
         }
 
         void Core::get_reduction_symbols(
-                PragmaCustomConstruct construct,
+                Nodecl::NodeclBase construct,
                 PragmaCustomClause clause, 
                 ObjectList<ReductionSymbol>& sym_list)
         {
+#if 0
             DEBUG_CODE()
             {
-                std::cerr << "=== Reduction clause [" << construct.get_ast().get_locus() << "]===" << std::endl;
+                std::cerr << "=== Reduction clause [" << construct.get_locus() << "]===" << std::endl;
             }
 
             if (!clause.is_defined())
@@ -304,7 +301,7 @@ namespace TL
                 std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
 
                 // Put back the arguments after tokenization
-                arguments = ExpressionTokenizer().tokenize(remainder_arg);
+                arguments = Nodecl::NodeclBaseTokenizer().tokenize(remainder_arg);
 
                 // Rename 'arguments' to variables, since 'arguments' would be
                 // too vague
@@ -320,8 +317,8 @@ namespace TL
                         << variable
                         ;
 
-                    AST_t var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
-                    IdExpression var_id_expr(var_tree, clause.get_scope_link());
+                    Nodecl::NodeclBase var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
+                    Nodecl::NodeclBase var_id_expr(var_tree, clause.get_scope_link());
                     Symbol var_sym = var_id_expr.get_symbol();
 
                     if (!var_sym.is_valid())
@@ -362,8 +359,8 @@ namespace TL
                     }
                     else
                     {
-		                AST_t reductor_name_tree;
-		                IdExpression reductor_id_expr(NULL, ScopeLink());
+		                Nodecl::NodeclBase reductor_name_tree;
+		                Nodecl::NodeclBase reductor_id_expr(NULL, ScopeLink());
 
                         if (_new_udr)
                         {
@@ -375,7 +372,7 @@ namespace TL
 				            {
 				                reductor_name_tree
 				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct.get_ast(), construct.get_scope_link());
-				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
 				            }
                             else if (!udr_is_builtin_operator(reductor_name))
                             {
@@ -391,7 +388,7 @@ namespace TL
 
                                 // Change the third son 'name' -> '.udr_name_0xXXXXXXX'
                                 reductor_name_tree.children()[2].replace_text(symbol_name);
-                                IdExpression reductor_expression(reductor_name_tree, construct.get_scope_link());
+                                Nodecl::NodeclBase reductor_expression(reductor_name_tree, construct.get_scope_link());
                                 Symbol reductor_sym = reductor_expression.get_symbol();
                                 found = true;
                                 
@@ -457,7 +454,7 @@ namespace TL
 				            {
 				                reductor_name_tree
 				                    = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
-				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
 				            }
 
 				            // Adjust pointers to arrays
@@ -528,17 +525,18 @@ namespace TL
                     }
                 }
             }
+#endif
         }
 
         struct DataSharingEnvironmentSetter
         {
             private:
-                AST_t _ref_tree;
+                Nodecl::NodeclBase _ref_tree;
                 DataSharingEnvironment& _data_sharing;
                 DataSharingAttribute _data_attrib;
             public:
                 DataSharingEnvironmentSetter(
-                        AST_t ref_tree,
+                        Nodecl::NodeclBase ref_tree,
                         DataSharingEnvironment& data_sharing, 
                         DataSharingAttribute data_attrib)
                     : _ref_tree(ref_tree),
@@ -559,7 +557,7 @@ namespace TL
                             << std::endl;
                     }
 
-                    if (data_ref.is_id_expression())
+                    if (data_ref.has_symbol())
                     {
                         _data_sharing.set_data_sharing(sym, _data_attrib);
                     }
@@ -587,9 +585,10 @@ namespace TL
                 }
         };
 
-        void Core::get_data_explicit_attributes(PragmaCustomConstruct construct, 
+        void Core::get_data_explicit_attributes(Nodecl::NodeclBase construct, 
                 DataSharingEnvironment& data_sharing)
         {
+#if 0
             ObjectList<DataReference> shared_references;
             get_clause_symbols(construct.get_clause("shared"), shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
@@ -650,11 +649,13 @@ namespace TL
                     /* Allow extended references */ true);
             std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+#endif
         }
 
-        DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
+        DataSharingAttribute Core::get_default_data_sharing(Nodecl::NodeclBase construct,
                 DataSharingAttribute fallback_data_sharing)
         {
+#if 0
             PragmaCustomClause default_clause = construct.get_clause("default");
 
             if (!default_clause.is_defined())
@@ -663,7 +664,7 @@ namespace TL
             }
             else
             {
-                ObjectList<std::string> args = default_clause.get_arguments(ExpressionTokenizer());
+                ObjectList<std::string> args = default_clause.get_arguments(Nodecl::NodeclBaseTokenizer());
 
                 struct pairs_t
                 {
@@ -692,18 +693,20 @@ namespace TL
 
                 return DS_SHARED;
             }
+#endif
         }
 
-        void Core::get_data_implicit_attributes(PragmaCustomConstruct construct, 
+        void Core::get_data_implicit_attributes(Nodecl::NodeclBase construct, 
                 DataSharingAttribute default_data_attr, 
                 DataSharingEnvironment& data_sharing)
         {
+#if 0
             Statement statement = construct.get_statement();
 
-            ObjectList<IdExpression> id_expr_list = statement.non_local_symbol_occurrences();
+            ObjectList<Nodecl::NodeclBase> id_expr_list = statement.non_local_symbol_occurrences();
             ObjectList<Symbol> already_nagged;
 
-            for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = id_expr_list.begin();
                     it != id_expr_list.end();
                     it++)
             {
@@ -751,10 +754,12 @@ namespace TL
                     }
                 }
             }
+#endif
         }
 
-        void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+        void Core::common_parallel_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing)
         {
+#if 0
             data_sharing.set_is_parallel(true);
 
             get_target_info(construct, data_sharing);
@@ -764,10 +769,12 @@ namespace TL
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+#endif
         }
 
-        void Core::common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name)
+        void Core::common_sections_handler(Nodecl::NodeclBase construct, const std::string& pragma_name)
         {
+#if 0
             Statement stmt = construct.get_statement();
             if (!stmt.is_compound_statement())
             {
@@ -789,10 +796,12 @@ namespace TL
                             inner_stmt[1].get_ast().get_locus().c_str());
                 }
             }
+#endif
         }
 
-        void Core::fix_first_section(PragmaCustomConstruct construct)
+        void Core::fix_first_section(Nodecl::NodeclBase construct)
         {
+#if 0
             Statement stmt = construct.get_statement();
             ERROR_CONDITION(!stmt.is_compound_statement(), "It must be a compound statement", 0);
 
@@ -808,13 +817,15 @@ namespace TL
                     <<  inner_stmt[0].prettyprint()
                     ;
 
-                AST_t add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
+                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
                 inner_stmt[0].get_ast().replace(add_section_tree);
             }
+#endif
         }
 
-        void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+        void Core::common_for_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing)
         {
+#if 0
             Statement stmt = construct.get_statement();
 
             if (!ForStatement::predicate(stmt.get_ast()))
@@ -827,7 +838,7 @@ namespace TL
 
             if (for_statement.is_regular_loop())
             {
-                IdExpression id_expr = for_statement.get_induction_variable();
+                Nodecl::NodeclBase id_expr = for_statement.get_induction_variable();
                 Symbol sym = id_expr.get_symbol();
                 data_sharing.set_data_sharing(sym, DS_PRIVATE);
             }
@@ -836,10 +847,12 @@ namespace TL
                 running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
                         stmt.get_ast().get_locus().c_str());
             }
+#endif
         }
 
-        void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+        void Core::common_workshare_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing)
         {
+#if 0
             get_target_info(construct, data_sharing);
 
             get_data_explicit_attributes(construct, data_sharing);
@@ -847,22 +860,24 @@ namespace TL
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+#endif
         }
 
         // Data sharing computation for tasks.
         //
         // Tasks have slightly different requirements to other OpenMP constructs so their code
         // can't be merged easily
-        void Core::get_data_implicit_attributes_task(PragmaCustomConstruct construct,
+        void Core::get_data_implicit_attributes_task(Nodecl::NodeclBase construct,
                 DataSharingEnvironment& data_sharing,
                 DataSharingAttribute default_data_attr)
         {
+#if 0
             Statement statement = construct.get_statement();
 
-            ObjectList<IdExpression> id_expr_list = statement.non_local_symbol_occurrences();
+            ObjectList<Nodecl::NodeclBase> id_expr_list = statement.non_local_symbol_occurrences();
             ObjectList<Symbol> already_nagged;
 
-            for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = id_expr_list.begin();
                     it != id_expr_list.end();
                     it++)
             {
@@ -935,23 +950,29 @@ namespace TL
                     }
                 }
             }
+#endif
         }
 
         // Handlers
-        void Core::parallel_handler_pre(PragmaCustomConstruct construct)
+        void Core::parallel_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
+#endif
         }
 
-        void Core::parallel_handler_post(PragmaCustomConstruct construct)
+        void Core::parallel_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
+        void Core::parallel_for_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
 
             if (construct.get_clause("collapse").is_defined())
@@ -963,15 +984,19 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
+#endif
         }
 
-        void Core::parallel_for_handler_post(PragmaCustomConstruct construct)
+        void Core::parallel_for_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::for_handler_pre(PragmaCustomConstruct construct)
+        void Core::for_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
 
             if (construct.get_clause("collapse").is_defined())
@@ -984,58 +1009,70 @@ namespace TL
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
             get_dependences_info(construct, data_sharing);
+#endif
         }
 
-        void Core::for_handler_post(PragmaCustomConstruct construct)
+        void Core::for_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::single_handler_pre(PragmaCustomConstruct construct)
+        void Core::single_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
+#endif
         }
 
-        void Core::single_handler_post(PragmaCustomConstruct construct)
+        void Core::single_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::parallel_sections_handler_pre(PragmaCustomConstruct construct)
+        void Core::parallel_sections_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
 
             common_sections_handler(construct, "parallel sections");
+#endif
         }
 
-        void Core::parallel_sections_handler_post(PragmaCustomConstruct construct)
+        void Core::parallel_sections_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::threadprivate_handler_pre(PragmaCustomConstruct construct)
+        void Core::threadprivate_handler_pre(Nodecl::PragmaCustomDirective construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
 
-            ObjectList<Expression> expr_list = construct.get_parameter_expressions();
+            ObjectList<Nodecl::NodeclBase> expr_list = construct.get_parameter_expressions();
 
-            for (ObjectList<Expression>::iterator it = expr_list.begin();
+            for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
                     it != expr_list.end();
                     it++)
             {
-                Expression& expr(*it);
+                Nodecl::NodeclBase& expr(*it);
                 if (!expr.is_id_expression())
                 {
                     std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
                 }
                 else
                 {
-                    IdExpression id_expr = expr.get_id_expression();
+                    Nodecl::NodeclBase id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
 
                     if (sym.is_member()
@@ -1047,11 +1084,13 @@ namespace TL
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
+#endif
         }
-        void Core::threadprivate_handler_post(PragmaCustomConstruct construct) { }
+        void Core::threadprivate_handler_post(Nodecl::PragmaCustomDirective construct) { }
 
-        void Core::task_handler_pre(PragmaCustomConstruct construct)
+        void Core::task_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
 			if (construct.get_declaration().is_valid())
             {
                 task_function_handler_pre(construct);
@@ -1060,10 +1099,12 @@ namespace TL
 			{
 				task_inline_handler_pre(construct);
 			}
+#endif
         }
 
-        void Core::task_handler_post(PragmaCustomConstruct construct)
+        void Core::task_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             if (!Statement::predicate(construct.get_declaration()))
             {
                 // Do nothing for this case
@@ -1071,63 +1112,94 @@ namespace TL
             }
 
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
 
-        void Core::taskwait_handler_pre(PragmaCustomConstruct construct)
+        void Core::taskwait_handler_pre(Nodecl::PragmaCustomDirective construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
             get_dependences_info_clause(construct.get_clause("on"), data_sharing, DEP_DIR_INPUT);
+#endif
         }
 
-        void Core::taskwait_handler_post(PragmaCustomConstruct construct)
+        void Core::taskwait_handler_post(Nodecl::PragmaCustomDirective construct)
         {
+#if 0
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-        void Core::sections_handler_pre(PragmaCustomConstruct construct)
+        void Core::sections_handler_pre(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
             common_workshare_handler(construct, data_sharing);
 
             common_sections_handler(construct, "sections");
+#endif
         }
 
-        void Core::sections_handler_post(PragmaCustomConstruct construct)
+        void Core::sections_handler_post(Nodecl::PragmaCustomStatement construct)
         {
+#if 0
             fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
+#endif
         }
 
-#define EMPTY_HANDLERS(_name) \
-        void Core::_name##_handler_pre(PragmaCustomConstruct ctr) { ctr.init_clause_info(); } \
-        void Core::_name##_handler_post(PragmaCustomConstruct) { }
+#define INVALID_STATEMENT_HANDLER(_name) \
+        void Core::_name##_handler_pre(Nodecl::PragmaCustomStatement ctr) { \
+            error_printf("%s: error: invalid '#pragma %s %s'\n",  \
+                    ctr.get_locus().c_str(), \
+                    ctr.get_text().c_str(), \
+                    ctr.get_pragma_line().get_text().c_str()); \
+        } \
+        void Core::_name##_handler_post(Nodecl::PragmaCustomStatement) { } 
 
-        EMPTY_HANDLERS(section)
-        EMPTY_HANDLERS(barrier)
-        EMPTY_HANDLERS(atomic)
-        EMPTY_HANDLERS(master)
-        EMPTY_HANDLERS(critical)
-        EMPTY_HANDLERS(flush)
-        EMPTY_HANDLERS(ordered)
+#define INVALID_DECLARATION_HANDLER(_name) \
+        void Core::_name##_handler_pre(Nodecl::PragmaCustomDeclaration ctr) { \
+            error_printf("%s: error: invalid '#pragma %s %s'\n",  \
+                    ctr.get_locus().c_str(), \
+                    ctr.get_text().c_str(), \
+                    ctr.get_pragma_line().get_text().c_str()); \
+        } \
+        void Core::_name##_handler_post(Nodecl::PragmaCustomDeclaration) { } 
+
+        // FIXME - We lack lots of INVALID_DECLARATION_HANDLER here
+
+#define EMPTY_HANDLERS_CONSTRUCT(_name) \
+        void Core::_name##_handler_pre(Nodecl::PragmaCustomStatement) { } \
+        void Core::_name##_handler_post(Nodecl::PragmaCustomStatement) { } \
+        void Core::_name##_handler_pre(Nodecl::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_post(Nodecl::PragmaCustomDeclaration) { } \
+
+#define EMPTY_HANDLERS_DIRECTIVE(_name) \
+        void Core::_name##_handler_pre(Nodecl::PragmaCustomDirective) { } \
+        void Core::_name##_handler_post(Nodecl::PragmaCustomDirective) { } 
+
+        EMPTY_HANDLERS_CONSTRUCT(section)
+        EMPTY_HANDLERS_DIRECTIVE(barrier)
+        EMPTY_HANDLERS_CONSTRUCT(atomic)
+        EMPTY_HANDLERS_CONSTRUCT(master)
+        EMPTY_HANDLERS_CONSTRUCT(critical)
+        EMPTY_HANDLERS_DIRECTIVE(flush)
+        EMPTY_HANDLERS_CONSTRUCT(ordered)
 #ifdef FORTRAN_SUPPORT
-        EMPTY_HANDLERS(parallel_do)
-        EMPTY_HANDLERS(do)
-#endif
-
+        EMPTY_HANDLERS_CONSTRUCT(parallel_do)
+        EMPTY_HANDLERS_CONSTRUCT(do)
 #endif
 
         void openmp_core_run_next_time(DTO& dto)
         {
-#if 0
             // Make openmp core run in the pipeline
             RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
-#endif
         }
 
     }

@@ -23,7 +23,9 @@ namespace Nodecl {
             static NodeclBase null() { return NodeclBase(::nodecl_null()); }
             virtual ~NodeclBase() { }
             TL::Type get_type() const { return TL::Type(::nodecl_get_type(_n)); }
+            bool has_type() const { return ::nodecl_get_type(_n) != NULL; }
             TL::Symbol get_symbol() const { return TL::Symbol(::nodecl_get_symbol(_n)); }
+            bool has_symbol() const { return ::nodecl_get_symbol(_n) != NULL; }
             TL::Scope retrieve_context() const { return nodecl_retrieve_context(_n); }
             std::string get_text() const { return std::string(::nodecl_get_text(_n)); }
             std::string get_filename() const { const char* c = nodecl_get_filename(_n); if (c == NULL) c = "(null)"; return c; }
@@ -38,6 +40,9 @@ namespace Nodecl {
                 }
                 return result;
             }
+
+            // Prettyprint
+            std::string prettyprint();
 
             // Simple RTTI
             template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }
