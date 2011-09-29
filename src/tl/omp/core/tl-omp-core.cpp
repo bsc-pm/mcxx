@@ -178,10 +178,10 @@ namespace TL
                     { \
                       register_construct(_directive, _noend); \
                     } \
-                    dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
-                    dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
-                    dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
-                    dispatcher().statement.post[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
+                    dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
+                    dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
+                    dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
+                    dispatcher().statement.post[_directive].connect(functor((void (Core::*)(TL::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
                 }
 #define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
 #define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
@@ -289,8 +289,8 @@ namespace TL
 
                 if (split_colon == first_arg.end())
                 {
-                    std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid operator" << std::endl;
-                    std::cerr << clause.get_ast().get_locus() << ": warning: skipping the whole clause" << std::endl;
+                    std::cerr << clause.get_locus() << ": warning: 'reduction' clause does not have a valid operator" << std::endl;
+                    std::cerr << clause.get_locus() << ": warning: skipping the whole clause" << std::endl;
                     return;
                 }
 
@@ -313,18 +313,18 @@ namespace TL
                     std::string &variable(*it);
                     Source src;
                     src
-                        << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+                        << "#line " << construct.get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
                         << variable
                         ;
 
-                    Nodecl::NodeclBase var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
+                    Nodecl::NodeclBase var_tree = src.parse_id_expression(clause, clause.get_scope_link());
                     Nodecl::NodeclBase var_id_expr(var_tree, clause.get_scope_link());
                     Symbol var_sym = var_id_expr.get_symbol();
 
                     if (!var_sym.is_valid())
                     {
                         running_error("%s: error: variable '%s' in reduction clause has not been found in the scope\n",
-                                construct.get_ast().get_locus().c_str(),
+                                construct.get_locus().c_str(),
                                 var_tree.prettyprint().c_str());
                     }
 
@@ -339,7 +339,7 @@ namespace TL
                             if (!var_type.is_named_class()
                                     && !var_type.is_dependent())
                             {
-                                std::cerr << construct.get_ast().get_locus() << ": warning: reductor '" << reductor_name 
+                                std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name 
                                     << "' is no valid for non class-type variable '" << var_id_expr.prettyprint() << "'"
                                     << ", skipping"
                                     << std::endl;
@@ -354,7 +354,7 @@ namespace TL
 
                     if (var_sym.is_dependent_entity())
                     {
-                        std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
+                        std::cerr << construct.get_locus() << ": warning: symbol "
                             << "'" << var_tree.prettyprint() << "' is dependent, skipping it" << std::endl;
                     }
                     else
@@ -371,7 +371,7 @@ namespace TL
 				            if (var_type.is_class())
 				            {
 				                reductor_name_tree
-				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct.get_ast(), construct.get_scope_link());
+				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct, construct.get_scope_link());
 				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
 				            }
                             else if (!udr_is_builtin_operator(reductor_name))
@@ -432,7 +432,7 @@ namespace TL
                                 sym_list.append(red_sym);
                                 if (!udr2.is_builtin_operator() && construct.get_show_warnings())
                                 {
-                                    std::cerr << construct.get_ast().get_locus() 
+                                    std::cerr << construct.get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
                                         << reductor_name << "'"
                                         << std::endl;
@@ -442,7 +442,7 @@ namespace TL
                             {
                                 // Make this a hard error, otherwise lots of false positives will slip in
                                 running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                        construct.get_ast().get_locus().c_str(),
+                                        construct.get_locus().c_str(),
                                         reductor_name.c_str(),
                                         var_tree.prettyprint().c_str(),
                                         var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
@@ -453,7 +453,7 @@ namespace TL
 				            if (!udr_is_builtin_operator(reductor_name))
 				            {
 				                reductor_name_tree
-				                    = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
+				                    = Source(reductor_name).parse_id_expression(construct, construct.get_scope_link());
 				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
 				            }
 
@@ -493,8 +493,8 @@ namespace TL
                                     construct.get_scope_link(),
                                     found,
                                     all_viables, 
-                                    construct.get_ast().get_file(),
-                                    construct.get_ast().get_line());
+                                    construct.get_file(),
+                                    construct.get_line());
 
                             if (found)
                             {
@@ -505,7 +505,7 @@ namespace TL
                                 {
                                     Symbol op_sym = udr.get_operator_symbols()[0];
                                     Type op_type = op_sym.get_type();
-                                    std::cerr << construct.get_ast().get_locus() 
+                                    std::cerr << construct.get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
                                         << op_type.get_declaration(construct.get_scope(),
                                                 op_sym.get_qualified_name(construct.get_scope())) << "'" 
@@ -516,7 +516,7 @@ namespace TL
                             {
                                 // Make this a hard error, otherwise lots of false positives will slip in
                                 running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                        construct.get_ast().get_locus().c_str(),
+                                        construct.get_locus().c_str(),
                                         reductor_name.c_str(),
                                         var_tree.prettyprint().c_str(),
                                         var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
@@ -592,23 +592,23 @@ namespace TL
             ObjectList<DataReference> shared_references;
             get_clause_symbols(construct.get_clause("shared"), shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_SHARED));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_SHARED));
 
             ObjectList<DataReference> private_references;
             get_clause_symbols(construct.get_clause("private"), private_references);
             std::for_each(private_references.begin(), private_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_PRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_PRIVATE));
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), 
                     firstprivate_references);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> lastprivate_references;
             get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
             std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_LASTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_LASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
@@ -618,37 +618,37 @@ namespace TL
             ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYIN));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYIN));
 
             ObjectList<DataReference> copyprivate_references;
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_COPYPRIVATE));
 
             // Internal clauses created by fun-tasks phase
             ObjectList<DataReference> fp_input_references;
             get_clause_symbols(construct.get_clause("__fp_input"), fp_input_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_input_references.begin(), fp_input_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_output_references;
             get_clause_symbols(construct.get_clause("__fp_output"), fp_output_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_output_references.begin(), fp_output_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_inout_references;
             get_clause_symbols(construct.get_clause("__fp_inout"), fp_inout_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> fp_reduction_references;
             get_clause_symbols(construct.get_clause("__fp_reduction"), fp_reduction_references, 
                     /* Allow extended references */ true);
             std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
-                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct, data_sharing, DS_FIRSTPRIVATE));
 #endif
         }
 
@@ -686,9 +686,9 @@ namespace TL
                     }
                 }
 
-                std::cerr << default_clause.get_ast().get_locus() 
+                std::cerr << default_clause.get_locus() 
                     << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
-                std::cerr << default_clause.get_ast().get_locus() 
+                std::cerr << default_clause.get_locus() 
                     << ": warning: assuming 'shared'" << std::endl;
 
                 return DS_SHARED;
@@ -779,7 +779,7 @@ namespace TL
             if (!stmt.is_compound_statement())
             {
                 running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
-                        construct.get_ast().get_locus().c_str(),
+                        construct.get_locus().c_str(),
                         pragma_name.c_str());
             }
 
@@ -788,12 +788,12 @@ namespace TL
             if (inner_stmt.size() > 1)
             {
                 if (!is_pragma_custom_construct("omp", "section", 
-                            inner_stmt[0].get_ast(), construct.get_scope_link())
+                            inner_stmt[0], construct.get_scope_link())
                         && !is_pragma_custom_construct("omp", "section", 
-                            inner_stmt[1].get_ast(), construct.get_scope_link()))
+                            inner_stmt[1], construct.get_scope_link()))
                 {
                     running_error("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
-                            inner_stmt[1].get_ast().get_locus().c_str());
+                            inner_stmt[1].get_locus().c_str());
                 }
             }
 #endif
@@ -809,7 +809,7 @@ namespace TL
 
             if (!inner_stmt.empty()
                     && !is_pragma_custom_construct("omp", "section", 
-                        inner_stmt[0].get_ast(), construct.get_scope_link()))
+                        inner_stmt[0], construct.get_scope_link()))
             {
                 Source add_section_src;
                 add_section_src
@@ -817,8 +817,8 @@ namespace TL
                     <<  inner_stmt[0].prettyprint()
                     ;
 
-                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
-                inner_stmt[0].get_ast().replace(add_section_tree);
+                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0], construct.get_scope_link());
+                inner_stmt[0].replace(add_section_tree);
             }
 #endif
         }
@@ -828,13 +828,13 @@ namespace TL
 #if 0
             Statement stmt = construct.get_statement();
 
-            if (!ForStatement::predicate(stmt.get_ast()))
+            if (!ForStatement::predicate(stmt))
             {
                 running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
-                        stmt.get_ast().get_locus().c_str());
+                        stmt.get_locus().c_str());
             }
 
-            ForStatement for_statement(stmt.get_ast(), stmt.get_scope_link());
+            ForStatement for_statement(stmt, stmt.get_scope_link());
 
             if (for_statement.is_regular_loop())
             {
@@ -845,7 +845,7 @@ namespace TL
             else
             {
                 running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
-                        stmt.get_ast().get_locus().c_str());
+                        stmt.get_locus().c_str());
             }
 #endif
         }
@@ -954,26 +954,21 @@ namespace TL
         }
 
         // Handlers
-        void Core::parallel_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
-#endif
         }
 
-        void Core::parallel_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::parallel_for_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_for_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
 
             if (construct.get_clause("collapse").is_defined())
             {
@@ -984,20 +979,16 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
-#endif
         }
 
-        void Core::parallel_for_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_for_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::for_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::for_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
 
             if (construct.get_clause("collapse").is_defined())
             {
@@ -1009,179 +1000,149 @@ namespace TL
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
             get_dependences_info(construct, data_sharing);
-#endif
         }
 
-        void Core::for_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::for_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::single_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::single_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
-#endif
         }
 
-        void Core::single_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::single_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::parallel_sections_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_sections_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
 
             common_sections_handler(construct, "parallel sections");
-#endif
         }
 
-        void Core::parallel_sections_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::parallel_sections_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::threadprivate_handler_pre(Nodecl::PragmaCustomDirective construct)
+        void Core::threadprivate_handler_pre(TL::PragmaCustomDirective construct)
         {
-#if 0
             DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
 
-            ObjectList<Nodecl::NodeclBase> expr_list = construct.get_parameter_expressions();
+            ObjectList<Nodecl::NodeclBase> expr_list = construct.get_parameter().get_arguments_as_expressions();
 
             for (ObjectList<Nodecl::NodeclBase>::iterator it = expr_list.begin();
                     it != expr_list.end();
                     it++)
             {
                 Nodecl::NodeclBase& expr(*it);
-                if (!expr.is_id_expression())
+                if (!expr.has_symbol())
                 {
-                    std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
+                    std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is not an id-expression, skipping" << std::endl;
                 }
                 else
                 {
-                    Nodecl::NodeclBase id_expr = expr.get_id_expression();
-                    Symbol sym = id_expr.get_symbol();
+                    Symbol sym = expr.get_symbol();
 
                     if (sym.is_member()
                             && !sym.is_static())
                     {
-                        std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is a nonstatic-member, skipping" << std::endl;
+                        std::cerr << expr.get_locus() << ": warning: '" << expr.prettyprint() << "' is a nonstatic-member, skipping" << std::endl;
                     }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
-#endif
         }
-        void Core::threadprivate_handler_post(Nodecl::PragmaCustomDirective construct) { }
+        void Core::threadprivate_handler_post(TL::PragmaCustomDirective construct) { }
 
-        void Core::task_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::task_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-			if (construct.get_declaration().is_valid())
-            {
-                task_function_handler_pre(construct);
-            }
-			else
-			{
-				task_inline_handler_pre(construct);
-			}
-#endif
+            task_inline_handler_pre(construct);
         }
 
-        void Core::task_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-#if 0
-            if (!Statement::predicate(construct.get_declaration()))
-            {
-                // Do nothing for this case
-                return;
-            }
+            task_function_handler_pre(construct);
+        }
 
+        void Core::task_handler_post(TL::PragmaCustomStatement construct)
+        {
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-
-        void Core::taskwait_handler_pre(Nodecl::PragmaCustomDirective construct)
+        void Core::task_handler_post(TL::PragmaCustomDeclaration construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            // Do nothing
+        }
+
+        void Core::taskwait_handler_pre(TL::PragmaCustomDirective construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
             get_dependences_info_clause(construct.get_clause("on"), data_sharing, DEP_DIR_INPUT);
-#endif
         }
 
-        void Core::taskwait_handler_post(Nodecl::PragmaCustomDirective construct)
+        void Core::taskwait_handler_post(TL::PragmaCustomDirective construct)
         {
-#if 0
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
-        void Core::sections_handler_pre(Nodecl::PragmaCustomStatement construct)
+        void Core::sections_handler_pre(TL::PragmaCustomStatement construct)
         {
-#if 0
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct);
             _openmp_info->push_current_data_sharing(data_sharing);
 
             common_workshare_handler(construct, data_sharing);
 
             common_sections_handler(construct, "sections");
-#endif
         }
 
-        void Core::sections_handler_post(Nodecl::PragmaCustomStatement construct)
+        void Core::sections_handler_post(TL::PragmaCustomStatement construct)
         {
-#if 0
             fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
-#endif
         }
 
 #define INVALID_STATEMENT_HANDLER(_name) \
-        void Core::_name##_handler_pre(Nodecl::PragmaCustomStatement ctr) { \
+        void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
                     ctr.get_locus().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
-        void Core::_name##_handler_post(Nodecl::PragmaCustomStatement) { } 
+        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } 
 
 #define INVALID_DECLARATION_HANDLER(_name) \
-        void Core::_name##_handler_pre(Nodecl::PragmaCustomDeclaration ctr) { \
+        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
                     ctr.get_locus().c_str(), \
                     ctr.get_text().c_str(), \
                     ctr.get_pragma_line().get_text().c_str()); \
         } \
-        void Core::_name##_handler_post(Nodecl::PragmaCustomDeclaration) { } 
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } 
 
         // FIXME - We lack lots of INVALID_DECLARATION_HANDLER here
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
-        void Core::_name##_handler_pre(Nodecl::PragmaCustomStatement) { } \
-        void Core::_name##_handler_post(Nodecl::PragmaCustomStatement) { } \
-        void Core::_name##_handler_pre(Nodecl::PragmaCustomDeclaration) { } \
-        void Core::_name##_handler_post(Nodecl::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomStatement) { } \
+        void Core::_name##_handler_pre(TL::PragmaCustomDeclaration) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } \
 
 #define EMPTY_HANDLERS_DIRECTIVE(_name) \
-        void Core::_name##_handler_pre(Nodecl::PragmaCustomDirective) { } \
-        void Core::_name##_handler_post(Nodecl::PragmaCustomDirective) { } 
+        void Core::_name##_handler_pre(TL::PragmaCustomDirective) { } \
+        void Core::_name##_handler_post(TL::PragmaCustomDirective) { } 
 
         EMPTY_HANDLERS_CONSTRUCT(section)
         EMPTY_HANDLERS_DIRECTIVE(barrier)

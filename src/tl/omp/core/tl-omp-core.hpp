@@ -70,13 +70,13 @@ namespace TL
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \
-                void _name##_handler_pre(Nodecl::PragmaCustomDirective); \
-                void _name##_handler_post(Nodecl::PragmaCustomDirective);
+                void _name##_handler_pre(TL::PragmaCustomDirective); \
+                void _name##_handler_post(TL::PragmaCustomDirective);
 #define OMP_CONSTRUCT(_directive, _name) \
-                void _name##_handler_pre(Nodecl::PragmaCustomStatement); \
-                void _name##_handler_post(Nodecl::PragmaCustomStatement); \
-                void _name##_handler_pre(Nodecl::PragmaCustomDeclaration); \
-                void _name##_handler_post(Nodecl::PragmaCustomDeclaration); 
+                void _name##_handler_pre(TL::PragmaCustomStatement); \
+                void _name##_handler_post(TL::PragmaCustomStatement); \
+                void _name##_handler_pre(TL::PragmaCustomDeclaration); \
+                void _name##_handler_post(TL::PragmaCustomDeclaration); 
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
                 OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"

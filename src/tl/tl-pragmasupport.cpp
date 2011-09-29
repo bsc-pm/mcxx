@@ -147,13 +147,12 @@ namespace TL
         return _pragma_map_dispatcher;
     }
 
-    std::string PragmaCustomSingleClause::get_raw_arguments() const
+    std::string PragmaClauseArgList::get_raw_arguments() const
     {
         std::string result;
-        Nodecl::List arguments = this->get_arguments().as<Nodecl::List>();
 
-        for (Nodecl::List::iterator it = arguments.begin();
-                it != arguments.end();
+        for (Nodecl::List::const_iterator it = this->begin();
+                it != this->end();
                 it++)
         {
             result += it->get_text();
@@ -162,13 +161,13 @@ namespace TL
         return result;
     }
 
-    ObjectList<std::string> PragmaCustomSingleClause::get_tokenized_arguments(const ClauseTokenizer& tokenizer) const
+    ObjectList<std::string> PragmaClauseArgList::get_tokenized_arguments(const ClauseTokenizer& tokenizer) const
     {
         std::string raw = this->get_raw_arguments();
         return tokenizer.tokenize(raw);
     }
 
-    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
             const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> str_list = this->get_tokenized_arguments(tokenizer);
@@ -186,6 +185,27 @@ namespace TL
         }
 
         return result;
+    }
+
+    ObjectList<Nodecl::NodeclBase> PragmaClauseArgList::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
+    {
+        return get_arguments_as_expressions(this->retrieve_context(), tokenizer);
+    }
+
+    std::string PragmaCustomSingleClause::get_raw_arguments() const
+    {
+        return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_raw_arguments();
+    }
+
+    ObjectList<std::string> PragmaCustomSingleClause::get_tokenized_arguments(const ClauseTokenizer& tokenizer) const
+    {
+        return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_tokenized_arguments(tokenizer);
+    }
+
+    ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(Source::ReferenceScope ref_scope, 
+            const ClauseTokenizer& tokenizer) const
+    {
+        return PragmaClauseArgList(this->get_arguments().as<Nodecl::List>()).get_arguments_as_expressions(ref_scope, tokenizer);
     }
 
     ObjectList<Nodecl::NodeclBase> PragmaCustomSingleClause::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
@@ -243,7 +263,6 @@ namespace TL
         return this->get_arguments_as_expressions(_pragma_line.retrieve_context(), tokenizer);
     }
 
-    //! Returns a clause by a set of alias names
     TL::PragmaCustomClause PragmaCustomLine::get_clause(const ObjectList<std::string>& aliased_names) const
     {
         ObjectList<Nodecl::PragmaCustomClause> result;
@@ -264,7 +283,6 @@ namespace TL
         return PragmaCustomClause(*this, result);
     }
     
-    //! Returns a clause by name
     TL::PragmaCustomClause PragmaCustomLine::get_clause(const std::string &name) const
     {
         ObjectList<std::string> set;
@@ -272,7 +290,6 @@ namespace TL
         return get_clause(set);
     }
 
-    //! This function returns all clauses in the order they appear in the pragma
     ObjectList<TL::PragmaCustomSingleClause> PragmaCustomLine::get_all_clauses() const
     {
         ObjectList<TL::PragmaCustomSingleClause> result;
@@ -289,7 +306,6 @@ namespace TL
         return result;
     }
 
-    //! This function returns all clause names in the order they appear in the pragma
     ObjectList<std::string> PragmaCustomLine::get_all_clause_names() const
     {
         ObjectList<std::string> result;
@@ -303,6 +319,11 @@ namespace TL
         }
 
         return result;
+    }
+
+    PragmaCustomParameter PragmaCustomLine::get_parameter() const
+    {
+        return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
     }
 
     PragmaCustomCommon::PragmaCustomCommon(Nodecl::PragmaCustomDirective node)
@@ -341,5 +362,10 @@ namespace TL
     ObjectList<std::string> PragmaCustomCommon::get_all_clause_names() const
     {
         return _pragma_line.get_all_clause_names();
+    }
+
+    PragmaCustomParameter PragmaCustomCommon::get_parameter() const
+    {
+        return _pragma_line.get_parameter();
     }
 }

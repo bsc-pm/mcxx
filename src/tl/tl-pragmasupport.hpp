@@ -70,13 +70,47 @@ namespace TL
             static std::string trimExp (const std::string &str);
     };
 
+    class LIBTL_CLASS PragmaClauseArgList : public Nodecl::List
+    {
+        public:
+        PragmaClauseArgList(Nodecl::List node)
+            : Nodecl::List(node) { }
+        
+        //! Returns a tokenized list of strings of the arguments of the clause
+        /*! 
+         * Use this function when you want the arguments of the clause in string form but
+         * tokenized by some ClauseTokenizer. By default ExpressionTokenizerTrim is used
+         * as it is the commonest scenario
+         */
+        ObjectList<std::string> get_tokenized_arguments(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+        //! Returns the literal text of the arguments of the clause
+        std::string get_raw_arguments() const;
+
+        //! Returns the arguments of the clause parsed as expressions
+        /*!
+         * Invokes get_tokenized_arguments and for each string, parses it as an expression
+         *
+         * \note Be careful not to call this function more times than needed,
+         * since it will generate new trees each time
+         */
+        ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+        //! Returns the arguments of the clause parsed as expressions
+        /*!
+         * This function behaves like
+         * get_arguments_as_expressions(ClauseTokenizer) but using the
+         * given ReferenceScope to perform the parse of the expressions
+         */
+        ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+    };
 
     //! This is the dual to PragmaCustomClause
     /*! 
      * This class maps a single pragma custom clause, when the flattened
      * view provided by PragmaCustomClause is not desirable
      */
-    class LIBTL_CLASS PragmaCustomSingleClause : Nodecl::PragmaCustomClause
+    class LIBTL_CLASS PragmaCustomSingleClause : public Nodecl::PragmaCustomClause
     {
         public:
             PragmaCustomSingleClause(Nodecl::PragmaCustomClause node)
@@ -168,6 +202,13 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
     };
 
+    class LIBTL_CLASS PragmaCustomParameter : public TL::PragmaClauseArgList
+    {
+        public:
+            PragmaCustomParameter(Nodecl::List node)
+                : PragmaClauseArgList(node) { }
+    };
+
     class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine
     {
         public:
@@ -187,6 +228,13 @@ namespace TL
 
             //! This function returns all clause names in the order they appear in the pragma
             ObjectList<std::string> get_all_clause_names() const;
+            
+            //! This function returns the parameter
+            /*!
+             * The parameter of the clause is just a special clause with no name that can appear
+             * right after the pragma. You can perform the same operations as a PragmaCustomSingleClause
+             */
+            PragmaCustomParameter get_parameter() const;
     };
     
     class LIBTL_CLASS PragmaCustomCommon 
@@ -209,10 +257,17 @@ namespace TL
 
             //! This function returns all clause names in the order they appear in the pragma
             ObjectList<std::string> get_all_clause_names() const;
+
+            //! This function returns the parameter
+            /*!
+             * The parameter of the clause is just a special clause with no name that can appear
+             * right after the pragma. You can perform the same operations as a PragmaCustomSingleClause
+             */
+            PragmaCustomParameter get_parameter() const;
     };
 
     // Note that this is TL::PragmaCustomDirective 
-    class LIBTL_CLASS PragmaCustomDirective : public Nodecl::PragmaCustomDirective, PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomDirective : public Nodecl::PragmaCustomDirective, public PragmaCustomCommon
     {
         public:
         PragmaCustomDirective(Nodecl::PragmaCustomDirective node)
@@ -221,16 +276,18 @@ namespace TL
         }
     };
 
-    class LIBTL_CLASS PragmaCustomStatement : Nodecl::PragmaCustomStatement, PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomStatement : public Nodecl::PragmaCustomStatement, public PragmaCustomCommon
     {
+        public:
         PragmaCustomStatement(Nodecl::PragmaCustomStatement node)
             : Nodecl::PragmaCustomStatement(node), PragmaCustomCommon(node)
         {
         }
     };
 
-    class LIBTL_CLASS PragmaCustomDeclaration : Nodecl::PragmaCustomDeclaration, PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomDeclaration : public Nodecl::PragmaCustomDeclaration, public PragmaCustomCommon
     {
+        public:
         PragmaCustomDeclaration(Nodecl::PragmaCustomDeclaration node)
             : Nodecl::PragmaCustomDeclaration(node), PragmaCustomCommon(node)
         {
@@ -239,7 +296,7 @@ namespace TL
 
     struct PragmaMapDispatcher
     {
-        typedef Signal1<Nodecl::PragmaCustomDirective> SignalDirective;
+        typedef Signal1<TL::PragmaCustomDirective> SignalDirective;
         typedef std::map<std::string, SignalDirective> DirectiveMap;
 
         struct Directive
@@ -249,7 +306,7 @@ namespace TL
         };
         Directive directive;
 
-        typedef Signal1<Nodecl::PragmaCustomStatement> SignalStatement;
+        typedef Signal1<TL::PragmaCustomStatement> SignalStatement;
         typedef std::map<std::string, SignalStatement> StatementMap;
 
         struct Statement
@@ -259,7 +316,7 @@ namespace TL
         };
         Statement statement;
 
-        typedef Signal1<Nodecl::PragmaCustomDeclaration> SignalDeclaration;
+        typedef Signal1<TL::PragmaCustomDeclaration> SignalDeclaration;
         typedef std::map<std::string, SignalDeclaration> DeclarationMap;
 
         struct Declaration
