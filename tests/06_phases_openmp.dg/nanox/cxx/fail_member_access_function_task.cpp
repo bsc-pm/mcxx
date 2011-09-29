@@ -28,19 +28,52 @@
 /*
 <testinfo>
 test_generator=config/mercurium-nanox
+test_exec_faulty=config/mercurium-nanox
 </testinfo>
 */
 
-int o;
-double x, y;
-#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
-void f(int e) 
-{
-    o = e + 1;
-}      
 
-int main() 
+#include<assert.h>
+
+struct C
 {
-    int e = 1;
-    f(e);
+    int n;
+};
+
+struct B
+{
+    C * c;
+    int n;
+};
+
+struct A
+{
+    int n;
+    B* b;
+
+#pragma omp task inout(n,b->n, b->c->n)
+    void f()
+    {
+        n++;
+        b->n++;
+        b->c->n++;
+    }
+};
+
+int main()
+{
+    A a;
+    B b;
+    C c;
+    c.n = 1;
+    b.n = 2;
+    b.c = &c;
+
+    a.n = 3;
+    a.b = &b;
+    a.f();
+    #pragma omp taskwait
+    assert(a.n == 4);
+    assert(a.b->n == 3);
+    assert(a.b->c->n == 2);
 }

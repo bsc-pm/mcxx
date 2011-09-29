@@ -174,31 +174,71 @@ namespace TL
 
         class LIBTL_CLASS RealTimeInfo  
         {
+            
             public:
                 
-                enum RealTimeErrorBehavior 
+                #define ENUM_OMP_ERROR_EVENT_LIST \
+                    ENUM_OMP_ERROR_EVENT(OMP_ANY_EVENT) \
+                    ENUM_OMP_ERROR_EVENT(OMP_DEADLINE_EXPIRED)
+                
+                enum omp_error_event_t 
                 {
-                    OMP_ABORT = 0
+                   #define ENUM_OMP_ERROR_EVENT(x) x,
+                        ENUM_OMP_ERROR_EVENT_LIST
+                   #undef ENUM_OMP_ERROR_EVENT
                 };
                 
+                #define ENUM_OMP_ERROR_ACTION_LIST \
+                    ENUM_OMP_ERROR_ACTION(OMP_NO_ACTION,OMP_NO_ACTION)  \
+                    ENUM_OMP_ERROR_ACTION(OMP_IGNORE,OMP_ACTION_IGNORE) \
+                    ENUM_OMP_ERROR_ACTION(OMP_SKIP,OMP_ACTION_SKIP)
+
+                
+                enum omp_error_action_t  
+                {
+                    #define ENUM_OMP_ERROR_ACTION(x,y) y,
+                        ENUM_OMP_ERROR_ACTION_LIST
+                    #undef ENUM_OMP_ERROR_ACTION
+                };
+                
+                typedef std::map<omp_error_event_t, omp_error_action_t> map_error_behavior_t;
+                
+            private:
+
+                Expression *_time_deadline;
+
+                Expression *_time_release;
+               
+                map_error_behavior_t _map_error_behavior;
+                
+                map_error_behavior_t get_map_error_behavior() const;
+            
+            public:      
                 RealTimeInfo();
                 
                 ~RealTimeInfo();
-
-                void set_is_release_deadline(bool value);
                 
-                bool get_is_release_deadline();
-
-                void set_error_behavior(RealTimeErrorBehavior err);
-
-                RealTimeErrorBehavior get_error_behavior();
-            
-            private:
+                RealTimeInfo (const RealTimeInfo& rt_copy);
                 
-                bool _is_release_deadline;
+                RealTimeInfo & operator=(const RealTimeInfo & rt_copy);
 
-                RealTimeErrorBehavior _error_behavior;
+                Expression get_time_deadline() const;
 
+                Expression get_time_release() const;
+
+                bool has_deadline_time() const;
+
+                bool has_release_time() const;
+
+                void set_time_deadline(Expression exp);
+
+                void set_time_release(Expression exp);
+                
+                std::string get_action_error(omp_error_event_t event);
+
+                void add_error_behavior(std::string event, std::string action);
+                 
+                void add_error_behavior(std::string action);
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -371,6 +411,7 @@ namespace TL
         {
             private:
                 Symbol _sym;
+
                 ObjectList<FunctionTaskDependency> _parameters;
 
                 typedef std::map<std::string, Symbol> implementation_table_t;
@@ -379,11 +420,24 @@ namespace TL
                 FunctionTaskTargetInfo _target_info;
                 
                 RealTimeInfo _real_time_info;
+
+                Expression *_if_clause_cond_expr;
+
+                Symbol get_symbol() const;
+
+                implementation_table_t get_implementation_table() const;
+
             public:
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
-
+                
+                ~FunctionTaskInfo();
+                
+                FunctionTaskInfo(const FunctionTaskInfo & ft_copy);
+                
+                FunctionTaskInfo & operator=(const FunctionTaskInfo & ft_copy);
+                
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
@@ -391,6 +445,7 @@ namespace TL
                 FunctionTaskTargetInfo get_target_info() const;
 
                 void add_device(const std::string& device_name);
+                
                 void add_device_with_implementation(
                         const std::string& device_name,
                         Symbol implementor_symbol);
@@ -404,6 +459,13 @@ namespace TL
                 void set_real_time_info(const RealTimeInfo & rt_info);
 
                 RealTimeInfo get_real_time_info();
+                
+                bool has_if_clause() const;
+
+                void set_if_clause_conditional_expression(Expression expr);
+                
+                Expression get_if_clause_conditional_expression() const;
+
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object

@@ -2452,6 +2452,10 @@ void DeviceSMP::create_outline(
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
+                if(type.is_reference()) 
+                {
+                    type = type.references_to();
+                }
 
                 // Only pointers or scalars are cached locally
                 if (type.is_pointer() 

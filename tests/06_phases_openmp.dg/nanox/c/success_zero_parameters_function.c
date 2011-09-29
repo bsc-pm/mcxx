@@ -31,16 +31,16 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-int o;
-double x, y;
-#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
-void f(int e) 
-{
-    o = e + 1;
-}      
-
+#include"assert.h"
+int n = 1;
+#pragma omp task
+    void f(void)
+    {
+        n++;
+    }
 int main() 
 {
-    int e = 1;
-    f(e);
+    f();
+    #pragma omp taskwait
+    assert(n == 2);
 }

@@ -182,53 +182,43 @@ unsigned char contain_prefix_number(const char* c)
 }
 
 // merge sort functions 
-void private_fusion(char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
+void private_fusion(const char **list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
-    char ** aux_list = NULL;
-    char * str;
+    const char ** aux_list = NULL;
     int i, j, k, middle, min, res, num_str;
     num_str = 0;
 
     middle = ind_lower + (ind_upper - ind_lower)/2;
     for(i = ind_lower; i <= middle; ++i) 
     {
-        char * str = (char *) calloc(strlen(list[i]), sizeof(char));
-        strncpy(str, list[i], strlen(list[i]));
-        P_LIST_ADD(aux_list, num_str, str);
+        P_LIST_ADD(aux_list, num_str, list[i]);
     }
 
     for(j = middle + 1; j <= ind_upper; ++j)
     {
-        char * str = (char *) calloc(strlen(list[ind_upper - j + middle + 1]), sizeof(char));
-        strncpy(str, list[ind_upper - j + middle + 1], strlen(list[ind_upper - j + middle + 1]));
-        P_LIST_ADD(aux_list, num_str, str);
+        P_LIST_ADD(aux_list, num_str, list[ind_upper - j + middle + 1]);
     }
-    
+
     i = 0;
     j = ind_upper - ind_lower;
+    const char * str;
     if(ascending_order)
     {
         for(k = ind_lower; k <= ind_upper; ++k) 
         {
-            //deallocating the actual string of the list
-            free(list[k]);
-
             //calculating the minimum lenght beetwen two strings
             if (strlen(aux_list[i]) < strlen(aux_list[j])) min = strlen(aux_list[i]);
             else min = strlen(aux_list[j]);
             
-            
             if ( (res = strncmp(aux_list[i], aux_list[j], min)) > 0 || 
                (res == 0 && (strlen(aux_list[j]) < strlen(aux_list[i]))))
             {
-                str = (char *) calloc(strlen(aux_list[j]), sizeof(char));
-                strncpy(str, aux_list[j], strlen(aux_list[j]));
+                str = aux_list[j];
                 j--;
             }
             else
             {
-                str = (char *) calloc(strlen(aux_list[i]), sizeof(char));
-                strncpy(str, aux_list[i], strlen(aux_list[i]));
+                str = aux_list[i];
                 i++;
             }
             list[k] = str;
@@ -238,25 +228,19 @@ void private_fusion(char **list, int ind_lower, int ind_upper, unsigned char asc
     {
         for(k = ind_lower; k <= ind_upper; ++k) 
         {
-            //deallocating the actual string of the list
-            free(list[k]);
-
             //calculating the minimum lenght beetwen two strings
             if (strlen(aux_list[i]) < strlen(aux_list[j])) min = strlen(aux_list[i]);
             else min = strlen(aux_list[j]);
             
-            
             if ( (res = strncmp(aux_list[i], aux_list[j], min)) < 0 || 
                (res == 0 && (strlen(aux_list[j]) > strlen(aux_list[i]))))
             {
-                str = (char *) calloc(strlen(aux_list[j]), sizeof(char));
-                strncpy(str, aux_list[j], strlen(aux_list[j]));
+                str = aux_list[j];
                 j--;
             }
             else
             {
-                str = (char *) calloc(strlen(aux_list[i]), sizeof(char));
-                strncpy(str, aux_list[i], strlen(aux_list[i]));
+                str = aux_list[i];
                 i++;
             }
             list[k] = str;
@@ -264,8 +248,7 @@ void private_fusion(char **list, int ind_lower, int ind_upper, unsigned char asc
     }
 }
 
-
-void private_merge_sort_str(char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
+void private_merge_sort_str(const char** list, int ind_lower, int ind_upper, unsigned char ascending_order)
 {
     if(ind_upper - ind_lower > 0)
     {
@@ -275,7 +258,7 @@ void private_merge_sort_str(char** list, int ind_lower, int ind_upper, unsigned 
     }
 }
 
-void  merge_sort_list_str(char** list, int size,unsigned char ascending_order) 
+void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order) 
 {
    private_merge_sort_str(list, 0, size-1, ascending_order);
 }

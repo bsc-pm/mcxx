@@ -71,6 +71,7 @@ namespace TL
                     Source &addr, 
                     Type& type,
                     bool enclosing_is_array,
+                    bool & pointer_access_member,
                     std::stringstream& warnlog);
 
             static bool gather_info_data_expr(Expression &expr, 
@@ -110,13 +111,6 @@ namespace TL
               */
             bool is_valid(std::string& reason) const;
             
-            //! States whether this DataReference is a this access
-            /*!
-                Not all data references are this access
-              */
-            static bool is_this_access(Expression expr);
-
-
             //! Returns the warning log
             /*!
               This is the same message as is_valid(std::string&) stores in its first parameter

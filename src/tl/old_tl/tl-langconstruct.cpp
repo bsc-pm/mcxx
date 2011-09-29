@@ -739,6 +739,17 @@ namespace TL
     {
         return this->get_symbol();
     }
+    
+    bool Expression::is_this_access()
+    {
+        if(is_pointer_member_access())
+        {
+            Expression l_expr = get_accessed_entity();
+            Expression r_expr = get_accessed_member().get_expression();
+            return (l_expr.is_this_variable() && r_expr.is_accessed_member());
+        }
+        return false;
+    }
 
     bool Expression::is_pointer_member_access()
     {

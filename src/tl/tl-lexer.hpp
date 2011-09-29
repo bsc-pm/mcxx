@@ -50,12 +50,14 @@ namespace TL
             LexerImpl* _lexer;
 
         public:
+            typedef std::pair<int, std::string> pair_token;
+
             static Lexer get_current_lexer();
             static Lexer get_c_lexer();
             static Lexer get_cxx_lexer();
             static Lexer get_fortran_lexer();
 
-            ObjectList<int> lex_string(const std::string& str);
+            ObjectList<pair_token> lex_string(const std::string& str);
 
             ~Lexer();
     };

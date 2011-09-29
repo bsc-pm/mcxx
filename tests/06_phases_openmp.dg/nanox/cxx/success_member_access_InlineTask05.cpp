@@ -31,16 +31,49 @@ test_generator=config/mercurium-nanox
 </testinfo>
 */
 
-int o;
-double x, y;
-#pragma omp task input(e) output(o) deadline(x) release_after(y) onerror(OMP_IGNORE)
-void f(int e) 
+#include<assert.h>
+
+
+struct A
 {
-    o = e + 1;
-}      
+    int m,n;
+
+    A(int _n, int _m) : n(_n), m(_m) { }
+
+
+    void foo(int &a, int &b)
+    {
+        //d must be firstprivate 
+        int d = 0;
+        #pragma omp task inout(a,b) 
+        {
+            d = 1;
+            a+=d;
+            b+=d;
+            n+=d;
+            m+=d;
+        }
+        #pragma omp taskwait
+        assert(d == 0);
+
+    }
+};
+
+void foo()
+{
+    A a(1, 2);
+
+    int n1 = 3, m1 = 4;
+
+    a.foo(n1, m1);
+    //#pragma omp taskwait
+    assert(n1 == 4);
+    assert(m1 == 5);
+    assert(a.n == 2);
+    assert(a.m == 3);
+}
 
 int main() 
 {
-    int e = 1;
-    f(e);
+    foo();    
 }

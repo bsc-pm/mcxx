@@ -57,7 +57,7 @@ LIBUTILS_EXTERN const char* has_prefix(const char* prefix, const char* str);
 LIBUTILS_EXTERN unsigned char contain_prefix_number(const char*);
 
 //Merge sort algorithm 
-LIBUTILS_EXTERN void  merge_sort_list_str(char** list, int size,unsigned char ascending_order);
+LIBUTILS_EXTERN void  merge_sort_list_str(const char** list, int size,unsigned char ascending_order);
 
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
