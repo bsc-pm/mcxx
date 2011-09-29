@@ -35,6 +35,7 @@
 #include "tl-compilerphase.hpp"
 
 #include "tl-omp.hpp"
+#include "tl-pragmasupport.hpp"
 #include "tl-omp-tasks.hpp"
 
 #include "tl-omp-target.hpp"
@@ -54,8 +55,7 @@ namespace TL
             UDRParsedInfo() : type(NULL), combine_expression(), in_symbol(NULL), out_symbol(NULL) {}
 		};
 
-        // class Core : public TL::PragmaCustomCompilerPhase
-        class Core : public TL::CompilerPhase
+        class Core : public TL::PragmaCustomCompilerPhase
         {
             private:
 
@@ -67,22 +67,23 @@ namespace TL
 
                 void register_omp_constructs();
 
-#if 0
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \
-                void _name##_handler_pre(PragmaCustomConstruct); \
-                void _name##_handler_post(PragmaCustomConstruct);
+                void _name##_handler_pre(Nodecl::PragmaCustomDirective); \
+                void _name##_handler_post(Nodecl::PragmaCustomDirective);
 #define OMP_CONSTRUCT(_directive, _name) \
-                OMP_DIRECTIVE(_directive, _name)
+                void _name##_handler_pre(Nodecl::PragmaCustomStatement); \
+                void _name##_handler_post(Nodecl::PragmaCustomStatement); \
+                void _name##_handler_pre(Nodecl::PragmaCustomDeclaration); \
+                void _name##_handler_post(Nodecl::PragmaCustomDeclaration); 
 #define OMP_CONSTRUCT_NOEND(_directive, _name) \
-                OMP_DIRECTIVE(_directive, _name)
+                OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
-#endif
                 static bool _already_registered;
 
 #if 0

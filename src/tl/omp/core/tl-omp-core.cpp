@@ -40,7 +40,7 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : /* PragmaCustomCompilerPhase("omp"), */ _new_udr_str(""), _new_udr(true), _udr_counter(0)
+            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_counter(0)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -166,29 +166,31 @@ namespace TL
                     // on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); 
                     // on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); 
 
-#define OMP_CONSTRUCT(_directive, _name) \
-                { \
-                    if (!_already_registered) \
-                    { \
-                      register_construct(_directive); \
-                    } \
-                }
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
                     if (!_already_registered) \
                     { \
                       register_directive(_directive); \
                     } \
+                    dispatcher().directive.pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    dispatcher().directive.post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
-#define OMP_CONSTRUCT_NOEND(_directive, _name) \
+#define OMP_CONSTRUCT_COMMON(_directive, _name, _noend) \
                 { \
                     if (!_already_registered) \
                     { \
-                      register_construct(_directive, true); \
+                      register_construct(_directive, _noend); \
                     } \
+                    dispatcher().declaration.pre[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomDeclaration))&Core::_name##_handler_pre, *this)); \
+                    dispatcher().declaration.post[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomDeclaration))&Core::_name##_handler_post, *this)); \
+                    dispatcher().statement.pre[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomStatement))&Core::_name##_handler_pre, *this)); \
+                    dispatcher().statement.post[_directive].connect(functor((void (Core::*)(Nodecl::PragmaCustomStatement))&Core::_name##_handler_post, *this)); \
                 }
+#define OMP_CONSTRUCT(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, false)
+#define OMP_CONSTRUCT_NOEND(_directive, _name) OMP_CONSTRUCT_COMMON(_directive, _name, true)
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
+#undef OMP_CONSTRUCT_COMMON
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_NOEND
             _already_registered = true;

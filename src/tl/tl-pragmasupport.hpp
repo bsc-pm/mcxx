@@ -52,102 +52,328 @@ namespace TL
     class LIBTL_CLASS NullClauseTokenizer : public ClauseTokenizer
     {
         public:
-            virtual ObjectList<std::string> tokenize(const std::string& str) const
-            {
-                ObjectList<std::string> result;
-                result.append(str);
-                return result;
-            }
+            virtual ObjectList<std::string> tokenize(const std::string& str) const;
     };
 
     class LIBTL_CLASS ExpressionTokenizer : public ClauseTokenizer
     {
         public:
-            virtual ObjectList<std::string> tokenize(const std::string& str) const
-            {
-                int bracket_nesting = 0;
-                ObjectList<std::string> result;
-
-                std::string temporary("");
-                for (std::string::const_iterator it = str.begin();
-                        it != str.end();
-                        it++)
-                {
-                    const char & c(*it);
-
-                    if (c == ',' 
-                            && bracket_nesting == 0
-                            && temporary != "")
-                    {
-                        result.append(temporary);
-                        temporary = "";
-                    }
-                    else
-                    {
-                        if (c == '('
-                                || c == '{'
-                                || c == '[')
-                        {
-                            bracket_nesting++;
-                        }
-                        else if (c == ')'
-                                || c == '}'
-                                || c == ']')
-                        {
-                            bracket_nesting--;
-                        }
-                        temporary += c;
-                    }
-                }
-
-                if (temporary != "")
-                {
-                    result.append(temporary);
-                }
-
-                return result;
-            }
+            virtual ObjectList<std::string> tokenize(const std::string& str) const;
     };
 
     class LIBTL_CLASS ExpressionTokenizerTrim : public ExpressionTokenizer
     {
         public:
-			virtual ObjectList<std::string> tokenize(const std::string& str) const
-			{
-				ObjectList<std::string> result;
-				result = ExpressionTokenizer::tokenize(str);
-
-				std::transform(result.begin(), result.end(), result.begin(), trimExp);
-
-				return result;
-			}
+			virtual ObjectList<std::string> tokenize(const std::string& str) const;
 
         private:
-            static std::string trimExp (const std::string &str) {
+            static std::string trimExp (const std::string &str);
+    };
 
-            	ssize_t first = str.find_first_not_of(" \t");
-            	ssize_t last = str.find_last_not_of(" \t");
 
-            	return str.substr(first, last - first + 1);
+    //! This is the dual to PragmaCustomClause
+    /*! 
+     * This class maps a single pragma custom clause, when the flattened
+     * view provided by PragmaCustomClause is not desirable
+     */
+    class LIBTL_CLASS PragmaCustomSingleClause : Nodecl::PragmaCustomClause
+    {
+        public:
+            PragmaCustomSingleClause(Nodecl::PragmaCustomClause node)
+                : Nodecl::PragmaCustomClause(node) { }
+            
+            //! Returns a tokenized list of strings of the arguments of the clause
+            /*! 
+             * Use this function when you want the arguments of the clause in string form but
+             * tokenized by some ClauseTokenizer. By default ExpressionTokenizerTrim is used
+             * as it is the commonest scenario
+             */
+            ObjectList<std::string> get_tokenized_arguments(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+            //! Returns the literal text of the arguments of the clause
+            std::string get_raw_arguments() const;
+
+            //! Returns the arguments of the clause parsed as expressions
+            /*!
+             * Invokes get_tokenized_arguments and for each string, parses it as an expression
+             *
+             * \note Be careful not to call this function more times than needed,
+             * since it will generate new trees each time
+             */
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+            //! Returns the arguments of the clause parsed as expressions
+            /*!
+             * This function behaves like
+             * get_arguments_as_expressions(ClauseTokenizer) but using the
+             * given ReferenceScope to perform the parse of the expressions
+             */
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+    };
+
+    //! This is a helper class not related to a specific Nodecl
+    /*!
+     * This class gives an homogenous view of clauses that might appear
+     * repeated.
+     *
+     * #pragma foo bar myclause(x) myclause(y)
+     *
+     * This class allows you to work as if myclause appeared just once as myclause(x, y)
+     */
+    class LIBTL_CLASS PragmaCustomClause
+    {
+        private:
+            Nodecl::PragmaCustomLine _pragma_line;
+
+            typedef ObjectList<Nodecl::PragmaCustomClause> PragmaCustomClauseList;
+            PragmaCustomClauseList _pragma_clauses;
+
+        public:
+            // To be used only by TL::PragmaCustomLine
+            PragmaCustomClause(Nodecl::PragmaCustomLine pragma_line, 
+                    ObjectList<Nodecl::PragmaCustomClause> pragma_clauses);
+
+            //! States whether this clause appears in the pragma line
+            bool is_defined() const;
+
+            //! States whether this clause appears only once in the pragma line
+            bool is_singleton() const;
+
+            //! Returns a tokenized list of strings of the arguments of the clause
+            /*! 
+             * Use this function when you want the arguments of the clause in string form but
+             * tokenized by some ClauseTokenizer. By default ExpressionTokenizerTrim is used
+             * as it is the commonest scenario
+             */
+            ObjectList<std::string> get_tokenized_arguments(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+            //! Returns the literal text of the arguments of the clause
+            ObjectList<std::string> get_raw_arguments() const;
+
+            //! Returns the arguments of the clause parsed as expressions
+            /*!
+             * Invokes get_tokenized_arguments and for each string, parses it as an expression
+             *
+             * \note Be careful not to call this function more times than needed,
+             * since it will generate new trees each time
+             */
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(const ClauseTokenizer& = ExpressionTokenizerTrim()) const;
+
+            //! Returns the arguments of the clause parsed as expressions
+            /*!
+             * This function behaves like
+             * get_arguments_as_expressions(ClauseTokenizer) but using the
+             * given ReferenceScope to perform the parse of the expressions
+             */
+            ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
+    };
+
+    class LIBTL_CLASS PragmaCustomLine : public Nodecl::PragmaCustomLine
+    {
+        public:
+            PragmaCustomLine(Nodecl::PragmaCustomLine node)
+                : Nodecl::PragmaCustomLine(node)
+            {
             }
+
+            //! Returns a clause by name
+            TL::PragmaCustomClause get_clause(const std::string &name) const;
+
+            //! Returns a clause by a set of alias names
+            TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
+
+            //! This function returns all clauses in the order they appear in the pragma
+            ObjectList<TL::PragmaCustomSingleClause> get_all_clauses() const;
+
+            //! This function returns all clause names in the order they appear in the pragma
+            ObjectList<std::string> get_all_clause_names() const;
+    };
+    
+    class LIBTL_CLASS PragmaCustomCommon 
+    {
+        private:
+            TL::PragmaCustomLine _pragma_line;
+        public:
+            PragmaCustomCommon(Nodecl::PragmaCustomDirective);
+            PragmaCustomCommon(Nodecl::PragmaCustomStatement);
+            PragmaCustomCommon(Nodecl::PragmaCustomDeclaration);
+
+            //! Returns a clause by name
+            TL::PragmaCustomClause get_clause(const std::string &name) const;
+
+            //! Returns a clause by a set of alias names
+            TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
+
+            //! This function returns all clauses in the order they appear in the pragma
+            ObjectList<TL::PragmaCustomSingleClause> get_all_clauses() const;
+
+            //! This function returns all clause names in the order they appear in the pragma
+            ObjectList<std::string> get_all_clause_names() const;
+    };
+
+    // Note that this is TL::PragmaCustomDirective 
+    class LIBTL_CLASS PragmaCustomDirective : public Nodecl::PragmaCustomDirective, PragmaCustomCommon
+    {
+        public:
+        PragmaCustomDirective(Nodecl::PragmaCustomDirective node)
+            : Nodecl::PragmaCustomDirective(node), PragmaCustomCommon(node)
+        {
+        }
+    };
+
+    class LIBTL_CLASS PragmaCustomStatement : Nodecl::PragmaCustomStatement, PragmaCustomCommon
+    {
+        PragmaCustomStatement(Nodecl::PragmaCustomStatement node)
+            : Nodecl::PragmaCustomStatement(node), PragmaCustomCommon(node)
+        {
+        }
+    };
+
+    class LIBTL_CLASS PragmaCustomDeclaration : Nodecl::PragmaCustomDeclaration, PragmaCustomCommon
+    {
+        PragmaCustomDeclaration(Nodecl::PragmaCustomDeclaration node)
+            : Nodecl::PragmaCustomDeclaration(node), PragmaCustomCommon(node)
+        {
+        }
+    };
+
+    struct PragmaMapDispatcher
+    {
+        typedef Signal1<Nodecl::PragmaCustomDirective> SignalDirective;
+        typedef std::map<std::string, SignalDirective> DirectiveMap;
+
+        struct Directive
+        {
+            DirectiveMap pre;
+            DirectiveMap post;
+        };
+        Directive directive;
+
+        typedef Signal1<Nodecl::PragmaCustomStatement> SignalStatement;
+        typedef std::map<std::string, SignalStatement> StatementMap;
+
+        struct Statement
+        {
+            StatementMap pre;
+            StatementMap post;
+        };
+        Statement statement;
+
+        typedef Signal1<Nodecl::PragmaCustomDeclaration> SignalDeclaration;
+        typedef std::map<std::string, SignalDeclaration> DeclarationMap;
+
+        struct Declaration
+        {
+            DeclarationMap pre;
+            DeclarationMap post;
+        };
+        Declaration declaration;
     };
 
     class LIBTL_CLASS PragmaVisitor : public Nodecl::ExhaustiveVisitor<void>
     {
         private:
+            std::string _pragma_handled;
+            PragmaMapDispatcher& _map_dispatcher;
+
+            template <typename T>
+            std::string get_pragma_name(T t)
+            {
+                if (t.template is<Nodecl::PragmaCustomLine>())
+                {
+                    return t.template as<Nodecl::PragmaCustomLine>().get_text();
+                }
+                internal_error("Code unreachable", 0);
+            }
         public:
+            PragmaVisitor(const std::string& pragma_handled, 
+                    PragmaMapDispatcher & map_dispatcher)
+                : _pragma_handled(pragma_handled), _map_dispatcher(map_dispatcher) 
+            { }
+
+
             virtual void visit_pre(const Nodecl::PragmaCustomDirective & n)
             {
-            }
-            virtual void visit_pre(const Nodecl::PragmaCustomDeclaration & n)
-            {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::DirectiveMap::iterator it = _map_dispatcher.directive.pre.find(pragma_name);
+
+                    if (it != _map_dispatcher.directive.pre.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
             }
 
             virtual void visit_post(const Nodecl::PragmaCustomDirective & n)
             {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::DirectiveMap::iterator it = _map_dispatcher.directive.post.find(pragma_name);
+
+                    if (it != _map_dispatcher.directive.post.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
             }
+
+            virtual void visit_pre(const Nodecl::PragmaCustomStatement & n)
+            {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.pre.find(pragma_name);
+
+                    if (it != _map_dispatcher.statement.pre.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
+            }
+
+            virtual void visit_post(const Nodecl::PragmaCustomStatement & n)
+            {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::StatementMap::iterator it = _map_dispatcher.statement.post.find(pragma_name);
+
+                    if (it != _map_dispatcher.statement.post.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
+            }
+
+            virtual void visit_pre(const Nodecl::PragmaCustomDeclaration & n)
+            {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::DeclarationMap::iterator it = _map_dispatcher.declaration.pre.find(pragma_name);
+
+                    if (it != _map_dispatcher.declaration.pre.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
+            }
+
             virtual void visit_post(const Nodecl::PragmaCustomDeclaration & n)
             {
+                if (n.get_text() == _pragma_handled)
+                {
+                    std::string pragma_name = get_pragma_name(n.get_pragma_line());
+                    PragmaMapDispatcher::DeclarationMap::iterator it = _map_dispatcher.declaration.post.find(pragma_name);
+
+                    if (it != _map_dispatcher.declaration.post.end())
+                    {
+                        it->second.signal(n);
+                    }
+                }
             }
     };
 
@@ -162,6 +388,9 @@ namespace TL
     {
         private:
             std::string _pragma_handled;
+            PragmaMapDispatcher _pragma_map_dispatcher;
+        protected:
+            PragmaMapDispatcher& dispatcher();
         public:
             //! Constructor
             /*!
