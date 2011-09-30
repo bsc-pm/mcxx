@@ -356,9 +356,22 @@ namespace TL
                         << str;
 
                     AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
-                    DataReference expr(expr_tree, _sl);
+                    DataReference data_ref(expr_tree, _sl);
+                    
+                    Symbol base_sym = data_ref.get_base_symbol();
 
-                    return FunctionTaskDependency(expr, _direction);
+                    if(!base_sym.is_valid() ||
+                            !(base_sym.is_member() ||
+                              base_sym.is_parameter() ||
+                              base_sym.get_name() == "this" ||
+                              base_sym.get_scope().is_namespace_scope()))
+                    {
+                        running_error("%s: error: '%s' is not a valid argument\n",
+                            _ref_tree.get_locus().c_str(), str.c_str());
+
+                    }
+
+                    return FunctionTaskDependency(data_ref, _direction);
                 }
         };
 
@@ -539,14 +552,23 @@ namespace TL
 
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
-
-            AST_t param_ref_tree = function_sym.get_point_of_declaration();
-
+            
+            AST_t param_ref_tree;
              if(!parameter_decl.empty()
                  && (parameter_decl.size() != 1 || !parameter_decl[0].get_type().is_void()))
              {
                 //Use the first parameter as a reference tree so we can parse the specifications
                 param_ref_tree = parameter_decl[0].get_ast();
+             }
+             else if (FunctionDefinition::predicate(construct.get_declaration()))
+             {
+                //Use the function body as a reference tree so we can parse the specifications
+                FunctionDefinition funct_def(construct.get_declaration(), construct.get_scope_link());
+                param_ref_tree = funct_def.get_function_body().get_ast();
+             }
+             else
+             {
+                param_ref_tree = function_sym.get_point_of_declaration();
              }
 
              dependence_list.append(input_arguments.map(FunctionTaskDependencyGenerator(DEP_DIR_INPUT,
