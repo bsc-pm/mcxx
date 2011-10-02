@@ -105,6 +105,7 @@ namespace TL
         Ret visit(const Nodecl::New& n);
         Ret visit(const Nodecl::Delete& n);
         Ret visit(const Nodecl::DeleteArray& n);
+        Ret visit(const Nodecl::Offsetof& n);
         Ret visit(const Nodecl::Sizeof& n);
         Ret visit(const Nodecl::Type& n);
         Ret visit(const Nodecl::Typeid& n);

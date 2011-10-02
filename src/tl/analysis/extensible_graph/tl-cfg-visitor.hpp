@@ -152,7 +152,7 @@ namespace TL
         
         std::stack<Nodecl::NodeclBase> _context_s;
         
-        struct loop_control_nodes_t _actual_loop_info;
+        std::stack<struct loop_control_nodes_t> _loop_info_s;
         
         //! List with the struct containing information about the try hierarchy we are
         /*!
@@ -171,10 +171,14 @@ namespace TL
         //! Map used in IPA analysis containing the mapping between function arguments and 
         //! the new temporary symbols created in the renaming method
         /*!
-            * This value is empty is there is no function call. 
-            * The value will change for every function call founded
+            * This variable is empty is there is no function call. 
+            * The variable will change for every function call founded
             */
-        std::map<Symbol, Nodecl::NodeclBase> _tmp_args_map;
+        std::map<Symbol, Nodecl::NodeclBase> _arg_to_param_m;
+        std::map<Symbol, Nodecl::NodeclBase> _param_to_tmp_m;
+        
+        //! Integer used for temporary renaming variables
+        int _i;
         
     private:
        
@@ -251,16 +255,16 @@ namespace TL
     public:
         //! Empty constructor
         /*!
-         * This method is used when we want to perform the analysis from the Analyisis pahse
+         * This method is used when we want to perform the analysis from the Analyisis phase
          */
-        CfgVisitor();
+        CfgVisitor(int i);
         
         //! Constructor which built a CFG
         /*!
          * This method is used when we want to perform the analysis starting from any piece of code.
          * Not necessarily from a TopLevel or a FunctionCode node.
          */        
-        CfgVisitor(std::string actual_cfg_name);
+        CfgVisitor(std::string actual_cfg_name, int i);
         
         //! Copy constructor
         CfgVisitor(const CfgVisitor& visitor);
@@ -290,10 +294,10 @@ namespace TL
         //! The method replaces a function call by the code of the called function, as inline
         /*! It performs renaming of the variables
             * \param function_call Pointer to the node containing the Function Call to be substituted
-            * \param inlined_func_graph Graph containing the code of the Function to be substituted
+            * \param func_graph Graph containing the code of the Function to be substituted
             */
         void inline_function_in_graph(Node* function_call, 
-                                      ExtensibleGraph* inlined_func_graph);
+                                      ExtensibleGraph* func_graph);
 
         
         // *** Visiting methods *** //
@@ -319,6 +323,7 @@ namespace TL
         Ret visit(const Nodecl::New& n);
         Ret visit(const Nodecl::Delete& n);
         Ret visit(const Nodecl::DeleteArray& n);
+        Ret visit(const Nodecl::Offsetof& n);
         Ret visit(const Nodecl::Sizeof& n);
         Ret visit(const Nodecl::Type& n);
         Ret visit(const Nodecl::Typeid& n);

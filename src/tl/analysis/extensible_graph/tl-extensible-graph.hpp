@@ -44,6 +44,23 @@ namespace TL
             std::string _name;
             int _nid;
             
+            //! Symbol of the function is contained in the graph.
+            /*! This symbol is empty when the code contained in the graph do not correspond to a function
+             */
+            Symbol _function_sym;
+            
+            //! List of nodes containing a function call
+            ObjectList<Node*> _function_calls;
+            
+            Nodecl::NodeclBase _function;            
+            
+            //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
+            /*! The key is the old node and the value is the new node
+             */
+            std::map<Node*, Node*> nodes_m;            
+            
+            // *** Values used during the construction of the graph *** //
+            
             //! Stacks to keep the exit nodes of Loop Statements
             std::stack<Node*> _continue_stack;
             std::stack<Node*> _break_stack;
@@ -63,16 +80,12 @@ namespace TL
             //! List of nodes containing task's code
             ObjectList<Node*> _task_nodes_l;
             
-            //! Symbol of the function is contained in the graph.
-            /*! This symbol is empty when the code contained in the graph do not correspond to a function
-             */
-            Symbol _function_sym;
             
-            //! List of nodes containing a function call
-            ObjectList<Node*> _function_calls;
-            
-            
-    private:         
+    private:
+            //! We don't want to allow this kind of constructions
+            ExtensibleGraph(const ExtensibleGraph& graph);
+            ExtensibleGraph& operator=(const ExtensibleGraph&);
+        
             //! Makes up the content of the nodes by deleting the line feeds and escaping all
             //! those symbols that can not be freely write in DOT language.
             void makeup_dot_block(std::string &str);
@@ -152,6 +165,22 @@ namespace TL
              */
             void solve_live_equations_recursive(Node* actual, bool& changed);
             
+            //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
+            //! This method is used when a node s replaced by another, because the identifiers may be repeated
+            void recompute_identifiers(Node* actual_node);
+
+            //! Method used during the copy method when the edges must be copied before connecting the nodes
+            void connect_nodes(ObjectList<Node*> parents, Node* child, ObjectList<Edge*> edges);
+            
+            //! Method used during the copy method when the edges must be copied before connecting the nodes
+            void connect_nodes(Node* parent, ObjectList<Node*> children, ObjectList<Edge*> edges);
+            
+            //! Method used during the copy method that copies the graph recursively
+            
+            
+            void copy_nodes_and_map_nodes(Node* old_node);
+            
+            void connect_copied_nodes(Node* old_node);
             
         public:
             // *** Constructors *** //
@@ -160,12 +189,12 @@ namespace TL
             /*!
               \param name Name which will identify the graph.
              */
-            ExtensibleGraph(std::string name);
+            explicit ExtensibleGraph(std::string name);
             
-            //! Copy constructor
-            ExtensibleGraph(const ExtensibleGraph& graph);
+            //! Creates a new graph with the same characteristics of the actual graph
+            ExtensibleGraph* copy();
             
-           
+            
             // *** Modifiers *** //
 
             //! This method creates a new node containing a Basic Block and connects it to its
@@ -230,7 +259,7 @@ namespace TL
             //! only child and the nature of the connection is the same for all of them.
             void connect_nodes(ObjectList<Node*> parents, Node* child, 
                                Edge_type etype = ALWAYS_EDGE, std::string label = "");
-
+            
             //! Wrapper method for #disconnect_nodes when a set of parents is connected to a child.
             void disconnect_nodes(ObjectList<Node*> parents, Node* child);
             
@@ -305,6 +334,9 @@ namespace TL
              */
             void concat_nodes(ObjectList<Node*> node_l);
             
+            //!
+            void replace_node(Node* old_node, Node* new_node);
+            
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.
             void clear_visits(Node* actual);
@@ -316,7 +348,7 @@ namespace TL
             
             //! Removes those nodes that has UNCLASSIFIED_NODE type and reconects parents and
             //! children nodes properly.
-            void erase_unclassified_nodes(Node* actual);            
+            void erase_unclassified_nodes(Node* actual);
             
             
             // *** DOT Graph *** //
@@ -348,6 +380,12 @@ namespace TL
             
             //! Returns a list with all the function call symbols contained in the graph
             ObjectList<Node*> get_function_calls() const;
+            
+            //! Returns the node containing the graph
+            Node* get_graph() const;
+            
+            //! Returns the header of the function represented in the graph
+            Nodecl::NodeclBase get_function() const;
 
         friend class CfgVisitor;
     };

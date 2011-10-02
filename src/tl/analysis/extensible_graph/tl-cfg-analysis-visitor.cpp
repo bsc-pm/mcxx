@@ -514,7 +514,11 @@ namespace TL
     {   // FIXME We should specify the object destruction
         // walk(n.get_rhs());
     }
-    
+
+    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Offsetof& n)
+    {   // do nothing
+    }
+
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Sizeof& n)
     {   // do nothing
     }

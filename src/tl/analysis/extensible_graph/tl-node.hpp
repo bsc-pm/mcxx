@@ -46,6 +46,11 @@ namespace TL
             ObjectList<Edge*> _exit_edges;
             bool _visited;
            
+            
+            // *** Not allowed construction methods *** //
+            Node(const Node& n);
+            Node& operator=(const Node&);
+            
             // *** Analysis *** //
             
             //! Traverses forward the nodes that do not contain Statements inside them.
@@ -117,8 +122,8 @@ namespace TL
             //! must be included in the list
             Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
             
-            Node(const Node& n);
             
+            Node* copy(Node* outer_node);
             
             // *** Modifiers *** //
             
@@ -210,6 +215,9 @@ namespace TL
             
             //! Returns true when the node is in its children list
             bool has_child(Node* n);
+            
+            //! Returns true when the node is in its parents list
+            bool has_parent(Node* n);
             
             //! Returns true if the node has the same identifier and the same entries and exits
             bool operator==(const Node* &n) const;

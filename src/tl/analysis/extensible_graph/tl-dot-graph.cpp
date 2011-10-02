@@ -103,7 +103,7 @@ namespace TL
         char buffer[1024];
         getcwd(buffer, 1024);
         std::stringstream ss; ss << rand();
-        std::string dot_file_name = std::string(buffer) + "/" + _name + ".dot";
+        std::string dot_file_name = std::string(buffer) + "/" + _name /*+ ss.str()*/ + ".dot";
         dot_cfg.open(dot_file_name.c_str());
         
         if (dot_cfg.good())

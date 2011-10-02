@@ -38,23 +38,23 @@ namespace TL
     {
         RefPtr<Nodecl::NodeclBase> nodecl = RefPtr<Nodecl::NodeclBase>::cast_dynamic(dto["nodecl"]);
         
-        CfgVisitor cfg_visitor;
+        CfgVisitor cfg_visitor(0);
         cfg_visitor.build_cfg(nodecl, std::string(""));
        
         // Here we substitute each function call of every graph by the graph 
         // corresponding with the call if we have it in the graphs list
-//         cfg_visitor.inline_functions_for_ipa();
+        cfg_visitor.inline_functions_for_ipa();
        
         // Perform Live Variable Analysis and Print the Graph to a dot file       
-        ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();     
-        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
-            it != cfgs.end();
-            ++it)
-        {
-            std::cerr << "Graph " << (*it)->get_name() << std::endl;
-            (*it)->live_variable_analysis();
-            (*it)->print_graph_to_dot();
-        }
+//         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();     
+//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
+//             it != cfgs.end();
+//             ++it)
+//         {
+//             std::cerr << "Graph " << (*it)->get_name() << std::endl;
+//             (*it)->live_variable_analysis();
+//             (*it)->print_graph_to_dot();
+//         }
     }
 }
 

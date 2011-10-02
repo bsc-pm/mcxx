@@ -171,7 +171,7 @@ namespace TL
      * Empty clause associated to a pragma
      * Available in Graph nodes of type 'omp_pragma' and 'task'.
      */ 
-    #define _CLAUSES        "clauses"
+    #define _ARGS           "args"
     
     //! Definitions of the different edge attributes
     /*! \def _EDGE_TYPE

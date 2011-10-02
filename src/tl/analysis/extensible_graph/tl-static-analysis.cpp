@@ -419,10 +419,18 @@ namespace TL
     }
     
     void CfgVisitor::inline_function_in_graph(Node* function_call, 
-                                              ExtensibleGraph* inlined_func_graph)
+                                              ExtensibleGraph* func_graph)
     {
         Nodecl::NodeclBase func_nodecl_base = function_call->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
-        std::vector<Nodecl::NodeclBase> args;
+       
+        std::cerr << "Anem a fer inline del graf " << func_graph->get_name() << std::endl;
+        ExtensibleGraph* inlined_func_graph = func_graph->copy();
+        Node* func_graph_node = inlined_func_graph->get_graph();
+        
+        // Get the arguments and the parameters
+        std::vector<Nodecl::NodeclBase> args, params;
+        Symbol function_header = func_graph->get_function_symbol();
+        std::cerr << "Function header = " << c_cxx_codegen_to_str(function_header.get_initialization().get_internal_nodecl()) << std::endl;
         if (func_nodecl_base.is<Nodecl::FunctionCall>())
         {
             Nodecl::FunctionCall func_nodecl = func_nodecl_base.as<Nodecl::FunctionCall>();
@@ -433,22 +441,42 @@ namespace TL
             Nodecl::VirtualFunctionCall func_nodecl = func_nodecl_base.as<Nodecl::VirtualFunctionCall>();
             args = func_nodecl.get_arguments().as<Nodecl::List>(); // This list contains always one
         }
+//         params = function_header.as<Nodecl::FunctionCode>().get_initializers().as<Nodecl::List>();
+//         std::cerr << "PARAMS has size: " << params.size() << std::endl;
+        
         
         // Rename arguments
         ObjectList<Nodecl::NodeclBase> tmp_args_l = rename_arguments(func_nodecl_base, args);
-        Node* args_rename_node = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, function_call->get_data<Node*>(_OUTER_NODE), tmp_args_l);
+        Node* args_rename_node = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, func_graph_node, tmp_args_l);
+        
+        // Connect this renaming node properly
+        Node* inlined_entry = func_graph_node->get_data<Node*>(_ENTRY_NODE);
+        ObjectList<Node*> inlined_entry_children = inlined_entry->get_children();
+        ObjectList<Edge_type> inlined_entry_exit_types = inlined_entry->get_exit_edge_types();
+        ObjectList<std::string> inlined_entry_exit_labels = inlined_entry->get_exit_edge_labels();
+        _actual_cfg->disconnect_nodes(inlined_entry, inlined_entry_children);
+        _actual_cfg->connect_nodes(inlined_entry, args_rename_node);
+        _actual_cfg->connect_nodes(args_rename_node, inlined_entry_children, 
+                                   inlined_entry_exit_types, inlined_entry_exit_labels);
+        
         
         // Create a map between the argument symbol, and the temporary symbol
-        std::vector<Nodecl::NodeclBase>::iterator it_args; ObjectList<Nodecl::NodeclBase>::iterator it_params;
-        for(it_args = args.begin(), it_params = tmp_args_l.begin(); 
-            it_args != args.end(), it_params != tmp_args_l.end();
-            ++it_args, ++it_params)
-        {
-            _tmp_args_map[it_args->get_symbol()] = *it_params;
-        }
+//         std::vector<Nodecl::NodeclBase>::iterator it_args; ObjectList<Nodecl::NodeclBase>::iterator it_params;
+//         for(it_args = args.begin(), it_params = tmp_args_l.begin(); 
+//             it_args != args.end(), it_params != tmp_args_l.end();
+//             ++it_args, ++it_params)
+//         {
+//             _tmp_args_map[it_args->get_symbol()] = *it_params;
+//         }
         
         // Propagate argument new values
-        propagate_tmp_args(inlined_func_graph);
+//         propagate_tmp_args(inlined_func_graph);
+
+        // Substitute the function call by a copy of the graph
+        Node* node_to_replace = function_call->get_data<Node*>(_OUTER_NODE);
+        func_graph_node->set_data(_OUTER_NODE, node_to_replace->get_data<Node*>(_OUTER_NODE));
+        _actual_cfg->replace_node(node_to_replace, func_graph_node);
+        _actual_cfg->print_graph_to_dot();
     }
     
     ObjectList<Nodecl::NodeclBase> CfgVisitor::rename_arguments(Nodecl::NodeclBase func_nodecl_base, 
@@ -479,25 +507,19 @@ namespace TL
 
             // FIXME When ellipsis, i > called_symbol_->entity_specs.num_related_symbols
             // We must control that and, in that case, get the type from the argument and not from the parameter
-            std::stringstream ss; ss << i;
+            std::stringstream ss; ss << _i;
             std::string sym_name = "_tmp_" + ss.str();
             decl_context_t sym_context = func_nodecl_base.retrieve_context().get_decl_context();
             scope_entry_t* new_sym = new_symbol(sym_context, sym_context.current_scope, sym_name.c_str());
                 new_sym->kind = SK_VARIABLE;
             scope_entry_t* called_symbol_ = called_symbol.get_internal_symbol();
             scope_entry_t* param = called_symbol_->entity_specs.related_symbols[i];
-//                 new_sym->file = filename;                               // ?
-//                 new_sym->line = line;                                   // ?
-//                 new_sym->entity_specs = called_symbol_->entity_specs;   // ?
                 new_sym->type_information = param->type_information;
-//                 new_sym->defined = 1;                                   // ?
                 new_sym->value = it->get_internal_nodecl();
             
             nodecl_t tmp_arg = nodecl_make_object_init(new_sym, 
                                                        filename, line);
             Nodecl::ObjectInit new_obj_init(tmp_arg);
-            std::cerr << "Object init '" << c_cxx_codegen_to_str(new_obj_init.get_internal_nodecl()) << "', value: "
-                      << c_cxx_codegen_to_str(new_sym->value) << std::endl;
             
             tmp_args_l.append(new_obj_init);
              ++i;
@@ -526,6 +548,7 @@ namespace TL
                 case BASIC_ENTRY_NODE:  
                 case FLUSH_NODE:
                 case BARRIER_NODE:
+                case UNCLASSIFIED_NODE:
                 case BASIC_PRAGMA_DIRECTIVE_NODE:
                                                 break; // nothing to do
                 case BASIC_EXIT_NODE:           return;
@@ -538,15 +561,21 @@ namespace TL
                 {
                     ObjectList<Nodecl::NodeclBase> stmts = actual_node->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
                     ObjectList<Nodecl::NodeclBase> renamed_stmts;
-                    for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin();
-                        it != stmts.end();
-                        ++it)
-                    {
-                        Nodecl::NodeclBase renamed_nodecl(*it);
-                        CfgRenamingVisitor rename_v(_tmp_args_map, it->get_filename().c_str(), it->get_line());
-                        rename_v.walk(*it);
-                        renamed_stmts.append(renamed_nodecl);
-                    }
+//                     for (ObjectList<Nodecl::NodeclBase>::iterator it = stmts.begin();
+//                         it != stmts.end();
+//                         ++it)
+//                     {
+//                         CfgRenamingVisitor rename_v(_tmp_args_map, it->get_filename().c_str(), it->get_line(), _i);
+//                         ObjectList<Nodecl::NodeclBase> renamed_nodecl = rename_v.walk(*it);
+//                         if (renamed_nodecl.empty())
+//                         {
+//                             renamed_stmts.append(*it);
+//                         }
+//                         else
+//                         {    
+//                             renamed_stmts.append(renamed_nodecl);
+//                         }
+//                     }
                     actual_node->set_data(_NODE_STMTS, renamed_stmts);
                     break;
                 }

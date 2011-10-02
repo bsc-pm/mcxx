@@ -30,11 +30,11 @@ namespace TL
 {
     static bool pragma_is_worksharing(std::string pragma);
     
-    CfgVisitor::CfgVisitor()
-        : _actual_cfg(NULL), _cfgs(), _context_s(),
-          _actual_loop_info(), _actual_try_info(), 
-           _pragma_info_s(), _omp_sections_info(), 
-           _switch_cond_s(), _tmp_args_map()
+    CfgVisitor::CfgVisitor(int i)
+        : _actual_cfg(NULL), _cfgs(), 
+          _context_s(), _loop_info_s(), _actual_try_info(), 
+          _pragma_info_s(), _omp_sections_info(), 
+          _switch_cond_s(), _arg_to_param_m(), _param_to_tmp_m(), _i(i)
     {}
     
     CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
@@ -42,12 +42,14 @@ namespace TL
         _actual_cfg = visitor._actual_cfg;
         _cfgs = visitor._cfgs;
         _context_s = visitor._context_s;
-        _actual_loop_info = visitor._actual_loop_info;
+        _loop_info_s = visitor._loop_info_s;
         _actual_try_info = visitor._actual_try_info;
         _pragma_info_s = visitor._pragma_info_s;
         _omp_sections_info = visitor._omp_sections_info;
         _switch_cond_s = visitor._switch_cond_s;
-        _tmp_args_map = visitor._tmp_args_map;
+        _arg_to_param_m = visitor._arg_to_param_m;
+        _param_to_tmp_m = visitor._param_to_tmp_m;
+        _i =  visitor._i;
     }
     
     ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const
@@ -80,7 +82,7 @@ namespace TL
     
     CfgVisitor::Ret CfgVisitor::unhandled_node(const Nodecl::NodeclBase& n) 
     {
-        std::cerr << "Unhandled node during CFG construction '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
+        std::cerr << "Unhandled node while CFG construction '" << c_cxx_codegen_to_str(n.get_internal_nodecl())
                   << "' of type '" << ast_print_node_type(n.get_kind()) << "'" << std::endl;
         return Ret();
     }
@@ -112,6 +114,7 @@ namespace TL
         _actual_cfg = actual_cfg;
         
         _actual_cfg->_function_sym = s;
+        std::cerr << "Function header = " << c_cxx_codegen_to_str(s.get_initialization().get_internal_nodecl()) << std::endl;
         ObjectList<Node*> func_stmts = walk(n.get_statements());
         
         // Complete the exit node
@@ -405,7 +408,7 @@ namespace TL
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::New& n)
-    {
+    {        
         Node* empty_node = new Node();
         return ObjectList<Node*>(1, empty_node);
     }
@@ -420,6 +423,13 @@ namespace TL
     {
         Node* right = walk(n.get_rhs())[0];
         return ObjectList<Node*>(1, merge_nodes(n, right, NULL));
+    }
+
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Offsetof& n)
+    {
+        Node* type = walk(n.get_type())[0];
+        Node* designator = walk(n.get_designator())[0];
+        return (ObjectList<Node*>(1, merge_nodes(n, type, designator)));        
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::Sizeof& n)
@@ -815,7 +825,7 @@ namespace TL
         // We create conservatively a 'clause_t'. If no arguments has been found, then we remove it
         struct clause_t actual_clause(n.get_text());
         _pragma_info_s.top().clauses.append(actual_clause);
-        walk(n.get_parameters()); 
+        walk(n.get_parameters());
         if (_pragma_info_s.top().clauses.back().args.empty())
         {
             _pragma_info_s.top().clauses.erase(_pragma_info_s.top().clauses.end()-1);
@@ -823,6 +833,8 @@ namespace TL
         
         // Get the rest of clauses
         walk(n.get_clauses());  // This method fills _pragma_info_s with the clauses of the actual pragma
+        
+        
         
         return Ret();
     }
@@ -851,7 +863,7 @@ namespace TL
         Node* exit_node = new Node();
        
         // Create the nodes from the list of inner statements of the loop
-        _actual_cfg->_continue_stack.push(_actual_loop_info.next);
+        _actual_cfg->_continue_stack.push(_loop_info_s.top().next);
         _actual_cfg->_break_stack.push(exit_node);
         walk(n.get_statement());    // This list of nodes returned here will never be used
         _actual_cfg->_continue_stack.pop();
@@ -859,9 +871,9 @@ namespace TL
         
         // Compute the true edge from the loop condition
         Edge_type aux_etype = ALWAYS_EDGE;
-        if (!_actual_loop_info.cond->get_exit_edges().empty())
+        if (!_loop_info_s.top().cond->get_exit_edges().empty())
         {
-            _actual_loop_info.cond->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
+            _loop_info_s.top().cond->get_exit_edges()[0]->set_data<Edge_type>(_EDGE_TYPE, TRUE_EDGE);
         }
         else
         { // It will be empty when the loop's body is empty.
@@ -870,42 +882,43 @@ namespace TL
         
         exit_node->set_id(++_actual_cfg->_nid);
         exit_node->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());
-        _actual_cfg->connect_nodes(_actual_loop_info.cond, exit_node, FALSE_EDGE);
+        _actual_cfg->connect_nodes(_loop_info_s.top().cond, exit_node, FALSE_EDGE);
         
         // Fill the empty fields of the Increment node
-        if (_actual_loop_info.next != NULL)
+        if (_loop_info_s.top().next != NULL)
         {
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_loop_info.next, aux_etype);
-            _actual_cfg->connect_nodes(_actual_loop_info.next, _actual_loop_info.cond);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().next, aux_etype);
+            _actual_cfg->connect_nodes(_loop_info_s.top().next, _loop_info_s.top().cond);
         }
         else
         {
-            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _actual_loop_info.cond);
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, _loop_info_s.top().cond);
         }
        
         
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
-        if (_actual_loop_info.init != NULL)
-            return ObjectList<Node*>(1, _actual_loop_info.init);
+        if (_loop_info_s.top().init != NULL)
+            return ObjectList<Node*>(1, _loop_info_s.top().init);
         else
-            return ObjectList<Node*>(1, _actual_loop_info.cond);
+            return ObjectList<Node*>(1, _loop_info_s.top().cond);
     }        
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::LoopControl& n)
     {
         // Create initializing node
+        struct loop_control_nodes_t actual_loop_info;
         
         ObjectList<Node*> init_last_nodes = _actual_cfg->_last_nodes;
         ObjectList<Node*> init_node_l = walk(n.get_init());
         if (init_node_l.empty())
         {   // The empty statement will return anything here. No node needs to be created
-            _actual_loop_info.init = NULL;
+            actual_loop_info.init = NULL;
         }
         else
         {
-            _actual_loop_info.init = init_node_l[0];
-            _actual_cfg->connect_nodes(init_last_nodes, _actual_loop_info.init);
-            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(_actual_loop_info.init);
+            actual_loop_info.init = init_node_l[0];
+            _actual_cfg->connect_nodes(init_last_nodes, actual_loop_info.init);
+            _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(actual_loop_info.init);
         }
         
         // Create condition node
@@ -914,29 +927,31 @@ namespace TL
         if (cond_node_l.empty())
         {   // The condition is an empty statement. 
             // In any case, we build here a node for easiness
-            _actual_loop_info.cond = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n.get_cond());
+            actual_loop_info.cond = new Node(_actual_cfg->_nid, BASIC_NORMAL_NODE, _actual_cfg->_outer_node.top(), n.get_cond());
         }
         else
         {
-            _actual_loop_info.cond = cond_node_l[0];
+            actual_loop_info.cond = cond_node_l[0];
         }
-        _actual_cfg->connect_nodes(cond_last_nodes, _actual_loop_info.cond);
+        _actual_cfg->connect_nodes(cond_last_nodes, actual_loop_info.cond);
         
         // Create next node
         _actual_cfg->_last_nodes.clear();
         ObjectList<Node*> next_node_l = walk(n.get_next());
         if (next_node_l.empty())
         {
-            _actual_loop_info.next = NULL;
+            actual_loop_info.next = NULL;
         }
         else
         {
-            _actual_loop_info.next = next_node_l[0];
+            actual_loop_info.next = next_node_l[0];
         }
             
         // Recompute actual last nodes
         _actual_cfg->_last_nodes.clear();
-        _actual_cfg->_last_nodes.append(_actual_loop_info.cond);
+        _actual_cfg->_last_nodes.append(actual_loop_info.cond);
+        
+        _loop_info_s.push(actual_loop_info);
         
         return Ret();   // No return required here. The struct '_actual_loop_info' contains all information for loop nodes construction.
     }  
