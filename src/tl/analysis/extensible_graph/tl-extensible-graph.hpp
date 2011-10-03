@@ -50,9 +50,7 @@ namespace TL
             Symbol _function_sym;
             
             //! List of nodes containing a function call
-            ObjectList<Node*> _function_calls;
-            
-            Nodecl::NodeclBase _function;            
+            ObjectList<Node*> _function_calls;         
             
             //! Map of nodes with the relationship between a new node and an old node when a piece of graph is copied
             /*! The key is the old node and the value is the new node
@@ -383,9 +381,6 @@ namespace TL
             
             //! Returns the node containing the graph
             Node* get_graph() const;
-            
-            //! Returns the header of the function represented in the graph
-            Nodecl::NodeclBase get_function() const;
 
         friend class CfgVisitor;
     };

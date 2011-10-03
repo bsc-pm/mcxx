@@ -167,21 +167,8 @@ namespace TL
         
         std::stack<Node*> _switch_cond_s;
         
-            
-        //! Map used in IPA analysis containing the mapping between function arguments and 
-        //! the new temporary symbols created in the renaming method
-        /*!
-            * This variable is empty is there is no function call. 
-            * The variable will change for every function call founded
-            */
-        std::map<Symbol, Nodecl::NodeclBase> _arg_to_param_m;
-        std::map<Symbol, Nodecl::NodeclBase> _param_to_tmp_m;
-        
-        //! Integer used for temporary renaming variables
-        int _i;
         
     private:
-       
         
         //! This method creates a list with the nodes in an specific subgraph
         /*!
@@ -246,7 +233,8 @@ namespace TL
         // *** IPA *** //
         
         ObjectList<Nodecl::NodeclBase> rename_arguments(Nodecl::NodeclBase func_nodecl_base, 
-                                                        std::vector<Nodecl::NodeclBase> args);
+                                                        std::vector<Nodecl::NodeclBase> args,
+                                                        ObjectList<Symbol> params);
         
         void propagate_tmp_args_rec(Node* actual_node);
         

@@ -34,7 +34,7 @@ namespace TL
         : _actual_cfg(NULL), _cfgs(), 
           _context_s(), _loop_info_s(), _actual_try_info(), 
           _pragma_info_s(), _omp_sections_info(), 
-          _switch_cond_s(), _arg_to_param_m(), _param_to_tmp_m(), _i(i)
+          _switch_cond_s()
     {}
     
     CfgVisitor::CfgVisitor(const CfgVisitor& visitor)
@@ -47,9 +47,6 @@ namespace TL
         _pragma_info_s = visitor._pragma_info_s;
         _omp_sections_info = visitor._omp_sections_info;
         _switch_cond_s = visitor._switch_cond_s;
-        _arg_to_param_m = visitor._arg_to_param_m;
-        _param_to_tmp_m = visitor._param_to_tmp_m;
-        _i =  visitor._i;
     }
     
     ObjectList<ExtensibleGraph*> CfgVisitor::get_cfgs() const

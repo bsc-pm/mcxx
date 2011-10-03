@@ -28,7 +28,7 @@ namespace TL
 {  
     ExtensibleGraph::ExtensibleGraph(std::string name)
         : _graph(NULL), _name(name), _nid(-1),
-          _function_sym(NULL), _function_calls(), _function(Nodecl::NodeclBase::null()), nodes_m(),
+          _function_sym(NULL), _function_calls(), nodes_m(),
           _continue_stack(), _break_stack(),
           _labeled_node_l(), _goto_node_l(), _tasks_node_l(),
           _last_nodes(), _outer_node(), _task_nodes_l()
@@ -45,7 +45,6 @@ namespace TL
         new_ext_graph->_name = this->_name;
         new_ext_graph->_function_sym = this->_function_sym;
         new_ext_graph->_function_calls = this->_function_calls;
-        new_ext_graph->_function = this->_function;
         new_ext_graph->_continue_stack = this->_continue_stack;
         new_ext_graph->_break_stack = this->_break_stack;
         new_ext_graph->_labeled_node_l = this->_labeled_node_l;
@@ -974,10 +973,5 @@ namespace TL
     Node* ExtensibleGraph::get_graph() const
     {
         return _graph;
-    }
-    
-    Nodecl::NodeclBase ExtensibleGraph::get_function() const 
-    {
-        return _function;
     }
 }
