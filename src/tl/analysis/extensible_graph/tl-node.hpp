@@ -69,6 +69,10 @@ namespace TL
             */
             Node* back_over_non_statement_nodes();
             
+            //! Returns a list with two elements. The firs is the list of upper exposed variables of the graph node;
+            //! The second is the list of killed variables of the graph node (Used in composite nodes)
+            ObjectList<ext_sym_set> get_use_def_over_nodes();
+            
             //! Returns the list of live in variables in the node (Used in composite nodes)
             ext_sym_set get_live_in_over_nodes();
             
@@ -86,6 +90,9 @@ namespace TL
              *          It will not be null when the action is a member access or a reference/dereference
              */
             void fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            
+            //! Wrapper method for #fill_use_def_sets when there is more than one symbol to be analysed
+            void fill_use_def_sets(ObjectList<Symbol> syms, bool defined);
             
         public:
             // *** Constructors *** //
@@ -249,6 +256,8 @@ namespace TL
               the inner statements.
              */
             void set_live_initial_information();
+            
+            void set_graph_node_use_def();
             
             //! Applies liveness analysis in a composite node.
             /*!

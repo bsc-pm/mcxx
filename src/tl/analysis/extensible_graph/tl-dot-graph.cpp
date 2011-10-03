@@ -34,7 +34,7 @@ namespace TL
     static std::string prettyprint_ext_sym_set(ext_sym_set s);
     static std::string prettyprint_sym_list(ObjectList<Symbol> s);
     
-    void ExtensibleGraph::makeup_dot_block(std::string &str)
+    void ExtensibleGraph::makeup_dot_block(std::string& str)
     {
         int pos;
         // Escape double quotes
@@ -96,14 +96,14 @@ namespace TL
         }
     }
 
-    void ExtensibleGraph::print_graph_to_dot()
+    void ExtensibleGraph::print_graph_to_dot(Node* node, std::string name)
     {
         std::ofstream dot_cfg;
         
         char buffer[1024];
         getcwd(buffer, 1024);
         std::stringstream ss; ss << rand();
-        std::string dot_file_name = std::string(buffer) + "/" + _name /*+ ss.str()*/ + ".dot";
+        std::string dot_file_name = std::string(buffer) + "/" + name /*+ ss.str()*/ + ".dot";
         dot_cfg.open(dot_file_name.c_str());
         
         if (dot_cfg.good())
@@ -112,18 +112,17 @@ namespace TL
             {
                 std::cerr << "=== Printing CFG to file [" << dot_file_name << "]===" << std::endl;
             }
-            
-            Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
+           
             int subgraph_id = 0;
             dot_cfg << "digraph CFG {\n";
                 std::string graph_data = "";
                 std::vector<std::string> outer_edges;
                 std::vector<Node*> outer_nodes;
-                get_nodes_dot_data(entry, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
+                get_nodes_dot_data(node, graph_data, outer_edges, outer_nodes, "\t", subgraph_id);
                 dot_cfg << graph_data;
             dot_cfg << "}";
             
-            clear_visits(entry);
+            clear_visits(node);
             
             dot_cfg.close();
             
@@ -157,8 +156,11 @@ namespace TL
                 {
                     subgraph_label += actual_label.get_text();
                 }
-                std::string subgr_liveness = "LI: " + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + "\\n" +
-                                             "LO: " + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+                std::string subgr_liveness = "LI: "   + prettyprint_ext_sym_set(actual_node->get_live_in_vars()) + "\\n" +
+                                             "KILL: " + prettyprint_ext_sym_set(actual_node->get_killed_vars()) + "\\n" +
+                                             "UE: "   + prettyprint_ext_sym_set(actual_node->get_ue_vars()) + "\\n" +
+                                             "LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
+   
                 std::string task_deps = "";
                 if (actual_node->get_data<std::string>(_GRAPH_TYPE) == "task")
                 {
@@ -298,9 +300,6 @@ namespace TL
     {     
         std::string basic_block = "";
         std::stringstream ss; ss << actual_node->get_id();
-//         std::stringstream aux;
-//             aux << ss.str();
-//             aux << ", visit=" << (actual_node->is_visited()) << ". ";
         std::stringstream ss2; 
         if (actual_node->has_key(_OUTER_NODE))
             ss2 << actual_node->get_data<Node*>(_OUTER_NODE)->get_id();

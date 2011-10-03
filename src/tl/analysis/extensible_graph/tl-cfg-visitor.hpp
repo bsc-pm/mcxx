@@ -232,13 +232,9 @@ namespace TL
                
         // *** IPA *** //
         
-        ObjectList<Nodecl::NodeclBase> rename_arguments(Nodecl::NodeclBase func_nodecl_base, 
-                                                        std::vector<Nodecl::NodeclBase> args,
-                                                        ObjectList<Symbol> params);
+        bool propagate_use_rec(Node* actual);
+
         
-        void propagate_tmp_args_rec(Node* actual_node);
-        
-        void propagate_tmp_args(ExtensibleGraph* inlined_func_graph);        
         
     public:
         //! Empty constructor
@@ -272,21 +268,12 @@ namespace TL
         
         // *** IPA *** //
         
-        //! The method searches graphs generated previously for every function call founded in those graphs.
-        //! If there is a match, then the function is inlined renaming the parameters with temporary variables
-        void inline_functions_for_ipa();
-        
-        //! The method inlines, if possible, the code corresponding to the function call
-        void find_function_for_inline(Node* function_call);
-        
-        //! The method replaces a function call by the code of the called function, as inline
-        /*! It performs renaming of the variables
-            * \param function_call Pointer to the node containing the Function Call to be substituted
-            * \param func_graph Graph containing the code of the Function to be substituted
-            */
-        void inline_function_in_graph(Node* function_call, 
-                                      ExtensibleGraph* func_graph);
+        //! The method searches matching between the function call and the graphs built in the function unit
+        ExtensibleGraph* find_function_for_ipa(Node* function_call);
 
+        //! Once the use-def chains are calculated for every graph, we are able to recalculate the use-def of every function call
+        bool propagate_use_def_ipa(Node* node);        
+        
         
         // *** Visiting methods *** //
         

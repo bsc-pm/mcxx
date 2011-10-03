@@ -38,23 +38,51 @@ namespace TL
     {
         RefPtr<Nodecl::NodeclBase> nodecl = RefPtr<Nodecl::NodeclBase>::cast_dynamic(dto["nodecl"]);
         
+        // *** Build the graphs for every method in the translation unit *** //
         CfgVisitor cfg_visitor(0);
         cfg_visitor.build_cfg(nodecl, std::string(""));
        
-        // Here we substitute each function call of every graph by the graph 
-        // corresponding with the call if we have it in the graphs list
-        cfg_visitor.inline_functions_for_ipa();
-       
-        // Perform Live Variable Analysis and Print the Graph to a dot file       
-//         ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();     
-//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin();
-//             it != cfgs.end();
-//             ++it)
+        // *** Analysis + IPA *** //
+        ObjectList<ExtensibleGraph*> cfgs = cfg_visitor.get_cfgs();
+        
+        // First compute individually the Use-Def chains for each graph
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            std::cerr << "Graph " << (*it)->get_name() << std::endl;
+            ExtensibleGraph::compute_use_def_chains((*it)->get_graph());
+        }
+        
+        // Now propagate the info of the graph to the corresponding function calls in every graph
+        // FIXME This should be done iteratively since the algorithm do not modify any use/def calculation
+        bool modified = true;
+        while (modified)
+        {
+            ObjectList<bool> modifications;
+            for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+            {
+                modifications.append(cfg_visitor.propagate_use_def_ipa((*it)->get_graph()));
+            }
+            if (!modifications.contains(true))
+            {    
+                modified = false;
+            }
+        }
+        
+        // Perform Live Variable Analysis
+//         for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
 //         {
-//             std::cerr << "Graph " << (*it)->get_name() << std::endl;
-//             (*it)->live_variable_analysis();
-//             (*it)->print_graph_to_dot();
+//             // Non-task nodes
+//             ExtensibleGraph::live_variable_analysis((*it)->get_graph());
+//             
+//             // Task nodes
+//             ExtensibleGraph::analyse_tasks((*it)->get_tasks_list());
 //         }
+        
+        // Print graphs into dot files
+        for (ObjectList<ExtensibleGraph*>::iterator it = cfgs.begin(); it != cfgs.end(); ++it)
+        {
+            ExtensibleGraph::print_graph_to_dot((*it)->get_graph(), (*it)->get_name());
+        }
     }
 }
 

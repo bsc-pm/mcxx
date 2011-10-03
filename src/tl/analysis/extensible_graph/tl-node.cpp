@@ -611,6 +611,82 @@ namespace TL
        
         return result;
     }
+   
+    ObjectList<ext_sym_set> Node::get_use_def_over_nodes()
+    {
+        ObjectList<ext_sym_set> use_def, use_def_aux;
+        
+        if (!_visited)          
+        {
+            _visited = true;
+            ext_sym_set ue_vars, killed_vars, ue_aux, killed_aux;
+            
+            // Propagate info from the actual node
+            if (has_key(_UPPER_EXPOSED))
+            {
+                // Compute upper exposed variables
+                ue_aux = get_ue_vars();
+                for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
+                {
+                    if (killed_vars.find(*it) == killed_vars.end())
+                    {
+                        ue_vars.insert(*it);
+                    }
+                }
+                // Compute killed variables
+                killed_aux = get_killed_vars();
+                killed_vars.insert(killed_aux.begin(), killed_aux.end());
+            }
+            
+            // Complete the use-def info for every children of the node
+            ObjectList<Node*> children = get_children();
+            for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+            {
+                use_def_aux = (*it)->get_use_def_over_nodes();
+                
+                if (!use_def_aux.empty())
+                {
+                    // Compute upper exposed variables
+                    ue_aux = use_def_aux[0];
+                    for(ext_sym_set::iterator it = ue_aux.begin(); it != ue_aux.end(); ++it)
+                    {
+                        if (killed_vars.find(*it) == killed_vars.end())
+                        {
+                            ue_vars.insert(*it);
+                        }
+                    }
+                    // Compute killed variables
+                    killed_aux = use_def_aux[1];
+                    killed_vars.insert(killed_aux.begin(), killed_aux.end());
+                }
+            }
+            
+            use_def.append(ue_vars); use_def.append(killed_vars);
+        }
+        
+        return use_def;
+    }
+   
+    void Node::set_graph_node_use_def()
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            _visited = true;
+            Node* entry_node = get_data<Node*>(_ENTRY_NODE);
+            
+            // Get upper_exposed and killed variables
+            ObjectList<ext_sym_set> use_def = entry_node->get_use_def_over_nodes();
+            
+            set_data(_UPPER_EXPOSED, use_def[0]);
+            set_data(_KILLED, use_def[1]);
+        }
+        else
+        {
+            internal_error("Getting inner use-def information from node '%d' with type '%s' while "
+                            "here it is mandatory a Graph node.\n",
+                           _id, get_node_type_as_string().c_str());
+        }
+    }
 
     ext_sym_set Node::get_live_in_over_nodes()
     {

@@ -111,7 +111,6 @@ namespace TL
         _actual_cfg = actual_cfg;
         
         _actual_cfg->_function_sym = s;
-        std::cerr << "Function header = " << c_cxx_codegen_to_str(s.get_initialization().get_internal_nodecl()) << std::endl;
         ObjectList<Node*> func_stmts = walk(n.get_statements());
         
         // Complete the exit node
@@ -121,7 +120,7 @@ namespace TL
         // Connect the exit nodes to the Exit node of the master graph   
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
         
-//         _actual_cfg->dress_up_graph();
+        _actual_cfg->dress_up_graph();
         
         _cfgs.append(_actual_cfg);
         _actual_cfg = NULL;
@@ -480,22 +479,7 @@ namespace TL
         }
         _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
         
-        ObjectList<Node*> arguments_l;
-        if (n.template is<Nodecl::VirtualFunctionCall>())
-        {
-            Nodecl::VirtualFunctionCall v_func_call = n.template as<Nodecl::VirtualFunctionCall>();
-            arguments_l = walk(v_func_call.get_arguments());
-        }
-        else if (n.template is<Nodecl::FunctionCall>())
-        {
-            Nodecl::FunctionCall func_call = n.template as<Nodecl::FunctionCall>();
-            arguments_l = walk(func_call.get_arguments());
-        }
-        else
-        {
-            internal_error("Unexpected type of Nodecl '%s' found in Virtual Function Call or Function Call visit.",
-                        c_cxx_codegen_to_str(n.get_internal_nodecl()));            
-        }
+        ObjectList<Node*> arguments_l = walk(n.get_arguments());
 
         // walk(n.get_called());    // This is not necessary, always return the called function
         Node* func_node;

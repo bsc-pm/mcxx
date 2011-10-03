@@ -123,7 +123,15 @@ namespace TL
                 set_ue_var(ExtensibleSymbol(s, n));
             }
         }
-    }    
+    }   
+    
+    void Node::fill_use_def_sets(ObjectList<Symbol> syms, bool defined)
+    {
+        for(ObjectList<Symbol>::iterator it = syms.begin(); it != syms.end(); ++it)
+        {
+            fill_use_def_sets(*it, defined, Nodecl::NodeclBase::null());
+        }
+    }
     
     void Node::set_live_initial_information()
     {
@@ -139,38 +147,46 @@ namespace TL
             }
         }
     }
-    
-    
+
+
     // *** EXTENSIBLE_GRAPH *** //
     
-    void ExtensibleGraph::live_variable_analysis()
+    void ExtensibleGraph::compute_use_def_chains(Node* node)
     {
-        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
+        DEBUG_CODE()
+        {
+            std::cerr << "=== CFG Use-Def computation ===" << std::endl;
+        }
+        gather_live_initial_information(node);
+        clear_visits(node);
+    }
+    
+    void ExtensibleGraph::live_variable_analysis(Node* node)
+    {
         DEBUG_CODE()
         {
             std::cerr << "=== CFG Function Live Variable analysis ===" << std::endl;
         }
         
-        gather_live_initial_information(entry);
-        clear_visits(entry);
-        
-        solve_live_equations();
-        clear_visits(entry);
-        
-        analyse_tasks();
+        solve_live_equations(node);
+        clear_visits(node);
     }
 
     void ExtensibleGraph::gather_live_initial_information(Node* actual)
     {
-        Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
-        while (!actual->is_visited())
+        if (!actual->is_visited())
         {
             actual->set_visited(true);
+
+            Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
             if (ntype != BASIC_EXIT_NODE)
             {
                 if (ntype == GRAPH_NODE)
                 {
-                    gather_live_initial_information(actual->get_data<Node*>(_ENTRY_NODE));
+                    Node* entry = actual->get_data<Node*>(_ENTRY_NODE);
+                    gather_live_initial_information(entry);
+                    clear_visits(entry);
+                    actual->set_graph_node_use_def();
                 }
                 else if (ntype != BASIC_ENTRY_NODE)
                 {
@@ -184,21 +200,19 @@ namespace TL
                 {
                     gather_live_initial_information((*it)->get_target());
                 }
-                continue;
             }
             return;
         }
     }
     
-    void ExtensibleGraph::solve_live_equations()
+    void ExtensibleGraph::solve_live_equations(Node* node)
     {
         bool changed = true;
-        Node* entry = _graph->get_data<Node*>(_ENTRY_NODE);
         while (changed)
         {
             changed = false;
-            solve_live_equations_recursive(entry, changed);
-            clear_visits(entry);
+            solve_live_equations_recursive(node, changed);
+            clear_visits(node);
         }
     }
     
@@ -258,7 +272,7 @@ namespace TL
                                     aux_live_in.insert(aux_set.begin(), aux_set.end());
                                 }
                             }
-                            else if (nt == BASIC_EXIT_NODE && (*it)->get_id() != _graph->get_data<Node*>(_EXIT_NODE)->get_id())
+                            else if (nt == BASIC_EXIT_NODE)
                             {
                                 ObjectList<Node*> outer_children = 
                                     (*it)->get_data<Node*>(_OUTER_NODE)->get_children();
@@ -303,11 +317,9 @@ namespace TL
         }
     }
 
-    void ExtensibleGraph::analyse_tasks()
+    void ExtensibleGraph::analyse_tasks(ObjectList<Node*> tasks_l)
     {
-        for (ObjectList<Node*>::iterator it = _task_nodes_l.begin();
-            it != _task_nodes_l.end();
-            ++it)
+        for (ObjectList<Node*>::iterator it = tasks_l.begin(); it != tasks_l.end(); ++it)
         {
             analyse_task(*it);
             clear_visits(*it);
@@ -374,5 +386,127 @@ namespace TL
         task_node->set_data(_IN_DEPS, input_deps);
         task_node->set_data(_OUT_DEPS, output_deps);
         task_node->set_data(_INOUT_DEPS, inout_deps);
+    }
+    
+    
+    // *** CFG_VISITOR *** //
+    
+    bool CfgVisitor::propagate_use_def_ipa(Node* node)
+    {
+        DEBUG_CODE()
+        {
+            std::cerr << "=== CFG IPA of Use/Def chains ===" << std::endl;
+        }
+        
+        bool result = propagate_use_rec(node);
+        ExtensibleGraph::clear_visits(node);
+       
+        return false;
+    }
+    
+    bool CfgVisitor::propagate_use_rec(Node* actual)
+    {
+        if (!actual->is_visited())
+        {
+            actual->set_visited(true);
+            
+            Node_type ntype = actual->get_data<Node_type>(_NODE_TYPE);
+            if (ntype != BASIC_EXIT_NODE)
+            {
+                bool result = false;
+                if (ntype == GRAPH_NODE)
+                {
+                    result = propagate_use_rec(actual->get_data<Node*>(_ENTRY_NODE));
+                }
+                else if (ntype == BASIC_FUNCTION_CALL_NODE)
+                {
+                    ExtensibleGraph* called_func = find_function_for_ipa(actual);
+                    if (called_func != NULL)
+                    {
+                        result = true;
+                        
+                        // Get arguments
+                        std::vector<Nodecl::NodeclBase> args;
+                        Nodecl::NodeclBase func_nodecl = actual->get_data<ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS)[0];
+                        if (func_nodecl.is<Nodecl::FunctionCall>())
+                        {
+                            Nodecl::FunctionCall func_call_nodecl = func_nodecl.as<Nodecl::FunctionCall>();
+                            args = func_call_nodecl.get_arguments().as<Nodecl::List>();
+                        }
+                        else
+                        {   // is VirtualFunctionCall
+                            Nodecl::VirtualFunctionCall func_call_nodecl = func_nodecl.as<Nodecl::VirtualFunctionCall>();
+                            args = func_call_nodecl.get_arguments().as<Nodecl::List>();
+                        }
+                        
+                        // Get parameters
+                        ObjectList<Symbol> params;
+                        Symbol function_sym = called_func->get_function_symbol();
+                        scope_entry_t* function_header = function_sym.get_internal_symbol();
+                        int num_params = function_header->entity_specs.num_related_symbols;
+                        scope_entry_t** related_symbols = function_header->entity_specs.related_symbols;
+                        for (int i=0; i<num_params; ++i)
+                        {
+                            params.append(Symbol(related_symbols[i]));
+                        }
+                        
+                        // Map parameters with arguments
+                        std::map<Symbol, Nodecl::NodeclBase> params_to_args;
+                        int i = 0;
+                        for(ObjectList<Symbol>::iterator it = params.begin(); it != params.end(); ++it, ++i)
+                        {
+                            params_to_args[*it] = args[i];
+                        }
+                        
+                        // TODO When the use_def info of the called method contains a parameter, it is propagated to the actual node
+//                         ext_sym_set called_func_ue_vars = actual->get_ue_vars();
+//                         for(ext_sym_set::iterator it = called_func_ue_vars.begin(); it != called_func_ue_vars.end(); ++it)
+//                         {
+//                             if (params.contains(it->get_symbol()))
+//                             {
+//                                 
+//                             }
+//                         }
+//                         
+//                         ext_sym_set called_func_killed_vars = actual->get_killed_vars();
+//                         for(ext_sym_set::iterator it = called_func_killed_vars.begin(); it != called_func_killed_vars.end(); ++it)
+//                         {
+//                             if (params.contains(it->get_symbol()))
+//                             {
+//                                 
+//                             }                            
+//                         }
+                    }
+                }
+                
+                ObjectList<bool> results;
+                ObjectList<Node*> children = actual->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                {
+                    results.append(propagate_use_rec(*it));
+                }
+                return (results.contains(true) || result);
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return false;
+    }
+    
+    
+    ExtensibleGraph* CfgVisitor::find_function_for_ipa(Node* function_call)
+    {
+        for (ObjectList<ExtensibleGraph*>::iterator it = _cfgs.begin(); it != _cfgs.end(); ++it)
+        {
+            Symbol actual_sym = (*it)->get_function_symbol();
+            if (actual_sym.is_valid() && function_call->get_function_node_symbol() == actual_sym)
+            {
+                return *it;
+            }
+        }
+        
+        return NULL;
     }
 }

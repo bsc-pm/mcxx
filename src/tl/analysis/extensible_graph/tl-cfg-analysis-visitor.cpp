@@ -35,7 +35,7 @@ namespace TL
 
     CfgAnalysisVisitor::CfgAnalysisVisitor(const CfgAnalysisVisitor& v)
         : _node(v._node), _define(v._define), _actual_nodecl(v._actual_nodecl)
-    {}
+    {} 
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::unhandled_node(const Nodecl::NodeclBase& n)
     {
@@ -91,108 +91,54 @@ namespace TL
         literal_visit(n);
     }
 
-    // TODO
+    static ObjectList<Symbol> get_symbols(Nodecl::NodeclBase n)
+    {
+        if (n.get_symbol().is_valid())
+        {
+            return ObjectList<Symbol>(1, n.get_symbol());
+        }
+        
+        ObjectList<Symbol> result;
+        ObjectList<Nodecl::NodeclBase> children = n.children();
+        for(ObjectList<Nodecl::NodeclBase>::iterator it = children.begin(); it != children.end(); ++it)
+        {
+            result.append(get_symbols(*it));
+        }
+        
+        return result;
+    }
+
     template <typename T>
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::func_call(const T& n)
     {
+        // FIXME Review what's happening when we call a method with pointers or references: which symbols is used/defined??
         
-//         CfgArgumentVisitor new_visitor();
-//         new_visitor.walk(n);
-        
-        /*Type t = n.get_type();
-        
-        bool has_ellipsis;
-        ObjectList<Type> parameters_types = t.parameters(has_ellipsis);
-        Nodecl::List arguments(n.get_internal_nodecl());*/        
-        
-//         ObjectList<Nodecl::NodeclBase>::iterator ita = arguments.begin();
-//         for (ObjectList<Type>::iterator itp = parameters_types.begin();
-//             itp != parameters_types.end();
-//             ++itp, ++ita)
-//         {   // While we can use the parameters (arguments that are not ellipsis), we do
-//             // FIXME Escape analysis??
-//             if (itp->is_reference() || itp->is_pointer())
-//             {
-//                 ObjectList<Symbol> syms = (*ita).get_symbols();
-//                 if (!syms.empty())
-//                 {
-//                     for (ObjectList<Symbol>::iterator its = syms.begin();
-//                         it != syms.end();
-//                         ++it)
-//                     {
-//                         _node->fill_use_def_sets(ita.get_symbol(), false);
-//                         _node->fill_use_def_sets(ita.get_symbol(), true);
-//                     }
-//                 }
-//             }
-//         }
-        
-//         if (has_ellipsis)
-//         {
-//             for(; ita != arguments.end(); ++ita)
-//             {
-//                 // FIXME get_type will not work if Fortran when argument is 'named-pair' or 'alt-return'
-//                 if (ita->is_reference() || ita->is_pointer())
-//                 {
-//                     _node->fill_use_def_sets(ita.get_symbol(), false);
-//                     _node->fill_use_def_sets(ita.get_symbol(), true);
-//                 }
-//             }
-//         }
-             
-        //         else if (e.is_function_call())
-//         {
-//             Expression called_expression = e.get_called_expression();
-//             Type type = called_expression.get_type();
-//             ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
-//             
-//             ObjectList<Expression> args = e.get_argument_list();
-//             ObjectList<Type>::iterator itp = parameter_types.begin();
-//             ObjectList<Expression>::iterator ita = args.begin();
-//             for(; itp != parameter_types.end(); ita++, itp++)
-//             {
-//                 // Regarding the parameter, if possible (arguments that are not in ellipsis)
-//                 if ((itp->is_pointer() && !itp->points_to().is_const()) || 
-//                     (itp->is_reference() && !itp->references_to().is_const()))
-//                 {
-// //                     std::cerr << "Parameter " << ita->prettyprint() 
-// //                               << " is pointer and not const" << std::endl;
-//                     // Assuming that the argument is used and defined, in this order
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     set_live_initial_expression_information(*ita, /* Defined */ true);
-//                 }
-//                 else
-//                 {
-// //                     std::cerr << "Parameter " << ita->prettyprint() 
-// //                               << " is not pointer or const" << std::endl;
-//                     set_live_initial_expression_information(*ita, /* Defined */ false);
-//                 }
-//             }
-//             if (has_ellipsis)
-//             {
-//                 // There are more arguments than parameters, so we must regard the argument
-//                 for(; ita != args.end(); ita++)
-//                 {
-//                     if ((ita->get_type().is_pointer() && !ita->get_type().points_to().is_const()) ||
-//                         (ita->get_type().is_reference() && 
-//                              !ita->get_type().references_to().is_const()))
-//                     {
-// //                         std::cerr << "Argument " << ita->prettyprint() 
-// //                                   << " is pointer and not const" << std::endl;
-//                         // Assuming that the argument is used and defined, in this order
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                         set_live_initial_expression_information(*ita, /* Defined */ true);
-//                     }
-//                     else
-//                     {    
-// //                         std::cerr << "Argument " << ita->prettyprint() 
-// //                                   << " is not pointer or const" << std::endl;
-//                         set_live_initial_expression_information(*ita, /* Defined */ false);
-//                     }
-//                 }
-//             }
-//         }        
-        
+        // Analyse the parameters/arguments conservatively:
+        Nodecl::List args = n.get_arguments().template as<Nodecl::List>();
+        Symbol called_sym = n.get_called().get_symbol();
+        scope_entry_t* called_sym_ = called_sym.get_internal_symbol();
+        int num_params = called_sym_->entity_specs.num_related_symbols;
+        int i = 0;
+        for(; i < num_params; ++i)
+        {
+            _node->fill_use_def_sets(get_symbols(args[i]), false);  // We suppose the node to be used always
+            Symbol param(called_sym_->entity_specs.related_symbols[i]);
+            Type param_type = param.get_type();
+            if (param_type.is_pointer() || param_type.is_reference())
+            {   // Only if it is a pointer or a reference, then it is also defined
+                _node->fill_use_def_sets(get_symbols(args[i]), true);
+            }
+        }
+        while(i < args.size())
+        {   // function called with ellipsed arguments
+            Type arg_type = args[i].get_type();
+            _node->fill_use_def_sets(get_symbols(args[i]), false);  // We suppose the node to be used always
+            if (arg_type.is_pointer() || arg_type.is_reference())
+            {   // Only if it is a pointer or a reference, then it is also defined
+                _node->fill_use_def_sets(get_symbols(args[i]), true);
+            }            
+            ++i;
+        }
     }
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)

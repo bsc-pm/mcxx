@@ -66,7 +66,6 @@ namespace TL
             //! Lists to keep special nodes that breaks the expected behaviour of the flow
             ObjectList<Node*> _labeled_node_l;
             ObjectList<Node*> _goto_node_l;
-            ObjectList<Node*> _tasks_node_l;
             
             //! List of nodes that will be parents of a new node
             ObjectList<Node*> _last_nodes;
@@ -86,7 +85,7 @@ namespace TL
         
             //! Makes up the content of the nodes by deleting the line feeds and escaping all
             //! those symbols that can not be freely write in DOT language.
-            void makeup_dot_block(std::string &str);
+            static void makeup_dot_block(std::string& str);
             
             //! This method removes all those nodes that are unreachable and those that were created
             //! as auxiliary nodes when the graph was created. 
@@ -110,10 +109,10 @@ namespace TL
               \param indent Indentation for the actual node when it is printed.
               \param subgraph_id Identifier for the actual cluster.
              */
-            void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
-                                    std::vector<std::string>& outer_edges, 
-                                    std::vector<Node*>& outer_nodes,
-                                    std::string indent, int& subgraph_id);
+            static void get_nodes_dot_data(Node* actual_node, std::string& dot_graph, 
+                                           std::vector<std::string>& outer_edges, 
+                                           std::vector<Node*>& outer_nodes,
+                                           std::string indent, int& subgraph_id);
                                      
             //! Prints both nodes and edges within a cfg subgraph
                         //! Prints nodes and relations between them in a string in a recursive way.
@@ -125,34 +124,34 @@ namespace TL
               \param indent Indentation for the actual node when it is printed.
               \param subgraph_id Identifier for the actual cluster.
              */
-            void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
+            static void get_dot_subgraph(Node* actual_node, std::string& graph_data, 
                                   std::vector<std::string>& outer_edges,
                                   std::vector<Node*>& outer_nodes, 
                                   std::string indent, int& subgraph_id);
                                   
             //! Prints the data of an only node.                                    
-            void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
+            static void get_node_dot_data(Node* node, std::string& graph_data, std::string indent);
            
             
             //! Returns whether the source and the target of an edge belongs to the same outer node.
             /*!
               If both the source and the target do not have an outer node, then true is returned.
              */
-            bool belongs_to_the_same_graph(Edge* edge);
+            static bool belongs_to_the_same_graph(Edge* edge);
             
             //! Computes the liveness information of each node regarding only its inner statements
             /*!
               A variable is Killed (X) when it is defined before than used in X.
               A variable is Upper Exposed (X) when it is used before than defined in X.
              */
-            void gather_live_initial_information(Node* actual);
+            static void gather_live_initial_information(Node* actual);
             
             //! Computes the data-flow equation for each node in a iterative way 
             //! until the information stops changing.
             /*!
               It is mandatory to use before #gather_live_initial_information.
              */
-            void solve_live_equations();
+            static void solve_live_equations(Node* node);
             
             //! Computes on iteration of the method #solve_live_equations.
             /*!
@@ -161,7 +160,7 @@ namespace TL
               Live in (X) = Upper exposed (X) + 
                             ( Live out (X) - Killed (X) )
              */
-            void solve_live_equations_recursive(Node* actual, bool& changed);
+            static void solve_live_equations_recursive(Node* actual, bool& changed);
             
             //! Recompute the identifiers of the nodes graph hanging from actual_node from the value of _nid
             //! This method is used when a node s replaced by another, because the identifiers may be repeated
@@ -337,7 +336,7 @@ namespace TL
             
             //! This function clears the attribute #visited from nodes bellow @actual node.
             //! It works properly if there isn't any unreachable node in the graph bellow @actual.
-            void clear_visits(Node* actual);
+            static void clear_visits(Node* actual);
                        
             //! Set of methods that removes those nodes that can never be reached.                 
             void clear_orphaned_nodes(Node* actual_node);
@@ -352,19 +351,23 @@ namespace TL
             // *** DOT Graph *** //
             
             //! Build a DOT file that represents the CFG
-            void print_graph_to_dot();
+            static void print_graph_to_dot(Node* node, std::string name);
             
             
             // *** Static CFG Analysis *** //
+           
+            //! Computes the define-use chain a node
+            static void compute_use_def_chains(Node* node);
             
-            //! Computes the define-use chain of the cfg
-            void live_variable_analysis();            
+            //! Computes the liveness analysis of a node
+            //! The method needs the use-def chains to be calculated before
+            static void live_variable_analysis(Node* node);            
             
             //! Computes dependences for all task node in the Extensible Graph
-            void analyse_tasks();
+            static void analyse_tasks(ObjectList<Node*> tasks_l);
             
             //! Computes dependences for a node containing a task code
-            void analyse_task(Node* task_node);
+            static void analyse_task(Node* task_node);
            
             
             // *** Getters and Setters *** //
@@ -381,6 +384,8 @@ namespace TL
             
             //! Returns the node containing the graph
             Node* get_graph() const;
+            
+            ObjectList<Node*> get_tasks_list() const;
 
         friend class CfgVisitor;
     };
