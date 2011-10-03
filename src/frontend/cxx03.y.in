@@ -3202,40 +3202,40 @@ condition : expression %merge<ambiguityHandler>
 	$$ = ASTMake3(AST_CONDITION, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extension
-| type_specifier_seq_0 declarator asm_specification attributes '=' assignment_expression %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator asm_specification attributes equal_initializer %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GCC_CONDITION, $4,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $6, ASTFileName($1), ASTLine($1), NULL),
- ASTFileName($1), ASTLine($1), NULL);
-}
-| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification attributes '=' assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, $4,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $6, ASTFileName($1), ASTLine($1), NULL),
- ASTFileName($1), ASTLine($1), NULL);
-}
-| type_specifier_seq_0 declarator attributes '=' assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, $3,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $5, ASTFileName($1), ASTLine($1), NULL),
- ASTFileName($1), ASTLine($1), NULL);
-}
-| type_specifier_seq_ended_with_identifier nonglobal_declarator attributes '=' assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, $3,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $5, ASTFileName($1), ASTLine($1), NULL),
- ASTFileName($1), ASTLine($1), NULL);
-}
-| type_specifier_seq_0 declarator asm_specification '=' assignment_expression %merge<ambiguityHandler>
-{
-	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
 			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ASTFileName($1), ASTLine($1), NULL),
  ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification '=' assignment_expression %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification attributes equal_initializer %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_GCC_CONDITION, $4,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ASTFileName($1), ASTLine($1), NULL),
+ ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier_seq_0 declarator attributes equal_initializer %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_GCC_CONDITION, $3,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $4, ASTFileName($1), ASTLine($1), NULL),
+ ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_declarator attributes equal_initializer %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_GCC_CONDITION, $3,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $4, ASTFileName($1), ASTLine($1), NULL),
+ ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier_seq_0 declarator asm_specification equal_initializer %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
-			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ASTFileName($1), ASTLine($1), NULL),
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL),
+ ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier_seq_ended_with_identifier nonglobal_declarator asm_specification equal_initializer %merge<ambiguityHandler>
+{
+	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL),
  ASTFileName($1), ASTLine($1), NULL);
 }
 ;
