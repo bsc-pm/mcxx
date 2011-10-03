@@ -91,38 +91,41 @@ namespace TL
 
                 std::stack<TargetContext> _target_context;
 
+                void task_function_handler_pre(TL::PragmaCustomDirective construct);
+                void task_inline_handler_pre(TL::PragmaCustomStatement construct);
+
                 void get_clause_symbols(PragmaCustomClause clause, 
                         ObjectList<DataReference>& sym_list, 
                         bool allow_extended_references = false);
                 void get_reduction_symbols(Nodecl::NodeclBase construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
-                void get_data_explicit_attributes(Nodecl::NodeclBase construct, 
+                void get_data_explicit_attributes(TL::PragmaCustomLine construct,
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes(Nodecl::NodeclBase construct, 
+                void get_data_implicit_attributes(TL::PragmaCustomStatement construct, 
                         DataSharingAttribute default_data_attr, 
                         DataSharingEnvironment& data_sharing);
-                void get_data_implicit_attributes_task(Nodecl::NodeclBase construct,
+                void get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
-                void get_target_info(Nodecl::NodeclBase construct, 
+                void get_target_info(TL::PragmaCustomLine pragma_line,
                         DataSharingEnvironment& data_sharing);
-                void get_dependences_info(PragmaCustomCommon construct, 
+                void get_dependences_info(PragmaCustomLine construct, 
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);
 
-                DataSharingAttribute get_default_data_sharing(Nodecl::NodeclBase construct,
+                DataSharingAttribute get_default_data_sharing(TL::PragmaCustomLine construct,
                         DataSharingAttribute fallback_data_sharing);
 
-                void common_parallel_handler(Nodecl::NodeclBase ctr, DataSharingEnvironment& data_sharing);
-                void common_for_handler(Nodecl::NodeclBase ctr, DataSharingEnvironment& data_sharing);
-                void common_workshare_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing);
+                void common_parallel_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
+                void common_for_handler(TL::PragmaCustomStatement ctr, DataSharingEnvironment& data_sharing);
+                void common_workshare_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing);
 
-				RealTimeInfo task_real_time_handler_pre(Nodecl::NodeclBase construct);
+				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
-                void common_sections_handler(Nodecl::NodeclBase construct, const std::string& pragma_name);
+                void common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name);
                 void fix_first_section(Nodecl::NodeclBase construct);
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);

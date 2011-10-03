@@ -94,6 +94,8 @@ libtl_la_SOURCES = \
     tl-nodecl-base.cpp \
     tl-nodecl.hpp \
     tl-nodecl.cpp \
+    tl-nodecl-alg.hpp \
+    tl-nodecl-alg.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
     tl-dto.hpp \

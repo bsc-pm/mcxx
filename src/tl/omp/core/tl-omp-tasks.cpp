@@ -139,15 +139,20 @@ namespace TL
             _implementation_table(ft_copy._implementation_table), 
             _target_info(ft_copy._target_info), _if_clause_cond_expr(NULL)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             if(ft_copy.has_if_clause()) 
             {
                 _if_clause_cond_expr = 
-                    new Expression(ft_copy.get_if_clause_conditional_expression());
+                    new Nodecl::NodeclBase(ft_copy.get_if_clause_conditional_expression());
             }
+#endif
         }
                 
         FunctionTaskInfo & FunctionTaskInfo::operator=(const FunctionTaskInfo & ft_copy) 
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             if(this != &ft_copy)
             {
                 if(_if_clause_cond_expr != NULL) delete _if_clause_cond_expr;
@@ -161,9 +166,10 @@ namespace TL
                 if(ft_copy.has_if_clause()) 
                 {
                    _if_clause_cond_expr = 
-                       new Expression(ft_copy.get_if_clause_conditional_expression());
+                       new Nodecl::NodeclBase(ft_copy.get_if_clause_conditional_expression());
                 }
             }
+#endif
             return *this;
         }
 
@@ -180,17 +186,20 @@ namespace TL
         ObjectList<Symbol> FunctionTaskInfo::get_involved_parameters() const
         {
             ObjectList<Symbol> result;
+            internal_error("Not yet implemented", 0);
+#if 0
 
             for (ObjectList<FunctionTaskDependency>::const_iterator it = _parameters.begin();
                     it != _parameters.end();
                     it++)
             {
-                Expression expr(it->get_data_reference());
+                Nodecl::NodeclBase expr(it->get_data_reference());
 
                 ObjectList<Symbol> current_syms = expr.all_symbol_occurrences().map(functor(&IdExpression::get_symbol));
                 result.insert(current_syms);
             }
 
+#endif
             return result;
         }
 
@@ -257,16 +266,16 @@ namespace TL
             return (_if_clause_cond_expr != NULL);
         }
 
-        void FunctionTaskInfo::set_if_clause_conditional_expression(Expression expr)
+        void FunctionTaskInfo::set_if_clause_conditional_expression(Nodecl::NodeclBase expr)
         {
             if(_if_clause_cond_expr != NULL) 
             {
                 delete _if_clause_cond_expr;
             }
-            _if_clause_cond_expr = new Expression(expr);
+            _if_clause_cond_expr = new Nodecl::NodeclBase(expr);
         }
         
-        Expression FunctionTaskInfo::get_if_clause_conditional_expression() const
+        Nodecl::NodeclBase FunctionTaskInfo::get_if_clause_conditional_expression() const
         {
             return (*_if_clause_cond_expr);
         }
@@ -318,7 +327,7 @@ namespace TL
             return _map.find(sym)->second;
         }
 
-        bool FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
+        void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)
         {
             std::pair<Symbol, FunctionTaskInfo> pair(sym, function_info);
             _map.insert(pair);
@@ -338,27 +347,29 @@ namespace TL
         {
             private:
                 DependencyDirection _direction;
-                AST_t _ref_tree;
-                ScopeLink _sl;
+                Nodecl::NodeclBase _ref_tree;
 
             public:
                 FunctionTaskDependencyGenerator(DependencyDirection direction,
-                        AST_t ref_tree, ScopeLink sl)
-                    : _direction(direction), _ref_tree(ref_tree), _sl(sl)
+                        Nodecl::NodeclBase ref_tree)
+                    : _direction(direction), _ref_tree(ref_tree)
                 {
                 }
 
                 FunctionTaskDependency do_(FunctionTaskDependencyGenerator::ArgType str) const
                 {
+                    internal_error("Not yet implemented", 0);
+#if 0
                     Source src;
                     src
                         << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
                         << str;
 
-                    AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
+                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree, _sl);
                     DataReference expr(expr_tree, _sl);
 
                     return FunctionTaskDependency(expr, _direction);
+#endif
                 }
         };
 
@@ -366,34 +377,38 @@ namespace TL
         {
             private:
                 CopyDirection _copy_direction;
-                AST_t _ref_tree;
-                ScopeLink _sl;
+                Nodecl::NodeclBase _ref_tree;
 
             public:
                 FunctionCopyItemGenerator(CopyDirection copy_direction,
-                        AST_t ref_tree, ScopeLink sl)
-                    : _copy_direction(copy_direction), _ref_tree(ref_tree), _sl(sl)
+                        Nodecl::NodeclBase ref_tree)
+                    : _copy_direction(copy_direction), _ref_tree(ref_tree)
                 {
                 }
 
                 CopyItem do_(FunctionCopyItemGenerator::ArgType str) const
                 {
+                    internal_error("Not yet implemented", 0);
+#if 0
                     Source src;
                     src
-                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
+                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_filename() << "\"\n"
                         << str
                         ;
 
-                    AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
+                    Nodecl::NodeclBase expr_tree = src.parse_expression(_ref_tree);
                     DataReference data_ref(expr_tree, _sl);
 
                     return CopyItem(data_ref, _copy_direction);
+#endif
                 }
         };
 
         static bool is_useless_dependence(const FunctionTaskDependency& function_dep)
         {
-            Expression expr(function_dep.get_data_reference());
+            internal_error("Not yet implemented", 0);
+#if 0
+            Nodecl::NodeclBase expr(function_dep.get_data_reference());
             if (expr.is_id_expression())
             {
                 Symbol sym = expr.get_id_expression().get_computed_symbol();
@@ -403,11 +418,14 @@ namespace TL
                     return true;
                 }
             }
+#endif
             return false;
         }
 
         static void dependence_list_check(ObjectList<FunctionTaskDependency>& function_task_param_list)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             ObjectList<FunctionTaskDependency>::iterator begin_remove = std::remove_if(function_task_param_list.begin(),
                     function_task_param_list.end(),
                     is_useless_dependence);
@@ -417,7 +435,7 @@ namespace TL
                     it++)
             {
                 DependencyDirection direction(it->get_direction());
-                Expression expr(it->get_data_reference());
+                Nodecl::NodeclBase expr(it->get_data_reference());
 
                 if (expr.is_id_expression())
                 {
@@ -449,10 +467,13 @@ namespace TL
 
             // Remove useless expressions
             function_task_param_list.erase(begin_remove, function_task_param_list.end());
+#endif
         }
 
-        void Core::task_function_handler_pre(PragmaCustomConstruct construct)
+        void Core::task_function_handler_pre(TL::PragmaCustomDirective construct)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             RealTimeInfo rt_info = task_real_time_handler_pre(construct);
 
             PragmaCustomClause input_clause = construct.get_clause("input");
@@ -484,7 +505,7 @@ namespace TL
             }
 
             // Now discover whether this is a function definition or a declaration
-            DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
+            DeclaredEntity decl_entity(Nodecl::NodeclBase(), construct.get_scope_link());
             if (Declaration::predicate(construct.get_declaration()))
             {
                 Declaration decl(construct.get_declaration(), construct.get_scope_link());
@@ -540,7 +561,7 @@ namespace TL
             ObjectList<FunctionTaskDependency> dependence_list;
             FunctionTaskTargetInfo target_info;
 
-            AST_t param_ref_tree = function_sym.get_point_of_declaration();
+            Nodecl::NodeclBase param_ref_tree = function_sym.get_point_of_declaration();
 
              if(!parameter_decl.empty()
                  && (parameter_decl.size() != 1 || !parameter_decl[0].get_type().is_void()))
@@ -601,19 +622,21 @@ namespace TL
                     running_error("%s: error: clause 'if' requires just one argument\n",
                             construct.get_ast().get_locus().c_str());
                 }
-                TL::AST_t expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
-                Expression cond_expr = Expression(expr_tree, construct.get_scope_link());
+                TL::Nodecl::NodeclBase expr_tree = Source(expr_list[0]).parse_expression(param_ref_tree, construct.get_scope_link()); 
+                Nodecl::NodeclBase cond_expr = Nodecl::NodeclBase(expr_tree, construct.get_scope_link());
                 task_info.set_if_clause_conditional_expression(cond_expr);
             }
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
+#endif
         }
 
-
-        void Core::task_inline_handler_pre(PragmaCustomConstruct construct)
+        void Core::task_inline_handler_pre(TL::PragmaCustomStatement construct)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             RealTimeInfo rt_info = task_real_time_handler_pre(construct);
             
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
@@ -631,18 +654,22 @@ namespace TL
 
             // Target info applies after
             get_target_info(construct, data_sharing);
+#endif
         }
 
 
-        RealTimeInfo Core::task_real_time_handler_pre(PragmaCustomConstruct construct)
+        RealTimeInfo Core::task_real_time_handler_pre(TL::PragmaCustomLine construct)
         {
             RealTimeInfo rt_info;
+
+            internal_error("Not yet implemented", 0);
+#if 0
             
             //looking for deadline clause
             PragmaCustomClause deadline_clause = construct.get_clause("deadline");
             if (deadline_clause.is_defined())
             {
-                ObjectList<Expression> deadline_exprs =
+                ObjectList<Nodecl::NodeclBase> deadline_exprs =
                     deadline_clause.get_expression_list();
                 
                 if(deadline_exprs.size() != 1) 
@@ -663,7 +690,7 @@ namespace TL
             PragmaCustomClause release_clause = construct.get_clause("release_after");
             if (release_clause.is_defined())
             {
-                ObjectList<Expression> release_exprs =
+                ObjectList<Nodecl::NodeclBase> release_exprs =
                     release_clause.get_expression_list();
                 
                 if(release_exprs.size() != 1) 
@@ -764,6 +791,7 @@ namespace TL
                     }
                 }
             }
+#endif
             return rt_info;
         }
     }

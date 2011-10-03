@@ -200,6 +200,8 @@ namespace TL
              * given ReferenceScope to perform the parse of the expressions
              */
             ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
+
+            std::string get_locus() const;
     };
 
     class LIBTL_CLASS PragmaCustomParameter : public TL::PragmaClauseArgList
@@ -237,63 +239,38 @@ namespace TL
             PragmaCustomParameter get_parameter() const;
     };
     
-    class LIBTL_CLASS PragmaCustomCommon 
-    {
-        private:
-            TL::PragmaCustomLine _pragma_line;
-        public:
-            static PragmaCustomCommon build(const Nodecl::PragmaCustomDirective &);
-            static PragmaCustomCommon build(const Nodecl::PragmaCustomStatement &);
-            static PragmaCustomCommon build(const Nodecl::PragmaCustomDeclaration &);
-
-            PragmaCustomCommon(const Nodecl::PragmaCustomLine&);
-
-            //! Returns a clause by name
-            TL::PragmaCustomClause get_clause(const std::string &name) const;
-
-            //! Returns a clause by a set of alias names
-            TL::PragmaCustomClause get_clause(const ObjectList<std::string>& aliased_names) const;
-
-            //! This function returns all clauses in the order they appear in the pragma
-            ObjectList<TL::PragmaCustomSingleClause> get_all_clauses() const;
-
-            //! This function returns all clause names in the order they appear in the pragma
-            ObjectList<std::string> get_all_clause_names() const;
-
-            //! This function returns the parameter
-            /*!
-             * The parameter of the clause is just a special clause with no name that can appear
-             * right after the pragma. You can perform the same operations as a PragmaCustomSingleClause
-             */
-            PragmaCustomParameter get_parameter() const;
-    };
-
     // Note that this is TL::PragmaCustomDirective 
-    class LIBTL_CLASS PragmaCustomDirective : public Nodecl::PragmaCustomDirective, public PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomDirective : public Nodecl::PragmaCustomDirective
     {
         public:
         PragmaCustomDirective(Nodecl::PragmaCustomDirective node)
-            : Nodecl::PragmaCustomDirective(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
+            : Nodecl::PragmaCustomDirective(node)
         {
         }
+
+        PragmaCustomLine get_pragma_line() const;
     };
 
-    class LIBTL_CLASS PragmaCustomStatement : public Nodecl::PragmaCustomStatement, public PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomStatement : public Nodecl::PragmaCustomStatement
     {
         public:
         PragmaCustomStatement(Nodecl::PragmaCustomStatement node)
-            : Nodecl::PragmaCustomStatement(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
+            : Nodecl::PragmaCustomStatement(node)
         {
         }
+
+        PragmaCustomLine get_pragma_line() const;
     };
 
-    class LIBTL_CLASS PragmaCustomDeclaration : public Nodecl::PragmaCustomDeclaration, public PragmaCustomCommon
+    class LIBTL_CLASS PragmaCustomDeclaration : public Nodecl::PragmaCustomDeclaration
     {
         public:
         PragmaCustomDeclaration(Nodecl::PragmaCustomDeclaration node)
-            : Nodecl::PragmaCustomDeclaration(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
+            : Nodecl::PragmaCustomDeclaration(node)
         {
         }
+
+        PragmaCustomLine get_pragma_line() const;
     };
 
     struct PragmaMapDispatcher

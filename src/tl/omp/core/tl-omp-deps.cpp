@@ -77,6 +77,7 @@ namespace TL { namespace OpenMP {
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)
     {
+            internal_error("Not yet implemented", 0);
 #if 0
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
@@ -132,8 +133,9 @@ namespace TL { namespace OpenMP {
 #endif
     }
 
-    void Core::get_dependences_info(PragmaCustomCommon construct, DataSharingEnvironment& data_sharing)
+    void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
     {
+            internal_error("Not yet implemented", 0);
 #if 0
         PragmaCustomClause input_clause = construct.get_clause("input");
         get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);

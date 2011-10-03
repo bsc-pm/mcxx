@@ -214,4 +214,17 @@ namespace TL
     {
         return _decl_context.current_scope->related_entry;
     }
+
+    bool Scope::is_contained_in(Scope sc) const
+    {
+        scope_t* current_scope = _decl_context.current_scope;
+
+        while (current_scope != NULL
+                && current_scope != sc._decl_context.current_scope)
+        {
+            current_scope = current_scope->contained_in;
+        }
+
+        return (current_scope == sc._decl_context.current_scope);
+    }
 }

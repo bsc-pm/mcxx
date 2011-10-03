@@ -335,6 +335,7 @@ namespace TL
 
         void Info::set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol> sym_list)
         {
+            internal_error("Not yet implemented", 0);
 #if 0
             if (_map_udr_info.find(a) != _map_udr_info.end())
             {

@@ -33,7 +33,8 @@ namespace TL
 {
     namespace OpenMP
     {
-        void Core::target_handler_pre(PragmaCustomConstruct ctr)
+#if 0
+        void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
             PragmaCustomClause device = ctr.get_clause("device");
 
@@ -247,7 +248,9 @@ namespace TL
             }
             _target_context.push(target_ctx);
         }
+#endif
 
+#if 0
         void Core::target_handler_post(PragmaCustomConstruct ctr)
         {
             // It might be empty due to early exits in the preorder routine
@@ -256,7 +259,9 @@ namespace TL
                 _target_context.pop();
             }
         }
+#endif
 
+#if 0
         static void add_copy_items(PragmaCustomConstruct construct, 
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<std::string>& list,
@@ -340,8 +345,10 @@ namespace TL
                 data_sharing.add_copy(copy_item);
             }
         }
+#endif
 
 
+#if 0
 		// XXX - Fixme, maybe is not necessary ask about 
         void Core::get_target_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
@@ -453,5 +460,6 @@ namespace TL
 		            shared_to_inout,
 		            COPY_DIR_INOUT);
         }
+#endif
     }
 }

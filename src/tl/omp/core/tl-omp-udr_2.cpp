@@ -28,7 +28,6 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-omp-udr_2.hpp"
-#include "tl-overload.hpp"
 #include "tl-source.hpp"
 
 #include "cxx-parser.h"
@@ -45,11 +44,11 @@ namespace TL
 {
     namespace OpenMP
     {
-        static void parse_omp_udr_declare_arguments_2(const std::string &omp_udr_str, AST_t ref_tree, 
-                ScopeLink sl, std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list,
-                AST_t &ref_tree_of_clause, Scope& scope_of_clause);
-        static void parse_udr_identity(const std::string& omp_udr_identity, AST_t reference_tree,
-                ScopeLink sl, Type udr_type, AST_t &parsed_tree, bool& is_constructor, bool& need_equal_initializer);
+        static void parse_omp_udr_declare_arguments_2(const std::string &omp_udr_str, Nodecl::NodeclBase ref_tree, 
+                std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list,
+                Nodecl::NodeclBase &ref_tree_of_clause, Scope& scope_of_clause);
+        static void parse_udr_identity(const std::string& omp_udr_identity, Nodecl::NodeclBase reference_tree,
+                Type udr_type, Nodecl::NodeclBase &parsed_tree, bool& is_constructor, bool& need_equal_initializer);
 
         static std::string get_valid_zero_initializer(Type t)
         {
@@ -89,8 +88,10 @@ namespace TL
             return get_valid_zero_initializer(t);
         }
 
-        void initialize_builtin_udr_reductions_2(AST_t translation_unit, ScopeLink scope_link)
+        void initialize_builtin_udr_reductions_2(Nodecl::NodeclBase translation_unit)
         {
+            internal_error("Not implemented yet", 0);
+#if 0
             static bool already_initialized = false;
             if (already_initialized)
                 return;
@@ -153,7 +154,7 @@ namespace TL
 			    std::string name;
                 ObjectList<UDRParsedInfo> parsed_info_list;
                 Scope scope_of_clause;
-                AST_t ref_tree_of_clause(NULL);
+                Nodecl::NodeclBase ref_tree_of_clause(NULL);
 
                 parse_omp_udr_declare_arguments_2(builtin_operators[i].udr_specifier, 
                         translation_unit, 
@@ -180,7 +181,7 @@ namespace TL
                     builtin_udr.set_builtin_operator(udr_sp.substr(0, udr_sp.find(':')));
 		            builtin_udr.set_in_symbol((*it).in_symbol);
 		            builtin_udr.set_out_symbol((*it).out_symbol);
-                    AST_t identity_expr(NULL);
+                    Nodecl::NodeclBase identity_expr(NULL);
                     bool is_constructor, need_equal_initializer;
                     parse_udr_identity(builtin_operators[i].identity, ref_tree_of_clause,
                                 scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
@@ -192,6 +193,7 @@ namespace TL
                     builtin_udr.sign_in_scope(global_scope, (*it).type);
                 }
             }
+#endif
         }
 
         struct OnlyMembers : Predicate<Symbol>
@@ -219,56 +221,58 @@ namespace TL
         };
 
 
-        AST_t UDRInfoItem2::parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
-                AST_t ref_tree,
-                ScopeLink sl)
+        Nodecl::NodeclBase UDRInfoItem2::parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
+                Nodecl::NodeclBase ref_tree)
         {
-		    std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;
-		    char* str = strdup(mangled_str.c_str());
+            internal_error("Not implemented yet", 0);
+#if 0
+            std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;
+            char* str = strdup(mangled_str.c_str());
 
-		    C_LANGUAGE()
-		    {
-		        mc99_prepare_string_for_scanning(str);
-		    }
-		    CXX_LANGUAGE()
-		    {
-		        mcxx_prepare_string_for_scanning(str);
-		    }
+            C_LANGUAGE()
+            {
+                mc99_prepare_string_for_scanning(str);
+            }
+            CXX_LANGUAGE()
+            {
+                mcxx_prepare_string_for_scanning(str);
+            }
 
-		    int parse_result = 0;
-		    AST a;
+            int parse_result = 0;
+            AST a;
 
-		    C_LANGUAGE()
-		    {
-		        parse_result = mc99parse(&a);
-		    }
-		    CXX_LANGUAGE()
-		    {
-		        parse_result = mcxxparse(&a);
-		    }
+            C_LANGUAGE()
+            {
+                parse_result = mc99parse(&a);
+            }
+            CXX_LANGUAGE()
+            {
+                parse_result = mcxxparse(&a);
+            }
 
-		    if (parse_result != 0)
-		    {
-		        running_error("Could not parse OpenMP user-defined reduction operator name\n\n%s\n", 
-		                TL::Source::format_source(mangled_str).c_str());
-		    }
-		    
-		    // Get the scope and declarating context of the reference tree
+            if (parse_result != 0)
+            {
+                running_error("Could not parse OpenMP user-defined reduction operator name\n\n%s\n", 
+                        TL::Source::format_source(mangled_str).c_str());
+            }
+
+            // Get the scope and declarating context of the reference tree
             Scope sc = sl.get_scope(ref_tree);
             decl_context_t decl_context = sc.get_decl_context();
 
             nodecl_t nodecl_output = nodecl_null();
 
-		    enter_test_expression();
-		    check_expression(a, decl_context, &nodecl_output);
-		    leave_test_expression();
+            enter_test_expression();
+            check_expression(a, decl_context, &nodecl_output);
+            leave_test_expression();
 
-		    // Set properly the context of the reference tree
+            // Set properly the context of the reference tree
             scope_link_t* _scope_link = sl.get_internal_scope_link();
             scope_link_set(_scope_link, a, decl_context);
 
-		    AST_t result(a);
-		    return result;
+            Nodecl::NodeclBase result(a);
+            return result;
+#endif
         }
 
         // omp_udr_declare_arg_2 : omp_udr_operator_2 ':' omp_udr_type_specifier ':' omp_udr_expression
@@ -276,13 +280,14 @@ namespace TL
         //     $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
         // }
         static void parse_omp_udr_declare_arguments_2(const std::string &omp_udr_str, 
-                AST_t ref_tree, 
-                ScopeLink sl,
+                Nodecl::NodeclBase ref_tree, 
                 std::string &udr_name,
                 ObjectList<UDRParsedInfo>& udr_parsed_info_list,
-                AST_t &ref_tree_of_clause,
+                Nodecl::NodeclBase &ref_tree_of_clause,
                 Scope& scope_of_clause)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             std::stringstream ss;
             ss << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n";
 
@@ -328,10 +333,10 @@ namespace TL
 
             // Set the proper scope link
             scope_link_set(_scope_link, a, decl_context);
-            ref_tree_of_clause = AST_t(a);
+            ref_tree_of_clause = Nodecl::NodeclBase(a);
             scope_of_clause = Scope(decl_context);
 
-            udr_name = AST_t(id_expr).prettyprint();
+            udr_name = Nodecl::NodeclBase(id_expr).prettyprint();
 
             AST type_it;
       
@@ -385,22 +390,24 @@ namespace TL
 
 				scope_link_set(sl.get_internal_scope_link(), expression, new_context);
 
-                udr_parsed_info.combine_expression = AST_t(expression);
+                udr_parsed_info.combine_expression = Nodecl::NodeclBase(expression);
                 udr_parsed_info.in_symbol = Symbol(in_symbol);
                 udr_parsed_info.out_symbol = Symbol(out_symbol);
 
                 udr_parsed_info_list.append(udr_parsed_info);
             }    
+#endif
         }
 
         static void parse_udr_identity(const std::string& omp_udr_identity,
-                AST_t reference_tree,
-                ScopeLink sl,
+                Nodecl::NodeclBase reference_tree,
                 Type udr_type,
-                AST_t &parsed_tree,
+                Nodecl::NodeclBase &parsed_tree,
                 bool& is_constructor,
                 bool& need_equal)
         {
+            internal_error("Not yet implemented", 0);
+#if 0
             std::stringstream ss;
             ss << "#line " << reference_tree.get_line() << " \"" << reference_tree.get_file() << "\"\n";
 
@@ -468,7 +475,7 @@ namespace TL
                 }
             }
 
-            parsed_tree = AST_t(a);
+            parsed_tree = Nodecl::NodeclBase(a);
 
             if (ast_get_type(a)==AST_INITIALIZER_BRACES)
             {
@@ -480,8 +487,10 @@ namespace TL
             }
 
             free(str);
+#endif
         }
 
+#if 0
         void Core::declare_reduction_handler_pre_2(PragmaCustomConstruct construct)
         {
             DEBUG_CODE()
@@ -503,7 +512,7 @@ namespace TL
 			std::string name;
             ObjectList<UDRParsedInfo> parsed_info_list;
             Scope scope_of_clause;
-            AST_t ref_tree_of_clause(NULL);
+            Nodecl::NodeclBase ref_tree_of_clause(NULL);
             parse_omp_udr_declare_arguments_2(parameter_str,
                     construct.get_ast(),
                     construct.get_scope_link(),
@@ -555,7 +564,7 @@ namespace TL
                 if (!found)
                 {
                     // Identity treatment
-                    AST_t identity_expr(NULL);
+                    Nodecl::NodeclBase identity_expr(NULL);
                     PragmaCustomClause identity_clause = construct.get_clause("identity");
                     bool is_constructor, need_equal;
                     if (identity_clause.is_defined())
@@ -581,7 +590,7 @@ namespace TL
                         }
                         if (initializer != "")
                         {
-		                    AST_t default_identity_expr;
+		                    Nodecl::NodeclBase default_identity_expr;
 		                    parse_udr_identity(initializer, ref_tree_of_clause, 
 		                            construct.get_scope_link(), (*it).type, default_identity_expr, is_constructor, need_equal);
 		                    new_udr.set_identity(default_identity_expr);
@@ -617,7 +626,9 @@ namespace TL
 
             _openmp_info->set_udr_list(construct.get_ast(), udrs);
         }
+#endif
 
+#if 0
         void Core::declare_reduction_handler_post_2(PragmaCustomConstruct ctr) 
         {
 		    if (_new_udr)
@@ -677,12 +688,12 @@ namespace TL
 			        }
 
                     Symbol function_sym;
-                    TL::AST_t pragma_functions_tree;
+                    TL::Nodecl::NodeclBase pragma_functions_tree;
                     C_LANGUAGE()
                     {
 		                if (ctr.get_ast().get_enclosing_function_definition().is_valid())
 		                {
-							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
+							TL::Nodecl::NodeclBase ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
 			                pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
 			                ref_tree.prepend(pragma_functions_tree);
                         }
@@ -712,7 +723,7 @@ namespace TL
 		                            pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
 							                ctr.get_scope_link());
 		                        }
-                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
+                                TL::Nodecl::NodeclBase ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
                                 ref_tree.prepend(pragma_functions_tree);
                             }
                             else
@@ -748,19 +759,20 @@ namespace TL
 	            ctr.get_ast().remove_in_list();
 	        }
 		}
+#endif
 
 
         UDRInfoItem2::UDRInfoItem2(): 
             _name(""),
             _type(NULL),
-            _combine_expression(NULL),
-            _in_symbol(NULL),
-            _out_symbol(NULL),
+            _combine_expression(),
+            _in_symbol(),
+            _out_symbol(),
             _is_builtin(false),
             _builtin_op(""),
             _has_identity(false),
-            _identity(NULL),
-            _function_definition_symbol(NULL)
+            _identity(),
+            _function_definition_symbol()
         {
         }
 
@@ -819,7 +831,7 @@ namespace TL
         }
 
         UDRInfoItem2 UDRInfoItem2::bases_lookup(Type type,
-                AST_t reductor_tree,
+                Nodecl::NodeclBase reductor_tree,
                 bool &found) const
         {
             UDRInfoItem2 udr2;
@@ -858,10 +870,12 @@ namespace TL
         }
 
         UDRInfoItem2 UDRInfoItem2::argument_dependent_lookup(Type type,
-                AST_t reductor_tree,
+                Nodecl::NodeclBase reductor_tree,
                 bool &found,
                 Scope sc) const
         {
+            internal_error("Not implemented yet", 0);
+#if 0
             UDRInfoItem2 udr2;
 
             ObjectList<Symbol> bases;
@@ -904,12 +918,13 @@ namespace TL
 			}
 
             return udr2;
+#endif
         }
 
         UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
                 bool &found,
                 Type type,
-                AST_t reductor_tree,
+                Nodecl::NodeclBase reductor_tree,
                 int udr_counter) const
         {
             found = false;
@@ -995,12 +1010,12 @@ namespace TL
             _type = t;
         }
 
-        AST_t UDRInfoItem2::get_combine_expr() const
+        Nodecl::NodeclBase UDRInfoItem2::get_combine_expr() const
         {
             return _combine_expression;
         }
 
-        void UDRInfoItem2::set_combine_expr(AST_t combine_expr)
+        void UDRInfoItem2::set_combine_expr(Nodecl::NodeclBase combine_expr)
         {
             _combine_expression = combine_expr;
         }
@@ -1083,7 +1098,7 @@ namespace TL
             return _has_identity;
         }
 
-        AST_t UDRInfoItem2::get_identity() const
+        Nodecl::NodeclBase UDRInfoItem2::get_identity() const
         {
             if (identity_is_constructor())
             {
@@ -1093,25 +1108,28 @@ namespace TL
                 return _identity;
         }
 
-        AST_t UDRInfoItem2::get_raw_identity() const
+        Nodecl::NodeclBase UDRInfoItem2::get_raw_identity() const
         {
             return _identity;
         }
 
-        void UDRInfoItem2::set_identity(AST_t identity)
+        void UDRInfoItem2::set_identity(Nodecl::NodeclBase identity)
         {
             _identity = identity;
-            _has_identity = _identity.is_valid();
+            _has_identity = !_identity.is_null();
         }
 
         bool UDRInfoItem2::identity_is_constructor() const
         {
-            if (_identity.is_valid())
+            internal_error("Not yet implemented", 0);
+#if 0
+            if (!_identity.is_null())
             {
                 return _identity.internal_ast_type_() == AST_OMP_UDR_CONSTRUCTOR;
             }
             else 
                 return false;
+#endif
         }
 
         Symbol UDRInfoItem2::get_function_definition_symbol() const

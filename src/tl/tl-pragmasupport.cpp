@@ -268,6 +268,11 @@ namespace TL
         return result;
     }
 
+    std::string PragmaCustomClause::get_locus() const
+    {
+        return _pragma_line.get_locus();
+    }
+
     ObjectList<Nodecl::NodeclBase> PragmaCustomClause::get_arguments_as_expressions(const ClauseTokenizer& tokenizer) const
     {
         return this->get_arguments_as_expressions(_pragma_line.retrieve_context(), tokenizer);
@@ -336,51 +341,18 @@ namespace TL
         return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
     }
 
-    PragmaCustomCommon::PragmaCustomCommon(const Nodecl::PragmaCustomLine& pragma_line)
-        : _pragma_line(pragma_line)
+    TL::PragmaCustomLine TL::PragmaCustomDeclaration::get_pragma_line() const
     {
+        return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDeclaration::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
-    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomDirective& node)
+    TL::PragmaCustomLine TL::PragmaCustomStatement::get_pragma_line() const
     {
-        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
+        return TL::PragmaCustomLine(this->Nodecl::PragmaCustomStatement::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
-    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomStatement& node)
+    TL::PragmaCustomLine TL::PragmaCustomDirective::get_pragma_line() const
     {
-        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
-    }
-
-    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomDeclaration& node)
-    {
-        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
-    }
-
-    TL::PragmaCustomClause PragmaCustomCommon::get_clause(const std::string &name) const
-    {
-        return _pragma_line.get_clause(name);
-    }
-
-    //! Returns a clause by a set of alias names
-    TL::PragmaCustomClause PragmaCustomCommon::get_clause(const ObjectList<std::string>& aliased_names) const
-    {
-        return _pragma_line.get_clause(aliased_names);
-    }
-
-    //! This function returns all clauses in the order they appear in the pragma
-    ObjectList<TL::PragmaCustomSingleClause> PragmaCustomCommon::get_all_clauses() const
-    {
-        return _pragma_line.get_all_clauses();
-    }
-
-    //! This function returns all clause names in the order they appear in the pragma
-    ObjectList<std::string> PragmaCustomCommon::get_all_clause_names() const
-    {
-        return _pragma_line.get_all_clause_names();
-    }
-
-    PragmaCustomParameter PragmaCustomCommon::get_parameter() const
-    {
-        return _pragma_line.get_parameter();
+        return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDirective::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 }

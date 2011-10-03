@@ -6,6 +6,7 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 #include "tl-scope.hpp"
+#include "tl-refptr.hpp"
 #include "cxx-nodecl.h"
 #include <cstdlib>
 
@@ -16,6 +17,7 @@ namespace Nodecl {
         protected:
             nodecl_t _n;
         public:
+            // Main API
             NodeclBase() : _n(::nodecl_null()) { }
             NodeclBase(const nodecl_t& n) : _n(n) { }
             node_t get_kind() const { return ::nodecl_get_kind(_n); }
@@ -54,6 +56,9 @@ namespace Nodecl {
 
             // Equality by pointer
             bool operator==(const NodeclBase& n) const { return nodecl_get_ast(this->_n) == nodecl_get_ast(n._n); }
+
+            // Convenience
+            NodeclBase(TL::RefPtr<TL::Object>);
     };
 
     class List : public NodeclBase, public std::vector<NodeclBase>

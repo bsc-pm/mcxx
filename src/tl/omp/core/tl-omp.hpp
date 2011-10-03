@@ -481,7 +481,7 @@ namespace TL
 
                 FunctionTaskInfo& get_function_task(Symbol sym);
                 const FunctionTaskInfo& get_function_task(Symbol sym) const;
-                bool add_function_task(Symbol sym, const FunctionTaskInfo&);
+                void add_function_task(Symbol sym, const FunctionTaskInfo&);
 
                 bool empty() const;
 
