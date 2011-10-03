@@ -31,7 +31,17 @@ test_generator=config/mercurium
 </testinfo>
 */
 typedef int T;
+
+struct C
+{
+    C(float, char);
+};
+
 void f(void)
 {
     new T * [10];
+    new T[10];
+    new T;
+    new T(4);
+    new C(1.2f, 'a');
 }

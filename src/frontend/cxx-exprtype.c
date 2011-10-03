@@ -423,7 +423,6 @@ static char c_check_expression(AST expression, decl_context_t decl_context, node
 static void check_expression_impl_(AST expression, decl_context_t decl_context, nodecl_t* nodecl_output)
 {
     ERROR_CONDITION(nodecl_output == NULL, "This cannot be NULL\n", 0);
-
     switch (ASTType(expression))
     {
         case AST_EXPRESSION :
@@ -6700,7 +6699,7 @@ static void check_new_expression_impl(
 
                 nodecl_t nodecl_expr = list[i];
 
-                type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, j);
+                type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
 
                 if (is_class_type(param_type))
                 {
