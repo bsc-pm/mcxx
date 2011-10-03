@@ -27,13 +27,14 @@
 
 
 #include "tl-omp-core.hpp"
-#include "hlt-collapse.hpp"
-#include "tl-ast.hpp"
+// #include "hlt-collapse.hpp"
+// #include "tl-ast.hpp"
 
 namespace TL
 {
     namespace OpenMP
     {
+#if 0
         AST_t::callback_result remove_collapse_clause(const AST_t& a)
         {
             // Filter collapse clauses
@@ -47,9 +48,12 @@ namespace TL
                 return AST_t::callback_result(false, "");
             }
         }
+#endif
 
-        void Core::collapse_loop_first(PragmaCustomConstruct& construct)
+        void Core::collapse_loop_first(Nodecl::NodeclBase& construct)
         {
+            internal_error("Not implemented yet", 0);
+#if 0
             PragmaCustomClause collapse = construct.get_clause("collapse");
 
             if (!collapse.is_defined())
@@ -140,6 +144,7 @@ namespace TL
 
             // Now overwrite the old construct with this new one
             construct = PragmaCustomConstruct(pragma_placeholder, construct.get_scope_link());
+#endif
         }
     }
 }

@@ -31,6 +31,7 @@
 #include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-builtin.hpp"
+#include "cxx-diagnostic.h"
 
 #include <algorithm>
 
@@ -73,12 +74,12 @@ namespace TL
 
             if (!dto.get_keys().contains("openmp_task_info"))
             {
-                _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
-                dto.set_object("openmp_task_info", _function_task_set);
+                // _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
+                // dto.set_object("openmp_task_info", _function_task_set);
             }
             else
             {
-                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+                // _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
             }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
@@ -129,6 +130,7 @@ namespace TL
 
             Scope global_scope = translation_unit.retrieve_context();
 
+#if 0
             if (_new_udr) 
             {
                 initialize_builtin_udr_reductions_2(translation_unit);
@@ -137,6 +139,7 @@ namespace TL
             {
                 initialize_builtin_udr_reductions(global_scope);
             }
+#endif
 
             PragmaCustomCompilerPhase::run(dto);
         }
@@ -1067,12 +1070,12 @@ namespace TL
 
         void Core::task_handler_pre(TL::PragmaCustomStatement construct)
         {
-            task_inline_handler_pre(construct);
+            // task_inline_handler_pre(construct);
         }
 
         void Core::task_handler_pre(TL::PragmaCustomDeclaration construct)
         {
-            task_function_handler_pre(construct);
+            // task_function_handler_pre(construct);
         }
 
         void Core::task_handler_post(TL::PragmaCustomStatement construct)
@@ -1114,6 +1117,31 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::declare_reduction_handler_pre(TL::PragmaCustomDirective directive)
+        {
+        }
+
+        void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
+        {
+        }
+
+        void Core::target_handler_pre(TL::PragmaCustomStatement)
+        {
+        }
+
+        void Core::target_handler_pre(TL::PragmaCustomDeclaration)
+        {
+        }
+
+        void Core::target_handler_post(TL::PragmaCustomStatement)
+        {
+        }
+
+        void Core::target_handler_post(TL::PragmaCustomDeclaration)
+        {
+        }
+
+
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \
             error_printf("%s: error: invalid '#pragma %s %s'\n",  \
@@ -1132,7 +1160,12 @@ namespace TL
         } \
         void Core::_name##_handler_post(TL::PragmaCustomDeclaration) { } 
 
-        // FIXME - We lack lots of INVALID_DECLARATION_HANDLER here
+        INVALID_DECLARATION_HANDLER(parallel)
+        INVALID_DECLARATION_HANDLER(parallel_for)
+        INVALID_DECLARATION_HANDLER(for)
+        INVALID_DECLARATION_HANDLER(parallel_sections)
+        INVALID_DECLARATION_HANDLER(sections)
+        INVALID_DECLARATION_HANDLER(single)
 
 #define EMPTY_HANDLERS_CONSTRUCT(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement) { } \
@@ -1162,7 +1195,6 @@ namespace TL
             RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
             *openmp_core_should_run = true;
         }
-
     }
 }
 

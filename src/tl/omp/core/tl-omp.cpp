@@ -28,13 +28,10 @@
 
 #include "tl-omp.hpp"
 #include "tl-builtin.hpp"
-#include "tl-ast.hpp"
+#include "tl-nodecl.hpp"
 #include "tl-source.hpp"
-#include "tl-scopelink.hpp"
-#include "tl-traverse.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-omp-udr.hpp"
-#include "cxx-attrnames.h"
 #include "cxx-scope-decls.h"
 #include "uniquestr.h"
 
@@ -251,20 +248,15 @@ namespace TL
             }
         }
 
-        void OpenMPPhase::run(DTO& data_flow)
+        void OpenMPPhase::run(DTO& dto)
         {
             // Use the DTO instead
+            translation_unit = (*(Nodecl::NodeclBase*)dto["nodecl"].get_pointer());
+            global_scope = translation_unit.retrieve_context();
 
-            // get the translation_unit tree
-            translation_unit = AST_t(data_flow["translation_unit"]);
-            // get the scope_link
-            scope_link = data_flow["scope_link"];
-            // Get the global_scope
-            global_scope = scope_link.get_scope(translation_unit);
-
-            if (data_flow.get_keys().contains("openmp_info"))
+            if (dto.get_keys().contains("openmp_info"))
             {
-                openmp_info = RefPtr<Info>::cast_static(data_flow["openmp_info"]);
+                openmp_info = RefPtr<Info>::cast_static(dto["openmp_info"]);
             }
             else
             {
@@ -273,16 +265,16 @@ namespace TL
                 return;
             }
 
-            if (data_flow.get_keys().contains("openmp_task_info"))
+            if (dto.get_keys().contains("openmp_task_info"))
             {
-                function_task_set = RefPtr<FunctionTaskSet>::cast_static(data_flow["openmp_task_info"]);
+                function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
             }
 
             // Let the user register its slots
-            this->init(data_flow);
+            this->init(dto);
 
             // Call pragma run
-            // PragmaCustomCompilerPhase::run(data_flow);
+            // PragmaCustomCompilerPhase::run(dto);
         }
 
         void OpenMPPhase::init(DTO& dto)
@@ -299,7 +291,7 @@ namespace TL
             _disable_clause_warnings = b;
         }
 
-        DataSharingEnvironment& Info::get_new_data_sharing(AST_t a)
+        DataSharingEnvironment& Info::get_new_data_sharing(Nodecl::NodeclBase a)
         {
             if (_map_data_sharing.find(a) != _map_data_sharing.end())
                 delete _map_data_sharing[a];
@@ -310,7 +302,7 @@ namespace TL
             return *new_data_sharing;
         }
 
-        DataSharingEnvironment& Info::get_data_sharing(AST_t a)
+        DataSharingEnvironment& Info::get_data_sharing(Nodecl::NodeclBase a)
         {
             if (_map_data_sharing.find(a) == _map_data_sharing.end())
                 return *_root_data_sharing;
@@ -328,7 +320,7 @@ namespace TL
             return *_current_data_sharing;
         }
 
-        ObjectList<UDRInfoItem2> Info::get_udr_list(AST_t a)
+        ObjectList<UDRInfoItem2> Info::get_udr_list(Nodecl::NodeclBase a)
         {
             if (_map_udr_info.find(a) == _map_udr_info.end())
             {
@@ -341,8 +333,9 @@ namespace TL
             }
         }
 
-        void Info::set_udr_symbols(AST_t a, ObjectList<Symbol> sym_list)
+        void Info::set_udr_symbols(Nodecl::NodeclBase a, ObjectList<Symbol> sym_list)
         {
+#if 0
             if (_map_udr_info.find(a) != _map_udr_info.end())
             {
                 int i=0;
@@ -354,9 +347,10 @@ namespace TL
                     i++;
                 }
             }
+#endif
         }
 
-        void Info::set_udr_list(AST_t a, ObjectList<UDRInfoItem2> udr_list)
+        void Info::set_udr_list(Nodecl::NodeclBase a, ObjectList<UDRInfoItem2> udr_list)
         {
             _map_udr_info[a] = udr_list;
         }
@@ -433,11 +427,11 @@ namespace TL
         {
             if(rt_copy.has_release_time())
             {
-                _time_release = new Expression(rt_copy.get_time_release());
+                _time_release = new Nodecl::NodeclBase(rt_copy.get_time_release());
             }
             if(rt_copy.has_deadline_time())
             {
-                _time_deadline = new Expression(rt_copy.get_time_deadline());
+                _time_deadline = new Nodecl::NodeclBase(rt_copy.get_time_deadline());
             }
         }
                
@@ -450,19 +444,19 @@ namespace TL
                if(_time_deadline != NULL) delete _time_deadline;
 
                //copy new realtime information 
-               _time_release  = (rt_copy.has_release_time()  ? new Expression(rt_copy.get_time_release()) : NULL);
-               _time_deadline = (rt_copy.has_deadline_time() ? new Expression(rt_copy.get_time_deadline()) : NULL);
+               _time_release  = (rt_copy.has_release_time()  ? new Nodecl::NodeclBase(rt_copy.get_time_release()) : NULL);
+               _time_deadline = (rt_copy.has_deadline_time() ? new Nodecl::NodeclBase(rt_copy.get_time_deadline()) : NULL);
                _map_error_behavior = rt_copy.get_map_error_behavior();
            }
            return *this;
        }
 
-        Expression RealTimeInfo::get_time_deadline() const 
+        Nodecl::NodeclBase RealTimeInfo::get_time_deadline() const 
         {
             return (*_time_deadline);
         }
         
-        Expression RealTimeInfo::get_time_release() const 
+        Nodecl::NodeclBase RealTimeInfo::get_time_release() const 
         {
             return (*_time_release);
         }
@@ -482,22 +476,22 @@ namespace TL
             return (_time_release != NULL);
         }
         
-        void RealTimeInfo::set_time_deadline(Expression expr)
+        void RealTimeInfo::set_time_deadline(Nodecl::NodeclBase expr)
         {
             if(_time_deadline != NULL) 
             {
                 delete _time_deadline;
             }
-            _time_deadline = new Expression(expr);
+            _time_deadline = new Nodecl::NodeclBase(expr);
         }
 
-        void RealTimeInfo::set_time_release(Expression expr)
+        void RealTimeInfo::set_time_release(Nodecl::NodeclBase expr)
         {
             if(_time_release != NULL) 
             {
                 delete _time_release;
             }
-            _time_release = new Expression(expr);
+            _time_release = new Nodecl::NodeclBase(expr);
         }
                 
         static bool is_omp_error_event(std::string event) 

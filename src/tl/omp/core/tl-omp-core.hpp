@@ -87,7 +87,7 @@ namespace TL
                 static bool _already_registered;
 
                 RefPtr<OpenMP::Info> _openmp_info;
-                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                // RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
 
@@ -107,7 +107,7 @@ namespace TL
 
                 void get_target_info(Nodecl::NodeclBase construct, 
                         DataSharingEnvironment& data_sharing);
-                void get_dependences_info(Nodecl::NodeclBase construct, 
+                void get_dependences_info(PragmaCustomCommon construct, 
                         DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
@@ -120,19 +120,12 @@ namespace TL
                 void common_for_handler(Nodecl::NodeclBase ctr, DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(Nodecl::NodeclBase construct, DataSharingEnvironment& data_sharing);
 
-                void task_function_handler_pre(Nodecl::NodeclBase construct);
-      			void task_inline_handler_pre(Nodecl::NodeclBase construct);
-
 				RealTimeInfo task_real_time_handler_pre(Nodecl::NodeclBase construct);
 
                 void common_sections_handler(Nodecl::NodeclBase construct, const std::string& pragma_name);
                 void fix_first_section(Nodecl::NodeclBase construct);
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
-
-                // Temporary hack
-                void declare_reduction_handler_pre_2(Nodecl::NodeclBase construct);
-                void declare_reduction_handler_post_2(Nodecl::NodeclBase construct);
 
             public:
                 Core();

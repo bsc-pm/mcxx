@@ -242,9 +242,11 @@ namespace TL
         private:
             TL::PragmaCustomLine _pragma_line;
         public:
-            PragmaCustomCommon(Nodecl::PragmaCustomDirective);
-            PragmaCustomCommon(Nodecl::PragmaCustomStatement);
-            PragmaCustomCommon(Nodecl::PragmaCustomDeclaration);
+            static PragmaCustomCommon build(const Nodecl::PragmaCustomDirective &);
+            static PragmaCustomCommon build(const Nodecl::PragmaCustomStatement &);
+            static PragmaCustomCommon build(const Nodecl::PragmaCustomDeclaration &);
+
+            PragmaCustomCommon(const Nodecl::PragmaCustomLine&);
 
             //! Returns a clause by name
             TL::PragmaCustomClause get_clause(const std::string &name) const;
@@ -271,7 +273,7 @@ namespace TL
     {
         public:
         PragmaCustomDirective(Nodecl::PragmaCustomDirective node)
-            : Nodecl::PragmaCustomDirective(node), PragmaCustomCommon(node)
+            : Nodecl::PragmaCustomDirective(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
         {
         }
     };
@@ -280,7 +282,7 @@ namespace TL
     {
         public:
         PragmaCustomStatement(Nodecl::PragmaCustomStatement node)
-            : Nodecl::PragmaCustomStatement(node), PragmaCustomCommon(node)
+            : Nodecl::PragmaCustomStatement(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
         {
         }
     };
@@ -289,7 +291,7 @@ namespace TL
     {
         public:
         PragmaCustomDeclaration(Nodecl::PragmaCustomDeclaration node)
-            : Nodecl::PragmaCustomDeclaration(node), PragmaCustomCommon(node)
+            : Nodecl::PragmaCustomDeclaration(node), PragmaCustomCommon(PragmaCustomCommon::build(node))
         {
         }
     };

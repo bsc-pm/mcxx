@@ -31,8 +31,10 @@
 
 namespace TL { namespace OpenMP {
 
-    static Symbol get_symbol_of_data_reference(Expression expr)
+    static Symbol get_symbol_of_data_reference(Nodecl::NodeclBase expr)
     {
+        internal_error("Not yet implemented", 0);
+#if 0
         if (expr.is_id_expression())
         {
             IdExpression id_expr = expr.get_id_expression();
@@ -40,12 +42,12 @@ namespace TL { namespace OpenMP {
         }
         else if (expr.is_unary_operation())
         {
-            if (expr.get_operation_kind() == Expression::DERREFERENCE)
+            if (expr.get_operation_kind() == Nodecl::NodeclBase::DERREFERENCE)
             {
-                Expression ref = expr.get_unary_operand();
+                Nodecl::NodeclBase ref = expr.get_unary_operand();
 
                 if (ref.is_unary_operation()
-                        && ref.get_operation_kind() == Expression::REFERENCE)
+                        && ref.get_operation_kind() == Nodecl::NodeclBase::REFERENCE)
                     return get_symbol_of_data_reference(ref.get_unary_operand());
                 else
                     return get_symbol_of_data_reference(ref);
@@ -68,13 +70,15 @@ namespace TL { namespace OpenMP {
         {
             internal_error("Invalid expression kind", 0);
         }
+#endif
     }
 
-    static void add_data_sharings(ObjectList<Expression> &expression_list, 
+    static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)
     {
-        for (ObjectList<Expression>::iterator it = expression_list.begin();
+#if 0
+        for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
         {
@@ -125,10 +129,12 @@ namespace TL { namespace OpenMP {
             }
             data_sharing.add_dependence(dep_item);
         }
+#endif
     }
 
-    void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
+    void Core::get_dependences_info(PragmaCustomCommon construct, DataSharingEnvironment& data_sharing)
     {
+#if 0
         PragmaCustomClause input_clause = construct.get_clause("input");
         get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
 
@@ -158,16 +164,19 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_REDUCTION));
+#endif
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
            DependencyDirection dep_attr)
     {
+#if 0
         if (clause.is_defined())
         {
-            ObjectList<Expression> expr_list = clause.get_expression_list();
+            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_expression_list();
             add_data_sharings(expr_list, data_sharing, dep_attr);
         }
+#endif
     }
 } }

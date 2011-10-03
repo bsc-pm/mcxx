@@ -232,6 +232,16 @@ namespace TL
     {
     }
 
+    bool PragmaCustomClause::is_defined() const
+    {
+        return !_pragma_clauses.empty();
+    }
+
+    bool PragmaCustomClause::is_singleton() const
+    {
+        return _pragma_clauses.size() == 1;
+    }
+
     ObjectList<std::string> PragmaCustomClause::get_tokenized_arguments(const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> result;
@@ -326,19 +336,24 @@ namespace TL
         return PragmaCustomParameter(this->get_parameters().as<Nodecl::List>());
     }
 
-    PragmaCustomCommon::PragmaCustomCommon(Nodecl::PragmaCustomDirective node)
-        : _pragma_line(node.get_pragma_line().as<Nodecl::PragmaCustomLine>())
+    PragmaCustomCommon::PragmaCustomCommon(const Nodecl::PragmaCustomLine& pragma_line)
+        : _pragma_line(pragma_line)
     {
     }
 
-    PragmaCustomCommon::PragmaCustomCommon(Nodecl::PragmaCustomStatement node)
-        : _pragma_line(node.get_pragma_line().as<Nodecl::PragmaCustomLine>())
+    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomDirective& node)
     {
+        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
-    PragmaCustomCommon::PragmaCustomCommon(Nodecl::PragmaCustomDeclaration node)
-        : _pragma_line(node.get_pragma_line().as<Nodecl::PragmaCustomLine>())
+    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomStatement& node)
     {
+        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
+    }
+
+    PragmaCustomCommon PragmaCustomCommon::build(const Nodecl::PragmaCustomDeclaration& node)
+    {
+        return PragmaCustomCommon(node.get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
 
     TL::PragmaCustomClause PragmaCustomCommon::get_clause(const std::string &name) const

@@ -44,6 +44,10 @@ libtlomp_core_la_SOURCES = \
    tl-omp-core.hpp \
    tl-omp-core.cpp \
    tl-omp.hpp \
+   tl-omp.cpp \
+   tl-omp-deps.hpp \
+   tl-omp-deps.cpp \
+   tl-omp-collapse.cpp \
    $(END)
 
 # libtlomp_core_la_SOURCES = \
@@ -55,8 +59,6 @@ libtlomp_core_la_SOURCES = \
 #    tl-omp-udr.cpp \
 #    tl-omp-udr_2.hpp \
 #    tl-omp-udr_2.cpp \
-#    tl-omp-deps.hpp \
-#    tl-omp-deps.cpp \
 #    tl-omp-tasks.hpp \
 #    tl-omp-tasks.cpp \
 #    tl-omp-target.hpp \
