@@ -3077,8 +3077,11 @@ static void codegen_parenthesized_expression(nodecl_codegen_visitor_t* visitor, 
 
 static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
 {
-    nodecl_t initializer = nodecl_get_child(node, 0);
+    nodecl_t structured_value = nodecl_get_child(node, 0);
+    ERROR_CONDITION(nodecl_is_null(structured_value), "New lacks structured value", 0);
+
     nodecl_t placement = nodecl_get_child(node, 1);
+    // nodecl_t operator_new = nodecl_get_child(node, 2);
 
     fprintf(visitor->file, "new ");
 
@@ -3089,29 +3092,16 @@ static void codegen_new(nodecl_codegen_visitor_t* visitor, nodecl_t node)
         fprintf(visitor->file, ") ");
     }
 
-    type_t* t = nodecl_get_type(node);
-    ERROR_CONDITION(!is_pointer_type(t), "Invalid type for NODECL_NEW", 0);
+    type_t* t = nodecl_get_type(structured_value);
 
-    t = pointer_type_get_pointee_type(t);
-
-    // Maybe there is no symbol!!!
-    fprintf(visitor->file, "%s", print_type_str(t, visitor->current_sym->decl_context));
-
-    if (!nodecl_is_null(initializer))
+    if (!is_array_type(t))
     {
-        fprintf(visitor->file, "(");
-
-        // FIXME - Maybe this is a call to a constructor
-        if (nodecl_calls_to_constructor(initializer, t))
-        {
-            walk_expression_list(visitor, nodecl_get_child(initializer, 1));
-        }
-        else
-        {
-            codegen_walk(visitor, initializer);
-        }
-
-        fprintf(visitor->file, ")");
+        codegen_walk(visitor, structured_value);
+    }
+    else
+    {
+        // new[] cannot have an initializer, so just print the type
+        fprintf(visitor->file, "%s", print_type_str(t, visitor->decl_context));
     }
 }
 

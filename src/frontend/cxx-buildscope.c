@@ -9838,7 +9838,7 @@ void build_scope_friend_declarator(decl_context_t decl_context,
             && is_dependent_type(entry->type_information))
     {
         // We should have checked this in find_function_declaration
-        internal_error("Code unreachable", 0);
+        internal_error("%s Code unreachable", ast_location(declarator));
 
         // // Create a dependent friend object since we need to update it later
         // scope_entry_t* new_dependent_friend = counted_calloc(1, sizeof(*new_dependent_friend), &_bytes_used_buildscope);
