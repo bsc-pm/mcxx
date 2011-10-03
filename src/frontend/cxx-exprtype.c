@@ -6699,7 +6699,7 @@ static void check_new_expression_impl(
 
                 nodecl_t nodecl_expr = list[i];
 
-                type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, j);
+                type_t* param_type = function_type_get_parameter_type_num(chosen_operator_new->type_information, i);
 
                 if (is_class_type(param_type))
                 {
