@@ -59,6 +59,9 @@ namespace Nodecl {
 
             // Convenience
             NodeclBase(TL::RefPtr<TL::Object>);
+
+            // Basic replacement
+            void replace(Nodecl::NodeclBase new_node);
     };
 
     class List : public NodeclBase, public std::vector<NodeclBase>

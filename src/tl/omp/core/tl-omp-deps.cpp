@@ -31,54 +31,10 @@
 
 namespace TL { namespace OpenMP {
 
-    static Symbol get_symbol_of_data_reference(Nodecl::NodeclBase expr)
-    {
-        internal_error("Not yet implemented", 0);
-#if 0
-        if (expr.is_id_expression())
-        {
-            IdExpression id_expr = expr.get_id_expression();
-            return id_expr.get_symbol();
-        }
-        else if (expr.is_unary_operation())
-        {
-            if (expr.get_operation_kind() == Nodecl::NodeclBase::DERREFERENCE)
-            {
-                Nodecl::NodeclBase ref = expr.get_unary_operand();
-
-                if (ref.is_unary_operation()
-                        && ref.get_operation_kind() == Nodecl::NodeclBase::REFERENCE)
-                    return get_symbol_of_data_reference(ref.get_unary_operand());
-                else
-                    return get_symbol_of_data_reference(ref);
-            }
-        }
-        else if (expr.is_array_subscript())
-        {
-            return get_symbol_of_data_reference(expr.get_subscripted_expression());
-        }
-        else if (expr.is_array_section_range()
-                || expr.is_array_section_size())
-        {
-            return get_symbol_of_data_reference(expr.array_section_item());
-        }
-        else if (expr.is_shaping_expression())
-        {
-            return get_symbol_of_data_reference(expr.shaped_expression());
-        }
-        else
-        {
-            internal_error("Invalid expression kind", 0);
-        }
-#endif
-    }
-
     static void add_data_sharings(ObjectList<Nodecl::NodeclBase> &expression_list, 
             DataSharingEnvironment& data_sharing, 
             DependencyDirection dep_attr)
     {
-            internal_error("Not yet implemented", 0);
-#if 0
         for (ObjectList<Nodecl::NodeclBase>::iterator it = expression_list.begin();
                 it != expression_list.end();
                 it++)
@@ -88,7 +44,7 @@ namespace TL { namespace OpenMP {
             if (!expr.is_valid(warning))
             {
                 std::cerr << warning;
-                std::cerr << expr.get_ast().get_locus() 
+                std::cerr << expr.get_locus() 
                     << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
                 continue;
             }
@@ -105,7 +61,7 @@ namespace TL { namespace OpenMP {
                 data_type = data_type.references_to();
             }
 
-            if (expr.is_id_expression() || sym.is_member())
+            if (expr.is<Nodecl::Symbol>() || sym.is_member())
                // || (sym.is_member() && !sym.is_static()) 
                // || (sym.is_member() && sym.is_static())) 
             {
@@ -130,13 +86,10 @@ namespace TL { namespace OpenMP {
             }
             data_sharing.add_dependence(dep_item);
         }
-#endif
     }
 
     void Core::get_dependences_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
     {
-            internal_error("Not yet implemented", 0);
-#if 0
         PragmaCustomClause input_clause = construct.get_clause("input");
         get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
 
@@ -166,19 +119,16 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
         get_dependences_info_clause(fp_reduction_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_REDUCTION));
-#endif
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
            DataSharingEnvironment& data_sharing,
            DependencyDirection dep_attr)
     {
-#if 0
         if (clause.is_defined())
         {
-            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_expression_list();
+            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions();
             add_data_sharings(expr_list, data_sharing, dep_attr);
         }
-#endif
     }
 } }

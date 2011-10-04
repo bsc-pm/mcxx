@@ -355,4 +355,39 @@ namespace TL
     {
         return TL::PragmaCustomLine(this->Nodecl::PragmaCustomDirective::get_pragma_line().as<Nodecl::PragmaCustomLine>());
     }
+
+    bool PragmaUtils::is_pragma_construct(const std::string& prefix, 
+            const std::string& pragma_name,
+            Nodecl::NodeclBase n)
+    {
+        Nodecl::PragmaCustomLine pragma_line;
+        std::string current_prefix;
+        if (n.is<Nodecl::PragmaCustomDirective>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomDirective>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else if (n.is<Nodecl::PragmaCustomStatement>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomStatement>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else if (n.is<Nodecl::PragmaCustomDeclaration>())
+        {
+            current_prefix = n.get_text();
+            pragma_line = n.as<Nodecl::PragmaCustomDeclaration>().get_pragma_line().as<Nodecl::PragmaCustomLine>();
+        }
+        else
+        {
+            return false;
+        }
+
+        return (current_prefix == prefix
+                && pragma_line.get_text() == pragma_name);
+    }
+    
+    Nodecl::PragmaCustomLine TL::PragmaCustomClause::get_pragma_line() const
+    {
+        return _pragma_line;
+    }
 }

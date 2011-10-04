@@ -488,6 +488,7 @@ def generate_nodecl_classes_base(rule_map):
        print "       static const int _kind = ::%s;" % (tree_kind)
        print "       friend class NodeclBase;"
        print "    public:"
+       print "    %s() : NodeclBase() { }" %(class_name)
        print "    %s(const nodecl_t& a) : NodeclBase(a) { }" %(class_name)
        child_num = 0
        for child_name in children_name:

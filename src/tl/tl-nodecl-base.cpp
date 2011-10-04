@@ -47,4 +47,9 @@ namespace Nodecl
             return result;
         }
     }
+
+    void NodeclBase::replace(Nodecl::NodeclBase new_node)
+    {
+        nodecl_exchange(this->_n, new_node._n);
+    }
 }

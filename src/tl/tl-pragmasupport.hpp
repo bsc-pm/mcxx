@@ -202,6 +202,9 @@ namespace TL
             ObjectList<Nodecl::NodeclBase> get_arguments_as_expressions(Source::ReferenceScope, const ClauseTokenizer & = ExpressionTokenizerTrim()) const;
 
             std::string get_locus() const;
+
+            //! Use this when you need a real nodecl
+            Nodecl::PragmaCustomLine get_pragma_line() const;
     };
 
     class LIBTL_CLASS PragmaCustomParameter : public TL::PragmaClauseArgList
@@ -472,6 +475,13 @@ namespace TL
              */
             void warning_pragma_unused_clauses(bool warning);
     };
+
+    namespace PragmaUtils 
+    {
+        LIBTL_EXTERN bool is_pragma_construct(const std::string& prefix, 
+                const std::string& pragma_name,
+                Nodecl::NodeclBase n);
+    }
 }
 
 #endif // TL_PRAGMASUPPORT_HPP

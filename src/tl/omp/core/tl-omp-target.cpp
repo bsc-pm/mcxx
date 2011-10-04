@@ -33,62 +33,61 @@ namespace TL
 {
     namespace OpenMP
     {
-#if 0
         void Core::target_handler_pre(TL::PragmaCustomDeclaration ctr)
         {
-            PragmaCustomClause device = ctr.get_clause("device");
+            PragmaCustomLine pragma_line = ctr.get_pragma_line();
+            PragmaCustomClause device = pragma_line.get_clause("device");
 
             if (!device.is_defined())
             {
-                std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
+                std::cerr << ctr.get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
             }
             TargetContext target_ctx;
-            target_ctx.device_list = device.get_arguments(ExpressionTokenizerTrim());
+            target_ctx.device_list = device.get_tokenized_arguments();
 
-            PragmaCustomClause copy_in = ctr.get_clause("copy_in");
+            PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_in = copy_in.get_tokenized_arguments();
             }
 
-            PragmaCustomClause copy_out = ctr.get_clause("copy_out");
+            PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_out = copy_out.get_tokenized_arguments();
             }
 
-            PragmaCustomClause copy_inout = ctr.get_clause("copy_inout");
+            PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_arguments(ExpressionTokenizer());
+                target_ctx.copy_inout = copy_inout.get_tokenized_arguments();
             }
 
-            PragmaCustomClause copy_deps = ctr.get_clause("copy_deps");
+            PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
             if (copy_deps.is_defined())
             {
                 target_ctx.copy_deps = true;
             }
 
-            PragmaCustomClause implements = ctr.get_clause("implements");
+            PragmaCustomClause implements = pragma_line.get_clause("implements");
             if (implements.is_defined())
             {
-                ObjectList<Expression> implements_list = implements.get_expression_list();
+                ObjectList<Nodecl::NodeclBase> implements_list = implements.get_arguments_as_expressions();
 
                 if (implements_list.size() != 1)
                 {
-                    std::cerr << ctr.get_ast().get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
+                    std::cerr << ctr.get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
                 }
                 else
                 {
-                    Expression implements_name = implements_list[0];
+                    Nodecl::NodeclBase implements_name = implements_list[0];
 
                     bool valid = false;
 
                     Symbol sym (NULL);
-                    if (implements_name.is_id_expression())
+                    if (implements_name.is<Nodecl::Symbol>())
                     {
-                        IdExpression id_expr = implements_name.get_id_expression();
-                        sym = id_expr.get_computed_symbol();
+                        sym = implements_name.get_symbol();
 
                         if (sym.is_valid()
                                 && sym.is_function())
@@ -97,7 +96,7 @@ namespace TL
 
                     if (!valid)
                     {
-                        std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
+                        std::cerr << implements_name.get_locus() << ": warning: '" 
                             << implements_name.prettyprint() 
                             << "' is not a valid identifier, skipping" 
                             << std::endl;
@@ -110,6 +109,8 @@ namespace TL
                 }
             }
 
+            internal_error("Not yet implemented", 0);
+#if 0
             if (target_ctx.has_implements)
             {
                 // We need to check this #pragma omp target precedes a function-decl or function-def
@@ -246,9 +247,9 @@ namespace TL
                     return;
                 }
             }
+#endif
             _target_context.push(target_ctx);
         }
-#endif
 
 #if 0
         void Core::target_handler_post(PragmaCustomConstruct ctr)
