@@ -1,5 +1,6 @@
 #include "tl-nodecl-alg.hpp"
 #include "tl-predicateutils.hpp"
+#include "cxx-utils.h"
 
 namespace Nodecl
 {
