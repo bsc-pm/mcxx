@@ -197,16 +197,12 @@ namespace TL
 
     bool Scope::scope_is_enclosed_by(Scope potential_encloser) const
     {
-        std::cerr << "Comparing scopes: " << _decl_context.current_scope << ", " 
-                << potential_encloser.get_decl_context().current_scope << std::endl;
         if (_decl_context.current_scope != potential_encloser.get_decl_context().current_scope)
         {
-            std::cerr << "Different scopes" << std::endl;
             return ::scope_is_enclosed_by(_decl_context.current_scope, potential_encloser.get_decl_context().current_scope);
         }
         else
         {
-            std::cerr << "Same scopes" << std::endl;
             return false;
         }
     }
