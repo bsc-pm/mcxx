@@ -2477,26 +2477,36 @@ void compute_bin_operator_generic(
     char requires_overload = 0;
     CXX_LANGUAGE()
     {
-        type_t* no_ref_lhs_type = no_ref(lhs_type);
-        type_t* no_ref_rhs_type = no_ref(rhs_type);
-
         // Try to simplify unresolved overloads
-        type_t** op_types[] = { &no_ref_lhs_type, &no_ref_rhs_type, NULL };
-        int i;
-        for (i = 0; op_types[i] != NULL; i++)
+        struct 
         {
-            if (is_unresolved_overloaded_type(*(op_types[i])))
+            nodecl_t* op;
+            type_t* op_type;
+        } info[] = 
+        { 
+            { lhs, lhs_type},
+            { rhs, rhs_type},
+            //Sentinel
+            { NULL, NULL}
+        };
+        int i;
+        for (i = 0; info[i].op != NULL; i++)
+        {
+            type_t* current_type = no_ref(info[i].op_type);
+
+            if (is_unresolved_overloaded_type(current_type))
             {
-                scope_entry_t* function = unresolved_overloaded_type_simplify(*(op_types[i]),
+                scope_entry_t* function = unresolved_overloaded_type_simplify(current_type,
                         decl_context, filename, line);
                 if (function != NULL)
                 {
-                    *(op_types[i]) = get_pointer_type(function->type_information);
+                    //Change the type of the operand
+                    info[i].op_type = get_pointer_type(function->type_information);
+                    nodecl_set_type(*(info[i].op), info[i].op_type);
                 }
             }
         }
-
-        requires_overload = will_require_overload(no_ref_lhs_type, no_ref_rhs_type);
+        requires_overload = will_require_overload(no_ref(lhs_type), no_ref(rhs_type));
     }
 
     if (!requires_overload)
@@ -4220,6 +4230,7 @@ static void compute_unary_operator_generic(
             if (function != NULL)
             {
                 op_type = get_pointer_type(function->type_information);
+                nodecl_set_type(*op, op_type);
             }
         }
 
