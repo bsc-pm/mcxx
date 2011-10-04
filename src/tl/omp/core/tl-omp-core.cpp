@@ -1095,18 +1095,6 @@ namespace TL
         {
         }
 
-        void Core::target_handler_pre(TL::PragmaCustomStatement)
-        {
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomStatement)
-        {
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomDeclaration)
-        {
-        }
-
 
 #define INVALID_STATEMENT_HANDLER(_name) \
         void Core::_name##_handler_pre(TL::PragmaCustomStatement ctr) { \

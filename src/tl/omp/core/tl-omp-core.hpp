@@ -87,9 +87,11 @@ namespace TL
                 static bool _already_registered;
 
                 RefPtr<OpenMP::Info> _openmp_info;
-                // RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
+
+                void common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx);
 
                 void task_function_handler_pre(TL::PragmaCustomDirective construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
