@@ -9961,15 +9961,19 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
 
             // Special case for this sort of initializations
-            /*
-               char a[] = { "hello" };
-               */
-
-            // The expression list has only one element of kind expression
+            //   char a[] = { "hello" };
+            
+            // The expression list has only one element of kind expression and this element is an array of chars o wchars
+            type_t * type_element = nodecl_get_type(nodecl_list_head(initializer_clause_list));
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
-                    )
+                    && (is_array_type(no_ref(type_element))
+                        && (is_char_type(array_type_get_element_type(no_ref(type_element)))
+                            || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                           )
+                       )
+               )
             {
                 // Attempt an interpretation like char a[] = "hello";
                 check_nodecl_expr_initializer(nodecl_list_head(initializer_clause_list), 
