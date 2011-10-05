@@ -2453,7 +2453,7 @@ void compute_bin_operator_generic(
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
-
+    
     if (nodecl_expr_is_type_dependent(*lhs)
             || nodecl_expr_is_type_dependent(*rhs))
     {
@@ -3351,8 +3351,11 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
     return get_bool_type();
 }
 
-UNUSED_PARAMETER static type_t* compute_type_no_overload_logical_op(type_t* lhs_type, type_t* rhs_type)
+static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs)
 {
+    type_t* lhs_type = nodecl_get_type(*lhs);
+    type_t* rhs_type = nodecl_get_type(*rhs);
+
     type_t* conversion_type = NULL;
     C_LANGUAGE()
     {
@@ -3382,8 +3385,8 @@ UNUSED_PARAMETER static type_t* compute_type_no_overload_logical_op(type_t* lhs_
 
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
-    if (standard_conversion_between_types(&lhs_to_bool, lhs_type, conversion_type)
-            || standard_conversion_between_types(&rhs_to_bool, rhs_type, conversion_type))
+    if (standard_conversion_between_types(&lhs_to_bool, no_ref(lhs_type), conversion_type)
+            && standard_conversion_between_types(&rhs_to_bool, no_ref(rhs_type), conversion_type))
     {
         if (is_vector_op)
         {
@@ -3411,7 +3414,7 @@ static void compute_bin_logical_op_type(nodecl_t* lhs, nodecl_t* rhs, AST operat
             any_operand_is_class_or_enum,
             nodecl_bin_fun,
             const_value_bin_fun,
-            compute_type_no_overload_relational_operator,
+            compute_type_no_overload_logical_op,
             both_operands_are_arithmetic_noref,
             operator_bin_logical_types_pred,
             operator_bin_logical_types_result,
