@@ -234,12 +234,10 @@ namespace TL
         }
 
         void Core::get_reduction_symbols(
-                Nodecl::NodeclBase construct,
-                PragmaCustomClause clause, 
+                TL::PragmaCustomLine construct,
+                TL::PragmaCustomClause clause, 
                 ObjectList<ReductionSymbol>& sym_list)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
             DEBUG_CODE()
             {
                 std::cerr << "=== Reduction clause [" << construct.get_locus() << "]===" << std::endl;
@@ -248,30 +246,26 @@ namespace TL
             if (!clause.is_defined())
                 return;
 
-            // FIXME - Change the name of this function!
-            ObjectList<ObjectList<std::string> > clause_arguments = clause.get_arguments_unflattened();
+            ObjectList<std::string> clause_arguments = clause.get_raw_arguments();
 
-            for (ObjectList<ObjectList<std::string> >::iterator list_it = clause_arguments.begin();
+            for (ObjectList<std::string>::iterator list_it = clause_arguments.begin();
                     list_it != clause_arguments.end();
                     list_it++)
             {
-                ObjectList<std::string>& arguments(*list_it);
-
                 // The first argument is special, we have to look for a ':' that is not followed by any other ':'
                 // #pragma omp parallel for reduction(A::F : A::d)
+                std::string current_argument = *list_it;
 
-                std::string first_arg = arguments[0];
+                // Trim blanks
+                current_argument.erase(std::remove(current_argument.begin(), current_argument.end(), ' '), current_argument.end());
 
-                // Remove blanks
-                first_arg.erase(std::remove(first_arg.begin(), first_arg.end(), ' '), first_arg.end());
-
-                std::string::iterator split_colon = first_arg.end();
-                for (std::string::iterator it = first_arg.begin();
-                        it != first_arg.end();
+                std::string::iterator split_colon = current_argument.end();
+                for (std::string::iterator it = current_argument.begin();
+                        it != current_argument.end();
                         it++)
                 {
                     if ((*it) == ':'
-                            && (it + 1) != first_arg.end())
+                            && (it + 1) != current_argument.end())
                     {
                         if (*(it + 1) != ':')
                         {
@@ -287,7 +281,7 @@ namespace TL
                     }
                 }
 
-                if (split_colon == first_arg.end())
+                if (split_colon == current_argument.end())
                 {
                     std::cerr << clause.get_locus() << ": warning: 'reduction' clause does not have a valid operator" << std::endl;
                     std::cerr << clause.get_locus() << ": warning: skipping the whole clause" << std::endl;
@@ -295,17 +289,14 @@ namespace TL
                 }
 
                 std::string original_reductor_name;
-                std::copy(first_arg.begin(), split_colon, std::back_inserter(original_reductor_name));
+                std::copy(current_argument.begin(), split_colon, std::back_inserter(original_reductor_name));
 
                 std::string remainder_arg;
-                std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
+                std::copy(split_colon + 1, current_argument.end(), std::back_inserter(remainder_arg));
 
-                // Put back the arguments after tokenization
-                arguments = Nodecl::NodeclBaseTokenizer().tokenize(remainder_arg);
+                // Tokenize variable list
+                ObjectList<std::string> variables = ExpressionTokenizerTrim().tokenize(remainder_arg);
 
-                // Rename 'arguments' to variables, since 'arguments' would be
-                // too vague
-                ObjectList<std::string> &variables(arguments);
                 for (ObjectList<std::string>::iterator it = variables.begin();
                         it != variables.end();
                         it++)
@@ -313,17 +304,16 @@ namespace TL
                     std::string &variable(*it);
                     Source src;
                     src
-                        << "#line " << construct.get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+                        << "#line " << construct.get_line() << " \"" << construct.get_filename() << "\"\n"
                         << variable
                         ;
 
-                    Nodecl::NodeclBase var_tree = src.parse_id_expression(clause, clause.get_scope_link());
-                    Nodecl::NodeclBase var_id_expr(var_tree, clause.get_scope_link());
-                    Symbol var_sym = var_id_expr.get_symbol();
+                    Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
+                    Symbol var_sym = var_tree.get_symbol();
 
                     if (!var_sym.is_valid())
                     {
-                        running_error("%s: error: variable '%s' in reduction clause has not been found in the scope\n",
+                        running_error("%s: error: variable '%s' in reduction clause is not valid\n",
                                 construct.get_locus().c_str(),
                                 var_tree.prettyprint().c_str());
                     }
@@ -340,14 +330,14 @@ namespace TL
                                     && !var_type.is_dependent())
                             {
                                 std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name 
-                                    << "' is no valid for non class-type variable '" << var_id_expr.prettyprint() << "'"
+                                    << "' is no valid for non class-type variable '" << var_sym.get_qualified_name() << "'"
                                     << ", skipping"
                                     << std::endl;
                                 continue;
                             }
                             else
                             {
-                                reductor_name = var_type.get_declaration(construct.get_scope(), "") + "::" + reductor_name.substr(1);
+                                reductor_name = var_type.get_declaration(construct.retrieve_context(), "") + "::" + reductor_name.substr(1);
                             }
                         }
                     }
@@ -359,8 +349,10 @@ namespace TL
                     }
                     else
                     {
+                        internal_error("Not yet implemented", 0);
+#if 0
 		                Nodecl::NodeclBase reductor_name_tree;
-		                Nodecl::NodeclBase reductor_id_expr(NULL, ScopeLink());
+		                Nodecl::NodeclBase reductor_id_expr;
 
                         if (_new_udr)
                         {
@@ -522,10 +514,10 @@ namespace TL
                                         var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
                             }
                         }
+#endif
                     }
                 }
             }
-#endif
         }
 
         struct DataSharingEnvironmentSetter
@@ -780,33 +772,29 @@ namespace TL
             Nodecl::List inner_stmt = cmp_stmt.get_statements().as<Nodecl::List>();
 
             internal_error("Not yet implemented", 0);
-#if 0
+
             if (inner_stmt.size() > 1)
             {
-                if (!is_pragma_custom_construct("omp", "section", 
-                            inner_stmt[0], construct.get_scope_link())
-                        && !is_pragma_custom_construct("omp", "section", 
-                            inner_stmt[1], construct.get_scope_link()))
+                if (!PragmaUtils::is_pragma_construct("omp", "section", inner_stmt[0])
+                        && !PragmaUtils::is_pragma_construct("omp", "section", inner_stmt[1]))
                 {
-                    running_error("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
+                    error_printf("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
                             inner_stmt[1].get_locus().c_str());
                 }
             }
-#endif
         }
 
-        void Core::fix_first_section(Nodecl::NodeclBase construct)
+        void Core::fix_first_section(TL::PragmaCustomStatement construct)
         {
-            internal_error("Not yet implemented", 0);
-#if 0
-            Statement stmt = construct.get_statement();
-            ERROR_CONDITION(!stmt.is_compound_statement(), "It must be a compound statement", 0);
+            Nodecl::NodeclBase stmt = construct.get_statement();
+            ERROR_CONDITION(!stmt.is<Nodecl::CompoundStatement>(), "It must be a compound statement", 0);
 
-            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+            Nodecl::CompoundStatement cmp_stmt = stmt.as<Nodecl::CompoundStatement>();
+            Nodecl::List inner_stmt = cmp_stmt.get_statements().as<Nodecl::List>();
 
             if (!inner_stmt.empty()
-                    && !is_pragma_custom_construct("omp", "section", 
-                        inner_stmt[0], construct.get_scope_link()))
+                    && !PragmaUtils::is_pragma_construct("omp", "section", 
+                        inner_stmt[0]))
             {
                 Source add_section_src;
                 add_section_src
@@ -814,10 +802,9 @@ namespace TL
                     <<  inner_stmt[0].prettyprint()
                     ;
 
-                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0], construct.get_scope_link());
+                Nodecl::NodeclBase add_section_tree = add_section_src.parse_statement(inner_stmt[0]);
                 inner_stmt[0].replace(add_section_tree);
             }
-#endif
         }
 
         void Core::common_for_handler(TL::PragmaCustomStatement construct, DataSharingEnvironment& data_sharing)
@@ -1105,22 +1092,6 @@ namespace TL
         }
 
         void Core::declare_reduction_handler_post(TL::PragmaCustomDirective directive)
-        {
-        }
-
-        void Core::target_handler_pre(TL::PragmaCustomStatement)
-        {
-        }
-
-        void Core::target_handler_pre(TL::PragmaCustomDeclaration)
-        {
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomStatement)
-        {
-        }
-
-        void Core::target_handler_post(TL::PragmaCustomDeclaration)
         {
         }
 

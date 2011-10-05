@@ -87,9 +87,11 @@ namespace TL
                 static bool _already_registered;
 
                 RefPtr<OpenMP::Info> _openmp_info;
-                // RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 std::stack<TargetContext> _target_context;
+
+                void common_target_handler_pre(TL::PragmaCustomLine pragma_line, TargetContext& target_ctx);
 
                 void task_function_handler_pre(TL::PragmaCustomDirective construct);
                 void task_inline_handler_pre(TL::PragmaCustomStatement construct);
@@ -97,7 +99,7 @@ namespace TL
                 void get_clause_symbols(PragmaCustomClause clause, 
                         ObjectList<DataReference>& sym_list, 
                         bool allow_extended_references = false);
-                void get_reduction_symbols(Nodecl::NodeclBase construct, 
+                void get_reduction_symbols(TL::PragmaCustomLine construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(TL::PragmaCustomLine construct,
                         DataSharingEnvironment& data_sharing);
@@ -126,7 +128,7 @@ namespace TL
 				RealTimeInfo task_real_time_handler_pre(TL::PragmaCustomLine construct);
 
                 void common_sections_handler(TL::PragmaCustomStatement construct, const std::string& pragma_name);
-                void fix_first_section(Nodecl::NodeclBase construct);
+                void fix_first_section(TL::PragmaCustomStatement construct);
 
                 void collapse_loop_first(Nodecl::NodeclBase& construct);
 
