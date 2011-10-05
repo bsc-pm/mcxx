@@ -37,7 +37,6 @@
 #include "tl-dto.hpp"
 
 #include "tl-pragmasupport.hpp"
-#include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-omp-deps.hpp"
 
@@ -135,16 +134,9 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem _udr_item;
                 UDRInfoItem2 _udr_item_2;
 
             public:
-                ReductionSymbol(Symbol s, 
-                        const UDRInfoItem& udr_info_item)
-                    : _symbol(s), _udr_item(udr_info_item)
-                {
-                }
-
                 ReductionSymbol(Symbol s, 
                         const UDRInfoItem2& udr_info_item_2)
                     : _symbol(s), _udr_item_2(udr_info_item_2)
@@ -152,18 +144,13 @@ namespace TL
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item), _udr_item_2(red_sym._udr_item_2)
+                    : _symbol(red_sym._symbol), _udr_item_2(red_sym._udr_item_2)
                 {
                 }
 
                 Symbol get_symbol() const 
                 {
                     return _symbol;
-                }
-
-                const UDRInfoItem& get_udr() const
-                {
-                    return _udr_item;
                 }
 
                 const UDRInfoItem2& get_udr_2() const
@@ -423,7 +410,7 @@ namespace TL
                 
                 RealTimeInfo _real_time_info;
 
-                Nodecl::NodeclBase *_if_clause_cond_expr;
+                Nodecl::NodeclBase _if_clause_cond_expr;
 
                 Symbol get_symbol() const;
 
@@ -433,12 +420,6 @@ namespace TL
                 FunctionTaskInfo(Symbol sym,
                         ObjectList<FunctionTaskDependency> parameter_info,
                         FunctionTaskTargetInfo target_info);
-                
-                ~FunctionTaskInfo();
-                
-                FunctionTaskInfo(const FunctionTaskInfo & ft_copy);
-                
-                FunctionTaskInfo & operator=(const FunctionTaskInfo & ft_copy);
                 
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
@@ -463,11 +444,8 @@ namespace TL
                 RealTimeInfo get_real_time_info();
                 
                 bool has_if_clause() const;
-
                 void set_if_clause_conditional_expression(Nodecl::NodeclBase expr);
-                
                 Nodecl::NodeclBase get_if_clause_conditional_expression() const;
-
         };
 
         class LIBTL_CLASS FunctionTaskSet : public TL::Object

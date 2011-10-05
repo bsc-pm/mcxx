@@ -59,8 +59,6 @@ namespace TL
         {
             private:
 
-                std::string _new_udr_str;
-                bool _new_udr;
                 int _udr_counter;
                 void parse_new_udr(const std::string& str);
 

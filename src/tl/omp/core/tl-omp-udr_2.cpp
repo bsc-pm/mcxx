@@ -221,8 +221,9 @@ namespace TL
         };
 
 
-        Nodecl::NodeclBase UDRInfoItem2::parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
-                Nodecl::NodeclBase ref_tree)
+        Nodecl::NodeclBase UDRInfoItem2::parse_omp_udr_operator_name(
+                Source::ReferenceScope ref_scope,
+                const std::string &omp_udr_oper_name)
         {
             internal_error("Not implemented yet", 0);
 #if 0

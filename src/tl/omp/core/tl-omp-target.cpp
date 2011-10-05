@@ -46,19 +46,19 @@ namespace TL
             PragmaCustomClause copy_in = pragma_line.get_clause("copy_in");
             if (copy_in.is_defined())
             {
-                target_ctx.copy_in = copy_in.get_tokenized_arguments();
+                target_ctx.copy_in = copy_in.get_arguments_as_expressions();
             }
 
             PragmaCustomClause copy_out = pragma_line.get_clause("copy_out");
             if (copy_out.is_defined())
             {
-                target_ctx.copy_out = copy_out.get_tokenized_arguments();
+                target_ctx.copy_out = copy_out.get_arguments_as_expressions();
             }
 
             PragmaCustomClause copy_inout = pragma_line.get_clause("copy_inout");
             if (copy_inout.is_defined())
             {
-                target_ctx.copy_inout = copy_inout.get_tokenized_arguments();
+                target_ctx.copy_inout = copy_inout.get_arguments_as_expressions();
             }
 
             PragmaCustomClause copy_deps = pragma_line.get_clause("copy_deps");
@@ -223,29 +223,20 @@ namespace TL
 
         static void add_copy_items(PragmaCustomLine construct, 
                 DataSharingEnvironment& data_sharing,
-                const ObjectList<std::string>& list,
+                const ObjectList<Nodecl::NodeclBase>& list,
                 CopyDirection copy_direction)
         {
-#if 0
-            for (ObjectList<std::string>::const_iterator it = list.begin();
+            for (ObjectList<Nodecl::NodeclBase>::const_iterator it = list.begin();
                     it != list.end();
                     it++)
             {
-                Source src;
-                src 
-                    << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
-                    << *it;
-
-                AST_t ast = src.parse_expression(construct.get_ast(),
-                        construct.get_scope_link());
-
-                DataReference expr(ast, construct.get_scope_link());
+                DataReference expr(*it);
 
                 std::string warning;
                 if (!expr.is_valid(warning))
                 {
                     std::cerr << warning;
-                    std::cerr << construct.get_ast().get_locus() 
+                    std::cerr << construct.get_locus() 
                         << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;
                     continue;
@@ -254,12 +245,12 @@ namespace TL
                 Symbol sym = expr.get_base_symbol();
                 OpenMP::DataSharingAttribute data_sharing_attr = data_sharing.get_data_sharing(sym);
 
-                if (expr.is_id_expression())
+                if (expr.is<Nodecl::Symbol>())
                 {
                     if (data_sharing_attr == DS_UNDEFINED)
                     {
                         std::cerr 
-                            << construct.get_ast().get_locus()
+                            << construct.get_locus()
                             << ": warning: symbol '" << sym.get_name() << "' does not have any data sharing, assuming SHARED" 
                             << std::endl;
                         // Make it shared if we know nothing about this entity
@@ -273,7 +264,7 @@ namespace TL
                             // This is an explicit data sharing of a private
                             // entity, which is being copied, this is wrong
                             running_error("%s: error: invalid non-shared data-sharing for copied entity '%s'\n",
-                                    construct.get_ast().get_locus().c_str(),
+                                    construct.get_locus().c_str(),
                                     sym.get_name().c_str());
                         }
                         else
@@ -304,7 +295,6 @@ namespace TL
                 CopyItem copy_item(expr, copy_direction);
                 data_sharing.add_copy(copy_item);
             }
-#endif
         }
 
         void Core::get_target_info(TL::PragmaCustomLine construct, DataSharingEnvironment& data_sharing)
@@ -339,14 +329,14 @@ namespace TL
                 ObjectList<DependencyItem> dependences;
                 data_sharing.get_all_dependences(dependences);
 
-                ObjectList<std::string> dep_list_in;
-                ObjectList<std::string> dep_list_out;
-                ObjectList<std::string> dep_list_inout;
+                ObjectList<Nodecl::NodeclBase> dep_list_in;
+                ObjectList<Nodecl::NodeclBase> dep_list_out;
+                ObjectList<Nodecl::NodeclBase> dep_list_inout;
                 for (ObjectList<DependencyItem>::iterator it = dependences.begin();
                         it != dependences.end();
                         it++)
                 {
-                    ObjectList<std::string>* p = NULL;
+                    ObjectList<Nodecl::NodeclBase>* p = NULL;
                     DependencyDirection dir = DependencyDirection(it->get_kind() & DEP_DIR_INOUT);
                     if (dir == DEP_DIR_INPUT)
                     {
@@ -366,9 +356,8 @@ namespace TL
                     }
 
                     internal_error("Not yet implemented", 0);
-#if 0
+
                     p->append(it->get_dependency_expression());
-#endif
                 }
 
                 add_copy_items(construct, 
@@ -399,26 +388,27 @@ namespace TL
 			ObjectList<Symbol> ds_syms;
 			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
 
-            ObjectList<std::string> shared_to_inout;
+            ObjectList<Nodecl::NodeclBase> shared_to_inout;
 			for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
 					io_it != ds_syms.end(); 
 					io_it++)
 			{
 				if (!all_copied_syms.contains(*io_it))
-				{
-                    internal_error("Not yet implemented", 0);
-#if 0
-					if (construct.get_show_warnings())
-					{
-		                std::cerr << construct.get_ast().get_locus() 
-		                    << ": warning: symbol '" << io_it->get_qualified_name(construct.get_scope())
-		                    << "' does not have copy directionality. Assuming copy_inout. "
-		                    << std::endl;
-					}
+                {
+                    // FIXME 
+                    //
+                    // if (construct.get_show_warnings())
+                    // {
+                        std::cerr << construct.get_locus() 
+                            << ": warning: symbol '" << io_it->get_qualified_name()
+                            << "' does not have copy directionality. Assuming copy_inout. "
+                            << std::endl;
+                    // }
 
-					shared_to_inout.append(io_it->get_qualified_name(construct.get_scope()));
-#endif
-				}
+                    shared_to_inout.append(
+                            Nodecl::Symbol::make(*io_it, construct.get_filename(), construct.get_line())
+                            );
+                }
 			}
 		    add_copy_items(construct, data_sharing,
 		            shared_to_inout,

@@ -323,7 +323,7 @@ def get_all_class_names_and_children_names(rule_map):
                 if class_name not in classes_set:
                     classes_set.add(class_name)
                     subtrees = map(lambda x : x[0], rhs.subtrees)
-                    result.append((class_name, subtrees, rhs.tree_kind))
+                    result.append((class_name, subtrees, rhs.tree_kind, rhs))
     return result
 
 def generate_nodecl_classes_fwd_decls(rule_map):
@@ -385,7 +385,7 @@ def generate_visitor_class_header(rule_map):
     print "public:"
     print "     typedef typename BaseNodeclVisitor<_Ret>::Ret Ret;"
     classes_and_children = get_all_class_names_and_children_names(rule_map)
-    for (class_name, children_name, tree_kind) in classes_and_children:
+    for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
          print "     virtual Ret visit_pre(const Nodecl::%s & n) { return Ret(); }" % (class_name)
          print "     virtual Ret visit_post(const Nodecl::%s & n) { return Ret(); }" % (class_name)
          print "     virtual Ret visit(const Nodecl::%s & n)" % (class_name)
@@ -481,7 +481,7 @@ def generate_nodecl_classes_base(rule_map):
    print "namespace Nodecl {"
 
    classes_and_children = get_all_class_names_and_children_names(rule_map)
-   for (class_name, children_name, tree_kind) in classes_and_children:
+   for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
        print "class %s : public NodeclBase" % (class_name)
        print "{"
        print "    private:"
@@ -490,6 +490,33 @@ def generate_nodecl_classes_base(rule_map):
        print "    public:"
        print "    %s() : NodeclBase() { }" %(class_name)
        print "    %s(const nodecl_t& a) : NodeclBase(a) { }" %(class_name)
+       print ""
+
+       factory_parameters = []
+       for child_name in children_name:
+           factory_parameters.append("Nodecl::NodeclBase child_%s" % (child_name))
+       if nodecl_class.needs_symbol:
+           factory_parameters.append("TL::Symbol symbol");
+       if nodecl_class.needs_type:
+           factory_parameters.append("TL::Type type");
+       if nodecl_class.needs_text:
+           factory_parameters.append("const std::string& text");
+       if nodecl_class.needs_cval:
+           factory_parameters.append("const_value_t* cval");
+       if nodecl_class.needs_template_parameters:
+           factory_parameters.append("template_parameter_list_t* template_parameters");
+       if nodecl_class.needs_decl_context:
+           factory_parameters.append("TL::Scope scope");
+
+       factory_parameters.append("const std::string &filename = \"\"")
+       factory_parameters.append("int line = 0")
+
+       print "    // Factory method"
+       print "    static %s make(%s);" % (class_name, string.join(factory_parameters, ", "))
+       print ""
+
+       if children_name:
+            print "    // Children getters "
        child_num = 0
        for child_name in children_name:
             print "    NodeclBase get_%s() const { return NodeclBase(nodecl_get_child(_n, %d)); } " % (child_name, child_num)
@@ -506,17 +533,46 @@ def generate_nodecl_classes_specs(rule_map):
    print "#include \"tl-nodecl.hpp\""
    print ""
    print "namespace Nodecl {"
-   classes = {}
-   for rule_name in rule_map:
-       rule_rhs = rule_map[rule_name]
-       for rhs in rule_rhs:
-           if rhs.__class__ == NodeclStructure:
-               classes[from_underscore_to_camel_case(rhs.tree_kind[len(NODECL_PREFIX):])] = rhs.subtrees
-#   for (class_name, subtrees) in classes.iteritems():
-#       print "void %s::accept(BaseNodeclVisitor& visitor)" % (class_name)
-#       print "{"
-#       print "    visitor.visit(*this);"
-#       print "}"
+   classes_and_children = get_all_class_names_and_children_names(rule_map)
+   for (class_name, children_name, tree_kind, nodecl_class) in classes_and_children:
+
+       factory_parameters = []
+       factory_arguments = []
+       for child_name in children_name:
+           factory_parameters.append("Nodecl::NodeclBase child_%s" % (child_name))
+           factory_arguments.append("child_%s.get_internal_nodecl()" % (child_name))
+       if nodecl_class.needs_symbol:
+           factory_parameters.append("TL::Symbol symbol");
+           factory_arguments.append("symbol.get_internal_symbol()");
+       if nodecl_class.needs_type:
+           factory_parameters.append("TL::Type type");
+           factory_arguments.append("type.get_internal_type()");
+       if nodecl_class.needs_text:
+           factory_parameters.append("const std::string& text");
+           factory_arguments.append("text.c_str()");
+       if nodecl_class.needs_cval:
+           factory_parameters.append("const_value_t* cval");
+           factory_arguments.append("cval");
+       if nodecl_class.needs_template_parameters:
+           factory_parameters.append("template_parameter_list_t* template_parameters");
+           factory_arguments.append("template_parameters");
+       if nodecl_class.needs_decl_context:
+           factory_parameters.append("TL::Scope scope");
+           factory_arguments.append("scope.get_decl_context()");
+
+       factory_parameters.append("const std::string &filename")
+       factory_arguments.append("filename.c_str()");
+
+       factory_parameters.append("int line")
+       factory_arguments.append("line");
+
+       nodecl_make_name = "nodecl_make_%s" % ((nodecl_class.tree_kind[len(NODECL_PREFIX):]).lower())
+
+       print "%s %s::make(%s)" % (class_name, class_name, string.join(factory_parameters, ", "))
+       print "{"
+       print "    return ::%s(%s);" % (nodecl_make_name, string.join(factory_arguments, ", "))
+       print "}"
+
    print "} /* namespace Nodecl */"
 
 def generate_routines_header(rule_map):

@@ -40,9 +40,9 @@ namespace TL
         {
             ObjectList<std::string> device_list;
 
-            ObjectList<std::string> copy_in;
-            ObjectList<std::string> copy_out;
-            ObjectList<std::string> copy_inout;
+            ObjectList<Nodecl::NodeclBase> copy_in;
+            ObjectList<Nodecl::NodeclBase> copy_out;
+            ObjectList<Nodecl::NodeclBase> copy_inout;
 
             bool has_implements;
             Symbol implements;

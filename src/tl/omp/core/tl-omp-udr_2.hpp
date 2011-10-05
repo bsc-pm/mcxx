@@ -80,8 +80,9 @@ namespace TL
 
                 std::string get_symbol_name(Type t) const;
 
-                Nodecl::NodeclBase parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
-                        Nodecl::NodeclBase ref_tree);
+                Nodecl::NodeclBase parse_omp_udr_operator_name(
+                        Source::ReferenceScope ref_scope,
+                        const std::string &omp_udr_oper_name);
 
                 // Getters, setters and consults
                 std::string get_name() const;

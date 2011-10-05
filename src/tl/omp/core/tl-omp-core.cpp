@@ -28,7 +28,6 @@
 
 #include "tl-omp-core.hpp"
 #include "tl-source.hpp"
-#include "tl-omp-udr.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-builtin.hpp"
 #include "tl-nodecl-alg.hpp"
@@ -43,20 +42,12 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_counter(0)
+            : PragmaCustomCompilerPhase("omp"), _udr_counter(0)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
                     "It performs the common analysis part required by OpenMP");
             register_omp_constructs();
-            register_parameter("new_udr", "Alternative implementation for UDRs",
-                    _new_udr_str, "1").connect(functor(&Core::parse_new_udr,*this));
-        }
-
-
-        void Core::parse_new_udr(const std::string& str)
-        {
-            parse_boolean_option("new_udr", str, _new_udr, "Assuming true.");
         }
 
 
@@ -129,16 +120,7 @@ namespace TL
             Nodecl::NodeclBase translation_unit = dto["nodecl"];
             Scope global_scope = translation_unit.retrieve_context();
 
-#if 0
-            if (_new_udr) 
-            {
-                initialize_builtin_udr_reductions_2(translation_unit);
-            }
-            else 
-            {
-                initialize_builtin_udr_reductions(global_scope);
-            }
-#endif
+            initialize_builtin_udr_reductions_2(translation_unit);
 
             PragmaCustomCompilerPhase::run(dto);
         }
@@ -233,292 +215,6 @@ namespace TL
             }
         }
 
-        void Core::get_reduction_symbols(
-                TL::PragmaCustomLine construct,
-                TL::PragmaCustomClause clause, 
-                ObjectList<ReductionSymbol>& sym_list)
-        {
-            DEBUG_CODE()
-            {
-                std::cerr << "=== Reduction clause [" << construct.get_locus() << "]===" << std::endl;
-            }
-
-            if (!clause.is_defined())
-                return;
-
-            ObjectList<std::string> clause_arguments = clause.get_raw_arguments();
-
-            for (ObjectList<std::string>::iterator list_it = clause_arguments.begin();
-                    list_it != clause_arguments.end();
-                    list_it++)
-            {
-                // The first argument is special, we have to look for a ':' that is not followed by any other ':'
-                // #pragma omp parallel for reduction(A::F : A::d)
-                std::string current_argument = *list_it;
-
-                // Trim blanks
-                current_argument.erase(std::remove(current_argument.begin(), current_argument.end(), ' '), current_argument.end());
-
-                std::string::iterator split_colon = current_argument.end();
-                for (std::string::iterator it = current_argument.begin();
-                        it != current_argument.end();
-                        it++)
-                {
-                    if ((*it) == ':'
-                            && (it + 1) != current_argument.end())
-                    {
-                        if (*(it + 1) != ':')
-                        {
-                            split_colon = it;
-                            break;
-                        }
-                        else
-                        {
-                            // Next one is also a ':' but it is not a valid splitting
-                            // ':', so ignore it
-                            it++;
-                        }
-                    }
-                }
-
-                if (split_colon == current_argument.end())
-                {
-                    std::cerr << clause.get_locus() << ": warning: 'reduction' clause does not have a valid operator" << std::endl;
-                    std::cerr << clause.get_locus() << ": warning: skipping the whole clause" << std::endl;
-                    return;
-                }
-
-                std::string original_reductor_name;
-                std::copy(current_argument.begin(), split_colon, std::back_inserter(original_reductor_name));
-
-                std::string remainder_arg;
-                std::copy(split_colon + 1, current_argument.end(), std::back_inserter(remainder_arg));
-
-                // Tokenize variable list
-                ObjectList<std::string> variables = ExpressionTokenizerTrim().tokenize(remainder_arg);
-
-                for (ObjectList<std::string>::iterator it = variables.begin();
-                        it != variables.end();
-                        it++)
-                {
-                    std::string &variable(*it);
-                    Source src;
-                    src
-                        << "#line " << construct.get_line() << " \"" << construct.get_filename() << "\"\n"
-                        << variable
-                        ;
-
-                    Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
-                    Symbol var_sym = var_tree.get_symbol();
-
-                    if (!var_sym.is_valid())
-                    {
-                        running_error("%s: error: variable '%s' in reduction clause is not valid\n",
-                                construct.get_locus().c_str(),
-                                var_tree.prettyprint().c_str());
-                    }
-
-                    Type var_type = var_sym.get_type();
-
-                    std::string reductor_name = original_reductor_name;
-                    // Ammend as needed the reductor name for this variable
-                    CXX_LANGUAGE()
-                    {
-                        if (reductor_name[0] == '.')
-                        {
-                            if (!var_type.is_named_class()
-                                    && !var_type.is_dependent())
-                            {
-                                std::cerr << construct.get_locus() << ": warning: reductor '" << reductor_name 
-                                    << "' is no valid for non class-type variable '" << var_sym.get_qualified_name() << "'"
-                                    << ", skipping"
-                                    << std::endl;
-                                continue;
-                            }
-                            else
-                            {
-                                reductor_name = var_type.get_declaration(construct.retrieve_context(), "") + "::" + reductor_name.substr(1);
-                            }
-                        }
-                    }
-
-                    if (var_sym.is_dependent_entity())
-                    {
-                        std::cerr << construct.get_locus() << ": warning: symbol "
-                            << "'" << var_tree.prettyprint() << "' is dependent, skipping it" << std::endl;
-                    }
-                    else
-                    {
-                        internal_error("Not yet implemented", 0);
-#if 0
-		                Nodecl::NodeclBase reductor_name_tree;
-		                Nodecl::NodeclBase reductor_id_expr;
-
-                        if (_new_udr)
-                        {
-                            bool found = false;
-                            UDRInfoItem2 udr2;
-                            udr2.set_type(var_type);
-
-				            if (var_type.is_class())
-				            {
-				                reductor_name_tree
-				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct, construct.get_scope_link());
-				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
-				            }
-                            else if (!udr_is_builtin_operator(reductor_name))
-                            {
-                                reductor_name_tree = 
-                                        Source(reductor_name).parse_id_expression_wo_check(construct.get_scope(), 
-                                        construct.get_scope_link());
-                            }
-
-                            if (!udr_is_builtin_operator(reductor_name) && reductor_name_tree.internal_ast_type_() == AST_QUALIFIED_ID)
-                            {
-                                udr2.set_name(reductor_name_tree.children()[2].prettyprint());
-                                std::string symbol_name = udr2.get_symbol_name(var_type);
-
-                                // Change the third son 'name' -> '.udr_name_0xXXXXXXX'
-                                reductor_name_tree.children()[2].replace_text(symbol_name);
-                                Nodecl::NodeclBase reductor_expression(reductor_name_tree, construct.get_scope_link());
-                                Symbol reductor_sym = reductor_expression.get_symbol();
-                                found = true;
-                                
-                                // Fill UDR info
-                                RefPtr<UDRInfoItem2> obj = 
-                                        RefPtr<UDRInfoItem2>::cast_dynamic(reductor_sym.get_attribute("udr_info"));
-                                udr2 = (*obj);
-                            }
-                            else
-                            {
-                                CXX_LANGUAGE()
-                                {
-                                    if (udr_is_builtin_operator_2(reductor_name) && var_type.is_enum())
-                                    {
-                                        var_type = var_type.get_enum_underlying_type();
-                                    }
-                                }
-
-                                udr2.set_builtin_operator(reductor_name);
-
-		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
-		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
-		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
-		                        else if (!reductor_name.compare("&")) reductor_name = "_and_";
-		                        else if (!reductor_name.compare("|")) reductor_name = "_or_";
-		                        else if (!reductor_name.compare("^")) reductor_name = "_exp_";
-		                        else if (!reductor_name.compare("&&")) reductor_name = "_andand_";
-		                        else if (!reductor_name.compare("||")) reductor_name = "_oror_";
-
-                                udr2.set_name(reductor_name);
-		                        udr2 = udr2.lookup_udr(construct.get_scope(),
-		                                found,
-		                                var_type,
-                                        reductor_name_tree,
-                                        _udr_counter);
-                            }
-
-                            if (found)
-                            {
-                                ReductionSymbol red_sym(var_sym, udr2);
-                                sym_list.append(red_sym);
-                                if (!udr2.is_builtin_operator() && construct.get_show_warnings())
-                                {
-                                    std::cerr << construct.get_locus() 
-                                        << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                        << reductor_name << "'"
-                                        << std::endl;
-                                }
-                            }
-                            else
-                            {
-                                // Make this a hard error, otherwise lots of false positives will slip in
-                                running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                        construct.get_locus().c_str(),
-                                        reductor_name.c_str(),
-                                        var_tree.prettyprint().c_str(),
-                                        var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
-                            }
-                        }
-                        else
-                        {
-				            if (!udr_is_builtin_operator(reductor_name))
-				            {
-				                reductor_name_tree
-				                    = Source(reductor_name).parse_id_expression(construct, construct.get_scope_link());
-				                reductor_id_expr = Nodecl::NodeclBase(reductor_name_tree, clause.get_scope_link());
-				            }
-
-				            // Adjust pointers to arrays
-				            if (!var_sym.is_parameter()
-				                    && var_type.is_pointer()
-				                    && var_type.points_to().is_array())
-				            {
-				                // Ignore the additional pointer
-				                var_type = var_type.points_to();
-				            }
-
-				            // Lower array types
-				            int num_dimensions = var_type.get_num_dimensions();
-
-                            UDRInfoItem udr;
-                            if (udr_is_builtin_operator(reductor_name))
-                            {
-                                udr.set_builtin_operator(reductor_name);
-                            }
-                            else
-                            {
-                                udr.set_operator(reductor_id_expr);
-                            }
-                            udr.set_reduction_type(var_type);
-
-                            if (num_dimensions != 0)
-                            {
-                                udr.set_is_array_reduction(true);
-                                udr.set_num_dimensions(num_dimensions);
-                            }
-
-                            ObjectList<Symbol> all_viables;
-
-                            bool found = false;
-                            udr = udr.lookup_udr(construct.get_scope(), 
-                                    construct.get_scope_link(),
-                                    found,
-                                    all_viables, 
-                                    construct.get_file(),
-                                    construct.get_line());
-
-                            if (found)
-                            {
-                                ReductionSymbol red_sym(var_sym, udr);
-                                sym_list.append(red_sym);
-
-                                if (!udr.is_builtin_operator())
-                                {
-                                    Symbol op_sym = udr.get_operator_symbols()[0];
-                                    Type op_type = op_sym.get_type();
-                                    std::cerr << construct.get_locus() 
-                                        << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                        << op_type.get_declaration(construct.get_scope(),
-                                                op_sym.get_qualified_name(construct.get_scope())) << "'" 
-                                        << std::endl;
-                                }
-                            }
-                            else
-                            {
-                                // Make this a hard error, otherwise lots of false positives will slip in
-                                running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                        construct.get_locus().c_str(),
-                                        reductor_name.c_str(),
-                                        var_tree.prettyprint().c_str(),
-                                        var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
-                            }
-                        }
-#endif
-                    }
-                }
-            }
-        }
 
         struct DataSharingEnvironmentSetter
         {
