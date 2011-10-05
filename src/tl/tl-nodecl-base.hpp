@@ -38,6 +38,10 @@ namespace Nodecl {
                 }
                 return result;
             }
+            Nodecl::NodeclBase copy() const
+            {
+                return nodecl_copy(this->_n);
+            }
 
             // Simple RTTI
             template <typename T> bool is() const { return !this->is_null() && (T::_kind == this->get_kind()); }
