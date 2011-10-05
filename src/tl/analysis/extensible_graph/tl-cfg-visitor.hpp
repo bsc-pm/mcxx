@@ -220,18 +220,36 @@ namespace TL
          */
         template <typename T>
         Ret function_call_visit(const T& n);
-        
+       
         //! This method build the graph node containing the CFG of a task
         /*!
          * The method stores the graph node into the list #_task_graphs_l
          * We can place the task any where in the graph taking into account that the position must 
          * respect the initial dependences
          */
-        Ret create_task_graph(const Nodecl::PragmaCustomStatement& n);
+        template <typename T>
+        Ret create_task_graph(const T& n);
         
-               
+        template<typename T>
+        Ret visit_pragma_construct(const T& n);
+        
+        
         // *** IPA *** //
+            
+        //! Computes the liveness information of each node regarding only its inner statements
+        /*!
+            A variable is Killed (X) when it is defined before than used in X.
+            A variable is Upper Exposed (X) when it is used before than defined in X.
+            */
+        void gather_live_initial_information(Node* actual);
         
+        //! Sets the initial liveness information of the node.
+        /*!
+         * The method computes the used and defined variables of a node taking into account only
+         * the inner statements.
+         */
+        void set_live_initial_information(Node* node);
+            
         bool propagate_use_rec(Node* actual);
 
         
@@ -267,6 +285,9 @@ namespace TL
         void build_cfg(RefPtr<Nodecl::NodeclBase> nodecl, std::string graph_name);
         
         // *** IPA *** //
+        
+                //! Computes the define-use chain a node
+        void compute_use_def_chains(Node* node);
         
         //! The method searches matching between the function call and the graphs built in the function unit
         ExtensibleGraph* find_function_for_ipa(Node* function_call);

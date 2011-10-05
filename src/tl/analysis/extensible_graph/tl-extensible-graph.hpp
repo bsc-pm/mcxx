@@ -57,6 +57,7 @@ namespace TL
              */
             std::map<Node*, Node*> nodes_m;            
             
+            
             // *** Values used during the construction of the graph *** //
             
             //! Stacks to keep the exit nodes of Loop Statements
@@ -74,8 +75,14 @@ namespace TL
             //! CfgVisitor will create and destroy this node depending on the statements it is traversing
             std::stack<Node*> _outer_node;
             
+            
+            // *** Values used during the analysis *** //
+            
             //! List of nodes containing task's code
             ObjectList<Node*> _task_nodes_l;
+            
+            //! Boolean indicating whether the use-def chains are already computed for the graph
+            bool _use_def_computed;
             
             
     private:
@@ -139,13 +146,6 @@ namespace TL
              */
             static bool belongs_to_the_same_graph(Edge* edge);
             
-            //! Computes the liveness information of each node regarding only its inner statements
-            /*!
-              A variable is Killed (X) when it is defined before than used in X.
-              A variable is Upper Exposed (X) when it is used before than defined in X.
-             */
-            static void gather_live_initial_information(Node* actual);
-            
             //! Computes the data-flow equation for each node in a iterative way 
             //! until the information stops changing.
             /*!
@@ -175,7 +175,7 @@ namespace TL
             //! Method used during the copy method that copies the graph recursively
             
             
-            void copy_nodes_and_map_nodes(Node* old_node);
+            void copy_and_map_nodes(Node* old_node);
             
             void connect_copied_nodes(Node* old_node);
             
@@ -355,19 +355,16 @@ namespace TL
             
             
             // *** Static CFG Analysis *** //
-           
-            //! Computes the define-use chain a node
-            static void compute_use_def_chains(Node* node);
             
             //! Computes the liveness analysis of a node
             //! The method needs the use-def chains to be calculated before
             static void live_variable_analysis(Node* node);            
             
             //! Computes dependences for all task node in the Extensible Graph
-            static void analyse_tasks(ObjectList<Node*> tasks_l);
+            void analyse_tasks();
             
             //! Computes dependences for a node containing a task code
-            static void analyse_task(Node* task_node);
+            void analyse_task(Node* task_node);
            
             
             // *** Getters and Setters *** //
@@ -385,7 +382,14 @@ namespace TL
             //! Returns the node containing the graph
             Node* get_graph() const;
             
+            //! Returns the list of nodes containing a task which are created within this graph
             ObjectList<Node*> get_tasks_list() const;
+            
+            //! Returns 1 when the graph has use-def info already computed; otherwise returns 0
+            bool has_use_def_computed() const;
+            
+            //! Sets to 1 the variable containing whether the graph has the use-def info computed
+            void set_use_def_computed();
 
         friend class CfgVisitor;
     };

@@ -82,10 +82,6 @@ namespace TL
         template<typename T>
         Ret nested_visit(const T& n);
         
-        //! This method implements the visitor for all Function Call, virtual or not
-        template <typename T>
-        Ret func_call(const T& n);
-        
     public:
         // Constructors
         CfgAnalysisVisitor(Node* n);
@@ -111,8 +107,6 @@ namespace TL
         Ret visit(const Nodecl::Typeid& n);
         Ret visit(const Nodecl::Cast& n);
         Ret visit(const Nodecl::Offset& n);
-        Ret visit(const Nodecl::VirtualFunctionCall& n);
-        Ret visit(const Nodecl::FunctionCall& n);
         Ret visit(const Nodecl::StringLiteral& n);
         Ret visit(const Nodecl::BooleanLiteral& n);
         Ret visit(const Nodecl::IntegerLiteral& n);

@@ -21,7 +21,7 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
+#include "cxx-prettyprint.h"
 #include "cxx-process.h"
 
 #include "tl-cfg-visitor.hpp"
@@ -66,12 +66,12 @@ namespace TL
             ObjectList<Node*> partial_cfg = walk(*nodecl);
             
             // Connect the exit nodes to the Exit node of the master graph
-            Node* graph_exit = _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE);
+            Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
             graph_exit->set_id(++_actual_cfg->_nid);
             
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
             
-//             _actual_cfg->dress_up_graph();
+            _actual_cfg->dress_up_graph();
         
             _cfgs.append(_actual_cfg);
         }
@@ -114,7 +114,7 @@ namespace TL
         ObjectList<Node*> func_stmts = walk(n.get_statements());
         
         // Complete the exit node
-        Node* graph_exit = _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE);
+        Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);
             
         // Connect the exit nodes to the Exit node of the master graph   
@@ -230,7 +230,7 @@ namespace TL
             }
         }
         // Throw must be connected to the Graph exit as well
-        _actual_cfg->connect_nodes(throw_node, _actual_cfg->_graph->get_data<Node*>(_EXIT_NODE));
+        _actual_cfg->connect_nodes(throw_node, _actual_cfg->_graph->get_graph_exit_node());
         
         _actual_cfg->_last_nodes.clear();
         return ObjectList<Node*>(1, throw_node);
@@ -477,7 +477,7 @@ namespace TL
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_graph_node);
             _actual_cfg->_last_nodes.clear();
         }
-        _actual_cfg->_last_nodes.append(func_graph_node->get_data<Node*>(_ENTRY_NODE));
+        _actual_cfg->_last_nodes.append(func_graph_node->get_graph_entry_node());
         
         ObjectList<Node*> arguments_l = walk(n.get_arguments());
 
@@ -494,7 +494,7 @@ namespace TL
         }
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, func_node);
 
-        Node* graph_exit = func_graph_node->get_data<Node*>(_EXIT_NODE);
+        Node* graph_exit = func_graph_node->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);
         _actual_cfg->connect_nodes(func_node, graph_exit);
        
@@ -626,39 +626,83 @@ namespace TL
                 || pragma == "single");
     }
 
-    // FIXME This function should be templated because we have two cases: PragmaCustomStatement and PragmaCustomDeclaration
-    CfgVisitor::Ret CfgVisitor::create_task_graph(const Nodecl::PragmaCustomStatement& n)
+    template <typename T>
+    CfgVisitor::Ret CfgVisitor::create_task_graph(const T& n)
     {
-        ObjectList<Node*> previous_nodes = _actual_cfg->_last_nodes;
+        ObjectList<Node*> previous_nodes;
         
         struct pragma_t actual_pragma;
         _pragma_info_s.push(actual_pragma);
+
+        if (n.template is<Nodecl::PragmaCustomDeclaration>())
+        {   // We must build here a new Extensible Graph
+            _actual_cfg = new ExtensibleGraph("pragma_" + n.get_symbol().get_name());
+        }
+        else
+        {
+             previous_nodes = _actual_cfg->_last_nodes;
+        }
         
         Node* task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "task", 
                                                                _context_s.top());
-        int n_connects = previous_nodes.size();
-        _actual_cfg->connect_nodes(previous_nodes, task_graph_node, 
-                                   ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
-        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_data<Node*>(_ENTRY_NODE));
+        int n_connects = _actual_cfg->_last_nodes.size();
+        _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
+                                ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
+        _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(task_graph_node->get_graph_entry_node());
         
         walk(n.get_pragma_line());  // This visit computes information associated to the Task node, 
                                     // but do not create any additional node
         
-        walk(n.get_statement());
+        if (n.template is<Nodecl::PragmaCustomDeclaration>())
+        {
+            Symbol next_sym = n.get_symbol();
+            if (next_sym.is_function())
+            {
+                scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
+                struct AST_tag* def = next_sym_->point_of_definition;
+                // TODO
+                std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+            }
+            else
+            {   // Nothing to do. Variable declarations do not create any graph
+            }
+        }
+        else
+        {   // PragmaCustomStatement
+            Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
+            walk(n_stmt.get_statement());
+        }
         
-        Node* graph_exit = task_graph_node->get_data<Node*>(_EXIT_NODE);
+        
+        Node* graph_exit = task_graph_node->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
         _actual_cfg->_outer_node.pop();
         
-        _actual_cfg->_last_nodes = previous_nodes;
-        
         _actual_cfg->_task_nodes_l.append(task_graph_node);
+        
+        if (n.template is<Nodecl::PragmaCustomDeclaration>())
+        {   // Complete the Extensible Graph created for this task
+            Node* graph_exit = _actual_cfg->_graph->get_graph_exit_node();
+            graph_exit->set_id(++_actual_cfg->_nid);
+            
+            _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
+            
+            _actual_cfg->dress_up_graph();
+        
+            _cfgs.append(_actual_cfg);
+        }
+        else
+        {
+            _actual_cfg->_last_nodes = previous_nodes;
+        }
+        
         
         return ObjectList<Node*>(1, task_graph_node);        
     }
     
-    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomStatement& n)
+    template<typename T>
+    CfgVisitor::Ret CfgVisitor::visit_pragma_construct(const T& n)
     {
         // Built a new object in the pragma stack to store its relative info
         struct pragma_t actual_pragma;
@@ -683,7 +727,7 @@ namespace TL
                 _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, pragma_graph_node);
                 _actual_cfg->_last_nodes.clear();
             }
-            _actual_cfg->_last_nodes.append(pragma_graph_node->get_data<Node*>(_ENTRY_NODE));
+            _actual_cfg->_last_nodes.append(pragma_graph_node->get_graph_entry_node());
             
             walk(n.get_pragma_line());  // This visit computes information associated to the Pragma node, 
                                         // but do not create any additional node
@@ -714,45 +758,81 @@ namespace TL
                 struct omp_pragma_sections_t actual_sections_info(_actual_cfg->_last_nodes);
                 _omp_sections_info.push(actual_sections_info);
                 
-                // In a sections pragma custom construct, the first statement may not have a sections pragma
-                // In this case, we should wrap the statement within a Sections Pragma
-                Nodecl::List sections_stmt_list = n.get_statement().as<Nodecl::List>(); // This list contains always one
-                Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
-                Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
-                if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
+                if (n.template is<Nodecl::PragmaCustomDeclaration>())
                 {
-                    const char* text = "section";
-                    const char* filename =  n.get_filename().c_str();
-                    int line = n.get_line();
-                    Nodecl::List empty_nodecl_list(nodecl_null());              
-                    nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
-                                                                            /* clauses */ empty_nodecl_list.get_internal_nodecl(),
-                                                                        text, filename, line);
-                    Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
-                    Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
-                    nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
-                                                                                       stmt_seq.get_internal_nodecl(), 
-                                                                                       text, filename, line);
-                    // Walk the first wrapped node
-                    walk(new_pragma_sections);
-                    
-                    // Walk the rest of nodes
-                    for(std::vector<Nodecl::NodeclBase>::iterator it = sections_stmts.begin()+1;
-                        it != sections_stmts.end();
-                        ++it)
+                    Symbol next_sym = n.get_symbol();
+                    if (next_sym.is_function())
                     {
-                        walk(*it);
+                        scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
+                        struct AST_tag* def = next_sym_->point_of_definition;
+                        // TODO
+                        std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+                    }
+                    else
+                    {   // Nothing to do. Variable declarations do not create any graph
                     }
                 }
                 else
-                {
-                    walk(n.get_statement());    // We will not use the list result of this walk
-                }
-                
+                {   // PragmaCustomStatement
+                    // In a sections pragma custom construct, the first statement may not have a sections pragma
+                    // In this case, we should wrap the statement within a Sections Pragma
+                    Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
+                    Nodecl::List sections_stmt_list = n_stmt.get_statement().template as<Nodecl::List>(); // This list contains always one
+                    Nodecl::CompoundStatement sections_compound_stmt = sections_stmt_list[0].as<Nodecl::CompoundStatement>();
+                    Nodecl::List sections_stmts = sections_compound_stmt.get_statements().as<Nodecl::List>();
+                    if (!sections_stmts.empty() && !sections_stmts[0].is<Nodecl::PragmaCustomStatement>())
+                    {
+                        const char* text = "section";
+                        const char* filename =  n.get_filename().c_str();
+                        int line = n.get_line();
+                        Nodecl::List empty_nodecl_list(nodecl_null());              
+                        nodecl_t pragma_line = nodecl_make_pragma_custom_line(/* clause args */ empty_nodecl_list.get_internal_nodecl(), 
+                                                                                /* clauses */ empty_nodecl_list.get_internal_nodecl(),
+                                                                            text, filename, line);
+                        Nodecl::CompoundStatement first_section = sections_stmts[0].as<Nodecl::CompoundStatement>();
+                        Nodecl::List stmt_seq(first_section.get_statements().get_internal_nodecl());
+                        nodecl_t new_pragma_sections = nodecl_make_pragma_custom_statement(pragma_line,
+                                                                                        stmt_seq.get_internal_nodecl(), 
+                                                                                        text, filename, line);
+                        // Walk the first wrapped node
+                        walk(new_pragma_sections);
+                        
+                        // Walk the rest of nodes
+                        for(std::vector<Nodecl::NodeclBase>::iterator it = sections_stmts.begin()+1;
+                            it != sections_stmts.end();
+                            ++it)
+                        {
+                            walk(*it);
+                        }
+                    }
+                    else
+                    {
+                        Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
+                        walk(n_stmt.get_statement());    // We will not use the list result of this walk
+                    }
+                }                
             }
             else
             {
-                walk(n.get_statement());
+                if (n.template is<Nodecl::PragmaCustomDeclaration>())
+                {
+                    Symbol next_sym = n.get_symbol();
+                    if (next_sym.is_function())
+                    {
+                        scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
+                        struct AST_tag* def = next_sym_->point_of_definition;
+                        // TODO
+                        std::cerr << " Nodecl of function has value '" << prettyprint_in_buffer(def) << "'" << std::endl;
+                    }
+                    else
+                    {   // Nothing to do. Variable declarations do not create any graph
+                    }
+                }
+                else
+                {   // PragmaCustomStatement
+                    Nodecl::PragmaCustomStatement n_stmt = n.template as<Nodecl::PragmaCustomStatement>();
+                    walk(n_stmt.get_statement());
+                }
             }
             
             if (pragma == "section")
@@ -784,7 +864,7 @@ namespace TL
                 _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(flush_node);    
             }       
             
-            Node* graph_exit = pragma_graph_node->get_data<Node*>(_EXIT_NODE);
+            Node* graph_exit = pragma_graph_node->get_graph_exit_node();
             graph_exit->set_id(++_actual_cfg->_nid);
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, graph_exit);
             _actual_cfg->_outer_node.pop();
@@ -792,12 +872,17 @@ namespace TL
             _actual_cfg->_last_nodes.append(pragma_graph_node);
         
             return ObjectList<Node*>(1, pragma_graph_node);
-        }
+        }        
+    }
+    
+    CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomStatement& n)
+    {
+        return visit_pragma_construct(n);
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomDeclaration& n)
     {
-        unhandled_node(n);
+        return visit_pragma_construct(n);
     }
 
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::PragmaCustomLine& n)
@@ -862,7 +947,7 @@ namespace TL
         }        
         
         exit_node->set_id(++_actual_cfg->_nid);
-        exit_node->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());
+        exit_node->set_outer_node(_actual_cfg->_outer_node.top());
         _actual_cfg->connect_nodes(_loop_info_s.top().cond, exit_node, FALSE_EDGE);
         
         // Fill the empty fields of the Increment node
@@ -959,7 +1044,7 @@ namespace TL
         
         // Build the exit node
         exit_node->set_id(++_actual_cfg->_nid);
-        exit_node->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());
+        exit_node->set_outer_node(_actual_cfg->_outer_node.top());
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, cond_node);
         
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
@@ -999,7 +1084,7 @@ namespace TL
         
         // Connect the False condition side to a provisional node
         exit_node->set_id(++_actual_cfg->_nid);
-        exit_node->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());
+        exit_node->set_outer_node(_actual_cfg->_outer_node.top());
         _actual_cfg->connect_nodes(condition_node, exit_node, FALSE_EDGE);
         
         _actual_cfg->_last_nodes.clear(); _actual_cfg->_last_nodes.append(exit_node);
@@ -1032,7 +1117,7 @@ namespace TL
         ObjectList<Node*> else_node_l = walk(n.get_else());
         
         exit_node->set_id(++_actual_cfg->_nid);
-        exit_node->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());        
+        exit_node->set_outer_node(_actual_cfg->_outer_node.top());     
         if (!else_node_l.empty())
         {   // There exists an else statement
             _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, exit_node);
@@ -1066,7 +1151,7 @@ namespace TL
         
         // Link properly the exit node
         switch_exit->set_id(++_actual_cfg->_nid);
-        switch_exit->set_data(_OUTER_NODE, _actual_cfg->_outer_node.top());
+        switch_exit->set_outer_node(_actual_cfg->_outer_node.top());
         
         // Finish computation of switch exit nodes
         if (cond_node_l[0]->get_exit_edges().empty())
@@ -1111,7 +1196,7 @@ namespace TL
                 }
                 e->set_data(_EDGE_LABEL, label);
               
-                if (case_stmt_l.back()->get_data<Node_type>(_NODE_TYPE) != BASIC_BREAK_NODE)
+                if (case_stmt_l.back()->get_type() != BASIC_BREAK_NODE)
                 {
                     _actual_cfg->_last_nodes = ObjectList<Node*>(1, case_stmt_l.back());
                 }
@@ -1188,14 +1273,14 @@ namespace TL
     CfgVisitor::Ret CfgVisitor::visit(const Nodecl::GotoStatement& n)
     {
         Node* goto_node = _actual_cfg->append_new_node_to_parent(_actual_cfg->_last_nodes, n, BASIC_GOTO_NODE);
-        goto_node->set_data<Symbol>(_NODE_LABEL, n.get_symbol());
+        goto_node->set_label(n.get_symbol());
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, goto_node);
         
         for (ObjectList<Node*>::iterator it = _actual_cfg->_labeled_node_l.begin();
             it != _actual_cfg->_labeled_node_l.end();
             ++it)
         {
-            if ((*it)->get_data<Symbol>(_NODE_LABEL) == n.get_symbol())
+            if ((*it)->get_label() == n.get_symbol())
             {   // Connect the nodes
                 _actual_cfg->connect_nodes(goto_node, *it, GOTO_EDGE, n.get_symbol().get_name());
                 break;
@@ -1211,13 +1296,13 @@ namespace TL
     {
         Node* labeled_node = walk(n.get_statement())[0];
         labeled_node->set_data(_NODE_TYPE, BASIC_LABELED_NODE);
-        labeled_node->set_data<Symbol>(_NODE_LABEL, n.get_symbol());
+        labeled_node->set_label(n.get_symbol());
         
         for (ObjectList<Node*>::iterator it = _actual_cfg->_goto_node_l.begin();
             it != _actual_cfg->_goto_node_l.end();
             ++it)
         {
-            if ((*it)->get_data<Symbol>(_NODE_LABEL) == n.get_symbol())
+            if ((*it)->get_label() == n.get_symbol())
             {   // Connect the nodes
                 _actual_cfg->connect_nodes(*it, labeled_node, GOTO_EDGE, n.get_symbol().get_name());
                 break;
@@ -1234,7 +1319,7 @@ namespace TL
     {
         Node* cond_expr_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), 
                                                               Nodecl::NodeclBase::null(), "conditional_expression");
-        Node* entry_node = cond_expr_node->get_data<Node*>(_ENTRY_NODE);
+        Node* entry_node = cond_expr_node->get_graph_entry_node();
         
         // Build condition node
         Node* condition_node = walk(n.get_condition())[0];
@@ -1252,7 +1337,7 @@ namespace TL
         exit_parents.append(false_node);
         
         // Set exit graph node info
-        Node* graph_exit = cond_expr_node->get_data<Node*>(_EXIT_NODE);
+        Node* graph_exit = cond_expr_node->get_graph_exit_node();
         graph_exit->set_id(++_actual_cfg->_nid);
         _actual_cfg->connect_nodes(exit_parents, graph_exit);
         _actual_cfg->_outer_node.pop();
@@ -1710,10 +1795,10 @@ namespace TL
         while (!node->is_visited())
         {
             node->set_visited(true);
-            Node_type n_type = node->get_data<Node_type>(_NODE_TYPE);
+            Node_type n_type = node->get_type();
             if (n_type == GRAPH_NODE)
             {
-                compute_catch_parents(node->get_data<Node*>(_ENTRY_NODE));
+                compute_catch_parents(node->get_graph_entry_node());
             }
             else if (n_type == BASIC_EXIT_NODE)
             {
@@ -1741,7 +1826,7 @@ namespace TL
         
         if (actual_entries.empty())
         {
-            if (actual_node->get_data<Node_type>(_NODE_TYPE) == BASIC_ENTRY_NODE)
+            if (actual_node->get_type() == BASIC_ENTRY_NODE)
             {   // 'actual_node' parent path is already connected with the graph Entry Node
                 return ObjectList<Node*>();
             }
@@ -1798,7 +1883,7 @@ namespace TL
             bool need_graph = false;
             for (ObjectList<Node*>::iterator it = nodes_l.begin(); it != nodes_l.end(); ++it)
             {
-                if ((*it)->get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+                if ((*it)->get_type() == GRAPH_NODE)
                 {
                     need_graph = true;
                     break;
@@ -1811,7 +1896,7 @@ namespace TL
                 
                 // Build the new graph
                 result = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), Nodecl::NodeclBase::null(), "split_stmt");
-                Node* entry = result->get_data<Node*>(_ENTRY_NODE);
+                Node* entry = result->get_graph_entry_node();
                 
                 // Get parents of the new graph node and delete the old connections
                 // Parents of the nodes in the list without parents within the list will be parents of the new graph
@@ -1847,7 +1932,7 @@ namespace TL
                             (*it)->erase_entry_edge(*iit);
                         }
                         // delete the node if it is not of Graph type, otherwise, connect it to the Entry
-                        if ((*it)->get_data<Node_type>(_NODE_TYPE) != GRAPH_NODE)
+                        if ((*it)->get_type() != GRAPH_NODE)
                         {
                             list_pos_to_erase.append(i);
                             delete (*it);
@@ -1895,12 +1980,12 @@ namespace TL
                     }
                     
                     // now, all nodes must have the new Graph node as outer node
-                    (*it)->set_data(_OUTER_NODE, result);
+                    (*it)->set_outer_node(result);
                 }
                 _actual_cfg->connect_nodes(merged_parents, merged_node);         
                 
                 // Connect merging node with the exit of the graph
-                Node* graph_exit = result->get_data<Node*>(_EXIT_NODE);
+                Node* graph_exit = result->get_graph_exit_node();
                 graph_exit->set_id(++_actual_cfg->_nid);
                 _actual_cfg->connect_nodes(merged_node, graph_exit);
                 _actual_cfg->_outer_node.pop();       

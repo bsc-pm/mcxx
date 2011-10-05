@@ -145,13 +145,13 @@ namespace TL
         if (!actual_node->is_visited())
         {
             actual_node->set_visited(true);
-            Node_type ntype = actual_node->get_data<Node_type>(_NODE_TYPE);
+            Node_type ntype = actual_node->get_type();
             if (ntype == GRAPH_NODE)
             {
                 std::stringstream ssgid; ssgid << subgraph_id;
                 std::stringstream ssnode; ssnode << actual_node->get_id();
                 std::string subgraph_label = ssnode.str();
-                Nodecl::NodeclBase actual_label(actual_node->get_data<Nodecl::NodeclBase>(_NODE_LABEL, Nodecl::NodeclBase::null()));
+                Nodecl::NodeclBase actual_label(actual_node->get_graph_label());
                 if (!actual_label.is_null())
                 {
                     subgraph_label += actual_label.get_text();
@@ -162,7 +162,7 @@ namespace TL
                                              "LO: "   + prettyprint_ext_sym_set(actual_node->get_live_out_vars());
    
                 std::string task_deps = "";
-                if (actual_node->get_data<std::string>(_GRAPH_TYPE) == "task")
+                if (actual_node->get_graph_type() == "task")
                 {
                     task_deps = "\\n"
                                 "input: "  + prettyprint_ext_sym_set(actual_node->get_input_deps()) + "\\n" +
@@ -224,7 +224,7 @@ namespace TL
                 }
                 else
                 {
-                    Node* exit_node = actual_node->get_data<Node*>(_EXIT_NODE);
+                    Node* exit_node = actual_node->get_graph_exit_node();
                     if (!actual_node->get_entry_edges().empty() && !exit_node->get_entry_edges().empty())
                     {
                         sss << exit_node->get_id();   
@@ -244,9 +244,9 @@ namespace TL
                             ++it)
                     {                           
                         std::stringstream sst; 
-                        if ((*it)->get_target()->get_node_type() == GRAPH_NODE)
+                        if ((*it)->get_target()->get_type() == GRAPH_NODE)
                         {    
-                            sst << (*it)->get_target()->get_data<Node*>(_ENTRY_NODE)->get_id();
+                            sst << (*it)->get_target()->get_graph_entry_node()->get_id();
                         }
                         else
                         {                        
@@ -292,7 +292,7 @@ namespace TL
                                            std::vector<std::string>& outer_edges, std::vector<Node*>& outer_nodes,
                                            std::string indent, int& subgraph_id)
     {
-        Node* entry_node = actual_node->get_data<Node*>(_ENTRY_NODE);
+        Node* entry_node = actual_node->get_graph_entry_node();
         get_nodes_dot_data(entry_node, dot_graph, outer_edges, outer_nodes, indent+"\t", subgraph_id);
     }
 
@@ -302,10 +302,10 @@ namespace TL
         std::stringstream ss; ss << actual_node->get_id();
         std::stringstream ss2; 
         if (actual_node->has_key(_OUTER_NODE))
-            ss2 << actual_node->get_data<Node*>(_OUTER_NODE)->get_id();
+            ss2 << actual_node->get_outer_node()->get_id();
         else ss2 << "0";
         
-        switch(actual_node->get_data <Node_type> (_NODE_TYPE))
+        switch(actual_node->get_type())
         {
             case BASIC_ENTRY_NODE: 
                 dot_graph += indent + ss.str() + "[label=\"{" + ss.str() + " # ENTRY}\", shape=box, fillcolor=lightgray, style=filled];\n";
@@ -324,7 +324,7 @@ namespace TL
                 break;
             case BASIC_PRAGMA_DIRECTIVE_NODE:
                 internal_error("'%s' found while printing graph. We must think what to do with this kind of node", 
-                               actual_node->get_node_type_as_string().c_str());
+                               actual_node->get_type_as_string().c_str());
                 break;
             case BASIC_BREAK_NODE:
                 dot_graph += indent + ss.str() + "[label=\"" + ss.str() + " # BREAK\", shape=diamond]\n";
@@ -338,7 +338,7 @@ namespace TL
             case BASIC_FUNCTION_CALL_NODE:
             {
                 // Get the Statements within the BB
-                ObjectList<Nodecl::NodeclBase> node_block = actual_node->get_data <ObjectList<Nodecl::NodeclBase> >(_NODE_STMTS);
+                ObjectList<Nodecl::NodeclBase> node_block = actual_node->get_statements();
                 std::string aux_str = "";
                 for (ObjectList<Nodecl::NodeclBase>::iterator it = node_block.begin();
                         it != node_block.end();
@@ -360,7 +360,7 @@ namespace TL
             }
             default:
                 internal_error("Undefined type of node '%s' founded while printing the graph.", 
-                               actual_node->get_node_type_as_string().c_str());
+                               actual_node->get_type_as_string().c_str());
         };
     }
     
@@ -374,7 +374,7 @@ namespace TL
         {
             if (it->get_nodecl().is_null())
             {
-                result += it->get_name() + ", ";
+//                 result += it->get_name() + ", ";
             }
             else
             {

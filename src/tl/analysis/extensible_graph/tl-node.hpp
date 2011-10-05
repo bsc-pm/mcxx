@@ -84,15 +84,13 @@ namespace TL
             /*!
              * A variable is killed when it is defined or redefined
              * A variable is upper exposed when it is used before of being killed
-             * \param s Symbol been used or defined
              * \param defined Action performed over the symbol: 1 if defined, 0 if not
              * \param n Nodecl containg the whole expression about the use/definition
-             *          It will not be null when the action is a member access or a reference/dereference
              */
-            void fill_use_def_sets(Symbol s, bool defined, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            void fill_use_def_sets(Nodecl::NodeclBase n, bool defined);
             
             //! Wrapper method for #fill_use_def_sets when there is more than one symbol to be analysed
-            void fill_use_def_sets(ObjectList<Symbol> syms, bool defined);
+            void fill_use_def_sets(Nodecl::List n_l, bool defined);
             
         public:
             // *** Constructors *** //
@@ -129,8 +127,8 @@ namespace TL
             //! must be included in the list
             Node(int& id, Node_type type, Node* outer_graph, Nodecl::NodeclBase nodecl);
             
-            
             Node* copy(Node* outer_node);
+           
             
             // *** Modifiers *** //
             
@@ -207,12 +205,6 @@ namespace TL
             
             //! Returns the list children nodes of the node.
             ObjectList<Node*> get_children();
-            
-            //! Returns the node type.
-            Node_type get_node_type();
-            
-            //! Returns a string representing the node type of the node.
-            std::string get_node_type_as_string();
            
             //! Returns true when the node is not a composite node (does not contain nodes inside).
             bool is_basic_node();
@@ -225,9 +217,6 @@ namespace TL
             
             //! Returns true when the node is in its parents list
             bool has_parent(Node* n);
-            
-            //! Returns true if the node has the same identifier and the same entries and exits
-            bool operator==(const Node* &n) const;
             
             //! Returns the list of nodes contained inside a node with type graph
             /*!
@@ -248,14 +237,69 @@ namespace TL
             Symbol get_function_node_symbol();
             
             
-            // *** Analysis *** //
+            // *** Getters and setters for liked data *** //
+           
+            //! Returns the node type.
+            Node_type get_type();
             
-            //! Sets the initial liveness information of the node.
-            /*!
-              The method computes the used and defined variables of a node taking into account only
-              the inner statements.
-             */
-            void set_live_initial_information();
+            //! Returns a string representing the node type of the node.
+            std::string get_type_as_string();
+            
+            //! Returns the entry node of a Graph node. Only valid for graph nodes
+            Node* get_graph_entry_node();
+
+            //! Set the entry node of a graph node. Only valid for graph nodes
+            void set_graph_entry_node(Node* node);
+            
+            //! Returns the exit node of a Graph node. Only valid for graph nodes
+            Node* get_graph_exit_node();
+            
+            //! Set the exit node of a graph node. Only valid for graph nodes
+            void set_graph_exit_node(Node* node);
+            
+            //! Returns a pointer to the node which contains the actual node
+            //! When the node don't have an outer node, NULL is returned
+            Node* get_outer_node();
+            
+            //! Set the node that contains the actual node. It must be a graph node
+            void set_outer_node(Node* node);
+            
+            //! Returns the list of statements contained in the node
+            //! If the node does not contain statements, an empty list is returned
+            ObjectList<Nodecl::NodeclBase> get_statements();
+            
+            //! Set the node that contains the actual node. It must be a graph node
+            //! It is only valid for Normal nodes, Labeled nodes or Function Call nodes
+            void set_statements(ObjectList<Nodecl::NodeclBase> stmts);
+            
+            //! Returns the nodecl containing the label of the graph node (Only valid for graph nodes)
+            //! If the graph doesn't have a label, a null Nodecl is returned
+            Nodecl::NodeclBase get_graph_label(Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            
+            //! Set the label of the graph node (Only valid for graph nodes)
+            void set_graph_label(Nodecl::NodeclBase n);
+            
+            //! Returns the string with the type of the graph(Only valid for graph nodes)
+            std::string get_graph_type();
+            
+            //! Set the graph type to the node (Only valid for graph nodes)
+            void set_graph_type(std::string graph_type);
+            
+            //! Returns the Symbol of the statement label contained in the node
+            //! If is only valid for Goto or Labeled nodes
+            Symbol get_label();
+            
+            //! Returns the symbol of the statement label contained in the node
+            //! If is only valid for Goto or Labeled nodes
+            void set_label(Symbol s);
+            
+            
+            // *** Consultants *** //
+            //! Returns true if the node has the same identifier and the same entries and exits
+            bool operator==(const Node* &n) const;
+            
+            
+            // *** Analysis *** //
             
             void set_graph_node_use_def();
             

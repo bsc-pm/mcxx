@@ -25,32 +25,77 @@ Cambridge, MA 02139, USA.
 #include <algorithm>
 
 #include "cxx-codegen.h"
+#include "cxx-process.h"
 
 #include "tl-extensible-symbol.hpp"
 
 namespace TL
 {
     ExtensibleSymbol::ExtensibleSymbol()
-        : _sym(NULL), _n(Nodecl::NodeclBase::null())
+        : _n(Nodecl::NodeclBase::null())
     {}
     
-    ExtensibleSymbol::ExtensibleSymbol(Symbol s, Nodecl::NodeclBase n)
-        : _sym(s.get_internal_symbol()), _n(n)
+    ExtensibleSymbol::ExtensibleSymbol(Nodecl::NodeclBase n)
+        : _n(n)
     {}
+    
+    Symbol ExtensibleSymbol::get_nodecl_symbol(Nodecl::NodeclBase n) const
+    {
+        if (n.is<Nodecl::Symbol>() || n.is<Nodecl::PointerToMember>())
+        {
+            return n.get_symbol();
+        }
+        else if (n.is<Nodecl::Derreference>())
+        {
+            Nodecl::Derreference aux = n.as<Nodecl::Derreference>();
+            return get_nodecl_symbol(aux.get_rhs());
+        }
+        else if (n.is<Nodecl::ClassMemberAccess>())
+        {
+            Nodecl::ClassMemberAccess aux = n.as<Nodecl::ClassMemberAccess>();
+            return get_nodecl_symbol(aux.get_member());
+        }
+        else if (n.is<Nodecl::ArraySubscript>())
+        {
+            Nodecl::ArraySubscript aux = n.as<Nodecl::ArraySubscript>();
+            return get_nodecl_symbol(aux.get_subscripted());
+        }
+        else if (n.is<Nodecl::FunctionCall>())
+        {
+            return Symbol();
+        }
+        else
+        {
+            internal_error("Unexpected type of nodecl '%s' contained in an ExtendedSymbol", 
+                           ast_print_node_type(n.get_kind()));
+        }
+    }
+   
+    Symbol ExtensibleSymbol::get_symbol() const
+    {
+        return get_nodecl_symbol(_n);
+    }    
     
     std::string ExtensibleSymbol::get_name() const
     {
         std::string name = "";
         
-        if (_sym != NULL)
-            name = _sym.get_name();
+        Symbol sym(get_nodecl_symbol(_n));
+        if (sym.is_valid())
+            name = sym.get_name();
         
         return name;
     }
     
     Type ExtensibleSymbol::get_type() const
     {
-        return _sym.get_type();
+        Type res(NULL);
+        
+        Symbol sym(get_nodecl_symbol(_n));
+        if (sym.is_valid())
+            res = sym.get_type();
+        
+        return res;
     }
     
     Nodecl::NodeclBase ExtensibleSymbol::get_nodecl() const
@@ -60,22 +105,7 @@ namespace TL
     
     bool ExtensibleSymbol::is_simple_symbol() const
     {
-        return (_n.is_null());
-    }
-    
-    bool ExtensibleSymbol::is_array_access() const
-    {
-        return (_n.is<Nodecl::ArraySubscript>() || _n.is<Nodecl::ArraySection>());
-    }
-
-    bool ExtensibleSymbol::is_member_access() const
-    {
-        return (_n.is<Nodecl::ClassMemberAccess>() || _n.is<Nodecl::PointerToMember>());
-    }
-
-    Symbol ExtensibleSymbol::get_symbol() const
-    {
-        return _sym;
+        return (_n.is<Nodecl::Symbol>());
     }
 
     bool ExtensibleSymbol::equal_ast_nodes(nodecl_t n1, nodecl_t n2) const
@@ -142,23 +172,25 @@ namespace TL
 
     bool ExtensibleSymbol::operator==(const ExtensibleSymbol& es) const
     {
-        return ( (_sym == es._sym) && equal_nodecls(_n, es._n));
+        bool equals = equal_nodecls(_n, es._n);    
+        return equals;
     }
     
     bool ExtensibleSymbol::operator<(const ExtensibleSymbol& es) const
     {
         // a < b -> ¬ (b > a)
         // a == b <=> ¬(a < b) /\ ¬(b < a)
-        if (_sym < es._sym)
-            return true;
-        if (_sym == es._sym)
-        {
-            if (equal_nodecls(_n, es._n))
-                return false;
-            else
-                return nodecl_get_ast(_n.get_internal_nodecl()) < nodecl_get_ast(es._n.get_internal_nodecl());
+        if (equal_nodecls(_n, es._n))
+        {    
+        std::cerr << "Nodecl " << c_cxx_codegen_to_str(_n.get_internal_nodecl()) 
+                  << " == " << c_cxx_codegen_to_str(es._n.get_internal_nodecl()) << " are the same " << std::endl;                
+            return false;
         }
-        // _sym > es._sym
-        return false;
+        else
+        {
+                    std::cerr << "Nodecl " << c_cxx_codegen_to_str(_n.get_internal_nodecl()) 
+                  << " == " << c_cxx_codegen_to_str(es._n.get_internal_nodecl()) << " are different " << std::endl;           
+            return nodecl_get_ast(_n.get_internal_nodecl()) < nodecl_get_ast(es._n.get_internal_nodecl());
+        }
     }
 }

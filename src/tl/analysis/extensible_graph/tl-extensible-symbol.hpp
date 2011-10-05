@@ -41,31 +41,30 @@ namespace TL
     class LIBTL_CLASS ExtensibleSymbol : public TL::Object
     {
         private:
-            Symbol _sym;
             Nodecl::NodeclBase _n;
+            
+            //! Returns the symbol contained in a nodecl which is an Extensible Symbol or 
+            //! a part of a nodecl which is an Extensible Symbol
+            Symbol get_nodecl_symbol(Nodecl::NodeclBase n) const;
             
         public:
             // *** Constructors *** //
-            
-            //! Empty Constructor of an Extensible Symbol.
-            /*!
-              It builds an Extensible Symbol with non-associated Symbol.
-             */
+           
             ExtensibleSymbol();
-            
+           
             //! Constructor building an Extensible Symbol from a valid Symbol.
             /*!
-              Use is_valid if the Symbol wrapped as an ExtensibleSymbol is eligible as an 
-              extensible symbol.
-              \param s Symbol which is wrapped in the new ExtensibleSymbol
-              \param n Nodecl containg additional information about the Symbol like
-                       the member accessed in a struct or the subscript of an array access.
-                       By default, this parameter contains a null nodecl.
+             * Use is valid if the nodecl is be an lvalue.
+             * \param n Nodecl containing s Symbol. 
+             *          This will be more than a Symbol when the nodecl is a member access or an array access
              */
-            ExtensibleSymbol(Symbol s, Nodecl::NodeclBase n = Nodecl::NodeclBase::null());
+            ExtensibleSymbol(Nodecl::NodeclBase n);
             
             
             // *** Getters and Setters *** //
+
+            //! Returns the symbol wrapped in the Extended Symbol
+            Symbol get_symbol() const;
             
             //! Returns the name of the wrapped symbol.
             std::string get_name() const;
@@ -79,21 +78,6 @@ namespace TL
             //! Returns true when the extensible symbol contains a symbols which do not represents
             //! neither an array access nor a member access, but a symbol.
             bool is_simple_symbol() const;
-            
-            //! Returns true when the extensible symbol contains an array access.
-            /*!
-             * This method is only valid when the extensible symbol wraps a non-simple symbol
-             */            
-            bool is_array_access() const;
-            
-            //! Returns true when the extensible symbol contains a member access.
-            /*!
-             * This method is only valid when the extensible symbol wraps a non-simple symbol
-             */            
-            bool is_member_access() const;
-            
-            //! Returns the symbol wrapped in the Extended Symbol
-            Symbol get_symbol() const;
             
             //! Compares the content of two AST nodes
             bool equal_ast_nodes(nodecl_t t1, nodecl_t t2) const;

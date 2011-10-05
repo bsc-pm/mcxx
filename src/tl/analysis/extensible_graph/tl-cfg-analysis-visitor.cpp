@@ -45,8 +45,15 @@ namespace TL
 
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Symbol& n)
     {
-        _node->fill_use_def_sets(n.get_symbol(), _define, _actual_nodecl);
-        _actual_nodecl = Nodecl::NodeclBase::null();
+        if (_actual_nodecl.is_null())
+        {    
+            _node->fill_use_def_sets(n,_define);
+        }
+        else
+        {
+            _node->fill_use_def_sets(_actual_nodecl, _define);
+            _actual_nodecl = Nodecl::NodeclBase::null();
+        }
     }
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::Text& n)
@@ -108,52 +115,9 @@ namespace TL
         return result;
     }
 
-    template <typename T>
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::func_call(const T& n)
-    {
-        // FIXME Review what's happening when we call a method with pointers or references: which symbols is used/defined??
-        
-        // Analyse the parameters/arguments conservatively:
-        Nodecl::List args = n.get_arguments().template as<Nodecl::List>();
-        Symbol called_sym = n.get_called().get_symbol();
-        scope_entry_t* called_sym_ = called_sym.get_internal_symbol();
-        int num_params = called_sym_->entity_specs.num_related_symbols;
-        int i = 0;
-        for(; i < num_params; ++i)
-        {
-            _node->fill_use_def_sets(get_symbols(args[i]), false);  // We suppose the node to be used always
-            Symbol param(called_sym_->entity_specs.related_symbols[i]);
-            Type param_type = param.get_type();
-            if (param_type.is_pointer() || param_type.is_reference())
-            {   // Only if it is a pointer or a reference, then it is also defined
-                _node->fill_use_def_sets(get_symbols(args[i]), true);
-            }
-        }
-        while(i < args.size())
-        {   // function called with ellipsed arguments
-            Type arg_type = args[i].get_type();
-            _node->fill_use_def_sets(get_symbols(args[i]), false);  // We suppose the node to be used always
-            if (arg_type.is_pointer() || arg_type.is_reference())
-            {   // Only if it is a pointer or a reference, then it is also defined
-                _node->fill_use_def_sets(get_symbols(args[i]), true);
-            }            
-            ++i;
-        }
-    }
-
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::VirtualFunctionCall& n)
-    {
-        func_call(n);
-    }
-   
-    CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::FunctionCall& n)
-    {
-        func_call(n);
-    }
-
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ObjectInit& n)
     {
-        _node->fill_use_def_sets(n.get_symbol(), true);
+        _node->fill_use_def_sets(n, true);
         walk(n.get_symbol().get_initialization());
     }
 
