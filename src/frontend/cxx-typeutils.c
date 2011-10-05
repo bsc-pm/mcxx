@@ -8841,7 +8841,7 @@ char is_aggregate_type(type_t* t)
             CXX1X_LANGUAGE()
             {
                 // No initializer for nonstatic data member
-                if (nodecl_is_null(entry->value))
+                if (!nodecl_is_null(entry->value))
                 {
                     entry_list_iterator_free(it);
                     entry_list_free(nonstatic_data_members);

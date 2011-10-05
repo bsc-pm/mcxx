@@ -2453,7 +2453,7 @@ void compute_bin_operator_generic(
 {
     type_t* lhs_type = nodecl_get_type(*lhs);
     type_t* rhs_type = nodecl_get_type(*rhs);
-
+    
     if (nodecl_expr_is_type_dependent(*lhs)
             || nodecl_expr_is_type_dependent(*rhs))
     {
@@ -3351,8 +3351,11 @@ static type_t* operator_bin_logical_types_result(type_t** lhs, type_t** rhs)
     return get_bool_type();
 }
 
-UNUSED_PARAMETER static type_t* compute_type_no_overload_logical_op(type_t* lhs_type, type_t* rhs_type)
+static type_t* compute_type_no_overload_logical_op(nodecl_t* lhs, nodecl_t* rhs)
 {
+    type_t* lhs_type = nodecl_get_type(*lhs);
+    type_t* rhs_type = nodecl_get_type(*rhs);
+
     type_t* conversion_type = NULL;
     C_LANGUAGE()
     {
@@ -3382,8 +3385,8 @@ UNUSED_PARAMETER static type_t* compute_type_no_overload_logical_op(type_t* lhs_
 
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
-    if (standard_conversion_between_types(&lhs_to_bool, lhs_type, conversion_type)
-            || standard_conversion_between_types(&rhs_to_bool, rhs_type, conversion_type))
+    if (standard_conversion_between_types(&lhs_to_bool, no_ref(lhs_type), conversion_type)
+            && standard_conversion_between_types(&rhs_to_bool, no_ref(rhs_type), conversion_type))
     {
         if (is_vector_op)
         {
@@ -3411,7 +3414,7 @@ static void compute_bin_logical_op_type(nodecl_t* lhs, nodecl_t* rhs, AST operat
             any_operand_is_class_or_enum,
             nodecl_bin_fun,
             const_value_bin_fun,
-            compute_type_no_overload_relational_operator,
+            compute_type_no_overload_logical_op,
             both_operands_are_arithmetic_noref,
             operator_bin_logical_types_pred,
             operator_bin_logical_types_result,
@@ -9961,15 +9964,19 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
             }
 
             // Special case for this sort of initializations
-            /*
-               char a[] = { "hello" };
-               */
-
-            // The expression list has only one element of kind expression
+            //   char a[] = { "hello" };
+            
+            // The expression list has only one element of kind expression and this element is an array of chars o wchars
+            type_t * type_element = nodecl_get_type(nodecl_list_head(initializer_clause_list));
             if (nodecl_list_length(initializer_clause_list) == 1
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_CXX_BRACED_INITIALIZER
                     && nodecl_get_kind(nodecl_list_head(initializer_clause_list)) != NODECL_C99_DESIGNATED_INITIALIZER
-                    )
+                    && (is_array_type(no_ref(type_element))
+                        && (is_char_type(array_type_get_element_type(no_ref(type_element)))
+                            || is_wchar_t_type(array_type_get_element_type(no_ref(type_element)))
+                           )
+                       )
+               )
             {
                 // Attempt an interpretation like char a[] = "hello";
                 check_nodecl_expr_initializer(nodecl_list_head(initializer_clause_list), 
@@ -10201,12 +10208,11 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_get_line(braced_initializer));
                     return;
                 }
-                int j;
-                for (j = 0; j < num_args; i++)
+                for (i = 0; i < num_args; i++)
                 {
-                    if (conversors[j] != NULL)
+                    if (conversors[i] != NULL)
                     {
-                        if (function_has_been_deleted(decl_context, conversors[j], 
+                        if (function_has_been_deleted(decl_context, conversors[i], 
                                     nodecl_get_filename(braced_initializer), 
                                     nodecl_get_line(braced_initializer)))
                         {
@@ -10219,9 +10225,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 }
 
                 nodecl_t nodecl_arguments_output = nodecl_null();
-                for (j = 0; j < num_args; j++)
+                for (i = 0; i < num_args; i++)
                 {
-                    nodecl_t nodecl_current = nodecl_list[j];
+                    nodecl_t nodecl_current = nodecl_list[i];
 
                     if (conversors[i] != NULL)
                     {
@@ -11063,6 +11069,8 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
         for_each_element(initializer_list, it)
         {
             AST initializer_clause = ASTSon1(it);
+           // printf("initliazer_clasue: %s\n", prettyprint_in_buffer(initializer_clause));
+
 
             nodecl_t nodecl_initializer_clause = nodecl_null();
             compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);
