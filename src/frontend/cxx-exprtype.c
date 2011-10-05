@@ -10208,12 +10208,11 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                             nodecl_get_line(braced_initializer));
                     return;
                 }
-                int j;
-                for (j = 0; j < num_args; i++)
+                for (i = 0; i < num_args; i++)
                 {
-                    if (conversors[j] != NULL)
+                    if (conversors[i] != NULL)
                     {
-                        if (function_has_been_deleted(decl_context, conversors[j], 
+                        if (function_has_been_deleted(decl_context, conversors[i], 
                                     nodecl_get_filename(braced_initializer), 
                                     nodecl_get_line(braced_initializer)))
                         {
@@ -10226,9 +10225,9 @@ static void check_nodecl_braced_initializer(nodecl_t braced_initializer,
                 }
 
                 nodecl_t nodecl_arguments_output = nodecl_null();
-                for (j = 0; j < num_args; j++)
+                for (i = 0; i < num_args; i++)
                 {
-                    nodecl_t nodecl_current = nodecl_list[j];
+                    nodecl_t nodecl_current = nodecl_list[i];
 
                     if (conversors[i] != NULL)
                     {
@@ -11070,6 +11069,8 @@ static void compute_nodecl_braced_initializer(AST initializer, decl_context_t de
         for_each_element(initializer_list, it)
         {
             AST initializer_clause = ASTSon1(it);
+           // printf("initliazer_clasue: %s\n", prettyprint_in_buffer(initializer_clause));
+
 
             nodecl_t nodecl_initializer_clause = nodecl_null();
             compute_nodecl_initializer_clause(initializer_clause, decl_context, &nodecl_initializer_clause);

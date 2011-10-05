@@ -3451,7 +3451,9 @@ static void codegen_structured_value(nodecl_codegen_visitor_t* visitor, nodecl_t
         if ((nodecl_is_null(items)
                     || (nodecl_list_length(items) == 1))
                 && (is_named_type(type) 
-                    || is_builtin_type(no_ref(type))))
+                    || is_builtin_type(no_ref(type)))
+                && !(is_class_type(type)
+                    && is_aggregate_type(type)))
         {
             kind = CXX03_EXPLICIT;
         }
