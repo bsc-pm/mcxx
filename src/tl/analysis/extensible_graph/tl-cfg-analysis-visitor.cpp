@@ -47,7 +47,7 @@ namespace TL
     {
         if (_actual_nodecl.is_null())
         {    
-            _node->fill_use_def_sets(n,_define);
+            _node->fill_use_def_sets(n, _define);
         }
         else
         {
@@ -391,7 +391,14 @@ namespace TL
     
     CfgAnalysisVisitor::Ret CfgAnalysisVisitor::visit(const Nodecl::ArraySubscript& n)
     {
+        if (_actual_nodecl.is_null())
+        {
+            _actual_nodecl = n;
+        }
+        
         walk(n.get_subscripted());
+        
+        
         walk(n.get_subscripts());
     }
    

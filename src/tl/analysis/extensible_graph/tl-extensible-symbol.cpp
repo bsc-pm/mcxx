@@ -136,7 +136,8 @@ namespace TL
             if (!nodecl_is_null(n1))
             {
                 if ((nodecl_get_kind(n1) == nodecl_get_kind(n2))
-                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2)))
+                    &&  (nodecl_get_symbol(n1) == nodecl_get_symbol(n2))
+                    &&  (nodecl_get_constant(n1) == nodecl_get_constant(n2)))
                 {
                     bool equal = true;
                     
