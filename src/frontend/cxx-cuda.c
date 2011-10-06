@@ -192,7 +192,6 @@ void cuda_kernel_symbols_for_function_body(
             cuda_sym->line = ASTLine(function_body);
             cuda_sym->file = ASTFileName(function_body);
 
-            cuda_sym->point_of_declaration = function_body;
             cuda_sym->kind = SK_VARIABLE;
             cuda_sym->type_information = cuda_builtins[i].type;
             cuda_sym->defined = 1;
