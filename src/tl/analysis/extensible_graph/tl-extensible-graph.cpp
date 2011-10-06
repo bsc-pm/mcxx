@@ -464,7 +464,7 @@ namespace TL
         result->set_graph_type(graph_type);
         if (graph_type == "task")
         {    
-            result->set_data(_TASK_CONTEXT, context);
+            result->set_task_context(context);
         }
         
         _outer_node.push(result);

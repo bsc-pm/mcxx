@@ -644,7 +644,7 @@ namespace TL
         }
         
         Node* task_graph_node = _actual_cfg->create_graph_node(_actual_cfg->_outer_node.top(), n.get_pragma_line(), "task", 
-                                                               _context_s.top());
+                                                               Nodecl::NodeclBase::null());
         int n_connects = _actual_cfg->_last_nodes.size();
         _actual_cfg->connect_nodes(_actual_cfg->_last_nodes, task_graph_node, 
                                 ObjectList<Edge_type>(n_connects, TASK_EDGE), ObjectList<std::string>(n_connects, ""));
@@ -659,10 +659,11 @@ namespace TL
             if (next_sym.is_function())
             {
                 scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
-                struct AST_tag* def = next_sym_->point_of_definition;
-                // TODO
-                internal_error("Task pragma '%s' at declaration level. Not implemented yet",
-                                prettyprint_in_buffer(def));
+                Nodecl::FunctionCode func(next_sym_->entity_specs.function_code);
+                walk(func.get_statements());
+                
+                // Set to the task the proper context
+                task_graph_node->set_task_context(_context_s.top());
             }
             else
             {   // Nothing to do. Variable declarations do not create any graph
@@ -763,10 +764,8 @@ namespace TL
                     if (next_sym.is_function())
                     {
                         scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
-                        struct AST_tag* def = next_sym_->point_of_definition;
                         // TODO
-                        internal_error("Sections pragma '%s' at declaration level. Not implemented yet",
-                                       prettyprint_in_buffer(def));
+                        internal_error("Sections pragma '%s' at declaration level. Not implemented yet", 0);
                     }
                     else
                     {   // Nothing to do. Variable declarations do not create any graph
@@ -820,10 +819,8 @@ namespace TL
                     if (next_sym.is_function())
                     {
                         scope_entry_t* next_sym_ = next_sym.get_internal_symbol();
-                        struct AST_tag* def = next_sym_->point_of_definition;
                         // TODO
-                        internal_error("Non sections pragma '%s' at declaration level. Not implemented yet",
-                                       prettyprint_in_buffer(def));
+                        internal_error("Non sections pragma '%s' at declaration level. Not implemented yet", 0);
                     }
                     else
                     {   // Nothing to do. Variable declarations do not create any graph

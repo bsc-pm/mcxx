@@ -275,7 +275,7 @@ namespace TL
             for(ext_sym_set::iterator it_ue = ue_vars.begin(); it_ue != ue_vars.end(); ++it_ue)
             {
                 if (!it_ue->get_symbol().get_scope().scope_is_enclosed_by(
-                    task_node->get_data<Nodecl::NodeclBase>(_TASK_CONTEXT).retrieve_context())
+                    task_node->get_task_context().retrieve_context())
                     && !in_symbols.contains(*it_ue))
                 {
                     in_symbols.insert(*it_ue);
@@ -286,7 +286,7 @@ namespace TL
             for(ext_sym_set::iterator it_kill = kill_vars.begin(); it_kill != kill_vars.end(); ++it_kill)
             {
                 if (!it_kill->get_symbol().get_scope().scope_is_enclosed_by(
-                    task_node->get_data<Nodecl::NodeclBase>(_TASK_CONTEXT).retrieve_context())
+                    task_node->get_task_context().retrieve_context())
                     && !out_symbols.contains(*it_kill))
                 {
                     out_symbols.insert(*it_kill);

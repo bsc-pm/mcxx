@@ -293,6 +293,10 @@ namespace TL
             //! If is only valid for Goto or Labeled nodes
             void set_label(Symbol s);
             
+            Nodecl::NodeclBase get_task_context();
+            
+            void set_task_context(Nodecl::NodeclBase c);
+            
             
             // *** Consultants *** //
             //! Returns true if the node has the same identifier and the same entries and exits

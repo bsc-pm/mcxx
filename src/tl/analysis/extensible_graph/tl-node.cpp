@@ -705,7 +705,51 @@ namespace TL
         {
             internal_error("Unexpected node type '%s' while setting the label to node '%s'. GOTO or LABELED NODES expected.",
                            get_type_as_string().c_str(), _id);            
-        }          
+        }
+    }
+
+    Nodecl::NodeclBase Node::get_task_context()
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            std::string graph_type = get_data<std::string>(_GRAPH_TYPE);
+            if (graph_type == "task")
+            {
+                return get_data<Nodecl::Context>(_TASK_CONTEXT);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while getting the context of the task node '%s'. " \
+                               "\"task\" type expected", graph_type.c_str(), _id);   
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while setting the label to node '%s'. GRAPH NODE expected.",
+                           get_type_as_string().c_str(), _id);                
+        }
+    }
+
+    void Node::set_task_context(Nodecl::NodeclBase c)
+    {
+        if (get_data<Node_type>(_NODE_TYPE) == GRAPH_NODE)
+        {
+            std::string graph_type = get_data<std::string>(_GRAPH_TYPE);
+            if (graph_type == "task")
+            {
+                return set_data(_TASK_CONTEXT, c);
+            }
+            else
+            {
+                internal_error("Unexpected graph type '%s' while getting the context of the task node '%s'. " \
+                               "\"task\" type expected", graph_type.c_str(), _id);   
+            }
+        }
+        else
+        {
+            internal_error("Unexpected node type '%s' while setting the label to node '%s'. GRAPH NODE expected.",
+                           get_type_as_string().c_str(), _id);                
+        }
     }
 
     Node* Node::advance_over_non_statement_nodes()
