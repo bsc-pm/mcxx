@@ -6947,8 +6947,12 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
         // Copy gcc attributes
         entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+        entry->entity_specs.gcc_attributes = counted_calloc(
+                entry->entity_specs.num_gcc_attributes,
+                sizeof(*entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
         memcpy(entry->entity_specs.gcc_attributes, 
-                gather_info->gcc_attributes, sizeof(gather_info->gcc_attributes));
+                gather_info->gcc_attributes, 
+                entry->entity_specs.num_gcc_attributes * sizeof(*entry->entity_specs.gcc_attributes));
 
         return entry;
     }
@@ -7153,8 +7157,12 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         // Copy gcc attributes
         new_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+        new_entry->entity_specs.gcc_attributes = counted_calloc(
+                new_entry->entity_specs.num_gcc_attributes,
+                sizeof(*new_entry->entity_specs.gcc_attributes), &_bytes_used_buildscope);
         memcpy(new_entry->entity_specs.gcc_attributes, 
-                gather_info->gcc_attributes, sizeof(gather_info->gcc_attributes));
+                gather_info->gcc_attributes, 
+                new_entry->entity_specs.num_gcc_attributes * sizeof(*new_entry->entity_specs.gcc_attributes));
 
         // Set the 'template' nature of the class
 
