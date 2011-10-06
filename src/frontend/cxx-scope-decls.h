@@ -326,17 +326,6 @@ struct scope_entry_tag
     // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
 
-    // Point in the AST where this symbol was declared. This is approximate, just to
-    // find the simple_declaration, member_declaration or function_definition
-    // holding this one
-    struct AST_tag* point_of_declaration;
-
-    // Point in the AST where this symbol was defined. This is approximate,
-    // just to find the simple_declaration, member_declaration or
-    // function_definition holding this one. Even if defined is true, it might
-    // be NULL since builtins do not have any related AST
-    struct AST_tag* point_of_definition;
-
     // Extensible information of a symbol
     extensible_struct_t* extended_data;
 }; 
