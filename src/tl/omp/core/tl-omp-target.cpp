@@ -41,9 +41,7 @@ namespace TL
             {
                 std::cerr << ctr.get_ast().get_locus() << ": warning: '#pragma omp target' needs a 'device' clause" << std::endl;
             }
-
             TargetContext target_ctx;
-
             target_ctx.device_list = device.get_arguments(ExpressionTokenizerTrim());
 
             PragmaCustomClause copy_in = ctr.get_clause("copy_in");
@@ -207,12 +205,12 @@ namespace TL
                 {
                     Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
-
-                    if (declared_entities.size() == 1
-                            && declared_entities[0].is_functional_declaration())
-                    {
-                        valid_target = true;
-                    }
+                    valid_target = true;
+                    // if (declared_entities.size() == 1
+                    //         && declared_entities[0].is_functional_declaration())
+                    // {
+                    //     valid_target = true;
+                    // }
                 }
                 else if (FunctionDefinition::predicate(ctr.get_declaration()))
                 {
@@ -229,22 +227,24 @@ namespace TL
                     valid_target = true;
                 }
                 // FIXME - Verbatim should have its own LangConstruct
-                else if (ctr.get_declaration().internal_ast_type_() == AST_VERBATIM)
+                else if (ctr.get_declaration().is_valid() && ctr.get_declaration().internal_ast_type_() == AST_VERBATIM)
                 {
                     valid_target = true;
                 }
-
                 if (!valid_target)
                 {
-                    std::cerr << ctr.get_ast().get_locus() 
-                        << ": warning: '#pragma omp target' must "
-                        "precede a function declaration, a function definition or a '#pragma omp task'"
-                        << std::endl;
-                    std::cerr << ctr.get_ast().get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                    std::cerr 
+                            << ctr.get_ast().get_locus() 
+                            << ": warning: '#pragma omp target' must "
+                            << "precede a function declaration, a function definition or a '#pragma omp task'"
+                            << std::endl;
+                    std::cerr 
+                            << ctr.get_ast().get_locus() 
+                            << ": warning: skipping the whole '#pragma omp target'" 
+                            << std::endl;
                     return;
                 }
             }
-
             _target_context.push(target_ctx);
         }
 

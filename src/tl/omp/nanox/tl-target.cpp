@@ -78,43 +78,59 @@ void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
     ObjectList<std::string> device_list = device_clause.get_arguments(ExpressionTokenizerTrim());
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
-    bool need_to_copy_tree = device_list.size() > 1;
-    bool one_is_smp = device_list.contains("smp");
+    bool one_is_smp = false;
 
     for (ObjectList<std::string>::iterator it = device_list.begin();
             it != device_list.end();
             it++)
     {
-        DeviceProvider* device_provider = device_handler.get_device(*it);
-
-        PragmaCustomConstruct ctr2(ctr);
-        // We pass copies to all the device providers but 'smp'
-        if (need_to_copy_tree
-                && *it != "smp")
+        // We pass "copies" to all the device providers but 'smp'
+        // SMP must be run the last since it we allow it to cause side-effects
+        if (*it == "smp")
         {
-            ctr2 = PragmaCustomConstruct(ctr.get_ast().duplicate(), ctr.get_scope_link());
+            one_is_smp = 1;
+            continue;
         }
+
+        DeviceProvider* device_provider = device_handler.get_device(*it);
 
         if (device_provider == NULL)
         {
             internal_error("invalid device '%s' at '%s'\n",
-                    it->c_str(), ctr2.get_ast().get_locus().c_str());
+                    it->c_str(), ctr.get_ast().get_locus().c_str());
         }
 
-        if (FunctionDefinition::predicate(ctr2.get_declaration()))
+        if (FunctionDefinition::predicate(ctr.get_declaration()))
         {
-            device_provider->insert_function_definition(ctr2, need_to_copy_tree);
+            device_provider->insert_function_definition(ctr, /* is_copy */ 1);
         }
         else
         {
-            device_provider->insert_declaration(ctr2, need_to_copy_tree);
+            device_provider->insert_declaration(ctr, /* is_copy */ 1);
         }
     }
 
     // Nobody removed the original tree and there was not smp e.g: 
     //      #pragma target device(cuda, opencl)
-    if (!one_is_smp
-            && need_to_copy_tree)
+    if (one_is_smp)
+    {
+        DeviceProvider* device_provider = device_handler.get_device("smp");
+        if (device_provider == NULL)
+        {
+            internal_error("invalid device 'smp' at '%s'\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        if (FunctionDefinition::predicate(ctr.get_declaration()))
+        {
+            device_provider->insert_function_definition(ctr, /* is_copy */ 0);
+        }
+        else
+        {
+            device_provider->insert_declaration(ctr, /* is_copy */ 0);
+        }
+    }
+    else
     {
         ctr.get_ast().remove_in_list();
     }

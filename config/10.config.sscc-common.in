@@ -22,19 +22,3 @@ compiler_phase = libtlss2omp.so
 {openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
 {openmp,!only-ss2omp,!only-fun-tasks} compiler_phase = libtlnanox-cuda.so
 pragma_prefix = css
-
-[sscc : sscc-common]
-language = C
-preprocessor_name = gcc
-preprocessor_options = -std=gnu99 -E
-compiler_name = gcc
-compiler_options = -std=gnu99
-linker_name = gcc
-
-[sscxx : sscc-common]
-language = C++
-preprocessor_name = g++
-preprocessor_options = -E
-{openmp} preprocessor_options = -include new
-compiler_name = g++
-linker_name = g++

@@ -176,6 +176,7 @@ typedef struct compilation_process_tag
     // For further use. They can be modified as we need
     int argc;
     const char** argv;
+    
     // These should not be modified
     int original_argc;
     const char** original_argv; 
@@ -266,6 +267,13 @@ typedef struct code_shape_tag
 // the ones that are loaded from files and the one that modifies the dto
 typedef struct compiler_phase_loader_tag compiler_phase_loader_t;
 
+typedef struct parameter_linker_command_tag
+{
+    const char *argument;
+    translation_unit_t *translation_unit;
+} parameter_linker_command_t;
+
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -326,6 +334,14 @@ typedef struct compilation_configuration_tag
     const char** native_compiler_options;
 
     const char* linker_name;
+
+    //FIXME: we don't use this yet
+    const char** linker_options_pre;
+    
+
+    int num_args_linker_command;
+    parameter_linker_command_t** linker_command;
+
     const char** linker_options;
 
     const char* output_directory;

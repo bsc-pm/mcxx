@@ -63,6 +63,8 @@ namespace TL
                 void get_output_file(std::ofstream& cudaFile);
 
                 std::set<std::string> _fwdSymbols;
+
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set; 
             public:
 
                 // This phase does nothing

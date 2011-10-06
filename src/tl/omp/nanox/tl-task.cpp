@@ -37,13 +37,16 @@ using namespace TL::Nanox;
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
-
+    
+    //if the task is a function task rt_info must be changed
+    OpenMP::RealTimeInfo rt_info = data_sharing.get_real_time_info();
+    
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
 
     DataEnvironInfo data_environ_info;
     compute_data_environment(data_sharing,
-            ctr.get_scope_link(),
+            ctr,
             data_environ_info,
             _converted_vlas);
     data_environ_info.set_local_copies(true);
@@ -163,6 +166,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         OpenMP::FunctionTaskInfo& function_task_info 
             = function_task_set->get_function_task(task_symbol);
+        
+        //sets the right value to rt_info 
+        rt_info = function_task_info.get_real_time_info();
+
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
@@ -231,12 +238,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences, dependency_struct, dependency_regions;
 
-    fill_data_args("ol_args", 
-            data_environ_info, 
-            dependences, 
-            /* is_pointer */ true,
-            fill_outline_arguments);
-
     bool immediate_is_alloca = false;
     bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
 
@@ -244,6 +245,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     {
         immediate_is_alloca = true;
     }
+    if(function_symbol.is_member() && !function_symbol.is_static()) 
+    {
+            fill_outline_arguments << "ol_args->_this = this;";
+            fill_immediate_arguments  << "imm_args" << (immediate_is_alloca ? "->" : ".") << "_this = this;";
+    }
+    fill_data_args("ol_args", 
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ true,
+            fill_outline_arguments);
 
     fill_data_args(
             "imm_args",
@@ -263,7 +274,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     if (if_clause.is_defined())
     {
         ObjectList<Expression> expr_list = if_clause.get_expression_list();
-
         if (expr_list.size() != 1)
         {
             running_error("%s: error: clause 'if' requires just one argument\n",
@@ -402,6 +412,49 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             << "}"
             ;
 
+        // We need to create a replacement here
+        Source vla_adjustments;
+        ReplaceSrcIdExpression replacement_xlate(ctr.get_scope_link());
+        replacement_xlate.add_this_replacement("_args->_this");
+        ObjectList<DataEnvironItem> data_items = data_environ_info.get_items();
+        for (ObjectList<DataEnvironItem>::iterator it = data_items.begin();
+                it != data_items.end();
+                it++)
+        {
+            DataEnvironItem& data_env_item(*it);
+            if (data_env_item.is_vla_type())
+            {
+                ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+                ObjectList<Source> arg_vla_dims;
+                for (ObjectList<Source>::iterator it = vla_dims.begin();
+                        it != vla_dims.end();
+                        it++)
+                {
+                    Source new_dim;
+                    new_dim << "_args->" << *it;
+
+                    arg_vla_dims.append(new_dim);
+                }
+
+                Type type = compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                        arg_vla_dims.begin(), arg_vla_dims.end());
+
+                vla_adjustments 
+                    << type.get_declaration(ctr.get_scope(), data_env_item.get_field_name())
+                    << "= (" << type.get_declaration(ctr.get_scope(), "") << ")"
+                    << "(_args->" << data_env_item.get_field_name() << ")"
+                    << ";"
+                    ;
+                replacement_xlate.add_replacement(data_env_item.get_symbol(), data_env_item.get_field_name() );
+            }
+            else
+            {
+                replacement_xlate.add_replacement(data_env_item.get_symbol(), "(_args-> " + data_env_item.get_field_name() + ")" );
+            }
+        }
+
+
         int i = 0;
         for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
                 it != copy_items.end();
@@ -431,6 +484,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
 
             DataReference data_ref = copy_item.get_copy_expression();
+
+            Source replaced_address;
+
+            if (!data_ref.is_id_expression())
+            {
+                AST_t base_addr = data_ref.get_address().parse_expression(data_ref.get_ast(), data_ref.get_scope_link());
+                replaced_address = replacement_xlate.replace(base_addr);
+            }
+            else
+            {
+                // &_args->x is not what we want
+                replaced_address = Source() << "_args->" << data_env_item.get_field_name();
+            }
+
             OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
@@ -439,9 +506,19 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             Source copy_sharing;
             copy_sharing << "NANOS_SHARED";
 
+
             translation_statements
-                << "cp_err = nanos_get_addr(" << i << ", (void**)&(_args->" << data_env_item.get_field_name() << ")" << wd_arg << ");"
+                << "{"
+                // This should be a proper type
+                << vla_adjustments
+                << "signed long offset = "
+                << "((char*)(" << replaced_address << ") - " << "((char*)_args->" << data_env_item.get_field_name() << "));"
+                << "cp_err = nanos_get_addr(" << i << ", (void**)(&_args->" << data_env_item.get_field_name() << ") " << wd_arg << ");"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                << "_args->" << data_env_item.get_field_name() << " = "
+                << "(" << data_env_item.get_type().get_declaration(ctr.get_scope(), "") << ")"
+                << "(((char*)_args->" << data_env_item.get_field_name() << ") - offset);"
+                << "}"
                 ;
 
             struct {
@@ -538,6 +615,61 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         alignment <<  "__alignof__(" << struct_arg_type_name << "),"
             ;
     }
+    
+    Source fill_real_time_info;
+    if(Nanos::Version::interface_is_at_least("realtime",1000)) 
+    {
+        Source release_after, deadline, onerror;
+        fill_real_time_info 
+            << deadline
+            << release_after
+            << onerror
+            ;
+        //Adds release time information
+        if(rt_info.has_release_time())
+        {
+            release_after << "props._release_after = "
+                          << rt_info.get_time_release().prettyprint() << ";";
+        }
+        else
+        {
+            release_after << "props._release_after = -1;";
+        }
+       
+        //Adds deadline time information
+        if(rt_info.has_deadline_time())
+        {
+            deadline  << "props._deadline_time = "
+                      << rt_info.get_time_deadline().prettyprint() << ";";
+        }
+        else
+        {
+            deadline << "props._deadline_time = -1;";
+        }
+
+        //Adds action error information
+        //looking for the event 'OMP_DEADLINE_EXPIRED'
+        std::string action = 
+            rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_DEADLINE_EXPIRED); 
+        
+        if(action != "")
+        {
+            onerror  << "props._onerror_action = " << action << ";";
+        }
+        else 
+        {
+            //looking for the event 'OMP_ANY_EVENT'
+            action = rt_info.get_action_error(OpenMP::RealTimeInfo::OMP_ANY_EVENT); 
+            if(action != "") 
+            {
+                onerror  << "props._onerror_action = " << action << ";";
+            }
+            else
+            {
+                onerror  << "props._onerror_action = OMP_NO_ACTION;";
+            }
+        }
+    }
 
     spawn_code
         << "{"
@@ -551,6 +683,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     creation
         <<     priority
         <<     tiedness
+        <<     fill_real_time_info
         <<     copy_decl
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start

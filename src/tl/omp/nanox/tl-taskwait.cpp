@@ -96,7 +96,7 @@ namespace TL
                         << "{"
                         << "(void**)&_dep_holder." << dependency_name << ","
                         << dependency_offset << ","
-                        << "{1, 0, 0},"
+                        << "{1, 0, 0, 0},"
                         << "sizeof(" << data_ref << ")"
                         << "}"
                         ;

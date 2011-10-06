@@ -1,0 +1,22 @@
+# Profile mode
+[omp-prof-common]
+{openmp} preprocessor_options = -D_OPENMP=200805
+{openmp} compiler_phase = libtlomp-core.so
+{openmp} compiler_phase = libtlomp-profile.so
+
+[omp-profcc : omp-prof-common]
+language = C
+options = -std=gnu99
+preprocessor_name = gcc
+preprocessor_options = -E
+compiler_name = gcc
+linker_name = gcc
+
+[omp-profcxx : omp-prof-common]
+language = C++
+preprocessor_name = g++
+preprocessor_options = -E
+compiler_name = g++
+compiler_options =
+linker_name = g++
+linker_options =

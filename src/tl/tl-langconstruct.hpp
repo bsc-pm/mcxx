@@ -449,7 +449,10 @@ namespace TL
 
             //! States whether this is an id-expression
             bool is_id_expression();
-            //! Returns an id-expression
+            //! States whether this is an id-expression
+            bool is_accessed_member();
+            //! Returns an id-expression. 
+            // Only valid if is_id_expression, is_member_acces return true
             IdExpression get_id_expression();
 
             //! States whether this is a binary operation
@@ -515,6 +518,11 @@ namespace TL
             //! Returns the symbol expressed by a 'this' expression
             Symbol get_this_symbol();
 
+            //! States whether this is a 'this' access expression
+            /*!
+             * \return True if the expression is of the form 'this->x'
+             */
+            bool is_this_access();
             //! States whether this is a member access expression
             /*!
              * \return True if the expression is of the form 'a.b'
@@ -1135,6 +1143,12 @@ namespace TL
              * \param str A string containing the expression used for the replacement
              */
             void add_replacement(Symbol sym, const std::string& str);
+
+            //! States whether sym has a related replacement
+            bool has_replacement(Symbol sym) const;
+
+            //! Returns the replacement of the symbol
+            std::string get_replacement(Symbol sym) const;
 
             //! Sets a replacement for this
             /*!

@@ -26,7 +26,7 @@
 
 /*
 <testinfo>
-test_generator=config/mercurium-ss2omp
+test_generator="config/mercurium-ss2omp regions"
 </testinfo>
 */
 

@@ -556,6 +556,13 @@ namespace TL
         return b;
     }
 
+    bool Expression::is_accessed_member()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ACCESSED_MEMBER);
+
+        return b;
+    }
+
     IdExpression Expression::get_id_expression()
     {
         return IdExpression(_ref, this->_scope_link);
@@ -732,6 +739,17 @@ namespace TL
     Symbol Expression::get_this_symbol()
     {
         return this->get_symbol();
+    }
+    
+    bool Expression::is_this_access()
+    {
+        if(is_pointer_member_access())
+        {
+            Expression l_expr = get_accessed_entity();
+            Expression r_expr = get_accessed_member().get_expression();
+            return (l_expr.is_this_variable() && r_expr.is_accessed_member());
+        }
+        return false;
     }
 
     bool Expression::is_pointer_member_access()
@@ -1418,6 +1436,24 @@ namespace TL
     void ReplaceSrcIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
+    }
+
+    bool ReplaceSrcIdExpression::has_replacement(Symbol sym) const
+    {
+        return _repl_map.find(sym) != _repl_map.end();
+    }
+
+    std::string ReplaceSrcIdExpression::get_replacement(Symbol sym) const
+    {
+        if (!this->has_replacement(sym))
+        {
+            // Return something useful
+            return sym.get_qualified_name();
+        }
+        else
+        {
+            return _repl_map.find(sym)->second;
+        }
     }
 
     ScopeLink ReplaceSrcIdExpression::get_scope_link() const

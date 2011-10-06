@@ -26,6 +26,9 @@ linker_options = -Xlinker --add-needed
 {openmp,!(nanox|openmpt|ompss|simd)} compiler_phase = libtlomp-nanos4.so
 # nanos++
 {openmp,(nanox|openmpt|ompss|simd)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
+{acml} preprocessor_options = -include math.h -include smmintrin.h -include acml_mv_m128.h
+{acml} options = --variable=acml:1
+{interm-simd} options = --variable=interm-simd:1
 {simd} preprocessor_options = -include math.h
 {simd} options = --ompss --hlt -msse4.1
 {openmp,!debug,!(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/performance -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/performance
@@ -34,6 +37,7 @@ linker_options = -Xlinker --add-needed
 {openmp,debug,(instrument|instrumentation),(nanox|openmpt|ompss|simd)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Xlinker @RPATH_PARAMETER@ -Xlinker @NANOX_LIBS@/instrumentation-debug
 {openmp,nanox,!(openmpt|ompss|simd)} linker_options = -lnanox -lnanox-c -lnanox-omp
 {openmp,!nanox,(openmpt|ompss|simd)} linker_options = -lnanox -lnanox-c -lnanox-ss
+{acml} linker_options = -lacml_mv 
 {simd} linker_options = -lm
 {openmp,(nanox|openmpt|ompss|simd)} compiler_phase = libtlomp-fun-tasks.so 
 {openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_dto = show_warnings:bool:0
@@ -46,94 +50,3 @@ linker_options = -Xlinker --add-needed
 {openmp,(nanox|openmpt|ompss|simd),!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
 
 
-[mcc : omp-base]
-language = C
-options = -std=gnu99
-
-[mcxx : omp-base]
-language = C++
-{openmp} preprocessor_options = -include new 
-compiler_name = g++
-linker_name = g++
-
-# Intel Compiler
-[imcc : mcc]
-preprocessor_name = @ICC@
-compiler_name = @ICC@
-linker_name = @ICC@
-options = --variable=weaks_as_statics:1
-
-[imcxx : mcxx]
-preprocessor_name = @ICPC@
-compiler_name = @ICPC@
-linker_name = @ICPC@
-options = --variable=weaks_as_statics:1
-
-# IBM XL
-[xlmcc : mcc]
-preprocessor_name = @GXLC@
-preprocessor_uses_stdout = yes
-compiler_name = @GXLC@
-linker_name = @GXLC@
-
-[xlmcxx : mcxx]
-preprocessor_name = @GXLCXX@
-preprocessor_uses_stdout = yes
-compiler_name = @GXLCXX@
-linker_name = @GXLCXX@
-
-# nvcc (CUDA)
-[mnvcc : omp-base]
-language = C
-options = --cuda
-preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__
-compiler_name = @NVCC@
-linker_name = @NVCC@
-compiler_dto = remove_attributes:string:host,device
-compiler_phase = libtl-remove-attrs.so
-
-[mnvcxx : omp-base]
-language = C++
-options = --cuda
-preprocessor_name = @NVCC@
-preprocessor_options = -D__CUDABE__
-compiler_name = @NVCC@
-linker_name = @NVCC@
-compiler_dto = remove_attributes:string:host,device
-compiler_phase = libtl-remove-attrs.so
-
-# Profile mode
-[omp-prof-common]
-{openmp} preprocessor_options = -D_OPENMP=200805
-{openmp} compiler_phase = libtlomp-core.so
-{openmp} compiler_phase = libtlomp-profile.so
-
-[omp-profcc : omp-prof-common]
-language = C
-options = -std=gnu99
-preprocessor_name = gcc
-preprocessor_options = -E
-compiler_name = gcc
-linker_name = gcc
-
-[omp-profcxx : omp-prof-common]
-language = C++
-preprocessor_name = g++
-preprocessor_options = -E
-compiler_name = g++
-compiler_options =
-linker_name = g++
-linker_options =
-
-# Fortran EXPERIMENTAL support
-[mf95]
-language = Fortran
-options =
-preprocessor_name = gfortran
-preprocessor_options = -cpp -E
-compiler_name = gfortran
-compiler_options =
-linker_name = gfortran
-linker_options =
-{openmp} compiler_phase = libtlomp-core.so

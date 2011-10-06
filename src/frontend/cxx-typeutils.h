@@ -34,11 +34,20 @@
 #include "cxx-type-decls.h"
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
+#include "cxx-cexpr-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
 #include "cxx-solvetemplate.h"
 
 MCXX_BEGIN_DECLS
+
+// This cannot be moved to cxx-type-decls.h because of scope_entry_t* being used here
+// FIXME - We should refactor cxx-scope-decls.h a bit more
+typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
+        type_t** argument_types, 
+        AST *argument_expressions,
+        int num_arguments,
+        const_value_t** const_value);
 
 LIBMCXX_EXTERN char standard_conversion_is_identity(standard_conversion_t);
 LIBMCXX_EXTERN char standard_conversion_is_invalid(standard_conversion_t);
@@ -47,11 +56,6 @@ LIBMCXX_EXTERN type_t* standard_conversion_get_dest_type(standard_conversion_t s
 
 LIBMCXX_EXTERN char standard_conversion_between_types(standard_conversion_t *result, 
         type_t* orig, type_t* dest);
-
-typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, 
-        type_t** argument_types, 
-        AST *argument_expressions,
-        int num_arguments);
 
 // Get environmental information for the type
 LIBMCXX_EXTERN char type_is_runtime_sized(type_t* t);

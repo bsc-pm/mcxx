@@ -2180,26 +2180,71 @@ static template_argument_t* update_template_argument(
         const char *filename, int line,
         char overwrite_context);
 
-static template_argument_list_t* update_template_argument_list(
+static void sign_in_template_name(template_argument_t* current_template_argument,
+        decl_context_t updated_decl_context);
+
+static template_argument_list_t* update_template_argument_list_in_dependent_typename(
+        template_parameter_list_t* template_parameters,
         template_argument_list_t* template_arguments,
         decl_context_t template_arguments_context,
         const char *filename, int line,
         char overwrite_context)
 {
-    int i;
-    for (i = 0; i < template_arguments->num_arguments; i++)
+    decl_context_t updated_decl_context = new_template_context(template_arguments_context);
+
+    int num_argument;
+    for (num_argument = 0; num_argument < template_arguments->num_arguments; num_argument++)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "SCOPE: Updating template argument %d of %d\n",
-                    i, template_arguments->num_arguments);
+                    num_argument, template_arguments->num_arguments);
         }
-        template_arguments->argument_list[i] = update_template_argument(
-                template_arguments->argument_list[i],
-                template_arguments_context, 
+        template_arguments->argument_list[num_argument] = update_template_argument(
+                template_arguments->argument_list[num_argument],
+                updated_decl_context, 
                 filename, 
                 line, 
                 overwrite_context);
+
+        sign_in_template_name(template_arguments->argument_list[num_argument], updated_decl_context);
+    }
+
+    if (num_argument < template_parameters->num_template_parameters)
+    {
+        // Complete with default template arguments
+        for (; num_argument < template_parameters->num_template_parameters; num_argument++)
+        {
+            template_parameter_t* template_parameter = 
+                template_parameters->template_parameters[num_argument];
+
+            // This is not an error here
+            if (!template_parameter->has_default_argument)
+                break;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Updating default template argument %d of dependent typename\n", 
+                        num_argument);
+            }
+
+            template_argument_t* original_default_arg = template_parameter->default_template_argument;
+
+            template_argument_t* current_template_argument = update_template_argument(
+                    original_default_arg, 
+                    updated_decl_context, 
+                    filename, line,
+                    /* overwrite_context */ 0);
+
+            sign_in_template_name(current_template_argument, updated_decl_context);
+
+            P_LIST_ADD(template_arguments->argument_list, template_arguments->num_arguments, current_template_argument);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Default template argument updated\n");
+            }
+        }
     }
 
     return template_arguments;
@@ -2353,14 +2398,9 @@ static type_t* update_dependent_typename(
             template_argument_list_t* template_arguments = duplicate_template_arguments(dependent_parts->template_arguments);
             template_parameter_list_t *template_parameters = template_type_get_template_parameters(template_type);
 
-            template_arguments = complete_arguments_of_template_id(
-                    class_context,
-                    decl_context,
+            template_arguments = update_template_argument_list_in_dependent_typename(
                     template_parameters,
                     template_arguments,
-                    filename, line);
-
-            template_arguments = update_template_argument_list(template_arguments,
                     decl_context, filename, line,
                     /* overwrite_context */ instantiation_update);
 
@@ -2368,7 +2408,9 @@ static type_t* update_dependent_typename(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: Template argument count does not match template parameter count\n");
+                    fprintf(stderr, "SCOPE: Template argument count does not match template parameter count %d != %d\n",
+                            template_arguments->num_arguments,
+                            template_parameters->num_template_parameters);
                 }
                 return NULL;
             }
@@ -2488,21 +2530,18 @@ static type_t* update_dependent_typename(
         template_argument_list_t* template_arguments = duplicate_template_arguments(dependent_parts->template_arguments);
         template_parameter_list_t *template_parameters = template_type_get_template_parameters(template_type);
 
-        template_arguments = complete_arguments_of_template_id(
-                class_context,
-                decl_context,
+        template_arguments = update_template_argument_list_in_dependent_typename(
                 template_parameters,
                 template_arguments,
-                filename, line);
-
-        template_arguments = update_template_argument_list(template_arguments,
                 decl_context, filename, line, /* overwrite_context */ instantiation_update);
 
         if (template_arguments->num_arguments != template_parameters->num_template_parameters)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Template argument count does not match template parameter count\n");
+                fprintf(stderr, "SCOPE: Template argument count does not match template parameter count %d != %d\n",
+                        template_arguments->num_arguments,
+                        template_parameters->num_template_parameters);
             }
             return NULL;
         }

@@ -170,17 +170,24 @@ namespace TL
     class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
-            std::string _clause_name;
+
+            ObjectList<std::string> _clause_names;
             ObjectList<AST_t> filter_pragma_clause();
 
         public:
             PragmaCustomClause(const std::string& src, AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link), _clause_name(src) 
+                : LangConstruct(ref, scope_link) 
+            {
+                _clause_names.push_back(src);
+            }
+            
+            PragmaCustomClause(const ObjectList<std::string> & src, AST_t ref, ScopeLink scope_link)
+               : LangConstruct(ref, scope_link), _clause_names(src) 
             {
             }
 
             //! Returns the name of the current clause
-            std::string get_clause_name() { return _clause_name; }
+            std::string get_clause_name() { return _clause_names[0]; }
 
             //! States whether the clause was actually in the pragma
             /*!
@@ -347,6 +354,8 @@ namespace TL
               Adds to the DTO of PragmaCustomCompilerPhase the clause only if /a name exists.
               */
             PragmaCustomClause get_clause(const std::string& name) const;
+
+            PragmaCustomClause get_clause(const ObjectList<std::string>& names) const;
 
             //! This function set to the object _dto the dto get from de compiler phase
             void set_dto(DTO* dto);

@@ -1139,7 +1139,8 @@ static void check_called_symbol(
 
         computed_function_type_t fun = computed_function_type_get_computing_function(symbol->type_information);
 
-        scope_entry_t* entry = fun(symbol, argument_types, actual_arguments, num_actual_arguments);
+        const_value_t* const_val = NULL;
+        scope_entry_t* entry = fun(symbol, argument_types, actual_arguments, num_actual_arguments, &const_val);
 
         if (entry == NULL)
         {
