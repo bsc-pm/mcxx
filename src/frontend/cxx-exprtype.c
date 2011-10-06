@@ -10441,6 +10441,7 @@ static void check_nodecl_designated_initializer(nodecl_t designated_initializer,
         type_t* declared_type, 
         nodecl_t* nodecl_output)
 {
+    //trencar en dos!!
     type_t* designated_type = declared_type;
 
     nodecl_t nodecl_designation = nodecl_get_child(designated_initializer, 0);
@@ -12193,6 +12194,8 @@ static void check_gcc_builtin_offsetof(AST expression,
         decl_context_t decl_context,
         nodecl_t* nodecl_output)
 {
+
+    //fer servir la nova funció aquí!!!
     const char* filename = ASTFileName(expression);
     int line = ASTLine(expression);
 

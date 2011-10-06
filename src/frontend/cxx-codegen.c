@@ -1601,6 +1601,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 const char* decl_specifiers = "";
                 const char* gcc_attributes = "";
                 const char* declarator = "";
+                char bit_field[256];
+                bit_field[0]='\0';
 
                 if (is_named_class_type(symbol->type_information)
                         && named_type_get_symbol(symbol->type_information)->entity_specs.is_anonymous_union)
@@ -1637,6 +1639,13 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
                 {
                     decl_specifiers = strappend(decl_specifiers, "register ");
                 }
+                if (symbol->entity_specs.is_bitfield)
+                {
+                    unsigned int bits_of_bitfield =  const_value_cast_to_4(
+                            nodecl_get_constant(symbol->entity_specs.bitfield_size));
+                    
+                    sprintf(bit_field," : %d", bits_of_bitfield);
+                }
 
                 declarator = print_decl_type_str(symbol->type_information, symbol->decl_context, 
                         unmangle_symbol_name(symbol));
@@ -1659,8 +1668,8 @@ static void declare_symbol(nodecl_codegen_visitor_t *visitor, scope_entry_t* sym
 
                 codegen_move_to_namespace_of_symbol(visitor, symbol);
                 indent(visitor);
-                fprintf(visitor->file, "%s%s%s",
-                        decl_specifiers, gcc_attributes, declarator);
+                fprintf(visitor->file, "%s%s%s%s",
+                        decl_specifiers, gcc_attributes, declarator, bit_field);
 
                 // Initializer
                 if (emit_initializer)

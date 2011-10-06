@@ -10092,6 +10092,17 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             }
                         }
 
+                        if (!nodecl_is_constant(nodecl_bit_size))
+                        {
+                            if (!checking_ambiguity())
+                            {
+                                error_printf("%s: error: bitfield size is not constant '%s'\n",
+                                        ast_location(expression),
+                                        prettyprint_in_buffer(expression));
+                            }
+                            nodecl_bit_size = const_value_to_nodecl(const_value_get_one( /* bytes */ 4, /* signed */ 1));
+                        }
+
                         bitfield_symbol->entity_specs.is_bitfield = 1;
                         bitfield_symbol->entity_specs.bitfield_size = nodecl_bit_size;
                         bitfield_symbol->entity_specs.bitfield_size_context = decl_context;
